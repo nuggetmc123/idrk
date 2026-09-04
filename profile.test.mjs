@@ -74,7 +74,17 @@ console.log('after settling        -> writes:', updates, '(expect 2: loop did no
 console.log('stored elims:', JSON.parse(store['arena-clash-career']).elims, '(expect 32)');
 console.log('account elims:', Clerk.user.unsafeMetadata.arenaClash.elims, '(expect 32)');
 
-if(updates !== 2) { console.error('FAIL: expected 2 writes, got ' + updates); process.exit(1); }
+// the pass must never hand out a tier the player has not reached
+const reached = Career.titles[Career.tier - 1];
+const locked  = Career.titles[Career.tier];
+console.log('\ntier:', Career.tier, '| xp:', Career.xp);
+console.log('equip reached title', JSON.stringify(reached), '->', Career.setTitle(reached), '(expect true)');
+console.log('equip locked title ', JSON.stringify(locked),  '->', Career.setTitle(locked),  '(expect false)');
+if(Career.setTitle(locked) !== false || Career.title !== reached){
+  console.error('FAIL: a locked title was equippable'); process.exit(1);
+}
+
+if(updates !== 3) { console.error('FAIL: expected 3 writes, got ' + updates); process.exit(1); }
 if(JSON.parse(store['arena-clash-career']).elims !== 32) { console.error('FAIL: local total wrong'); process.exit(1); }
 if(Clerk.user.unsafeMetadata.arenaClash.elims !== 32) { console.error('FAIL: account total wrong'); process.exit(1); }
 console.log('\nPASS');

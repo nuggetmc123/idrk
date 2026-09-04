@@ -21,10 +21,26 @@ const CLERK_PUBLISHABLE_KEY = 'pk_test_dmVyaWZpZWQtbWFja2VyZWwtOTQ0Ni5jbGVyay5hY
 const LOCAL_KEY  = 'arena-clash-career';
 const META_KEY   = 'arenaClash';
 
+/* Battle pass. Every tier grants a title, because titles are something the
+   game can actually show — it has no skins or unlockable classes to hand out. */
+const XP_PER_TIER = 100;
+const TITLES = [
+  'Rookie', 'Scrapper', 'Brawler', 'Skirmisher', 'Duelist',
+  'Bladebearer', 'Marauder', 'Vanguard', 'Gladiator', 'Champion',
+  'Warbringer', 'Executioner', 'Ravager', 'Warlord', 'Bloodletter',
+  'Dreadnought', 'Conqueror', 'Ascendant', 'Immortal', 'Arena Legend'
+];
+
 const blank = () => ({
   elims:0, deaths:0, matches:0, seconds:0, bestStreak:0,
-  lastClass:null, byClass:{}
+  lastClass:null, title:null, byClass:{}
 });
+
+/* Derived from the counters rather than stored, so the pass can never drift
+   out of step with the record it is supposed to reflect. */
+function xpOf(c){
+  return c.elims * 10 + c.matches * 25 + Math.floor(c.seconds / 60) * 5;
+}
 
 let data      = blank();
 let streak    = 0;                // elims since the last death, this life
@@ -56,6 +72,7 @@ function mergeMax(a, b){
     out[k] = Math.max(a[k] || 0, b[k] || 0);
   });
   out.lastClass = b.lastClass || a.lastClass;
+  out.title = b.title || a.title;
   out.byClass = {};
   Object.keys(a.byClass || {}).concat(Object.keys(b.byClass || {})).forEach(cls => {
     const x = (a.byClass || {})[cls] || {}, y = (b.byClass || {})[cls] || {};
@@ -179,6 +196,25 @@ const Career = {
     flush();
   },
 
+  /* Battle pass, all derived from the counters above. */
+  get xp(){ return xpOf(data); },
+  get tier(){ return Math.min(TITLES.length, Math.floor(xpOf(data) / XP_PER_TIER)); },
+  get xpIntoTier(){ return xpOf(data) % XP_PER_TIER; },
+  get xpPerTier(){ return XP_PER_TIER; },
+  get titles(){ return TITLES.slice(); },
+  get title(){ return data.title; },
+
+  /* Equipping a title you have not reached yet is refused rather than ignored,
+     so a stale menu can't hand out a locked one. */
+  setTitle(name){
+    const i = TITLES.indexOf(name);
+    if(name !== null && (i < 0 || i + 1 > this.tier)) return false;
+    data.title = name;
+    save();
+    flush();
+    return true;
+  },
+
   signIn(){ if(clerk) clerk.openSignIn(); },
   onChange(fn){ listeners.push(fn); },
   flush: flush
@@ -194,23 +230,27 @@ function notify(){ listeners.forEach(fn => { try{ fn(data); }catch(e){} }); }
 
 /* ---------- account bar ---------- */
 
+function titleChip(){
+  return data.title ? '<span class="acct-title">' + data.title + '</span>' : '';
+}
+
 function render(){
   const el = document.getElementById('acct');
   if(!el) return;
 
   if(!Career.configured){
-    el.innerHTML = '<span class="acct-note">Stats saved on this device</span>';
+    el.innerHTML = titleChip() + '<span class="acct-note">Stats saved on this device</span>';
   } else if(!clerk){
     // once the load has settled without a Clerk, it is never coming — say so
     // rather than leaving "Connecting…" up for good
-    el.innerHTML = settled
+    el.innerHTML = titleChip() + (settled
       ? '<span class="acct-note">Sign-in unavailable — stats saved on this device</span>'
-      : '<span class="acct-note">Connecting…</span>';
+      : '<span class="acct-note">Connecting…</span>');
   } else if(clerk.user){
-    el.innerHTML = '<span class="acct-note">Stats synced</span><span id="acct-btn"></span>';
+    el.innerHTML = titleChip() + '<span class="acct-note">Stats synced</span><span id="acct-btn"></span>';
     clerk.mountUserButton(document.getElementById('acct-btn'));
   } else {
-    el.innerHTML = '<button class="acct-in" type="button">Sign in to save stats</button>';
+    el.innerHTML = titleChip() + '<button class="acct-in" type="button">Sign in to save stats</button>';
     el.querySelector('.acct-in').addEventListener('click', () => Career.signIn());
   }
   notify();

@@ -271,6 +271,52 @@ canvas{
 .career .stat b{display:block;font-size:18px;color:var(--parch);font-weight:700;line-height:1.2}
 .career .stat span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
 .career-note{font-size:12px;color:var(--dim);margin-top:12px;line-height:1.5}
+.acct-title{
+  background:linear-gradient(180deg,#4a3f7a,#332a56);border:1px solid #6a5aa8;
+  color:#e6dfff;font-size:11px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;padding:4px 10px;border-radius:999px;
+}
+
+/* ---- menu tabs ---- */
+.tabs{display:flex;justify-content:center;gap:8px;margin:22px 0 20px;flex-wrap:wrap}
+.tabs .tab{
+  background:rgba(30,25,52,.7);border:1px solid var(--edge);color:var(--dim);
+  font-family:inherit;font-size:13px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;padding:9px 20px;border-radius:10px;cursor:pointer;
+}
+.tabs .tab:hover{color:#e2dcf2;border-color:#5a4d8c}
+.tabs .tab.on{background:linear-gradient(180deg,#5a4a94,#3a3068);border-color:#7a68bd;color:#fff}
+
+/* ---- stats ---- */
+.classtable{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
+.classtable th{
+  text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--dim);font-weight:600;padding:0 8px 7px;border-bottom:1px solid #2c2547;
+}
+.classtable td{padding:8px;border-bottom:1px solid rgba(44,37,71,.6);color:#cfc7e2}
+.classtable td:first-child{font-weight:700}
+.classtable .num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* ---- battle pass ---- */
+.passhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.passhead b{font-size:26px;color:var(--parch)}
+.passhead span{font-size:12.5px;color:var(--dim)}
+.passbar{height:10px;border-radius:6px;background:rgba(12,10,24,.8);border:1px solid #2c2547;overflow:hidden}
+.passbar i{display:block;height:100%;background:linear-gradient(90deg,#7a68bd,#b473ff)}
+.tiers{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;margin-top:16px}
+.tier{
+  background:rgba(24,20,42,.6);border:1px solid #2c2547;border-radius:10px;
+  padding:10px;text-align:left;font-family:inherit;color:var(--dim);cursor:default;
+}
+.tier .lv{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#7d749b}
+.tier .nm{font-size:13.5px;font-weight:700;margin-top:3px;color:#6f6790}
+.tier.open{border-color:#5a4d8c;cursor:pointer}
+.tier.open .nm{color:var(--parch)}
+.tier.open:hover{background:rgba(48,40,80,.7)}
+.tier.on{border-color:#b473ff;background:rgba(70,50,110,.55)}
+.tier.on .nm{color:#e6dfff}
+.tier .eq{font-size:10px;color:#b473ff;letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+.passnote{font-size:12px;color:var(--dim);margin-top:16px;line-height:1.6}
 </style>
 </head>
 <body>
@@ -283,6 +329,13 @@ canvas{
     <div id="acct"></div>
   </header>
 
+  <nav class="tabs" id="tabs">
+    <button class="tab on" type="button" data-pane="play">Play</button>
+    <button class="tab" type="button" data-pane="stats">Stats</button>
+    <button class="tab" type="button" data-pane="pass">Battle Pass</button>
+  </nav>
+
+  <div class="pane" id="pane-play">
   <div class="menu-grid">
     <section class="panel">
       <h2>Choose your fighter</h2>
@@ -306,16 +359,31 @@ canvas{
       </div>
     </section>
 
-    <section class="panel">
-      <h2>Your record</h2>
-      <div class="career" id="careerStats"></div>
-      <p class="career-note" id="careerNote"></p>
-    </section>
   </div>
 
   <div class="playrow">
     <button id="playBtn" disabled>PLAY</button>
     <p id="playHint">Pick your class to unlock the match.</p>
+  </div>
+  </div>
+
+  <div class="pane hidden" id="pane-stats">
+    <section class="panel">
+      <h2>Your record</h2>
+      <div class="career" id="careerStats"></div>
+      <p class="career-note" id="careerNote"></p>
+      <table class="classtable" id="classTable"></table>
+    </section>
+  </div>
+
+  <div class="pane hidden" id="pane-pass">
+    <section class="panel">
+      <h2>Battle pass</h2>
+      <div class="passhead" id="passHead"></div>
+      <div class="passbar"><i id="passFill"></i></div>
+      <div class="tiers" id="tierList"></div>
+      <p class="passnote" id="passNote"></p>
+    </section>
   </div>
 </div>
 
@@ -740,6 +808,62 @@ function fmtTime(sec){
   return Math.floor(m/60) + 'h ' + (m%60) + 'm';
 }
 
+/* ---- menu tabs ---- */
+let activeTab = 'play';
+
+function showTab(name){
+  activeTab = name;
+  ['play','stats','pass'].forEach(t => {
+    $('pane-' + t).classList.toggle('hidden', t !== name);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
+    b.classList.toggle('on', b.dataset.pane === name);
+  });
+  if(name === 'stats') renderCareer();
+  if(name === 'pass') renderPass();
+}
+
+Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
+  b.addEventListener('click', () => { SFX.play('ui'); showTab(b.dataset.pane); });
+});
+
+/* ---- battle pass ---- */
+function renderPass(){
+  const head = $('passHead'), fill = $('passFill'), list = $('tierList'), note = $('passNote');
+  if(!head) return;
+
+  const tier = Career.tier, titles = Career.titles, max = titles.length;
+  const into = Career.xpIntoTier, per = Career.xpPerTier;
+  const capped = tier >= max;
+
+  head.innerHTML = '<b>Tier ' + tier + '</b>'
+    + '<span>' + Career.xp.toLocaleString() + ' XP total'
+    + (capped ? ' · pass complete' : ' · ' + (per - into) + ' XP to tier ' + (tier + 1)) + '</span>';
+  fill.style.width = (capped ? 100 : (into / per * 100)) + '%';
+
+  list.innerHTML = '';
+  titles.forEach((name, i) => {
+    const lv = i + 1;
+    const open = lv <= tier;
+    const on = Career.title === name;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tier' + (open ? ' open' : '') + (on ? ' on' : '');
+    b.innerHTML = '<div class="lv">Tier ' + lv + '</div><div class="nm">'
+      + (open ? name : 'Locked') + '</div>'
+      + (on ? '<div class="eq">Equipped</div>' : '');
+    if(open) b.addEventListener('click', () => {
+      SFX.play('ui');
+      Career.setTitle(on ? null : name);   // clicking the equipped one takes it off
+      renderPass();
+    });
+    list.appendChild(b);
+  });
+
+  note.textContent = 'Eliminations are 10 XP, a match is 25, and every minute in the arena is 5. '
+    + (capped ? 'You have every title.' : 'Tiers unlock titles, shown next to your name.');
+}
+
 function renderCareer(){
   const box = $('careerStats'), note = $('careerNote');
   if(!box) return;
@@ -765,11 +889,26 @@ function renderCareer(){
   note.textContent = best && c.byClass[best].elims
     ? 'Deadliest as the ' + CLASSES[best].name + ' — ' + c.byClass[best].elims + ' eliminations.'
     : 'Play a match and your record starts filling in.';
+
+  const table = $('classTable');
+  if(!table) return;
+  const rows = CLASS_KEYS.filter(k => c.byClass[k]);
+  if(!rows.length){ table.innerHTML = ''; return; }
+  table.innerHTML =
+    '<tr><th>Fighter</th><th class="num">Elims</th><th class="num">Deaths</th><th class="num">E / D</th></tr>'
+    + rows.map(k => {
+        const r = c.byClass[k];
+        const ed = r.deaths ? (r.elims / r.deaths).toFixed(2) : r.elims.toFixed(2);
+        return '<tr><td style="color:' + CLASSES[k].color + '">' + CLASSES[k].name + '</td>'
+          + '<td class="num">' + r.elims + '</td><td class="num">' + r.deaths + '</td>'
+          + '<td class="num">' + ed + '</td></tr>';
+      }).join('');
 }
 
 function renderMenu(){
-  renderCareer();
   renderPicker();
+  if(activeTab === 'stats') renderCareer();
+  if(activeTab === 'pass') renderPass();
   const btn = $('playBtn'), hint = $('playHint');
   if(!G.myClass){
     btn.disabled = true;
@@ -2439,7 +2578,11 @@ try{
 if(Career.data.lastClass && CLASSES[Career.data.lastClass]) G.myClass = Career.data.lastClass;
 
 // Clerk resolves after the first paint, so redraw once the record arrives
-Career.onChange(() => { if(G.screen === 'menu') renderCareer(); });
+Career.onChange(() => {
+  if(G.screen !== 'menu') return;
+  if(activeTab === 'stats') renderCareer();
+  if(activeTab === 'pass') renderPass();
+});
 
 renderMenu();
 

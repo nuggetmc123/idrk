@@ -20,6 +20,27 @@ python3 -m http.server 8000   # then open http://localhost:8000
 
 Opening `index.html` straight off disk works too, since the game has no external assets.
 
+## Menu tabs
+
+The menu is three tabs:
+
+- **Play** — pick a fighter and start a match.
+- **Stats** — the career record, plus a per-fighter breakdown.
+- **Battle Pass** — tier progress, and the titles each tier unlocks.
+
+## The battle pass
+
+XP is **derived** from the career counters rather than stored — 10 per elimination, 25
+per match, 5 per minute in the arena — so the pass can never drift out of step with the
+record it reflects. A tier is 100 XP, and there are 20 of them.
+
+Each tier grants a **title**, shown next to your name on the menu. Titles are the reward
+because they are something the game can actually display: every fighter is unlocked from
+the start and there are no skins to hand out. Clicking an unlocked tier equips its title,
+clicking the equipped one takes it off, and `setTitle` refuses any tier you have not
+reached, so a stale menu cannot grant a locked one. The equipped title is the only part
+of the pass that is stored.
+
 ## Player accounts and saved stats
 
 The game keeps a career record — eliminations, deaths, best streak, matches, time in
