@@ -317,6 +317,55 @@ canvas{
 .tier.on .nm{color:#e6dfff}
 .tier .eq{font-size:10px;color:#b473ff;letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
 .passnote{font-size:12px;color:var(--dim);margin-top:16px;line-height:1.6}
+
+/* ---- coins + shop ---- */
+.coins{
+  display:inline-flex;align-items:center;gap:6px;background:rgba(40,32,10,.7);
+  border:1px solid #6b5a1e;color:#ffd76a;font-weight:700;font-size:12.5px;
+  padding:4px 12px;border-radius:999px;
+}
+.coins::before{content:'';width:12px;height:12px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#fff3c4,#ffcc33 60%,#a97b00)}
+.shopgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:6px}
+.shopcard{
+  background:rgba(24,20,42,.6);border:1px solid #2c2547;border-radius:10px;
+  padding:11px;display:flex;flex-direction:column;gap:7px;align-items:flex-start;
+}
+.shopcard .nm{font-size:13.5px;font-weight:700;color:var(--parch)}
+.shopcard .sub{font-size:11px;color:var(--dim)}
+.shopcard .swatch{display:flex;gap:4px}
+.shopcard .swatch i{width:15px;height:15px;border-radius:4px;display:block}
+.buy{
+  margin-top:auto;font-family:inherit;font-size:11.5px;font-weight:700;letter-spacing:.04em;
+  border-radius:7px;padding:6px 12px;cursor:pointer;width:100%;
+  background:linear-gradient(180deg,#5a4a94,#3a3068);border:1px solid #7a68bd;color:#fff;
+}
+.buy:disabled{background:#241f36;border-color:#332c50;color:#6f6790;cursor:default}
+.buy.owned{background:transparent;border-color:#4a3f7a;color:#b6aed0}
+.buy.on{background:linear-gradient(180deg,#8a5ad0,#5a3a94);border-color:#b473ff}
+.shophead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0 8px}
+.shophead h3{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#c9c1de;font-weight:700}
+.pagebar{display:flex;gap:6px;justify-content:center;margin:14px 0 4px;flex-wrap:wrap}
+.pagebtn{
+  background:rgba(30,25,52,.7);border:1px solid var(--edge);color:var(--dim);
+  font-family:inherit;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;
+}
+.pagebtn.on{background:linear-gradient(180deg,#5a4a94,#3a3068);border-color:#7a68bd;color:#fff}
+.tier .rw{font-size:11px;color:#b6aed0;margin-top:3px}
+.tier .claim{
+  margin-top:7px;width:100%;font-family:inherit;font-size:11px;font-weight:700;
+  background:linear-gradient(180deg,#c9963a,#8a5f13);border:1px solid #ffd76a;color:#fff;
+  border-radius:6px;padding:5px;cursor:pointer;
+}
+.tier .got{font-size:10.5px;color:#7d749b;margin-top:6px;letter-spacing:.05em;text-transform:uppercase}
+.chestrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chestbtn{
+  font-family:inherit;font-size:12px;font-weight:700;padding:9px 14px;border-radius:9px;cursor:pointer;
+  background:linear-gradient(180deg,#7a5a2a,#4a3410);border:1px solid #c9963a;color:#ffe6b0;
+}
+.locked-note{font-size:11px;color:#8f87ab;margin-top:4px}
+.ccard.locked{opacity:.45}
+.ccard .lock{position:absolute;top:5px;right:7px;font-size:10px;color:#ffd76a}
 </style>
 </head>
 <body>
@@ -333,6 +382,7 @@ canvas{
     <button class="tab on" type="button" data-pane="play">Play</button>
     <button class="tab" type="button" data-pane="stats">Stats</button>
     <button class="tab" type="button" data-pane="pass">Battle Pass</button>
+    <button class="tab" type="button" data-pane="shop">Shop</button>
   </nav>
 
   <div class="pane" id="pane-play">
@@ -381,8 +431,29 @@ canvas{
       <h2>Battle pass</h2>
       <div class="passhead" id="passHead"></div>
       <div class="passbar"><i id="passFill"></i></div>
+      <div class="chestrow" id="chestRow"></div>
+      <div class="pagebar" id="passPages"></div>
       <div class="tiers" id="tierList"></div>
       <p class="passnote" id="passNote"></p>
+    </section>
+  </div>
+
+  <div class="pane hidden" id="pane-shop">
+    <section class="panel">
+      <h2>Shop</h2>
+      <div class="shophead"><span class="coins" id="shopCoins">0</span>
+        <span class="sub" style="font-size:12px;color:var(--dim)">Coins come from the battle pass and from chests.</span></div>
+
+      <div class="shophead"><h3>Fighters</h3></div>
+      <div class="shopgrid" id="shopFighters"></div>
+
+      <div class="shophead"><h3>Skins</h3>
+        <select id="skinFor" style="font-family:inherit;font-size:12px;background:#221d38;color:#e2dcf2;border:1px solid var(--edge);border-radius:7px;padding:5px 8px"></select>
+      </div>
+      <div class="shopgrid" id="shopSkins"></div>
+
+      <div class="shophead"><h3>Hats</h3></div>
+      <div class="shopgrid" id="shopHats"></div>
     </section>
   </div>
 </div>
@@ -906,18 +977,23 @@ function renderPicker(){
   grid.innerHTML = '';
   CLASS_KEYS.forEach(k => {
     const c = CLASSES[k];
+    const owned = Career.owns(k);
     const b = document.createElement('button');
-    b.className = 'ccard' + (G.myClass===k ? ' sel':'');
+    b.className = 'ccard' + (G.myClass===k ? ' sel':'') + (owned ? '' : ' locked');
     b.style.color = c.color;
-    b.innerHTML = classIcon(k) + '<b>' + c.name + '</b>';
+    b.style.position = 'relative';
+    b.innerHTML = classIcon(k) + '<b>' + c.name + '</b>'
+      + (owned ? '' : '<span class="lock">&#128274;</span>');
     b.addEventListener('click', () => {
-      G.myClass = k;
       SFX.init(); SFX.play('ui');
+      if(!owned){ showTab('shop'); return; }      // send them where it can be bought
+      G.myClass = k;
       renderMenu();
     });
     grid.appendChild(b);
   });
 
+  if(G.myClass && !Career.owns(G.myClass)) G.myClass = null;
   const k = G.myClass || CLASS_KEYS[0];
   const c = CLASSES[k];
   $('classDetail').innerHTML =
@@ -949,7 +1025,7 @@ let activeTab = 'play';
 
 function showTab(name){
   activeTab = name;
-  ['play','stats','pass'].forEach(t => {
+  ['play','stats','pass','shop'].forEach(t => {
     $('pane-' + t).classList.toggle('hidden', t !== name);
   });
   Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
@@ -957,47 +1033,208 @@ function showTab(name){
   });
   if(name === 'stats') renderCareer();
   if(name === 'pass') renderPass();
+  if(name === 'shop') renderShop();
 }
 
 Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
   b.addEventListener('click', () => { SFX.play('ui'); showTab(b.dataset.pane); });
 });
 
+/* ---- shop ---- */
+let skinTarget = null;
+
+function coinText(n){ return n.toLocaleString(); }
+
+function renderShop(){
+  const cat = Career.catalog;
+  $('shopCoins').textContent = coinText(Career.coins);
+
+  // fighters
+  const fg = $('shopFighters');
+  fg.innerHTML = '';
+  Object.keys(cat.locked).forEach(k => {
+    const def = cat.locked[k], c = CLASSES[k], owned = Career.owns(k);
+    const card = document.createElement('div');
+    card.className = 'shopcard';
+    card.innerHTML = '<div class="nm" style="color:' + c.color + '">' + c.name + '</div>'
+      + '<div class="sub">' + c.role + '</div>'
+      + '<div class="sub">' + c.weapon + ' &middot; ' + c.special + '</div>';
+    const b = document.createElement('button');
+    b.className = 'buy' + (owned ? ' owned' : '');
+    b.textContent = owned ? 'Owned' : coinText(def.price) + ' coins';
+    b.disabled = owned || Career.coins < def.price;
+    if(!owned) b.addEventListener('click', () => {
+      if(Career.buy('fighter', k)){ SFX.play('heal'); renderShop(); renderPicker(); }
+    });
+    card.appendChild(b);
+    fg.appendChild(card);
+  });
+
+  // which fighter the skins apply to
+  const sel = $('skinFor');
+  const roster = Career.ownedFighters.filter(k => CLASSES[k]);
+  if(!skinTarget || roster.indexOf(skinTarget) === -1) skinTarget = G.myClass && Career.owns(G.myClass) ? G.myClass : roster[0];
+  sel.innerHTML = roster.map(k =>
+    '<option value="' + k + '"' + (k === skinTarget ? ' selected' : '') + '>' + CLASSES[k].name + '</option>').join('');
+  sel.onchange = () => { skinTarget = sel.value; renderShop(); };
+
+  // skins for that fighter
+  const sg = $('shopSkins');
+  sg.innerHTML = '';
+  cat.skinSets.forEach(set => {
+    const id = skinTarget + ':' + set.id;
+    const owned = Career.ownsSkin(id);
+    const on = Career.skinFor(skinTarget) === set.id;
+    const card = document.createElement('div');
+    card.className = 'shopcard';
+    card.innerHTML = '<div class="nm">' + set.name + '</div>'
+      + '<div class="swatch"><i style="background:' + set.color + '"></i>'
+      + '<i style="background:' + set.dark + '"></i><i style="background:' + set.light + '"></i></div>'
+      + '<div class="sub">' + CLASSES[skinTarget].name + '</div>';
+    const b = document.createElement('button');
+    b.className = 'buy' + (on ? ' on' : owned ? ' owned' : '');
+    b.textContent = on ? 'Equipped' : owned ? 'Equip' : coinText(set.price) + ' coins';
+    b.disabled = !owned && Career.coins < set.price;
+    b.addEventListener('click', () => {
+      if(owned) Career.equipSkin(skinTarget, on ? null : set.id);
+      else if(!Career.buy('skin', id)) return;
+      SFX.play('ui'); renderShop();
+    });
+    card.appendChild(b);
+    sg.appendChild(card);
+  });
+
+  // hats are won, not sold — this row is for wearing them
+  const hg = $('shopHats');
+  hg.innerHTML = '';
+  cat.hats.forEach(h => {
+    const owned = Career.ownsHat(h.id);
+    const on = Career.equippedHat === h.id;
+    const card = document.createElement('div');
+    card.className = 'shopcard';
+    card.innerHTML = '<div class="nm">' + h.name + '</div>'
+      + '<div class="sub">' + (owned ? 'In your locker' : 'Found in chests and the pass') + '</div>';
+    const b = document.createElement('button');
+    b.className = 'buy' + (on ? ' on' : owned ? ' owned' : '');
+    b.textContent = on ? 'Worn' : owned ? 'Wear' : 'Locked';
+    b.disabled = !owned;
+    if(owned) b.addEventListener('click', () => {
+      Career.equipHat(on ? null : h.id); SFX.play('ui'); renderShop();
+    });
+    card.appendChild(b);
+    hg.appendChild(card);
+  });
+}
+
 /* ---- battle pass ---- */
+let passPage = 0;
+
+function rewardText(r){
+  if(r.type === 'coins')   return coinText(r.amount) + ' coins';
+  if(r.type === 'fighter') return (CLASSES[r.id] ? CLASSES[r.id].name : r.id) + ' unlocked';
+  if(r.type === 'skin'){
+    const set = Career.catalog.skinSets.filter(k => k.id === r.id)[0];
+    return (set ? set.name : r.id) + ' skin';
+  }
+  if(r.type === 'hat'){
+    const h = Career.catalog.hats.filter(k => k.id === r.id)[0];
+    return (h ? h.name : r.id) + ' hat';
+  }
+  if(r.type === 'chest'){
+    const ch = Career.catalog.chests.filter(k => k.id === r.id)[0];
+    return ch ? ch.name : r.id;
+  }
+  if(r.type === 'title')   return '"' + r.id + '" title';
+  return r.type;
+}
+
 function renderPass(){
   const head = $('passHead'), fill = $('passFill'), list = $('tierList'), note = $('passNote');
   if(!head) return;
 
-  const tier = Career.tier, titles = Career.titles, max = titles.length;
-  const into = Career.xpIntoTier, per = Career.xpPerTier;
-  const capped = tier >= max;
+  const track = Career.track, tier = Career.tier, per = Career.xpPerTier;
+  const into = Career.xpIntoTier, capped = tier >= track.length;
+  const unclaimed = Career.unclaimedCount;
 
   head.innerHTML = '<b>Tier ' + tier + '</b>'
-    + '<span>' + Career.xp.toLocaleString() + ' XP total'
-    + (capped ? ' · pass complete' : ' · ' + (per - into) + ' XP to tier ' + (tier + 1)) + '</span>';
+    + '<span class="coins">' + coinText(Career.coins) + '</span>'
+    + '<span>' + Career.xp.toLocaleString() + ' XP'
+    + (capped ? ' · pass complete' : ' · ' + (per - into) + ' XP to tier ' + (tier + 1))
+    + (unclaimed ? ' · ' + unclaimed + ' reward' + (unclaimed > 1 ? 's' : '') + ' waiting' : '')
+    + '</span>';
   fill.style.width = (capped ? 100 : (into / per * 100)) + '%';
 
-  list.innerHTML = '';
-  titles.forEach((name, i) => {
-    const lv = i + 1;
-    const open = lv <= tier;
-    const on = Career.title === name;
+  // unopened chests
+  const row = $('chestRow');
+  const chests = Career.unopenedChests;
+  row.innerHTML = '';
+  chests.forEach(cid => {
+    const kind = Career.chestKind(cid);
     const b = document.createElement('button');
+    b.className = 'chestbtn';
     b.type = 'button';
-    b.className = 'tier' + (open ? ' open' : '') + (on ? ' on' : '');
-    b.innerHTML = '<div class="lv">Tier ' + lv + '</div><div class="nm">'
-      + (open ? name : 'Locked') + '</div>'
-      + (on ? '<div class="eq">Equipped</div>' : '');
-    if(open) b.addEventListener('click', () => {
-      SFX.play('ui');
-      Career.setTitle(on ? null : name);   // clicking the equipped one takes it off
+    b.textContent = 'Open ' + kind.name;
+    b.addEventListener('click', () => {
+      const got = Career.openChest(cid);
+      if(got) alert('You got: ' + (got.type === 'coins'
+        ? coinText(got.amount) + ' coins'
+        : got.type === 'hat' ? got.name + ' hat'
+        : (CLASSES[got.id.split(':')[0]] || {name:''}).name + ' — '
+          + (Career.catalog.skinSets.filter(k => k.id === got.id.split(':')[1])[0] || {}).name + ' skin'));
+      SFX.play('win');
       renderPass();
     });
-    list.appendChild(b);
+    row.appendChild(b);
+  });
+
+  // page switcher
+  const bar = $('passPages');
+  const perPage = Career.tiersPerPage;
+  if(passPage > Career.pages - 1) passPage = 0;
+  bar.innerHTML = '';
+  for(let i = 0; i < Career.pages; i++){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pagebtn' + (i === passPage ? ' on' : '');
+    const waiting = track.slice(i*perPage, (i+1)*perPage)
+      .some(r => r.tier <= tier && !Career.claimed(r.tier));
+    b.textContent = 'Page ' + (i + 1) + (waiting ? ' •' : '');
+    b.addEventListener('click', () => { passPage = i; SFX.play('ui'); renderPass(); });
+    bar.appendChild(b);
+  }
+
+  // the ten tiers on this page
+  list.innerHTML = '';
+  track.slice(passPage*perPage, (passPage+1)*perPage).forEach(r => {
+    const open = r.tier <= tier;
+    const got = Career.claimed(r.tier);
+    const card = document.createElement('div');
+    card.className = 'tier' + (open ? ' open' : '') + (got ? ' on' : '');
+    card.innerHTML = '<div class="lv">Tier ' + r.tier + '</div>'
+      + '<div class="nm">' + (open || r.type !== 'fighter' ? rewardText(r) : 'Locked') + '</div>'
+      + '<div class="rw">' + r.type + '</div>';
+    if(open && !got){
+      const b = document.createElement('button');
+      b.className = 'claim';
+      b.type = 'button';
+      b.textContent = 'Claim';
+      b.addEventListener('click', () => {
+        const won = Career.claim(r.tier);
+        if(won){ SFX.play('win'); renderPass(); renderPicker(); }
+      });
+      card.appendChild(b);
+    } else if(got){
+      const d = document.createElement('div');
+      d.className = 'got';
+      d.textContent = 'Claimed';
+      card.appendChild(d);
+    }
+    list.appendChild(card);
   });
 
   note.textContent = 'Eliminations are 10 XP, a match is 25, and every minute in the arena is 5. '
-    + (capped ? 'You have every title.' : 'Tiers unlock titles, shown next to your name.');
+    + 'Fifty tiers across five pages pay out coins, fighters, skins, hats and chests. '
+    + 'Chests roll skins for fighters you already own, or more coins.';
 }
 
 function renderCareer(){
@@ -1045,6 +1282,7 @@ function renderMenu(){
   renderPicker();
   if(activeTab === 'stats') renderCareer();
   if(activeTab === 'pass') renderPass();
+  if(activeTab === 'shop') renderShop();
   const btn = $('playBtn'), hint = $('playHint');
   if(!G.myClass){
     btn.disabled = true;
@@ -2482,9 +2720,55 @@ function drawSlashes(){
   }
 }
 
+/* A skin is a palette swap of the fighter's own class, so one definition
+   reskins any of them. Only the human wears one; bots stay stock so they
+   remain readable at a glance. */
+function paletteFor(p){
+  const base = CLASSES[p.cls];
+  if(p.isBot) return base;
+  const id = Career.skinFor(p.cls);
+  if(!id) return base;
+  const set = Career.catalog.skinSets.filter(k => k.id === id)[0];
+  return set ? Object.assign({}, base, {color:set.color, dark:set.dark, light:set.light}) : base;
+}
+
+function drawHat(id, c, flip){
+  if(!id) return;
+  ctx.save();
+  if(id === 'crown'){
+    ctx.fillStyle = '#ffcc33';
+    ctx.beginPath();
+    ctx.moveTo(-9,-19); ctx.lineTo(-9,-26); ctx.lineTo(-4.5,-22); ctx.lineTo(0,-28);
+    ctx.lineTo(4.5,-22); ctx.lineTo(9,-26); ctx.lineTo(9,-19);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff0b8'; ctx.fillRect(-9,-20.5,18,2);
+  } else if(id === 'horns'){
+    ctx.fillStyle = '#e8e2d0';
+    ctx.beginPath(); ctx.moveTo(-7,-17); ctx.quadraticCurveTo(-16,-26,-9,-29);
+    ctx.quadraticCurveTo(-10,-23,-4,-18); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(7,-17); ctx.quadraticCurveTo(16,-26,9,-29);
+    ctx.quadraticCurveTo(10,-23,4,-18); ctx.fill();
+  } else if(id === 'halo'){
+    ctx.strokeStyle = '#ffe98a'; ctx.lineWidth = 2.6;
+    ctx.shadowColor = '#ffe98a'; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.ellipse(0,-25,9,3.2,0,0,TAU); ctx.stroke();
+  } else if(id === 'antenna'){
+    ctx.strokeStyle = '#9b93b4'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(0,-18); ctx.quadraticCurveTo(3,-26,7,-29); ctx.stroke();
+    ctx.fillStyle = '#ff5f8d';
+    ctx.beginPath(); ctx.arc(7,-30,3,0,TAU); ctx.fill();
+  } else if(id === 'top'){
+    ctx.fillStyle = '#1b1730';
+    ctx.beginPath(); ctx.ellipse(0,-19,12,3.4,0,0,TAU); ctx.fill();
+    ctx.fillRect(-6.5,-31,13,12);
+    ctx.fillStyle = c.color; ctx.fillRect(-6.5,-23,13,2.6);
+  }
+  ctx.restore();
+}
+
 /* --- fighters --- */
 function drawFighter(p){
-  const c = CLASSES[p.cls];
+  const c = paletteFor(p);
   const bob = Math.sin(p.walk)* (p.moving ? 2.0 : 0.9);
   const a = p.aim;
   const flip = Math.cos(a) < 0 ? -1 : 1;
@@ -2524,6 +2808,7 @@ function drawFighter(p){
   const back = Math.sin(a) < -0.25;
   if(back) drawWeapon(p, c, a);
   drawBody(p, c, flip);
+  if(!p.isBot) drawHat(Career.equippedHat, c, flip);
   if(!back) drawWeapon(p, c, a);
 
   if(p.hitFlash > 0){
@@ -2921,6 +3206,7 @@ Career.onChange(() => {
   if(G.screen !== 'menu') return;
   if(activeTab === 'stats') renderCareer();
   if(activeTab === 'pass') renderPass();
+  if(activeTab === 'shop') renderShop();
 });
 
 renderMenu();

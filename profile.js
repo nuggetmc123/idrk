@@ -21,9 +21,57 @@ const CLERK_PUBLISHABLE_KEY = 'pk_test_dmVyaWZpZWQtbWFja2VyZWwtOTQ0Ni5jbGVyay5hY
 const LOCAL_KEY  = 'arena-clash-career';
 const META_KEY   = 'arenaClash';
 
-/* Battle pass. Every tier grants a title, because titles are something the
-   game can actually show — it has no skins or unlockable classes to hand out. */
+/* ---------- content ---------- */
+
+const STARTERS = ['assassin','ninja','archer','wizard','witch'];
+
+/* Every fighter outside the starting five is earned or bought. Pass fighters
+   are also purchasable, so nobody is stuck behind a tier they cannot reach. */
+const LOCKED = {
+  berserker:   {name:'Berserker',   price:1200},
+  gunslinger:  {name:'Gunslinger',  price:1200},
+  frostmage:   {name:'Frostmage',   price:1500},
+  paladin:     {name:'Paladin',     price:1500},
+  bomber:      {name:'Bomber',      price:1800},
+  sniper:      {name:'Sniper',      price:1800},
+  duelist:     {name:'Duelist',     price:2200},
+  necromancer: {name:'Necromancer', price:2200},
+  monk:        {name:'Monk',        price:2600},
+  ranger:      {name:'Ranger',      price:2600}
+};
+
+/* A skin is a palette swap, so one definition reskins any fighter. Ids are
+   "<fighter>:<skin>" so a skin is always tied to who it belongs to. */
+const SKIN_SETS = [
+  {id:'crimson', name:'Crimson',  price:400,  color:'#ff3b5c', dark:'#6b0d1e', light:'#ffb3c0'},
+  {id:'frost',   name:'Frostbit', price:400,  color:'#7fd4ff', dark:'#12455e', light:'#d6f2ff'},
+  {id:'toxic',   name:'Toxic',    price:600,  color:'#a6f03c', dark:'#2c5406', light:'#e2ffb0'},
+  {id:'void',    name:'Void',     price:800,  color:'#8b5cf6', dark:'#2e1065', light:'#ddd0ff'},
+  {id:'gold',    name:'Gilded',   price:1200, color:'#ffcc33', dark:'#6b4a00', light:'#fff0b8'},
+  {id:'ash',     name:'Ashen',    price:600,  color:'#b8b2c6', dark:'#3a3547', light:'#ecebf2'}
+];
+
+const HATS = [
+  {id:'crown',  name:'Crown'},
+  {id:'horns',  name:'Horns'},
+  {id:'halo',   name:'Halo'},
+  {id:'antenna',name:'Antenna'},
+  {id:'top',    name:'Top Hat'}
+];
+
+/* Chests roll against the fighters you already own, so a chest can never
+   hand you a skin for someone you cannot play. */
+const CHESTS = [
+  {id:'wooden',  name:'Wooden Chest',  coins:[80,160],   skinChance:0.35, tier:0},
+  {id:'iron',    name:'Iron Chest',    coins:[180,340],  skinChance:0.50, tier:1},
+  {id:'silver',  name:'Silver Chest',  coins:[320,600],  skinChance:0.65, tier:2},
+  {id:'gold',    name:'Gold Chest',    coins:[600,1100], skinChance:0.80, tier:3},
+  {id:'mythic',  name:'Mythic Chest',  coins:[1200,2000],skinChance:1.00, tier:4, hat:true}
+];
+
 const XP_PER_TIER = 100;
+const TIERS_PER_PAGE = 10;
+const PAGES = 5;
 const TITLES = [
   'Rookie', 'Scrapper', 'Brawler', 'Skirmisher', 'Duelist',
   'Bladebearer', 'Marauder', 'Vanguard', 'Gladiator', 'Champion',
@@ -31,10 +79,41 @@ const TITLES = [
   'Dreadnought', 'Conqueror', 'Ascendant', 'Immortal', 'Arena Legend'
 ];
 
+/* The 50-tier track. Coin rewards climb with the page; fighters, skins, hats
+   and chests are seeded at fixed tiers so the run of rewards stays varied. */
+function buildTrack(){
+  const fighters = Object.keys(LOCKED);
+  const track = [];
+  for(let i = 0; i < TIERS_PER_PAGE * PAGES; i++){
+    const tier = i + 1;
+    const page = Math.floor(i / TIERS_PER_PAGE);
+    let r;
+    if(tier % 10 === 0)      r = {type:'fighter', id:fighters[Math.floor(tier/10) - 1 + page]};
+    else if(tier % 10 === 5) r = {type:'chest',   id:CHESTS[Math.min(page, CHESTS.length-1)].id};
+    else if(tier % 10 === 3) r = {type:'skin',    id:SKIN_SETS[page % SKIN_SETS.length].id};
+    else if(tier % 10 === 7) r = {type:'hat',     id:HATS[page % HATS.length].id};
+    else if(tier % 5 === 1 && tier <= TITLES.length) r = {type:'title', id:TITLES[tier - 1]};
+    else                     r = {type:'coins',   amount:(page + 1) * 100 + (tier % 10) * 25};
+    if(r.type === 'fighter' && !r.id) r = {type:'coins', amount:(page + 1) * 250};
+    track.push(Object.assign({tier:tier, page:page}, r));
+  }
+  return track;
+}
+const TRACK = buildTrack();
+
+/* Coins are stored as two totals that only ever grow, never as a balance.
+   The merge takes the max of every counter, and a balance would come back
+   from the dead after spending on another device — earned minus spent does
+   not. Every list below is grow-only for the same reason. */
 const blank = () => ({
   elims:0, deaths:0, matches:0, seconds:0, bestStreak:0,
-  lastClass:null, title:null, byClass:{}
+  lastClass:null, title:null, byClass:{},
+  earned:0, spent:0,
+  owned:[], skins:[], hats:[], chests:[], opened:[], claimed:[],
+  equipSkin:{}, equipHat:null
 });
+
+const GROW_LISTS = ['owned','skins','hats','chests','opened','claimed'];
 
 /* Derived from the counters rather than stored, so the pass can never drift
    out of step with the record it is supposed to reflect. */
@@ -68,9 +147,16 @@ function writeLocal(){
 function mergeMax(a, b){
   if(!b) return a;
   const out = Object.assign(blank(), a);
-  ['elims','deaths','matches','seconds','bestStreak'].forEach(k => {
+  ['elims','deaths','matches','seconds','bestStreak','earned','spent'].forEach(k => {
     out[k] = Math.max(a[k] || 0, b[k] || 0);
   });
+  GROW_LISTS.forEach(k => {
+    const set = {};
+    (a[k] || []).concat(b[k] || []).forEach(v => { set[v] = 1; });
+    out[k] = Object.keys(set);
+  });
+  out.equipSkin = Object.assign({}, a.equipSkin || {}, b.equipSkin || {});
+  out.equipHat = b.equipHat || a.equipHat;
   out.lastClass = b.lastClass || a.lastClass;
   out.title = b.title || a.title;
   out.byClass = {};
@@ -198,7 +284,7 @@ const Career = {
 
   /* Battle pass, all derived from the counters above. */
   get xp(){ return xpOf(data); },
-  get tier(){ return Math.min(TITLES.length, Math.floor(xpOf(data) / XP_PER_TIER)); },
+  get tier(){ return Math.min(TRACK.length, Math.floor(xpOf(data) / XP_PER_TIER)); },
   get xpIntoTier(){ return xpOf(data) % XP_PER_TIER; },
   get xpPerTier(){ return XP_PER_TIER; },
   get titles(){ return TITLES.slice(); },
@@ -213,6 +299,129 @@ const Career = {
     save();
     flush();
     return true;
+  },
+
+  /* ---------- economy ---------- */
+
+  get coins(){ return Math.max(0, (data.earned || 0) - (data.spent || 0)); },
+  get catalog(){ return {locked:LOCKED, skinSets:SKIN_SETS, hats:HATS, chests:CHESTS}; },
+  get track(){ return TRACK; },
+  get pages(){ return PAGES; },
+  get tiersPerPage(){ return TIERS_PER_PAGE; },
+
+  owns(cls){ return STARTERS.indexOf(cls) !== -1 || (data.owned || []).indexOf(cls) !== -1; },
+  ownsSkin(id){ return (data.skins || []).indexOf(id) !== -1; },
+  ownsHat(id){ return (data.hats || []).indexOf(id) !== -1; },
+  get ownedFighters(){ return STARTERS.concat(data.owned || []); },
+  get equippedHat(){ return data.equipHat; },
+  skinFor(cls){ return (data.equipSkin || {})[cls] || null; },
+
+  /* Every purchase goes through here, so the balance can only be spent once
+     and never below zero. */
+  buy(kind, id){
+    if(kind === 'fighter'){
+      const def = LOCKED[id];
+      if(!def || this.owns(id) || this.coins < def.price) return false;
+      data.spent += def.price;
+      data.owned.push(id);
+    } else if(kind === 'skin'){
+      const parts = String(id).split(':');
+      const set = SKIN_SETS.filter(k => k.id === parts[1])[0];
+      if(!set || !this.owns(parts[0]) || this.ownsSkin(id) || this.coins < set.price) return false;
+      data.spent += set.price;
+      data.skins.push(id);
+    } else return false;
+    save(); flush();
+    return true;
+  },
+
+  equipSkin(cls, skinId){
+    if(skinId && !this.ownsSkin(cls + ':' + skinId)) return false;
+    if(skinId) data.equipSkin[cls] = skinId; else delete data.equipSkin[cls];
+    save(); flush();
+    return true;
+  },
+
+  equipHat(id){
+    if(id && !this.ownsHat(id)) return false;
+    data.equipHat = id || null;
+    save(); flush();
+    return true;
+  },
+
+  /* ---------- chests ---------- */
+
+  get unopenedChests(){
+    return (data.chests || []).filter(c => (data.opened || []).indexOf(c) === -1);
+  },
+
+  /* A chest id carries its kind: "<kind>:<where it came from>". */
+  chestKind(chestId){
+    const k = String(chestId).split(':')[0];
+    return CHESTS.filter(c => c.id === k)[0] || CHESTS[0];
+  },
+
+  /* Rolls only against fighters you own, so a chest never grants a skin for
+     someone unplayable. Falls back to coins when there is nothing left to win. */
+  openChest(chestId){
+    if((data.opened || []).indexOf(chestId) !== -1) return null;
+    if((data.chests || []).indexOf(chestId) === -1) return null;
+    const kind = this.chestKind(chestId);
+    data.opened.push(chestId);
+
+    const pool = [];
+    this.ownedFighters.forEach(cls => SKIN_SETS.forEach(sk => {
+      if(!this.ownsSkin(cls + ':' + sk.id)) pool.push(cls + ':' + sk.id);
+    }));
+    const unhad = HATS.filter(h => !this.ownsHat(h.id));
+
+    let out;
+    if(kind.hat && unhad.length && Math.random() < 0.4){
+      const h = unhad[Math.floor(Math.random() * unhad.length)];
+      data.hats.push(h.id);
+      out = {type:'hat', id:h.id, name:h.name};
+    } else if(pool.length && Math.random() < kind.skinChance){
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      data.skins.push(pick);
+      out = {type:'skin', id:pick};
+    } else {
+      const lo = kind.coins[0], hi = kind.coins[1];
+      const amt = lo + Math.floor(Math.random() * (hi - lo + 1));
+      data.earned += amt;
+      out = {type:'coins', amount:amt};
+    }
+    save(); flush();
+    return out;
+  },
+
+  /* ---------- battle pass ---------- */
+
+  claimed(tier){ return (data.claimed || []).indexOf(String(tier)) !== -1; },
+
+  /* Refuses a tier you have not reached, so a stale menu cannot pay out. */
+  claim(tier){
+    const row = TRACK[tier - 1];
+    if(!row || tier > this.tier || this.claimed(tier)) return null;
+    data.claimed.push(String(tier));
+    if(row.type === 'coins')        data.earned += row.amount;
+    else if(row.type === 'fighter'){ if(!this.owns(row.id)) data.owned.push(row.id); }
+    else if(row.type === 'skin'){                       // a pass skin fits every fighter
+      this.ownedFighters.forEach(cls => {
+        const sid = cls + ':' + row.id;
+        if(!this.ownsSkin(sid)) data.skins.push(sid);
+      });
+    }
+    else if(row.type === 'hat'){ if(!this.ownsHat(row.id)) data.hats.push(row.id); }
+    else if(row.type === 'chest') data.chests.push(row.id + ':t' + tier);
+    else if(row.type === 'title') data.title = row.id;
+    save(); flush();
+    return row;
+  },
+
+  get unclaimedCount(){
+    let n = 0;
+    for(let t = 1; t <= this.tier; t++) if(!this.claimed(t)) n++;
+    return n;
   },
 
   signIn(){ if(clerk) clerk.openSignIn(); },

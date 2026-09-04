@@ -44,22 +44,43 @@ and `melee` on the class, rather than from a list of names.
 
 The menu is three tabs:
 
-- **Play** — pick a fighter and start a match.
+- **Play** — pick a fighter and start a match. Fighters you do not own show a lock and
+  send you to the shop.
 - **Stats** — the career record, plus a per-fighter breakdown.
-- **Battle Pass** — tier progress, and the titles each tier unlocks.
+- **Battle Pass** — tier progress across five pages, chests to open, and rewards to claim.
+- **Shop** — buy fighters and skins with coins, and wear the hats you have won.
+
+## Coins, the shop and chests
+
+Coins are stored as two grow-only totals, `earned` and `spent`, and the balance is the
+difference. A plain balance would be wrong: the sync merges by taking the max of each
+counter, so coins spent on one device would come back from the dead on the next merge.
+Every collection (`owned`, `skins`, `hats`, `chests`, `opened`, `claimed`) is grow-only
+for the same reason and merges as a union.
+
+- **Fighters** — the ten unlockables are bought outright. Five of them are also battle
+  pass tiers, so nobody is stuck behind a tier they cannot reach.
+- **Skins** — a palette swap, so one definition reskins any fighter. Ids are
+  `<fighter>:<skin>`, and a skin can only be bought for a fighter you own.
+- **Hats** — not sold. They come from chests and the pass; the shop row is for wearing them.
+- **Chests** — five kinds. A chest rolls against the fighters you already own, so it can
+  never hand you a skin for someone unplayable, and falls back to coins when there is
+  nothing new left to win.
+
+`buy`, `claim`, `equipSkin`, `equipHat` and `openChest` all enforce their own rules — you
+cannot afford what you cannot afford, claim a tier you have not reached, open a chest
+twice, or equip something you do not own — so the menu is never the thing keeping the
+books.
 
 ## The battle pass
 
 XP is **derived** from the career counters rather than stored — 10 per elimination, 25
 per match, 5 per minute in the arena — so the pass can never drift out of step with the
-record it reflects. A tier is 100 XP, and there are 20 of them.
+record it reflects. A tier is 100 XP; there are 50 of them across 5 pages.
 
-Each tier grants a **title**, shown next to your name on the menu. Titles are the reward
-because they are something the game can actually display: every fighter is unlocked from
-the start and there are no skins to hand out. Clicking an unlocked tier equips its title,
-clicking the equipped one takes it off, and `setTitle` refuses any tier you have not
-reached, so a stale menu cannot grant a locked one. The equipped title is the only part
-of the pass that is stored.
+Rewards are coins (rising with the page), fighters, skins, hats and chests, laid out by
+`buildTrack` so the run of them stays varied. Reaching a tier does not grant it — you
+claim it, and a claim is refused for any tier above the one you have reached.
 
 ## Player accounts and saved stats
 
