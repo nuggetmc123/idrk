@@ -54,7 +54,11 @@ The menu is three tabs:
 
 ## Starting a match
 
-PLAY opens a fighter select screen showing all twenty. Locked cards say where the fighter
+PLAY opens a fighter select screen showing all twenty. So does the panel shown on death
+mid-match — `ownedClassKeys()` is the single source of truth for "what can this player
+respawn as", used by the panel's grid, its keyboard/gamepad cycling, and the class the
+Deploy button actually sends out. A human is never offered a fighter they have not
+unlocked; bots are unaffected and keep drawing from the full roster. Locked cards say where the fighter
 comes from — a pass tier or a coin price — and clicking one takes you to the tab that has
 it. START MATCH is disabled until an owned fighter is chosen.
 

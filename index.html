@@ -913,6 +913,13 @@ const CLASSES = {
 };
 const CLASS_KEYS = Object.keys(CLASSES);
 
+/* What a human is allowed to respawn as — never the whole roster, only what
+   they actually own. Bots are unaffected; they can deploy as anyone. */
+function ownedClassKeys(){
+  const owned = CLASS_KEYS.filter(k => Career.owns(k));
+  return owned.length ? owned : CLASS_KEYS.slice(0, 1);
+}
+
 /* small SVG icons for the menu cards */
 function classIcon(k, size){
   const c = CLASSES[k], s = size||34;
@@ -2211,7 +2218,11 @@ function eliminate(target, src){
   if(target.isBot){
     target.respawnAt = G.time + 2.6;
   } else {
-    target.respawn = {sel: CLASS_KEYS.indexOf(target.cls), showAt: G.time + 1.1, by: src ? src.name : null};
+    {
+      const keys = ownedClassKeys();
+      const sel = keys.indexOf(target.cls);
+      target.respawn = {sel: sel === -1 ? 0 : sel, showAt: G.time + 1.1, by: src ? src.name : null};
+    }
   }
   markOverlay();
   updateHud();
@@ -2732,12 +2743,12 @@ function renderOverlays(){
       `<div class="elim display">ELIMINATED</div>
        <div class="by">${p.name}${p.respawn.by ? ' &mdash; taken down by ' + p.respawn.by : ''}</div>
        <div class="mini">${
-         CLASS_KEYS.map((k,idx) => {
+         ownedClassKeys().map((k,idx) => {
            const c = CLASSES[k];
            return `<button class="ccard${idx===p.respawn.sel?' sel':''}" data-p="${p.i}" data-k="${k}" style="color:${c.color}">${classIcon(k,26)}<b>${c.name}</b></button>`;
          }).join('')
        }</div>
-       <button class="go" data-go="${p.i}">Deploy as ${CLASSES[CLASS_KEYS[p.respawn.sel]].name}</button>
+       <button class="go" data-go="${p.i}">Deploy as ${CLASSES[ownedClassKeys()[p.respawn.sel]].name}</button>
        <button class="quit" data-quit="1">Leave match</button>
        <div class="ctl">${ctl}</div>`;
     host.appendChild(d);
@@ -2747,7 +2758,7 @@ function renderOverlays(){
     btn.addEventListener('click', () => {
       const p = G.players.find(o => o.i === +btn.dataset.p);
       if(!p || !p.respawn) return;
-      p.respawn.sel = CLASS_KEYS.indexOf(btn.dataset.k);
+      p.respawn.sel = ownedClassKeys().indexOf(btn.dataset.k);
       SFX.play('ui');
       markOverlay(); renderOverlays();
     });
@@ -2766,7 +2777,8 @@ function renderOverlays(){
 
 function confirmRespawn(p){
   if(!p.respawn) return;
-  const k = CLASS_KEYS[clamp(p.respawn.sel, 0, CLASS_KEYS.length-1)];
+  const keys = ownedClassKeys();
+  const k = keys[clamp(p.respawn.sel, 0, keys.length-1)];
   if(!p.isBot) G.myClass = k;
   deploy(p, k);
   SFX.play('ui');
@@ -2775,7 +2787,8 @@ function confirmRespawn(p){
 
 function cycleRespawn(p, dir){
   if(!p.respawn) return;
-  p.respawn.sel = (p.respawn.sel + dir + CLASS_KEYS.length) % CLASS_KEYS.length;
+  const n = ownedClassKeys().length;
+  p.respawn.sel = (p.respawn.sel + dir + n) % n;
   SFX.play('ui');
   markOverlay();
 }
