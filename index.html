@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IDRK Games</title>
+<meta name="description" content="A collection of browser games.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f6f4;
+    --card: #ffffff;
+    --ink: #16161a;
+    --muted: #6b6b76;
+    --line: #e2e2dd;
+    --accent: #3b5bdb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131316;
+      --card: #1c1c21;
+      --ink: #ececf1;
+      --muted: #9a9aa5;
+      --line: #2c2c34;
+      --accent: #91a7ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 3rem 1.25rem 4rem;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 60rem; margin: 0 auto; }
+  h1 { margin: 0 0 .25rem; font-size: clamp(1.8rem, 5vw, 2.6rem); letter-spacing: -.02em; }
+  .sub { margin: 0 0 2rem; color: var(--muted); }
+  #search {
+    width: 100%;
+    padding: .7rem .9rem;
+    margin-bottom: 1.75rem;
+    font: inherit;
+    color: inherit;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+  }
+  #search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem;
+       grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+  a.card {
+    display: block;
+    height: 100%;
+    padding: 1.1rem 1.2rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: .8rem;
+    color: inherit;
+    text-decoration: none;
+    transition: transform .12s ease, border-color .12s ease;
+  }
+  a.card:hover, a.card:focus-visible { transform: translateY(-2px); border-color: var(--accent); }
+  .name { font-weight: 650; margin-bottom: .3rem; }
+  .desc { color: var(--muted); font-size: .92rem; }
+  .date { color: var(--muted); font-size: .78rem; margin-top: .6rem; }
+  .empty { color: var(--muted); border: 1px dashed var(--line); border-radius: .8rem; padding: 2rem; text-align: center; }
+  code { background: var(--card); border: 1px solid var(--line); border-radius: .3rem; padding: .1rem .35rem; font-size: .9em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>IDRK Games</h1>
+  <p class="sub">Browser games. Click one to play — nothing to install.</p>
+  <input id="search" type="search" placeholder="Filter games…" autocomplete="off" hidden>
+  <ul id="list"></ul>
+  <div id="empty" class="empty" hidden>
+    No games yet. Drop an HTML file into <code>games/</code> and push.
+  </div>
+</main>
+<script>
+  const list = document.getElementById("list");
+  const search = document.getElementById("search");
+  const empty = document.getElementById("empty");
+  let games = [];
+
+  function render(filter = "") {
+    const q = filter.trim().toLowerCase();
+    const shown = games.filter(g =>
+      !q || g.title.toLowerCase().includes(q) || (g.description || "").toLowerCase().includes(q));
+    list.innerHTML = "";
+    for (const g of shown) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.className = "card";
+      a.href = g.path;
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = g.title;
+      a.append(name);
+      if (g.description) {
+        const d = document.createElement("div");
+        d.className = "desc";
+        d.textContent = g.description;
+        a.append(d);
+      }
+      if (g.updated) {
+        const u = document.createElement("div");
+        u.className = "date";
+        u.textContent = "Updated " + g.updated;
+        a.append(u);
+      }
+      li.append(a);
+      list.append(li);
+    }
+    empty.hidden = shown.length > 0;
+    if (shown.length === 0 && q) empty.textContent = "No games match “" + filter + "”.";
+  }
+
+  fetch("games.json", { cache: "no-cache" })
+    .then(r => r.ok ? r.json() : { games: [] })
+    .catch(() => ({ games: [] }))
+    .then(data => {
+      games = data.games || [];
+      search.hidden = games.length < 4;
+      render();
+    });
+
+  search.addEventListener("input", () => render(search.value));
+</script>
+</body>
+</html>
