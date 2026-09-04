@@ -22,13 +22,14 @@ Opening `index.html` straight off disk works too, since the game has no external
 
 ## The roster
 
-Fifteen fighters, each with a main weapon and a special ability, defined in `CLASSES` and
+Twenty fighters, each with a main weapon and a special ability, defined in `CLASSES` and
 implemented in `doAttack` / `doSpecial`:
 
 | | Fighters |
 | --- | --- |
 | Starting five | Assassin, Ninja, Archer, Wizard, Witch |
-| Unlockable | Berserker, Gunslinger, Frostmage, Paladin, Bomber, Sniper, Duelist, Necromancer, Monk, Ranger |
+| Battle pass, tiers 5-50 | Berserker, Gunslinger, Frostmage, Paladin, Bomber, Sniper, Duelist, Necromancer, Monk, Ranger |
+| Shop only | Samurai, Alchemist, Stormcaller, Gladiator, Phantom |
 
 Adding a fighter means a `CLASSES` entry, a `case` in `doAttack` and `doSpecial`, and an
 icon in `classIcon`. Everything else is shared: close-range weapons all go through
@@ -44,11 +45,18 @@ and `melee` on the class, rather than from a list of names.
 
 The menu is three tabs:
 
-- **Play** — pick a fighter and start a match. Fighters you do not own show a lock and
-  the tier that unlocks them, and send you to the pass.
+- **Play** — the match summary and the PLAY button. Picking a fighter happens on the
+  select screen that PLAY opens, not here.
 - **Stats** — the career record, plus a per-fighter breakdown.
 - **Battle Pass** — tier progress across five pages, chests to open, and rewards to claim.
-- **Shop** — buy skins with coins and wear the hats you have won. Fighters are not sold.
+- **Shop** — buy the five shop fighters and any skin, with coins.
+- **Locker** — everything you own: the hat you wear, and the skin each fighter wears.
+
+## Starting a match
+
+PLAY opens a fighter select screen showing all twenty. Locked cards say where the fighter
+comes from — a pass tier or a coin price — and clicking one takes you to the tab that has
+it. START MATCH is disabled until an owned fighter is chosen.
 
 ## Matches
 
@@ -70,8 +78,9 @@ counter, so coins spent on one device would come back from the dead on the next 
 Every collection (`owned`, `skins`, `hats`, `chests`, `opened`, `claimed`) is grow-only
 for the same reason and merges as a union.
 
-- **Fighters** — not sold at all. All ten are battle pass rewards, two per page, at
-  tiers 5 and 10 of each.
+- **Fighters** — ten come from the battle pass, two per page at tiers 5 and 10 of each,
+  and are never sold. Five more are sold only in the shop and never appear on the track,
+  so each route has something the other cannot give you.
 - **Skins** — a palette swap, so one definition reskins any fighter. Ids are
   `<fighter>:<skin>`, and a skin can only be bought for a fighter you own.
 - **Hats** — not sold. They come from chests and the pass; the shop row is for wearing them.

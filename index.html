@@ -126,15 +126,15 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:none}
 .bars .fill{height:100%;border-radius:99px}
 
 .playrow{text-align:center;margin-top:26px}
-#playBtn{
+#playBtn, #startBtn{
   font-family:"Bahnschrift","Arial Narrow",Impact,sans-serif;
   font-size:30px;letter-spacing:.06em;padding:14px 64px;border-radius:12px;
   background:linear-gradient(180deg,#ffce6b,#e0761f);color:#231000;font-weight:800;
   border:1px solid #ffd98a;box-shadow:0 14px 34px -14px #ff9a2e;
   transition:transform .1s,filter .12s;
 }
-#playBtn:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.08)}
-#playBtn:disabled{background:#2a2444;color:#6e6690;border-color:#3a3258;box-shadow:none;cursor:not-allowed}
+#playBtn:hover:not(:disabled), #startBtn:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.08)}
+#playBtn:disabled, #startBtn:disabled{background:#2a2444;color:#6e6690;border-color:#3a3258;box-shadow:none;cursor:not-allowed}
 #playHint{font-size:13px;color:var(--dim);margin-top:11px;min-height:18px}
 
 .help{margin-top:14px;font-size:12px;color:#8f87ab;line-height:1.7}
@@ -231,7 +231,7 @@ canvas{
   #menu h1{font-size:clamp(38px,12vw,64px)}
   #menu .tag{font-size:13.5px}
   .playrow{position:sticky;bottom:8px;z-index:6;margin-top:18px}
-  #playBtn{width:100%;font-size:26px;padding:13px 0}
+  #playBtn, #startBtn{width:100%;font-size:26px;padding:13px 0}
   #playHint{background:rgba(10,8,16,.85);border-radius:8px;padding:6px 8px}
   #game{--reserve:128px}
   #game.fs{--reserve:118px}
@@ -364,6 +364,10 @@ canvas{
   background:linear-gradient(180deg,#7a5a2a,#4a3410);border:1px solid #c9963a;color:#ffe6b0;
 }
 .locked-note{font-size:11px;color:#8f87ab;margin-top:4px}
+.load{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:8px 0;border-bottom:1px solid rgba(44,37,71,.7)}
+.load span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.load b{font-size:14px;color:var(--parch)}
 .clock{
   align-self:center;font-size:19px;font-weight:700;color:var(--parch);
   background:rgba(16,13,30,.85);border:1px solid var(--edge);border-radius:9px;
@@ -396,16 +400,11 @@ canvas{
     <button class="tab" type="button" data-pane="stats">Stats</button>
     <button class="tab" type="button" data-pane="pass">Battle Pass</button>
     <button class="tab" type="button" data-pane="shop">Shop</button>
+    <button class="tab" type="button" data-pane="locker">Locker</button>
   </nav>
 
   <div class="pane" id="pane-play">
   <div class="menu-grid">
-    <section class="panel">
-      <h2>Choose your fighter</h2>
-      <div class="classgrid" id="classGrid"></div>
-      <div class="detail" id="classDetail"></div>
-    </section>
-
     <section class="panel">
       <h2>How it works</h2>
       <p style="font-size:13.5px;color:#bfb6d6;line-height:1.6">
@@ -425,8 +424,8 @@ canvas{
   </div>
 
   <div class="playrow">
-    <button id="playBtn" disabled>PLAY</button>
-    <p id="playHint">Pick your class to unlock the match.</p>
+    <button id="playBtn">PLAY</button>
+    <p id="playHint">Five minutes against three opponents.</p>
   </div>
   </div>
 
@@ -457,6 +456,11 @@ canvas{
       <div class="shophead"><span class="coins" id="shopCoins">0</span>
         <span class="sub" style="font-size:12px;color:var(--dim)">Coins come from the battle pass and from chests.</span></div>
 
+      <div class="shophead"><h3>Fighters</h3>
+        <span class="sub" style="font-size:12px;color:var(--dim)">Sold only here — these five are never on the pass.</span>
+      </div>
+      <div class="shopgrid" id="shopFighters"></div>
+
       <div class="shophead"><h3>Skins</h3>
         <select id="skinFor" style="font-family:inherit;font-size:12px;background:#221d38;color:#e2dcf2;border:1px solid var(--edge);border-radius:7px;padding:5px 8px"></select>
       </div>
@@ -465,9 +469,45 @@ canvas{
       <div class="shophead"><h3>Hats</h3></div>
       <div class="shopgrid" id="shopHats"></div>
 
-      <p class="career-note">Fighters are not sold. All ten are battle pass rewards, two on
-      every page — check the Battle Pass tab to see which tier hands over the one you want.</p>
+      <p class="career-note">The other ten fighters are battle pass rewards, two on every
+      page — the Battle Pass tab shows which tier hands over the one you want.</p>
     </section>
+  </div>
+
+  <div class="pane hidden" id="pane-locker">
+    <section class="panel">
+      <h2>Locker</h2>
+      <p class="career-note" style="margin:0 0 6px">Everything you own, and what each fighter wears.</p>
+      <div class="shophead"><h3>Hat</h3></div>
+      <div class="shopgrid" id="lockerHats"></div>
+      <div id="lockerList"></div>
+    </section>
+  </div>
+</div>
+
+<!-- ============ FIGHTER SELECT ============ -->
+<div id="select" class="screen hidden">
+  <header>
+    <h1 class="display" style="font-size:clamp(30px,6vw,52px)">Choose your fighter</h1>
+    <p class="tag">Twenty fighters. Locked ones come from the battle pass or the shop.</p>
+  </header>
+
+  <div class="menu-grid">
+    <section class="panel">
+      <div class="classgrid" id="classGrid"></div>
+      <div class="detail" id="classDetail"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Your loadout</h2>
+      <div id="selLoadout"></div>
+    </section>
+  </div>
+
+  <div class="playrow">
+    <button id="startBtn" disabled>START MATCH</button>
+    <p id="selHint">Pick a fighter to start.</p>
+    <p style="margin-top:10px"><button class="tbtn" id="selBack">Back to menu</button></p>
   </div>
 </div>
 
@@ -804,6 +844,71 @@ const CLASSES = {
     specialText:'Nine arrows in a sweeping fan wide enough to cover an entire corridor.',
     bars:{Damage:4,Range:5,Speed:3,Health:3},
     botRange:330, botSp:320
+  },
+
+  /* ---- shop roster ---- */
+  samurai:{
+    key:'samurai', name:'Samurai', role:'Close range · discipline',
+    color:'#dce4f5', dark:'#4a2030', light:'#ffffff',
+    hp:112, speed:244, radius:14,
+    attackCd:0.42, specialCd:8.0,
+    melee:true,
+    weapon:'Katana',
+    weaponText:'A clean diagonal cut with real reach for a blade. Fast enough to chain, heavy enough to matter.',
+    special:'Iaido',
+    specialText:'A single drawn cut that reaches most of the way across the room in a straight line.',
+    bars:{Damage:5,Range:2,Speed:4,Health:4},
+    botRange:78, botSp:180
+  },
+  alchemist:{
+    key:'alchemist', name:'Alchemist', role:'Mid range · corrosion',
+    color:'#c2f24a', dark:'#41590a', light:'#ecffb8',
+    hp:102, speed:226, radius:14,
+    attackCd:0.46, specialCd:9.5,
+    weapon:'Acid Flask',
+    weaponText:'A glass flask that shatters into a splash of acid and leaves whoever it touches struggling to move.',
+    special:'Corrosive Pool',
+    specialText:'Floods a wide patch of floor with acid for 6s. It bites harder than rot and slows anyone wading through.',
+    bars:{Damage:4,Range:3,Speed:2,Health:4},
+    botRange:250, botSp:280
+  },
+  stormcaller:{
+    key:'stormcaller', name:'Stormcaller', role:'Mid range · thunder',
+    color:'#7ea8ff', dark:'#152a72', light:'#d6e3ff',
+    hp:100, speed:234, radius:14,
+    attackCd:0.30, specialCd:10.0,
+    weapon:'Chain Bolt',
+    weaponText:'A forked bolt of lightning that carries clean through two fighters before it earths out.',
+    special:'Thunderclap',
+    specialText:'Detonates the air around you — heavy damage and everyone nearby is thrown clear of the blast.',
+    bars:{Damage:4,Range:4,Speed:3,Health:3},
+    botRange:290, botSp:150
+  },
+  gladiator:{
+    key:'gladiator', name:'Gladiator', role:'Close range · reach',
+    color:'#d9a441', dark:'#6b4708', light:'#ffe1a3',
+    hp:128, speed:228, radius:15,
+    attackCd:0.46, specialCd:8.5,
+    melee:true,
+    weapon:'Trident',
+    weaponText:'Three prongs on a long shaft. The reach is the point — it hits from further out than any other blade.',
+    special:'Net Charge',
+    specialText:'Barrels forward behind the net, tangling everyone in the way so they can barely walk.',
+    bars:{Damage:4,Range:2,Speed:2,Health:5},
+    botRange:88, botSp:210
+  },
+  phantom:{
+    key:'phantom', name:'Phantom', role:'Close range · ambush',
+    color:'#b9a6ff', dark:'#2e1065', light:'#e8dfff',
+    hp:92, speed:270, radius:14,
+    attackCd:0.24, specialCd:7.0,
+    melee:true,
+    weapon:'Void Blade',
+    weaponText:'A blade that is barely there. Short, quiet and quick enough that the second cut lands before the first registers.',
+    special:'Phase Strike',
+    specialText:'Slips out of the world and reappears where you were aiming — untouchable on the way, invisible after.',
+    bars:{Damage:3,Range:1,Speed:5,Health:2},
+    botRange:60, botSp:240
   }
 };
 const CLASS_KEYS = Object.keys(CLASSES);
@@ -827,7 +932,13 @@ function classIcon(k, size){
     duelist:`<line x1="9" y1="31" x2="28" y2="9" stroke="${c.light}" stroke-width="2.6" stroke-linecap="round"/><path d="M28 9 l4 -4 l1 5 l-5 1 z" fill="${c.color}"/><circle cx="11" cy="28" r="4.6" fill="none" stroke="${c.color}" stroke-width="2.2"/>`,
     necromancer:`<circle cx="19" cy="16" r="9" fill="${c.light}"/><rect x="14" y="23" width="10" height="5" rx="2" fill="${c.light}"/><circle cx="15.6" cy="15" r="2.6" fill="${c.dark}"/><circle cx="22.4" cy="15" r="2.6" fill="${c.dark}"/><rect x="10" y="30" width="18" height="3" rx="1.5" fill="${c.color}"/>`,
     monk:`<circle cx="19" cy="19" r="13" fill="none" stroke="${c.color}" stroke-width="2.4"/><path d="M19 6 a6.5 6.5 0 0 1 0 13 a6.5 6.5 0 0 0 0 13" fill="none" stroke="${c.light}" stroke-width="2.4"/><circle cx="19" cy="12.5" r="2.2" fill="${c.light}"/><circle cx="19" cy="25.5" r="2.2" fill="${c.color}"/>`,
-    ranger:`<path d="M25 4 A 20 20 0 0 0 25 34" fill="none" stroke="${c.color}" stroke-width="2.6"/><path d="M31 6 A 20 20 0 0 0 31 32" fill="none" stroke="${c.dark}" stroke-width="2.2"/><line x1="7" y1="15" x2="28" y2="15" stroke="${c.light}" stroke-width="2"/><line x1="7" y1="23" x2="28" y2="23" stroke="${c.light}" stroke-width="2"/>`
+    ranger:`<path d="M25 4 A 20 20 0 0 0 25 34" fill="none" stroke="${c.color}" stroke-width="2.6"/><path d="M31 6 A 20 20 0 0 0 31 32" fill="none" stroke="${c.dark}" stroke-width="2.2"/><line x1="7" y1="15" x2="28" y2="15" stroke="${c.light}" stroke-width="2"/><line x1="7" y1="23" x2="28" y2="23" stroke="${c.light}" stroke-width="2"/>`,
+
+    samurai:`<path d="M31 5 q-9 4 -15 12 q-5 7 -6 15 l4 1 q2 -8 6 -14 q5 -8 13 -11 z" fill="${c.light}"/><circle cx="12" cy="27" r="4.6" fill="none" stroke="${c.dark}" stroke-width="2.4"/><rect x="4" y="29" width="10" height="3.2" rx="1.6" fill="${c.dark}" transform="rotate(38 9 31)"/>`,
+    alchemist:`<path d="M16 5 h6 v9 l7 13 a5 5 0 0 1 -4 8 h-12 a5 5 0 0 1 -4 -8 l7 -13 z" fill="none" stroke="${c.color}" stroke-width="2.2"/><path d="M12 24 h14 l3 5 a4 4 0 0 1 -3 6 h-14 a4 4 0 0 1 -3 -6 z" fill="${c.color}" opacity=".75"/><circle cx="16" cy="29" r="1.8" fill="${c.light}"/><circle cx="22" cy="31" r="1.4" fill="${c.light}"/>`,
+    stormcaller:`<path d="M21 3 L9 21 h8 l-4 14 L30 16 h-9 z" fill="${c.color}"/><path d="M21 3 L13 17 h6 z" fill="${c.light}"/>`,
+    gladiator:`<line x1="19" y1="34" x2="19" y2="14" stroke="${c.dark}" stroke-width="3"/><path d="M9 14 v-8 M19 14 v-11 M29 14 v-8" stroke="${c.color}" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M8 15 h22" stroke="${c.color}" stroke-width="3" stroke-linecap="round"/><path d="M19 3 l2 4 h-4 z" fill="${c.light}"/>`,
+    phantom:`<path d="M19 4 a11 11 0 0 1 11 11 v19 l-5 -4 l-4 4 l-2 -4 l-2 4 l-4 -4 l-5 4 v-19 a11 11 0 0 1 11 -11 z" fill="${c.color}" opacity=".85"/><circle cx="15" cy="16" r="2.6" fill="${c.dark}"/><circle cx="23" cy="16" r="2.6" fill="${c.dark}"/>`
   }[k];
   return `<svg width="${s}" height="${s}" viewBox="0 0 38 38" aria-hidden="true">${g}</svg>`;
 }
@@ -985,7 +1096,7 @@ const DIFF = {
    6. MENU UI
    ============================================================ */
 const $ = id => document.getElementById(id);
-const elMenu = $('menu'), elGame = $('game');
+const elMenu = $('menu'), elGame = $('game'), elSelect = $('select');
 
 function renderPicker(){
   const grid = $('classGrid');
@@ -998,20 +1109,50 @@ function renderPicker(){
     b.style.color = c.color;
     b.style.position = 'relative';
     const tier = owned ? null : Career.tierOf(k);
+    const forSale = !owned && !tier ? Career.catalog.shopFighters[k] : null;
     b.innerHTML = classIcon(k) + '<b>' + c.name + '</b>'
       + (owned ? '' : '<span class="lock">&#128274;</span>')
-      + (tier ? '<span class="unlock">Tier ' + tier + '</span>' : '');
-    if(!owned) b.title = c.name + ' unlocks at battle pass tier ' + tier;
+      + (tier ? '<span class="unlock">Tier ' + tier + '</span>' : '')
+      + (forSale ? '<span class="unlock">' + forSale.price.toLocaleString() + ' coins</span>' : '');
+    if(!owned) b.title = tier
+      ? c.name + ' unlocks at battle pass tier ' + tier
+      : c.name + ' costs ' + forSale.price.toLocaleString() + ' coins in the shop';
     b.addEventListener('click', () => {
       SFX.init(); SFX.play('ui');
-      if(!owned){ showTab('pass'); return; }      // send them to where it is earned
+      if(!owned){                                 // show where it actually comes from
+        selectToMenu();
+        showTab(Career.tierOf(k) ? 'pass' : 'shop');
+        return;
+      }
       G.myClass = k;
-      renderMenu();
+      renderPicker();
     });
     grid.appendChild(b);
   });
 
   if(G.myClass && !Career.owns(G.myClass)) G.myClass = null;
+
+  const startBtn = $('startBtn'), selHint = $('selHint'), loadout = $('selLoadout');
+  if(startBtn){
+    startBtn.disabled = !G.myClass;
+    selHint.textContent = G.myClass
+      ? 'Five minutes as the ' + CLASSES[G.myClass].name + '.'
+      : 'Pick a fighter to start.';
+  }
+  if(loadout){
+    const skin = G.myClass ? Career.skinFor(G.myClass) : null;
+    const set = skin ? Career.catalog.skinSets.filter(x => x.id === skin)[0] : null;
+    const hat = Career.equippedHat
+      ? Career.catalog.hats.filter(h => h.id === Career.equippedHat)[0] : null;
+    loadout.innerHTML = G.myClass
+      ? '<div class="load"><span>Fighter</span><b style="color:' + CLASSES[G.myClass].color + '">'
+          + CLASSES[G.myClass].name + '</b></div>'
+        + '<div class="load"><span>Skin</span><b>' + (set ? set.name : 'Default') + '</b></div>'
+        + '<div class="load"><span>Hat</span><b>' + (hat ? hat.name : 'None') + '</b></div>'
+        + '<p class="career-note">Change these in the Locker.</p>'
+      : '<p class="career-note">Nothing selected yet.</p>';
+  }
+
   const k = G.myClass || CLASS_KEYS[0];
   const c = CLASSES[k];
 
@@ -1044,7 +1185,7 @@ let activeTab = 'play';
 
 function showTab(name){
   activeTab = name;
-  ['play','stats','pass','shop'].forEach(t => {
+  ['play','stats','pass','shop','locker'].forEach(t => {
     $('pane-' + t).classList.toggle('hidden', t !== name);
   });
   Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
@@ -1053,6 +1194,7 @@ function showTab(name){
   if(name === 'stats') renderCareer();
   if(name === 'pass') renderPass();
   if(name === 'shop') renderShop();
+  if(name === 'locker') renderLocker();
 }
 
 Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
@@ -1067,6 +1209,27 @@ function coinText(n){ return n.toLocaleString(); }
 function renderShop(){
   const cat = Career.catalog;
   $('shopCoins').textContent = coinText(Career.coins);
+
+  // the five fighters the shop actually sells
+  const fg = $('shopFighters');
+  fg.innerHTML = '';
+  Object.keys(cat.shopFighters).forEach(k => {
+    const def = cat.shopFighters[k], c = CLASSES[k], owned = Career.owns(k);
+    const card = document.createElement('div');
+    card.className = 'shopcard';
+    card.innerHTML = '<div class="nm" style="color:' + c.color + '">' + c.name + '</div>'
+      + '<div class="sub">' + c.role + '</div>'
+      + '<div class="sub">' + c.weapon + ' &middot; ' + c.special + '</div>';
+    const b = document.createElement('button');
+    b.className = 'buy' + (owned ? ' owned' : '');
+    b.textContent = owned ? 'Owned' : coinText(def.price) + ' coins';
+    b.disabled = owned || Career.coins < def.price;
+    if(!owned) b.addEventListener('click', () => {
+      if(Career.buy('fighter', k)){ SFX.play('win'); renderShop(); }
+    });
+    card.appendChild(b);
+    fg.appendChild(card);
+  });
 
   // which fighter the skins apply to
   const sel = $('skinFor');
@@ -1122,6 +1285,84 @@ function renderShop(){
     card.appendChild(b);
     hg.appendChild(card);
   });
+}
+
+/* ---- locker ---- */
+function renderLocker(){
+  const cat = Career.catalog;
+
+  const hg = $('lockerHats');
+  hg.innerHTML = '';
+  const none = document.createElement('div');
+  none.className = 'shopcard';
+  none.innerHTML = '<div class="nm">Bare head</div><div class="sub">No hat</div>';
+  const nb = document.createElement('button');
+  nb.className = 'buy' + (Career.equippedHat ? '' : ' on');
+  nb.textContent = Career.equippedHat ? 'Take off' : 'Worn';
+  nb.addEventListener('click', () => { Career.equipHat(null); SFX.play('ui'); renderLocker(); });
+  none.appendChild(nb);
+  hg.appendChild(none);
+
+  cat.hats.forEach(h => {
+    const owned = Career.ownsHat(h.id), on = Career.equippedHat === h.id;
+    const card = document.createElement('div');
+    card.className = 'shopcard';
+    card.innerHTML = '<div class="nm">' + h.name + '</div>'
+      + '<div class="sub">' + (owned ? 'Owned' : 'Not found yet') + '</div>';
+    const b = document.createElement('button');
+    b.className = 'buy' + (on ? ' on' : owned ? ' owned' : '');
+    b.textContent = on ? 'Worn' : owned ? 'Wear' : 'Locked';
+    b.disabled = !owned;
+    if(owned) b.addEventListener('click', () => {
+      Career.equipHat(on ? null : h.id); SFX.play('ui'); renderLocker();
+    });
+    card.appendChild(b);
+    hg.appendChild(card);
+  });
+
+  // one row per fighter you own, with every skin you have for them
+  const list = $('lockerList');
+  list.innerHTML = '';
+  Career.ownedFighters.filter(k => CLASSES[k]).forEach(k => {
+    const c = CLASSES[k];
+    const head = document.createElement('div');
+    head.className = 'shophead';
+    head.innerHTML = '<h3 style="color:' + c.color + '">' + c.name + '</h3>';
+    list.appendChild(head);
+
+    const grid = document.createElement('div');
+    grid.className = 'shopgrid';
+
+    const mk = (label, sub, setId, swatch) => {
+      const on = Career.skinFor(k) === setId;
+      const card = document.createElement('div');
+      card.className = 'shopcard';
+      card.innerHTML = '<div class="nm">' + label + '</div>'
+        + (swatch ? '<div class="swatch"><i style="background:' + swatch.color + '"></i>'
+            + '<i style="background:' + swatch.dark + '"></i>'
+            + '<i style="background:' + swatch.light + '"></i></div>'
+          : '<div class="swatch"><i style="background:' + c.color + '"></i>'
+            + '<i style="background:' + c.dark + '"></i>'
+            + '<i style="background:' + c.light + '"></i></div>')
+        + '<div class="sub">' + sub + '</div>';
+      const b = document.createElement('button');
+      b.className = 'buy' + (on ? ' on' : ' owned');
+      b.textContent = on ? 'Equipped' : 'Equip';
+      b.addEventListener('click', () => { Career.equipSkin(k, setId); SFX.play('ui'); renderLocker(); });
+      card.appendChild(b);
+      grid.appendChild(card);
+    };
+
+    mk('Default', 'Stock colours', null, null);
+    Career.skinsOwnedFor(k).forEach(id => {
+      const set = cat.skinSets.filter(x => x.id === id)[0];
+      if(set) mk(set.name, 'Skin', set.id, set);
+    });
+    list.appendChild(grid);
+  });
+
+  if(!list.children.length)
+    list.innerHTML = '<p class="career-note">No fighters yet.</p>';
 }
 
 /* ---- battle pass ---- */
@@ -1290,7 +1531,28 @@ function renderMenu(){
     hint.textContent = 'Endless brawl against ' + G.opponents + ' opponents.';
   }
 }
-$('playBtn').addEventListener('click', () => { SFX.init(); startMatch(); });
+function showSelect(){
+  G.screen = 'select';
+  elMenu.classList.add('hidden');
+  elSelect.classList.remove('hidden');
+  renderPicker();
+}
+
+function selectToMenu(){
+  G.screen = 'menu';
+  elSelect.classList.add('hidden');
+  elMenu.classList.remove('hidden');
+  renderMenu();
+}
+
+$('playBtn').addEventListener('click', () => { SFX.init(); SFX.play('ui'); showSelect(); });
+$('selBack').addEventListener('click', () => { SFX.play('ui'); selectToMenu(); });
+$('startBtn').addEventListener('click', () => {
+  if(!G.myClass || !Career.owns(G.myClass)) return;
+  SFX.init(); SFX.play('ui');
+  elSelect.classList.add('hidden');
+  startMatch();
+});
 
 /* ============================================================
    7. MATCH SETUP
@@ -1676,6 +1938,25 @@ function doAttack(p){
       addProj(p, 'arrow', a + 0.06, {speed:880, dmg:13, r:4, life:1.5, pierce:1});
       SFX.play('bow');
       break;
+
+    case 'samurai':
+      meleeSwing(p, {range:78, arc:1.1, dmg:30, kb:180});
+      break;
+    case 'alchemist':
+      addProj(p, 'orb', a, {speed:470, dmg:14, r:8, life:2.2,
+        splash:64, splashDmg:12, slow:1.0});
+      SFX.play('hex');
+      break;
+    case 'stormcaller':
+      addProj(p, 'bolt', a, {speed:1150, dmg:16, r:4, life:1.3, pierce:2});
+      SFX.play('star');
+      break;
+    case 'gladiator':
+      meleeSwing(p, {range:88, arc:0.8, dmg:26, kb:220});
+      break;
+    case 'phantom':
+      meleeSwing(p, {range:60, arc:1.0, dmg:17, kb:110});
+      break;
   }
 }
 
@@ -1831,6 +2112,59 @@ function doSpecial(p){
       for(let i=-4;i<=4;i++)
         addProj(p, 'arrow', p.aim + i*0.13, {speed:860, dmg:12, r:4, life:1.5, pierce:1});
       SFX.play('bow'); SFX.play('bow');
+      break;
+    }
+
+    case 'samurai':
+      meleeSwing(p, {range:230, arc:0.42, dmg:44, kb:240, color:c.light});
+      floatText(p.x, p.y-26, 'IAIDO', c.light);
+      break;
+    case 'alchemist': {
+      const t = aimPoint(p, 320);
+      G.aoes.push({type:'cloud', x:t.x, y:t.y, r:112, t:0, life:6.0, owner:p.i,
+        dmg:14, tick:0.45, tickT:0.2, color:'#c2f24a'});
+      SFX.play('hex');
+      break;
+    }
+    case 'stormcaller': {
+      G.aoes.push({type:'meteor', x:p.x, y:p.y, r:150, t:0, delay:0.28, owner:p.i,
+        dmg:42, color:c.color, done:false});
+      for(let i=0;i<4;i++)                        // the shove, on top of the blast
+        meleeSwing(p, {angle:p.aim + i*TAU/4, range:150, arc:TAU/4 + 0.1, dmg:0, kb:520, color:c.light});
+      floatText(p.x, p.y-26, 'THUNDERCLAP', c.light);
+      break;
+    }
+    case 'gladiator': {
+      const dist = 190, steps = 28;
+      const sx = p.x, sy = p.y;
+      let ex = p.x, ey = p.y;
+      for(let i=1;i<=steps;i++){
+        const nx = sx + Math.cos(p.aim)*dist*i/steps;
+        const ny = sy + Math.sin(p.aim)*dist*i/steps;
+        if(nx<p.r||ny<p.r||nx>W-p.r||ny>H-p.r) break;
+        if(!circleHitsWall(nx,ny,p.r)){ ex = nx; ey = ny; }
+      }
+      p.x = ex; p.y = ey;
+      for(const q of G.players){
+        if(q === p || !q.alive) continue;
+        if(segDist(q.x,q.y,sx,sy,ex,ey) < q.r + 26){
+          damage(q, 22, p, Math.cos(p.aim)*180, Math.sin(p.aim)*180);
+          q.fx.slow = Math.max(q.fx.slow, 2.4);
+        }
+      }
+      floatText(p.x, p.y-26, 'NET CHARGE', c.light);
+      SFX.play('dash');
+      break;
+    }
+    case 'phantom': {
+      const t = aimPoint(p, 260);
+      smokePuff(p.x, p.y, c.dark, 18, 90);
+      if(!circleHitsWall(t.x, t.y, p.r)){ p.x = t.x; p.y = t.y; }
+      p.fx.invuln = Math.max(p.fx.invuln, 0.5);
+      p.fx.stealth = 2.6; p.fx.haste = 2.6; p.fx.buff = 2.6;
+      smokePuff(p.x, p.y, c.light, 18, 90);
+      floatText(p.x, p.y-26, 'PHASE', c.light);
+      SFX.play('smoke');
       break;
     }
   }
@@ -3010,7 +3344,8 @@ function drawBody(p, c, flip){
     ctx.fillRect(flip*1+0.8,-10,3,2.1);
 
     ctx.fillStyle = c.color;
-    if(k === 'berserker' || k === 'paladin'){         // tall crest
+    if(k === 'berserker' || k === 'paladin' || k === 'samurai'
+       || k === 'gladiator' || k === 'stormcaller'){   // tall crest
       ctx.beginPath();
       ctx.moveTo(-2,-15); ctx.quadraticCurveTo(0,-27,2,-15); ctx.fill();
     } else if(k === 'frostmage' || k === 'necromancer'){   // horns
@@ -3021,13 +3356,13 @@ function drawBody(p, c, flip){
       ctx.beginPath(); ctx.ellipse(0,-15,13,3.6,0,0,TAU); ctx.fill();
       ctx.fillStyle = c.color;
       ctx.fillRect(-6,-22,12,7);
-    } else if(k === 'sniper' || k === 'duelist'){     // side plume
+    } else if(k === 'sniper' || k === 'duelist' || k === 'phantom'){   // side plume
       ctx.beginPath();
       ctx.moveTo(-flip*6,-14);
       ctx.quadraticCurveTo(-flip*16,-20,-flip*18,-10);
       ctx.quadraticCurveTo(-flip*12,-14,-flip*6,-11);
       ctx.fill();
-    } else {                                          // monk, bomber: headband tails
+    } else {                                          // monk, bomber, alchemist: headband tails
       ctx.beginPath();
       ctx.moveTo(-flip*7,-13);
       ctx.quadraticCurveTo(-flip*16,-10,-flip*19,-2);
@@ -3264,6 +3599,7 @@ Career.onChange(() => {
   if(activeTab === 'stats') renderCareer();
   if(activeTab === 'pass') renderPass();
   if(activeTab === 'shop') renderShop();
+  if(activeTab === 'locker') renderLocker();
 });
 
 renderMenu();

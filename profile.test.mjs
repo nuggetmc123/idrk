@@ -104,16 +104,29 @@ check('coins after earning 1500', Career.coins, 1500);
 check('starters are always owned', Career.owns('ninja'), true);
 check('unowned fighter reads false', Career.owns('ranger'), false);
 
-// fighters are pass rewards now, not merchandise
-check('fighters are not for sale', Career.buy('fighter','berserker'), false);
+// pass fighters are rewards, never merchandise
+check('a pass fighter is not for sale', Career.buy('fighter','berserker'), false);
 check('coins untouched by that', Career.coins, 1500);
-check('every locked fighter sits on the track',
+check('every pass fighter sits on the track',
       Career.catalog.passFighters.every(f => Career.tierOf(f) !== null), true);
+
+// the shop five are the mirror image: sold, and never on the track
+const shopIds = Object.keys(Career.catalog.shopFighters);
+check('there are five shop fighters', shopIds.length, 5);
+check('none of them are on the track', shopIds.every(f => Career.tierOf(f) === null), true);
+check('cannot afford Samurai (3000)', Career.buy('fighter','samurai'), false);
+d.earned += 3000;
+check('buy Samurai once affordable', Career.buy('fighter','samurai'), true);
+check('coins went down by his price', Career.coins, 1500);
+check('and he is playable', Career.owns('samurai'), true);
+check('cannot buy him twice', Career.buy('fighter','samurai'), false);
+check('a made-up fighter is refused', Career.buy('fighter','nobody'), false);
 check('Berserker is the tier 5 reward', Career.tierOf('berserker'), 5);
 check('Ranger is the tier 50 reward', Career.tierOf('ranger'), 50);
 
 // claiming that tier is the only way to get him
 d.elims = 5000;                                   // enough xp for the whole track
+d.owned = d.owned.filter(x => x !== 'berserker');
 check('cannot own him before claiming', Career.owns('berserker'), false);
 const won = Career.claim(5);
 check('tier 5 pays out a fighter', won && won.type, 'fighter');

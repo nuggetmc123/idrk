@@ -25,12 +25,22 @@ const META_KEY   = 'arenaClash';
 
 const STARTERS = ['assassin','ninja','archer','wizard','witch'];
 
-/* Every fighter outside the starting five comes from the battle pass, in
-   this order — two per page, at tiers 5 and 10 of each. None are sold. */
+/* Ten fighters come from the battle pass, two per page, at tiers 5 and 10
+   of each. They cannot be bought. */
 const PASS_FIGHTERS = [
   'berserker', 'gunslinger', 'frostmage', 'paladin', 'bomber',
   'sniper', 'duelist', 'necromancer', 'monk', 'ranger'
 ];
+
+/* Five more are sold for coins and never appear on the track, so the shop
+   has something the pass will never hand over. */
+const SHOP_FIGHTERS = {
+  samurai:     {name:'Samurai',     price:3000},
+  alchemist:   {name:'Alchemist',   price:3500},
+  stormcaller: {name:'Stormcaller', price:4000},
+  gladiator:   {name:'Gladiator',   price:4500},
+  phantom:     {name:'Phantom',     price:6000}
+};
 
 /* A skin is a palette swap, so one definition reskins any fighter. Ids are
    "<fighter>:<skin>" so a skin is always tied to who it belongs to. */
@@ -297,7 +307,8 @@ const Career = {
   /* ---------- economy ---------- */
 
   get coins(){ return Math.max(0, (data.earned || 0) - (data.spent || 0)); },
-  get catalog(){ return {passFighters:PASS_FIGHTERS, skinSets:SKIN_SETS, hats:HATS, chests:CHESTS}; },
+  get catalog(){ return {passFighters:PASS_FIGHTERS, shopFighters:SHOP_FIGHTERS,
+                         skinSets:SKIN_SETS, hats:HATS, chests:CHESTS}; },
   get track(){ return TRACK; },
   get pages(){ return PAGES; },
   get tiersPerPage(){ return TIERS_PER_PAGE; },
@@ -316,10 +327,22 @@ const Career = {
   get equippedHat(){ return data.equipHat; },
   skinFor(cls){ return (data.equipSkin || {})[cls] || null; },
 
+  /* Skin ids owned for one fighter, as bare set ids. */
+  skinsOwnedFor(cls){
+    return (data.skins || [])
+      .filter(id => id.indexOf(cls + ':') === 0)
+      .map(id => id.split(':')[1]);
+  },
+
   /* Every purchase goes through here, so the balance can only be spent once
      and never below zero. */
   buy(kind, id){
-    if(kind === 'skin'){
+    if(kind === 'fighter'){
+      const def = SHOP_FIGHTERS[id];       // pass fighters are never for sale
+      if(!def || this.owns(id) || this.coins < def.price) return false;
+      data.spent += def.price;
+      data.owned.push(id);
+    } else if(kind === 'skin'){
       const parts = String(id).split(':');
       const set = SKIN_SETS.filter(k => k.id === parts[1])[0];
       if(!set || !this.owns(parts[0]) || this.ownsSkin(id) || this.coins < set.price) return false;
