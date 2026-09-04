@@ -32,8 +32,9 @@ The card on the landing page is built from the game's own HTML:
 
 ## One-time setup
 
-In the repo on GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-The first deploy runs on the next push to `main`.
+The first push to `main` enables Pages automatically (`enablement: true` on the `configure-pages`
+step), so there is nothing to click. If your org restricts that, turn it on by hand instead:
+**Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
 ## Working locally
 

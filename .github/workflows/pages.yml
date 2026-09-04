@@ -28,6 +28,10 @@ jobs:
       - name: Build game index
         run: node tools/build-index.mjs
       - uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on for the repo the first time this runs, so no
+          # manual trip to Settings -> Pages is needed.
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
