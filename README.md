@@ -1,49 +1,31 @@
 # idrk
 
-IDRK Games — a collection of browser games, published as a static site with GitHub Pages.
+**Arena Clash** — a browser game, published as a static site with GitHub Pages.
 
 **Live site:** https://nuggetmc123.github.io/idrk/
 
-## Adding a game
+The whole game is a single self-contained file, `index.html`, served at the site root.
+Open the URL and you're in the game — there is no menu or landing page in front of it.
 
-1. Drop the file into `games/`:
-   - single file → `games/my-game.html`
-   - game with its own assets → `games/my-game/index.html` (put images, audio, etc. beside it)
-2. Commit and push to `main`.
+## Making changes
 
-That's it. On every push to `main`, the workflow regenerates `games.json` and redeploys the
-site, so the new game shows up on the landing page automatically — no editing `index.html`.
-
-The card on the landing page is built from the game's own HTML:
-
-- **Title** — the `<title>` tag (falls back to a prettified filename)
-- **Blurb** — `<meta name="description" content="...">`, if present
-
-## Repo layout
-
-| Path | What it is |
-| --- | --- |
-| `index.html` | Landing page; fetches `games.json` and renders the grid |
-| `games/` | The games themselves |
-| `games.json` | Generated index — do not hand-edit |
-| `tools/build-index.mjs` | Scans `games/` and writes `games.json` |
-| `.github/workflows/pages.yml` | Builds the index and deploys to Pages |
-| `.nojekyll` | Serves files verbatim (keeps Jekyll from ignoring `_`-prefixed paths) |
-
-## One-time setup
-
-In the repo on GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-This has to be done by a repo admin — the workflow's own token is not allowed to create the
-Pages site (`configure-pages` with `enablement: true` fails with "Resource not accessible by
-integration"). Deploys fail at the `configure-pages` step until it is switched on; after that,
-push to `main` (or re-run the workflow) and the site goes live.
+Edit `index.html`, commit, and push to `main`. The workflow in
+`.github/workflows/pages.yml` redeploys the site on every push; there is no build step.
 
 ## Working locally
 
 ```sh
-node tools/build-index.mjs   # refresh games.json
-python3 -m http.server 8000  # then open http://localhost:8000
+python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
-Games must be self-contained or reference only files inside the repo — Pages serves static
-files, so there is no server-side code.
+Opening `index.html` straight off disk works too, since the game has no external assets.
+
+## Pages setup
+
+Already done: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+## History
+
+This repo briefly had a landing page listing several games (Brownie Clicker, Jetpack Ride)
+with a generated `games.json` index. That was removed in favor of Arena Clash alone; the
+files are still in the git history if they're ever wanted back.
