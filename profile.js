@@ -20,7 +20,6 @@ const CLERK_PUBLISHABLE_KEY = 'pk_test_dmVyaWZpZWQtbWFja2VyZWwtOTQ0Ni5jbGVyay5hY
 
 const LOCAL_KEY  = 'arena-clash-career';
 const META_KEY   = 'arenaClash';
-const SAVE_DELAY = 1500;          // ms of quiet before a write goes out
 
 const blank = () => ({
   elims:0, deaths:0, matches:0, seconds:0, bestStreak:0,
@@ -31,8 +30,9 @@ let data      = blank();
 let streak    = 0;                // elims since the last death, this life
 let clerk     = null;             // the loaded Clerk instance, once ready
 let settled   = false;            // Clerk has either loaded or failed to
-let saveTimer = null;
 let listeners = [];
+let pushing    = false;           // a write to Clerk is in flight
+let lastPushed = null;            // canonical form of what the account already holds
 
 /* ---------- storage ---------- */
 
@@ -67,20 +67,34 @@ function mergeMax(a, b){
   return out;
 }
 
+/* Stable stringify: two equal records always produce the same text, whatever
+   order their keys happen to be in after a round trip through Clerk. */
+function canon(v){
+  if(v === null || typeof v !== 'object') return JSON.stringify(v);
+  if(Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
+  return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}';
+}
+
+/* Every scoring event lands here. It only touches localStorage: a match can
+   score dozens of times a minute and Clerk is not a per-event write target. */
 function save(){
   writeLocal();
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(flush, SAVE_DELAY);
   notify();
 }
 
-/* Push straight to Clerk without waiting out the debounce. */
+/* Send the record up to the account. Skipped when the account already holds
+   exactly this, which is what stops our own write from bouncing back through
+   the Clerk listener and starting again. */
 function flush(){
-  clearTimeout(saveTimer);
   if(!clerk || !clerk.user) return Promise.resolve();
+  const payload = canon(data);
+  if(payload === lastPushed || pushing) return Promise.resolve();
+  pushing = true;
+  lastPushed = payload;
   return clerk.user.update({ unsafeMetadata: Object.assign(
     {}, clerk.user.unsafeMetadata, { [META_KEY]: data }
-  )}).catch(() => {});           // offline or rate-limited: localStorage still has it
+  )}).catch(() => { lastPushed = null; })   // failed: allow a later retry
+    .then(() => { pushing = false; }, () => { pushing = false; });
 }
 
 /* ---------- Clerk ---------- */
@@ -116,10 +130,15 @@ function loadClerk(){
 /* Called on load and again every time the signed-in user changes. */
 function adoptUser(){
   if(!clerk || !clerk.user){ render(); return; }
-  const cloud = (clerk.user.unsafeMetadata || {})[META_KEY];
+  const cloud = (clerk.user.unsafeMetadata || {})[META_KEY] || null;
   data = mergeMax(data, cloud);
   writeLocal();
-  flush();                            // carry anything local up to the account
+
+  if(canon(data) === canon(cloud)){
+    lastPushed = canon(data);         // account is already current — nothing to send
+  } else {
+    flush();                          // local play happened signed out; carry it up
+  }
   render();
 }
 
@@ -210,6 +229,11 @@ loadClerk().then(c => {
   adoptUser();
 });
 
-window.addEventListener('beforeunload', () => { writeLocal(); });
+/* Sync points: leaving a match, and the tab going away. Both are moments
+   the player stops scoring, so there is nothing to batch up behind them. */
+window.addEventListener('pagehide', () => { writeLocal(); flush(); });
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden'){ writeLocal(); flush(); }
+});
 
 })();

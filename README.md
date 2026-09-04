@@ -51,6 +51,18 @@ allowed origins in the Clerk dashboard.
 Nothing here is load-bearing for the game: with the key removed, or with Clerk unreachable,
 the account bar says so and stats keep saving locally.
 
+### How often it writes
+
+Scoring events only touch `localStorage`. The record is pushed to Clerk at two points —
+when you leave a match, and when the tab is hidden or closed — because a busy match scores
+far too often to be a per-event write target, and Clerk's Frontend API rate-limits.
+
+A write is also skipped when the account already holds exactly the same record. That check
+is what stops a write from bouncing: Clerk notifies its listeners after every
+`user.update()`, so flushing from inside that listener makes each write trigger the next
+one. `node profile.test.mjs` drives `profile.js` against a fake Clerk with that same
+notify-on-write behaviour and fails if the writes run away again.
+
 ### The custom-domain limit
 
 This has to stay on a Clerk **development** instance while the site lives at
