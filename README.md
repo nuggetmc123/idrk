@@ -1,6 +1,6 @@
 # idrk
 
-**Arena Clash** — a browser game, published as a static site with GitHub Pages.
+**BRAWLBOUND** — a browser game, published as a static site with GitHub Pages.
 
 **Live site:** https://nuggetmc123.github.io/idrk/
 
@@ -19,6 +19,26 @@ python3 -m http.server 8000   # then open http://localhost:8000
 ```
 
 Opening `index.html` straight off disk works too, since the game has no external assets.
+
+## The roster
+
+Fifteen fighters, each with a main weapon and a special ability, defined in `CLASSES` and
+implemented in `doAttack` / `doSpecial`:
+
+| | Fighters |
+| --- | --- |
+| Starting five | Assassin, Ninja, Archer, Wizard, Witch |
+| Unlockable | Berserker, Gunslinger, Frostmage, Paladin, Bomber, Sniper, Duelist, Necromancer, Monk, Ranger |
+
+Adding a fighter means a `CLASSES` entry, a `case` in `doAttack` and `doSpecial`, and an
+icon in `classIcon`. Everything else is shared: close-range weapons all go through
+`meleeSwing`, ranged ones through `addProj`, and area abilities through the existing
+`meteor` and `cloud` effects, so a new fighter needs no new engine code. In the arena the
+unlockable roster shares one helmet told apart by crest and colour, so it stays readable
+without hand-drawn art per fighter.
+
+Bots pick from the whole roster and drive their own behaviour from `botRange`, `botSp`
+and `melee` on the class, rather than from a list of names.
 
 ## Menu tabs
 
