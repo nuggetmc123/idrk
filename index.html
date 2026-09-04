@@ -125,6 +125,36 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:none}
 .bars .track{flex:1;height:6px;background:#241f3d;border-radius:99px;overflow:hidden}
 .bars .fill{height:100%;border-radius:99px}
 
+/* ---- multiplayer lobby ---- */
+.lobby-row{display:flex;gap:8px;margin-top:4px}
+.lobby-row input{
+  flex:1;min-width:0;font-family:inherit;font-size:14px;letter-spacing:.08em;
+  text-transform:uppercase;background:#1b1730;border:1px solid var(--edge);
+  color:var(--parch);border-radius:8px;padding:8px 10px;
+}
+.lobby-btn{
+  font-family:inherit;font-size:12.5px;font-weight:700;letter-spacing:.03em;
+  padding:8px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;
+  background:linear-gradient(180deg,#5a4a94,#3a3068);border:1px solid #7a68bd;color:#fff;
+}
+.lobby-btn:disabled{background:#241f36;border-color:#332c50;color:#6f6790;cursor:default}
+.lobby-btn.danger{background:transparent;border-color:#5a3050;color:#d99}
+.lobby-code{
+  font:700 20px "Bahnschrift",monospace;letter-spacing:.16em;color:#ffd76a;
+  background:#1b1730;border:1px dashed #6b5a1e;border-radius:8px;
+  padding:8px 14px;text-align:center;
+}
+.lobby-members{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.lobby-member{
+  display:flex;align-items:center;gap:8px;background:rgba(24,20,42,.6);
+  border:1px solid #2c2547;border-radius:8px;padding:7px 10px;font-size:13px;
+}
+.lobby-member .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.lobby-member .nm{font-weight:700;flex:1}
+.lobby-member .cl{color:var(--dim);font-size:11.5px}
+.lobby-member .host{font-size:9.5px;color:#ffd76a;text-transform:uppercase;letter-spacing:.05em}
+.lobby-status{font-size:12px;color:var(--dim);margin-top:8px;min-height:16px}
+
 .playrow{text-align:center;margin-top:26px}
 #playBtn, #startBtn{
   font-family:"Bahnschrift","Arial Narrow",Impact,sans-serif;
@@ -421,6 +451,10 @@ canvas{
       </div>
     </section>
 
+    <section class="panel">
+      <h2>Play with friends</h2>
+      <div id="lobbyBody"></div>
+    </section>
   </div>
 
   <div class="playrow">
@@ -507,6 +541,7 @@ canvas{
   <div class="playrow">
     <button id="startBtn" disabled>START MATCH</button>
     <p id="selHint">Pick a fighter to start.</p>
+    <p class="lobby-status" id="selStatus"></p>
     <p style="margin-top:10px"><button class="tbtn" id="selBack">Back to menu</button></p>
   </div>
 </div>
@@ -523,6 +558,7 @@ canvas{
 </div>
 
 <script src="profile.js?v=__DEPLOY_SHA__"></script>
+<script src="multiplayer.js?v=__DEPLOY_SHA__"></script>
 
 <script>
 "use strict";
@@ -1132,6 +1168,7 @@ function renderPicker(){
         return;
       }
       G.myClass = k;
+      Net.setMyClass(k);      // so lobby-mates see your pick update live
       renderPicker();
     });
     grid.appendChild(b);
@@ -1198,6 +1235,7 @@ function showTab(name){
   Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
     b.classList.toggle('on', b.dataset.pane === name);
   });
+  if(name === 'play') renderLobby();
   if(name === 'stats') renderCareer();
   if(name === 'pass') renderPass();
   if(name === 'shop') renderShop();
@@ -1206,6 +1244,81 @@ function showTab(name){
 
 Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
   b.addEventListener('click', () => { SFX.play('ui'); showTab(b.dataset.pane); });
+});
+
+/* ---- multiplayer lobby ---- */
+function renderLobby(){
+  const body = $('lobbyBody');
+  if(!body) return;
+
+  if(!Net.configured){
+    body.innerHTML = '<p class="career-note">Multiplayer isn\'t set up on this deployment yet '
+      + '&mdash; invite codes and matchmaking will appear here once it is.</p>';
+    return;
+  }
+
+  const lobby = Net.lobby;
+  if(!lobby){
+    body.innerHTML =
+      '<button class="lobby-btn" id="lobbyCreateBtn" style="width:100%">Create a lobby</button>'
+      + '<div class="lobby-row" style="margin-top:10px">'
+      +   '<input id="lobbyJoinInput" placeholder="Enter a code" maxlength="8">'
+      +   '<button class="lobby-btn" id="lobbyJoinBtn">Join</button>'
+      + '</div>'
+      + '<p class="career-note">Create a lobby to invite friends by code, or join one they sent '
+      + 'you. No lobby? Pressing PLAY still looks for other players before filling the rest with bots.</p>'
+      + '<p class="lobby-status" id="lobbyStatus"></p>';
+
+    $('lobbyCreateBtn').addEventListener('click', () => {
+      SFX.play('ui');
+      $('lobbyCreateBtn').disabled = true;
+      Net.createLobby(G.myClass).then(renderLobby).catch(() => {
+        renderLobby();
+        const st = $('lobbyStatus'); if(st) st.textContent = 'Could not reach the multiplayer relay.';
+      });
+    });
+    $('lobbyJoinBtn').addEventListener('click', () => {
+      const code = $('lobbyJoinInput').value;
+      if(!code.trim()) return;
+      SFX.play('ui');
+      $('lobbyJoinBtn').disabled = true;
+      Net.joinLobby(code, G.myClass).then(renderLobby).catch(() => {
+        renderLobby();
+        const st = $('lobbyStatus'); if(st) st.textContent = 'No lobby found with that code.';
+      });
+    });
+    return;
+  }
+
+  const rows = lobby.members.map(m => {
+    const c = CLASSES[m.cls];
+    const isMe = m.id === Net.myId;
+    return '<div class="lobby-member">'
+      + '<span class="dot" style="background:' + (c ? c.color : '#665') + '"></span>'
+      + '<span class="nm">' + m.name + (isMe ? ' (you)' : '') + '</span>'
+      + '<span class="cl">' + (c ? c.name : 'choosing…') + '</span>'
+      + (m.id === lobby.hostId ? '<span class="host">Host</span>' : '')
+      + '</div>';
+  }).join('');
+
+  body.innerHTML =
+    '<div class="lobby-code">' + lobby.code + '</div>'
+    + '<p class="career-note" style="text-align:center;margin:6px 0 0">Share this code &mdash; up to 3 more can join.</p>'
+    + '<div class="lobby-members">' + rows + '</div>'
+    + '<div class="lobby-row" style="margin-top:12px">'
+    +   '<button class="lobby-btn danger" id="lobbyLeaveBtn" style="width:100%">Leave lobby</button>'
+    + '</div>'
+    + '<p class="lobby-status">' + (Net.isHost
+        ? 'Press PLAY when ready &mdash; open slots get filled with other players, then bots.'
+        : 'Waiting for the host to start the match.') + '</p>';
+
+  $('lobbyLeaveBtn').addEventListener('click', () => { SFX.play('ui'); Net.leaveLobby(); renderLobby(); });
+}
+
+Net.onLobbyChange(() => { if(activeTab === 'play' && G.screen === 'menu') renderLobby(); });
+Net.onStatus(text => {
+  const st = $('lobbyStatus'); if(st) st.textContent = text || '';
+  const sel = $('selStatus'); if(sel && G.screen === 'select') sel.textContent = text || '';
 });
 
 /* ---- shop ---- */
@@ -1557,7 +1670,9 @@ $('selBack').addEventListener('click', () => { SFX.play('ui'); selectToMenu(); }
 $('startBtn').addEventListener('click', () => {
   if(!G.myClass || !Career.owns(G.myClass)) return;
   SFX.init(); SFX.play('ui');
-  elSelect.classList.add('hidden');
+  // stays on the select screen (showing "Connecting…"/"Looking for
+  // players…") until enterMatch() actually hides it — matchmaking can take
+  // a few seconds, and hiding this immediately would leave a blank screen
   startMatch();
 });
 
@@ -1626,6 +1741,7 @@ function makePlayer(spec, order){
     i: order,
     name: spec.name,
     isBot: !!spec.isBot,
+    uid: spec.uid || null,        // relay identity — null for bots and the local player in solo play
     device: spec.device || null,
     cls: spec.cls,
     x:0, y:0, vx:0, vy:0, r:c.radius,
@@ -1635,11 +1751,20 @@ function makePlayer(spec, order){
     atkCd: 0, spCd: 0,
     fx:{stealth:0, invuln:0, slow:0, haste:0, buff:0},
     hitFlash: 0, deadT: 0, respawnAt: 0,
-    respawn: null,
+    respawn: null, awaitingNetRespawn: false,
     skill: spec.isBot ? G.difficulty : null,
     bot:{ tgt:-1, strafe: Math.random()<0.5?-1:1, strafeT:0, react:0, phase: rand(0,6), jitter:0,
           firing:true, burstT: rand(0.3,1.0) }
   };
+}
+
+/* Is this player the actual human sitting at THIS machine right now? Used
+   everywhere a decision must be made about "my" career/UI, as opposed to a
+   bot or another real person elsewhere on the network. */
+function isLocalHuman(p){
+  if(!p || p.isBot) return false;
+  if(!window.Net || !Net.inMatch) return p.i === 0;   // solo play: the local human is always slot 0
+  return p.uid === Net.myId;
 }
 
 function bestSpawn(exclude){
@@ -1673,7 +1798,58 @@ function deploy(p, clsKey){
   markOverlay();
 }
 
+/* Bots must be picked once, by whoever ends up hosting, and shipped as
+   part of the roster — see multiplayer.js's fillBots comment for why.
+   In solo play this is the only thing that ever calls it. */
+Net.fillBots = function(n){
+  const names = BOT_NAMES.slice().sort(() => Math.random()-0.5);
+  const pool = CLASS_KEYS.slice().sort(() => Math.random()-0.5);
+  const out = [];
+  for(let i = 0; i < n; i++) out.push({name: names[i % names.length], cls: pool[i % pool.length]});
+  return out;
+};
+
+/* Turns a Net roster entry (real member or pre-picked bot) into the spec
+   makePlayer() expects, resolving which one is the local human on THIS
+   machine so they get the real device and are named "You". */
+function specFromNetEntry(entry){
+  if(entry.isBot) return {name: entry.name, isBot:true, device:null, cls: entry.cls};
+  if(entry.uid === Net.myId) return {name:'You', isBot:false, device:G.device, cls:G.myClass, uid:Net.myId};
+  return {name: entry.name, isBot:false, device:null, cls: entry.cls, uid: entry.uid};
+}
+
+/* The PLAY / Play-again entry point. Solo resolves immediately with no
+   networking touched at all; anything else waits for onMatchBegin, which
+   fires from the exact same match_start broadcast on every machine
+   involved, host included — see multiplayer.js. */
 function startMatch(){
+  Net.matchEnded();     // normalize out of the last match's host/client role, if any
+  if(!G.myClass) G.myClass = pick(CLASS_KEYS);
+  const btn = $('startBtn'), status = $('selStatus');
+  if(btn) btn.disabled = true;
+  if(status) status.textContent = Net.configured && Net.inLobby ? 'Connecting…' : '';
+
+  Net.begin(G.myClass, G.opponents + 1).then(result => {
+    if(result.role === 'solo'){
+      const roster = [{name:'You', isBot:false, device:G.device, cls:G.myClass}]
+        .concat(Net.fillBots(G.opponents).map(b => ({name:b.name, isBot:true, device:null, cls:b.cls})));
+      enterMatch(roster, 'solo');
+    }
+    // 'pending' — do nothing here; onMatchBegin (registered once, at boot)
+    // takes it from here for every other outcome, including hosting.
+  }).catch(() => {
+    if(status) status.textContent = 'Could not reach the multiplayer relay — playing solo.';
+    if(btn) btn.disabled = false;
+    const roster = [{name:'You', isBot:false, device:G.device, cls:G.myClass}]
+      .concat(Net.fillBots(G.opponents).map(b => ({name:b.name, isBot:true, device:null, cls:b.cls})));
+    enterMatch(roster, 'solo');
+  });
+}
+
+/* role: 'solo' | 'host' | 'client'. Solo and host run the full local
+   simulation (unchanged) and both deploy() every player; a client's
+   positions/health arrive entirely from the host's snapshots instead. */
+function enterMatch(roster, role){
   G.players = []; G.projs = []; G.aoes = []; G.parts = [];
   G.floats = []; G.pickups = []; G.slashes = []; G.feed = [];
   G.time = 0; G.shake = 0; G.over = null; G.paused = false;
@@ -1681,27 +1857,26 @@ function startMatch(){
   G.myDeaths = 0;
   G.shownSec = -1;
   G.banked = false;
+  G.netRole = role;
   G.xpAtStart = Career.xp;            // snapshot before the match is counted
-
-  if(!G.myClass) G.myClass = pick(CLASS_KEYS);
-
-  const roster = [{name:'You', isBot:false, device:G.device, cls:G.myClass}];
-  const names = BOT_NAMES.slice().sort(() => Math.random()-0.5);
-  const pool = CLASS_KEYS.slice().sort(() => Math.random()-0.5);
-  for(let i=0;i<G.opponents;i++)
-    roster.push({name:names[i], isBot:true, device:null, cls:pool[i % pool.length]});
 
   roster.forEach((spec, order) => {
     const p = makePlayer(spec, order);
     p.alive = false;               // deploy() flips this on at a real spawn point
     G.players.push(p);
   });
-  G.players.forEach(p => deploy(p, p.cls));
 
-  Career.matchStarted(G.myClass);
+  Career.matchStarted(G.myClass);   // every role tracks its own match, own account
+  if(role === 'client'){
+    startClientLoop();
+  } else {
+    G.players.forEach(p => deploy(p, p.cls));
+    if(role === 'host') startHostBroadcast();
+  }
 
   G.screen = 'game';
   elMenu.classList.add('hidden');
+  elSelect.classList.add('hidden');
   elGame.classList.remove('hidden');
   buildHud();
   markOverlay();
@@ -1729,8 +1904,101 @@ function startMatch(){
   updateFsButton();
 }
 
+Net.onMatchBegin(({role, roster}) => {
+  enterMatch(roster.map(specFromNetEntry), role);
+});
+
+/* ---- host: narrate the fight to everyone else ---- */
+
+function startHostBroadcast(){
+  clearInterval(G.netBroadcastTimer);
+  G.netBroadcastTimer = setInterval(() => {
+    if(G.netRole !== 'host'){ clearInterval(G.netBroadcastTimer); return; }
+    Net.sendSnapshot({
+      t: G.time, over: !!G.over, feed: G.feed.slice(-6),
+      // name is deliberately not sent: the host's own entry is locally
+      // named "You" on the host's screen, and relaying that string would
+      // relabel the HOST as "You" on every client's screen too. Every
+      // machine already named each roster slot correctly, once, for
+      // itself, in specFromNetEntry — nothing here should override that.
+      players: G.players.map(p => ({
+        i:p.i, uid:p.uid, cls:p.cls, x:p.x, y:p.y, aim:p.aim,
+        hp:p.hp, maxHp:p.maxHp, alive:p.alive, score:p.score,
+        moving:p.moving, walk:p.walk, hitFlash:p.hitFlash, fx:p.fx
+      }))
+    });
+  }, 50);   // 20Hz — plenty for positions/health, cheap on the relay
+}
+
+Net.onRespawnChoice((uid, cls) => {
+  if(G.netRole !== 'host') return;
+  const p = G.players.find(x => x.uid === uid);
+  if(p && !p.alive && p.awaitingNetRespawn && CLASSES[cls]){ p.awaitingNetRespawn = false; deploy(p, cls); }
+});
+
+/* Elims and deaths involving a real remote person are credited on THEIR OWN
+   machine, not the host's — see the event relay in eliminate(). This is the
+   client-side half of that: react only to events addressed to me. */
+Net.onEvent(({kind, uid, cls}) => {
+  if(uid !== Net.myId || !CLASSES[cls]) return;
+  if(kind === 'elim') Career.elim(cls);
+  else if(kind === 'death'){ Career.death(cls); G.myDeaths++; }
+});
+
+/* ---- client: render whatever the host reports ---- */
+
+function startClientLoop(){
+  clearInterval(G.netBroadcastTimer);
+}
+
+Net.onSnapshot(data => {
+  if(G.netRole !== 'client') return;
+  G.time = data.t;
+  const secLeft = Math.ceil(MATCH_SECS - G.time);
+  if(secLeft !== G.shownSec){
+    G.shownSec = secLeft;
+    const el = $('matchClock');
+    if(el){ el.textContent = fmtClock(MATCH_SECS - G.time); el.classList.toggle('low', secLeft <= 30); }
+  }
+  data.players.forEach(sp => {
+    const p = G.players.find(q => q.i === sp.i);
+    if(!p) return;
+    const wasAlive = p.alive;
+    const mine = p.uid === Net.myId;
+    // name is never applied from a snapshot — see the matching comment in
+    // startHostBroadcast(); each machine named this slot correctly already
+    Object.assign(p, {
+      cls:sp.cls, x:sp.x, y:sp.y, hp:sp.hp, maxHp:sp.maxHp,
+      alive:sp.alive, score:sp.score, moving:sp.moving, walk:sp.walk,
+      hitFlash:sp.hitFlash, fx:sp.fx
+    });
+    if(!mine) p.aim = sp.aim;    // my own aim is driven locally for instant response
+    if(wasAlive && !p.alive && mine){
+      const keys = ownedClassKeys();
+      const sel = keys.indexOf(p.cls);
+      p.respawn = {sel: sel === -1 ? 0 : sel, showAt: G.time + 0.3, by: null};
+    }
+    if(p.alive) p.respawn = null;
+  });
+  if(data.feed) G.feed = data.feed.slice();
+  if(data.over && !G.over) endMatch(null);
+  markOverlay();
+  updateHud();
+});
+
+function clientTick(dt){
+  const me = G.players.find(p => p.uid === Net.myId);
+  if(me && me.alive){
+    const inp = readInput(me);    // also updates me.aim locally, for snappy rendering
+    Net.sendInput({ax:inp.ax, ay:inp.ay, atk:inp.atk, sp:inp.sp, aim:me.aim});
+  }
+  if(G.shake > 0) G.shake = Math.max(0, G.shake - dt*34);
+}
+
 function toMenu(){
   bankMatch();
+  clearInterval(G.netBroadcastTimer);
+  Net.matchEnded();     // back to 'lobby' state — friends stay grouped for a rematch
   exitFullscreen();
   elGame.classList.remove('fs');
   G.screen = 'menu';
@@ -2208,28 +2476,39 @@ function eliminate(target, src){
 
   if(src && src !== target){
     src.score++;
-    if(!src.isBot) Career.elim(src.cls);
+    // a remote human's elim is credited on THEIR OWN machine, via the event
+    // relay, not counted against whoever happens to be hosting the match
+    if(isLocalHuman(src)) Career.elim(src.cls);
+    else if(G.netRole === 'host' && !src.isBot) Net.sendEvent('elim', src.uid, src.cls);
     feed(src.name + ' eliminated ' + target.name, CLASSES[src.cls].color);
     if(src.score >= G.killLimit){ endMatch(src); return; }
   } else {
     feed(target.name + ' was eliminated', '#9b93b4');
   }
-  if(!target.isBot){ Career.death(target.cls); G.myDeaths++; }
+  if(isLocalHuman(target)){ Career.death(target.cls); G.myDeaths++; }
+  else if(G.netRole === 'host' && !target.isBot) Net.sendEvent('death', target.uid, target.cls);
+
   if(target.isBot){
     target.respawnAt = G.time + 2.6;
+  } else if(isLocalHuman(target)){
+    const keys = ownedClassKeys();
+    const sel = keys.indexOf(target.cls);
+    target.respawn = {sel: sel === -1 ? 0 : sel, showAt: G.time + 1.1, by: src ? src.name : null};
   } else {
-    {
-      const keys = ownedClassKeys();
-      const sel = keys.indexOf(target.cls);
-      target.respawn = {sel: sel === -1 ? 0 : sel, showAt: G.time + 1.1, by: src ? src.name : null};
-    }
+    // a remote human, seen from the host's own screen — give them a window
+    // to choose their next class over the network (see confirmRespawn and
+    // Net.onRespawnChoice) before falling back to whatever they had
+    target.respawnAt = G.time + 8;
+    target.awaitingNetRespawn = true;
   }
   markOverlay();
   updateHud();
 }
 
 /* Bank the match into the career exactly once, however it ended — the clock
-   running out, or quitting to the menu part way through. */
+   running out, quitting to the menu part way through, or (for a client) the
+   host's snapshot reporting the match is over. Runs the same way whatever
+   role played it, so everyone's own battle pass reflects their own match. */
 function bankMatch(){
   if(G.banked) return 0;
   G.banked = true;
@@ -2238,7 +2517,7 @@ function bankMatch(){
 }
 
 function endMatch(winner){
-  const me = G.players.find(p => !p.isBot);
+  const me = G.players.find(p => isLocalHuman(p));
   const xp = bankMatch();
   G.over = {
     winner: winner || null,
@@ -2259,6 +2538,17 @@ function endMatch(winner){
 function dz(v){ return Math.abs(v) < 0.22 ? 0 : v; }
 
 function readInput(p){
+  // a real person elsewhere on the network — their movement/aim arrives as
+  // packets instead of a local keyboard/pad/touch device
+  if(p.uid && p.uid !== Net.myId){
+    const inp = Net.latestInputFrom(p.uid);
+    if(inp){
+      if(inp.aim !== undefined) p.aim = inp.aim;
+      return {ax: inp.ax||0, ay: inp.ay||0, atk: !!inp.atk, sp: !!inp.sp};
+    }
+    return {ax:0, ay:0, atk:false, sp:false};   // nothing received from them yet
+  }
+
   const d = DEVICES[p.device];
   let ax = 0, ay = 0, atk = false, sp = false;
   if(!d) return {ax:0, ay:0, atk:false, sp:false};
@@ -2427,6 +2717,7 @@ function botThink(p, dt){
    12. UPDATE
    ============================================================ */
 function update(dt){
+  if(G.netRole === 'client'){ clientTick(dt); return; }   // host's snapshots drive everything else
   G.time += dt;
   const secLeft = Math.ceil(MATCH_SECS - G.time);
   if(secLeft !== G.shownSec){          // repaint the clock only when it changes
@@ -2445,6 +2736,12 @@ function update(dt){
     if(!p.alive){
       p.deadT += dt;
       if(p.isBot && G.time >= p.respawnAt && !G.over) deploy(p, pick(CLASS_KEYS));
+      // a remote human who never sent a respawn choice in time — bring them
+      // back as whatever they were rather than leave them out of the fight
+      else if(p.awaitingNetRespawn && G.time >= p.respawnAt && !G.over){
+        p.awaitingNetRespawn = false;
+        deploy(p, p.cls);
+      }
       continue;
     }
     const c = CLASSES[p.cls];
@@ -2780,6 +3077,14 @@ function confirmRespawn(p){
   const keys = ownedClassKeys();
   const k = keys[clamp(p.respawn.sel, 0, keys.length-1)];
   if(!p.isBot) G.myClass = k;
+  if(G.netRole === 'client'){
+    // the host owns deploy() for everyone — just tell them what we picked
+    // and close the panel; the next snapshot confirms it landed
+    Net.sendRespawnChoice(k);
+    p.respawn = null;
+    SFX.play('ui');
+    return;
+  }
   deploy(p, k);
   SFX.play('ui');
   updateHud();
@@ -2795,6 +3100,7 @@ function cycleRespawn(p, dir){
 
 function togglePause(on){
   if(G.over) return;
+  if(G.netRole === 'client') return;   // pausing your own screen can't pause the host's fight
   G.paused = (on === undefined) ? !G.paused : on;
   markOverlay();
   renderOverlays();

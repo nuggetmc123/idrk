@@ -256,6 +256,16 @@ const Career = {
   get clerkReady(){ return !!clerk; },
   get configured(){ return !!frontendApiFrom(CLERK_PUBLISHABLE_KEY); },
 
+  /* A name worth showing another player in a lobby. Null when signed out —
+     multiplayer.js falls back to a locally-remembered guest name then. */
+  get displayName(){
+    if(!clerk || !clerk.user) return null;
+    return clerk.user.username || clerk.user.firstName
+      || (clerk.user.primaryEmailAddress && clerk.user.primaryEmailAddress.emailAddress.split('@')[0])
+      || null;
+  },
+  get userId(){ return (clerk && clerk.user) ? clerk.user.id : null; },
+
   elim(cls){
     data.elims++;
     streak++;

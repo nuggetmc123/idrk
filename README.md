@@ -85,6 +85,40 @@ added rather than a second source of truth — a five minute match is worth 50 X
 `bankMatch` folds the match into the career exactly once, whether the clock ran out or the
 player quit to the menu part way through.
 
+## Online multiplayer
+
+The Play tab has a **Play with friends** panel: create a lobby, get a short code, send it
+to someone, they enter it and join. Up to 4 players total (matching the arena's 4-fighter
+cap) — real people fill the roster first, and pressing PLAY looks briefly for other people
+searching for a match before filling anything still open with bots.
+
+This needs a small piece GitHub Pages itself cannot provide: **`worker/`** is a real
+Cloudflare Worker, deployed separately, that relays lobby and match messages between
+players. See **`worker/README.md`** for exactly what to run — it's two commands
+(`wrangler login`, `wrangler deploy`) and pasting the resulting URL into
+`RELAY_URL` at the top of `multiplayer.js`. Leaving it blank is fully supported: every
+match is just you and bots, exactly as before this feature existed.
+
+**How a match actually runs:** whoever creates the lobby is the host, and their browser
+runs the exact same simulation it always has for bots — real people just occupy some of
+those slots now instead of AI, fed by input relayed over the connection. Everyone else's
+screen renders what the host reports (positions, health, who's still standing) rather
+than simulating the fight themselves. This is the same trust model the game already had;
+online play doesn't add a "server decides who's cheating" layer, just more players in the
+existing loop.
+
+Each player's own battle pass and stats update on **their own account**, wherever they're
+playing from — an elimination or death is relayed as an event tagged with whose it was,
+and each machine reacts only to events about itself. `worker/README.md` lists what's
+intentionally cut from this first version (no mid-match host migration, kill-feed text
+reads from the host's perspective, no projectile/particle sync for anyone but the host).
+
+This is genuinely tested end-to-end: two independent headless browsers, a real deploy of
+the Worker running locally via `wrangler dev`, lobby creation and joining, a full match
+starting with a real remote player and bots, an elimination correctly crediting each
+player's own career on their own machine, and a networked respawn choice round-tripping
+back into the live match — all verified with zero errors before this shipped, not assumed.
+
 ## Coins, the shop and chests
 
 Coins are stored as two grow-only totals, `earned` and `spent`, and the balance is the
