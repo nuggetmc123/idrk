@@ -257,6 +257,20 @@ canvas{
   .pcard .hp{height:5px}
   #footHint{display:none}
 }
+
+/* ---- account bar + career stats ---- */
+#acct{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;min-height:30px}
+.acct-note{font-size:12px;color:var(--dim);letter-spacing:.03em}
+.acct-in{
+  background:rgba(60,52,96,.7);border:1px solid var(--edge);color:#d8d2ea;
+  padding:6px 14px;border-radius:8px;font-size:12.5px;cursor:pointer;font-family:inherit;
+}
+.acct-in:hover{background:rgba(80,70,124,.8);color:#fff}
+.career{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:10px;margin-top:4px}
+.career .stat{background:rgba(24,20,42,.6);border:1px solid #2c2547;border-radius:10px;padding:9px 10px}
+.career .stat b{display:block;font-size:18px;color:var(--parch);font-weight:700;line-height:1.2}
+.career .stat span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.career-note{font-size:12px;color:var(--dim);margin-top:12px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -266,6 +280,7 @@ canvas{
   <header>
     <h1 class="display">ARENA CLASH</h1>
     <p class="tag">Pick a fighter, drop into a barricaded room, and knock everyone else out of it. Every time you are eliminated you come straight back here to choose again.</p>
+    <div id="acct"></div>
   </header>
 
   <div class="menu-grid">
@@ -290,6 +305,12 @@ canvas{
         <span class="key">Esc</span> pauses the match.
       </div>
     </section>
+
+    <section class="panel">
+      <h2>Your record</h2>
+      <div class="career" id="careerStats"></div>
+      <p class="career-note" id="careerNote"></p>
+    </section>
   </div>
 
   <div class="playrow">
@@ -308,6 +329,8 @@ canvas{
   </div>
   <div id="footHint"></div>
 </div>
+
+<script src="profile.js"></script>
 
 <script>
 "use strict";
@@ -710,7 +733,42 @@ function renderPicker(){
      </div>`;
 }
 
+function fmtTime(sec){
+  if(sec < 60) return sec + 's';
+  const m = Math.floor(sec/60);
+  if(m < 60) return m + 'm';
+  return Math.floor(m/60) + 'h ' + (m%60) + 'm';
+}
+
+function renderCareer(){
+  const box = $('careerStats'), note = $('careerNote');
+  if(!box) return;
+  const c = Career.data;
+  const ratio = c.deaths ? (c.elims / c.deaths).toFixed(2) : c.elims.toFixed(2);
+
+  const cells = [
+    [c.elims, 'Eliminations'],
+    [c.deaths, 'Deaths'],
+    [ratio, 'E / D'],
+    [c.bestStreak, 'Best streak'],
+    [c.matches, 'Matches'],
+    [fmtTime(c.seconds), 'Time in the arena']
+  ];
+  box.innerHTML = cells.map(([v, label]) =>
+    '<div class="stat"><b>' + v + '</b><span>' + label + '</span></div>').join('');
+
+  // the class you have scored the most eliminations with
+  let best = null;
+  Object.keys(c.byClass).forEach(k => {
+    if(CLASSES[k] && (!best || c.byClass[k].elims > c.byClass[best].elims)) best = k;
+  });
+  note.textContent = best && c.byClass[best].elims
+    ? 'Deadliest as the ' + CLASSES[best].name + ' — ' + c.byClass[best].elims + ' eliminations.'
+    : 'Play a match and your record starts filling in.';
+}
+
 function renderMenu(){
+  renderCareer();
   renderPicker();
   const btn = $('playBtn'), hint = $('playHint');
   if(!G.myClass){
@@ -856,6 +914,8 @@ function startMatch(){
   });
   G.players.forEach(p => deploy(p, p.cls));
 
+  Career.matchStarted(G.myClass);
+
   G.screen = 'game';
   elMenu.classList.add('hidden');
   elGame.classList.remove('hidden');
@@ -886,6 +946,7 @@ function startMatch(){
 }
 
 function toMenu(){
+  Career.matchEnded(G.time);
   exitFullscreen();
   elGame.classList.remove('fs');
   G.screen = 'menu';
@@ -1131,11 +1192,13 @@ function eliminate(target, src){
 
   if(src && src !== target){
     src.score++;
+    if(!src.isBot) Career.elim(src.cls);
     feed(src.name + ' eliminated ' + target.name, CLASSES[src.cls].color);
     if(src.score >= G.killLimit){ endMatch(src); return; }
   } else {
     feed(target.name + ' was eliminated', '#9b93b4');
   }
+  if(!target.isBot) Career.death(target.cls);
   if(target.isBot){
     target.respawnAt = G.time + 2.6;
   } else {
@@ -2371,6 +2434,13 @@ try{
   const fine   = window.matchMedia && window.matchMedia('(any-pointer: fine)').matches;
   if((coarse && !fine) || (!window.matchMedia && 'ontouchstart' in window)) G.device = 'touch';
 }catch(e){}
+
+// come back to the fighter you played last
+if(Career.data.lastClass && CLASSES[Career.data.lastClass]) G.myClass = Career.data.lastClass;
+
+// Clerk resolves after the first paint, so redraw once the record arrives
+Career.onChange(() => { if(G.screen === 'menu') renderCareer(); });
+
 renderMenu();
 
 })();
