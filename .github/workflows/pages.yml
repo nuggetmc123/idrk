@@ -22,6 +22,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Cache-bust profile.js
+        # index.html and its sub-resources can sit in a visitor's browser
+        # cache for a while on GitHub Pages, which has bitten this repo more
+        # than once — a fix would deploy but a plain reload kept serving the
+        # old profile.js. Point at a URL that changes every commit instead,
+        # so a fresh index.html always pulls a fresh profile.js with it.
+        run: sed -i "s/__DEPLOY_SHA__/${GITHUB_SHA}/" index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

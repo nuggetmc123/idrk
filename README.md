@@ -12,6 +12,17 @@ Open the URL and you're in the game — there is no menu or landing page in fron
 Edit `index.html`, commit, and push to `main`. The workflow in
 `.github/workflows/pages.yml` redeploys the site on every push; there is no build step.
 
+## Cache-busting
+
+`index.html` loads `profile.js?v=__DEPLOY_SHA__`, and the workflow substitutes the real
+commit SHA into that placeholder before it deploys. GitHub Pages caches static files in
+the visitor's browser for a while, so a fix to `profile.js` can go live while a plain
+reload keeps serving the old one — this bit the repo more than once. Because the version
+string changes on every commit, a fresh `index.html` always requests a `profile.js` URL
+the browser has never seen, so it can't come from the stale cache. The one moment this
+can't help is the very first load after a deploy, if the browser still has the *previous*
+`index.html` cached too — a hard reload (Ctrl/Cmd+Shift+R) clears that.
+
 ## Working locally
 
 ```sh
