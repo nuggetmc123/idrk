@@ -32,9 +32,11 @@ The card on the landing page is built from the game's own HTML:
 
 ## One-time setup
 
-The first push to `main` enables Pages automatically (`enablement: true` on the `configure-pages`
-step), so there is nothing to click. If your org restricts that, turn it on by hand instead:
-**Settings → Pages → Build and deployment → Source: GitHub Actions**.
+In the repo on GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+This has to be done by a repo admin — the workflow's own token is not allowed to create the
+Pages site (`configure-pages` with `enablement: true` fails with "Resource not accessible by
+integration"). Deploys fail at the `configure-pages` step until it is switched on; after that,
+push to `main` (or re-run the workflow) and the site goes live.
 
 ## Working locally
 
