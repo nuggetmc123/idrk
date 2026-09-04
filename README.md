@@ -37,16 +37,19 @@ per-user data work here with no server at all. Two things follow from that:
 - It is **editable by the player** in devtools. Fine for a personal record; do not build a
   competitive leaderboard on it without a server to verify writes.
 
-### Turning it on
+### Configuration
 
-1. Create an application at [dashboard.clerk.com](https://dashboard.clerk.com).
-2. Copy the publishable key (**API keys → JavaScript**). It starts with `pk_test_`.
-3. Paste it into `CLERK_PUBLISHABLE_KEY` at the top of `profile.js`.
-4. In Clerk, add `nuggetmc123.github.io` under the instance's allowed origins.
+The publishable key is set in `CLERK_PUBLISHABLE_KEY` at the top of `profile.js`, pointing
+at the `verified-mackerel-9446` development instance. Publishable keys are public by
+design — they are meant to ship in client code — so it lives in the repo rather than in a
+secret. It also encodes the Clerk host the script is fetched from, which is why it is the
+only value needed.
 
-The key is public by design — it is meant to ship in client code, and it encodes the
-Clerk host the script loads from, so it is the only value needed. With it left empty the
-game still runs and still saves stats locally; the sign-in button just doesn't appear.
+If the sign-in window ever refuses the site, add `nuggetmc123.github.io` to the instance's
+allowed origins in the Clerk dashboard.
+
+Nothing here is load-bearing for the game: with the key removed, or with Clerk unreachable,
+the account bar says so and stats keep saving locally.
 
 ### The custom-domain limit
 

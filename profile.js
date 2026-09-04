@@ -16,7 +16,7 @@
 
 /* Clerk dashboard -> API keys -> JavaScript. Starts with pk_test_ or pk_live_.
    Leave it empty and the game quietly keeps stats in this browser only. */
-const CLERK_PUBLISHABLE_KEY = '';
+const CLERK_PUBLISHABLE_KEY = 'pk_test_dmVyaWZpZWQtbWFja2VyZWwtOTQ0Ni5jbGVyay5hY2NvdW50cy5kZXYk';
 
 const LOCAL_KEY  = 'arena-clash-career';
 const META_KEY   = 'arenaClash';
@@ -30,6 +30,7 @@ const blank = () => ({
 let data      = blank();
 let streak    = 0;                // elims since the last death, this life
 let clerk     = null;             // the loaded Clerk instance, once ready
+let settled   = false;            // Clerk has either loaded or failed to
 let saveTimer = null;
 let listeners = [];
 
@@ -181,7 +182,11 @@ function render(){
   if(!Career.configured){
     el.innerHTML = '<span class="acct-note">Stats saved on this device</span>';
   } else if(!clerk){
-    el.innerHTML = '<span class="acct-note">Connecting…</span>';
+    // once the load has settled without a Clerk, it is never coming — say so
+    // rather than leaving "Connecting…" up for good
+    el.innerHTML = settled
+      ? '<span class="acct-note">Sign-in unavailable — stats saved on this device</span>'
+      : '<span class="acct-note">Connecting…</span>';
   } else if(clerk.user){
     el.innerHTML = '<span class="acct-note">Stats synced</span><span id="acct-btn"></span>';
     clerk.mountUserButton(document.getElementById('acct-btn'));
@@ -200,6 +205,7 @@ render();
 
 loadClerk().then(c => {
   clerk = c;
+  settled = true;
   if(clerk) clerk.addListener(adoptUser);
   adoptUser();
 });
