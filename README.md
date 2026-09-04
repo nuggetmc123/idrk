@@ -45,10 +45,22 @@ and `melee` on the class, rather than from a list of names.
 The menu is three tabs:
 
 - **Play** — pick a fighter and start a match. Fighters you do not own show a lock and
-  send you to the shop.
+  the tier that unlocks them, and send you to the pass.
 - **Stats** — the career record, plus a per-fighter breakdown.
 - **Battle Pass** — tier progress across five pages, chests to open, and rewards to claim.
-- **Shop** — buy fighters and skins with coins, and wear the hats you have won.
+- **Shop** — buy skins with coins and wear the hats you have won. Fighters are not sold.
+
+## Matches
+
+A match runs for **five minutes** (`MATCH_SECS`), counted down by a clock in the HUD. When
+it ends, a card totals up eliminations, deaths and the battle pass XP earned.
+
+XP stays derived from the career counters, so that card is a report of what the match
+added rather than a second source of truth — a five minute match is worth 50 XP flat
+(25 for the match, 25 for the time) plus 10 for each elimination.
+
+`bankMatch` folds the match into the career exactly once, whether the clock ran out or the
+player quit to the menu part way through.
 
 ## Coins, the shop and chests
 
@@ -58,8 +70,8 @@ counter, so coins spent on one device would come back from the dead on the next 
 Every collection (`owned`, `skins`, `hats`, `chests`, `opened`, `claimed`) is grow-only
 for the same reason and merges as a union.
 
-- **Fighters** — the ten unlockables are bought outright. Five of them are also battle
-  pass tiers, so nobody is stuck behind a tier they cannot reach.
+- **Fighters** — not sold at all. All ten are battle pass rewards, two per page, at
+  tiers 5 and 10 of each.
 - **Skins** — a palette swap, so one definition reskins any fighter. Ids are
   `<fighter>:<skin>`, and a skin can only be bought for a fighter you own.
 - **Hats** — not sold. They come from chests and the pass; the shop row is for wearing them.
@@ -78,8 +90,8 @@ XP is **derived** from the career counters rather than stored — 10 per elimina
 per match, 5 per minute in the arena — so the pass can never drift out of step with the
 record it reflects. A tier is 100 XP; there are 50 of them across 5 pages.
 
-Rewards are coins (rising with the page), fighters, skins, hats and chests, laid out by
-`buildTrack` so the run of them stays varied. Reaching a tier does not grant it — you
+Every page of ten runs the same shape — two fighters, a skin, a hat, a chest, a title and
+four coin rewards that climb with the page — so all ten fighters live on the track. Reaching a tier does not grant it — you
 claim it, and a claim is refused for any tier above the one you have reached.
 
 ## Player accounts and saved stats

@@ -364,8 +364,21 @@ canvas{
   background:linear-gradient(180deg,#7a5a2a,#4a3410);border:1px solid #c9963a;color:#ffe6b0;
 }
 .locked-note{font-size:11px;color:#8f87ab;margin-top:4px}
+.clock{
+  align-self:center;font-size:19px;font-weight:700;color:var(--parch);
+  background:rgba(16,13,30,.85);border:1px solid var(--edge);border-radius:9px;
+  padding:5px 14px;letter-spacing:.06em;font-variant-numeric:tabular-nums;
+}
+.clock.low{color:#ff8080;border-color:#7a2b2b}
+.tally{display:flex;gap:22px;justify-content:center;margin:14px 0 10px;flex-wrap:wrap}
+.tally b{display:block;font-size:26px;color:var(--parch);line-height:1.1}
+.tally span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.xpbar{height:8px;border-radius:5px;background:rgba(12,10,24,.8);border:1px solid #2c2547;overflow:hidden;margin:2px auto 8px;max-width:320px}
+.xpbar i{display:block;height:100%;background:linear-gradient(90deg,#7a68bd,#b473ff)}
+.xpline{font-size:12px;color:var(--dim)}
 .ccard.locked{opacity:.45}
 .ccard .lock{position:absolute;top:5px;right:7px;font-size:10px;color:#ffd76a}
+.ccard .unlock{display:block;font-size:9.5px;color:#ffd76a;letter-spacing:.05em;margin-top:2px}
 </style>
 </head>
 <body>
@@ -374,7 +387,7 @@ canvas{
 <div id="menu" class="screen">
   <header>
     <h1 class="display">BRAWLBOUND</h1>
-    <p class="tag">Pick a fighter, drop into a barricaded room, and knock everyone else out of it. Every time you are eliminated you come straight back here to choose again.</p>
+    <p class="tag">Pick a fighter, drop into a barricaded room, and knock everyone else out of it for five minutes. Every time you are eliminated you come straight back to choose again.</p>
     <div id="acct"></div>
   </header>
 
@@ -396,8 +409,8 @@ canvas{
     <section class="panel">
       <h2>How it works</h2>
       <p style="font-size:13.5px;color:#bfb6d6;line-height:1.6">
-        Three opponents drop in with you and keep coming back forever. There's no
-        score to reach and no clock &mdash; fight for as long as you feel like it.
+        Three opponents drop in with you and keep coming back for five minutes.
+        Every elimination is 10 battle pass XP, and the match itself is worth 50 more.
       </p>
 
       <div class="help" style="border-top:1px solid #2c2547;margin-top:14px;padding-top:14px">
@@ -444,9 +457,6 @@ canvas{
       <div class="shophead"><span class="coins" id="shopCoins">0</span>
         <span class="sub" style="font-size:12px;color:var(--dim)">Coins come from the battle pass and from chests.</span></div>
 
-      <div class="shophead"><h3>Fighters</h3></div>
-      <div class="shopgrid" id="shopFighters"></div>
-
       <div class="shophead"><h3>Skins</h3>
         <select id="skinFor" style="font-family:inherit;font-size:12px;background:#221d38;color:#e2dcf2;border:1px solid var(--edge);border-radius:7px;padding:5px 8px"></select>
       </div>
@@ -454,6 +464,9 @@ canvas{
 
       <div class="shophead"><h3>Hats</h3></div>
       <div class="shopgrid" id="shopHats"></div>
+
+      <p class="career-note">Fighters are not sold. All ten are battle pass rewards, two on
+      every page — check the Battle Pass tab to see which tier hands over the one you want.</p>
     </section>
   </div>
 </div>
@@ -933,13 +946,15 @@ const SFX = {
    ============================================================ */
 const BOT_NAMES = ['Vex','Mora','Kade','Iris','Rook','Nyx','Sable','Wren'];
 
+const MATCH_SECS = 300;               // a match runs five minutes, then totals up
+
 const G = {
   screen:'menu',
   myClass:null,          // the only thing you choose before a match
   device:'kb1',
   opponents:3,           // bots are generated when you press Play
   fullscreen:false,
-  killLimit:Infinity,    // endless — nobody ever "wins" and the bots keep coming
+  killLimit:Infinity,    // nobody "wins" on kills — the clock ends the match
   difficulty:'rookie',
   players:[], projs:[], aoes:[], parts:[], floats:[], pickups:[], slashes:[],
   feed:[],
@@ -982,11 +997,14 @@ function renderPicker(){
     b.className = 'ccard' + (G.myClass===k ? ' sel':'') + (owned ? '' : ' locked');
     b.style.color = c.color;
     b.style.position = 'relative';
+    const tier = owned ? null : Career.tierOf(k);
     b.innerHTML = classIcon(k) + '<b>' + c.name + '</b>'
-      + (owned ? '' : '<span class="lock">&#128274;</span>');
+      + (owned ? '' : '<span class="lock">&#128274;</span>')
+      + (tier ? '<span class="unlock">Tier ' + tier + '</span>' : '');
+    if(!owned) b.title = c.name + ' unlocks at battle pass tier ' + tier;
     b.addEventListener('click', () => {
       SFX.init(); SFX.play('ui');
-      if(!owned){ showTab('shop'); return; }      // send them where it can be bought
+      if(!owned){ showTab('pass'); return; }      // send them to where it is earned
       G.myClass = k;
       renderMenu();
     });
@@ -996,6 +1014,7 @@ function renderPicker(){
   if(G.myClass && !Career.owns(G.myClass)) G.myClass = null;
   const k = G.myClass || CLASS_KEYS[0];
   const c = CLASSES[k];
+
   $('classDetail').innerHTML =
     `<div>
        <h3 class="display" style="color:${c.color}">${c.name}</h3>
@@ -1048,27 +1067,6 @@ function coinText(n){ return n.toLocaleString(); }
 function renderShop(){
   const cat = Career.catalog;
   $('shopCoins').textContent = coinText(Career.coins);
-
-  // fighters
-  const fg = $('shopFighters');
-  fg.innerHTML = '';
-  Object.keys(cat.locked).forEach(k => {
-    const def = cat.locked[k], c = CLASSES[k], owned = Career.owns(k);
-    const card = document.createElement('div');
-    card.className = 'shopcard';
-    card.innerHTML = '<div class="nm" style="color:' + c.color + '">' + c.name + '</div>'
-      + '<div class="sub">' + c.role + '</div>'
-      + '<div class="sub">' + c.weapon + ' &middot; ' + c.special + '</div>';
-    const b = document.createElement('button');
-    b.className = 'buy' + (owned ? ' owned' : '');
-    b.textContent = owned ? 'Owned' : coinText(def.price) + ' coins';
-    b.disabled = owned || Career.coins < def.price;
-    if(!owned) b.addEventListener('click', () => {
-      if(Career.buy('fighter', k)){ SFX.play('heal'); renderShop(); renderPicker(); }
-    });
-    card.appendChild(b);
-    fg.appendChild(card);
-  });
 
   // which fighter the skins apply to
   const sel = $('skinFor');
@@ -1411,6 +1409,10 @@ function startMatch(){
   G.floats = []; G.pickups = []; G.slashes = []; G.feed = [];
   G.time = 0; G.shake = 0; G.over = null; G.paused = false;
   G.nextPickup = 6;
+  G.myDeaths = 0;
+  G.shownSec = -1;
+  G.banked = false;
+  G.xpAtStart = Career.xp;            // snapshot before the match is counted
 
   if(!G.myClass) G.myClass = pick(CLASS_KEYS);
 
@@ -1438,8 +1440,8 @@ function startMatch(){
   enterFullscreen();
   $('footHint').innerHTML =
     (G.device === 'touch'
-      ? 'Endless brawl · left stick moves, right stick aims and fires'
-      : 'Endless brawl · <span class="key">Esc</span> to pause')
+      ? 'Five minutes · left stick moves, right stick aims and fires'
+      : 'Five minutes on the clock · <span class="key">Esc</span> to pause')
     + ' <button id="fsToggle" class="tbtn" style="margin-left:10px">Fullscreen</button>'
     + ' <button id="sndToggle" class="tbtn" style="margin-left:6px">Sound</button>';
   const fsBtn = $('fsToggle');
@@ -1459,7 +1461,7 @@ function startMatch(){
 }
 
 function toMenu(){
-  Career.matchEnded(G.time);
+  bankMatch();
   exitFullscreen();
   elGame.classList.remove('fs');
   G.screen = 'menu';
@@ -1477,6 +1479,10 @@ let hudRefs = [];
 function buildHud(){
   const host = $('hud');
   host.innerHTML = '';
+  const clock = document.createElement('div');
+  clock.className = 'clock display';
+  clock.id = 'matchClock';
+  host.appendChild(clock);
   hudRefs = G.players.map(p => {
     const c = CLASSES[p.cls];
     const d = document.createElement('div');
@@ -1492,7 +1498,18 @@ function buildHud(){
   });
   updateHud();
 }
+function fmtClock(sec){
+  sec = Math.max(0, Math.ceil(sec));
+  return Math.floor(sec/60) + ':' + String(sec%60).padStart(2,'0');
+}
+
 function updateHud(){
+  const clock = $('matchClock');
+  if(clock){
+    const left = MATCH_SECS - G.time;
+    clock.textContent = fmtClock(left);
+    clock.classList.toggle('low', left <= 30);
+  }
   G.players.forEach((p,i) => {
     const r = hudRefs[i]; if(!r) return;
     const c = CLASSES[p.cls];
@@ -1856,7 +1873,7 @@ function eliminate(target, src){
   } else {
     feed(target.name + ' was eliminated', '#9b93b4');
   }
-  if(!target.isBot) Career.death(target.cls);
+  if(!target.isBot){ Career.death(target.cls); G.myDeaths++; }
   if(target.isBot){
     target.respawnAt = G.time + 2.6;
   } else {
@@ -1866,8 +1883,26 @@ function eliminate(target, src){
   updateHud();
 }
 
+/* Bank the match into the career exactly once, however it ended — the clock
+   running out, or quitting to the menu part way through. */
+function bankMatch(){
+  if(G.banked) return 0;
+  G.banked = true;
+  Career.matchEnded(G.time);
+  return Math.max(0, Career.xp - G.xpAtStart);
+}
+
 function endMatch(winner){
-  G.over = {winner};
+  const me = G.players.find(p => !p.isBot);
+  const xp = bankMatch();
+  G.over = {
+    winner: winner || null,
+    elims: me ? me.score : 0,
+    deaths: G.myDeaths,
+    cls: me ? me.cls : null,
+    xp: xp,
+    tier: Career.tier
+  };
   SFX.play('win');
   G.shake = 16;
   markOverlay();
@@ -2048,6 +2083,16 @@ function botThink(p, dt){
    ============================================================ */
 function update(dt){
   G.time += dt;
+  const secLeft = Math.ceil(MATCH_SECS - G.time);
+  if(secLeft !== G.shownSec){          // repaint the clock only when it changes
+    G.shownSec = secLeft;
+    const el = $('matchClock');
+    if(el){
+      el.textContent = fmtClock(MATCH_SECS - G.time);
+      el.classList.toggle('low', secLeft <= 30);
+    }
+  }
+  if(G.time >= MATCH_SECS && !G.over){ endMatch(null); return; }
   if(G.shake > 0) G.shake = Math.max(0, G.shake - dt*34);
 
   // ---- players ----
@@ -2279,7 +2324,7 @@ function splash(pr){
 function markOverlay(){ G.overlayKey = ''; }
 
 function overlaySignature(){
-  if(G.over) return 'over:' + G.over.winner.name + ':' + G.over.winner.score;
+  if(G.over) return 'over:' + G.over.elims + ':' + G.over.xp;
   if(G.paused) return 'paused';
   let s = 'r';
   for(const p of G.players){
@@ -2296,12 +2341,24 @@ function renderOverlays(){
   host.innerHTML = '';
 
   if(G.over){
-    const w = G.over.winner, c = CLASSES[w.cls];
+    const o = G.over;
+    const c = CLASSES[o.cls] || CLASSES[CLASS_KEYS[0]];
+    const per = Career.xpPerTier;
+    const into = Career.xpIntoTier;
+    const ready = Career.unclaimedCount;
     const d = document.createElement('div');
     d.className = 'bigcard';
     d.innerHTML =
-      `<h2 class="display" style="color:${c.color}">${w.name} wins</h2>
-       <p>${w.score} eliminations as the ${c.name}.</p>
+      `<h2 class="display" style="color:${c.color}">Time!</h2>
+       <p>Five minutes as the ${c.name}.</p>
+       <div class="tally">
+         <div><b>${o.elims}</b><span>Eliminations</span></div>
+         <div><b>${o.deaths}</b><span>Deaths</span></div>
+         <div><b style="color:#ffd76a">+${o.xp}</b><span>Battle pass XP</span></div>
+       </div>
+       <div class="xpbar"><i style="width:${(into/per*100)}%"></i></div>
+       <p class="xpline">Tier ${o.tier} &middot; ${per - into} XP to tier ${o.tier + 1}${
+         ready ? ' &middot; <b style="color:#ffd76a">' + ready + ' reward' + (ready > 1 ? 's' : '') + ' to claim</b>' : ''}</p>
        <div class="btns">
          <button class="primary" id="btnAgain">Play again</button>
          <button id="btnMenu">Back to main menu</button>

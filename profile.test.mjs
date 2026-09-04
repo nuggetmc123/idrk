@@ -101,20 +101,27 @@ const d = Career.data;
 // a balance is earned minus spent, and never negative
 d.earned = 1500; d.spent = 0;
 check('coins after earning 1500', Career.coins, 1500);
-check('buy Berserker (1200)', Career.buy('fighter','berserker'), true);
-check('coins after the purchase', Career.coins, 300);
-check('now owns Berserker', Career.owns('berserker'), true);
-check('cannot buy it twice', Career.buy('fighter','berserker'), false);
-check('cannot afford Frostmage (1500)', Career.buy('fighter','frostmage'), false);
-check('coins unchanged by refusals', Career.coins, 300);
 check('starters are always owned', Career.owns('ninja'), true);
 check('unowned fighter reads false', Career.owns('ranger'), false);
 
+// fighters are pass rewards now, not merchandise
+check('fighters are not for sale', Career.buy('fighter','berserker'), false);
+check('coins untouched by that', Career.coins, 1500);
+check('every locked fighter sits on the track',
+      Career.catalog.passFighters.every(f => Career.tierOf(f) !== null), true);
+check('Berserker is the tier 5 reward', Career.tierOf('berserker'), 5);
+check('Ranger is the tier 50 reward', Career.tierOf('ranger'), 50);
+
+// claiming that tier is the only way to get him
+d.elims = 5000;                                   // enough xp for the whole track
+check('cannot own him before claiming', Career.owns('berserker'), false);
+const won = Career.claim(5);
+check('tier 5 pays out a fighter', won && won.type, 'fighter');
+check('and he is now playable', Career.owns('berserker'), true);
+
 // skins are tied to a fighter you own
 check('cannot skin an unowned fighter', Career.buy('skin','ranger:crimson'), false);
-check('buy Berserker crimson (400)', Career.buy('skin','berserker:crimson'), false); // only 300 left
-d.earned += 1000;
-check('buy it once affordable', Career.buy('skin','berserker:crimson'), true);
+check('buy Berserker crimson (400)', Career.buy('skin','berserker:crimson'), true);
 check('equip a skin you own', Career.equipSkin('berserker','crimson'), true);
 check('equip one you do not', Career.equipSkin('berserker','gold'), false);
 check('equipped skin reads back', Career.skinFor('berserker'), 'crimson');
@@ -139,7 +146,7 @@ check('a chest cannot be opened twice', Career.openChest('silver:t0'), null);
 check('a chest you do not have', Career.openChest('gold:t99'), null);
 
 // the pass pays out only tiers actually reached
-d.elims = 0; d.matches = 0; d.seconds = 0; d.claimed = [];
+d.elims = 0; d.matches = 0; d.seconds = 0; d.claimed = []; d.owned = [];
 check('tier with no xp', Career.tier, 0);
 check('cannot claim tier 1 yet', Career.claim(1), null);
 d.elims = 5000;                                  // 50000 xp -> past the end of the track

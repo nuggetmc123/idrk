@@ -25,20 +25,12 @@ const META_KEY   = 'arenaClash';
 
 const STARTERS = ['assassin','ninja','archer','wizard','witch'];
 
-/* Every fighter outside the starting five is earned or bought. Pass fighters
-   are also purchasable, so nobody is stuck behind a tier they cannot reach. */
-const LOCKED = {
-  berserker:   {name:'Berserker',   price:1200},
-  gunslinger:  {name:'Gunslinger',  price:1200},
-  frostmage:   {name:'Frostmage',   price:1500},
-  paladin:     {name:'Paladin',     price:1500},
-  bomber:      {name:'Bomber',      price:1800},
-  sniper:      {name:'Sniper',      price:1800},
-  duelist:     {name:'Duelist',     price:2200},
-  necromancer: {name:'Necromancer', price:2200},
-  monk:        {name:'Monk',        price:2600},
-  ranger:      {name:'Ranger',      price:2600}
-};
+/* Every fighter outside the starting five comes from the battle pass, in
+   this order — two per page, at tiers 5 and 10 of each. None are sold. */
+const PASS_FIGHTERS = [
+  'berserker', 'gunslinger', 'frostmage', 'paladin', 'bomber',
+  'sniper', 'duelist', 'necromancer', 'monk', 'ranger'
+];
 
 /* A skin is a palette swap, so one definition reskins any fighter. Ids are
    "<fighter>:<skin>" so a skin is always tied to who it belongs to. */
@@ -79,22 +71,23 @@ const TITLES = [
   'Dreadnought', 'Conqueror', 'Ascendant', 'Immortal', 'Arena Legend'
 ];
 
-/* The 50-tier track. Coin rewards climb with the page; fighters, skins, hats
-   and chests are seeded at fixed tiers so the run of rewards stays varied. */
+/* The 50-tier track. Each page of ten runs the same shape — two fighters, a
+   skin, a hat, a chest, a title and four coin rewards that climb with the
+   page — so every page is worth finishing. */
 function buildTrack(){
-  const fighters = Object.keys(LOCKED);
   const track = [];
   for(let i = 0; i < TIERS_PER_PAGE * PAGES; i++){
     const tier = i + 1;
     const page = Math.floor(i / TIERS_PER_PAGE);
+    const slot = tier % TIERS_PER_PAGE;        // 1..9 then 0 for the tenth
     let r;
-    if(tier % 10 === 0)      r = {type:'fighter', id:fighters[Math.floor(tier/10) - 1 + page]};
-    else if(tier % 10 === 5) r = {type:'chest',   id:CHESTS[Math.min(page, CHESTS.length-1)].id};
-    else if(tier % 10 === 3) r = {type:'skin',    id:SKIN_SETS[page % SKIN_SETS.length].id};
-    else if(tier % 10 === 7) r = {type:'hat',     id:HATS[page % HATS.length].id};
-    else if(tier % 5 === 1 && tier <= TITLES.length) r = {type:'title', id:TITLES[tier - 1]};
-    else                     r = {type:'coins',   amount:(page + 1) * 100 + (tier % 10) * 25};
-    if(r.type === 'fighter' && !r.id) r = {type:'coins', amount:(page + 1) * 250};
+    if(slot === 5)      r = {type:'fighter', id:PASS_FIGHTERS[page * 2]};
+    else if(slot === 0) r = {type:'fighter', id:PASS_FIGHTERS[page * 2 + 1]};
+    else if(slot === 3) r = {type:'skin',    id:SKIN_SETS[page % SKIN_SETS.length].id};
+    else if(slot === 7) r = {type:'hat',     id:HATS[page % HATS.length].id};
+    else if(slot === 8) r = {type:'chest',   id:CHESTS[Math.min(page, CHESTS.length-1)].id};
+    else if(slot === 1) r = {type:'title',   id:TITLES[page * 4]};
+    else                r = {type:'coins',   amount:(page + 1) * 100 + slot * 25};
     track.push(Object.assign({tier:tier, page:page}, r));
   }
   return track;
@@ -304,12 +297,19 @@ const Career = {
   /* ---------- economy ---------- */
 
   get coins(){ return Math.max(0, (data.earned || 0) - (data.spent || 0)); },
-  get catalog(){ return {locked:LOCKED, skinSets:SKIN_SETS, hats:HATS, chests:CHESTS}; },
+  get catalog(){ return {passFighters:PASS_FIGHTERS, skinSets:SKIN_SETS, hats:HATS, chests:CHESTS}; },
   get track(){ return TRACK; },
   get pages(){ return PAGES; },
   get tiersPerPage(){ return TIERS_PER_PAGE; },
 
   owns(cls){ return STARTERS.indexOf(cls) !== -1 || (data.owned || []).indexOf(cls) !== -1; },
+
+  /* Which tier hands over this fighter, so the menu can say where to look. */
+  tierOf(cls){
+    for(let i = 0; i < TRACK.length; i++)
+      if(TRACK[i].type === 'fighter' && TRACK[i].id === cls) return TRACK[i].tier;
+    return null;
+  },
   ownsSkin(id){ return (data.skins || []).indexOf(id) !== -1; },
   ownsHat(id){ return (data.hats || []).indexOf(id) !== -1; },
   get ownedFighters(){ return STARTERS.concat(data.owned || []); },
@@ -319,12 +319,7 @@ const Career = {
   /* Every purchase goes through here, so the balance can only be spent once
      and never below zero. */
   buy(kind, id){
-    if(kind === 'fighter'){
-      const def = LOCKED[id];
-      if(!def || this.owns(id) || this.coins < def.price) return false;
-      data.spent += def.price;
-      data.owned.push(id);
-    } else if(kind === 'skin'){
+    if(kind === 'skin'){
       const parts = String(id).split(':');
       const set = SKIN_SETS.filter(k => k.id === parts[1])[0];
       if(!set || !this.owns(parts[0]) || this.ownsSkin(id) || this.coins < set.price) return false;
