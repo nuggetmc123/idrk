@@ -22,7 +22,7 @@
    it already is in local play against bots.
    ============================================================ */
 
-const MAX_MEMBERS = 8;             // matches the game's 8-fighter arena
+const MAX_MEMBERS = 15;            // matches the game's 15-fighter arena
 const DIRECTORY_TTL_MS = 30000;    // an entry nobody refreshed in 30s is dead
 const UPGRADE_TRACKS = ['dmg', 'spd', 'vit'];
 const UPGRADE_MAX_LEVEL = 5;

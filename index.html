@@ -458,7 +458,7 @@ canvas{
     <section class="panel">
       <h2>How it works</h2>
       <p style="font-size:13.5px;color:#bfb6d6;line-height:1.6">
-        Seven opponents drop in with you and keep coming back for five minutes.
+        Fourteen opponents drop in with you and keep coming back for five minutes.
         Every elimination is 10 battle pass XP, and the match itself is worth 50 more.
       </p>
 
@@ -479,7 +479,7 @@ canvas{
 
   <div class="playrow">
     <button id="playBtn">PLAY</button>
-    <p id="playHint">Five minutes against seven opponents.</p>
+    <p id="playHint">Five minutes against fourteen opponents.</p>
   </div>
   </div>
 
@@ -632,13 +632,16 @@ function segDist(px,py,x1,y1,x2,y2){
    exists to add), so a bigger map means more traveling and positioning,
    not bots that never find each other — crossing the whole map at a
    typical class's move speed still only takes ~20 seconds, well inside a
-   five-minute match. A midfield ring of chokepoints was added between the
-   original corner/edge/center structures and a few more spawns further
-   out, so the extra space reads as a bigger arena to fight across rather
-   than empty padding around the same old layout. VIEW_W/VIEW_H match the
-   old map's exact size on purpose, so the on-screen display, canvas
-   element and .stage CSS need no changes at all — only the world
-   scrolling underneath them got bigger. */
+   five-minute match. Cover is laid out in three concentric rings — corner
+   bunkers and edge pillars near the outside, a quarter-edge ring breaking
+   up the long straight run along each wall, a midfield ring a third of the
+   way in, and an inner ring guarding the approach to the center — plus
+   spawns dotted through all of them, so a 15-fighter round (see
+   G.opponents) always has somewhere close to break line of sight rather
+   than the long empty runs a simple rescale would leave. VIEW_W/VIEW_H
+   match the original map's exact size on purpose, so the on-screen
+   display, canvas element and .stage CSS need no changes at all — only
+   the world scrolling underneath them got bigger. */
 const W = 4096, H = 2560;
 const VIEW_W = 1280, VIEW_H = 800;
 const T = 36; // wall thickness
@@ -667,6 +670,18 @@ const WALLS = [
   {x:120,    y:H/2-95,  w:190, h:34},
   {x:W-310,  y:H/2-95,  w:190, h:34},
 
+  // a quarter-edge ring — one small barricade between each corner bunker
+  // and its edge's chokepoint pillar, breaking up what would otherwise be
+  // a long straight sprint down every wall
+  {x:W*0.15-70, y:220,     w:140, h:28},
+  {x:W*0.85-70, y:220,     w:140, h:28},
+  {x:W*0.15-70, y:H-248,   w:140, h:28},
+  {x:W*0.85-70, y:H-248,   w:140, h:28},
+  {x:220,     y:H*0.15-70, w:28,  h:140},
+  {x:220,     y:H*0.85-70, w:28,  h:140},
+  {x:W-248,   y:H*0.15-70, w:28,  h:140},
+  {x:W-248,   y:H*0.85-70, w:28,  h:140},
+
   // a midfield ring, roughly a third of the way from each corner to the
   // center — the extra cover the much bigger map needs so the middle
   // ground isn't a wide empty run between the old layout's landmarks
@@ -674,6 +689,13 @@ const WALLS = [
   {x:W*0.73-90, y:H*0.27-16, w:180, h:32},
   {x:W*0.27-16, y:H*0.73-90, w:32,  h:180},
   {x:W*0.73-16, y:H*0.73-90, w:32,  h:180},
+
+  // an inner ring guarding the approach to the center, between the midfield
+  // ring and the hollow plus
+  {x:W*0.4-60,  y:H*0.4-16, w:120, h:32},
+  {x:W*0.6-60,  y:H*0.4-16, w:120, h:32},
+  {x:W*0.4-16,  y:H*0.6-60, w:32,  h:120},
+  {x:W*0.6-16,  y:H*0.6-60, w:32,  h:120},
 
   // a hollow plus in the very center — a pickup usually spawns in the gap
   {x:W/2-140, y:H/2-17,  w:110, h:34},
@@ -691,6 +713,10 @@ const SPAWNS = [
   {x:W/2-320, y:H/2+320},{x:W/2+320, y:H/2+320},
   {x:W*0.27, y:H*0.27},  {x:W*0.73, y:H*0.27},
   {x:W*0.27, y:H*0.73},  {x:W*0.73, y:H*0.73},
+  {x:W*0.15, y:290},     {x:W*0.85, y:290},
+  {x:W*0.15, y:H-290},   {x:W*0.85, y:H-290},
+  {x:290, y:H*0.15},     {x:290, y:H*0.85},
+  {x:W-290, y:H*0.15},   {x:W-290, y:H*0.85},
 ];
 
 function circleHitsWall(x,y,r){
@@ -1182,7 +1208,7 @@ const G = {
   screen:'menu',
   myClass:null,          // the only thing you choose before a match
   device:'kb1',
-  opponents:7,           // bots are generated when you press Play — 8 fighters a round
+  opponents:14,          // bots are generated when you press Play — 15 fighters a round
   fullscreen:false,
   killLimit:Infinity,    // nobody "wins" on kills — the clock ends the match
   difficulty:'rookie',
