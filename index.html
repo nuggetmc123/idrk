@@ -231,6 +231,29 @@ canvas{
 
 #footHint{text-align:center;font-size:12px;color:#8f87ab;margin-top:12px;line-height:1.8}
 
+/* ---------- OWNER MENU ---------- */
+#ownerMenu{
+  position:fixed;inset:0;z-index:80;background:rgba(6,4,12,.72);
+  display:flex;align-items:center;justify-content:center;padding:16px;
+}
+.owner-card{
+  width:min(420px,100%);max-height:88vh;overflow:auto;background:rgba(15,12,26,.97);
+  border:1px solid #5a4d88;border-radius:16px;padding:22px;box-shadow:0 30px 70px -20px #000;
+}
+.owner-card h2{font-family:"Bahnschrift",Impact,sans-serif;font-size:26px;color:#ffd76a;margin-bottom:2px}
+.owner-card .sub{color:var(--dim);font-size:12.5px;margin-bottom:16px}
+.owner-toggle{
+  display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #2c2547;
+  font-size:14px;font-weight:600;cursor:pointer;
+}
+.owner-toggle input{width:19px;height:19px;accent-color:#e0761f}
+.owner-card h3{font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px}
+.owner-class-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:18px}
+.owner-class-grid button{padding:8px 4px;font-size:12px}
+#ownerMenuClose{width:100%;padding:11px;font-size:14px;font-weight:700;border-radius:9px;
+  background:linear-gradient(180deg,#ffce6b,#e0761f);color:#231000;border:1px solid #ffd98a}
+#ownerMenuClose:hover{filter:brightness(1.08)}
+
 /* ---------- FULLSCREEN MATCH ---------- */
 /* driven by a .fs class rather than :fullscreen, so no vendor prefix can
    invalidate the rule in browsers that don't recognise it */
@@ -595,6 +618,20 @@ canvas{
     <div id="overlays"></div>
   </div>
   <div id="footHint"></div>
+</div>
+
+<!-- Hold Q+E for 3 seconds during a match to open this. -->
+<div id="ownerMenu" class="hidden">
+  <div class="owner-card">
+    <h2>Owner Menu</h2>
+    <p class="sub">Local to your own screen only.</p>
+    <label class="owner-toggle"><input type="checkbox" id="cheatInvincible"> Invincible</label>
+    <label class="owner-toggle"><input type="checkbox" id="cheatAimbot"> Aimbot</label>
+    <label class="owner-toggle"><input type="checkbox" id="cheatTag"> OWNER tag over your head</label>
+    <h3>Become any fighter — one tap</h3>
+    <div class="owner-class-grid" id="ownerClassGrid"></div>
+    <button id="ownerMenuClose">Close</button>
+  </div>
 </div>
 
 <script src="profile.js?v=__DEPLOY_SHA__"></script>
@@ -1223,7 +1260,9 @@ const G = {
   time:0, shake:0, over:null, paused:false,
   nextPickup:8, overlayKey:'',
   cam:{x:0, y:0},         // top-left world corner the camera currently shows — see updateCamera()
-  cheat:false             // Q+E — see toggleCheat()
+  // Owner Menu — hold Q+E for 3s to open it. See updateCheatHold()/openOwnerMenu().
+  qeHoldT:0, ownerMenuOpen:false,
+  cheatInvincible:false, cheatAimbot:false, cheatTag:false
 };
 
 /* aimErr  - how far off their aim wanders
@@ -2105,8 +2144,8 @@ function enterMatch(roster, role){
   G.cam.x = me0 ? clamp(me0.x - VIEW_W/2, 0, Math.max(0, W - VIEW_W)) : 0;
   G.cam.y = me0 ? clamp(me0.y - VIEW_H/2, 0, Math.max(0, H - VIEW_H)) : 0;
   // a fresh player object has no memory of a toggle from a match that just
-  // ended — carry OWNER mode's invincibility over if it was left on
-  if(me0 && G.cheat) me0.godmode = true;
+  // ended — carry the Invincible cheat over onto it if it was left on
+  if(me0 && G.cheatInvincible) me0.godmode = true;
 
   G.screen = 'game';
   elMenu.classList.add('hidden');
@@ -2794,12 +2833,12 @@ function endMatch(winner){
    ============================================================ */
 function dz(v){ return Math.abs(v) < 0.22 ? 0 : v; }
 
-/* The Q+E cheat's aimbot half — see toggleCheat(). Movement still comes
-   from the real device below; only aim and firing get taken over, snapping
-   to whoever's nearest and holding the trigger down. */
+/* The Owner Menu's Aimbot toggle — see the menu's checkbox wiring. Movement
+   still comes from the real device below; only aim and firing get taken
+   over, snapping to whoever's nearest and holding the trigger down. */
 function readInput(p){
   const inp = readInputReal(p);
-  if(G.cheat && isLocalHuman(p)){
+  if(G.cheatAimbot && isLocalHuman(p)){
     let best = null, bestD = 1e9;
     for(const q of G.players){
       if(q === p || !q.alive) continue;
@@ -3380,40 +3419,76 @@ function togglePause(on){
   renderOverlays();
 }
 
-/* A hidden dev toggle, not a real anti-cheat concern: local-only (the host
-   still runs the authoritative simulation for everyone else, same trust
-   boundary bots and upgrades already cross — see multiplayer.js's header
-   comment), and gated behind a deliberate two-key chord nobody fumbles into
-   by accident. Q+E together toggles it; everything else it does — the
-   invincibility damage() checks, the aimbot in readInput(), the OWNER tag
-   in drawFighter() — reads this one flag plus the godmode flag it sets on
-   your own fighter. */
-function toggleCheat(){
-  G.cheat = !G.cheat;
-  const me = G.players.find(p => isLocalHuman(p));
-  if(me) me.godmode = G.cheat;
-  feed(G.cheat ? 'OWNER MODE ON' : 'OWNER MODE OFF', G.cheat ? '#ffd76a' : '#9b93b4');
-  SFX.play(G.cheat ? 'win' : 'ui');
+/* ============================================================
+   OWNER MENU — a hidden dev panel, not a real anti-cheat concern: local
+   only (the host still runs the authoritative simulation for everyone
+   else, same trust boundary bots and upgrades already cross — see
+   multiplayer.js's header comment), and gated behind holding two keys
+   together for a full 3 seconds so nobody opens it by accident. Every
+   cheat it offers is its own toggle, read straight off G by damage()'s
+   invincibility check, readInput()'s aimbot, and drawFighter()'s OWNER
+   tag — flip whichever ones you actually want.
+   ============================================================ */
+function updateCheatHold(dt){
+  if(G.screen !== 'game' || G.ownerMenuOpen){ G.qeHoldT = 0; return; }
+  if(keys.KeyQ && keys.KeyE){
+    G.qeHoldT += dt;
+    if(G.qeHoldT >= 3) openOwnerMenu();
+  } else {
+    G.qeHoldT = 0;
+  }
 }
+
+function openOwnerMenu(){
+  if(G.ownerMenuOpen) return;
+  G.ownerMenuOpen = true;
+  G.qeHoldT = 0;
+  $('cheatInvincible').checked = G.cheatInvincible;
+  $('cheatAimbot').checked = G.cheatAimbot;
+  $('cheatTag').checked = G.cheatTag;
+  $('ownerMenu').classList.remove('hidden');
+  SFX.play('win');
+}
+function closeOwnerMenu(){
+  G.ownerMenuOpen = false;
+  $('ownerMenu').classList.add('hidden');
+  SFX.play('ui');
+}
+function applyCheatInvincible(on){
+  G.cheatInvincible = on;
+  const me = G.players.find(p => isLocalHuman(p));
+  if(me) me.godmode = on;
+}
+(function initOwnerMenu(){
+  $('cheatInvincible').addEventListener('change', e => applyCheatInvincible(e.target.checked));
+  $('cheatAimbot').addEventListener('change', e => { G.cheatAimbot = e.target.checked; });
+  $('cheatTag').addEventListener('change', e => { G.cheatTag = e.target.checked; });
+  $('ownerMenuClose').addEventListener('click', () => { SFX.play('ui'); closeOwnerMenu(); });
+  const grid = $('ownerClassGrid');
+  grid.innerHTML = CLASS_KEYS.map(k =>
+    '<button class="tbtn" data-owner-cls="' + k + '" style="color:' + CLASSES[k].color + '">' + CLASSES[k].name + '</button>'
+  ).join('');
+  grid.addEventListener('click', e => {
+    const k = e.target.dataset.ownerCls;
+    if(!k) return;
+    SFX.play('ui');
+    const me = G.players.find(p => isLocalHuman(p));
+    if(me){
+      deploy(me, k);
+      if(G.cheatInvincible) me.godmode = true;
+      G.myClass = k;
+      feed('Now playing ' + CLASSES[k].name, CLASSES[k].color);
+    }
+    closeOwnerMenu();
+  });
+})();
 
 function onKeyPressed(code){
   if(G.screen !== 'game') return;
   SFX.init();
+  if(G.ownerMenuOpen){ if(code === 'Escape') closeOwnerMenu(); return; }
   if(code === 'Escape'){ togglePause(); return; }
-  if((code === 'KeyQ' || code === 'KeyE') && keys.KeyQ && keys.KeyE){ toggleCheat(); return; }
   if(G.over || G.paused) return;
-  // one tap, any character — only while OWNER mode is on
-  if(G.cheat && (code === 'BracketLeft' || code === 'BracketRight')){
-    const me = G.players.find(p => isLocalHuman(p));
-    if(me){
-      const i = CLASS_KEYS.indexOf(me.cls);
-      const next = CLASS_KEYS[(i + (code === 'BracketRight' ? 1 : -1) + CLASS_KEYS.length) % CLASS_KEYS.length];
-      deploy(me, next);
-      G.myClass = next;
-      feed('Now playing ' + CLASSES[next].name, CLASSES[next].color);
-    }
-    return;
-  }
   for(const p of G.players){
     if(p.alive || !p.respawn || !p.respawn.shown || p.isBot) continue;
     const d = DEVICES[p.device];
@@ -3874,7 +3949,7 @@ function drawFighter(p){
   ctx.font = '600 10px Segoe UI, system-ui, sans-serif';
   ctx.fillStyle = c.color;
   ctx.fillText(p.name, p.x, p.y - 32);
-  if(p.godmode){
+  if(G.cheatTag && isLocalHuman(p)){
     // full opacity even through stealth — the point of this tag is that
     // everyone always knows exactly who they're looking at
     ctx.globalAlpha = 1;
@@ -4256,6 +4331,7 @@ function frame(now){
     if(!G.paused && !G.over) update(dt);
     else { pollPadMenus(); }
     updateCamera(dt);
+    updateCheatHold(dt);
     renderOverlays();
     draw();
   }
