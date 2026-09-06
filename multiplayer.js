@@ -26,6 +26,7 @@ const ID_KEY   = 'brawlbound-guest-id';
 const NAME_KEY = 'brawlbound-guest-name';
 const SEARCH_WINDOW_MS = 6000;     // how long a host waits for backfill before using bots
 const RESPAWN_GRACE = 8;           // seconds a networked player gets to choose their next class
+const MAX_LOBBY_BOTS = 3;          // a real online lobby is capped at this many AI fill-ins
 
 function randomId(){
   return 'g-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -65,6 +66,7 @@ const matchBeginListeners = [];
 const snapshotListeners = [];
 const eventListeners = [];
 const statusListeners = [];    // short human-readable status strings while matchmaking
+const seatTakenListeners = []; // an in-progress match's bot seat just became a real person
 
 function notify(list, arg){ list.forEach(fn => { try{ fn(arg); }catch(e){} }); }
 function setStatus(text){ notify(statusListeners, text); }
@@ -155,6 +157,14 @@ function onMessage(msg){
     case 'event':
       notify(eventListeners, {kind: msg.kind, uid: msg.uid, cls: msg.cls});
       break;
+    case 'seat_taken':
+      // a bot in an ALREADY-running match just got taken over by someone who
+      // joined mid-fight — see the room's 'join' handling. The new person
+      // gets a normal 'match_start' instead of this (they need the whole
+      // roster to enter at all); this is the one-line patch everyone else
+      // applies so that seat's name/uid catch up without resetting anything.
+      notify(seatTakenListeners, {seat: msg.seat, uid: msg.uid, name: msg.name});
+      break;
   }
 }
 
@@ -182,6 +192,7 @@ const Net = {
   onMatchBegin(fn){ matchBeginListeners.push(fn); },
   onSnapshot(fn){ snapshotListeners.push(fn); },
   onEvent(fn){ eventListeners.push(fn); },
+  onSeatTaken(fn){ seatTakenListeners.push(fn); },
   onStatus(fn){ statusListeners.push(fn); },
 
   /* ---- lobby lifecycle ---- */
@@ -216,9 +227,15 @@ const Net = {
 
   /* Called when a match finishes or is left for the menu. Friends stay
      grouped in their lobby for a rematch — only an explicit leaveLobby()
-     actually disconnects. A no-op outside a match. */
+     actually disconnects. A no-op outside a match. The host also tells the
+     room the match is over, so it stops treating a fresh 'join' a moment
+     later as a mid-match bot takeover for a fight that's already done —
+     see the room's 'join' handling. */
   matchEnded(){
-    if(role === 'host' || role === 'client') role = ws ? 'lobby' : 'solo';
+    if(role === 'host' || role === 'client'){
+      if(hostId === myId) send({t:'matchEnded'});
+      role = ws ? 'lobby' : 'solo';
+    }
   },
 
   /* ---- starting a match ----
@@ -299,14 +316,19 @@ const Net = {
 
   _startNow(wantTotal){
     if(members.length <= 1){
-      // nobody joined — no reason to run the match over the network at all
+      // nobody joined — no reason to run the match over the network at all,
+      // and no bot cap either: index.html's own solo path fills every open
+      // seat, same as it always has
       this.leaveLobby();
       return {role:'solo'};
     }
     const roster = members.map(m => ({
-      uid: m.id, name: m.name, cls: m.cls || 'assassin', isBot:false
+      uid: m.id, name: m.name, cls: m.cls || 'assassin', isBot:false, upg: m.upg || null
     }));
-    this.fillBots(Math.max(0, wantTotal - roster.length)).forEach(b => {
+    // Once real people are actually in the lobby, bots only ever pad a
+    // shortfall — never more than MAX_LOBBY_BOTS of them, so a real match
+    // stays mostly real players even if wantTotal isn't fully reached.
+    this.fillBots(Math.min(MAX_LOBBY_BOTS, Math.max(0, wantTotal - roster.length))).forEach(b => {
       roster.push({uid:null, name:b.name, cls:b.cls, isBot:true});
     });
     send({t:'start', roster});

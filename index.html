@@ -174,9 +174,9 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:none}
 }
 
 /* ---------- GAME ---------- */
-#hud{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+#hud{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
 .pcard{
-  min-width:150px;border:1px solid #322b4d;border-radius:10px;padding:8px 11px;background:#141126;
+  min-width:118px;border:1px solid #322b4d;border-radius:10px;padding:7px 9px;background:#141126;
   border-left-width:4px;
 }
 .pcard .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
@@ -458,7 +458,7 @@ canvas{
     <section class="panel">
       <h2>How it works</h2>
       <p style="font-size:13.5px;color:#bfb6d6;line-height:1.6">
-        Three opponents drop in with you and keep coming back for five minutes.
+        Seven opponents drop in with you and keep coming back for five minutes.
         Every elimination is 10 battle pass XP, and the match itself is worth 50 more.
       </p>
 
@@ -479,7 +479,7 @@ canvas{
 
   <div class="playrow">
     <button id="playBtn">PLAY</button>
-    <p id="playHint">Five minutes against three opponents.</p>
+    <p id="playHint">Five minutes against seven opponents.</p>
   </div>
   </div>
 
@@ -622,14 +622,19 @@ function segDist(px,py,x1,y1,x2,y2){
 /* ============================================================
    1. ARENA
    ============================================================ */
-/* 1280x800 — a third bigger (linear) than the original 960x600, same 8:5
-   shape. Every literal offset below is scaled by the same 4/3 factor that
-   grew W and H, so the layout keeps its proportions instead of the old
-   barricades clustering near the corners of a now-bigger room. Weapon
-   ranges and bot AI distances are deliberately left alone — a physically
-   bigger arena rewarding more careful positioning is the point. */
-const W = 1280, H = 800;
-const T = 35; // wall thickness
+/* A brand new layout, not a rescale of the old one — 2048x1280 (still 8:5),
+   1.6x bigger (linear) than the previous 1280x800 map. Big enough now that
+   the whole thing no longer fits on screen at once, so VIEW_W/VIEW_H is the
+   camera's window into it (see updateCamera()) while W/H stay the full
+   world size everything else — walls, spawns, wall collision — is built
+   against. Weapon ranges and bot AI distances are deliberately left alone —
+   a physically bigger arena rewarding more careful positioning is the
+   point. VIEW_W/VIEW_H match the old map's exact size on purpose, so the
+   on-screen display, canvas element and .stage CSS need no changes at all —
+   only the world scrolling underneath them got bigger. */
+const W = 2048, H = 1280;
+const VIEW_W = 1280, VIEW_H = 800;
+const T = 36; // wall thickness
 
 const WALLS = [
   // outer ring
@@ -637,26 +642,38 @@ const WALLS = [
   {x:0,   y:H-T,   w:W,  h:T},
   {x:0,   y:0,     w:T,  h:H},
   {x:W-T, y:0,     w:T,  h:H},
-  // barricades hugging the edges
-  {x:157, y:139,   w:200, h:29},
-  {x:W-357,y:139,  w:200, h:29},
-  {x:157, y:H-168, w:200, h:29},
-  {x:W-357,y:H-168,w:200, h:29},
-  {x:128, y:315,   w:29,  h:171},
-  {x:W-157,y:315,  w:29,  h:171},
-  // center structures
-  {x:W/2-15, y:99,    w:29, h:157},
-  {x:W/2-15, y:H-256, w:29, h:157},
-  {x:W/2-128,y:H/2-15,w:256,h:29},
-  {x:400, y:H/2-93, w:29, h:187},
-  {x:W-429,y:H/2-93, w:29, h:187},
+
+  // four corner bunkers, each an L-shape open toward the middle of the map
+  // so nobody can hole up fully sealed off
+  {x:150,    y:150,    w:260, h:34},
+  {x:150,    y:150,    w:34,  h:220},
+  {x:W-410,  y:150,    w:260, h:34},
+  {x:W-184,  y:150,    w:34,  h:220},
+  {x:150,    y:H-184,  w:260, h:34},
+  {x:150,    y:H-370,  w:34,  h:220},
+  {x:W-410,  y:H-184,  w:260, h:34},
+  {x:W-184,  y:H-370,  w:34,  h:220},
+
+  // a chokepoint pillar on each edge, midway along it
+  {x:W/2-17, y:120,     w:34,  h:190},
+  {x:W/2-17, y:H-310,   w:34,  h:190},
+  {x:120,    y:H/2-95,  w:190, h:34},
+  {x:W-310,  y:H/2-95,  w:190, h:34},
+
+  // a hollow plus in the very center — a pickup usually spawns in the gap
+  {x:W/2-140, y:H/2-17,  w:110, h:34},
+  {x:W/2+30,  y:H/2-17,  w:110, h:34},
+  {x:W/2-17,  y:H/2-140, w:34,  h:110},
+  {x:W/2-17,  y:H/2+30,  w:34,  h:110},
 ];
 
 const SPAWNS = [
-  {x:104, y:104},  {x:W-104, y:104},
-  {x:104, y:H-104},{x:W-104, y:H-104},
-  {x:W/2, y:88},   {x:W/2,   y:H-88},
-  {x:267, y:H/2},  {x:W-267, y:H/2},
+  {x:260, y:260},        {x:W-260, y:260},
+  {x:260, y:H-260},      {x:W-260, y:H-260},
+  {x:W/2, y:170},        {x:W/2,   y:H-170},
+  {x:170, y:H/2},        {x:W-170, y:H/2},
+  {x:W/2-320, y:H/2-320},{x:W/2+320, y:H/2-320},
+  {x:W/2-320, y:H/2+320},{x:W/2+320, y:H/2+320},
 ];
 
 function circleHitsWall(x,y,r){
@@ -1042,10 +1059,12 @@ const keys = Object.create(null);
 const mouse = {x:W/2, y:H/2, down:false};
 const padPrev = [{},{}];
 
-/* on-screen sticks, drawn into the arena and driven by pointer events */
+/* on-screen sticks, drawn over the arena and driven by pointer events — these
+   are screen-space UI, anchored to the visible viewport, not the world, so
+   they use VIEW_W/VIEW_H and never move when the camera scrolls. */
 const STICK_MAX = 56, STICK_DEAD = 9;
-const SPX = W - 84, SPY = H - 84, SPR = 44;          // special button
-const HOME_L = {x:112, y:H-104}, HOME_R = {x:W-232, y:H-104};
+const SPX = VIEW_W - 84, SPY = VIEW_H - 84, SPR = 44;          // special button
+const HOME_L = {x:112, y:VIEW_H-104}, HOME_R = {x:VIEW_W-232, y:VIEW_H-104};
 const touch = {
   L:{id:null, ox:HOME_L.x, oy:HOME_L.y, x:HOME_L.x, y:HOME_L.y},
   R:{id:null, ox:HOME_R.x, oy:HOME_R.y, x:HOME_R.x, y:HOME_R.y},
@@ -1146,14 +1165,15 @@ const G = {
   screen:'menu',
   myClass:null,          // the only thing you choose before a match
   device:'kb1',
-  opponents:3,           // bots are generated when you press Play
+  opponents:7,           // bots are generated when you press Play — 8 fighters a round
   fullscreen:false,
   killLimit:Infinity,    // nobody "wins" on kills — the clock ends the match
   difficulty:'rookie',
   players:[], projs:[], aoes:[], parts:[], floats:[], pickups:[], slashes:[],
   feed:[],
   time:0, shake:0, over:null, paused:false,
-  nextPickup:8, overlayKey:''
+  nextPickup:8, overlayKey:'',
+  cam:{x:0, y:0}          // top-left world corner the camera currently shows — see updateCamera()
 };
 
 /* aimErr  - how far off their aim wanders
@@ -1985,6 +2005,13 @@ function enterMatch(roster, role){
     if(role === 'host') startHostBroadcast();
   }
 
+  // Snap straight to the right spot instead of panning in from the corner —
+  // a client's own fighter still reads 0,0 until its first snapshot lands a
+  // moment later, at which point updateCamera()'s own smoothing catches up.
+  const me0 = G.players.find(p => isLocalHuman(p));
+  G.cam.x = me0 ? clamp(me0.x - VIEW_W/2, 0, Math.max(0, W - VIEW_W)) : 0;
+  G.cam.y = me0 ? clamp(me0.y - VIEW_H/2, 0, Math.max(0, H - VIEW_H)) : 0;
+
   G.screen = 'game';
   elMenu.classList.add('hidden');
   elSelect.classList.add('hidden');
@@ -2062,6 +2089,20 @@ Net.onEvent(({kind, uid, cls}) => {
   if(uid !== Net.myId || !CLASSES[cls]) return;
   if(kind === 'elim') Career.elim(cls);
   else if(kind === 'death'){ Career.death(cls); G.myDeaths++; }
+});
+
+/* A bot in this already-running match just got taken over by someone who
+   joined mid-fight (see the room's 'join' handling). They got a full fresh
+   roster of their own to enter on; everyone already here — host included —
+   just patches that one seat so its name tag and control routing catch up.
+   Flipping isBot to false is what actually matters: update()'s per-player
+   dispatch (`p.isBot ? botThink(p, dt) : readInput(p)`) re-checks it every
+   tick, and readInput() already knows to pull a non-local uid from the
+   network instead of a device — nothing else about this fighter changes. */
+Net.onSeatTaken(({seat, uid, name}) => {
+  if(G.screen !== 'game') return;
+  const p = G.players.find(x => x.i === seat);
+  if(p) Object.assign(p, {uid, name, isBot:false});
 });
 
 /* ---- client: render whatever the host reports ---- */
@@ -3271,27 +3312,33 @@ const cv = $('cv');
 const ctx = cv.getContext('2d');
 function sizeCanvas(){
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  cv.width = Math.round(W*dpr);
-  cv.height = Math.round(H*dpr);
+  cv.width = Math.round(VIEW_W*dpr);
+  cv.height = Math.round(VIEW_H*dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 sizeCanvas();
 window.addEventListener('resize', sizeCanvas);
 
+// mouse aim is compared against a fighter's WORLD x/y, so a screen pixel has
+// to come back as a world coordinate — add the camera's current top-left
+// corner once, here, rather than at every place mouse.x/y gets read.
 cv.addEventListener('mousemove', e => {
   const r = cv.getBoundingClientRect();
-  mouse.x = (e.clientX - r.left) / r.width * W;
-  mouse.y = (e.clientY - r.top) / r.height * H;
+  mouse.x = (e.clientX - r.left) / r.width * VIEW_W + G.cam.x;
+  mouse.y = (e.clientY - r.top) / r.height * VIEW_H + G.cam.y;
 });
 cv.addEventListener('mousedown', e => { e.preventDefault(); SFX.init(); mouse.down = true; });
 window.addEventListener('mouseup', () => { mouse.down = false; });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 
 /* --- on-screen sticks --- */
+// Screen-space only, unlike mouse.x/y above — the sticks are relative-vector
+// controls anchored to fixed spots on the viewport, not the world, so no
+// camera offset belongs here.
 function canvasPoint(e){
   const r = cv.getBoundingClientRect();
   if(!r.width || !r.height) return {x:0, y:0};
-  return {x:(e.clientX - r.left)/r.width*W, y:(e.clientY - r.top)/r.height*H};
+  return {x:(e.clientX - r.left)/r.width*VIEW_W, y:(e.clientY - r.top)/r.height*VIEW_H};
 }
 cv.addEventListener('pointerdown', e => {
   if(!touchActive()) return;
@@ -3300,7 +3347,7 @@ cv.addEventListener('pointerdown', e => {
   if(cv.setPointerCapture){ try{ cv.setPointerCapture(e.pointerId); }catch(err){} }
   const pt = canvasPoint(e);
   if(Math.hypot(pt.x-SPX, pt.y-SPY) < SPR + 14){ touch.S.id = e.pointerId; return; }
-  const st = pt.x < W/2 ? touch.L : touch.R;
+  const st = pt.x < VIEW_W/2 ? touch.L : touch.R;
   if(st.id === null){ st.id = e.pointerId; st.ox = pt.x; st.oy = pt.y; st.x = pt.x; st.y = pt.y; }
 });
 cv.addEventListener('pointermove', e => {
@@ -3339,15 +3386,23 @@ function makeFloor(){
 makeFloor();
 
 function drawArena(){
-  ctx.fillStyle = floorPattern || '#151022';
-  ctx.fillRect(0,0,W,H);
+  // Only the camera's own window onto the world ever reaches the screen, so
+  // everything below is painted over that rect (in world coordinates, since
+  // this runs inside draw()'s camera translate) rather than the full W x H
+  // world — cheaper, and it's also what makes the ambient light and vignette
+  // below track the camera instead of staying pinned to the world's center.
+  const vx = G.cam.x, vy = G.cam.y;
+  const cx = vx + VIEW_W/2, cy = vy + VIEW_H/2;
 
-  // pooled light in the middle
-  const g = ctx.createRadialGradient(W/2, H/2, 40, W/2, H/2, 560);
+  ctx.fillStyle = floorPattern || '#151022';
+  ctx.fillRect(vx, vy, VIEW_W, VIEW_H);
+
+  // pooled light, centered on whatever the camera is currently showing
+  const g = ctx.createRadialGradient(cx, cy, 40, cx, cy, 560);
   g.addColorStop(0, 'rgba(120,100,190,0.16)');
   g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g;
-  ctx.fillRect(0,0,W,H);
+  ctx.fillRect(vx, vy, VIEW_W, VIEW_H);
 
   // walls
   for(const w of WALLS){
@@ -3377,12 +3432,12 @@ function drawArena(){
     ctx.stroke();
   }
 
-  // vignette
-  const v = ctx.createRadialGradient(W/2, H/2, 260, W/2, H/2, 640);
+  // vignette, also centered on the camera so it always frames the screen
+  const v = ctx.createRadialGradient(cx, cy, 260, cx, cy, 640);
   v.addColorStop(0, 'rgba(0,0,0,0)');
   v.addColorStop(1, 'rgba(0,0,0,0.6)');
   ctx.fillStyle = v;
-  ctx.fillRect(0,0,W,H);
+  ctx.fillRect(vx, vy, VIEW_W, VIEW_H);
 }
 
 function drawPickups(){
@@ -3929,9 +3984,9 @@ function drawFeed(){
     ctx.globalAlpha = clamp(f.life/0.6, 0, 1);
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     const w = ctx.measureText(f.text).width;
-    ctx.fillRect(W - 42 - w, y - 12, w + 16, 19);
+    ctx.fillRect(VIEW_W - 42 - w, y - 12, w + 16, 19);
     ctx.fillStyle = f.color;
-    ctx.fillText(f.text, W - 34, y);
+    ctx.fillText(f.text, VIEW_W - 34, y);
     y += 23;
   }
   ctx.globalAlpha = 1;
@@ -3994,10 +4049,26 @@ function drawTouchUI(){
   ctx.textAlign = 'left';
 }
 
+/* Slides the camera toward whoever's alive at THIS keyboard, clamped so the
+   viewport never shows past the edge of the (now much bigger) world. Runs
+   every frame regardless of role — a client's own fighter is just as much
+   "the one to follow" as the host's, it only ever gets its position from
+   snapshots instead of local simulation. */
+function updateCamera(dt){
+  const me = G.players.find(p => isLocalHuman(p)) || G.players[0];
+  if(!me) return;
+  const tx = clamp(me.x - VIEW_W/2, 0, Math.max(0, W - VIEW_W));
+  const ty = clamp(me.y - VIEW_H/2, 0, Math.max(0, H - VIEW_H));
+  const k = clamp(dt*6, 0, 1);
+  G.cam.x = lerp(G.cam.x, tx, k);
+  G.cam.y = lerp(G.cam.y, ty, k);
+}
+
 function draw(){
   ctx.save();
   if(G.shake > 0)
     ctx.translate(rand(-G.shake, G.shake)*0.4, rand(-G.shake, G.shake)*0.4);
+  ctx.translate(-G.cam.x, -G.cam.y);
 
   drawArena();
   drawPickups();
@@ -4016,7 +4087,7 @@ function draw(){
 
   if(G.paused || G.over){
     ctx.fillStyle = 'rgba(6,4,12,0.55)';
-    ctx.fillRect(0,0,W,H);
+    ctx.fillRect(0,0,VIEW_W,VIEW_H);
   }
 }
 
@@ -4033,6 +4104,7 @@ function frame(now){
   if(G.screen === 'game'){
     if(!G.paused && !G.over) update(dt);
     else { pollPadMenus(); }
+    updateCamera(dt);
     renderOverlays();
     draw();
   }

@@ -22,7 +22,7 @@
    it already is in local play against bots.
    ============================================================ */
 
-const MAX_MEMBERS = 4;             // matches the game's 4-fighter arena
+const MAX_MEMBERS = 8;             // matches the game's 8-fighter arena
 const DIRECTORY_TTL_MS = 30000;    // an entry nobody refreshed in 30s is dead
 const UPGRADE_TRACKS = ['dmg', 'spd', 'vit'];
 const UPGRADE_MAX_LEVEL = 5;
@@ -61,6 +61,7 @@ export class LobbyRoom {
     this.members = new Map();   // uid -> {name, cls}
     this.hostId = null;
     this.started = false;
+    this.roster = null;         // the live match roster once 'start' fires — see 'join' below
   }
 
   async fetch(request){
@@ -132,8 +133,31 @@ export class LobbyRoom {
         }
         ws._uid = uid;
         this.sockets.set(uid, ws);
-        this.members.set(uid, {name: String(msg.name || 'Player').slice(0, 24), cls: msg.cls || null, upg: sanitizeUpg(msg.upg)});
+        const name = String(msg.name || 'Player').slice(0, 24);
+        this.members.set(uid, {name, cls: msg.cls || null, upg: sanitizeUpg(msg.upg)});
         if(!this.hostId) this.hostId = uid;
+
+        // A match is already running and has an open bot seat — drop this
+        // person straight into it instead of parking them in the lobby for
+        // the next round. They inherit that seat's CURRENT fighter (class,
+        // score, position, HP all live only in the host's own simulation)
+        // rather than whatever they picked on the menu — swapping character
+        // mid-fight out from under a live HP bar would be its own kind of
+        // bug. Everyone else just gets a lightweight name/uid patch; only
+        // the new arrival needs the full roster to enter the match at all.
+        // (A genuine reconnect of an already-human seat isn't handled here —
+        // this only ever claims a seat still flagged as a bot.)
+        if(this.started && this.roster){
+          const seat = this.roster.findIndex(r => r.isBot);
+          if(seat !== -1){
+            this.roster[seat] = {uid, name, cls: this.roster[seat].cls, isBot:false};
+            this.send(ws, {t:'joined', uid, hostId:this.hostId});
+            this.send(ws, {t:'match_start', roster: this.roster, hostId: this.hostId});
+            this.broadcast({t:'seat_taken', seat, uid, name}, uid);
+            return;
+          }
+        }
+
         this.send(ws, {t:'joined', uid, hostId:this.hostId});
         this.broadcast(this.rosterPayload());
         break;
@@ -153,7 +177,17 @@ export class LobbyRoom {
       case 'start': {
         if(ws._uid !== this.hostId) return;      // only the host may start
         this.started = true;
+        this.roster = msg.roster;
         this.broadcast({t:'match_start', roster: msg.roster, hostId: this.hostId});
+        break;
+      }
+      case 'matchEnded': {
+        // the host leaving the game screen (back to menu, or about to send a
+        // fresh 'start' for a rematch) — stop offering this match's roster
+        // as a bot seat to hand to the next 'join' that comes in
+        if(ws._uid !== this.hostId) return;
+        this.started = false;
+        this.roster = null;
         break;
       }
       case 'input': {
@@ -200,7 +234,7 @@ export class Directory {
     if(request.method === 'POST' && url.pathname === '/register'){
       const body = await request.json().catch(() => ({}));
       const code = String(body.code || '').slice(0, 12);
-      const openSlots = Math.max(0, Math.min(3, +body.openSlots || 0));
+      const openSlots = Math.max(0, Math.min(MAX_MEMBERS - 1, +body.openSlots || 0));
       if(!code) return json({error:'missing code'}, 400);
       this.open.set(code, {code, openSlots, ts: Date.now()});
       return json({ok:true});
