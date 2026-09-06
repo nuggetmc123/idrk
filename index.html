@@ -1730,6 +1730,11 @@ function renderCareer(){
 
 function renderMenu(){
   renderPicker();
+  // 'play' is the tab already showing at boot, so unlike the others below it
+  // never gets a showTab('play') call to trigger its render — do it here too,
+  // or the lobby panel (Play with friends) stays blank until you tab away
+  // and back.
+  if(activeTab === 'play') renderLobby();
   if(activeTab === 'stats') renderCareer();
   if(activeTab === 'pass') renderPass();
   if(activeTab === 'shop') renderShop();
