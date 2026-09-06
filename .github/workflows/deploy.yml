@@ -1,0 +1,32 @@
+# .github/workflows/deploy.yml
+#
+# Deploys the static site to the CloudPanel-hosted server (idrk.dev) by
+# SSHing in as the `idrk` user and running the deploy script that already
+# lives on the box at ~/deploy.sh (it does its own git fetch/reset, rsync,
+# and cache-bust — see that file for details).
+#
+# This coexists with .github/workflows/pages.yml (the existing GitHub Pages
+# deploy) — both can run on the same push until the repo owner decides to
+# retire Pages. Nothing here touches pages.yml.
+name: Deploy to idrk.dev
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-idrk-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run deploy.sh on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: bash "$HOME/deploy.sh"
