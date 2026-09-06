@@ -45,6 +45,49 @@ function sanitizeUpg(u){
   return any ? out : null;
 }
 
+const MAX_NAME_LEN = 16;
+
+/* Kept in sync by hand with multiplayer.js's copy of this same list and
+   the same normalize/collapse logic — see the long comment over there for
+   why it exists and what it isn't. This room's copy is the backstop: the
+   client already filters before a name ever leaves the browser, but this
+   is a public relay, and a modified client could skip that and send
+   anything directly. A name that fails here is never rejected outright
+   (a stranger's bad name shouldn't be able to kick anyone off the relay)
+   — it's just quietly swapped for a neutral fallback before it ever
+   reaches another player's screen. */
+const BLOCKED_NAME_WORDS = [
+  'fuck','shit','bitch','asshole','bastard','cunt','dick','pussy','whore','slut',
+  'fag','faggot','nigger','nigga','chink','spic','kike','gook','tranny','retard',
+  'communis'
+].map(collapseRepeats);
+
+function collapseRepeats(s){ return s.replace(/(.)\1+/g, '$1'); }
+
+function normalizeForFilter(s){
+  return collapseRepeats(
+    s.toLowerCase()
+      .replace(/[04]/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e')
+      .replace(/5/g, 's').replace(/7/g, 't').replace(/\$/g, 's').replace(/@/g, 'a')
+      .replace(/[^a-z]/g, '')
+  );
+}
+
+function hasBlockedWord(s){
+  const norm = normalizeForFilter(s);
+  return BLOCKED_NAME_WORDS.some(w => norm.includes(w));
+}
+
+function stripInvisible(s){
+  return s.replace(/[\x00-\x1f\x7f\u200b-\u200f\u202a-\u202e\ufeff]/g, '');
+}
+
+function sanitizeName(raw){
+  const cleaned = stripInvisible(String(raw || '')).trim().slice(0, MAX_NAME_LEN);
+  if(!cleaned || hasBlockedWord(cleaned)) return 'Player';
+  return cleaned;
+}
+
 function json(data, status){
   return new Response(JSON.stringify(data), {
     status: status || 200,
@@ -133,7 +176,7 @@ export class LobbyRoom {
         }
         ws._uid = uid;
         this.sockets.set(uid, ws);
-        const name = String(msg.name || 'Player').slice(0, 24);
+        const name = sanitizeName(msg.name);
         this.members.set(uid, {name, cls: msg.cls || null, upg: sanitizeUpg(msg.upg)});
         if(!this.hostId) this.hostId = uid;
 
@@ -167,6 +210,16 @@ export class LobbyRoom {
         const m = this.members.get(ws._uid);
         m.cls = msg.cls || null;
         m.upg = sanitizeUpg(msg.upg);
+        this.broadcast(this.rosterPayload());
+        break;
+      }
+      case 'setName': {
+        // renaming yourself only updates the pre-match lobby roster — a
+        // rename mid-fight doesn't retroactively fix the name tag other
+        // players already have for that seat (see startHostBroadcast's own
+        // comment on why names never ride the snapshot channel either)
+        if(!ws._uid || !this.members.has(ws._uid)) return;
+        this.members.get(ws._uid).name = sanitizeName(msg.name);
         this.broadcast(this.rosterPayload());
         break;
       }

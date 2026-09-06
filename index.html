@@ -473,6 +473,12 @@ canvas{
 
     <section class="panel">
       <h2>Play with friends</h2>
+      <div class="lobby-row">
+        <input id="nameInput" placeholder="Your name" maxlength="16">
+        <button class="lobby-btn" id="nameSaveBtn">Save</button>
+      </div>
+      <p class="lobby-status" id="nameStatus"></p>
+      <p class="career-note" style="margin-top:0">Shown to other players in a lobby or match — nobody sees this locally, "You" still shows on your own screen.</p>
       <div id="lobbyBody"></div>
     </section>
   </div>
@@ -1244,6 +1250,17 @@ const DIFF = {
 const $ = id => document.getElementById(id);
 const elMenu = $('menu'), elGame = $('game'), elSelect = $('select');
 
+/* A player's display name is free text someone else typed — multiplayer.js
+   filters it for bad words before it's ever sent, but that filter has
+   nothing to do with HTML safety, and a name is exactly the kind of
+   string that ends up interpolated into innerHTML (the lobby roster, the
+   respawn overlay). Escape it there, every time. */
+function escapeHtml(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
+}
+
 function renderPicker(){
   const grid = $('classGrid');
   grid.innerHTML = '';
@@ -1350,6 +1367,31 @@ Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
   b.addEventListener('click', () => { SFX.play('ui'); showTab(b.dataset.pane); });
 });
 
+/* ---- display name ----
+   Net.setMyName() (see multiplayer.js) does the actual filtering; this is
+   just the field that calls it. Only ever matters in multiplayer — your
+   own screen always shows "You" for yourself — but it's shown regardless
+   of whether a relay is configured, since it's harmless to set ahead of
+   time and saves a step once one is. */
+function refreshNameField(){
+  const inp = $('nameInput');
+  if(inp && document.activeElement !== inp) inp.value = Net.myCustomName;
+  const st = $('nameStatus');
+  if(st) st.textContent = 'Playing as ' + Net.myName;
+}
+function saveNameField(){
+  const inp = $('nameInput');
+  if(!inp) return;
+  SFX.play('ui');
+  const r = Net.setMyName(inp.value);
+  const st = $('nameStatus');
+  if(!r.ok){ if(st) st.textContent = r.reason; return; }
+  refreshNameField();
+}
+if($('nameSaveBtn')) $('nameSaveBtn').addEventListener('click', saveNameField);
+if($('nameInput')) $('nameInput').addEventListener('keydown', e => { if(e.key === 'Enter') saveNameField(); });
+refreshNameField();
+
 /* ---- multiplayer lobby ---- */
 function renderLobby(){
   const body = $('lobbyBody');
@@ -1399,7 +1441,7 @@ function renderLobby(){
     const isMe = m.id === Net.myId;
     return '<div class="lobby-member">'
       + '<span class="dot" style="background:' + (c ? c.color : '#665') + '"></span>'
-      + '<span class="nm">' + m.name + (isMe ? ' (you)' : '') + '</span>'
+      + '<span class="nm">' + escapeHtml(m.name) + (isMe ? ' (you)' : '') + '</span>'
       + '<span class="cl">' + (c ? c.name : 'choosing…') + '</span>'
       + (m.id === lobby.hostId ? '<span class="host">Host</span>' : '')
       + '</div>';
@@ -3249,7 +3291,7 @@ function renderOverlays(){
         : '<span class="key">A</span><span class="key">D</span> to choose · <span class="key">F</span> to deploy';
     d.innerHTML =
       `<div class="elim display">ELIMINATED</div>
-       <div class="by">${p.name}${p.respawn.by ? ' &mdash; taken down by ' + p.respawn.by : ''}</div>
+       <div class="by">${escapeHtml(p.name)}${p.respawn.by ? ' &mdash; taken down by ' + escapeHtml(p.respawn.by) : ''}</div>
        <div class="mini">${
          ownedClassKeys().map((k,idx) => {
            const c = CLASSES[k];
@@ -4175,6 +4217,7 @@ if(Career.data.lastClass && CLASSES[Career.data.lastClass]) G.myClass = Career.d
 
 // Clerk resolves after the first paint, so redraw once the record arrives
 Career.onChange(() => {
+  refreshNameField();   // a Clerk sign-in can change the fallback myName() falls back to
   if(G.screen !== 'menu') return;
   if(activeTab === 'stats') renderCareer();
   if(activeTab === 'pass') renderPass();

@@ -22,11 +22,63 @@
 /* wss://your-worker.your-subdomain.workers.dev — set after `wrangler deploy`. */
 const RELAY_URL = 'wss://brawlbound-mp.brawlbound.workers.dev';
 
-const ID_KEY   = 'brawlbound-guest-id';
-const NAME_KEY = 'brawlbound-guest-name';
+const ID_KEY     = 'brawlbound-guest-id';
+const NAME_KEY   = 'brawlbound-guest-name';       // auto-generated "GuestNNNN" fallback
+const CUSTOM_NAME_KEY = 'brawlbound-custom-name'; // what setMyName() actually saves
 const SEARCH_WINDOW_MS = 6000;     // how long a host waits for backfill before using bots
 const RESPAWN_GRACE = 8;           // seconds a networked player gets to choose their next class
 const MAX_LOBBY_BOTS = 3;          // a real online lobby is capped at this many AI fill-ins
+const MAX_NAME_LEN = 16;
+
+/* A lightweight, English-only word filter — it normalizes common leetspeak
+   and collapses repeated letters before checking for a blocked word as a
+   substring, so "fuuuck"/"fu(k"/"F.U.C.K" all still get caught. This is not
+   real moderation (no server-side account/ban system exists for this game,
+   and a determined person can always find a way around a word list) — it
+   exists to stop the ordinary case of someone typing a slur or cuss word
+   into the name box, on both this client and (see worker/index.js, which
+   keeps its own copy of this same list) the relay itself, so a modified
+   client bypassing this file can't get an ugly name to other real players
+   either. Kept intentionally short: whole words a name can't just BE,
+   not fragments that would false-positive on innocent ones. */
+const BLOCKED_NAME_WORDS = [
+  'fuck','shit','bitch','asshole','bastard','cunt','dick','pussy','whore','slut',
+  'fag','faggot','nigger','nigga','chink','spic','kike','gook','tranny','retard',
+  'communis'   // catches communist/communism/communists — a specific ask, not a slur
+].map(collapseRepeats);
+
+function collapseRepeats(s){ return s.replace(/(.)\1+/g, '$1'); }   // aaa -> a, ss -> s
+
+function normalizeForFilter(s){
+  return collapseRepeats(
+    s.toLowerCase()
+      .replace(/[04]/g, 'o').replace(/1/g, 'i').replace(/3/g, 'e')
+      .replace(/5/g, 's').replace(/7/g, 't').replace(/\$/g, 's').replace(/@/g, 'a')
+      .replace(/[^a-z]/g, '')
+  );
+}
+
+function hasBlockedWord(s){
+  const norm = normalizeForFilter(s);
+  return BLOCKED_NAME_WORDS.some(w => norm.includes(w));
+}
+
+/* Strips control and invisible/zero-width characters — otherwise someone
+   could hide one inside a blocked word (f[ZWSP]uck) to slip past the
+   filter, or just make an unreadable name. */
+function stripInvisible(s){
+  return s.replace(/[\x00-\x1f\x7f\u200b-\u200f\u202a-\u202e\ufeff]/g, '');
+}
+
+/* Cleans and validates a name a person typed in. Returns {ok:true, name}
+   with the name to actually use, or {ok:false, reason} with nothing
+   changed — the caller (index.html's name field) shows `reason` back. */
+function sanitizeName(raw){
+  const cleaned = stripInvisible(String(raw == null ? '' : raw)).trim().slice(0, MAX_NAME_LEN);
+  if(!cleaned) return {ok:false, reason:'Type a name first.'};
+  if(hasBlockedWord(cleaned)) return {ok:false, reason:'That name isn\'t allowed.'};
+  return {ok:true, name:cleaned};
+}
 
 function randomId(){
   return 'g-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -44,12 +96,17 @@ function readLocal(key, fallback){
 function writeLocal(key, val){
   try{ localStorage.setItem(key, val); }catch(e){}
 }
+function removeLocal(key){
+  try{ localStorage.removeItem(key); }catch(e){}
+}
 
 let myId = readLocal(ID_KEY, null);
 if(!myId){ myId = randomId(); writeLocal(ID_KEY, myId); }
 
 let guestName = readLocal(NAME_KEY, null);
 if(!guestName){ guestName = 'Guest' + Math.floor(Math.random() * 9000 + 1000); writeLocal(NAME_KEY, guestName); }
+
+let customName = readLocal(CUSTOM_NAME_KEY, null);   // set via Net.setMyName() — beats everything else
 
 /* ---------- connection state ---------- */
 
@@ -72,7 +129,7 @@ function notify(list, arg){ list.forEach(fn => { try{ fn(arg); }catch(e){} }); }
 function setStatus(text){ notify(statusListeners, text); }
 
 function myName(){
-  return (window.Career && Career.signedIn && Career.displayName) || guestName;
+  return customName || (window.Career && Career.signedIn && Career.displayName) || guestName;
 }
 
 /* ---------- low-level socket ---------- */
@@ -182,6 +239,7 @@ const Net = {
   get configured(){ return !!RELAY_URL; },
   get myId(){ return myId; },
   get myName(){ return myName(); },
+  get myCustomName(){ return customName || ''; },   // '' means "no custom name set" — for prefilling the name field
   get role(){ return role; },
   get inMatch(){ return role === 'host' || role === 'client'; },
   get inLobby(){ return role === 'lobby' || this.inMatch; },
@@ -217,6 +275,27 @@ const Net = {
   setMyClass(cls){
     myClass = cls;
     if(ws) send({t:'setClass', cls, upg: Net.getMyUpgrades(cls)});
+  },
+
+  /* Validates and saves a name someone typed into the name field — see
+     sanitizeName()/BLOCKED_NAME_WORDS above. Returns {ok:true, name} or
+     {ok:false, reason} for the UI to show right back; nothing is changed
+     on a rejection. An empty/whitespace `raw` clears the custom name and
+     falls back to the account name or the random guest one instead of
+     erroring, since "I don't want a custom name" is a valid choice. */
+  setMyName(raw){
+    if(String(raw == null ? '' : raw).trim() === ''){
+      customName = null;
+      removeLocal(CUSTOM_NAME_KEY);
+      if(ws) send({t:'setName', name: myName()});
+      return {ok:true, name:''};
+    }
+    const r = sanitizeName(raw);
+    if(!r.ok) return r;
+    customName = r.name;
+    writeLocal(CUSTOM_NAME_KEY, customName);
+    if(ws) send({t:'setName', name: myName()});
+    return r;
   },
 
   /* index.html supplies this — multiplayer.js has no access to Career's
