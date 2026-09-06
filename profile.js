@@ -53,6 +53,21 @@ const SKIN_SETS = [
   {id:'ash',     name:'Ashen',    price:600,  color:'#b8b2c6', dark:'#3a3547', light:'#ecebf2'}
 ];
 
+/* Character upgrades. Every fighter has three independent tracks, five
+   levels each, paid for with the same coins as everything else — spent
+   permanently on that ONE fighter, so switching class keeps your
+   investment intact rather than resetting it. */
+const UPGRADE_TRACKS = [
+  {id:'dmg', name:'Damage',   perLevel:0.06, icon:'⚔️'},   // +6% outgoing damage per level
+  {id:'spd', name:'Speed',    perLevel:0.04, icon:'💨'},   // +4% move speed per level
+  {id:'vit', name:'Vitality', perLevel:0.08, icon:'❤️'}    // +8% max health per level
+];
+const UPGRADE_MAX_LEVEL = 5;
+const UPGRADE_BASE_COST = {dmg:120, spd:100, vit:110};
+function upgradeCost(track, level){          // cost of buying INTO this level (1..5)
+  return Math.round(UPGRADE_BASE_COST[track] * Math.pow(1.6, level - 1));
+}
+
 const HATS = [
   {id:'crown',  name:'Crown'},
   {id:'horns',  name:'Horns'},
@@ -113,7 +128,7 @@ const blank = () => ({
   lastClass:null, title:null, byClass:{},
   earned:0, spent:0,
   owned:[], skins:[], hats:[], chests:[], opened:[], claimed:[],
-  equipSkin:{}, equipHat:null
+  equipSkin:{}, equipHat:null, upgrades:{}
 });
 
 const GROW_LISTS = ['owned','skins','hats','chests','opened','claimed'];
@@ -169,6 +184,12 @@ function mergeMax(a, b){
       elims:  Math.max(x.elims  || 0, y.elims  || 0),
       deaths: Math.max(x.deaths || 0, y.deaths || 0)
     };
+  });
+  out.upgrades = {};
+  Object.keys(a.upgrades || {}).concat(Object.keys(b.upgrades || {})).forEach(cls => {
+    const x = (a.upgrades || {})[cls] || {}, y = (b.upgrades || {})[cls] || {};
+    out.upgrades[cls] = {};
+    UPGRADE_TRACKS.forEach(t => { out.upgrades[cls][t.id] = Math.max(x[t.id] || 0, y[t.id] || 0); });
   });
   return out;
 }
@@ -342,6 +363,52 @@ const Career = {
     return (data.skins || [])
       .filter(id => id.indexOf(cls + ':') === 0)
       .map(id => id.split(':')[1]);
+  },
+
+  /* ---------- upgrades ---------- */
+
+  get upgradeTracks(){ return UPGRADE_TRACKS.slice(); },
+  upgradeMaxLevel: UPGRADE_MAX_LEVEL,
+
+  upgradeLevel(cls, track){
+    return (data.upgrades[cls] && data.upgrades[cls][track]) || 0;
+  },
+
+  /* 1 = no bonus. Damage and max health read this directly; move speed the
+     same way. Bots and anyone else's fighters never carry a bonus — this
+     is spent on and applies to your own account's fighter only. */
+  upgradeMultiplier(cls, track){
+    const t = UPGRADE_TRACKS.filter(x => x.id === track)[0];
+    return t ? 1 + this.upgradeLevel(cls, track) * t.perLevel : 1;
+  },
+
+  /* Coin cost of buying the NEXT level, or null once maxed. */
+  upgradeCostFor(cls, track){
+    const lvl = this.upgradeLevel(cls, track);
+    return lvl >= UPGRADE_MAX_LEVEL ? null : upgradeCost(track, lvl + 1);
+  },
+
+  buyUpgrade(cls, track){
+    if(!this.owns(cls)) return false;
+    const cost = this.upgradeCostFor(cls, track);
+    if(cost === null || this.coins < cost) return false;
+    data.spent += cost;
+    if(!data.upgrades[cls]) data.upgrades[cls] = {};
+    data.upgrades[cls][track] = this.upgradeLevel(cls, track) + 1;
+    save(); flush();
+    return true;
+  },
+
+  /* What a remote lobby member's own upgrades look like, for the join/setClass
+     payload — see multiplayer.js. Absent entirely if they have none, so the
+     wire format stays small for the overwhelmingly common case. */
+  upgradesFor(cls){
+    const row = data.upgrades[cls];
+    if(!row) return null;
+    const out = {};
+    let any = false;
+    UPGRADE_TRACKS.forEach(t => { if(row[t.id]){ out[t.id] = row[t.id]; any = true; } });
+    return any ? out : null;
   },
 
   /* Every purchase goes through here, so the balance can only be spent once

@@ -96,7 +96,7 @@ function check(label, got, want){
 }
 
 console.log('\n--- economy ---');
-const d = Career.data;
+let d = Career.data;
 
 // a balance is earned minus spent, and never negative
 d.earned = 1500; d.spent = 0;
@@ -178,5 +178,53 @@ Clerk.user.unsafeMetadata = { arenaClash: stale };
 listeners.forEach(f => f());
 await wait(30);
 check('spent coins do not come back after a merge', Career.coins, 1200);
+d = Career.data;   // the merge above reassigned Career's internal data object —
+                    // this stale-reference footgun is exactly what buyUpgrade's own
+                    // merge test below is checking does NOT happen to real players
+
+/* ---------- character upgrades ---------- */
+console.log('\n--- upgrades ---');
+d.owned = ['berserker'];
+d.earned += 5000;
+
+check('level 0 has no bonus', Career.upgradeMultiplier('berserker', 'dmg'), 1);
+check('cannot upgrade a fighter you do not own', Career.buyUpgrade('ranger', 'dmg'), false);
+
+const c1 = Career.upgradeCostFor('berserker', 'dmg');
+const before2 = Career.coins;
+check('first level purchase succeeds', Career.buyUpgrade('berserker', 'dmg'), true);
+check('coins dropped by the first level cost', before2 - Career.coins, c1);
+check('level is now 1', Career.upgradeLevel('berserker', 'dmg'), 1);
+check('a 6% bonus at level 1', Math.round((Career.upgradeMultiplier('berserker','dmg')-1)*100), 6);
+
+// costs climb, and a track cannot pass its cap
+let lastCost = c1;
+for(let i = 2; i <= 5; i++){
+  const cost = Career.upgradeCostFor('berserker', 'dmg');
+  check('level ' + i + ' costs more than the last', cost > lastCost, true);
+  check('level ' + i + ' purchase succeeds', Career.buyUpgrade('berserker', 'dmg'), true);
+  lastCost = cost;
+}
+check('maxed out at level 5', Career.upgradeLevel('berserker', 'dmg'), 5);
+check('no price past the cap', Career.upgradeCostFor('berserker', 'dmg'), null);
+check('buying past the cap is refused', Career.buyUpgrade('berserker', 'dmg'), false);
+check('a 30% bonus at level 5', Math.round((Career.upgradeMultiplier('berserker','dmg')-1)*100), 30);
+
+// tracks are independent, and switching fighters does not touch them
+check('speed track is untouched by the damage track', Career.upgradeLevel('berserker', 'spd'), 0);
+check('a different fighter starts at zero', Career.upgradeLevel('ninja', 'dmg'), 0);
+
+// what rides along on join/setClass for a remote human
+check('upgradesFor reports the levels bought', Career.upgradesFor('berserker'), {dmg:5});
+check('upgradesFor is null with nothing bought', Career.upgradesFor('ninja'), null);
+
+// merging takes the higher level per track, same rule as everything else
+const cloudCopy = JSON.parse(JSON.stringify(d));
+cloudCopy.upgrades.berserker = {dmg:2, spd:3};      // an older device, ahead on speed only
+Clerk.user.unsafeMetadata = { arenaClash: cloudCopy };
+listeners.forEach(f => f());
+await wait(30);
+check('kept the higher damage level after merging', Career.upgradeLevel('berserker','dmg'), 5);
+check('picked up the higher speed level from the other device', Career.upgradeLevel('berserker','spd'), 3);
 
 console.log(process.exitCode ? '\nFAILED' : '\nPASS');

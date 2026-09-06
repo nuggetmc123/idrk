@@ -91,7 +91,7 @@ function openRoom(roomCode){
     const timeout = setTimeout(() => { if(!settled){ settled = true; sock.close(); reject(new Error('timeout')); } }, 6000);
 
     sock.addEventListener('open', () => {
-      sock.send(JSON.stringify({t:'join', uid: myId, name: myName(), cls: myClass}));
+      sock.send(JSON.stringify({t:'join', uid: myId, name: myName(), cls: myClass, upg: Net.getMyUpgrades(myClass)}));
     });
     sock.addEventListener('message', ev => {
       let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
@@ -205,8 +205,14 @@ const Net = {
 
   setMyClass(cls){
     myClass = cls;
-    if(ws) send({t:'setClass', cls});
+    if(ws) send({t:'setClass', cls, upg: Net.getMyUpgrades(cls)});
   },
+
+  /* index.html supplies this — multiplayer.js has no access to Career's
+     data, only the shape a "your own upgrade levels for this fighter"
+     lookup should have. Called right before every join/setClass so a
+     remote human's upgrades are always current on whoever's hosting. */
+  getMyUpgrades: function(){ return null; },
 
   /* Called when a match finishes or is left for the menu. Friends stay
      grouped in their lobby for a rematch — only an explicit leaveLobby()

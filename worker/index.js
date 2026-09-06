@@ -24,6 +24,26 @@
 
 const MAX_MEMBERS = 4;             // matches the game's 4-fighter arena
 const DIRECTORY_TTL_MS = 30000;    // an entry nobody refreshed in 30s is dead
+const UPGRADE_TRACKS = ['dmg', 'spd', 'vit'];
+const UPGRADE_MAX_LEVEL = 5;
+
+/* A player's own upgrade levels ride along on join/setClass so the host
+   can apply the right bonus to a remote human's fighter. This room never
+   checks whether the levels claimed were actually paid for — that trust
+   boundary is the same one bots already crossed (the host is trusted to
+   run the fight honestly) — it only clamps the SHAPE so one bad or hostile
+   client can't send oversized/malformed JSON into every other player's
+   browser via the roster broadcast. */
+function sanitizeUpg(u){
+  if(!u || typeof u !== 'object') return null;
+  const out = {};
+  let any = false;
+  for(const k of UPGRADE_TRACKS){
+    const v = u[k];
+    if(typeof v === 'number' && v > 0){ out[k] = Math.min(UPGRADE_MAX_LEVEL, Math.floor(v)); any = true; }
+  }
+  return any ? out : null;
+}
 
 function json(data, status){
   return new Response(JSON.stringify(data), {
@@ -80,7 +100,7 @@ export class LobbyRoom {
   rosterPayload(){
     return {
       t:'roster', hostId:this.hostId,
-      members: Array.from(this.members, ([id, m]) => ({id, name:m.name, cls:m.cls}))
+      members: Array.from(this.members, ([id, m]) => ({id, name:m.name, cls:m.cls, upg:m.upg}))
     };
   }
 
@@ -112,7 +132,7 @@ export class LobbyRoom {
         }
         ws._uid = uid;
         this.sockets.set(uid, ws);
-        this.members.set(uid, {name: String(msg.name || 'Player').slice(0, 24), cls: msg.cls || null});
+        this.members.set(uid, {name: String(msg.name || 'Player').slice(0, 24), cls: msg.cls || null, upg: sanitizeUpg(msg.upg)});
         if(!this.hostId) this.hostId = uid;
         this.send(ws, {t:'joined', uid, hostId:this.hostId});
         this.broadcast(this.rosterPayload());
@@ -120,7 +140,9 @@ export class LobbyRoom {
       }
       case 'setClass': {
         if(!ws._uid || !this.members.has(ws._uid)) return;
-        this.members.get(ws._uid).cls = msg.cls || null;
+        const m = this.members.get(ws._uid);
+        m.cls = msg.cls || null;
+        m.upg = sanitizeUpg(msg.upg);
         this.broadcast(this.rosterPayload());
         break;
       }

@@ -187,7 +187,7 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:none}
 .pcard .hpf{height:100%;background:linear-gradient(90deg,#48d16a,#a8e05a);transition:width .12s}
 .pcard.dead{opacity:.42}
 
-.stage{position:relative;width:100%;max-width:min(1000px, max(300px, calc((100vh - var(--reserve,190px)) * 1.6)));margin:0 auto}
+.stage{position:relative;width:100%;max-width:min(1333px, max(300px, calc((100vh - var(--reserve,190px)) * 1.6)));margin:0 auto}
 canvas{
   width:100%;height:auto;display:block;border-radius:12px;touch-action:none;
   border:1px solid #3b3358;background:#0b0913;
@@ -394,6 +394,25 @@ canvas{
   background:linear-gradient(180deg,#7a5a2a,#4a3410);border:1px solid #c9963a;color:#ffe6b0;
 }
 .locked-note{font-size:11px;color:#8f87ab;margin-top:4px}
+
+/* ---- character upgrades ---- */
+.upgcard{
+  display:flex;align-items:center;gap:14px;background:rgba(24,20,42,.6);
+  border:1px solid #2c2547;border-radius:10px;padding:12px 14px;margin-bottom:10px;flex-wrap:wrap;
+}
+.upgcard .ico{font-size:24px;width:30px;text-align:center;flex-shrink:0}
+.upgcard .body{flex:1;min-width:160px}
+.upgcard .nm{font-weight:700;font-size:14px;color:var(--parch)}
+.upgcard .bonus{font-size:11.5px;color:#9fd68c;margin-top:2px}
+.upgcard .dots{display:flex;gap:4px;margin-top:6px}
+.upgcard .dot{width:11px;height:11px;border-radius:50%;background:#2c2547;border:1px solid #443a6e}
+.upgcard .dot.on{background:linear-gradient(180deg,#ffce6b,#e0761f);border-color:#ffd98a}
+.upgcard .buy{
+  font-family:inherit;font-size:12px;font-weight:700;padding:9px 16px;border-radius:8px;cursor:pointer;
+  background:linear-gradient(180deg,#5a4a94,#3a3068);border:1px solid #7a68bd;color:#fff;white-space:nowrap;
+}
+.upgcard .buy:disabled{background:#241f36;border-color:#332c50;color:#6f6790;cursor:default}
+.upgcard .buy.maxed{background:transparent;border-color:#4a3f7a;color:#b6aed0}
 .load{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
   padding:8px 0;border-bottom:1px solid rgba(44,37,71,.7)}
 .load span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
@@ -431,6 +450,7 @@ canvas{
     <button class="tab" type="button" data-pane="pass">Battle Pass</button>
     <button class="tab" type="button" data-pane="shop">Shop</button>
     <button class="tab" type="button" data-pane="locker">Locker</button>
+    <button class="tab" type="button" data-pane="upgrade">Upgrade</button>
   </nav>
 
   <div class="pane" id="pane-play">
@@ -517,6 +537,20 @@ canvas{
       <div id="lockerList"></div>
     </section>
   </div>
+
+  <div class="pane hidden" id="pane-upgrade">
+    <section class="panel">
+      <h2>Upgrade a fighter</h2>
+      <div class="shophead">
+        <span class="coins" id="upgradeCoins">0</span>
+        <select id="upgradeFor" style="font-family:inherit;font-size:12px;background:#221d38;color:#e2dcf2;border:1px solid var(--edge);border-radius:7px;padding:5px 8px"></select>
+      </div>
+      <p class="career-note" style="margin:0 0 6px">
+        Paid for once per fighter, permanently &mdash; switching who you play keeps every level intact.
+      </p>
+      <div id="upgradeTracks"></div>
+    </section>
+  </div>
 </div>
 
 <!-- ============ FIGHTER SELECT ============ -->
@@ -588,8 +622,14 @@ function segDist(px,py,x1,y1,x2,y2){
 /* ============================================================
    1. ARENA
    ============================================================ */
-const W = 960, H = 600;
-const T = 26; // wall thickness
+/* 1280x800 — a third bigger (linear) than the original 960x600, same 8:5
+   shape. Every literal offset below is scaled by the same 4/3 factor that
+   grew W and H, so the layout keeps its proportions instead of the old
+   barricades clustering near the corners of a now-bigger room. Weapon
+   ranges and bot AI distances are deliberately left alone — a physically
+   bigger arena rewarding more careful positioning is the point. */
+const W = 1280, H = 800;
+const T = 35; // wall thickness
 
 const WALLS = [
   // outer ring
@@ -598,25 +638,25 @@ const WALLS = [
   {x:0,   y:0,     w:T,  h:H},
   {x:W-T, y:0,     w:T,  h:H},
   // barricades hugging the edges
-  {x:118, y:104,   w:150, h:22},
-  {x:W-268,y:104,  w:150, h:22},
-  {x:118, y:H-126, w:150, h:22},
-  {x:W-268,y:H-126,w:150, h:22},
-  {x:96,  y:236,   w:22,  h:128},
-  {x:W-118,y:236,  w:22,  h:128},
+  {x:157, y:139,   w:200, h:29},
+  {x:W-357,y:139,  w:200, h:29},
+  {x:157, y:H-168, w:200, h:29},
+  {x:W-357,y:H-168,w:200, h:29},
+  {x:128, y:315,   w:29,  h:171},
+  {x:W-157,y:315,  w:29,  h:171},
   // center structures
-  {x:W/2-11, y:74,    w:22, h:118},
-  {x:W/2-11, y:H-192, w:22, h:118},
-  {x:W/2-96, y:H/2-11,w:192,h:22},
-  {x:300, y:H/2-70, w:22, h:140},
-  {x:W-322,y:H/2-70, w:22, h:140},
+  {x:W/2-15, y:99,    w:29, h:157},
+  {x:W/2-15, y:H-256, w:29, h:157},
+  {x:W/2-128,y:H/2-15,w:256,h:29},
+  {x:400, y:H/2-93, w:29, h:187},
+  {x:W-429,y:H/2-93, w:29, h:187},
 ];
 
 const SPAWNS = [
-  {x:78,  y:78},  {x:W-78, y:78},
-  {x:78,  y:H-78},{x:W-78, y:H-78},
-  {x:W/2, y:66},  {x:W/2,  y:H-66},
-  {x:200, y:H/2}, {x:W-200,y:H/2},
+  {x:104, y:104},  {x:W-104, y:104},
+  {x:104, y:H-104},{x:W-104, y:H-104},
+  {x:W/2, y:88},   {x:W/2,   y:H-88},
+  {x:267, y:H/2},  {x:W-267, y:H/2},
 ];
 
 function circleHitsWall(x,y,r){
@@ -1229,7 +1269,7 @@ let activeTab = 'play';
 
 function showTab(name){
   activeTab = name;
-  ['play','stats','pass','shop','locker'].forEach(t => {
+  ['play','stats','pass','shop','locker','upgrade'].forEach(t => {
     $('pane-' + t).classList.toggle('hidden', t !== name);
   });
   Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
@@ -1240,6 +1280,7 @@ function showTab(name){
   if(name === 'pass') renderPass();
   if(name === 'shop') renderShop();
   if(name === 'locker') renderLocker();
+  if(name === 'upgrade') renderUpgradePane();
 }
 
 Array.prototype.forEach.call(document.querySelectorAll('#tabs .tab'), b => {
@@ -1483,6 +1524,56 @@ function renderLocker(){
 
   if(!list.children.length)
     list.innerHTML = '<p class="career-note">No fighters yet.</p>';
+}
+
+/* ---- character upgrades ---- */
+let upgradeTarget = null;
+
+function renderUpgradePane(){
+  $('upgradeCoins').textContent = coinText(Career.coins);
+
+  const sel = $('upgradeFor');
+  const roster = Career.ownedFighters.filter(k => CLASSES[k]);
+  if(!upgradeTarget || roster.indexOf(upgradeTarget) === -1)
+    upgradeTarget = (G.myClass && Career.owns(G.myClass)) ? G.myClass : roster[0];
+  sel.innerHTML = roster.map(k =>
+    '<option value="' + k + '"' + (k === upgradeTarget ? ' selected' : '') + '>' + CLASSES[k].name + '</option>').join('');
+  sel.onchange = () => { upgradeTarget = sel.value; renderUpgradePane(); };
+
+  const list = $('upgradeTracks');
+  list.innerHTML = '';
+  if(!upgradeTarget){ list.innerHTML = '<p class="career-note">No fighters yet.</p>'; return; }
+
+  Career.upgradeTracks.forEach(t => {
+    const lvl = Career.upgradeLevel(upgradeTarget, t.id);
+    const maxed = lvl >= Career.upgradeMaxLevel;
+    const cost = Career.upgradeCostFor(upgradeTarget, t.id);
+    const bonusNow = Math.round((Career.upgradeMultiplier(upgradeTarget, t.id) - 1) * 100);
+    const bonusNext = maxed ? null : Math.round((1 + (lvl+1)*t.perLevel - 1) * 100);
+
+    const dots = Array.from({length: Career.upgradeMaxLevel})
+      .map((_, i) => '<div class="dot' + (i < lvl ? ' on' : '') + '"></div>').join('');
+
+    const card = document.createElement('div');
+    card.className = 'upgcard';
+    card.innerHTML =
+      '<div class="ico">' + t.icon + '</div>'
+      + '<div class="body">'
+      +   '<div class="nm">' + t.name + ' &middot; Level ' + lvl + '/' + Career.upgradeMaxLevel + '</div>'
+      +   '<div class="bonus">' + (lvl ? '+' + bonusNow + '% now' : 'No bonus yet')
+      +     (maxed ? '' : ' &rarr; +' + bonusNext + '% at the next level') + '</div>'
+      +   '<div class="dots">' + dots + '</div>'
+      + '</div>';
+    const b = document.createElement('button');
+    b.className = 'buy' + (maxed ? ' maxed' : '');
+    b.textContent = maxed ? 'MAXED' : coinText(cost) + ' coins';
+    b.disabled = maxed || Career.coins < cost;
+    if(!maxed) b.addEventListener('click', () => {
+      if(Career.buyUpgrade(upgradeTarget, t.id)){ SFX.play('heal'); renderUpgradePane(); }
+    });
+    card.appendChild(b);
+    list.appendChild(card);
+  });
 }
 
 /* ---- battle pass ---- */
@@ -1742,6 +1833,7 @@ function makePlayer(spec, order){
     name: spec.name,
     isBot: !!spec.isBot,
     uid: spec.uid || null,        // relay identity — null for bots and the local player in solo play
+    upg: spec.upg || null,        // a REMOTE human's upgrade levels, relayed — see upgMulFor()
     device: spec.device || null,
     cls: spec.cls,
     x:0, y:0, vx:0, vy:0, r:c.radius,
@@ -1767,6 +1859,21 @@ function isLocalHuman(p){
   return p.uid === Net.myId;
 }
 
+/* A remote human's upgrade levels travel over the network as raw numbers
+   (p.upg), not a ready-made multiplier — this is the one place that knows
+   how to turn either that or the local human's own Career data into the
+   same 1.0-based multiplier. Bots never carry a bonus. */
+function multiplierFromLevels(levels, track){
+  if(!levels) return 1;
+  const t = Career.upgradeTracks.filter(x => x.id === track)[0];
+  return t ? 1 + (levels[track] || 0) * t.perLevel : 1;
+}
+function upgMulFor(p, track){
+  if(!p || p.isBot) return 1;
+  if(isLocalHuman(p)) return Career.upgradeMultiplier(p.cls, track);
+  return multiplierFromLevels(p.upg, track);
+}
+
 function bestSpawn(exclude){
   let best = SPAWNS[0], bestScore = -1;
   for(const s of SPAWNS){
@@ -1785,7 +1892,7 @@ function bestSpawn(exclude){
 function deploy(p, clsKey){
   const c = CLASSES[clsKey];
   p.cls = clsKey;
-  p.maxHp = c.hp; p.hp = c.hp; p.r = c.radius;
+  p.maxHp = Math.round(c.hp * upgMulFor(p, 'vit')); p.hp = p.maxHp; p.r = c.radius;
   p.alive = true; p.deadT = 0; p.respawn = null;
   p.atkCd = 0; p.spCd = 0;
   p.vx = 0; p.vy = 0;
@@ -1809,13 +1916,17 @@ Net.fillBots = function(n){
   return out;
 };
 
+/* Sent alongside every join/setClass so a remote human's own upgrade
+   levels apply correctly on whoever ends up hosting — see upgMulFor(). */
+Net.getMyUpgrades = function(cls){ return Career.upgradesFor(cls); };
+
 /* Turns a Net roster entry (real member or pre-picked bot) into the spec
    makePlayer() expects, resolving which one is the local human on THIS
    machine so they get the real device and are named "You". */
 function specFromNetEntry(entry){
   if(entry.isBot) return {name: entry.name, isBot:true, device:null, cls: entry.cls};
   if(entry.uid === Net.myId) return {name:'You', isBot:false, device:G.device, cls:G.myClass, uid:Net.myId};
-  return {name: entry.name, isBot:false, device:null, cls: entry.cls, uid: entry.uid};
+  return {name: entry.name, isBot:false, device:null, cls: entry.cls, uid: entry.uid, upg: entry.upg || null};
 }
 
 /* The PLAY / Play-again entry point. Solo resolves immediately with no
@@ -1881,7 +1992,15 @@ function enterMatch(roster, role){
   buildHud();
   markOverlay();
   renderOverlays();
-  enterFullscreen();
+  // fullscreen by default from the very first match, not just once the
+  // player has found and clicked the manual toggle once already. Browsers
+  // only honour a fullscreen request made within a real user gesture, so
+  // this reliably works for solo/host (both start synchronously from the
+  // START MATCH click) — a client entering seconds later off a network
+  // message may have lost that window and stay windowed; the footer's
+  // Fullscreen button is still a normal click away either way.
+  G.fullscreen = true;
+  enterFullscreen(true);
   $('footHint').innerHTML =
     (G.device === 'touch'
       ? 'Five minutes · left stick moves, right stick aims and fires'
@@ -2452,6 +2571,7 @@ function damage(target, amt, src, kx, ky){
     const D = DIFF[src.skill] || DIFF[G.difficulty];
     dmg *= (D.dmgMul !== undefined ? D.dmgMul : 1);
   }
+  if(src) dmg *= upgMulFor(src, 'dmg');
   if(src && src.fx.buff > 0){ dmg *= 2; src.fx.buff = 0; floatText(src.x, src.y-30, 'AMBUSH', CLASSES[src.cls].light); }
   target.hp -= dmg;
   target.hitFlash = 0.2;
@@ -2755,7 +2875,7 @@ function update(dt){
     const m = Math.hypot(ax, ay);
     if(m > 1){ ax /= m; ay /= m; }
 
-    let speed = c.speed;
+    let speed = c.speed * upgMulFor(p, 'spd');
     if(p.fx.haste > 0) speed *= 1.45;
     if(p.fx.slow > 0)  speed *= 0.58;
 
@@ -3489,6 +3609,25 @@ function drawFighter(p){
   ctx.fillStyle = '#000';
   ctx.beginPath(); ctx.ellipse(p.x, p.y + 14, 15, 6, 0, 0, TAU); ctx.fill();
   ctx.restore();
+
+  // a neutral gold marker under whichever fighter is actually you — every
+  // class has its own colour already, so "your own colour" wouldn't stand
+  // out against a bot playing the same one. Drawn even through stealth: it
+  // would defeat the point if you lost track of yourself too.
+  if(isLocalHuman(p)){
+    ctx.save();
+    const pulse = 0.5 + Math.sin(G.time*4)*0.5;
+    const glowR = p.r + 22 + pulse*4;
+    const g = ctx.createRadialGradient(p.x, p.y, p.r*0.4, p.x, p.y, glowR);
+    g.addColorStop(0, 'rgba(255,224,120,0.32)');
+    g.addColorStop(1, 'rgba(255,224,120,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(p.x, p.y, glowR, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,224,120,' + (0.5 + pulse*0.3) + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 10, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
 
   ctx.save();
   ctx.globalAlpha = p.fx.stealth > 0 ? 0.3 : 1;
