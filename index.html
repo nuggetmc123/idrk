@@ -1750,17 +1750,24 @@ function renderCareer(){
 
 function renderMenu(){
   renderPicker();
+  // 'play' is the tab already showing at boot, so unlike the others below it
+  // never gets a showTab('play') call to trigger its render — do it here too,
+  // or the lobby panel (Play with friends) stays blank until you tab away
+  // and back.
+  if(activeTab === 'play') renderLobby();
   if(activeTab === 'stats') renderCareer();
   if(activeTab === 'pass') renderPass();
   if(activeTab === 'shop') renderShop();
   const btn = $('playBtn'), hint = $('playHint');
-  if(!G.myClass){
-    btn.disabled = true;
-    hint.textContent = 'Pick your class to unlock the match.';
-  } else {
-    btn.disabled = false;
-    hint.textContent = 'Endless brawl against ' + G.opponents + ' opponents.';
-  }
+  // PLAY only opens the fighter-select screen now (showSelect(), below) — it
+  // is not the button that launches a match, so it must stay clickable even
+  // with no class chosen yet, or a first-time visitor could never reach the
+  // picker to choose one. startBtn (inside #select) is the one gated on
+  // G.myClass, since it is the button that actually starts the match.
+  btn.disabled = false;
+  hint.textContent = G.myClass
+    ? 'Endless brawl against ' + G.opponents + ' opponents.'
+    : 'Pick your class to unlock the match.';
 }
 function showSelect(){
   G.screen = 'select';

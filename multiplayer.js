@@ -20,7 +20,7 @@
 "use strict";
 
 /* wss://your-worker.your-subdomain.workers.dev — set after `wrangler deploy`. */
-const RELAY_URL = '';
+const RELAY_URL = 'wss://brawlbound-mp.brawlbound.workers.dev';
 
 const ID_KEY   = 'brawlbound-guest-id';
 const NAME_KEY = 'brawlbound-guest-name';
