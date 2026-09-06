@@ -622,17 +622,24 @@ function segDist(px,py,x1,y1,x2,y2){
 /* ============================================================
    1. ARENA
    ============================================================ */
-/* A brand new layout, not a rescale of the old one — 2048x1280 (still 8:5),
-   1.6x bigger (linear) than the previous 1280x800 map. Big enough now that
-   the whole thing no longer fits on screen at once, so VIEW_W/VIEW_H is the
-   camera's window into it (see updateCamera()) while W/H stay the full
-   world size everything else — walls, spawns, wall collision — is built
-   against. Weapon ranges and bot AI distances are deliberately left alone —
-   a physically bigger arena rewarding more careful positioning is the
-   point. VIEW_W/VIEW_H match the old map's exact size on purpose, so the
-   on-screen display, canvas element and .stage CSS need no changes at all —
-   only the world scrolling underneath them got bigger. */
-const W = 2048, H = 1280;
+/* 4096x2560 (still 8:5) — 2x bigger (linear) than the previous 2048x1280
+   map, 4x the area. Big enough that the whole thing no longer fits on
+   screen at once, so VIEW_W/VIEW_H is the camera's window into it (see
+   updateCamera()) while W/H stay the full world size everything else —
+   walls, spawns, wall collision — is built against. Weapon ranges and bot
+   AI distances are deliberately left alone: botThink() always beelines for
+   the nearest living enemy regardless of distance (no detection-range cap
+   exists to add), so a bigger map means more traveling and positioning,
+   not bots that never find each other — crossing the whole map at a
+   typical class's move speed still only takes ~20 seconds, well inside a
+   five-minute match. A midfield ring of chokepoints was added between the
+   original corner/edge/center structures and a few more spawns further
+   out, so the extra space reads as a bigger arena to fight across rather
+   than empty padding around the same old layout. VIEW_W/VIEW_H match the
+   old map's exact size on purpose, so the on-screen display, canvas
+   element and .stage CSS need no changes at all — only the world
+   scrolling underneath them got bigger. */
+const W = 4096, H = 2560;
 const VIEW_W = 1280, VIEW_H = 800;
 const T = 36; // wall thickness
 
@@ -660,6 +667,14 @@ const WALLS = [
   {x:120,    y:H/2-95,  w:190, h:34},
   {x:W-310,  y:H/2-95,  w:190, h:34},
 
+  // a midfield ring, roughly a third of the way from each corner to the
+  // center — the extra cover the much bigger map needs so the middle
+  // ground isn't a wide empty run between the old layout's landmarks
+  {x:W*0.27-90, y:H*0.27-16, w:180, h:32},
+  {x:W*0.73-90, y:H*0.27-16, w:180, h:32},
+  {x:W*0.27-16, y:H*0.73-90, w:32,  h:180},
+  {x:W*0.73-16, y:H*0.73-90, w:32,  h:180},
+
   // a hollow plus in the very center — a pickup usually spawns in the gap
   {x:W/2-140, y:H/2-17,  w:110, h:34},
   {x:W/2+30,  y:H/2-17,  w:110, h:34},
@@ -674,6 +689,8 @@ const SPAWNS = [
   {x:170, y:H/2},        {x:W-170, y:H/2},
   {x:W/2-320, y:H/2-320},{x:W/2+320, y:H/2-320},
   {x:W/2-320, y:H/2+320},{x:W/2+320, y:H/2+320},
+  {x:W*0.27, y:H*0.27},  {x:W*0.73, y:H*0.27},
+  {x:W*0.27, y:H*0.73},  {x:W*0.73, y:H*0.73},
 ];
 
 function circleHitsWall(x,y,r){
