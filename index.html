@@ -1177,7 +1177,7 @@ window.addEventListener('keyup', e => { keys[e.code] = false; });
 window.addEventListener('blur', () => {
   for(const k in keys) keys[k] = false;
   mouse.down = false;
-  if(G.screen === 'game' && !G.over && !G.paused) togglePause(true);
+  if(G.screen === 'game' && !G.over && !G.paused && !G.localPause) togglePause(true);
 });
 
 /* ============================================================
@@ -1258,6 +1258,7 @@ const G = {
   players:[], projs:[], aoes:[], parts:[], floats:[], pickups:[], slashes:[],
   feed:[],
   time:0, shake:0, over:null, paused:false,
+  localPause:false,       // host/client's own menu — never stops the shared match, see togglePause()
   nextPickup:8, overlayKey:'',
   cam:{x:0, y:0},         // top-left world corner the camera currently shows — see updateCamera()
   // Owner Menu — hold Q+E for 3s to open it. See updateCheatHold()/openOwnerMenu().
@@ -1971,7 +1972,7 @@ function onFullscreenChange(){
   elGame.classList.toggle('fs', inFs);
   updateFsButton();
   // leaving fullscreen mid-fight shouldn't cost you a life
-  if(!inFs && G.screen === 'game' && !G.over && !G.paused) togglePause(true);
+  if(!inFs && G.screen === 'game' && !G.over && !G.paused && !G.localPause) togglePause(true);
 }
 if(document.addEventListener){
   document.addEventListener('fullscreenchange', onFullscreenChange);
@@ -2115,7 +2116,7 @@ function startMatch(){
 function enterMatch(roster, role){
   G.players = []; G.projs = []; G.aoes = []; G.parts = [];
   G.floats = []; G.pickups = []; G.slashes = []; G.feed = [];
-  G.time = 0; G.shake = 0; G.over = null; G.paused = false;
+  G.time = 0; G.shake = 0; G.over = null; G.paused = false; G.localPause = false;
   G.nextPickup = 6;
   G.myDeaths = 0;
   G.shownSec = -1;
@@ -2297,7 +2298,7 @@ function toMenu(){
   exitFullscreen();
   elGame.classList.remove('fs');
   G.screen = 'menu';
-  G.over = null; G.paused = false;
+  G.over = null; G.paused = false; G.localPause = false;
   elGame.classList.add('hidden');
   elMenu.classList.remove('hidden');
   $('overlays').innerHTML = '';
@@ -2837,6 +2838,10 @@ function dz(v){ return Math.abs(v) < 0.22 ? 0 : v; }
    still comes from the real device below; only aim and firing get taken
    over, snapping to whoever's nearest and holding the trigger down. */
 function readInput(p){
+  // Your own local pause menu (see togglePause()) never stops the match —
+  // it just stops reading YOUR input, so your fighter stands still while
+  // everyone else's fight (still simulated every tick) carries on.
+  if(G.localPause && isLocalHuman(p)) return {ax:0, ay:0, atk:false, sp:false};
   const inp = readInputReal(p);
   if(G.cheatAimbot && isLocalHuman(p)){
     let best = null, bestD = 1e9;
@@ -3281,6 +3286,7 @@ function markOverlay(){ G.overlayKey = ''; }
 function overlaySignature(){
   if(G.over) return 'over:' + G.over.elims + ':' + G.over.xp;
   if(G.paused) return 'paused';
+  if(G.localPause) return 'localpause';
   let s = 'r';
   for(const p of G.players){
     if(!p.alive && p.respawn && p.respawn.shown) s += '|' + p.i + ':' + p.respawn.sel;
@@ -3324,15 +3330,15 @@ function renderOverlays(){
     return;
   }
 
-  if(G.paused){
+  if(G.paused || G.localPause){
     const d = document.createElement('div');
     d.className = 'bigcard';
     d.innerHTML =
       `<h2 class="display">Paused</h2>
-       <p>Nobody moves until you say so.</p>
+       <p>${G.localPause ? 'The match keeps going without you — everyone else is still playing.' : 'Nobody moves until you say so.'}</p>
        <div class="btns">
          <button class="primary" id="btnResume">Resume</button>
-         <button id="btnMenu2">Back to main menu</button>
+         <button id="btnMenu2">${G.localPause ? 'Leave match' : 'Back to main menu'}</button>
        </div>`;
     host.appendChild(d);
     $('btnResume').addEventListener('click', () => { SFX.play('ui'); enterFullscreen(); togglePause(false); });
@@ -3413,7 +3419,19 @@ function cycleRespawn(p, dir){
 
 function togglePause(on){
   if(G.over) return;
-  if(G.netRole === 'client') return;   // pausing your own screen can't pause the host's fight
+  if(G.netRole === 'host' || G.netRole === 'client'){
+    // A real pause would freeze the shared match for everyone else in it —
+    // the host's broadcast would just keep reporting the same frozen
+    // positions, and a client has no way to stop the host's sim at all.
+    // So networked play only ever gets a LOCAL menu: it blocks your own
+    // input (readInput()'s G.localPause check) and dims your own screen,
+    // but update(dt) keeps running every tick regardless — the fight goes
+    // on without you until you come back.
+    G.localPause = (on === undefined) ? !G.localPause : on;
+    markOverlay();
+    renderOverlays();
+    return;
+  }
   G.paused = (on === undefined) ? !G.paused : on;
   markOverlay();
   renderOverlays();
@@ -3488,7 +3506,7 @@ function onKeyPressed(code){
   SFX.init();
   if(G.ownerMenuOpen){ if(code === 'Escape') closeOwnerMenu(); return; }
   if(code === 'Escape'){ togglePause(); return; }
-  if(G.over || G.paused) return;
+  if(G.over || G.paused || G.localPause) return;
   for(const p of G.players){
     if(p.alive || !p.respawn || !p.respawn.shown || p.isBot) continue;
     const d = DEVICES[p.device];
@@ -3513,7 +3531,7 @@ function pollPadMenus(){
     const left  = (gp.buttons[14] && gp.buttons[14].pressed) || (gp.axes[0] || 0) < -0.6;
     const right = (gp.buttons[15] && gp.buttons[15].pressed) || (gp.axes[0] || 0) > 0.6;
     const go    = (gp.buttons[0] && gp.buttons[0].pressed) || (gp.buttons[9] && gp.buttons[9].pressed);
-    if(!p.alive && p.respawn && p.respawn.shown && !G.paused && !G.over){
+    if(!p.alive && p.respawn && p.respawn.shown && !G.paused && !G.localPause && !G.over){
       if(left && !prev.left) cycleRespawn(p, -1);
       if(right && !prev.right) cycleRespawn(p, 1);
       if(go && !prev.go) confirmRespawn(p);
@@ -4311,7 +4329,7 @@ function draw(){
   drawFeed();
   if(touchActive()) drawTouchUI();
 
-  if(G.paused || G.over){
+  if(G.paused || G.localPause || G.over){
     ctx.fillStyle = 'rgba(6,4,12,0.55)';
     ctx.fillRect(0,0,VIEW_W,VIEW_H);
   }
