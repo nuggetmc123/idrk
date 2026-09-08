@@ -1,53 +1,39 @@
 /* ============================================================
-   BRAWLBOUND multiplayer relay
+   LEMONADE LAUNCH multiplayer relay
    A Cloudflare Worker, deployed separately from the static game on
    GitHub Pages. This is real server code — the one thing GitHub Pages
    itself can never provide — and it does exactly two jobs:
 
      1. LobbyRoom  — one Durable Object instance per lobby code. Holds
-        that lobby's live WebSocket connections and its member list,
-        and relays match traffic (input from clients to the host,
-        state snapshots from the host to everyone else) once a match
-        starts. The room never simulates the fight itself — the host's
-        own browser does that, same as it already does for bots today.
+        that lobby's live WebSocket connections and member list, and
+        relays two kinds of message between them: presence (where you
+        are, what you're doing) and events (you served a customer, you
+        just got launched into orbit). See "why no host" below.
 
      2. Directory  — one singleton Durable Object that acts as a small
         bulletin board of "lobbies currently looking for more players",
         so quick-match can pair strangers together without anyone
         needing to share a code.
 
-   Neither object ever runs game logic. They are dumb, honest relays —
-   which is what keeps this small enough to actually finish, and keeps
-   the trust model simple: the host's machine is trusted the same way
-   it already is in local play against bots.
+   Why no host, unlike this repo's previous game: each player's stand,
+   customers and economy are simulated entirely on their own machine —
+   there is no shared physics or shared score to keep everyone in sync
+   about. Multiplayer here is a shared space to hang out in: you see
+   your friends' stands, their avatars, and the chaos when one of them
+   gets launched into the stratosphere. That means every member can
+   broadcast their own presence/events directly — nobody needs to be
+   trusted to narrate anyone else's game, because nobody's game depends
+   on anyone else's state.
+
+   Neither Durable Object ever runs game logic. They are dumb, honest
+   relays, which is what keeps this small enough to actually finish.
    ============================================================ */
 
-const MAX_MEMBERS = 15;            // matches the game's 15-fighter arena
+const MAX_MEMBERS = 8;             // a shared stand row only has so much room
 const DIRECTORY_TTL_MS = 30000;    // an entry nobody refreshed in 30s is dead
-const UPGRADE_TRACKS = ['dmg', 'spd', 'vit'];
-const UPGRADE_MAX_LEVEL = 5;
-
-/* A player's own upgrade levels ride along on join/setClass so the host
-   can apply the right bonus to a remote human's fighter. This room never
-   checks whether the levels claimed were actually paid for — that trust
-   boundary is the same one bots already crossed (the host is trusted to
-   run the fight honestly) — it only clamps the SHAPE so one bad or hostile
-   client can't send oversized/malformed JSON into every other player's
-   browser via the roster broadcast. */
-function sanitizeUpg(u){
-  if(!u || typeof u !== 'object') return null;
-  const out = {};
-  let any = false;
-  for(const k of UPGRADE_TRACKS){
-    const v = u[k];
-    if(typeof v === 'number' && v > 0){ out[k] = Math.min(UPGRADE_MAX_LEVEL, Math.floor(v)); any = true; }
-  }
-  return any ? out : null;
-}
-
 const MAX_NAME_LEN = 16;
 
-/* Kept in sync by hand with multiplayer.js's copy of this same list and
+/* Kept in sync by hand with lemonade-net.js's copy of this same list and
    the same normalize/collapse logic — see the long comment over there for
    why it exists and what it isn't. This room's copy is the backstop: the
    client already filters before a name ever leaves the browser, but this
@@ -88,6 +74,30 @@ function sanitizeName(raw){
   return cleaned;
 }
 
+/* Shape-clamps a presence packet so one bad or hostile client can't send
+   oversized/malformed JSON into every other player's browser via the
+   broadcast. Values themselves are never trusted for anything beyond
+   rendering — nobody's score or inventory depends on this. */
+function sanitizePresence(p){
+  if(!p || typeof p !== 'object') return null;
+  const num = v => (typeof v === 'number' && isFinite(v)) ? Math.max(-9999, Math.min(9999, v)) : 0;
+  return {
+    x: num(p.x), y: num(p.y), z: num(p.z),
+    rot: num(p.rot),
+    anim: String(p.anim || 'idle').slice(0, 24),
+    location: String(p.location || 'neighborhood').slice(0, 24),
+    coins: Math.max(0, Math.min(999999, Math.floor(Number(p.coins) || 0)))
+  };
+}
+
+function sanitizeEvent(e){
+  if(!e || typeof e !== 'object') return null;
+  return {
+    kind: String(e.kind || '').slice(0, 24),
+    detail: String(e.detail || '').slice(0, 80)
+  };
+}
+
 function json(data, status){
   return new Response(JSON.stringify(data), {
     status: status || 200,
@@ -100,11 +110,9 @@ function json(data, status){
 export class LobbyRoom {
   constructor(state, env){
     this.state = state;
-    this.sockets = new Map();   // uid -> WebSocket
-    this.members = new Map();   // uid -> {name, cls}
-    this.hostId = null;
-    this.started = false;
-    this.roster = null;         // the live match roster once 'start' fires — see 'join' below
+    this.sockets = new Map();     // uid -> WebSocket
+    this.members = new Map();     // uid -> {name}
+    this.presence = new Map();    // uid -> last sanitizePresence() result, for newcomers
   }
 
   async fetch(request){
@@ -143,26 +151,17 @@ export class LobbyRoom {
 
   rosterPayload(){
     return {
-      t:'roster', hostId:this.hostId,
-      members: Array.from(this.members, ([id, m]) => ({id, name:m.name, cls:m.cls, upg:m.upg}))
+      t:'roster',
+      members: Array.from(this.members, ([id, m]) => ({id, name:m.name}))
     };
   }
 
   removeMember(uid){
     this.sockets.delete(uid);
     this.members.delete(uid);
-    if(uid === this.hostId){
-      if(this.started){
-        // no mid-match host migration in v1 — say so plainly and stop
-        this.broadcast({t:'host_left'});
-        this.started = false;
-        this.hostId = null;
-        return;
-      }
-      // still in the lobby, not fighting yet — hand the room to whoever's left
-      this.hostId = this.members.size ? this.members.keys().next().value : null;
-    }
-    this.broadcast(this.rosterPayload());
+    this.presence.delete(uid);
+    this.broadcast({t:'roster', members: Array.from(this.members, ([id, m]) => ({id, name:m.name}))});
+    this.broadcast({t:'left', uid});
   }
 
   onMessage(ws, msg){
@@ -176,48 +175,17 @@ export class LobbyRoom {
         }
         ws._uid = uid;
         this.sockets.set(uid, ws);
-        const name = sanitizeName(msg.name);
-        this.members.set(uid, {name, cls: msg.cls || null, upg: sanitizeUpg(msg.upg)});
-        if(!this.hostId) this.hostId = uid;
+        this.members.set(uid, {name: sanitizeName(msg.name)});
 
-        // A match is already running and has an open bot seat — drop this
-        // person straight into it instead of parking them in the lobby for
-        // the next round. They inherit that seat's CURRENT fighter (class,
-        // score, position, HP all live only in the host's own simulation)
-        // rather than whatever they picked on the menu — swapping character
-        // mid-fight out from under a live HP bar would be its own kind of
-        // bug. Everyone else just gets a lightweight name/uid patch; only
-        // the new arrival needs the full roster to enter the match at all.
-        // (A genuine reconnect of an already-human seat isn't handled here —
-        // this only ever claims a seat still flagged as a bot.)
-        if(this.started && this.roster){
-          const seat = this.roster.findIndex(r => r.isBot);
-          if(seat !== -1){
-            this.roster[seat] = {uid, name, cls: this.roster[seat].cls, isBot:false};
-            this.send(ws, {t:'joined', uid, hostId:this.hostId});
-            this.send(ws, {t:'match_start', roster: this.roster, hostId: this.hostId});
-            this.broadcast({t:'seat_taken', seat, uid, name}, uid);
-            return;
-          }
-        }
-
-        this.send(ws, {t:'joined', uid, hostId:this.hostId});
-        this.broadcast(this.rosterPayload());
-        break;
-      }
-      case 'setClass': {
-        if(!ws._uid || !this.members.has(ws._uid)) return;
-        const m = this.members.get(ws._uid);
-        m.cls = msg.cls || null;
-        m.upg = sanitizeUpg(msg.upg);
-        this.broadcast(this.rosterPayload());
+        this.send(ws, {t:'joined', uid});
+        // catch the newcomer up on everyone already here before they get
+        // their first live presence tick
+        this.send(ws, {t:'roster', members: Array.from(this.members, ([id, m]) => ({id, name:m.name}))});
+        for(const [id, p] of this.presence) this.send(ws, {t:'presence', from:id, p});
+        this.broadcast(this.rosterPayload(), uid);
         break;
       }
       case 'setName': {
-        // renaming yourself only updates the pre-match lobby roster — a
-        // rename mid-fight doesn't retroactively fix the name tag other
-        // players already have for that seat (see startHostBroadcast's own
-        // comment on why names never ride the snapshot channel either)
         if(!ws._uid || !this.members.has(ws._uid)) return;
         this.members.get(ws._uid).name = sanitizeName(msg.name);
         this.broadcast(this.rosterPayload());
@@ -227,38 +195,22 @@ export class LobbyRoom {
         if(ws._uid) this.removeMember(ws._uid);
         break;
       }
-      case 'start': {
-        if(ws._uid !== this.hostId) return;      // only the host may start
-        this.started = true;
-        this.roster = msg.roster;
-        this.broadcast({t:'match_start', roster: msg.roster, hostId: this.hostId});
-        break;
-      }
-      case 'matchEnded': {
-        // the host leaving the game screen (back to menu, or about to send a
-        // fresh 'start' for a rematch) — stop offering this match's roster
-        // as a bot seat to hand to the next 'join' that comes in
-        if(ws._uid !== this.hostId) return;
-        this.started = false;
-        this.roster = null;
-        break;
-      }
-      case 'input': {
-        // clients only ever talk to the host — this room does not read it
-        const hostWs = this.sockets.get(this.hostId);
-        if(hostWs && ws._uid) this.send(hostWs, {t:'input', from: ws._uid, input: msg.input});
-        break;
-      }
-      case 'snapshot': {
-        if(ws._uid !== this.hostId) return;      // only the host may narrate the fight
-        this.broadcast({t:'snapshot', data: msg.data}, this.hostId);
+      case 'presence': {
+        if(!ws._uid || !this.members.has(ws._uid)) return;
+        const p = sanitizePresence(msg.p);
+        if(!p) return;
+        this.presence.set(ws._uid, p);
+        this.broadcast({t:'presence', from: ws._uid, p}, ws._uid);
         break;
       }
       case 'event': {
-        // per-player moments (an elimination, a death) so each machine can
-        // credit its own career/battle-pass progress — see README
-        if(ws._uid !== this.hostId) return;
-        this.broadcast({t:'event', kind: msg.kind, uid: msg.uid, cls: msg.cls}, this.hostId);
+        // one-off moments — served a customer, got launched, unlocked an
+        // achievement — rendered as a toast/effect on every OTHER screen.
+        // Never cached: a newcomer doesn't need to see history replay.
+        if(!ws._uid || !this.members.has(ws._uid)) return;
+        const e = sanitizeEvent(msg.e);
+        if(!e) return;
+        this.broadcast({t:'event', from: ws._uid, e}, ws._uid);
         break;
       }
     }
@@ -334,6 +286,6 @@ export default {
       return stub.fetch(request);
     }
 
-    return new Response('BRAWLBOUND multiplayer relay is running.', {status:200});
+    return new Response('LEMONADE LAUNCH multiplayer relay is running.', {status:200});
   }
 };
