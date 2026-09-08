@@ -183,7 +183,13 @@ const SFX = {
   freeze(){ tone(2000, 1200, 0.2, {type:'sine', vol:0.08}); },
 
   /* Zero-G twist: an ingredient bubble drifts free of the bin. */
-  float(){ tone(500, 900, 0.3, {type:'sine', vol:0.06}); }
+  float(){ tone(500, 900, 0.3, {type:'sine', vol:0.06}); },
+
+  /* A fishing line hitting water — a soft plop into a burst of ripples. */
+  splash(){
+    tone(220, 90, 0.12, {type:'sine', vol:0.10});
+    noiseBurst(0.3, {delay:0.05, vol:0.10, filter:'bandpass', freq:1400, sweepTo:600});
+  }
 };
 
 window.SFX = SFX;

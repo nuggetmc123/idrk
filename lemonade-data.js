@@ -255,6 +255,24 @@ function upgradeCost(track, level){ // cost of buying INTO this level (1..max)
   return Math.round((t ? t.base : 100) * Math.pow(1.6, level - 1));
 }
 
+/* ---------- wardrobe ----------
+   Purely cosmetic — one hat slot, visible on your own avatar in-game.
+   `shape` is read by buildHat() in lemonade-game.js, which knows how to
+   build each one out of primitives; adding a hat here needs a matching
+   case there. */
+const HATS = [
+  {id:'party',  name:'Party Hat',        icon:'🎉', price:90,   shape:'party'},
+  {id:'bucket', name:'Bucket Hat',       icon:'🪣', price:130,  shape:'bucket'},
+  {id:'chef',   name:"Chef's Hat",       icon:'👨‍🍳', price:150,  shape:'chef'},
+  {id:'straw',  name:'Straw Sunhat',     icon:'👒', price:120,  shape:'straw'},
+  {id:'shades', name:'Cool Shades',      icon:'😎', price:180,  shape:'shades'},
+  {id:'foil',   name:'Tinfoil Hat',      icon:'🛸', price:200,  shape:'foil'},
+  {id:'mullet', name:'Majestic Mullet',  icon:'💇', price:250,  shape:'mullet'},
+  {id:'fish',   name:'Fish Hat',         icon:'🐟', price:400,  shape:'fish'},
+  {id:'antenna',name:'Alien Antenna',    icon:'👽', price:600,  shape:'antenna'},
+  {id:'crown',  name:'Golden Crown',     icon:'👑', price:1000, shape:'crown'}
+];
+
 /* ---------- achievements ----------
    check(stats) reads the grow-only stats object from profile.js and
    returns true once earned. Order matters only for display. */
@@ -292,15 +310,22 @@ const ACHIEVEMENTS = [
   {id:'speed_demon', name:'Speed Demon', desc:'Serve a customer in under 5 seconds flat.', reward:150,
     check:s => s.fastestServeMs > 0 && s.fastestServeMs <= 5000},
   {id:'yeti_seen', name:'Abominable Customer', desc:'Serve the secret Yeti.', reward:400,
-    check:s => !!s.yetiServed}
+    check:s => !!s.yetiServed},
+  {id:'gone_fishing', name:'Gone Fishing', desc:'Catch something at a fishing spot.', reward:50,
+    check:s => (s.fishCaught || 0) >= 1},
+  {id:'master_angler', name:'Master Angler', desc:'Catch 20 things fishing.', reward:300,
+    check:s => (s.fishCaught || 0) >= 20},
+  {id:'fashionista', name:'Fashion Icon', desc:'Own every hat.', reward:400,
+    check:s => (s.unlockedHats || []).length >= HATS.length}
 ];
 
 window.GAME_DATA = {
-  INGREDIENTS, RECIPES, CUSTOMER_TYPES, LOCATIONS, UPGRADE_TRACKS, ACHIEVEMENTS,
+  INGREDIENTS, RECIPES, CUSTOMER_TYPES, LOCATIONS, UPGRADE_TRACKS, ACHIEVEMENTS, HATS,
   upgradeCost,
   recipeById: id => RECIPES[id],
   locationById: id => LOCATIONS.filter(l => l.id === id)[0],
-  customerById: id => CUSTOMER_TYPES.filter(c => c.id === id)[0]
+  customerById: id => CUSTOMER_TYPES.filter(c => c.id === id)[0],
+  hatById: id => HATS.filter(h => h.id === id)[0]
 };
 
 })();

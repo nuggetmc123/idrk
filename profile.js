@@ -52,12 +52,14 @@ const blank = () => ({
   bestCombo:0, bestPerfectStreak:0,
   fastestServeMs:0,          // 0 means "never timed one" — see mergeMax
   yetiServed:0, playedMultiplayer:0,
-  lastLocation:'neighborhood'
+  lastLocation:'neighborhood',
+  unlockedHats:[], equippedHat:null,
+  fishCaught:0
 });
 
 const MAX_FIELDS = ['earned','spent','served','failed','launched',
-  'bestCombo','bestPerfectStreak','yetiServed','playedMultiplayer'];
-const GROW_LISTS = ['unlockedLocations','unlockedRecipes','rareFound','achievements'];
+  'bestCombo','bestPerfectStreak','yetiServed','playedMultiplayer','fishCaught'];
+const GROW_LISTS = ['unlockedLocations','unlockedRecipes','rareFound','achievements','unlockedHats'];
 
 let data       = blank();
 let pending    = [];              // achievement objects earned this page load, not yet shown
@@ -100,6 +102,7 @@ function mergeMax(a, b){
     out.purchasedUpgrades[k] = Math.max((a.purchasedUpgrades || {})[k] || 0, (b.purchasedUpgrades || {})[k] || 0);
   });
   out.lastLocation = b.lastLocation || a.lastLocation;
+  out.equippedHat = b.equippedHat || a.equippedHat || null;
   return out;
 }
 
@@ -252,6 +255,49 @@ const Save = {
     data.purchasedUpgrades[trackId] = this.upgradeLevel(trackId) + 1;
     save(); flush(); runAchievements();
     return true;
+  },
+
+  /* ---------- wardrobe ---------- */
+
+  ownsHat(id){ return data.unlockedHats.indexOf(id) !== -1; },
+  get equippedHat(){ return data.equippedHat; },
+
+  buyHat(id){
+    const hat = window.GAME_DATA && window.GAME_DATA.hatById(id);
+    if(!hat || this.ownsHat(id) || this.coins < hat.price) return false;
+    data.spent += hat.price;
+    data.unlockedHats.push(id);
+    save(); flush(); runAchievements();
+    return true;
+  },
+
+  /* Passing null takes the hat off. Refused for a hat you don't own, so a
+     stale wardrobe screen can't equip something never bought. */
+  equipHat(id){
+    if(id && !this.ownsHat(id)) return false;
+    data.equippedHat = id || null;
+    save(); flush();
+    return true;
+  },
+
+  /* ---------- tip jar ---------- */
+
+  /* Loose change customers leave near the stand, collected by walking up
+     to the jar rather than earned per-order — see lemonade-game.js. */
+  collectTip(amount){
+    const amt = Math.max(0, Math.round(amount || 0));
+    if(amt <= 0) return;
+    data.earned += amt;
+    save();
+    runAchievements();
+  },
+
+  /* ---------- fishing ---------- */
+
+  recordFish(){
+    data.fishCaught++;
+    save();
+    runAchievements();
   },
 
   /* ---------- recipes & rare ingredients ---------- */

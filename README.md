@@ -37,19 +37,46 @@ is fine as well.
 
 ## What the game is
 
-Run a lemonade stand. A customer walks up with an order (shown as ingredient icons over
-their head) and a patience bar that only goes down. Click the right ingredients into the
-pitcher, hit **MIX** (click **STIR!** while the meter is in the glowing zone for a Perfect
-mix and a bonus tip), **POUR**, then click the customer to serve them. Get it right before
-they run out of patience and you're paid; get it wrong, take too long, or overflow the
-pitcher and something ridiculous happens — **you get launched into orbit**, ragdoll and
-all, and respawn back at the stand a few seconds later. Coins buy stand upgrades and new
-locations; achievements and rare ingredients give you reasons to keep coming back.
+Run a lemonade stand, in first person. A customer walks up with an order (shown as
+ingredient icons over their head) and a patience bar that only goes down. Click the right
+ingredients into the pitcher, hit **MIX** (click **STIR!** while the meter is in the
+glowing zone for a Perfect mix and a bonus tip), **POUR**, then click the customer to serve
+them. Get it right before they run out of patience and you're paid; get it wrong, take too
+long, or overflow the pitcher and something ridiculous happens — **you get launched into
+orbit**, ragdoll and all, and respawn back at the stand a few seconds later. Coins buy
+stand upgrades, new locations, and wardrobe items; achievements and rare ingredients give
+you reasons to keep coming back.
 
 The whole thing renders in real 3D (via [three.js](https://threejs.org/), loaded from
 cdnjs — the one external dependency this game has), with synthesized sound effects (no
 audio files — see `lemonade-sfx.js`, everything is generated on the fly with the Web Audio
-API) and a chunky low-poly art style built entirely out of boxes, cones and spheres.
+API) and a chunky, rounded, flat-shaded low-poly art style — think "cheerful chaos
+sandbox game," not photorealism.
+
+### Walking around
+
+You're not stuck behind the counter. Mouse-look (click the canvas to grab the cursor;
+Esc lets go) or touch-drag steers where you're looking, WASD/arrow keys (or the on-screen
+d-pad on touch devices) walk you around a small yard behind your stand. Walk up to
+something and press **E** (or the on-screen **USE** button) to interact with it:
+
+- **Ingredient stations** — a barrel/crate for each ingredient this location uses, laid
+  out in the yard. Collecting from one adds it to the pitcher exactly like clicking its
+  HUD button does; it's a second, more scenic way to gather the same ingredients, and it
+  still respects a location's twist (a frosted mountain barrel needs cracking first, a
+  space station ingredient still floats off as a bubble you have to chase).
+- **The tip jar** — fills slowly with loose change while you work the counter. Walk over
+  and interact to collect it before it caps out.
+- **The fishing spot** — a short "reel it in" timing minigame (just like STIR, on its own
+  meter) for a chance at coins or, less often, a shot at the location's rare ingredient
+  without waiting on the passive drop chance.
+
+### Wardrobe
+
+Purely cosmetic hats — a chef's toque, a tinfoil hat, alien antennae, a fish (this game's
+one direct nod to its "How to Fish"-flavored art direction) — bought with coins in the
+Upgrades tab and worn on your own avatar in-game. Get launched into orbit and your hat
+comes with you, tumbling off separately in the ragdoll.
 
 ### File map
 

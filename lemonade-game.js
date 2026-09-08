@@ -78,9 +78,23 @@ function initMenu(){
 
   renderLocations();
   renderUpgrades();
+  renderWardrobe();
   renderRecipes();
   renderAchievements();
   initMultiplayerPanel();
+  initWarningScreen();
+}
+
+const WARNING_SEEN_KEY = 'lemonade-warning-seen';
+function initWarningScreen(){
+  let seen = false;
+  try{ seen = localStorage.getItem(WARNING_SEEN_KEY) === '1'; }catch(e){}
+  if(seen) return;
+  qs('warnScreen').classList.remove('hidden');
+  on(qs('btnWarnOk'), 'click', () => {
+    qs('warnScreen').classList.add('hidden');
+    try{ localStorage.setItem(WARNING_SEEN_KEY, '1'); }catch(e){}
+  });
 }
 
 function renderLocations(){
@@ -144,6 +158,35 @@ function renderUpgrades(){
     list.appendChild(row);
   });
 }
+
+function renderWardrobe(){
+  const grid = qs('hatGrid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  D.HATS.forEach(hat => {
+    const owned = Save.ownsHat(hat.id);
+    const equipped = Save.equippedHat === hat.id;
+    const card = document.createElement('div');
+    card.className = 'hatcard';
+    card.innerHTML = '<div class="ic">' + hat.icon + '</div><b>' + hat.name + '</b>';
+    const btn = document.createElement('button');
+    if(!owned){
+      btn.textContent = fmt(hat.price) + '🪙';
+      btn.disabled = Save.coins < hat.price;
+      on(btn, 'click', () => { if(Save.buyHat(hat.id)){ if(window.SFX) SFX.coinDrop(); renderWardrobe(); } });
+    } else if(equipped){
+      btn.textContent = 'Equipped';
+      btn.className = 'equipped';
+      on(btn, 'click', () => { Save.equipHat(null); renderWardrobe(); });
+    } else {
+      btn.textContent = 'Equip';
+      on(btn, 'click', () => { Save.equipHat(hat.id); renderWardrobe(); });
+    }
+    card.appendChild(btn);
+    grid.appendChild(card);
+  });
+}
+if(window.Save) Save.onChange(renderWardrobe);
 
 function renderRecipes(){
   const grid = qs('recipeGrid');
@@ -250,7 +293,22 @@ function escapeHtml(s){
 let renderer, scene, camera, clock;
 let envGroup, avatarGroup, ragdollGroup;
 let rafId = null;
-let camBase = null;   // built lazily in initEngineOnce() — see note there
+
+/* ---------- first-person player ----------
+   The camera IS the player — no third-person follow rig. yaw/pitch use
+   Three's 'YXZ' Euler order, the standard FPS convention (yaw first, so
+   pitching up/down never rolls the horizon). Movement is relative to yaw. */
+const EYE_HEIGHT = 1.62;
+const PLAYER_SPAWN = {x:0, z:2.6, yaw:0, pitch:0};
+const PLAYER_BOUNDS = {minX:-7, maxX:7, minZ:-0.9, maxZ:8.5};
+const MOVE_SPEED = 3.4;
+const LOOK_SENS_MOUSE = 0.0022;
+const LOOK_SENS_TOUCH = 0.0055;
+const PITCH_LIMIT = 1.3;
+
+const keys = {};              // lowercased KeyboardEvent.key -> held?
+const pad = {up:false, down:false, left:false, right:false};   // on-screen d-pad
+let touchLook = null;         // {id, x, y} of the finger currently dragging the view
 
 /* THREE loads from a CDN (see index.html) — deliberately never referenced
    at this file's top level, so a blocked/offline CDN only breaks starting
@@ -272,16 +330,78 @@ function resizeRenderer(){
 
 function initEngineOnce(){
   if(renderer) return;
-  camBase = {pos:new THREE.Vector3(0,3.3,7.2), look:new THREE.Vector3(0,1.5,-2)};
   const host = qs('canvasHost');
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(52, 16/9, 0.1, 200);
+  camera = new THREE.PerspectiveCamera(62, 16/9, 0.1, 200);
+  camera.rotation.order = 'YXZ';
   renderer = new THREE.WebGLRenderer({antialias:true});
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   host.appendChild(renderer.domElement);
   clock = new THREE.Clock();
   window.addEventListener('resize', resizeRenderer);
+  initControls(host);
 }
+
+/* Mouse look (via Pointer Lock — click the canvas to grab the cursor,
+   Esc releases it, both browser-native) and touch look (drag anywhere on
+   the canvas that isn't one of the on-screen buttons, which sit in their
+   own DOM elements and simply intercept the touch before it gets here). */
+function initControls(host){
+  const canvas = renderer.domElement;
+
+  on(canvas, 'click', () => {
+    if(G && !G.launching) canvas.requestPointerLock();
+  });
+  document.addEventListener('pointerlockchange', () => {
+    qs('lookHint').classList.toggle('hidden', document.pointerLockElement === canvas);
+  });
+  document.addEventListener('mousemove', e => {
+    if(document.pointerLockElement !== canvas || !G || G.launching) return;
+    G.player.yaw -= e.movementX * LOOK_SENS_MOUSE;
+    G.player.pitch = clamp(G.player.pitch - e.movementY * LOOK_SENS_MOUSE, -PITCH_LIMIT, PITCH_LIMIT);
+  });
+
+  canvas.addEventListener('touchstart', e => {
+    if(touchLook || !e.changedTouches.length) return;
+    const t = e.changedTouches[0];
+    touchLook = {id: t.identifier, x: t.clientX, y: t.clientY};
+  }, {passive:true});
+  canvas.addEventListener('touchmove', e => {
+    if(!touchLook || !G || G.launching) return;
+    for(const t of e.changedTouches){
+      if(t.identifier !== touchLook.id) continue;
+      G.player.yaw -= (t.clientX - touchLook.x) * LOOK_SENS_TOUCH;
+      G.player.pitch = clamp(G.player.pitch - (t.clientY - touchLook.y) * LOOK_SENS_TOUCH, -PITCH_LIMIT, PITCH_LIMIT);
+      touchLook.x = t.clientX; touchLook.y = t.clientY;
+    }
+  }, {passive:true});
+  const endTouch = e => {
+    if(!touchLook) return;
+    for(const t of e.changedTouches) if(t.identifier === touchLook.id) touchLook = null;
+  };
+  canvas.addEventListener('touchend', endTouch);
+  canvas.addEventListener('touchcancel', endTouch);
+}
+
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if(k === 'e' && !e.repeat) tryInteract();
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+if('ontouchstart' in window) document.body.classList.add('touchable');
+
+function wirePad(id, key){
+  const el = qs(id);
+  const set = v => ev => { ev.preventDefault(); pad[key] = v; };
+  on(el, 'pointerdown', set(true));
+  on(el, 'pointerup', set(false));
+  on(el, 'pointerleave', set(false));
+  on(el, 'pointercancel', set(false));
+}
+wirePad('padUp', 'up'); wirePad('padDown', 'down'); wirePad('padLeft', 'left'); wirePad('padRight', 'right');
+on(qs('btnInteractMobile'), 'click', () => tryInteract());
 
 function disposeGroup(group){
   if(!group) return;
@@ -295,28 +415,186 @@ function disposeGroup(group){
   if(group.parent) group.parent.remove(group);
 }
 
-/* A blocky low-poly person: six boxes. Cheap, readable at a distance,
-   and easy to blow apart into a ragdoll later — see triggerLaunch(). */
-function buildFigure(shirtColor, skinColor){
+/* A chunky, rounded-head low-poly person — flatShading everywhere for that
+   faceted, hand-modeled look (think "How to Fish"'s cast) rather than the
+   smooth-shaded boxes this started as. Cheap, readable at a distance, and
+   easy to blow apart into a ragdoll later — see triggerLaunch(). Optional
+   hatShape (see buildHat()) rides along as one more ragdoll piece, so
+   getting launched into orbit knocks your hat off too. */
+function buildFigure(shirtColor, skinColor, hatShape){
   const g = new THREE.Group();
-  const shirtMat = new THREE.MeshStandardMaterial({color: shirtColor || '#3fa7ff'});
-  const skinMat  = new THREE.MeshStandardMaterial({color: skinColor || '#ffd6a5'});
-  const legMat   = new THREE.MeshStandardMaterial({color:'#2b2140'});
+  const shirtMat = new THREE.MeshStandardMaterial({color: shirtColor || '#3fa7ff', flatShading:true});
+  const skinMat  = new THREE.MeshStandardMaterial({color: skinColor || '#ffd6a5', flatShading:true});
+  const legMat   = new THREE.MeshStandardMaterial({color:'#2b2140', flatShading:true});
+  const eyeMat   = new THREE.MeshStandardMaterial({color:'#1a1420'});
 
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.68, 0.34), shirtMat);
-  torso.position.y = 1.05;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), skinMat);
-  head.position.y = 1.6;
-  const armGeo = new THREE.BoxGeometry(0.17, 0.52, 0.17);
-  const armL = new THREE.Mesh(armGeo, shirtMat); armL.position.set(-0.4, 1.05, 0);
-  const armR = new THREE.Mesh(armGeo, shirtMat); armR.position.set(0.4, 1.05, 0);
-  const legGeo = new THREE.BoxGeometry(0.22, 0.6, 0.22);
-  const legL = new THREE.Mesh(legGeo, legMat); legL.position.set(-0.15, 0.38, 0);
-  const legR = new THREE.Mesh(legGeo, legMat); legR.position.set(0.15, 0.38, 0);
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.62, 0.36), shirtMat);
+  torso.position.y = 1.02;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), skinMat);
+  head.position.y = 1.58;
+  const eyeGeo = new THREE.SphereGeometry(0.045, 6, 6);
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.1, 1.6, 0.25);
+  const eyeR = new THREE.Mesh(eyeGeo, eyeMat); eyeR.position.set(0.1, 1.6, 0.25);
+  const armGeo = new THREE.BoxGeometry(0.17, 0.5, 0.17);
+  const armL = new THREE.Mesh(armGeo, shirtMat); armL.position.set(-0.4, 1.02, 0);
+  const armR = new THREE.Mesh(armGeo, shirtMat); armR.position.set(0.4, 1.02, 0);
+  const legGeo = new THREE.BoxGeometry(0.22, 0.58, 0.22);
+  const legL = new THREE.Mesh(legGeo, legMat); legL.position.set(-0.15, 0.35, 0);
+  const legR = new THREE.Mesh(legGeo, legMat); legR.position.set(0.15, 0.35, 0);
 
-  g.add(torso, head, armL, armR, legL, legR);
-  g.userData.parts = [torso, head, armL, armR, legL, legR];
+  g.add(torso, head, eyeL, eyeR, armL, armR, legL, legR);
+  g.userData.parts = [torso, head, armL, armR, legL, legR];   // eyes stay put — they'd look odd tumbling solo
+
+  if(hatShape){
+    const hat = buildHat(hatShape);
+    hat.position.y = 1.58;
+    g.add(hat);
+    g.userData.parts.push(hat);   // the hat flies off in the ragdoll too
+  }
   return g;
+}
+
+/* One hat, built out of primitives and positioned relative to the head's
+   center (y=0 here means "head height"). Add a shape here and a matching
+   entry in lemonade-data.js's HATS to make it choosable in the Wardrobe. */
+function buildHat(shape){
+  const g = new THREE.Group();
+  const m = (color, opts) => new THREE.MeshStandardMaterial(Object.assign({color, flatShading:true}, opts || {}));
+  switch(shape){
+    case 'party': {
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.19, 0.4, 10), m('#ff4d6d'));
+      cone.position.y = 0.35;
+      const pom = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), m('#ffd23f'));
+      pom.position.y = 0.56;
+      g.add(cone, pom);
+      break;
+    }
+    case 'bucket': {
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 14), m('#7bb661'));
+      brim.position.y = 0.24;
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.2, 14), m('#7bb661'));
+      top.position.y = 0.34;
+      g.add(brim, top);
+      break;
+    }
+    case 'chef': {
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.16, 12), m('#ffffff'));
+      base.position.y = 0.26;
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(0.23, 10, 8), m('#ffffff'));
+      puff.position.y = 0.48; puff.scale.set(1, 0.85, 1);
+      g.add(base, puff);
+      break;
+    }
+    case 'straw': {
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.04, 16), m('#e0b976'));
+      brim.position.y = 0.22;
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.16, 12), m('#e0b976'));
+      top.position.y = 0.34;
+      g.add(brim, top);
+      break;
+    }
+    case 'shades': {
+      const lensGeo = new THREE.BoxGeometry(0.15, 0.08, 0.04);
+      const lensMat = m('#141414', {metalness:0.4, roughness:0.2});
+      const lensL = new THREE.Mesh(lensGeo, lensMat); lensL.position.set(-0.1, 0.02, 0.27);
+      const lensR = new THREE.Mesh(lensGeo, lensMat); lensR.position.set(0.1, 0.02, 0.27);
+      g.add(lensL, lensR);
+      break;
+    }
+    case 'foil': {
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.32, 8), m('#c9d3da', {metalness:0.8, roughness:0.25}));
+      cone.position.y = 0.34;
+      g.add(cone);
+      break;
+    }
+    case 'mullet': {
+      const blob = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), m('#6b4423'));
+      blob.position.set(0, 0.02, -0.2); blob.scale.set(1, 0.9, 0.7);
+      g.add(blob);
+      break;
+    }
+    case 'fish': {
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), m('#5aa9e6'));
+      body.scale.set(1.6, 0.8, 0.8); body.position.y = 0.24;
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.16, 6), m('#5aa9e6'));
+      tail.rotation.z = Math.PI/2; tail.position.set(-0.28, 0.24, 0);
+      g.add(body, tail);
+      break;
+    }
+    case 'antenna': {
+      const stalkGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.32, 6);
+      const stalkMat = m('#3a3a3a');
+      const ballGeo = new THREE.SphereGeometry(0.05, 8, 8);
+      const ballMat = m('#7bd389');
+      [-0.09, 0.09].forEach(x => {
+        const stalk = new THREE.Mesh(stalkGeo, stalkMat);
+        stalk.position.set(x, 0.36, 0); stalk.rotation.z = x > 0 ? -0.25 : 0.25;
+        const ball = new THREE.Mesh(ballGeo, ballMat);
+        ball.position.set(x * 1.6, 0.5, 0);
+        g.add(stalk, ball);
+      });
+      break;
+    }
+    case 'crown': {
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 0.16, 10), m('#ffcc33', {metalness:0.6, roughness:0.3}));
+      band.position.y = 0.28;
+      g.add(band);
+      for(let i = 0; i < 5; i++){
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 6), m('#ffcc33', {metalness:0.6, roughness:0.3}));
+        const a = (i / 5) * Math.PI * 2;
+        spike.position.set(Math.cos(a) * 0.2, 0.42, Math.sin(a) * 0.2);
+        g.add(spike);
+      }
+      break;
+    }
+  }
+  return g;
+}
+
+/* A simple low-poly conifer: a trunk cylinder and two stacked cone tiers,
+   flat-shaded to match the figures. Used wherever a location doesn't have
+   a more specific background prop of its own. */
+function addTree(x, z, scale){
+  scale = scale || 1;
+  const g = new THREE.Group();
+  const trunkMat = new THREE.MeshStandardMaterial({color:'#6b4423', flatShading:true});
+  const leafMat = new THREE.MeshStandardMaterial({color:'#3f8f4a', flatShading:true});
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.7, 8), trunkMat);
+  trunk.position.y = 0.35;
+  const leafLow = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.1, 8), leafMat);
+  leafLow.position.y = 1.1;
+  const leafHigh = new THREE.Mesh(new THREE.ConeGeometry(0.6, 0.9, 8), leafMat);
+  leafHigh.position.y = 1.7;
+  g.add(trunk, leafLow, leafHigh);
+  g.position.set(x, 0, z);
+  g.scale.setScalar(scale);
+  envGroup.add(g);
+}
+
+/* A bright sun disc and a couple of drifting cloud puffs — cheap MeshBasic
+   blobs that ignore lighting entirely, so they read clearly against any
+   location's sky without needing their own light rig. Skipped for the
+   space station, which has its own starfield instead. */
+function addSky(loc){
+  const sun = new THREE.Mesh(
+    new THREE.SphereGeometry(2.2, 14, 14),
+    new THREE.MeshBasicMaterial({color: loc.accent})
+  );
+  sun.position.set(-14, 16, -30);
+  envGroup.add(sun);
+
+  const cloudMat = new THREE.MeshBasicMaterial({color:'#ffffff', transparent:true, opacity:0.9});
+  [[8, 12, -28], [16, 15, -34], [-4, 17, -32]].forEach(([x,y,z], i) => {
+    const cloud = new THREE.Group();
+    for(let j = 0; j < 3; j++){
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(1.1 - j*0.15, 8, 8), cloudMat);
+      puff.position.set(j * 1.1, Math.sin(j) * 0.2, 0);
+      cloud.add(puff);
+    }
+    cloud.position.set(x, y, z);
+    cloud.scale.setScalar(1 + i * 0.2);
+    envGroup.add(cloud);
+  });
 }
 
 function addStars(){
@@ -382,6 +660,8 @@ function buildEnvironment(loc){
   envGroup.userData.pitcher = pitcherGroup;
   envGroup.userData.liquid = liquid;
 
+  if(loc.twist !== 'gravity') addSky(loc);
+
   // location flavor props — cheap primitives, just enough to read distinct
   switch(loc.twist){
     case 'seagull': {
@@ -423,11 +703,9 @@ function buildEnvironment(loc){
       break;
     }
     default: {
-      for(let i = 0; i < 3; i++){
-        const bush = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 10), new THREE.MeshStandardMaterial({color:'#3f8f4a'}));
-        bush.position.set((i - 1) * 3.2, 0.5, -3.4);
-        envGroup.add(bush);
-      }
+      addTree(-4.5, -3, 1);
+      addTree(4.5, -3.4, 1.15);
+      addTree(-6.5, -5, 0.85);
     }
   }
 }
@@ -439,6 +717,8 @@ const PITCHER_CAPACITY = 10;
 const LAUNCH_RISE_MS = 1600;
 const CUSTOMER_SPACING = 1.9;   // world units between customer slots, kept in sync with the dizzy-twist wobble below
 const CUSTOMER_BASE_Y = 0.35;   // stands customers up a bit so they clear the counter on camera
+const TIP_JAR_CAP = 40;         // coins the jar can hold before it just... overflows onto the counter, unclaimed
+const TIP_JAR_RATE = 0.7;       // coins/second, loose change customers leave behind
 
 const FAIL_CAPTIONS = {
   wrong:   ["Wrong drink. SO wrong.", "That was NOT what they ordered.", "Order mixed up. You are now also mixed up, in the sky."],
@@ -492,8 +772,8 @@ const Game = {
     buildEnvironment(loc);
 
     disposeGroup(avatarGroup);
-    avatarGroup = buildFigure('#ffd23f', '#ffd6a5');
-    avatarGroup.position.set(0, 0, 1.1);
+    const hatDef = Save.equippedHat && D.hatById(Save.equippedHat);
+    avatarGroup = buildFigure('#ffd23f', '#ffd6a5', hatDef && hatDef.shape);
     avatarGroup.scale.setScalar(0.85);
     scene.add(avatarGroup);
     if(ragdollGroup){ disposeGroup(ragdollGroup); ragdollGroup = null; }
@@ -501,6 +781,7 @@ const Game = {
     const capacity = 1 + Save.upgradeLevel('capacity');
     G = {
       loc, capacity,
+      player: Object.assign({}, PLAYER_SPAWN),
       slots: new Array(capacity).fill(null),
       customerMeshes: new Array(capacity).fill(null),
       currentMix: {}, cupsReady: null,
@@ -514,9 +795,12 @@ const Game = {
       lastFrostTick: performance.now(),
       lastPresenceSend: 0,
       lastPeerRailAt: 0,
-      spawnedRareCustomer: false
+      spawnedRareCustomer: false,
+      tipJar: 0, fishing: null, stations: []
     };
     availableIngredients(loc).forEach(id => { G.frost[id] = 0; });
+    buildStations(loc);
+    placeAvatarAtPlayer();
 
     Save.setLastLocation(locationId);
     buildCustomerRow(capacity);
@@ -525,10 +809,12 @@ const Game = {
     qs('mixMeterWrap').classList.remove('show');
     qs('btnStir').classList.remove('show');
     qs('btnPour').disabled = true;
+    qs('fishPanel').classList.remove('show');
     const banner = qs('twistBanner');
     banner.classList.add('hidden');
     qs('launchOverlay').classList.remove('show');
     qs('peerCountChip').classList.toggle('hidden', !(window.Net && Net.inLobby));
+    qs('lookHint').classList.remove('hidden');
 
     document.body.classList.add('in-game');
     qs('titleScreen').classList.add('hidden');
@@ -545,15 +831,220 @@ const Game = {
   stop(){
     if(rafId) cancelAnimationFrame(rafId);
     rafId = null;
+    if(document.pointerLockElement) document.exitPointerLock();
     if(window.Net) Net.sendPresence({location:'menu', anim:'idle', coins:Save.coins});
     Save.flushNow();
     document.body.classList.remove('in-game');
     qs('gameScreen').classList.add('hidden');
     qs('titleScreen').classList.remove('hidden');
-    renderLocations(); renderUpgrades(); renderRecipes(); renderAchievements();
+    renderLocations(); renderUpgrades(); renderRecipes(); renderAchievements(); renderWardrobe();
   }
 };
 window.Game = Game;
+
+function placeAvatarAtPlayer(){
+  if(!avatarGroup || !G) return;
+  avatarGroup.position.set(G.player.x, 0, G.player.z);
+  avatarGroup.rotation.y = G.player.yaw;
+}
+
+/* ---------- interactive world stations ----------
+   Ingredient stations are auto-laid-out in an arc behind the player's
+   spawn point, one per ingredient this location's recipes actually use —
+   walking up and pressing E/USE adds one unit to the pitcher, exactly like
+   clicking its button in the HUD bar does (both call commitIngredient()).
+   The tip jar and fishing spot are fixed props off to the side. */
+const STATION_RADIUS = 1.5;   // how close (world units) counts as "in range"
+
+function buildStations(loc){
+  G.stations.forEach(s => { if(s.mesh) disposeGroup(s.mesh); });
+  G.stations = [];
+
+  const ids = availableIngredients(loc);
+  const arcR = 4.2;
+  ids.forEach((id, i) => {
+    const t = ids.length > 1 ? i / (ids.length - 1) : 0.5;
+    const angle = (t - 0.5) * 2.1;   // spread across roughly the back half of the yard
+    const x = Math.sin(angle) * arcR;
+    const z = 4.4 + Math.cos(angle) * 1.6;
+    const mesh = buildIngredientStationMesh(id);
+    mesh.position.set(x, 0, z);
+    envGroup.add(mesh);
+    G.stations.push({type:'ingredient', id, x, z, mesh, label:'Collect ' + D.INGREDIENTS[id].name});
+  });
+
+  const jarMesh = buildTipJarMesh();
+  jarMesh.position.set(2.6, 0, -0.3);
+  envGroup.add(jarMesh);
+  G.stations.push({type:'tip', x:2.6, z:-0.3, mesh:jarMesh, label:'Collect tip jar'});
+
+  const dock = buildFishingSpotMesh();
+  dock.position.set(-3, 0, 7.2);
+  envGroup.add(dock);
+  G.stations.push({type:'fishing', x:-3, z:7.2, mesh:dock, label:'Go fishing'});
+}
+
+function buildIngredientStationMesh(id){
+  const def = D.INGREDIENTS[id];
+  const g = new THREE.Group();
+  const crate = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.4, 0.45, 0.7, 10),
+    new THREE.MeshStandardMaterial({color: def.color, flatShading:true})
+  );
+  crate.position.y = 0.35;
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.4, 0.05, 6, 12),
+    new THREE.MeshStandardMaterial({color:'#5a3d22', flatShading:true})
+  );
+  rim.rotation.x = Math.PI/2; rim.position.y = 0.7;
+  g.add(crate, rim);
+  return g;
+}
+
+function buildTipJarMesh(){
+  const g = new THREE.Group();
+  const glass = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.3, 0.26, 0.55, 12, 1, true),
+    new THREE.MeshStandardMaterial({color:'#dff3ff', transparent:true, opacity:0.35, side:THREE.DoubleSide})
+  );
+  glass.position.y = 0.38;
+  const coins = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.24, 0.24, 0.05, 12),
+    new THREE.MeshStandardMaterial({color:'#ffd23f', flatShading:true})
+  );
+  coins.position.y = 0.14;
+  g.add(glass, coins);
+  g.userData.coins = coins;
+  return g;
+}
+
+function buildFishingSpotMesh(){
+  const g = new THREE.Group();
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(2.2, 20), new THREE.MeshStandardMaterial({color:'#2f9fd8'}));
+  pond.rotation.x = -Math.PI/2; pond.position.set(1.5, 0.02, 0.5);
+  const dock = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 2.2), new THREE.MeshStandardMaterial({color:'#8a5a34', flatShading:true}));
+  dock.position.set(0, 0.06, 0.5);
+  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 6), new THREE.MeshStandardMaterial({color:'#6b4423'}));
+  rod.rotation.z = Math.PI/3.2; rod.position.set(0.2, 0.9, -0.7);
+  g.add(pond, dock, rod);
+  return g;
+}
+
+function nearestStation(){
+  if(!G) return null;
+  let best = null, bestD = STATION_RADIUS;
+  G.stations.forEach(s => {
+    const d = Math.hypot(s.x - G.player.x, s.z - G.player.z);
+    if(d < bestD){ bestD = d; best = s; }
+  });
+  return best;
+}
+
+/* WASD/arrows + the on-screen d-pad, relative to which way the camera is
+   looking (yaw only — you don't sprint faster by staring at your feet). */
+function updatePlayerMovement(dt){
+  let moveF = 0, moveR = 0;
+  if(keys.w || keys.arrowup || pad.up) moveF += 1;
+  if(keys.s || keys.arrowdown || pad.down) moveF -= 1;
+  if(keys.d || keys.arrowright || pad.right) moveR += 1;
+  if(keys.a || keys.arrowleft || pad.left) moveR -= 1;
+  if(!moveF && !moveR) return;
+
+  const len = Math.hypot(moveF, moveR);
+  moveF /= len; moveR /= len;
+  const yaw = G.player.yaw;
+  const fx = Math.sin(yaw), fz = -Math.cos(yaw);
+  const rx = Math.cos(yaw), rz = Math.sin(yaw);
+  G.player.x = clamp(G.player.x + (fx*moveF + rx*moveR) * MOVE_SPEED * dt, PLAYER_BOUNDS.minX, PLAYER_BOUNDS.maxX);
+  G.player.z = clamp(G.player.z + (fz*moveF + rz*moveR) * MOVE_SPEED * dt, PLAYER_BOUNDS.minZ, PLAYER_BOUNDS.maxZ);
+  placeAvatarAtPlayer();
+}
+
+function updateInteractHint(){
+  const el = qs('interactHint');
+  const s = nearestStation();
+  if(!s){ el.classList.remove('show'); return; }
+  el.textContent = '[E] ' + s.label;
+  el.classList.add('show');
+}
+
+function tryInteract(){
+  if(!G || G.launching) return;
+  const s = nearestStation();
+  if(!s) return;
+  if(s.type === 'ingredient'){
+    if(G.fishing) return;
+    addIngredient(s.id);   // same frost/zero-G rules as clicking its HUD button — see addIngredient()
+  } else if(s.type === 'tip'){
+    if(G.tipJar <= 0){ toast('The jar is empty for now.'); return; }
+    Save.collectTip(G.tipJar);
+    if(window.SFX) SFX.coinDrop();
+    toast('Collected 🪙' + Math.round(G.tipJar) + ' in tips!');
+    G.tipJar = 0;
+    updateCoinDisplays();
+  } else if(s.type === 'fishing'){
+    startFishing();
+  }
+}
+
+/* ---------- fishing minigame ----------
+   Same "click in the sweet zone" skill test as mixing's STIR, on its own
+   small meter so it can never collide with an in-progress mix. */
+function startFishing(){
+  if(!G || G.locked || G.fishing) return;
+  G.locked = true;
+  if(window.SFX) SFX.splash();
+  const sweetStart = rand(40, 60);
+  const sweetWidth = 20;
+  qs('fishSweet').style.left = sweetStart + '%';
+  qs('fishSweet').style.width = sweetWidth + '%';
+  qs('fishPanel').classList.add('show');
+  G.fishing = {start: performance.now(), duration: 1500, sweetStart, sweetEnd: sweetStart + sweetWidth, done:false};
+
+  function tick(){
+    if(!G || !G.fishing || G.fishing.done) return;
+    const p = clamp((performance.now() - G.fishing.start) / G.fishing.duration, 0, 1);
+    qs('fishFill').style.width = (p*100) + '%';
+    if(p >= 1){ finishFish(null); return; }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function finishFish(power){
+  if(!G || !G.fishing || G.fishing.done) return;
+  const f = G.fishing;
+  f.done = true;
+  qs('fishPanel').classList.remove('show');
+  G.locked = false;
+
+  const hit = power !== null && power >= f.sweetStart && power <= f.sweetEnd;
+  if(!hit){
+    toast('🎣 The one that got away…');
+    G.fishing = null;
+    return;
+  }
+  Save.recordFish();
+  const rare = G.loc.rareIngredient;
+  if(rare && Save.rareFound.indexOf(rare) === -1 && Math.random() < 0.35){
+    Save.findRareIngredient(G.loc.id, rare);
+    if(window.SFX) SFX.perfectDing();
+    toast('🎣 Reeled in a rare ' + D.INGREDIENTS[rare].name + '!');
+    renderIngredientBar();
+  } else {
+    const amt = Math.round(rand(15, 40));
+    Save.collectTip(amt);
+    if(window.SFX) SFX.chaChing();
+    toast('🎣 Caught something worth 🪙' + amt + '!');
+  }
+  updateCoinDisplays();
+  G.fishing = null;
+}
+on(qs('btnReel'), 'click', () => {
+  if(!G || !G.fishing || G.fishing.done) return;
+  const p = clamp((performance.now() - G.fishing.start) / G.fishing.duration, 0, 1) * 100;
+  finishFish(p);
+});
 
 function buildCustomerRow(capacity){
   const row = qs('customerRow');
@@ -989,6 +1480,7 @@ function triggerLaunch(reason){
       const wp = new THREE.Vector3();
       part.getWorldPosition(wp);
       const clone = part.clone();
+      clone.visible = true;   // the head is normally see-through from inside in first-person — the ragdoll never should be
       clone.position.copy(wp);
       clone.quaternion.copy(part.getWorldQuaternion(new THREE.Quaternion()));
       clone.userData.vel = new THREE.Vector3(rand(-2,2), rand(9,13), rand(-2,2));
@@ -998,6 +1490,16 @@ function triggerLaunch(reason){
     scene.remove(g); g.visible = false;
     scene.add(ragdollGroup);
     ragdollGroup.userData.startedAt = performance.now();
+
+    // Pull the camera out of first-person for this one moment — otherwise
+    // there is nothing to watch, since the ragdoll launches from right
+    // where your eyes just were. A fixed spectator shot behind and above
+    // the launch point, held until respawn() hands control back to the
+    // normal first-person camera in the main loop.
+    const yaw = G.player.yaw;
+    const fx = Math.sin(yaw), fz = -Math.cos(yaw);
+    camera.position.set(G.player.x - fx * 3.5, EYE_HEIGHT + 2.4, G.player.z - fz * 3.5);
+    camera.lookAt(G.player.x, EYE_HEIGHT + 1, G.player.z);
 
     const overlay = qs('launchOverlay');
     qs('launchTitle').textContent = 'LAUNCHED INTO ORBIT!';
@@ -1025,7 +1527,10 @@ function respawn(){
   if(ragdollGroup){ scene.remove(ragdollGroup); ragdollGroup = null; }
   avatarGroup.visible = true;
   avatarGroup.scale.setScalar(0.85);
-  avatarGroup.position.set(0, 0, 1.1);
+  // "respawns back at their stand" — walking off is undone along with
+  // everything else the mess-up cost you, not just the combo streak.
+  Object.assign(G.player, PLAYER_SPAWN);
+  placeAvatarAtPlayer();
   scene.add(avatarGroup);
   if(window.SFX) SFX.thud();
   G.launching = false;
@@ -1060,12 +1565,26 @@ function loop(){
       spawnCustomer();
     }
     tickTwists(now, dt);
+
+    // tip jar slowly fills with loose change; the jar's coin stack visibly
+    // grows so there's a reason to glance over and remember to collect it
+    G.tipJar = Math.min(TIP_JAR_CAP, G.tipJar + dt * TIP_JAR_RATE);
+    const jarStation = G.stations.filter(s => s.type === 'tip')[0];
+    if(jarStation) jarStation.mesh.userData.coins.scale.y = 0.2 + (G.tipJar / TIP_JAR_CAP) * 3;
+
+    updatePlayerMovement(dt);
+    updateInteractHint();
   }
 
-  // idle bob for customers + camera
+  // idle bob for customers
   G.customerMeshes.forEach((m, i) => { if(m) m.position.y = CUSTOMER_BASE_Y + Math.sin(now*0.003 + i) * 0.04; });
-  camera.position.set(camBase.pos.x, camBase.pos.y + Math.sin(now*0.0005)*0.05, camBase.pos.z);
-  camera.lookAt(camBase.look);
+
+  if(!G.launching){
+    camera.position.set(G.player.x, EYE_HEIGHT, G.player.z);
+    camera.rotation.set(G.player.pitch, G.player.yaw, 0);
+  }
+  // while launching, the camera holds the spectator shot launchNow() set —
+  // see triggerLaunch() — until respawn() clears G.launching next frame.
 
   if(ragdollGroup){
     ragdollGroup.children.forEach(part => {
