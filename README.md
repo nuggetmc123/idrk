@@ -71,6 +71,35 @@ something and press **E** (or the on-screen **USE** button) to interact with it:
   meter) for a chance at coins or, less often, a shot at the location's rare ingredient
   without waiting on the passive drop chance.
 
+## Playing on PC and Xbox
+
+This is still one web game with no separate builds, but it's meant to feel at home on
+both:
+
+- **PC** — click **⛶ Fullscreen** on the title screen (or in-game, top-left) for a
+  borderless view. Chrome/Edge on desktop will offer to **install** it as an app (the
+  address bar's install icon, or the browser menu) via the web app manifest
+  (`manifest.json`) and service worker (`sw.js`) — after that it opens in its own window
+  like any installed program, no browser chrome, and keeps working offline once you've
+  loaded it at least once.
+- **Xbox** — open the site in Xbox's Edge browser, hit fullscreen, and it plays like a
+  console game: Edge on Xbox drives its own gamepad-controlled cursor over the menus, so
+  no special support was needed there, and **in-game input is native Xbox controller
+  support** (left stick move, right stick look, D-pad picks an ingredient, A adds it,
+  X mixes, B stirs/reels, Y pours (or interacts with a station if nothing's ready to
+  pour), RB serves whoever's closest to storming off). Edge on Xbox also lets you
+  **pin/install** the page from its menu, so it shows up in *My games & apps* like a
+  real app instead of living in a browser tab.
+- **Any USB/Bluetooth gamepad works**, on any platform, the moment it's connected — the
+  controls above use the browser's standard Gamepad API mapping, which is what Xbox
+  controllers report but far from exclusive to them.
+
+What this **isn't**: a listing on the Microsoft Store or Steam, or a native `.exe`/UWP
+package. Those need a registered developer account, a certification pass, and (for
+Xbox specifically) hardware/dev-kit access this project doesn't have — "installable web
+app with real controller support" is the honest version of "PC and Xbox" achievable here,
+and it gets most of the way to feeling like one without pretending to be more than it is.
+
 ### Wardrobe
 
 Purely cosmetic hats — a chef's toque, a tinfoil hat, alien antennae, a fish (this game's
@@ -89,6 +118,7 @@ comes with you, tumbling off separately in the ragdoll.
 | `profile.js` | the save file: coins, unlocks, upgrades, achievements (see below) |
 | `lemonade-net.js` | the online multiplayer client |
 | `worker/` | the Cloudflare Worker that relays multiplayer messages (see `worker/README.md`) |
+| `manifest.json`, `sw.js`, `icon-*.png` | what makes the page an installable app — see "Playing on PC and Xbox" |
 
 ## The six locations
 

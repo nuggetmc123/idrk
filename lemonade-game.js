@@ -66,9 +66,11 @@ if(window.Save){
 function initMenu(){
   updateCoinDisplays();
 
-  document.querySelectorAll('.tabbtn').forEach(btn => {
+  // [data-tab] excludes #btnFullscreen, which borrows .tabbtn's look
+  // without being one of the actual tab switches below
+  document.querySelectorAll('.tabbtn[data-tab]').forEach(btn => {
     on(btn, 'click', () => {
-      document.querySelectorAll('.tabbtn').forEach(b => b.classList.toggle('on', b === btn));
+      document.querySelectorAll('.tabbtn[data-tab]').forEach(b => b.classList.toggle('on', b === btn));
       ['play','shop','recipes','achievements','multiplayer'].forEach(name => {
         qs('tab-' + name).classList.toggle('hidden', name !== btn.dataset.tab);
       });
@@ -987,6 +989,119 @@ function tryInteract(){
   }
 }
 
+/* ---------- gamepad (Xbox controller / any "standard" gamepad) ----------
+   Menu navigation needs nothing from us: Xbox's own Edge browser drives a
+   gamepad-controlled cursor over ordinary web pages, and a PC has a mouse.
+   This only covers actually PLAYING — movement, mixing, serving — which
+   pointer-lock's mouse-look can't hand off to a stick on its own.
+
+   The Gamepad API is poll-based (no events for button/axis state), so
+   this is called once a frame from the main loop rather than wired up
+   with listeners the way keyboard/mouse input is. Buttons that should
+   fire once per press (everything except the sticks) track the previous
+   frame's state themselves, the same problem e.repeat solves for keydown. */
+let gamepadConnected = false;
+let gamepadIndex = null;
+let gamepadSelIndex = 0;      // which ingredient the D-pad has highlighted
+let gamepadPrevPressed = [];  // previous frame's button.pressed, by index
+const GAMEPAD_DEADZONE = 0.18;
+const GAMEPAD_LOOK_SENS = 2.6;   // radians/sec at full stick deflection
+
+window.addEventListener('gamepadconnected', e => {
+  gamepadConnected = true;
+  gamepadIndex = e.gamepad.index;
+  toast('🎮 Controller connected — stick to move/look, D-pad to pick an ingredient, A add, X mix, B stir/reel, Y pour, RB serve');
+  if(G) updateIngredientBarUI();
+});
+window.addEventListener('gamepaddisconnected', e => {
+  if(e.gamepad.index !== gamepadIndex) return;
+  gamepadConnected = false;
+  gamepadIndex = null;
+  if(G) updateIngredientBarUI();
+});
+
+function cycleIngredient(dir){
+  const n = document.querySelectorAll('#ingredientBar .ingbtn').length;
+  if(!n) return;
+  gamepadSelIndex = (gamepadSelIndex + dir + n) % n;
+  updateIngredientBarUI();
+}
+
+function gamepadAddSelected(){
+  const btns = document.querySelectorAll('#ingredientBar .ingbtn');
+  const btn = btns[gamepadSelIndex];
+  if(btn) addIngredient(btn.dataset.id);
+}
+
+/* B: whichever "hit it in the timing zone" minigame is currently active. */
+function gamepadConfirmAction(){
+  if(G.mix && !G.mix.done) stirNow();
+  else if(G.fishing && !G.fishing.done) reelNow();
+}
+
+/* Y: pour if a mix is ready to go out, otherwise fall back to the same
+   world-station interaction E/USE triggers (tip jar, fishing spot). */
+function gamepadYAction(){
+  if(G.pendingPour) pourNow();
+  else tryInteract();
+}
+
+/* RB: serve whoever's closest to storming off, so a controller player
+   never needs to individually target a customer card with a cursor. */
+function gamepadServeAction(){
+  if(!G.cupsReady || G.cupsReady.count <= 0) return;
+  let idx = -1, worst = Infinity;
+  G.slots.forEach((slot, i) => {
+    if(!slot) return;
+    const frac = slot.patienceLeft / slot.patienceTotal;
+    if(frac < worst){ worst = frac; idx = i; }
+  });
+  if(idx !== -1) serveCustomer(idx);
+}
+
+function pollGamepad(dt){
+  if(gamepadIndex === null || !navigator.getGamepads) return;
+  const g = navigator.getGamepads()[gamepadIndex];
+  if(!g) return;
+
+  const dz = v => Math.abs(v) > GAMEPAD_DEADZONE ? v : 0;
+  const lx = dz(g.axes[0] || 0), ly = dz(g.axes[1] || 0);
+  const rx = dz(g.axes[2] || 0), ry = dz(g.axes[3] || 0);
+
+  if(lx || ly){
+    // stick "up" is a negative Y axis value — moveF follows the same
+    // forward/right convention updatePlayerMovement() uses for WASD
+    const moveF = -ly, moveR = lx;
+    const len = Math.max(1, Math.hypot(moveF, moveR));
+    const yaw = G.player.yaw;
+    const fx = Math.sin(yaw), fz = -Math.cos(yaw);
+    const rxv = Math.cos(yaw), rz = Math.sin(yaw);
+    const mag = Math.min(1, len);
+    G.player.x = clamp(G.player.x + (fx*(moveF/len) + rxv*(moveR/len)) * MOVE_SPEED * mag * dt, PLAYER_BOUNDS.minX, PLAYER_BOUNDS.maxX);
+    G.player.z = clamp(G.player.z + (fz*(moveF/len) + rz*(moveR/len)) * MOVE_SPEED * mag * dt, PLAYER_BOUNDS.minZ, PLAYER_BOUNDS.maxZ);
+    placeAvatarAtPlayer();
+  }
+  if(rx || ry){
+    G.player.yaw -= rx * GAMEPAD_LOOK_SENS * dt;
+    G.player.pitch = clamp(G.player.pitch - ry * GAMEPAD_LOOK_SENS * dt, -PITCH_LIMIT, PITCH_LIMIT);
+  }
+
+  const justPressed = i => {
+    const now = !!(g.buttons[i] && g.buttons[i].pressed);
+    const was = !!gamepadPrevPressed[i];
+    return now && !was;
+  };
+  if(justPressed(14)) cycleIngredient(-1);          // D-pad left
+  if(justPressed(15)) cycleIngredient(1);           // D-pad right
+  if(justPressed(0)) gamepadAddSelected();          // A
+  if(justPressed(2)) startMix();                    // X
+  if(justPressed(1)) gamepadConfirmAction();        // B
+  if(justPressed(3)) gamepadYAction();              // Y
+  if(justPressed(5)) gamepadServeAction();          // RB
+
+  gamepadPrevPressed = g.buttons.map(b => !!(b && b.pressed));
+}
+
 /* ---------- fishing minigame ----------
    Same "click in the sweet zone" skill test as mixing's STIR, on its own
    small meter so it can never collide with an in-progress mix. */
@@ -1040,11 +1155,12 @@ function finishFish(power){
   updateCoinDisplays();
   G.fishing = null;
 }
-on(qs('btnReel'), 'click', () => {
+function reelNow(){
   if(!G || !G.fishing || G.fishing.done) return;
   const p = clamp((performance.now() - G.fishing.start) / G.fishing.duration, 0, 1) * 100;
   finishFish(p);
-});
+}
+on(qs('btnReel'), 'click', reelNow);
 
 function buildCustomerRow(capacity){
   const row = qs('customerRow');
@@ -1073,15 +1189,17 @@ function renderIngredientBar(){
     on(btn, 'click', () => addIngredient(id));
     bar.appendChild(btn);
   });
+  gamepadSelIndex = 0;
   updateIngredientBarUI();
 }
 
 function updateIngredientBarUI(){
-  document.querySelectorAll('#ingredientBar .ingbtn').forEach(btn => {
+  document.querySelectorAll('#ingredientBar .ingbtn').forEach((btn, i) => {
     const id = btn.dataset.id;
     const n = G.currentMix[id] || 0;
     btn.querySelector('.count').textContent = n > 0 ? n : '';
     btn.classList.toggle('frosted', G.loc.twist === 'freeze' && (G.frost[id] || 0) >= 1);
+    btn.classList.toggle('gpSel', gamepadConnected && i === gamepadSelIndex);
   });
 }
 
@@ -1573,6 +1691,7 @@ function loop(){
     if(jarStation) jarStation.mesh.userData.coins.scale.y = 0.2 + (G.tipJar / TIP_JAR_CAP) * 3;
 
     updatePlayerMovement(dt);
+    pollGamepad(dt);
     updateInteractHint();
   }
 
@@ -1632,6 +1751,17 @@ function renderPeerRail(){
 }
 
 on(qs('exitStand'), 'click', () => Game.stop());
+
+/* ---------- fullscreen ----------
+   Handy on PC, close to essential on a TV/Xbox where the browser chrome
+   otherwise eats the edges of the screen. Never assumed to have worked —
+   some embeds/iframes refuse it outright, so this only ever asks. */
+function toggleFullscreen(){
+  if(document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else document.documentElement.requestFullscreen().catch(() => {});
+}
+on(qs('btnFullscreen'), 'click', toggleFullscreen);
+on(qs('btnFullscreenGame'), 'click', toggleFullscreen);
 
 /* ============================================================
    boot

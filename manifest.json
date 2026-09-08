@@ -1,0 +1,15 @@
+{
+  "name": "LEMONADE LAUNCH",
+  "short_name": "Lemonade Launch",
+  "description": "Run a chaotic 3D lemonade stand. Mix it right, serve it fast, or get launched into orbit.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#1a1330",
+  "theme_color": "#1a1330",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
