@@ -802,6 +802,36 @@ function resolveWalls(p){
   p.x=clamp(p.x,p.r,W-p.r);
   p.y=clamp(p.y,p.r,H-p.r);
 }
+// Locked vaults — Rust/Stranded-style bunkers with better loot than the
+// field's plain health orbs. Their bodies live in WALLS (so every existing
+// system — collision, LOS, projectile bounces, freeSpot — treats them as
+// solid for free); VAULT_DEFS keeps the extra state a wall doesn't have.
+const VAULT_SIZE = 88;
+const VAULT_CRACK_TIME = 5;     // seconds standing in range to crack one open
+const VAULT_DECAY = 2.2;        // progress drains this many times faster once nobody's there
+const VAULT_RANGE = VAULT_SIZE/2 + 60;
+const VAULT_DEFS = [
+  {x:W*0.4,  y:H*0.15},
+  {x:W*0.6,  y:H*0.85},
+];
+(function placeVaults(){
+  for(const v of VAULT_DEFS){
+    if(circleHitsWall(v.x, v.y, VAULT_SIZE*0.8)){
+      let found = null;
+      for(let rad=16; rad<=240 && !found; rad+=12){
+        for(let a=0;a<16;a++){
+          const ang = a/16*TAU;
+          const x = v.x + Math.cos(ang)*rad, y = v.y + Math.sin(ang)*rad;
+          if(x>VAULT_SIZE+T && y>VAULT_SIZE+T && x<W-VAULT_SIZE-T && y<H-VAULT_SIZE-T
+             && !circleHitsWall(x,y,VAULT_SIZE*0.8)){ found = {x,y}; break; }
+        }
+      }
+      if(found){ v.x = found.x; v.y = found.y; }
+    }
+    WALLS.push({x:v.x-VAULT_SIZE/2, y:v.y-VAULT_SIZE/2, w:VAULT_SIZE, h:VAULT_SIZE, vault:true});
+  }
+})();
+
 function hasLOS(ax,ay,bx,by){
   const steps = Math.max(6, Math.floor(Math.hypot(bx-ax,by-ay)/14));
   for(let i=1;i<steps;i++){
@@ -1256,7 +1286,7 @@ const G = {
   killLimit:Infinity,    // nobody "wins" on kills — the clock ends the match
   difficulty:'rookie',
   players:[], projs:[], aoes:[], parts:[], floats:[], pickups:[], slashes:[],
-  feed:[],
+  feed:[], vaults:[],
   time:0, shake:0, over:null, paused:false,
   localPause:false,       // host/client's own menu — never stops the shared match, see togglePause()
   nextPickup:8, overlayKey:'',
@@ -2118,6 +2148,7 @@ function enterMatch(roster, role){
   G.floats = []; G.pickups = []; G.slashes = []; G.feed = [];
   G.time = 0; G.shake = 0; G.over = null; G.paused = false; G.localPause = false;
   G.nextPickup = 6;
+  G.vaults = VAULT_DEFS.map(v => ({x:v.x, y:v.y, prog:0, open:false}));
   G.myDeaths = 0;
   G.shownSec = -1;
   G.banked = false;
@@ -2198,6 +2229,7 @@ function startHostBroadcast(){
     if(G.netRole !== 'host'){ clearInterval(G.netBroadcastTimer); return; }
     Net.sendSnapshot({
       t: G.time, over: !!G.over, feed: G.feed.slice(-6),
+      vaults: G.vaults.map(v => ({prog:v.prog, open:v.open})),
       // name is deliberately not sent: the host's own entry is locally
       // named "You" on the host's screen, and relaying that string would
       // relabel the HOST as "You" on every client's screen too. Every
@@ -2277,6 +2309,7 @@ Net.onSnapshot(data => {
     if(p.alive) p.respawn = null;
   });
   if(data.feed) G.feed = data.feed.slice();
+  if(data.vaults) data.vaults.forEach((vs,i) => { if(G.vaults[i]) Object.assign(G.vaults[i], vs); });
   if(data.over && !G.over) endMatch(null);
   markOverlay();
   updateHud();
@@ -3106,9 +3139,11 @@ function update(dt){
       const k = G.pickups[i];
       if(Math.hypot(k.x-p.x, k.y-p.y) < p.r + 14){
         if(p.hp < p.maxHp){
-          p.hp = Math.min(p.maxHp, p.hp + 32);
-          floatText(p.x, p.y-28, '+32', '#7ce88a');
-          burst(k.x, k.y, '#7ce88a', 14, 130);
+          const heal = k.vault ? 55 : 32;
+          const color = k.vault ? '#ffd24a' : '#7ce88a';
+          p.hp = Math.min(p.maxHp, p.hp + heal);
+          floatText(p.x, p.y-28, '+'+heal, color);
+          burst(k.x, k.y, color, 14, 130);
           SFX.play('heal');
           G.pickups.splice(i,1);
         }
@@ -3248,6 +3283,43 @@ function update(dt){
     G.pickups.push({x:s.x, y:s.y, t:0});
   }
   for(const k of G.pickups) k.t += dt;
+
+  // ---- vaults ----
+  // Anyone alive standing in range channels it open; step away and the
+  // progress drains back down faster than it built, so a drive-by tap
+  // doesn't slowly crack it for free — you have to commit, exposed, like
+  // hacking a locked crate in Rust.
+  for(const v of G.vaults){
+    if(v.open) continue;
+    let nearest = null, nearestD = Infinity;
+    for(const p of G.players){
+      if(!p.alive) continue;
+      const d = Math.hypot(p.x-v.x, p.y-v.y);
+      if(d < VAULT_RANGE && d < nearestD){ nearest = p; nearestD = d; }
+    }
+    if(nearest){
+      v.prog = Math.min(1, v.prog + dt/VAULT_CRACK_TIME);
+      v.crackerName = nearest.name;
+    } else {
+      v.prog = Math.max(0, v.prog - dt/VAULT_CRACK_TIME*VAULT_DECAY);
+    }
+    if(v.prog >= 1){
+      v.open = true;
+      const n = 5;
+      for(let i=0;i<n;i++){
+        const ang = (i/n)*TAU + rand(-0.15,0.15);
+        const r = VAULT_SIZE/2 + 46;
+        const px = v.x + Math.cos(ang)*r, py = v.y + Math.sin(ang)*r;
+        if(!circleHitsWall(px,py,14)) G.pickups.push({x:px, y:py, t:0, vault:true});
+      }
+      burst(v.x, v.y, '#ffd24a', 30, 220, 0.6);
+      smokePuff(v.x, v.y, '#5a4a1a', 14, 90);
+      SFX.play('boom');
+      G.shake = Math.max(G.shake, 16);
+      floatText(v.x, v.y - VAULT_SIZE/2 - 14, 'VAULT CRACKED', '#ffd24a', true);
+      feed((v.crackerName || 'Someone') + ' cracked open a vault!', '#ffd24a');
+    }
+  }
 
   // ---- respawn panels for humans ----
   for(const p of G.players){
@@ -3639,8 +3711,9 @@ function drawArena(){
   ctx.fillStyle = g;
   ctx.fillRect(vx, vy, VIEW_W, VIEW_H);
 
-  // walls
+  // walls (vault bodies render separately, in drawVaults())
   for(const w of WALLS){
+    if(w.vault) continue;
     ctx.fillStyle = '#000';
     ctx.globalAlpha = 0.45;
     ctx.fillRect(w.x+3, w.y+6, w.w, w.h);
@@ -3678,17 +3751,94 @@ function drawArena(){
 function drawPickups(){
   for(const k of G.pickups){
     const bob = Math.sin(k.t*3)*3;
+    const glow = k.vault ? '#ffd24a' : '#4ade7a';
+    const core = k.vault ? '#3a2a06' : '#0f2417';
+    const cross = k.vault ? '#ffe38a' : '#7ce88a';
     ctx.save();
     ctx.translate(k.x, k.y + bob);
     ctx.globalAlpha = 0.35;
-    ctx.fillStyle = '#4ade7a';
-    ctx.beginPath(); ctx.arc(0,0, 16 + Math.sin(k.t*4)*2, 0, TAU); ctx.fill();
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(0,0, (k.vault?19:16) + Math.sin(k.t*4)*2, 0, TAU); ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.fillStyle = '#0f2417';
+    ctx.fillStyle = core;
     ctx.beginPath(); ctx.arc(0,0,10,0,TAU); ctx.fill();
-    ctx.fillStyle = '#7ce88a';
+    ctx.fillStyle = cross;
     ctx.fillRect(-7,-2.5,14,5);
     ctx.fillRect(-2.5,-7,5,14);
+    ctx.restore();
+  }
+}
+
+function drawVaults(){
+  for(const v of G.vaults){
+    const x = v.x, y = v.y, half = VAULT_SIZE/2;
+    ctx.save();
+    // shadow
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x-half+3, y-half+6, VAULT_SIZE, VAULT_SIZE);
+    ctx.globalAlpha = 1;
+
+    // gunmetal body
+    const grd = ctx.createLinearGradient(x, y-half, x, y+half);
+    if(v.open){
+      grd.addColorStop(0, '#2a2632'); grd.addColorStop(1, '#151220');
+    } else {
+      grd.addColorStop(0, '#5a5568'); grd.addColorStop(0.3, '#3a3648'); grd.addColorStop(1, '#201d2c');
+    }
+    ctx.fillStyle = grd;
+    ctx.fillRect(x-half, y-half, VAULT_SIZE, VAULT_SIZE);
+
+    // hazard-stripe corners
+    ctx.fillStyle = v.open ? '#4a4458' : '#ffb020';
+    const cs = 10;
+    ctx.fillRect(x-half, y-half, cs, cs);
+    ctx.fillRect(x+half-cs, y-half, cs, cs);
+    ctx.fillRect(x-half, y+half-cs, cs, cs);
+    ctx.fillRect(x+half-cs, y+half-cs, cs, cs);
+
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x-half+1, y-half+1, VAULT_SIZE-2, VAULT_SIZE-2);
+
+    if(v.open){
+      // cracked open: dark husk with a swung door and empty interior
+      ctx.fillStyle = '#08060c';
+      ctx.beginPath(); ctx.arc(x, y, half*0.55, 0, TAU); ctx.fill();
+      ctx.save();
+      ctx.translate(x-half, y);
+      ctx.rotate(-0.9);
+      ctx.fillStyle = '#3a3648';
+      ctx.fillRect(0, -half*0.9, 8, half*1.8);
+      ctx.restore();
+    } else {
+      // locked door wheel, spinning faster the closer it is to cracking
+      ctx.translate(x, y);
+      ctx.rotate(v.prog * 10);
+      ctx.strokeStyle = '#141018';
+      ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(0,0, half*0.5, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = '#ffb020';
+      ctx.lineWidth = 3;
+      for(let i=0;i<6;i++){
+        const a = i/6*TAU;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a)*half*0.2, Math.sin(a)*half*0.2);
+        ctx.lineTo(Math.cos(a)*half*0.5, Math.sin(a)*half*0.5);
+        ctx.stroke();
+      }
+      ctx.rotate(-v.prog*10);
+      ctx.translate(-x, -y);
+
+      // progress ring while someone's actively cracking it
+      if(v.prog > 0){
+        ctx.strokeStyle = '#ffd24a';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(x, y, half + 14, -Math.PI/2, -Math.PI/2 + v.prog*TAU);
+        ctx.stroke();
+      }
+    }
     ctx.restore();
   }
 }
@@ -4315,6 +4465,7 @@ function draw(){
   ctx.translate(-G.cam.x, -G.cam.y);
 
   drawArena();
+  drawVaults();
   drawPickups();
   drawAoes();
   drawSlashes();
