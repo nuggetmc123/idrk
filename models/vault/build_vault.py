@@ -19,6 +19,10 @@ from mathutils import Matrix, Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
 OUT_DIR = os.path.abspath(next((a for a in argv if not a.startswith("--")), "."))
 DO_RENDER = "--render" in argv
+# Strayed-style vault tiers: the keycard colour, signage and loot all scale with level.
+LEVEL = int(next((a.split("=")[1] for a in argv if a.startswith("--level=")), "1"))
+CARD, CARD_RGB = {1: ("GREEN", (0.1, 1.0, 0.25)), 2: ("BLUE", (0.1, 0.45, 1.0)), 3: ("RED", (1.0, 0.08, 0.04))}[LEVEL]
+NAME = f"IronholdVault_L{LEVEL}"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -89,7 +93,7 @@ M = {
     "laser":         material("LaserRed",      (1.0, 0.05, 0.02), emit=(1.0, 0.04, 0.02), strength=25.0),
     "core":          material("CoreCyan",      (0.10, 0.90, 1.00), emit=(0.1, 0.85, 1.0), strength=35.0),
     "screen":        material("ScreenGreen",   (0.05, 0.60, 0.20), emit=(0.1, 1.0, 0.35), strength=5.0),
-    "keycard":       material("KeycardViolet", (0.55, 0.10, 1.00), emit=(0.6, 0.1, 1.0), strength=10.0),
+    "keycard":       material(f"Keycard{CARD.title()}", CARD_RGB, emit=CARD_RGB, strength=10.0),
     "sign":          material("SignOrange",    (1.0, 0.45, 0.08), emit=(1.0, 0.4, 0.05), strength=8.0),
 }
 
@@ -271,7 +275,7 @@ DOOR_R = 1.66
 HOLE_R = 1.70
 Y90 = (RAD(90), 0, 0)  # rotate a Z-axis primitive to point along Y
 
-root = group("IronholdVault07")
+root = group(NAME)
 
 # ---------------------------------------------------------------- structure
 g_struct = group("Structure", parent=root)
@@ -338,10 +342,11 @@ for k in range(4):
 
 # tunnel sign
 g_sign = group("EntrySign", parent=g_struct)
-box("Sign_Plate", (0, -3.3, 3.8), (3.4, 0.08, 0.6), M["steel_dark"], parent=g_sign, bevel=0.01)
+box("Sign_Plate", (0, -3.3, 3.7), (3.4, 0.08, 0.8), M["steel_dark"], parent=g_sign, bevel=0.01)
 for x in (-1.2, 1.2):
     box(f"Sign_Chain_{x:+.0f}", (x, -3.3, 4.3), (0.03, 0.03, 0.4), M["steel"], parent=g_sign)
-text("Sign_Text", "IRONHOLD  //  VAULT 07", (0, -3.35, 3.8), 0.3, M["sign"], (RAD(90), 0, 0), parent=g_sign)
+text("Sign_Text", f"LEVEL {LEVEL} VAULT", (0, -3.35, 3.85), 0.3, M["keycard"], (RAD(90), 0, 0), parent=g_sign)
+text("Sign_Sub", f"{CARD} KEYCARD REQUIRED", (0, -3.35, 3.5), 0.15, M["sign"], (RAD(90), 0, 0), parent=g_sign)
 
 # hazard stripes at the threshold, inside and outside
 g_haz = group("HazardStripes", parent=g_struct)
@@ -353,13 +358,16 @@ for side, y in (("In", 0.35), ("Out", -0.95)):
 
 # back wall lettering
 text("Wall_Title", "IRONHOLD RESERVE", (0, 11.93, 3.45), 0.46, M["orange"], (RAD(90), 0, 0), parent=g_struct, extrude=0.02)
-text("Wall_Sub", "VAULT 07  -  AUTHORISED PERSONNEL ONLY", (0, 11.93, 2.98), 0.16, M["steel"], (RAD(90), 0, 0), parent=g_struct)
+text("Wall_Sub", f"LEVEL {LEVEL} CLEARANCE  -  {CARD} KEYCARD", (0, 11.93, 2.98), 0.16, M["steel"], (RAD(90), 0, 0), parent=g_struct)
 
 
 # ---------------------------------------------------------------- vault door
 g_door = group("VaultDoor", parent=root)
 ring("DoorFrame", DOOR_C + Vector((0, -0.05, 0)), 2.15, HOLE_R, 1.0, M["steel_dark"], rot=Y90, parent=g_door, seg=64)
 ring("DoorFrame_Lip", DOOR_C + Vector((0, -0.57, 0)), 2.3, 1.95, 0.08, M["orange"], rot=Y90, parent=g_door, seg=64)
+# status light ring around the frame, lit in the vault's keycard colour
+ring("DoorFrame_StatusLight", DOOR_C + Vector((0, -0.62, 0)), 2.27, 2.21, 0.03, M["keycard"], rot=Y90, parent=g_door, seg=64)
+ring("DoorFrame_StatusLightIn", DOOR_C + Vector((0, 0.47, 0)), 2.2, 2.14, 0.03, M["keycard"], rot=Y90, parent=g_door, seg=64)
 for i in range(16):
     a = 2 * PI * i / 16
     cyl(f"FrameBolt_{i}", DOOR_C + Vector((2.05 * math.cos(a), -0.57, 2.05 * math.sin(a))), 0.05, 0.12,
@@ -427,6 +435,14 @@ for side, x, y, rz in (("Out", 2.7, -0.66, 0.0), ("In", -2.7, 0.06, PI)):
     box("Reader_Slot", (0, -0.052, -0.08), (0.16, 0.01, 0.03), M["keycard"], parent=rd)
     box("Reader_Screen", (0, -0.052, 0.09), (0.18, 0.01, 0.12), M["keycard"], parent=rd)
     box("Reader_Stripe", (0, -0.051, 0.19), (0.26, 0.01, 0.03), M["orange"], parent=rd)
+
+# open/close countdown screens: vaults open on a timer and lock again
+for side, x, y, rz in (("Out", 2.7, -0.64, 0.0), ("In", -2.7, 0.04, PI)):
+    ts = group(f"VaultTimer_{side}", loc=(x, y, 2.35), rot=(0, 0, rz), parent=g_sec)
+    box("Timer_Body", (0, 0, 0), (0.9, 0.08, 0.5), M["steel_dark"], parent=ts, bevel=0.01)
+    box("Timer_Face", (0, -0.042, 0), (0.8, 0.01, 0.4), M["black"], parent=ts)
+    text("Timer_Label", "VAULT OPEN", (0, -0.05, 0.1), 0.1, M["keycard"], (RAD(90), 0, 0), parent=ts, extrude=0.004)
+    text("Timer_Digits", "04:59", (0, -0.05, -0.07), 0.17, M["keycard"], (RAD(90), 0, 0), parent=ts, extrude=0.004)
 
 fb = group("FuseBox", loc=(-4.2, 0.12, 1.55), parent=g_sec)
 box("Fuse_Body", (0, 0, 0), (0.7, 0.24, 0.9), M["steel_dark"], parent=fb, bevel=0.01)
@@ -570,14 +586,20 @@ g_shelves = group("Shelving", parent=g_loot)
 shelf_unit("Shelf_L1", (-6.62, 2.4, 0), RAD(-90), g_shelves)
 shelf_unit("Shelf_L2", (-6.62, 6.0, 0), RAD(-90), g_shelves)
 
-gold_pallet("GoldPallet_A", (-3.4, 5.6, 0), RAD(8), g_loot)
-gold_pallet("GoldPallet_B", (3.7, 5.2, 0), RAD(-12), g_loot, layers=3)
-for k in range(5):
-    gold_bar(f"LooseGold_{k}", (3.0 + rng.uniform(-0.3, 0.3), 4.3 + rng.uniform(-0.3, 0.3), 0.03), rng.uniform(0, PI), g_loot)
+if LEVEL >= 2:
+    gold_pallet("GoldPallet_B", (3.7, 5.2, 0), RAD(-12), g_loot, layers=LEVEL)
+if LEVEL >= 3:
+    gold_pallet("GoldPallet_A", (-3.4, 5.6, 0), RAD(8), g_loot)
+for k in range(2 + 2 * LEVEL):
+    gold_bar(f"LooseGold_{k}", (3.0 + rng.uniform(-0.4, 0.4), 4.3 + rng.uniform(-0.4, 0.4), 0.03), rng.uniform(0, PI), g_loot)
 
-military_crate("EliteCrate", (0, 6.3, 0), RAD(6), g_loot, size=(1.4, 0.8, 0.7), elite=True)
+if LEVEL >= 2:
+    military_crate("EliteCrate", (0, 6.3, 0), RAD(6), g_loot, size=(1.4, 0.8, 0.7), elite=True)
+else:
+    military_crate("MilitaryCrate_Center", (0, 6.3, 0), RAD(6), g_loot)
 military_crate("MilitaryCrate_A", (-5.95, 9.6, 0), RAD(90), g_loot)
-military_crate("MilitaryCrate_B", (-5.95, 9.6, 0.6), RAD(84), g_loot)
+if LEVEL >= 2:
+    military_crate("MilitaryCrate_B", (-5.95, 9.6, 0.6), RAD(84), g_loot)
 military_crate("MilitaryCrate_C", (3.9, 8.7, 0), RAD(-18), g_loot)
 military_crate("MilitaryCrate_D", (-4.6, 2.6, 0), RAD(12), g_loot)
 
@@ -604,15 +626,15 @@ box("Rack_Header", (-0.03, 0, 2.55), (0.1, 2.9, 0.12), M["orange"], parent=wr)
 box("Rack_Shelf", (-0.25, 0, 0.55), (0.5, 2.9, 0.04), M["steel"], parent=wr)
 for sy in (-1, 1):
     box("Rack_Leg", (-0.47, sy * 1.4, 0.27), (0.04, 0.04, 0.54), M["steel_dark"], parent=wr)
-for r, z in enumerate((0.95, 1.5, 2.05)):
+for r, z in enumerate((0.95, 1.5, 2.05)[:LEVEL]):
     for c, y in enumerate((-0.72, 0.72)):
         for py in (-0.2, 0.25):
             box("Rack_Peg", (-0.08, y + py, z - 0.07), (0.1, 0.03, 0.03), M["steel"], parent=wr)
         rifle(f"Rifle_{r}_{c}", (-0.08, y, z), wr)
-lau = group("Launcher", loc=(-0.12, 0, 2.35), parent=wr)
-cyl("Launcher_Tube", (0, 0, 0), 0.075, 1.1, M["crate_green"], rot=Y90, parent=lau, seg=16)
-cyl("Launcher_Muzzle", (0, 0.55, 0), 0.09, 0.08, M["steel_dark"], rot=Y90, parent=lau, seg=16)
-box("Launcher_Grip", (0, -0.1, -0.11), (0.04, 0.06, 0.12), M["black"], parent=lau)
+lau = group("Launcher", loc=(-0.12, 0, 2.35), parent=wr) if LEVEL >= 3 else None
+if lau: cyl("Launcher_Tube", (0, 0, 0), 0.075, 1.1, M["crate_green"], rot=Y90, parent=lau, seg=16)
+if lau: cyl("Launcher_Muzzle", (0, 0.55, 0), 0.09, 0.08, M["steel_dark"], rot=Y90, parent=lau, seg=16)
+if lau: box("Launcher_Grip", (0, -0.1, -0.11), (0.04, 0.06, 0.12), M["black"], parent=lau)
 for i in range(4):
     for s in range(2):
         box("RackAmmo", (-0.25, -1.1 + i * 0.7, 0.66 + s * 0.18), (0.16, 0.28, 0.18), M["crate_green"], parent=wr, bevel=0.008)
@@ -634,11 +656,11 @@ box("Monitor", (0.22, 0, 1.2), (0.08, 0.64, 0.42), M["black"], parent=td, bevel=
 box("Monitor_Stand", (0.25, 0, 0.98), (0.06, 0.12, 0.12), M["black"], parent=td)
 box("Monitor_Screen", (0.175, 0, 1.2), (0.01, 0.58, 0.36), M["screen"], parent=td)
 box("Keyboard", (-0.05, 0, 0.935), (0.18, 0.5, 0.02), M["black"], parent=td)
-text("Screen_Text", "VAULT 07\nSTATUS: OPEN", (0.168, 0, 1.2), 0.06, M["black"], (RAD(90), 0, RAD(-90)), parent=td, extrude=0.002)
+text("Screen_Text", f"LEVEL {LEVEL} VAULT\nSTATUS: OPEN", (0.168, 0, 1.2), 0.06, M["black"], (RAD(90), 0, RAD(-90)), parent=td, extrude=0.002)
 
 # safe-deposit locker walls
 g_lock = group("DepositLockers", parent=g_loot)
-open_cells = {(1, 2), (4, 0), (7, 4), (2, 5), (8, 1)}
+open_cells = set(list([(1, 2), (4, 0), (7, 4), (2, 5), (8, 1), (5, 3), (0, 4)])[:1 + 2 * LEVEL])
 for side, x0 in (("L", -6.6), ("R", 2.1)):
     cols, rows, cw, ch = 10, 6, 0.45, 0.4
     width = cols * cw
@@ -665,34 +687,37 @@ for side, x0 in (("L", -6.6), ("R", 2.1)):
                 box("Locker_Tag", (x - 0.06, -0.282, z + ch / 2 - 0.07), (0.12, 0.005, 0.04), M["paper"], parent=cab)
 
 # ---------------------------------------------------------------- the core (centerpiece)
-g_core = group("PrismCore", parent=root)
+g_core = group("PrismCore" if LEVEL >= 3 else "Dais", parent=root)
 box("Dais", (0, 10.3, 0.15), (4.0, 3.2, 0.3), M["concrete_dark"], parent=g_core, bevel=0.02)
 box("Dais_Trim", (0, 8.7, 0.29), (4.02, 0.06, 0.02), M["steel"], parent=g_core)
 box("Dais_Step", (0, 8.45, 0.075), (2.0, 0.5, 0.15), M["concrete_dark"], parent=g_core, bevel=0.01)
 for i in range(13):
     x = -1.95 + i * 0.3 + 0.15
     box(f"Dais_Hazard_{i}", (x, 8.69, 0.2), (0.3, 0.012, 0.12), M["yellow"] if i % 2 == 0 else M["black"], parent=g_core)
-cyl("Pedestal", (0, 10.3, 0.8), 0.42, 1.0, M["steel_dark"], parent=g_core, seg=32)
-ring("Pedestal_Band", (0, 10.3, 0.9), 0.44, 0.4, 0.08, M["orange"], parent=g_core, seg=32)
-cyl("Pedestal_Top", (0, 10.3, 1.33), 0.55, 0.06, M["steel"], parent=g_core, seg=32)
-case_c = Vector((0, 10.3, 1.76))
-box("Case_Glass", case_c, (0.8, 0.8, 0.8), M["glass"], parent=g_core)
-for sx in (-1, 1):
-    for sy in (-1, 1):
-        box("Case_Post", case_c + Vector((sx * 0.4, sy * 0.4, 0)), (0.04, 0.04, 0.82), M["steel"], parent=g_core)
-box("Case_Lid", case_c + Vector((0, 0, 0.42)), (0.86, 0.86, 0.04), M["steel"], parent=g_core)
-sphere("Core_Prism", case_c, 0.17, M["core"], parent=g_core, subdiv=1)
-torus("Core_Orbit_A", case_c, 0.28, 0.012, M["steel"], rot=(RAD(70), 0, RAD(20)), parent=g_core, seg=32, seg2=6)
-torus("Core_Orbit_B", case_c, 0.3, 0.012, M["steel"], rot=(RAD(-60), RAD(30), 0), parent=g_core, seg=32, seg2=6)
-# laser fence around the dais
-posts = [(-1.8, 9.0), (1.8, 9.0), (1.8, 11.5), (-1.8, 11.5)]
-for k, (x, y) in enumerate(posts):
-    box(f"LaserPost_{k}", (x, y, 0.9), (0.12, 0.12, 1.2), M["steel_dark"], parent=g_core, bevel=0.01)
-    box(f"LaserPost_Tip_{k}", (x, y, 1.53), (0.13, 0.13, 0.06), M["laser"], parent=g_core)
-for a, b in ((0, 1), (1, 2), (3, 0)):
-    for z in (0.6, 0.9, 1.2):
-        (x0, y0), (x1, y1) = posts[a], posts[b]
-        between(f"Laser_{a}{b}_{z}", (x0, y0, z), (x1, y1, z), 0.012, M["laser"], parent=g_core)
+if LEVEL < 3:
+    military_crate("DaisCrate", (0, 10.3, 0.3), 0.0, g_core, size=(1.4, 0.8, 0.7), elite=LEVEL == 2)
+if LEVEL >= 3:
+    cyl("Pedestal", (0, 10.3, 0.8), 0.42, 1.0, M["steel_dark"], parent=g_core, seg=32)
+    ring("Pedestal_Band", (0, 10.3, 0.9), 0.44, 0.4, 0.08, M["orange"], parent=g_core, seg=32)
+    cyl("Pedestal_Top", (0, 10.3, 1.33), 0.55, 0.06, M["steel"], parent=g_core, seg=32)
+    case_c = Vector((0, 10.3, 1.76))
+    box("Case_Glass", case_c, (0.8, 0.8, 0.8), M["glass"], parent=g_core)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            box("Case_Post", case_c + Vector((sx * 0.4, sy * 0.4, 0)), (0.04, 0.04, 0.82), M["steel"], parent=g_core)
+    box("Case_Lid", case_c + Vector((0, 0, 0.42)), (0.86, 0.86, 0.04), M["steel"], parent=g_core)
+    sphere("Core_Prism", case_c, 0.17, M["core"], parent=g_core, subdiv=1)
+    torus("Core_Orbit_A", case_c, 0.28, 0.012, M["steel"], rot=(RAD(70), 0, RAD(20)), parent=g_core, seg=32, seg2=6)
+    torus("Core_Orbit_B", case_c, 0.3, 0.012, M["steel"], rot=(RAD(-60), RAD(30), 0), parent=g_core, seg=32, seg2=6)
+    # laser fence around the dais
+    posts = [(-1.8, 9.0), (1.8, 9.0), (1.8, 11.5), (-1.8, 11.5)]
+    for k, (x, y) in enumerate(posts):
+        box(f"LaserPost_{k}", (x, y, 0.9), (0.12, 0.12, 1.2), M["steel_dark"], parent=g_core, bevel=0.01)
+        box(f"LaserPost_Tip_{k}", (x, y, 1.53), (0.13, 0.13, 0.06), M["laser"], parent=g_core)
+    for a, b in ((0, 1), (1, 2), (3, 0)):
+        for z in (0.6, 0.9, 1.2):
+            (x0, y0), (x1, y1) = posts[a], posts[b]
+            between(f"Laser_{a}{b}_{z}", (x0, y0, z), (x1, y1, z), 0.012, M["laser"], parent=g_core)
 
 
 # --------------------------------------------------------------------------
@@ -767,7 +792,7 @@ meshes = sum(1 for o in scene.objects if o.type == "MESH")
 print(f"[vault] {meshes} mesh objects, ~{tris} triangles")
 
 bpy.ops.export_scene.fbx(
-    filepath=os.path.join(OUT_DIR, "IronholdVault07.fbx"),
+    filepath=os.path.join(OUT_DIR, f"{NAME}.fbx"),
     object_types={"EMPTY", "MESH"},
     use_mesh_modifiers=True,
     mesh_smooth_type="FACE",
@@ -777,7 +802,7 @@ bpy.ops.export_scene.fbx(
     path_mode="AUTO",
 )
 bpy.ops.export_scene.gltf(
-    filepath=os.path.join(OUT_DIR, "IronholdVault07.glb"),
+    filepath=os.path.join(OUT_DIR, f"{NAME}.glb"),
     export_format="GLB",
     export_apply=True,
 )
@@ -828,9 +853,9 @@ bg = next(n for n in world.node_tree.nodes if n.type == "BACKGROUND")
 bg.inputs["Color"].default_value = (0.02, 0.022, 0.025, 1)
 bg.inputs["Strength"].default_value = 1.0
 
-bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT_DIR, "IronholdVault07.blend"), check_existing=False, compress=True)
-if os.path.exists(os.path.join(OUT_DIR, "IronholdVault07.blend1")):
-    os.remove(os.path.join(OUT_DIR, "IronholdVault07.blend1"))
+bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT_DIR, f"{NAME}.blend"), check_existing=False, compress=True)
+if os.path.exists(os.path.join(OUT_DIR, f"{NAME}.blend1")):
+    os.remove(os.path.join(OUT_DIR, f"{NAME}.blend1"))
 
 if DO_RENDER:
     scene.render.engine = "CYCLES"
@@ -852,6 +877,6 @@ if DO_RENDER:
         if only and name not in only.split(","):
             continue
         scene.camera = add_camera("Cam_" + name, loc, target, lens)
-        scene.render.filepath = os.path.join(OUT_DIR, name + ".png")
+        scene.render.filepath = os.path.join(OUT_DIR, f"{name}_L{LEVEL}.png")
         bpy.ops.render.render(write_still=True)
         print(f"[vault] rendered {name}")
