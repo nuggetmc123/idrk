@@ -1236,6 +1236,7 @@ const SFX = {
       case 'heal':   this.tone(620,1150,0.16,'sine',0.07); break;
       case 'ui':     this.tone(680,880,0.05,'triangle',0.05); break;
       case 'win':    this.tone(520,1040,0.45,'triangle',0.10); break;
+      case 'unlock': this.hiss(0.14,0.14,1400,3); this.tone(320,1500,0.24,'triangle',0.09); break;
     }
   }
 };
@@ -1255,11 +1256,11 @@ const G = {
   fullscreen:false,
   killLimit:Infinity,    // nobody "wins" on kills — the clock ends the match
   difficulty:'rookie',
-  players:[], projs:[], aoes:[], parts:[], floats:[], pickups:[], slashes:[],
+  players:[], projs:[], aoes:[], parts:[], floats:[], pickups:[], slashes:[], crates:[],
   feed:[],
   time:0, shake:0, over:null, paused:false,
   localPause:false,       // host/client's own menu — never stops the shared match, see togglePause()
-  nextPickup:8, overlayKey:'',
+  nextPickup:8, nextCrate:45, overlayKey:'',
   cam:{x:0, y:0},         // top-left world corner the camera currently shows — see updateCamera()
   // Owner Menu — hold Q+E for 3s to open it. See updateCheatHold()/openOwnerMenu().
   qeHoldT:0, ownerMenuOpen:false,
@@ -2049,7 +2050,7 @@ function deploy(p, clsKey){
   p.alive = true; p.deadT = 0; p.respawn = null;
   p.atkCd = 0; p.spCd = 0;
   p.vx = 0; p.vy = 0;
-  p.fx = {stealth:0, invuln:1.4, slow:0, haste:0, buff:0};
+  p.fx = {stealth:0, invuln:1.4, slow:0, haste:0, buff:0, crateBuff:0};
   const s = bestSpawn(p);
   p.x = s.x; p.y = s.y;
   resolveWalls(p);
@@ -2115,9 +2116,9 @@ function startMatch(){
    positions/health arrive entirely from the host's snapshots instead. */
 function enterMatch(roster, role){
   G.players = []; G.projs = []; G.aoes = []; G.parts = [];
-  G.floats = []; G.pickups = []; G.slashes = []; G.feed = [];
+  G.floats = []; G.pickups = []; G.slashes = []; G.crates = []; G.feed = [];
   G.time = 0; G.shake = 0; G.over = null; G.paused = false; G.localPause = false;
-  G.nextPickup = 6;
+  G.nextPickup = 6; G.nextCrate = 45;
   G.myDeaths = 0;
   G.shownSec = -1;
   G.banked = false;
@@ -2750,6 +2751,7 @@ function damage(target, amt, src, kx, ky){
   }
   if(src) dmg *= upgMulFor(src, 'dmg');
   if(src && src.fx.buff > 0){ dmg *= 2; src.fx.buff = 0; floatText(src.x, src.y-30, 'AMBUSH', CLASSES[src.cls].light); }
+  if(src && src.fx.crateBuff > 0) dmg *= 1.4;
   target.hp -= dmg;
   target.hitFlash = 0.2;
   if(kx) target.vx += kx;
@@ -3249,6 +3251,39 @@ function update(dt){
   }
   for(const k of G.pickups) k.t += dt;
 
+  // ---- locked crates: a rare, contested breach. progress climbs while
+  // someone stands in range (faster with more people crowding it — a reason
+  // to fight over it rather than just camp it alone), and creeps back down
+  // when it's abandoned rather than resetting outright. ----
+  G.nextCrate -= dt;
+  if(G.nextCrate <= 0 && G.crates.length < 1){
+    G.nextCrate = 55;
+    const s = freeSpot(24);
+    G.crates.push({x:s.x, y:s.y, t:0, prog:0, need:1.6, holders:0});
+  }
+  for(let i=G.crates.length-1;i>=0;i--){
+    const k = G.crates[i];
+    k.t += dt;
+    let near = 0;
+    for(const p of G.players) if(p.alive && Math.hypot(p.x-k.x, p.y-k.y) < p.r + 46) near++;
+    k.holders = near;
+    k.prog += dt * (near > 0 ? (1 + (near-1)*0.5) : -0.4);
+    k.prog = clamp(k.prog, 0, k.need);
+    if(k.prog >= k.need){
+      for(const p of G.players){
+        if(!p.alive || Math.hypot(p.x-k.x, p.y-k.y) >= p.r + 46) continue;
+        p.hp = p.maxHp;
+        p.fx.crateBuff = 6;
+        floatText(p.x, p.y-32, 'BREACHED', '#e8c85a');
+      }
+      burst(k.x, k.y, '#e8c85a', 26, 220, 0.6);
+      burst(k.x, k.y, '#8f6df2', 16, 160, 0.5);
+      G.shake = Math.max(G.shake, 6);
+      SFX.play('unlock');
+      G.crates.splice(i,1);
+    }
+  }
+
   // ---- respawn panels for humans ----
   for(const p of G.players){
     if(!p.alive && p.respawn && !p.respawn.shown && G.time >= p.respawn.showAt){
@@ -3689,6 +3724,117 @@ function drawPickups(){
     ctx.fillStyle = '#7ce88a';
     ctx.fillRect(-7,-2.5,14,5);
     ctx.fillRect(-2.5,-7,5,14);
+    ctx.restore();
+  }
+}
+
+// A rare, contested loot crate — riffing on the locked military crates in
+// games like Rust (a beacon-topped box you have to breach over time) but
+// drawn as its own thing: a squat steel case with hazard corners and a
+// padlocked hasp that glows and cracks open as the breach timer fills.
+function drawCrates(){
+  for(const k of G.crates){
+    const bob = Math.sin(k.t*2.2)*2;
+    const frac = clamp(k.prog / k.need, 0, 1);
+    const active = k.holders > 0;
+    const glowMix = active ? '160,120,255' : '232,200,90';
+
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(k.x, k.y + 17, 27, 10, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+
+    // the breach radius, so it's obvious how close you need to stand
+    if(active){
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.strokeStyle = '#c8b3ff';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6,7]);
+      ctx.beginPath(); ctx.arc(k.x, k.y, 46, 0, TAU); ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.translate(k.x, k.y + bob);
+
+    // rarity aura
+    const auraR = 32 + Math.sin(k.t*3)*2 + frac*6;
+    const grad = ctx.createRadialGradient(0,0,6, 0,0,auraR);
+    grad.addColorStop(0, 'rgba(' + glowMix + ',0.30)');
+    grad.addColorStop(1, 'rgba(' + glowMix + ',0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(0,0,auraR,0,TAU); ctx.fill();
+
+    // body
+    const s = 22;
+    ctx.fillStyle = '#262a35';
+    ctx.strokeStyle = '#0d0e13';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.rect(-s,-s,s*2,s*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#333847';
+    ctx.beginPath(); ctx.rect(-s+5,-s+5,s*2-10,s*2-10); ctx.fill();
+
+    // corner rivets
+    ctx.fillStyle = '#5b6274';
+    for(const cx of [-s+6, s-6]) for(const cy of [-s+6, s-6]){
+      ctx.beginPath(); ctx.arc(cx,cy,2.2,0,TAU); ctx.fill();
+    }
+
+    // hazard corners (top-left / bottom-right)
+    for(const flip of [1,-1]){
+      ctx.save();
+      ctx.scale(flip, flip);
+      ctx.beginPath();
+      ctx.moveTo(-s, -s); ctx.lineTo(-s+16, -s); ctx.lineTo(-s, -s+16);
+      ctx.closePath();
+      ctx.fillStyle = '#e8c85a';
+      ctx.fill();
+      ctx.strokeStyle = '#1a1c22'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-s+4,-s+9); ctx.lineTo(-s+9,-s+4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-s+8,-s+13); ctx.lineTo(-s+13,-s+8); ctx.stroke();
+      ctx.restore();
+    }
+
+    // padlock hasp, cracking open as the breach fills
+    const pulse = 0.6 + Math.sin(G.time * (active ? 10 : 3)) * 0.4;
+    ctx.save();
+    ctx.rotate(-frac*0.5);
+    ctx.fillStyle = '#1a1c22';
+    ctx.fillRect(-6,-2,12,10);
+    ctx.strokeStyle = active ? '#e8c85a' : '#8f97ab';
+    ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.arc(0,-2,5.5, Math.PI, 0); ctx.stroke();
+    ctx.restore();
+    if(active){
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = '#e8c85a';
+      ctx.beginPath(); ctx.arc(0,-2,2,0,TAU); ctx.fill();
+      ctx.restore();
+    }
+
+    // beacon
+    const beaconPulse = 0.5 + Math.sin(G.time * (active ? 8 : 2.4)) * 0.5;
+    ctx.save();
+    ctx.globalAlpha = 0.5 + beaconPulse*0.4;
+    ctx.fillStyle = active ? '#c8b3ff' : '#e8c85a';
+    ctx.beginPath(); ctx.arc(0,-s-6,3.4,0,TAU); ctx.fill();
+    ctx.globalAlpha = 0.18 + beaconPulse*0.12;
+    ctx.fillRect(-1.6, -s-40, 3.2, 34);
+    ctx.restore();
+
+    // breach progress ring
+    if(frac > 0){
+      ctx.save();
+      ctx.strokeStyle = '#e8c85a';
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath(); ctx.arc(0,0, s+9, -Math.PI/2, -Math.PI/2 + TAU*frac); ctx.stroke();
+      ctx.restore();
+    }
+
     ctx.restore();
   }
 }
@@ -4316,6 +4462,7 @@ function draw(){
 
   drawArena();
   drawPickups();
+  drawCrates();
   drawAoes();
   drawSlashes();
 
