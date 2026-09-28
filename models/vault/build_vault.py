@@ -14,7 +14,7 @@ import sys
 
 import bpy  # must come before bmesh when running as the bpy module
 import bmesh
-from mathutils import Matrix, Vector
+from mathutils import Vector
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
 OUT_DIR = os.path.abspath(next((a for a in argv if not a.startswith("--")), "."))
@@ -22,7 +22,8 @@ DO_RENDER = "--render" in argv
 # Strayed-style vault tiers: the keycard colour, signage and loot all scale with level.
 LEVEL = int(next((a.split("=")[1] for a in argv if a.startswith("--level=")), "1"))
 CARD, CARD_RGB = {1: ("GREEN", (0.1, 1.0, 0.25)), 2: ("BLUE", (0.1, 0.45, 1.0)), 3: ("RED", (1.0, 0.08, 0.04))}[LEVEL]
-NAME = f"IronholdVault_L{LEVEL}"
+CLOSED = "--closed" in argv
+NAME = f"IronholdVault_L{LEVEL}" + ("_Closed" if CLOSED else "")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -86,13 +87,10 @@ M = {
     "med_white":     material("MedWhite",      (0.85, 0.85, 0.82), rough=0.5),
     "med_red":       material("MedRed",        (0.70, 0.04, 0.04), rough=0.5),
     "rubber":        material("Rubber",        (0.02, 0.02, 0.02), rough=0.95),
-    "barrel_blue":   material("BarrelBlue",    (0.04, 0.16, 0.45), metal=0.3, rough=0.55),
-    "barrel_red":    material("BarrelRed",     (0.50, 0.06, 0.03), metal=0.3, rough=0.55),
     "glass":         material("Glass",         (0.80, 0.92, 1.00), rough=0.03, alpha=0.2),
     "light":         material("LightPanel",    (1.0, 0.95, 0.85), emit=(1.0, 0.93, 0.8), strength=14.0),
     "laser":         material("LaserRed",      (1.0, 0.05, 0.02), emit=(1.0, 0.04, 0.02), strength=25.0),
     "core":          material("CoreCyan",      (0.10, 0.90, 1.00), emit=(0.1, 0.85, 1.0), strength=35.0),
-    "screen":        material("ScreenGreen",   (0.05, 0.60, 0.20), emit=(0.1, 1.0, 0.35), strength=5.0),
     "keycard":       material(f"Keycard{CARD.title()}", CARD_RGB, emit=CARD_RGB, strength=10.0),
     "sign":          material("SignOrange",    (1.0, 0.45, 0.08), emit=(1.0, 0.4, 0.05), strength=8.0),
 }
@@ -223,28 +221,6 @@ def frustum(name, c, bottom, top, h, mat, rot=(0, 0, 0), parent=None):
     return finish(name, bm, mat, c, rot, parent, smooth=None)
 
 
-def text(name, body, c, size, mat, rot, parent=None, extrude=0.015):
-    cu = bpy.data.curves.new(name + "_curve", "FONT")
-    cu.body = body
-    cu.size = size
-    cu.extrude = extrude
-    cu.align_x = "CENTER"
-    cu.align_y = "CENTER"
-    tmp = bpy.data.objects.new(name + "_tmp", cu)
-    scene.collection.objects.link(tmp)
-    dg = bpy.context.evaluated_depsgraph_get()
-    me = bpy.data.meshes.new_from_object(tmp.evaluated_get(dg))
-    bpy.data.objects.remove(tmp)
-    bpy.data.curves.remove(cu)
-    me.name = name
-    me.materials.clear()
-    me.materials.append(mat)
-    o = bpy.data.objects.new(name, me)
-    o.location = c
-    o.rotation_euler = rot
-    return _link(o, parent)
-
-
 def boolean_cut(target, cutter):
     mod = target.modifiers.new("cut", "BOOLEAN")
     mod.operation = "DIFFERENCE"
@@ -270,9 +246,6 @@ def between(name, p0, p1, thick, mat, parent=None):
 #   entry tunnel runs out to y=-4.
 # --------------------------------------------------------------------------
 ROOM_X, ROOM_Y, ROOM_H = 7.0, 12.0, 4.5
-DOOR_C = Vector((0.0, -0.3, 2.0))
-DOOR_R = 1.66
-HOLE_R = 1.70
 Y90 = (RAD(90), 0, 0)  # rotate a Z-axis primitive to point along Y
 
 root = group(NAME)
@@ -290,7 +263,7 @@ box("Tunnel_Wall_L", (-3.25, -2.3, 2.25), (0.5, 3.4, 4.5), M["concrete"], parent
 box("Tunnel_Wall_R", (3.25, -2.3, 2.25), (0.5, 3.4, 4.5), M["concrete"], parent=g_struct)
 
 front = box("Wall_Front", (0, -0.3, 2.25), (15, 0.6, 4.5), M["concrete"], parent=g_struct)
-cutter = cyl("cutter", (0, -0.3, DOOR_C.z), HOLE_R + 0.02, 1.0, M["steel"], rot=Y90, seg=64)
+cutter = box("cutter", (0, -0.3, 1.7), (3.24, 1.2, 3.44), M["steel"])
 boolean_cut(front, cutter)
 
 # floor seams every 2 m
@@ -306,7 +279,7 @@ for side, x in (("L", -6.97), ("R", 6.97)):
     box(f"Band_{side}", (x, 6, 1.26), (0.08, 12, 0.12), M["orange"], parent=g_trim)
 box("Wainscot_B", (0, 11.97, 0.6), (14, 0.06, 1.2), M["steel_dark"], parent=g_trim)
 box("Band_B", (0, 11.96, 1.26), (14, 0.08, 0.12), M["orange"], parent=g_trim)
-for side, x0, x1 in (("FL", -7, -2.3), ("FR", 2.9, 7)):
+for side, x0, x1 in (("FL", -7, -1.7), ("FR", 1.7, 7)):
     box(f"Wainscot_{side}", ((x0 + x1) / 2, 0.03, 0.6), (x1 - x0, 0.06, 1.2), M["steel_dark"], parent=g_trim)
     box(f"Band_{side}", ((x0 + x1) / 2, 0.04, 1.26), (x1 - x0, 0.08, 0.12), M["orange"], parent=g_trim)
 
@@ -340,131 +313,145 @@ box("CableTray", (6.35, 6, 3.95), (0.45, 12, 0.04), M["steel"], parent=g_pipes)
 for k in range(4):
     cyl(f"Cable_{k}", (6.2 + k * 0.1, 6, 4.0), 0.03, 12, M["rubber"], rot=Y90, parent=g_pipes, seg=10)
 
-# tunnel sign
-g_sign = group("EntrySign", parent=g_struct)
-box("Sign_Plate", (0, -3.3, 3.7), (3.4, 0.08, 0.8), M["steel_dark"], parent=g_sign, bevel=0.01)
-for x in (-1.2, 1.2):
-    box(f"Sign_Chain_{x:+.0f}", (x, -3.3, 4.3), (0.03, 0.03, 0.4), M["steel"], parent=g_sign)
-text("Sign_Text", f"LEVEL {LEVEL} VAULT", (0, -3.35, 3.85), 0.3, M["keycard"], (RAD(90), 0, 0), parent=g_sign)
-text("Sign_Sub", f"{CARD} KEYCARD REQUIRED", (0, -3.35, 3.5), 0.15, M["sign"], (RAD(90), 0, 0), parent=g_sign)
-
 # hazard stripes at the threshold, inside and outside
 g_haz = group("HazardStripes", parent=g_struct)
-for side, y in (("In", 0.35), ("Out", -0.95)):
-    for i in range(14):
-        x = -2.1 + i * 0.3 + 0.15
+for side, y in (("In", 0.75), ("Out", -0.95)):
+    for i in range(12):
+        x = -1.8 + i * 0.3 + 0.15
         box(f"Hazard_{side}_{i}", (x, y, 0.004), (0.3, 0.5, 0.008),
             M["yellow"] if i % 2 == 0 else M["black"], parent=g_haz)
 
-# back wall lettering
-text("Wall_Title", "IRONHOLD RESERVE", (0, 11.93, 3.45), 0.46, M["orange"], (RAD(90), 0, 0), parent=g_struct, extrude=0.02)
-text("Wall_Sub", f"LEVEL {LEVEL} CLEARANCE  -  {CARD} KEYCARD", (0, 11.93, 2.98), 0.16, M["steel"], (RAD(90), 0, 0), parent=g_struct)
-
 
 # ---------------------------------------------------------------- vault door
+# Two heavy leaves that split down the middle and slide apart, left and right,
+# on a track along the inside face of the wall.
 g_door = group("VaultDoor", parent=root)
-ring("DoorFrame", DOOR_C + Vector((0, -0.05, 0)), 2.15, HOLE_R, 1.0, M["steel_dark"], rot=Y90, parent=g_door, seg=64)
-ring("DoorFrame_Lip", DOOR_C + Vector((0, -0.57, 0)), 2.3, 1.95, 0.08, M["orange"], rot=Y90, parent=g_door, seg=64)
-# status light ring around the frame, lit in the vault's keycard colour
-ring("DoorFrame_StatusLight", DOOR_C + Vector((0, -0.62, 0)), 2.27, 2.21, 0.03, M["keycard"], rot=Y90, parent=g_door, seg=64)
-ring("DoorFrame_StatusLightIn", DOOR_C + Vector((0, 0.47, 0)), 2.2, 2.14, 0.03, M["keycard"], rot=Y90, parent=g_door, seg=64)
-for i in range(16):
-    a = 2 * PI * i / 16
-    cyl(f"FrameBolt_{i}", DOOR_C + Vector((2.05 * math.cos(a), -0.57, 2.05 * math.sin(a))), 0.05, 0.12,
-        M["steel"], rot=Y90, parent=g_door, seg=8)
+OPEN_W, OPEN_H = 3.2, 3.4          # doorway
+LEAF_W, LEAF_T, LEAF_H = 1.62, 0.35, 3.48
+LEAF_Y = 0.29                       # leaf centre plane, just inside the wall
+SLIDE = 0.0 if CLOSED else 1.66    # how far each leaf travels when open
 
-# hinge (static part fixed to the wall)
-HINGE = Vector((2.35, 0.45, DOOR_C.z))
-cyl("Hinge_Barrel", HINGE, 0.2, 3.3, M["steel"], parent=g_door, seg=24)
-for z in (0.55, 3.45):
-    box(f"Hinge_Mount_{z}", (2.62, 0.22, z), (0.55, 0.45, 0.25), M["steel_dark"], parent=g_door, bevel=0.01)
-    cyl(f"Hinge_Cap_{z}", (HINGE.x, HINGE.y, z), 0.24, 0.25, M["steel_dark"], parent=g_door, seg=24)
+for s, side in ((-1, "L"), (1, "R")):
+    # doorway liner + outside surround
+    box(f"Jamb_{side}", (s * (OPEN_W / 2 + 0.02), -0.3, OPEN_H / 2), (0.08, 0.62, OPEN_H), M["steel_dark"], parent=g_door)
+    box(f"Surround_{side}", (s * 1.8, -0.66, 1.9), (0.36, 0.12, 3.8), M["steel_dark"], parent=g_door, bevel=0.01)
+    box(f"SurroundLip_{side}", (s * 1.63, -0.7, 1.75), (0.04, 0.06, 3.5), M["orange"], parent=g_door)
+    box(f"StatusLight_{side}", (s * 1.97, -0.73, 1.75), (0.03, 0.02, 3.3), M["keycard"], parent=g_door)
+    for i in range(8):
+        box(f"SurroundHazard_{side}_{i}", (s * 1.8, -0.725, 0.25 + i * 0.4), (0.3, 0.01, 0.2),
+            M["yellow"], rot=(0, RAD(30 * s), 0), parent=g_door)
+    # track motor housings at each end of the rail
+    box(f"TrackMotor_{side}", (s * 3.75, LEAF_Y, 3.72), (0.55, 0.5, 0.45), M["steel_dark"], parent=g_door, bevel=0.015)
+    box(f"TrackMotorLight_{side}", (s * 3.75, LEAF_Y - 0.26, 3.72), (0.3, 0.02, 0.05), M["keycard"], parent=g_door)
+box("Surround_Header", (0, -0.66, 3.62), (3.96, 0.12, 0.36), M["steel_dark"], parent=g_door, bevel=0.01)
+box("SurroundLip_Top", (0, -0.7, 3.43), (3.3, 0.06, 0.04), M["orange"], parent=g_door)
+box("StatusLight_Top", (0, -0.73, 3.72), (3.9, 0.02, 0.03), M["keycard"], parent=g_door)
+box("Jamb_Top", (0, -0.3, OPEN_H + 0.02), (OPEN_W + 0.12, 0.62, 0.06), M["steel_dark"], parent=g_door)
+# overhead track + floor rail on the inside
+box("Track_Rail", (0, LEAF_Y, 3.62), (7.0, 0.5, 0.22), M["steel_dark"], parent=g_door, bevel=0.01)
+box("Track_Light", (0, LEAF_Y - 0.26, 3.62), (6.9, 0.02, 0.04), M["keycard"], parent=g_door)
+box("Floor_Rail", (0, LEAF_Y, 0.01), (7.0, 0.46, 0.02), M["steel"], parent=g_door)
 
-# the swinging leaf: pivot empty at the hinge axis, parts modelled relative to it
-leaf = group("VaultDoor_Leaf", loc=HINGE, parent=g_door)
-C = DOOR_C - HINGE  # door center in pivot space
+
+def arc(name, c, r_out, r_in, depth, a0, a1, mat, rot=(0, 0, 0), parent=None, seg=16):
+    """Part of a ring along local Z, from angle a0 to a1 (radians)."""
+    bm = bmesh.new()
+    rows = []
+    for i in range(seg + 1):
+        a = a0 + (a1 - a0) * i / seg
+        ca, sa = math.cos(a), math.sin(a)
+        rows.append([bm.verts.new((r_out * ca, r_out * sa, -depth / 2)),
+                     bm.verts.new((r_out * ca, r_out * sa, depth / 2)),
+                     bm.verts.new((r_in * ca, r_in * sa, depth / 2)),
+                     bm.verts.new((r_in * ca, r_in * sa, -depth / 2))])
+    for i in range(seg):
+        a, b = rows[i], rows[i + 1]
+        for k in range(4):
+            k2 = (k + 1) % 4
+            bm.faces.new((a[k], b[k], b[k2], a[k2]))
+    bm.faces.new(rows[0][::-1])
+    bm.faces.new(rows[-1])
+    return finish(name, bm, mat, c, rot, parent, smooth=50)
 
 
-def dp(x, y, z):
-    return C + Vector((x, y, z))
+def door_leaf(side, s):
+    """s = -1 for the left leaf, +1 for the right. Leaf origin sits at its closed
+    position (floor level), so local X = 0 is shut and +/-SLIDE is fully open."""
+    lf = group(f"VaultDoor_Leaf_{side}", loc=(s * LEAF_W / 2, LEAF_Y, 0), parent=g_door)
+    edge = -s * LEAF_W / 2           # meeting edge (centre of the doorway)
+    outer = s * LEAF_W / 2
+    fy, by = -LEAF_T / 2, LEAF_T / 2  # front (tunnel side) / back (room side) faces
+    zc = 0.02 + LEAF_H / 2
+    box("Leaf_Body", (0, 0, zc), (LEAF_W, LEAF_T, LEAF_H), M["vault_paint"], parent=lf, bevel=0.012)
+    for face, y in (("F", fy), ("B", by)):
+        d = -1 if face == "F" else 1
+        # raised border
+        box(f"Leaf_{face}_RimTop", (0, y + d * 0.025, LEAF_H - 0.05), (LEAF_W, 0.05, 0.12), M["steel"], parent=lf)
+        box(f"Leaf_{face}_RimBot", (0, y + d * 0.025, 0.08), (LEAF_W, 0.05, 0.12), M["steel"], parent=lf)
+        box(f"Leaf_{face}_RimOuter", (outer - s * 0.06, y + d * 0.025, zc), (0.12, 0.05, LEAF_H), M["steel"], parent=lf)
+        # heavy steel edge where the leaves meet, with rivets
+        box(f"Leaf_{face}_EdgeBand", (edge + s * 0.09, y + d * 0.035, zc), (0.18, 0.07, LEAF_H), M["steel_dark"], parent=lf)
+        for i in range(10):
+            cyl(f"Leaf_{face}_Rivet_{i}", (edge + s * 0.09, y + d * 0.08, 0.3 + i * 0.32), 0.025, 0.03,
+                M["steel"], rot=Y90, parent=lf, seg=8)
+        # horizontal reinforcement ribs
+        for k, z in enumerate((0.95, 2.6)):
+            box(f"Leaf_{face}_Rib_{k}", (s * 0.05, y + d * 0.04, z), (LEAF_W - 0.34, 0.08, 0.16), M["steel_dark"], parent=lf, bevel=0.008)
+        # hazard band along the bottom
+        for i in range(5):
+            box(f"Leaf_{face}_Hazard_{i}", (-LEAF_W / 2 + 0.2 + i * 0.3, y + d * 0.006, 0.36), (0.15, 0.012, 0.32),
+                M["yellow"], rot=(0, RAD(35), 0), parent=lf)
+        box(f"Leaf_{face}_HazardBack", (0, y + d * 0.003, 0.36), (LEAF_W - 0.1, 0.006, 0.36), M["black"], parent=lf)
+        # grab handle near the seam (VR-friendly)
+        hx = edge + s * 1.1
+        box(f"Leaf_{face}_Handle", (hx, y + d * 0.13, 1.25), (0.05, 0.05, 0.7), M["steel"], parent=lf)
+        for z in (0.95, 1.55):
+            box(f"Leaf_{face}_HandleStandoff", (hx, y + d * 0.07, z), (0.05, 0.1, 0.05), M["steel"], parent=lf)
+    # front emblem: a big split lock-wheel, half on each leaf, that joins when shut
+    a0, a1 = (PI / 2, 3 * PI / 2) if s < 0 else (-PI / 2, PI / 2)
+    ey = fy - 0.06
+    arc("Leaf_WheelRing", (edge, ey, 1.76), 0.8, 0.64, 0.1, a0, a1, M["orange"], rot=Y90, parent=lf, seg=20)
+    arc("Leaf_WheelHub", (edge, ey - 0.03, 1.76), 0.28, 0.0, 0.16, a0, a1, M["steel"], rot=Y90, parent=lf, seg=12)
+    for k in range(3):
+        a = (a0 + a1) / 2 + (k - 1) * RAD(55)
+        ca, sa = math.cos(a), math.sin(a)
+        box(f"Leaf_WheelSpoke_{k}", (edge + 0.46 * ca, ey, 1.76 + 0.46 * sa), (0.38, 0.06, 0.07),
+            M["steel"], rot=(0, -a, 0), parent=lf)
+    box("Leaf_SeamLight", (edge + s * 0.015, fy - 0.075, 1.76), (0.02, 0.02, 2.6), M["keycard"], parent=lf)
+    # hangers + rollers up in the track
+    for x in (-0.5, 0.5):
+        box("Leaf_Hanger", (x, 0, LEAF_H + 0.06), (0.12, 0.1, 0.14), M["steel_dark"], parent=lf)
+        cyl("Leaf_Roller", (x, 0, LEAF_H + 0.13), 0.08, 0.14, M["steel"], rot=Y90, parent=lf, seg=12)
+    return lf
 
 
-cyl("Door_Body", dp(0, 0, 0), DOOR_R, 0.7, M["vault_paint"], rot=Y90, parent=leaf, seg=64)
-ring("Door_FrontRim", dp(0, -0.39, 0), DOOR_R, 1.32, 0.1, M["steel"], rot=Y90, parent=leaf, seg=64)
-ring("Door_FrontStripe", dp(0, -0.37, 0), 1.05, 0.93, 0.06, M["orange"], rot=Y90, parent=leaf, seg=48)
-cyl("Door_Hub", dp(0, -0.48, 0), 0.32, 0.26, M["steel"], rot=Y90, parent=leaf, seg=32)
-cyl("Door_HubCap", dp(0, -0.63, 0), 0.18, 0.06, M["steel_dark"], rot=Y90, parent=leaf, seg=24)
-torus("Door_Wheel", dp(0, -0.68, 0), 0.75, 0.055, M["steel"], rot=Y90, parent=leaf)
-for k in range(3):
-    a = RAD(90 + 120 * k)
-    ca, sa = math.cos(a), math.sin(a)
-    box(f"Door_Spoke_{k}", dp(0.4 * ca, -0.66, 0.4 * sa), (0.72, 0.07, 0.07), M["steel"], rot=(0, -a, 0), parent=leaf)
-    cyl(f"Door_Grip_{k}", dp(0.75 * ca, -0.8, 0.75 * sa), 0.045, 0.24, M["rubber"], rot=Y90, parent=leaf, seg=12)
-# locking bolts (two rows, poking out of the rim)
-for row, y in enumerate((-0.18, 0.18)):
-    for i in range(14):
-        a = 2 * PI * (i + 0.5 * row) / 14
-        cyl(f"Door_Bolt_{row}_{i}", dp(1.72 * math.cos(a), y, 1.72 * math.sin(a)), 0.08, 0.36, M["steel"],
-            rot=(0, PI / 2 - a, 0), parent=leaf, seg=12)
-# exposed mechanism on the inner face
-ring("Door_InnerRim", dp(0, 0.39, 0), DOOR_R, 1.45, 0.08, M["steel"], rot=Y90, parent=leaf, seg=64)
-cyl("Door_Gear", dp(0, 0.42, 0), 0.5, 0.12, M["steel"], rot=Y90, parent=leaf, seg=32)
-cyl("Door_GearAxle", dp(0, 0.5, 0), 0.14, 0.14, M["steel_dark"], rot=Y90, parent=leaf, seg=16)
-for i in range(18):
-    a = 2 * PI * i / 18
-    box(f"Door_GearTooth_{i}", dp(0.55 * math.cos(a), 0.42, 0.55 * math.sin(a)), (0.12, 0.11, 0.08),
-        M["steel"], rot=(0, -a, 0), parent=leaf)
-for i in range(8):
-    a = 2 * PI * (i + 0.5) / 8
-    ca, sa = math.cos(a), math.sin(a)
-    box(f"Door_Rod_{i}", dp(1.0 * ca, 0.43, 1.0 * sa), (0.9, 0.06, 0.08), M["steel_dark"], rot=(0, -a, 0), parent=leaf)
-    box(f"Door_RodGuide_{i}", dp(1.2 * ca, 0.43, 1.2 * sa), (0.1, 0.1, 0.16), M["orange"], rot=(0, -a, 0), parent=leaf)
-text("Door_Number", "07", dp(0, 0.4, 1.12), 0.34, M["orange"], (RAD(90), 0, PI), parent=leaf, extrude=0.02)
-# hinge arms joining the leaf to the barrel
-for z in (-0.9, 0.9):
-    box(f"Door_HingeBracket_{z:+.0f}", dp(1.2, 0.47, z), (0.4, 0.25, 0.3), M["steel_dark"], parent=leaf, bevel=0.01)
-    box(f"Door_HingeArm_{z:+.0f}", (-0.5, -0.05, C.z + z), (1.2, 0.2, 0.26), M["steel_dark"], parent=leaf, bevel=0.01)
-    cyl(f"Door_HingeKnuckle_{z:+.0f}", (0, 0, C.z + z), 0.25, 0.3, M["steel"], parent=leaf, seg=24)
-leaf.rotation_euler = (0, 0, RAD(-97))  # swung open into the room
+for s, side in ((-1, "L"), (1, "R")):
+    leaf = door_leaf(side, s)
+    leaf.location.x += s * SLIDE  # exported open; set local X back to +/-0.81 to shut
 
-# keycard readers + fuse box
+# keycard readers
 g_sec = group("Security", parent=root)
-for side, x, y, rz in (("Out", 2.7, -0.66, 0.0), ("In", -2.7, 0.06, PI)):
+for side, x, y, rz in (("Out", 2.45, -0.66, 0.0), ("In", -3.95, 0.06, PI)):
     rd = group(f"KeycardReader_{side}", loc=(x, y, 1.35), rot=(0, 0, rz), parent=g_sec)
     box("Reader_Body", (0, 0, 0), (0.26, 0.1, 0.42), M["steel_dark"], parent=rd, bevel=0.008)
     box("Reader_Slot", (0, -0.052, -0.08), (0.16, 0.01, 0.03), M["keycard"], parent=rd)
     box("Reader_Screen", (0, -0.052, 0.09), (0.18, 0.01, 0.12), M["keycard"], parent=rd)
     box("Reader_Stripe", (0, -0.051, 0.19), (0.26, 0.01, 0.03), M["orange"], parent=rd)
 
-# open/close countdown screens: vaults open on a timer and lock again
-for side, x, y, rz in (("Out", 2.7, -0.64, 0.0), ("In", -2.7, 0.04, PI)):
-    ts = group(f"VaultTimer_{side}", loc=(x, y, 2.35), rot=(0, 0, rz), parent=g_sec)
-    box("Timer_Body", (0, 0, 0), (0.9, 0.08, 0.5), M["steel_dark"], parent=ts, bevel=0.01)
-    box("Timer_Face", (0, -0.042, 0), (0.8, 0.01, 0.4), M["black"], parent=ts)
-    text("Timer_Label", "VAULT OPEN", (0, -0.05, 0.1), 0.1, M["keycard"], (RAD(90), 0, 0), parent=ts, extrude=0.004)
-    text("Timer_Digits", "04:59", (0, -0.05, -0.07), 0.17, M["keycard"], (RAD(90), 0, 0), parent=ts, extrude=0.004)
+# open/close countdown screens (blank, with a glowing progress bar)
+for side, x, y, rz in (("Out", 2.45, -0.64, 0.0), ("In", -3.95, 0.04, PI)):
+    ts = group(f"VaultTimer_{side}", loc=(x, y, 2.3), rot=(0, 0, rz), parent=g_sec)
+    box("Timer_Body", (0, 0, 0), (0.7, 0.08, 0.4), M["steel_dark"], parent=ts, bevel=0.01)
+    box("Timer_Face", (0, -0.042, 0), (0.62, 0.01, 0.32), M["black"], parent=ts)
+    box("Timer_Bar", (-0.07, -0.05, -0.06), (0.4, 0.01, 0.06), M["keycard"], parent=ts)
+    for i in range(3):
+        box(f"Timer_Pip_{i}", (-0.2 + i * 0.2, -0.05, 0.07), (0.12, 0.01, 0.1), M["keycard"], parent=ts)
 
-fb = group("FuseBox", loc=(-4.2, 0.12, 1.55), parent=g_sec)
-box("Fuse_Body", (0, 0, 0), (0.7, 0.24, 0.9), M["steel_dark"], parent=fb, bevel=0.01)
-box("Fuse_Door", (0, 0.125, 0), (0.62, 0.02, 0.82), M["vault_paint"], parent=fb)
-box("Fuse_Hazard", (0, 0.137, 0.3), (0.5, 0.01, 0.1), M["yellow"], parent=fb)
-box("Fuse_LeverBase", (0.42, 0.05, 0), (0.12, 0.14, 0.3), M["steel"], parent=fb)
-box("Fuse_Lever", (0.5, 0.05, 0.12), (0.04, 0.04, 0.3), M["med_red"], rot=(0, RAD(-25), 0), parent=fb)
-for i in range(3):
-    box(f"Fuse_Lamp_{i}", (-0.2 + i * 0.2, 0.14, -0.28), (0.07, 0.02, 0.07),
-        M["screen"] if i < 2 else M["laser"], parent=fb)
-
-# alarm beacons + cameras
+# alarm beacons
 for k, (x, y) in enumerate(((0, 0.25), (-6.5, 11.7), (6.5, 11.7))):
-    box(f"Beacon_Mount_{k}", (x, y - 0.1 if k == 0 else y, 4.33), (0.2, 0.3 if k == 0 else 0.2, 0.06), M["steel_dark"], parent=g_sec)
+    box(f"Beacon_Mount_{k}", (x, y, 4.33), (0.2, 0.2, 0.06), M["steel_dark"], parent=g_sec)
     cyl(f"Beacon_Base_{k}", (x, y, 4.22), 0.11, 0.1, M["steel_dark"], parent=g_sec, seg=16)
     cyl(f"Beacon_Lamp_{k}", (x, y, 4.09), 0.09, 0.16, M["laser"], parent=g_sec, seg=16)
-for k, (x, y, rz) in enumerate(((-6.6, 0.45, RAD(-40)), (6.6, 11.55, RAD(140)))):
-    cam = group(f"SecurityCamera_{k}", loc=(x, y, 4.05), rot=(0, 0, rz), parent=g_sec)
-    box("Cam_Mount", (0, 0, 0.2), (0.08, 0.08, 0.4), M["steel_dark"], parent=cam)
-    box("Cam_Body", (0, 0.18, 0), (0.18, 0.42, 0.18), M["med_white"], rot=(RAD(-20), 0, 0), parent=cam, bevel=0.01)
-    cyl("Cam_Lens", (0, 0.4, -0.08), 0.06, 0.06, M["black"], rot=(RAD(70), 0, 0), parent=cam, seg=16)
-    box("Cam_LED", (0.06, 0.38, 0.0), (0.02, 0.02, 0.02), M["laser"], parent=cam)
 
 
 # ---------------------------------------------------------------- prop kits
@@ -484,7 +471,7 @@ def military_crate(name, loc, rz=0.0, parent=None, size=(1.2, 0.7, 0.6), elite=F
         box("Crate_GlowStrip", (0, -sy / 2 - 0.006, sz * 0.62), (sx * 0.62, 0.01, 0.025), M["core"], parent=g)
         box("Crate_GlowStripLid", (0, 0, sz + 0.001), (sx * 0.62, 0.025, 0.01), M["core"], parent=g)
         box("Crate_Screen", (0, -sy / 2 - 0.012, sz * 0.36), (0.36, 0.02, 0.16), M["black"], parent=g)
-        text("Crate_ScreenText", "LOCKED 15:00", (0, -sy / 2 - 0.025, sz * 0.36), 0.05, M["laser"], (RAD(90), 0, 0), parent=g, extrude=0.003)
+        box("Crate_ScreenLight", (0, -sy / 2 - 0.023, sz * 0.36), (0.2, 0.004, 0.04), M["laser"], parent=g)
     else:
         box("Crate_Band", (0, -sy / 2 - 0.004, sz * 0.5), (sx * 0.5, 0.01, 0.08), M["orange"], parent=g)
     return g
@@ -569,29 +556,16 @@ def rifle(name, loc, parent, rz=0.0):
     return g
 
 
-def barrel(name, loc, mat, parent, tipped=False, rz=0.0):
-    rot = (RAD(90), 0, rz) if tipped else (0, 0, rz)
-    g = group(name, loc=loc, rot=rot, parent=parent)
-    cyl("Barrel_Body", (0, 0, 0.45), 0.29, 0.9, mat, parent=g, seg=24)
-    for z in (0.02, 0.3, 0.6, 0.88):
-        ring("Barrel_Rib", (0, 0, z), 0.305, 0.28, 0.035, mat, parent=g, seg=24)
-    cyl("Barrel_Cap", (0.14, 0, 0.905), 0.04, 0.02, M["steel"], parent=g, seg=10)
-    return g
-
-
 # ---------------------------------------------------------------- loot
 g_loot = group("Loot", parent=root)
 
 g_shelves = group("Shelving", parent=g_loot)
 shelf_unit("Shelf_L1", (-6.62, 2.4, 0), RAD(-90), g_shelves)
-shelf_unit("Shelf_L2", (-6.62, 6.0, 0), RAD(-90), g_shelves)
 
 if LEVEL >= 2:
     gold_pallet("GoldPallet_B", (3.7, 5.2, 0), RAD(-12), g_loot, layers=LEVEL)
 if LEVEL >= 3:
     gold_pallet("GoldPallet_A", (-3.4, 5.6, 0), RAD(8), g_loot)
-for k in range(2 + 2 * LEVEL):
-    gold_bar(f"LooseGold_{k}", (3.0 + rng.uniform(-0.4, 0.4), 4.3 + rng.uniform(-0.4, 0.4), 0.03), rng.uniform(0, PI), g_loot)
 
 if LEVEL >= 2:
     military_crate("EliteCrate", (0, 6.3, 0), RAD(6), g_loot, size=(1.4, 0.8, 0.7), elite=True)
@@ -600,8 +574,6 @@ else:
 military_crate("MilitaryCrate_A", (-5.95, 9.6, 0), RAD(90), g_loot)
 if LEVEL >= 2:
     military_crate("MilitaryCrate_B", (-5.95, 9.6, 0.6), RAD(84), g_loot)
-military_crate("MilitaryCrate_C", (3.9, 8.7, 0), RAD(-18), g_loot)
-military_crate("MilitaryCrate_D", (-4.6, 2.6, 0), RAD(12), g_loot)
 
 # cash table
 tbl = group("CashTable", loc=(-3.7, 9.4, 0), rot=(0, 0, RAD(4)), parent=g_loot)
@@ -635,28 +607,9 @@ lau = group("Launcher", loc=(-0.12, 0, 2.35), parent=wr) if LEVEL >= 3 else None
 if lau: cyl("Launcher_Tube", (0, 0, 0), 0.075, 1.1, M["crate_green"], rot=Y90, parent=lau, seg=16)
 if lau: cyl("Launcher_Muzzle", (0, 0.55, 0), 0.09, 0.08, M["steel_dark"], rot=Y90, parent=lau, seg=16)
 if lau: box("Launcher_Grip", (0, -0.1, -0.11), (0.04, 0.06, 0.12), M["black"], parent=lau)
-for i in range(4):
-    for s in range(2):
+for i in range(4)[:LEVEL + 1]:
+    for s in range(1):
         box("RackAmmo", (-0.25, -1.1 + i * 0.7, 0.66 + s * 0.18), (0.16, 0.28, 0.18), M["crate_green"], parent=wr, bevel=0.008)
-
-# barrels
-g_barrels = group("Barrels", parent=g_loot)
-barrel("Barrel_0", (6.35, 9.0, 0), M["barrel_blue"], g_barrels)
-barrel("Barrel_1", (6.35, 9.65, 0), M["barrel_red"], g_barrels, rz=0.6)
-barrel("Barrel_2", (5.75, 9.3, 0), M["barrel_blue"], g_barrels, rz=1.2)
-barrel("Barrel_3", (6.35, 10.6, 0), M["barrel_blue"], g_barrels)
-barrel("Barrel_4", (5.1, 10.9, 0.29), M["barrel_red"], g_barrels, tipped=True, rz=RAD(70))
-
-# terminal desk
-td = group("Terminal", loc=(6.25, 2.3, 0), parent=g_loot)
-box("Desk_Top", (0, 0, 0.9), (0.8, 1.6, 0.05), M["steel"], parent=td, bevel=0.005)
-for sy in (-1, 1):
-    box("Desk_Side", (0, sy * 0.76, 0.44), (0.76, 0.05, 0.88), M["steel_dark"], parent=td)
-box("Monitor", (0.22, 0, 1.2), (0.08, 0.64, 0.42), M["black"], parent=td, bevel=0.01)
-box("Monitor_Stand", (0.25, 0, 0.98), (0.06, 0.12, 0.12), M["black"], parent=td)
-box("Monitor_Screen", (0.175, 0, 1.2), (0.01, 0.58, 0.36), M["screen"], parent=td)
-box("Keyboard", (-0.05, 0, 0.935), (0.18, 0.5, 0.02), M["black"], parent=td)
-text("Screen_Text", f"LEVEL {LEVEL} VAULT\nSTATUS: OPEN", (0.168, 0, 1.2), 0.06, M["black"], (RAD(90), 0, RAD(-90)), parent=td, extrude=0.002)
 
 # safe-deposit locker walls
 g_lock = group("DepositLockers", parent=g_loot)
@@ -870,13 +823,13 @@ if DO_RENDER:
         ("preview_entrance", (-0.9, -3.7, 1.75), (0.6, 8.0, 1.2), 22),
         ("preview_interior", (-6.3, 0.7, 3.3), (1.2, 8.5, 0.6), 16),
         ("preview_core", (4.6, 7.2, 2.1), (-0.8, 10.8, 1.2), 20),
-        ("preview_door", (-3.6, 5.8, 2.0), (1.6, 2.2, 1.9), 20),
+        ("preview_door", (2.5, 6.5, 2.0), (-0.3, 0.3, 1.8), 20),
     ]
     only = os.environ.get("VAULT_SHOTS")
     for name, loc, target, lens in shots:
         if only and name not in only.split(","):
             continue
         scene.camera = add_camera("Cam_" + name, loc, target, lens)
-        scene.render.filepath = os.path.join(OUT_DIR, f"{name}_L{LEVEL}.png")
+        scene.render.filepath = os.path.join(OUT_DIR, f"{name}_{NAME.split('_', 1)[1]}.png")
         bpy.ops.render.render(write_still=True)
         print(f"[vault] rendered {name}")

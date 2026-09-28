@@ -1,14 +1,15 @@
 # Ironhold Vaults: Levels 1–3
 
-Loot vault rooms in the style of Strayed VR and Rust. There are three tiers. Each one needs a matching keycard, has a countdown screen showing when it closes again, and holds more loot than the level below.
+Loot vault rooms in the style of Strayed VR and Rust. There are three tiers, each opened with a matching keycard. The vault door is two heavy leaves that split down the middle and slide apart, one left and one right. When shut, the halves join into a single lock wheel.
 
 | Level | Keycard | File | Loot |
 | --- | --- | --- | --- |
-| 1 | Green | `IronholdVault_L1.fbx` | Military crates, shelves, cash table, 2 rifles, a few gold bars |
-| 2 | Blue | `IronholdVault_L2.fbx` | Adds a locked elite crate, a gold pallet, 4 rifles, and more open lockers |
+| 1 | Green | `IronholdVault_L1.fbx` | Military crates, one shelf, cash table, 2 rifles |
+| 2 | Blue | `IronholdVault_L2.fbx` | Adds a locked elite crate, a gold pallet, 4 rifles |
 | 3 | Red | `IronholdVault_L3.fbx` | Adds a second gold pallet, a launcher, 6 rifles, and the laser-fenced crystal core |
 
-![Level 1 interior](preview_interior_L1.png)
+![Door closed](preview_entrance_L3_Closed.png)
+![Door open, from inside](preview_door_L1.png)
 ![Level 3 interior](preview_interior_L3.png)
 
 ## Files
@@ -20,17 +21,20 @@ Loot vault rooms in the style of Strayed VR and Rust. There are three tiers. Eac
 
 ## Specs
 
-- Real-world scale in meters. The room interior is 14 × 12 × 4.5 m, plus a 3.4 m entry tunnel.
-- 51k–60k triangles in 44–59 named mesh objects.
-- Flat-color PBR materials. The keycard reader, the status-light ring around the door frame, the tunnel sign and the timer screens all glow in the level's keycard color. The UVs are world-scale box projection.
-- Moving parts have their pivots set, so they can be animated:
-  - `VaultDoor/VaultDoor_Leaf` pivots on its hinge. It is exported open at -97°. Set the rotation to 0 to close it, which you can drive from your open/close timer.
-  - The `Locker_OpenDoor*` objects pivot on their own hinges.
-- `VaultTimer_In` and `VaultTimer_Out` are the countdown screens. Their digits are modeled as "04:59". In a game, overlay your own live text on the black face.
+- Real-world scale in meters. The room interior is 14 × 12 × 4.5 m, the doorway is 3.2 × 3.4 m, and the entry tunnel is 3.4 m long.
+- 19k–23k triangles in 31–46 named mesh objects. That is light enough for Quest.
+- There is no text anywhere in the model. The keycard readers, the door status lights, the track lights and the timer screens glow in the level's keycard color.
+- The door is exported open. To animate it:
+  - `VaultDoor/VaultDoor_Leaf_L` and `VaultDoor_Leaf_R` slide along the local X axis.
+  - Closed positions are X = -0.81 (L) and X = +0.81 (R).
+  - Fully open positions are X = -2.47 (L) and X = +2.47 (R). That's 1.66 m of travel each.
+- `VaultTimer_In` and `VaultTimer_Out` are blank screens with a glowing bar. Put your own countdown on them in-game.
+- The `Locker_OpenDoor*` objects pivot on their own hinges.
 
 ## Regenerate
 
 ```sh
-pip install bpy                                 # Blender as a Python module (Python 3.11)
-python3 build_vault.py . --level=2 --render     # --render also writes preview PNGs
+pip install bpy                                  # Blender as a Python module (Python 3.11)
+python3 build_vault.py . --level=2               # add --closed to export with the door shut
+python3 build_vault.py . --level=2 --render      # also writes preview PNGs
 ```
