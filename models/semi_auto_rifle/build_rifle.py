@@ -4,7 +4,7 @@ exports it as FBX + .blend + a preview render.
 Run:  python3 build_rifle.py        (needs `pip install bpy`)
 
 Conventions
-- Units are meters. The rifle is ~1.0 m long.
+- Units are meters. Every part has a transform scale of 5, so the rifle is ~6 m long.
 - The muzzle points along Blender -Y, which becomes +Z (forward) in Unity /
   Unreal with the FBX export settings used below. Up is +Z in Blender (+Y in Unity).
 - Moving parts are separate objects with their pivot where they move from:
@@ -234,6 +234,15 @@ for ob in scene.objects:
 for ob in scene.objects:
     if ob.type == 'MESH': ob.data.name = ob.name
 
+# Every top-level part gets a transform scale of SCALE (shows as Scale 5 in
+# Unity), and its position is pushed out by the same factor so the rifle stays
+# assembled. Children (bolt handle/knob, mag baseplate) inherit it.
+SCALE = 5.0
+for ob in scene.objects:
+    if ob.type != 'MESH' or ob.parent: continue
+    ob.location *= SCALE
+    ob.scale = (SCALE, SCALE, SCALE)
+
 tris = sum(len(p.vertices) - 2 for o in scene.objects if o.type == 'MESH' for p in o.data.polygons)
 print('triangles:', tris)
 
@@ -252,14 +261,14 @@ bpy.ops.export_scene.fbx(
 # ================================================================ preview
 cam_data = bpy.data.cameras.new('Cam'); cam_data.lens = 42
 cam = link(bpy.data.objects.new('PreviewCam', cam_data))
-cam.location = (1.75, 0.10, 0.40)
-d = Vector((0, -0.16, -0.04)) - cam.location
+cam.location = Vector((1.75, 0.10, 0.40)) * SCALE
+d = Vector((0, -0.16, -0.04)) * SCALE - cam.location
 cam.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
 scene.camera = cam
 for name, loc, e in [('Key', (1.5, 0.8, 1.6), 140), ('Fill', (1.2, -1.4, 0.2), 45), ('Rim', (-1.0, 0.5, 1.2), 90)]:
-    ld = bpy.data.lights.new(name, 'AREA'); ld.energy = e; ld.size = 1.2
-    lo = link(bpy.data.objects.new(name, ld)); lo.location = loc
-    lo.rotation_euler = (Vector((0, -0.2, 0)) - lo.location).to_track_quat('-Z', 'Y').to_euler()
+    ld = bpy.data.lights.new(name, 'AREA'); ld.energy = e * SCALE**2; ld.size = 1.2 * SCALE
+    lo = link(bpy.data.objects.new(name, ld)); lo.location = Vector(loc) * SCALE
+    lo.rotation_euler = (Vector((0, -0.2, 0)) * SCALE - lo.location).to_track_quat('-Z', 'Y').to_euler()
 world = bpy.data.worlds.new('W'); scene.world = world
 world.use_nodes = True
 world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.05, 0.055, 0.06, 1)

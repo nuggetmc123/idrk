@@ -8,7 +8,7 @@
 | `semi_auto_rifle.blend` | Blender source file |
 | `build_rifle.py` | Script that generates both: `pip install bpy && python3 build_rifle.py` |
 
-**Specs:** about 4k triangles, real-world scale in meters (about 1.2 m long), UV-unwrapped. It's a clean,
+**Specs:** about 4k triangles, every part has a Scale of 5, so the gun is about 6 m long, UV-unwrapped. It's a clean,
 simple version with no small details like screws, welds, tape or clamps. It has 3 materials: wood, gun steel and
 worn/rusty metal.
 
@@ -16,8 +16,9 @@ worn/rusty metal.
 
 ## Parts (every piece is its own object)
 
-Each part comes into Unity as a separate GameObject. In Unity each one has scale 1, rotation 0 and its
-pivot at its own centre, so you can select any piece and move, rotate, hide, delete or swap it.
+Each part comes into Unity as a separate GameObject. In Unity each one has Scale 5, rotation 0 and its
+pivot at its own centre. Child parts (bolt handle, bolt knob, mag baseplate) show Scale 1 because
+they inherit 5 from their parent, so you can select any piece and move, rotate, hide, delete or swap it.
 
 | Group | Objects |
 | --- | --- |
@@ -47,11 +48,11 @@ engine at these spots (Blender coordinates, in meters):
 
 | Point | Position (x, y, z) |
 | --- | --- |
-| Right hand grip | 0, 0.17, -0.045 |
-| Left hand grip | 0, -0.36, -0.01 |
-| Muzzle | 0, -0.765, 0.004 |
-| Mag well | 0, -0.08, -0.035 |
-| Ejection port | 0.03, -0.06, 0.022 |
+| Right hand grip | 0, 0.85, -0.225 |
+| Left hand grip | 0, -1.8, -0.05 |
+| Muzzle | 0, -3.825, 0.02 |
+| Mag well | 0, -0.4, -0.175 |
+| Ejection port | 0.15, -0.3, 0.11 |
 
 The materials are flat colours with no textures. The UVs are there so you can paint rust and wear in
 Substance Painter or Blender.
