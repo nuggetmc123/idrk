@@ -16,17 +16,22 @@
 ## Hierarchy (built for VR)
 
 ```
-SemiAutoRifle            root
-├── Rifle_Body           all static parts merged into one mesh
-├── Magazine             pivot at the top of the mag; move it down/out to drop the mag
-├── Bolt                 charging handle; slide it along local +Y in Blender (backward) to rack it
-├── Trigger              pivot on the trigger pin; rotate it on X to pull
-└── Socket_*             empties: GripRight, GripLeft, Muzzle, MagWell, EjectPort, RearSight, FrontSight
+Rifle_Body    all static parts merged into one mesh
+Magazine      pivot at the top of the mag; move it down/out to drop the mag
+Bolt          charging handle; slide it backward to rack it
+Trigger       pivot on the trigger pin; rotate it on X to pull
 ```
 
-Use `Socket_GripRight` / `Socket_GripLeft` as the hand attach points, `Socket_Muzzle` for spawning
-bullets and muzzle flash, `Socket_EjectPort` for spent casings, and `Socket_MagWell` as the snap point
-when a magazine is inserted.
+The file has meshes only, with no empties or markers. If you need attach points, add them in your
+engine at these spots (Blender coordinates, in meters):
+
+| Point | Position (x, y, z) |
+| --- | --- |
+| Right hand grip | 0, 0.17, -0.045 |
+| Left hand grip | 0, -0.36, -0.01 |
+| Muzzle | 0, -0.765, 0.004 |
+| Mag well | 0, -0.08, -0.035 |
+| Ejection port | 0.03, -0.06, 0.022 |
 
 The materials are flat colours with no textures. The UVs are there so you can paint rust and wear in
 Substance Painter or Blender.

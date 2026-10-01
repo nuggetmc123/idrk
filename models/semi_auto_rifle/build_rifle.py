@@ -10,8 +10,7 @@ Conventions
 - Moving parts are separate objects with their pivot where they move from:
   Magazine (top of the mag, at the mag well), Bolt (slides along +Y),
   Trigger (pivot pin), so they can be animated for VR reloads.
-- Empties mark useful sockets: Socket_GripRight, Socket_GripLeft,
-  Socket_Muzzle, Socket_MagWell, Socket_EjectPort, Socket_RearSight, Socket_FrontSight.
+- The file contains meshes only (no empties).
 """
 import math, os, sys
 import bpy, bmesh
@@ -116,12 +115,6 @@ def add_bevel(ob, w, segs=2):
     m.angle_limit = math.radians(40)
     m.harden_normals = False
 
-def empty(name, loc, parent, size=0.03):
-    e = bpy.data.objects.new(name, None)
-    e.empty_display_type = 'ARROWS'; e.empty_display_size = size
-    e.location = loc
-    return link(e, parent)
-
 def set_origin(ob, world_point):
     """Move an object's pivot to world_point without moving its geometry."""
     off = world_point - ob.location
@@ -130,9 +123,7 @@ def set_origin(ob, world_point):
 
 # ================================================================ the rifle
 # Y < 0 is forward (muzzle). Receiver spans y = -0.20 .. 0.10, bore axis at z = 0.
-root = bpy.data.objects.new('SemiAutoRifle', None)
-root.empty_display_type = 'PLAIN_AXES'; root.empty_display_size = 0.1
-link(root)
+root = None   # parts sit at the top level, no empty objects in the file
 
 # --- receiver: welded-together steel box with a raised top and a patch plate
 recv = profile('Receiver', [(-0.205,-0.035),(0.105,-0.035),(0.105,0.030),(0.07,0.040),
@@ -240,15 +231,6 @@ cyl('Magazine_TopRound', 0.0045, 0.040, (0, 0.0, 0.004), M_BRASS, mag, seg=12)
 box('MagWell', (0.034, 0.060, 0.012), (0, -0.08, -0.038), M_STEEL, root, bevel=0.002)
 box('MagRelease', (0.012, 0.008, 0.010), (0, -0.044, -0.040), M_WORN, root, bevel=0.001)
 
-# --- sockets for VR / gameplay
-empty('Socket_GripRight', (0, 0.17, -0.045), root)
-empty('Socket_GripLeft',  (0, -0.36, -0.01), root)
-empty('Socket_Muzzle',    (0, -0.765, 0.004), root)
-empty('Socket_MagWell',   (0, -0.08, -0.035), root)
-empty('Socket_EjectPort', (0.03, -0.06, 0.022), root)
-empty('Socket_RearSight', (0, 0.06, 0.06), root)
-empty('Socket_FrontSight',(0, -0.655, 0.055), root)
-
 # ================================================================ finalize
 # apply modifiers, smooth by angle, simple UVs so it can be textured
 for ob in list(scene.objects):
@@ -302,7 +284,7 @@ bak = os.path.join(OUT, 'semi_auto_rifle.blend1')
 if os.path.exists(bak): os.remove(bak)
 bpy.ops.export_scene.fbx(
     filepath=os.path.join(OUT, 'semi_auto_rifle.fbx'),
-    use_selection=False, object_types={'EMPTY', 'MESH'},
+    use_selection=False, object_types={'MESH'},
     apply_unit_scale=True, apply_scale_options='FBX_SCALE_UNITS',
     axis_forward='-Z', axis_up='Y', bake_space_transform=False,
     mesh_smooth_type='FACE', use_mesh_modifiers=True, add_leaf_bones=False,
