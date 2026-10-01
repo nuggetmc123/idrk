@@ -1,4 +1,4 @@
-# Semi-Automatic Rifle (scrap-built, Rust SAR / Stray(ed) VR style)
+# Semi-Automatic Rifle (Rust SAR / Stray(ed) VR style)
 
 ![preview](preview.png)
 
@@ -8,8 +8,9 @@
 | `semi_auto_rifle.blend` | Blender source file |
 | `build_rifle.py` | Script that generates both: `pip install bpy && python3 build_rifle.py` |
 
-**Specs:** about 7.4k triangles, real-world scale in meters (about 1.2 m long), UV-unwrapped, 7 PBR materials
-(wood, dark wood, gun steel, worn steel, rusty metal, duct tape, brass).
+**Specs:** about 4k triangles, real-world scale in meters (about 1.2 m long), UV-unwrapped. It's a clean,
+simple version with no small details like screws, welds, tape or clamps. It has 3 materials: wood, gun steel and
+worn/rusty metal.
 
 **Orientation:** the muzzle points forward (+Z in Unity, -Y in Blender) and up is up.
 

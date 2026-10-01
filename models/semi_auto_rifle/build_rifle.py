@@ -38,8 +38,6 @@ M_WOOD_D = mat('M_WoodDark',    (0.08, 0.035, 0.012), 0.0, 0.7)
 M_STEEL  = mat('M_GunSteel',    (0.07, 0.07, 0.075), 1.0, 0.42)
 M_WORN   = mat('M_WornSteel',   (0.28, 0.27, 0.26), 1.0, 0.55)
 M_RUST   = mat('M_RustyMetal',  (0.16, 0.055, 0.018), 0.4, 0.85)
-M_TAPE   = mat('M_DuctTape',    (0.11, 0.11, 0.115), 0.0, 0.9)
-M_BRASS  = mat('M_Brass',       (0.62, 0.45, 0.16), 1.0, 0.35)
 
 # ---------------------------------------------------------------- helpers
 def link(ob, parent=None):
@@ -125,22 +123,10 @@ def set_origin(ob, world_point):
 # Y < 0 is forward (muzzle). Receiver spans y = -0.20 .. 0.10, bore axis at z = 0.
 root = None   # parts sit at the top level, no empty objects in the file
 
-# --- receiver: welded-together steel box with a raised top and a patch plate
+# --- receiver: steel box with a raised top
 recv = profile('Receiver', [(-0.205,-0.035),(0.105,-0.035),(0.105,0.030),(0.07,0.040),
                             (-0.17,0.040),(-0.205,0.028)], 0.046, M_STEEL, root, bevel=0.003)
 box('Receiver_DustCover', (0.040, 0.20, 0.010), (0, -0.065, 0.044), M_WORN, root, bevel=0.002)
-box('Receiver_PatchPlate', (0.003, 0.085, 0.040), (0.0245, -0.13, -0.002), M_RUST, root, bevel=0.0008,
-    rot=(0, 0, 0)).rotation_euler = (math.radians(3), 0, 0)
-# weld bead along the patch (row of little bumps)
-for i in range(14):
-    y = -0.17 + i*0.006
-    cyl(f'Weld_{i:02d}', 0.0022, 0.004, (0.026, y, 0.019 + (i%2)*0.0006), M_WORN, root, axis='X', seg=8, bevel=0)
-# rivets / screws
-for (y, z) in [(-0.185,0.02),(-0.185,-0.022),(0.085,0.02),(0.085,-0.022),(-0.04,-0.024),(0.03,-0.024)]:
-    for sx in (-1, 1):
-        cyl('Rivet', 0.0035, 0.004, (sx*0.0245, y, z), M_WORN, root, axis='X', seg=10, bevel=0)
-# ejection port (dark inset on the right)
-box('EjectionPort', (0.004, 0.055, 0.016), (0.022, -0.06, 0.022), M_STEEL, root, bevel=0.001)
 
 # --- bolt / charging handle (separate, slides back along +Y)
 bolt = box('Bolt', (0.012, 0.075, 0.014), (0.016, -0.06, 0.022), M_WORN, root, bevel=0.002)
@@ -158,31 +144,18 @@ cyl('GasTube', 0.0065, 0.29, (0, -0.37, 0.026), M_WORN, root, seg=16)
 cyl('GasBlock', 0.016, 0.03, (0, -0.53, 0.012), M_STEEL, root, seg=20)
 box('GasBlock_Link', (0.012, 0.03, 0.02), (0, -0.53, 0.024), M_STEEL, root, bevel=0.002)
 muz = cyl('Muzzle', 0.016, 0.06, (0, -0.73, 0.004), M_STEEL, root, seg=24)
-# muzzle brake slots: thin dark boxes either side
-for i in range(3):
-    for sx in (-1, 1):
-        box('Muzzle_Slot', (0.006, 0.008, 0.018), (sx*0.0135, -0.71 - i*0.016, 0.004), M_RUST, root, bevel=0)
-# front sight: post + protective ears
+# front sight post
 box('FrontSight_Base', (0.018, 0.022, 0.018), (0, -0.655, 0.022), M_STEEL, root, bevel=0.002)
 box('FrontSight_Post', (0.003, 0.004, 0.026), (0, -0.655, 0.042), M_STEEL, root, bevel=0)
-for sx in (-1, 1):
-    box('FrontSight_Ear', (0.003, 0.012, 0.03), (sx*0.0085, -0.655, 0.042), M_STEEL, root, bevel=0.0008)
 # rear sight: notched leaf on the receiver
 for sx in (-1, 1):
     box('RearSight_Leaf', (0.008, 0.010, 0.020), (sx*0.0075, 0.06, 0.055), M_STEEL, root, bevel=0.001)
 box('RearSight_Base', (0.026, 0.024, 0.008), (0, 0.06, 0.044), M_STEEL, root, bevel=0.0015)
 
-# --- wooden handguard with duct-tape wrap and hose clamps (the scrap look)
+# --- wooden handguard
 hg = profile('Handguard', [(-0.215,-0.022),(-0.50,-0.020),(-0.505,0.018),(-0.215,0.020)],
              0.050, M_WOOD, root, bevel=0.010)
 hg.location.z = 0.002
-torus('Clamp_Rear', 0.028, 0.0025, (0, -0.25, 0.002), M_WORN, root, seg=24)
-torus('Clamp_Front', 0.027, 0.0025, (0, -0.48, 0.002), M_WORN, root, seg=24)
-cyl('Clamp_Screw', 0.003, 0.012, (0.03, -0.25, 0.002), M_WORN, root, axis='X', seg=8, bevel=0)
-cyl('Clamp_Screw', 0.003, 0.012, (0.029, -0.48, 0.002), M_WORN, root, axis='X', seg=8, bevel=0)
-tape = cyl('DuctTape_Wrap', 0.031, 0.07, (0, -0.375, 0.002), M_TAPE, root, seg=24, bevel=0.002)
-tape.scale = (1.0, 1.0, 0.86)
-tape.rotation_euler = (0, math.radians(4), 0)
 
 # --- stock: one piece of wood with a wrist, metal butt plate
 stock = profile('Stock', [
@@ -190,10 +163,6 @@ stock = profile('Stock', [
     (0.395, -0.118), (0.250, -0.072), (0.185, -0.068), (0.165, -0.100), (0.145, -0.112),
     (0.120, -0.104), (0.118, -0.060), (0.100, -0.035)], 0.044, M_WOOD, root, bevel=0.009)
 box('ButtPlate', (0.046, 0.010, 0.146), (0, 0.430, -0.040), M_RUST, root, bevel=0.003).rotation_euler = (math.radians(-2), 0, 0)
-box('Stock_Cheek', (0.046, 0.10, 0.012), (0, 0.33, 0.030), M_WOOD_D, root, bevel=0.004)
-# sling swivels
-torus('Sling_Rear', 0.010, 0.0018, (0, 0.38, -0.110), M_WORN, root, axis='X', seg=16, mseg=6)
-torus('Sling_Front', 0.010, 0.0018, (0, -0.43, -0.030), M_WORN, root, axis='X', seg=16, mseg=6)
 
 # --- trigger guard (bent strip) and trigger (separate, pivots on its pin)
 guard = profile('TriggerGuard', [(0.015,-0.034),(0.015,-0.040),(0.035,-0.066),(0.075,-0.068),
@@ -225,11 +194,7 @@ mag = new_obj('Magazine', mb, M_STEEL, root)
 add_bevel(mag, 0.003)
 set_origin(mag, Vector((0, -0.08, -0.035)))
 box('Magazine_Baseplate', (0.032, 0.058, 0.008), (0, -0.02, -0.168), M_RUST, mag, bevel=0.002)
-box('Magazine_Rib_L', (0.003, 0.034, 0.12), (-0.0135, -0.006, -0.07), M_WORN, mag, bevel=0.0008).rotation_euler = (math.radians(-7), 0, 0)
-box('Magazine_Rib_R', (0.003, 0.034, 0.12), (0.0135, -0.006, -0.07), M_WORN, mag, bevel=0.0008).rotation_euler = (math.radians(-7), 0, 0)
-cyl('Magazine_TopRound', 0.0045, 0.040, (0, 0.0, 0.004), M_BRASS, mag, seg=12)
 box('MagWell', (0.034, 0.060, 0.012), (0, -0.08, -0.038), M_STEEL, root, bevel=0.002)
-box('MagRelease', (0.012, 0.008, 0.010), (0, -0.044, -0.040), M_WORN, root, bevel=0.001)
 
 # ================================================================ finalize
 # apply modifiers, smooth by angle, simple UVs so it can be textured
