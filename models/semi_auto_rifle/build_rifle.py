@@ -214,31 +214,25 @@ for ob in list(scene.objects):
     for m in list(ob.modifiers):
         bpy.ops.object.modifier_apply(modifier=m.name)
 
-# merge the many little static bits into a few meshes per material so it is
-# cheap in-engine; moving parts (Magazine, Bolt, Trigger) stay separate.
-MOVING = {'Magazine', 'Bolt', 'Trigger'}
-def is_static(ob):
-    p = ob
-    while p:
-        if p.name in MOVING: return False
-        p = p.parent
-    return ob.type == 'MESH'
-static = [o for o in scene.objects if is_static(o)]
-for o in scene.objects: o.select_set(False)
-for o in static: o.select_set(True)
-bpy.context.view_layer.objects.active = recv
-bpy.ops.object.join()
-recv.name = 'Rifle_Body'; recv.data.name = 'Rifle_Body'
-# join the children of each moving part into it
-for name in MOVING:
-    parent = scene.objects[name]
-    kids = [o for o in parent.children if o.type == 'MESH']
-    if not kids: continue
-    for o in scene.objects: o.select_set(False)
-    for o in kids: o.select_set(True)
-    parent.select_set(True)
-    bpy.context.view_layer.objects.active = parent
-    bpy.ops.object.join()
+# Every part stays its own object so it can be moved, hidden or swapped in
+# Unity. Give each one a clear unique name and put its pivot at its own
+# centre, except the parts that move from a specific point (Trigger, Magazine).
+for i, ob in enumerate(sorted([o for o in scene.objects if o.name.startswith('RearSight_Leaf')],
+                              key=lambda o: o.location.x)):
+    ob.name = 'RearSight_Leaf_' + 'LR'[i]
+KEEP_PIVOT = {'Trigger', 'Magazine', 'Bolt'}
+for ob in scene.objects:
+    if ob.type != 'MESH' or ob.name in KEEP_PIVOT or ob.parent: continue
+    vs = [v.co for v in ob.data.vertices]
+    centre = Vector(((min(v.x for v in vs)+max(v.x for v in vs))/2,
+                     (min(v.y for v in vs)+max(v.y for v in vs))/2,
+                     (min(v.z for v in vs)+max(v.z for v in vs))/2))
+    if centre.length < 1e-6: continue
+    world = ob.matrix_world @ centre
+    ob.data.transform(Matrix.Translation(-centre))
+    ob.matrix_world = ob.matrix_world @ Matrix.Translation(centre)
+for ob in scene.objects:
+    if ob.type == 'MESH': ob.data.name = ob.name
 
 tris = sum(len(p.vertices) - 2 for o in scene.objects if o.type == 'MESH' for p in o.data.polygons)
 print('triangles:', tris)
@@ -250,8 +244,8 @@ if os.path.exists(bak): os.remove(bak)
 bpy.ops.export_scene.fbx(
     filepath=os.path.join(OUT, 'semi_auto_rifle.fbx'),
     use_selection=False, object_types={'MESH'},
-    apply_unit_scale=True, apply_scale_options='FBX_SCALE_UNITS',
-    axis_forward='-Z', axis_up='Y', bake_space_transform=False,
+    apply_unit_scale=True, apply_scale_options='FBX_SCALE_ALL',
+    axis_forward='-Z', axis_up='Y', bake_space_transform=True,
     mesh_smooth_type='FACE', use_mesh_modifiers=True, add_leaf_bones=False,
     path_mode='AUTO')
 
