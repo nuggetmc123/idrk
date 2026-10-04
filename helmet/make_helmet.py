@@ -1,9 +1,10 @@
 """
-Metal helmet generator, fitted to the PeeperLeeper player model.
+Rust-style welded scrap-metal helmet (full face cover), fitted to the PeeperLeeper player model.
 
-Every helmet piece is its own named object, so you can select / move / scale /
-recolor / delete each one in Blender or Unity. Tweak the numbers in P below and
-re-run to regenerate everything.
+Every piece is its own named object, so you can select / move / scale / recolor /
+delete each one in Blender or Unity. Tweak the numbers in P below and re-run.
+The plates are shaped by ray-casting the player's head, so they always clear the
+muzzle and eyes (the FIT CHECK prints the minimum clearance).
 
 Run with Blender:
     blender --background --python make_helmet.py -- /path/to/PeeperLeeper.fbx [out_dir] [--render]
@@ -16,7 +17,7 @@ Outputs (in out_dir, default = this folder):
     MetalHelmet.blend              - editable source (modifiers kept live)
     previews/*.png                 - renders (with --render)
 """
-import bpy, bmesh, math, os, sys
+import bpy, bmesh, math, os, sys, random
 from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
 
@@ -27,67 +28,44 @@ PLAYER = args[0]
 OUT = os.path.abspath(args[1] if len(args) > 1 else os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------------------
-# Parameters (meters, Blender world space: Z up, face looks toward -Y).
-# Measured from the PeeperLeeper head: x +-0.166, y -0.153..0.145, top z 0.371.
+# Parameters (meters / degrees, Blender world space: Z up, face looks toward -Y,
+# azimuth 0 = straight ahead, +90 = player's left side).
 # ---------------------------------------------------------------------------
 P = dict(
-    CY=-0.004, CZ=0.255,              # dome center
-    RX=0.182, RY=0.168, RZ=0.135,     # dome inner radii (side, front/back, height)
-    THICK=0.010,                      # shell thickness (Solidify modifier)
-    RIM_FRONT_Z=0.275,                # brim height over the eyes
-    RIM_BACK_Z=0.200,                 # brim height at sides / back
-    FRONT_DEG=45, BLEND_END_DEG=85,   # front opening width / transition
-    FLARE=0.04,                       # outward flare of the lower wall
-    RIM_RADIUS=0.0075,                # rolled rim tube
-    CREST_BASE_H=0.016, CREST_PEAK_H=0.018, CREST_HALF_W=0.0065,
-    NOSE_TOP_W=0.017, NOSE_BOT_W=0.013, NOSE_DEPTH=0.008,
-    CHEEK_DEG=(75, 118), CHEEK_TOP_Z=0.235, CHEEK_BOT_Z=0.135, CHEEK_TUCK=0.93,
-    NECK_DEG=(145, 215), NECK_TOP_Z=0.225, NECK_BOT_Z=0.150, NECK_FLARE=1.14,
-    PLATE_THICK=0.007,
-    RIVET_R=0.0055,
-    STEEL=(0.62, 0.63, 0.66, 1), DARK=(0.20, 0.20, 0.22, 1), BRASS=(0.80, 0.58, 0.26, 1),
+    CY=-0.004,                     # head vertical axis (x=0, y=CY)
+    CLEAR=0.012,                   # gap between head and inside of plates
+    FIT_WIN_DEG=8, FIT_WIN_Z=0.02, # how far around each vertex the head is checked
+    R_MIN=0.165,                   # plates never closer to the axis than this
+    THICK=0.008,                   # sheet thickness (Solidify modifier)
+    DENT=0.0025,                   # random outward hammer dents on plates
+    SEAM_Z=0.288, TOP_Z=0.405,     # dome starts at SEAM_Z, peaks at TOP_Z
+    SIDE_DEG=95,                   # face plates cover -SIDE..+SIDE, back plate the rest
+    # eye slits: between NOSE_DEG and SLIT_OUT_DEG, from SLIT_BOT_Z up to the brow edge
+    NOSE_DEG=7, SLIT_OUT_DEG=38, SLIT_BOT_Z=0.208,
+    BROW_INNER_Z=0.242, BROW_OUTER_Z=0.258,   # angled brow (lower at the nose = angry)
+    JAW_BOT_Z=0.115, BACK_BOT_Z=0.150,
+    BAND_H=0.022, BAND_OUT=0.006,  # strap band covering the dome seam
+    WELD_R=0.0045, BOLT_R=0.0075, HOLE_R=0.0055,
+    STEEL=(0.46, 0.46, 0.47, 1), RUST=(0.42, 0.29, 0.20, 1), DARK=(0.13, 0.13, 0.14, 1),
+    WELD=(0.20, 0.18, 0.16, 1), BLACK=(0.01, 0.01, 0.01, 1),
 )
 globals().update(P)
-CENTER = Vector((0, CY, CZ))
+CENTER = Vector((0, CY, 0.24))
+random.seed(7)
 
 
 def smooth(t):
     t = max(0.0, min(1.0, t)); return t * t * (3 - 2 * t)
 
 
-def rim_z(a):
-    """Bottom edge height of the dome at azimuth a (radians, 0 = front)."""
-    d = abs(math.degrees(math.atan2(math.sin(a), math.cos(a))))
-    return RIM_FRONT_Z + (RIM_BACK_Z - RIM_FRONT_Z) * smooth((d - FRONT_DEG) / (BLEND_END_DEG - FRONT_DEG))
+def slit_top(a_deg):
+    """Bottom edge of the brow plate (top of the eye slit)."""
+    t = (abs(a_deg) - NOSE_DEG) / (SLIT_OUT_DEG - NOSE_DEG)
+    return BROW_INNER_Z + (BROW_OUTER_Z - BROW_INNER_Z) * max(0.0, min(1.0, t))
 
 
-def surf_f(z):
-    if z >= CZ:
-        return math.sqrt(max(0.0, 1 - ((z - CZ) / RZ) ** 2))
-    return 1 + FLARE * (CZ - z) / (CZ - RIM_BACK_Z)
-
-
-def normal_at(a, z):
-    f = max(surf_f(z), 1e-4)
-    x, y = RX * f * math.sin(a), -RY * f * math.cos(a)
-    nz = (z - CZ) / RZ ** 2 if z >= CZ else 0.0
-    return Vector((x / RX ** 2, y / RY ** 2, nz)).normalized()
-
-
-def surf_pt(a, z, off=0.0, f=None):
-    f = surf_f(z) if f is None else f
-    p = Vector((RX * f * math.sin(a), CY - RY * f * math.cos(a), z))
-    return p + normal_at(a, z) * off
-
-
-def phi_start(a):
-    zb = rim_z(a)
-    return math.asin((zb - CZ) / RZ) if zb >= CZ else (zb - CZ) / RZ
-
-
-def dome_pt(a, phi, off=0.0):
-    z = CZ + RZ * math.sin(phi) if phi >= 0 else CZ + RZ * phi
-    return surf_pt(a, z, off)
+def dirv(a_deg):
+    a = math.radians(a_deg); return Vector((math.sin(a), -math.cos(a), 0))
 
 
 # ---------------------------------------------------------------------------
@@ -103,37 +81,20 @@ class Builder:
     def face(self, idx, uvs=None):
         self.f.append((idx, uvs or [(0, 0)] * len(idx)))
 
-    def grid(self, fn, ni, nj, wrap_i=False):
+    def grid(self, fn, ni, nj):
         """fn(u, v) -> point; u along i (0..1), v along j (0..1)."""
-        cols = ni if wrap_i else ni + 1
-        ids = [[self.add(fn(i / ni, j / nj)) for j in range(nj + 1)] for i in range(cols)]
+        ids = [[self.add(fn(i / ni, j / nj)) for j in range(nj + 1)] for i in range(ni + 1)]
         for i in range(ni):
-            i2 = (i + 1) % cols
             for j in range(nj):
-                self.face([ids[i][j], ids[i2][j], ids[i2][j + 1], ids[i][j + 1]],
+                self.face([ids[i][j], ids[i + 1][j], ids[i + 1][j + 1], ids[i][j + 1]],
                           [(i / ni, j / nj), ((i + 1) / ni, j / nj), ((i + 1) / ni, (j + 1) / nj), (i / ni, (j + 1) / nj)])
-        return ids
 
-    def sweep_rect(self, stations, closed=False):
-        """stations: list of (p, side, out, half_w, d_in, d_out) -> box tube with caps."""
-        rings = []
-        for p, side, out, hw, din, dout in stations:
-            rings.append([self.add(p - side * hw - out * din), self.add(p + side * hw - out * din),
-                          self.add(p + side * hw + out * dout), self.add(p - side * hw + out * dout)])
-        n = len(rings)
-        for k in range(n if closed else n - 1):
-            a, b = rings[k], rings[(k + 1) % n]
-            for s in range(4):
-                self.face([a[s], a[(s + 1) % 4], b[(s + 1) % 4], b[s]],
-                          [(k / n, s / 4), (k / n, (s + 1) / 4), ((k + 1) / n, (s + 1) / 4), ((k + 1) / n, s / 4)])
-        if not closed:
-            self.face(rings[0][::-1]); self.face(rings[-1])
-
-    def tube(self, pts, normals, r, seg=10, closed=True):
+    def tube(self, pts, normals, radii, seg=8, closed=False):
         n = len(pts); rings = []
         for k in range(n):
             t = (pts[(k + 1) % n] - pts[k - 1]) if closed else (pts[min(k + 1, n - 1)] - pts[max(k - 1, 0)])
             t.normalize(); nn = (normals[k] - t * normals[k].dot(t)).normalized(); b = t.cross(nn)
+            r = radii[k]
             rings.append([self.add(pts[k] + r * (math.cos(2 * math.pi * s / seg) * nn + math.sin(2 * math.pi * s / seg) * b))
                           for s in range(seg)])
         for k in range(n if closed else n - 1):
@@ -141,39 +102,42 @@ class Builder:
             for s in range(seg):
                 self.face([a[s], a[(s + 1) % seg], b2[(s + 1) % seg], b2[s]],
                           [(k / n, s / seg), (k / n, (s + 1) / seg), ((k + 1) / n, (s + 1) / seg), ((k + 1) / n, s / seg)])
+        if not closed:
+            for ring, rev in ((rings[0], True), (rings[-1], False)):
+                c = self.add(sum((self.v[i] for i in ring), Vector()) / seg)
+                for s in range(seg):
+                    tri = [ring[s], ring[(s + 1) % seg], c]
+                    self.face(tri[::-1] if rev else tri)
 
-    def sphere(self, c, r, squash=1.0, up=Vector((0, 0, 1)), seg=10, rings=6):
-        rot = Vector((0, 0, 1)).rotation_difference(up).to_matrix()
-        top = self.add(c + rot @ Vector((0, 0, r * squash))); bot = self.add(c - rot @ Vector((0, 0, r * squash)))
-        ids = []
-        for j in range(1, rings):
-            th = math.pi * j / rings
-            ids.append([self.add(c + rot @ Vector((r * math.sin(th) * math.cos(2 * math.pi * s / seg),
-                                                     r * math.sin(th) * math.sin(2 * math.pi * s / seg),
-                                                     r * squash * math.cos(th)))) for s in range(seg)])
+    def cylinder(self, c, axis, r, h, seg=6, twist=0.0):
+        """Capped prism (seg=6 -> hex bolt head) standing on c along axis."""
+        axis = axis.normalized(); u = axis.orthogonal().normalized(); w = axis.cross(u)
+        bot, top = [], []
+        for s in range(seg):
+            ang = 2 * math.pi * s / seg + twist
+            d = r * (math.cos(ang) * u + math.sin(ang) * w)
+            bot.append(self.add(c + d)); top.append(self.add(c + d + axis * h))
         for s in range(seg):
             s2 = (s + 1) % seg
-            self.face([top, ids[0][s], ids[0][s2]])
-            self.face([bot, ids[-1][s2], ids[-1][s]])
-            for j in range(len(ids) - 1):
-                self.face([ids[j][s], ids[j + 1][s], ids[j + 1][s2], ids[j][s2]])
+            self.face([bot[s], bot[s2], top[s2], top[s]])
+        self.face(bot[::-1]); self.face(top)
 
-    def build(self, name, mat, closed_manifold, coll, origin=None):
+    def build(self, name, mat, closed_manifold, coll, flat=True):
         bm = bmesh.new()
         bv = [bm.verts.new(c) for c in self.v]
         uv = bm.loops.layers.uv.new("UVMap")
         for idx, uvs in self.f:
             fc = bm.faces.new([bv[i] for i in idx])
-            fc.smooth = True
+            fc.smooth = not flat
             for loop, t in zip(fc.loops, uvs): loop[uv].uv = t
         bm.normal_update()
         if closed_manifold:
             bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-        else:  # open shell: make normals face away from the head center
+        else:  # open sheet: make normals face away from the head
             score = sum(fc.normal.dot(fc.calc_center_median() - CENTER) for fc in bm.faces)
             if score < 0:
                 bmesh.ops.reverse_faces(bm, faces=bm.faces)
-        origin = origin if origin is not None else sum(self.v, Vector()) / len(self.v)
+        origin = sum(self.v, Vector()) / len(self.v)
         bmesh.ops.translate(bm, verts=bm.verts, vec=-origin)
         me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
         me.materials.append(mat)
@@ -182,25 +146,25 @@ class Builder:
         return ob
 
 
-def material(name, rgba, rough):
+def material(name, rgba, metal, rough):
     m = bpy.data.materials.new(name); m.use_nodes = True
     b = m.node_tree.nodes["Principled BSDF"]
     b.inputs["Base Color"].default_value = rgba
-    b.inputs["Metallic"].default_value = 1.0
+    b.inputs["Metallic"].default_value = metal
     b.inputs["Roughness"].default_value = rough
     m.diffuse_color = rgba
     return m
 
 
-def add_solidify(ob, thick, offset=1.0):
-    s = ob.modifiers.new("Thickness", 'SOLIDIFY'); s.thickness = thick; s.offset = offset
-    s.use_even_offset = True; s.use_quality_normals = True
-    bv = ob.modifiers.new("EdgeBevel", 'BEVEL'); bv.width = thick * 0.3; bv.segments = 2
-    bv.limit_method = 'ANGLE'; bv.angle_limit = math.radians(50)
+def add_solidify(ob, thick=None):
+    s = ob.modifiers.new("Thickness", 'SOLIDIFY'); s.thickness = thick or THICK; s.offset = 1.0
+    s.use_even_offset = True
+    bv = ob.modifiers.new("EdgeBevel", 'BEVEL'); bv.width = (thick or THICK) * 0.25; bv.segments = 1
+    bv.limit_method = 'ANGLE'; bv.angle_limit = math.radians(60)
 
 
 # ---------------------------------------------------------------------------
-# Scene
+# Scene + player
 # ---------------------------------------------------------------------------
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=PLAYER)
@@ -210,100 +174,149 @@ for o in list(scene.collection.objects):
     scene.collection.objects.unlink(o); player_coll.objects.link(o)
 arm = next(o for o in player_coll.objects if o.type == 'ARMATURE')
 
+dg = bpy.context.evaluated_depsgraph_get()
+def bvh_of(ob):
+    ev = ob.evaluated_get(dg); me = ev.to_mesh()
+    bm = bmesh.new(); bm.from_mesh(me); bm.transform(ob.matrix_world); t = BVHTree.FromBMesh(bm)
+    closed = all(e.is_manifold for e in bm.edges)   # inside test only valid on closed meshes
+    bm.free(); ev.to_mesh_clear(); return t, closed
+body = [bvh_of(o) for o in player_coll.objects if o.type == 'MESH']
+
+# Head radius table: outermost player surface along each horizontal ray from the axis.
+A_STEP, Z_STEP, Z0, Z1 = 2, 0.005, 0.09, 0.42
+head_r = {}
+for ai in range(-180, 180, A_STEP):
+    d = dirv(ai)
+    for zi in range(int(round((Z1 - Z0) / Z_STEP)) + 1):
+        z = Z0 + zi * Z_STEP; best = 0.0
+        for t, _ in body:
+            hit = t.ray_cast(Vector((0, CY, z)) + d * 0.6, -d, 0.6)[0]
+            if hit is not None:
+                best = max(best, (hit - Vector((0, CY, z))).length)
+        head_r[ai, zi] = best
+
+
+def R(a_deg, z, zlo=Z0):
+    """Plate radius: head radius (max over a window around the point) + clearance."""
+    best = 0.0
+    a0 = int(math.floor((a_deg - FIT_WIN_DEG) / A_STEP)) * A_STEP
+    for ai in range(a0, int(a_deg + FIT_WIN_DEG) + A_STEP, A_STEP):
+        aw = ((ai + 180) % 360) - 180
+        for zi in range(int((max(zlo, z - FIT_WIN_Z) - Z0) / Z_STEP), int((z + FIT_WIN_Z - Z0) / Z_STEP) + 1):
+            best = max(best, head_r.get((aw, zi), 0.0))
+    return max(R_MIN, best + CLEAR)
+
+
+def plate_pt(a_deg, z, extra=0.0, dent=True, zlo=Z0):
+    r = R(a_deg, z, zlo) + extra + (random.random() * DENT if dent else 0.0)
+    return Vector((0, CY, z)) + dirv(a_deg) * r
+
+
+def outward(a_deg, z):
+    return dirv(a_deg)
+
+
 hcoll = bpy.data.collections.new("MetalHelmet"); scene.collection.children.link(hcoll)
-STEEL_M = material("Helmet_Steel", STEEL, 0.30)
-DARK_M = material("Helmet_DarkSteel", DARK, 0.45)
-BRASS_M = material("Helmet_Brass", BRASS, 0.35)
+STEEL_M = material("Helmet_Steel", STEEL, 0.9, 0.55)
+RUST_M = material("Helmet_RustSteel", RUST, 0.55, 0.75)
+DARK_M = material("Helmet_DarkSteel", DARK, 0.9, 0.5)
+WELD_M = material("Helmet_Weld", WELD, 0.7, 0.85)
+BLACK_M = material("Helmet_Holes", BLACK, 0.0, 1.0)
 parts = []
 
-# 1. Dome shell ---------------------------------------------------------------
-NA, NR = 72, 22
-b = Builder()
-cols = []
+
+def panel(name, mat, a0, a1, zbot, ztop, ni, nj, extra=0.0, zlo=Z0):
+    """Curved sheet between azimuths a0..a1; zbot/ztop may be functions of azimuth."""
+    zb = zbot if callable(zbot) else (lambda a: zbot)
+    zt = ztop if callable(ztop) else (lambda a: ztop)
+    def fn(u, v):
+        a = a0 + (a1 - a0) * u
+        return plate_pt(a, zb(a) + (zt(a) - zb(a)) * v, extra, zlo=zlo)
+    b = Builder(); b.grid(fn, ni, nj)
+    ob = b.build(name, mat, False, hcoll); add_solidify(ob); parts.append(ob); return ob
+
+
+# ---------------------------------------------------------------------------
+# Plates
+# ---------------------------------------------------------------------------
+# Brow plate: across the forehead, bottom edge forms the top of both eye slits
+panel("Helmet_BrowPlate", STEEL_M, -SIDE_DEG, SIDE_DEG, slit_top, SEAM_Z + 0.004, 16, 3)
+# Nose bridge between the slits (sits a hair proud, welded on)
+panel("Helmet_NoseBridge", RUST_M, -NOSE_DEG, NOSE_DEG, SLIT_BOT_Z - 0.004, BROW_INNER_Z + 0.004, 2, 3, extra=0.003)
+# Cheek plates outside the slits
+panel("Helmet_CheekPlate_L", RUST_M, SLIT_OUT_DEG, SIDE_DEG, SLIT_BOT_Z - 0.004, lambda a: slit_top(a) + 0.004, 6, 2, extra=0.002)
+panel("Helmet_CheekPlate_R", STEEL_M, -SIDE_DEG, -SLIT_OUT_DEG, SLIT_BOT_Z - 0.004, lambda a: slit_top(a) + 0.004, 6, 2, extra=0.002)
+# Jaw plate wraps the muzzle down to the chin
+panel("Helmet_JawPlate", STEEL_M, -SIDE_DEG, SIDE_DEG, JAW_BOT_Z, SLIT_BOT_Z, 14, 4, zlo=JAW_BOT_Z - 0.01)
+# Back plate
+panel("Helmet_BackPlate", RUST_M, SIDE_DEG - 3, 360 - SIDE_DEG + 3, BACK_BOT_Z, SEAM_Z + 0.004, 14, 4, extra=0.001,
+      zlo=BACK_BOT_Z - 0.01)
+
+# Dome: ring at SEAM_Z (matching the plates) closing to a point at TOP_Z
+NA, NR = 20, 6
+ring = [R(360 * i / NA, SEAM_Z) for i in range(NA)]
+b = Builder(); cols = []
 for i in range(NA):
-    a = 2 * math.pi * i / NA; p0 = phi_start(a)
-    cols.append([b.add(dome_pt(a, p0 + (math.pi / 2 - p0) * j / NR)) for j in range(NR)])
-pole = b.add((0, CY, CZ + RZ))
+    a = 360 * i / NA; col = []
+    for j in range(NR):
+        t = j / NR; z = SEAM_Z - 0.004 + (TOP_Z - SEAM_Z) * math.sin(t * math.pi / 2)
+        # superellipse profile: flat-ish crown with rounded shoulders (bucket helm look)
+        f = max(0.0, 1 - ((z - SEAM_Z) / (TOP_Z - SEAM_Z)) ** 4) ** 0.25 if z > SEAM_Z else 1.0
+        r = ring[i] * f + random.random() * DENT
+        col.append(b.add(Vector((0, CY, z)) + dirv(a) * r))
+    cols.append(col)
+pole = b.add((0, CY, TOP_Z))
 for i in range(NA):
     i2 = (i + 1) % NA
     for j in range(NR - 1):
         b.face([cols[i][j], cols[i2][j], cols[i2][j + 1], cols[i][j + 1]],
                [(i / NA, j / NR), ((i + 1) / NA, j / NR), ((i + 1) / NA, (j + 1) / NR), (i / NA, (j + 1) / NR)])
     b.face([cols[i][NR - 1], cols[i2][NR - 1], pole], [(i / NA, (NR - 1) / NR), ((i + 1) / NA, (NR - 1) / NR), (i / NA, 1)])
-dome = b.build("Helmet_Dome", STEEL_M, False, hcoll, origin=CENTER.copy()); add_solidify(dome, THICK); parts.append(dome)
+dome = b.build("Helmet_Dome", STEEL_M, False, hcoll); add_solidify(dome); parts.append(dome)
 
-# 2. Rolled rim --------------------------------------------------------------
-b = Builder(); pts, nrm = [], []
-for i in range(120):
-    a = 2 * math.pi * i / 120; z = rim_z(a)
-    pts.append(surf_pt(a, z, THICK * 0.5) + Vector((0, 0, RIM_RADIUS * 0.3))); nrm.append(normal_at(a, z))
-b.tube(pts, nrm, RIM_RADIUS, seg=10)
-parts.append(b.build("Helmet_Rim", DARK_M, True, hcoll))
+# Strap band over the dome/plate seam
+def band_fn(u, v):
+    a = 360 * u; z = SEAM_Z - BAND_H / 2 + BAND_H * v
+    return Vector((0, CY, z)) + dirv(a) * (R(a, SEAM_Z) + DENT + THICK + BAND_OUT * 0.3)
+b = Builder(); b.grid(band_fn, 48, 1)
+band = b.build("Helmet_Band", DARK_M, False, hcoll); add_solidify(band, 0.004); parts.append(band)
 
-# 3. Crest ridge (front rim -> top -> back rim) ------------------------------
-b = Builder(); st = []
-front = [(0.0, phi_start(0) + (math.pi / 2 - phi_start(0)) * k / 20) for k in range(21)]
-back = [(math.pi, math.pi / 2 - (math.pi / 2 - phi_start(math.pi)) * k / 20) for k in range(1, 21)]
-path = front + back
-for k, (a, phi) in enumerate(path):
-    z = CZ + RZ * math.sin(phi) if phi >= 0 else CZ + RZ * phi
-    s = k / (len(path) - 1)
-    n = normal_at(a, z) if phi < math.pi / 2 - 1e-6 else Vector((0, 0, 1))
-    st.append((dome_pt(a, phi, THICK), Vector((1, 0, 0)), n, CREST_HALF_W, 0.003,
-               CREST_BASE_H + CREST_PEAK_H * math.sin(math.pi * s)))
-b.sweep_rect(st)
-parts.append(b.build("Helmet_Crest", DARK_M, True, hcoll))
+# ---------------------------------------------------------------------------
+# Welds, bolts, breathing holes
+# ---------------------------------------------------------------------------
+def weld_line(b, pts_az_z, extra):
+    pts = [plate_pt(a, z, THICK + DENT + extra, dent=False) for a, z in pts_az_z]
+    nrm = [outward(a, z) for a, z in pts_az_z]
+    radii = [WELD_R * (0.8 + 0.6 * abs(math.sin(k * 1.7))) for k in range(len(pts))]
+    b.tube(pts, nrm, radii, seg=6)
 
-# 4. Nose guard ---------------------------------------------------------------
-b = Builder(); st = []
-zs = [0.300, 0.275, 0.250, 0.228, 0.205]
-for k, z in enumerate(zs):
-    t = k / (len(zs) - 1)
-    if z >= RIM_FRONT_Z:
-        p = surf_pt(0, z, THICK + 0.001); out = normal_at(0, z)
-    else:   # hang straight down in front of the face, slight forward tilt
-        p = surf_pt(0, RIM_FRONT_Z, THICK + 0.001) + Vector((0, -0.006 * (RIM_FRONT_Z - z) / 0.07 - 0.002, z - RIM_FRONT_Z))
-        out = Vector((0, -1, 0))
-    hw = NOSE_TOP_W + (NOSE_BOT_W - NOSE_TOP_W) * t
-    st.append((p, Vector((1, 0, 0)), out, hw if k < len(zs) - 1 else hw * 1.25, 0.0, NOSE_DEPTH))
-b.sweep_rect(st)
-parts.append(b.build("Helmet_NoseGuard", STEEL_M, True, hcoll))
-
-# 5/6. Cheek guards -----------------------------------------------------------
-def cheek(side):
-    a0, a1 = (math.radians(d) for d in CHEEK_DEG)
-    def fn(u, v):
-        a = side * (a0 + (a1 - a0) * u)
-        bot = CHEEK_BOT_Z + 0.025 * (2 * u - 1) ** 2          # rounded lower edge
-        z = CHEEK_TOP_Z + (bot - CHEEK_TOP_Z) * v
-        f_top = surf_f(CHEEK_TOP_Z) + (THICK + 0.002) / RX
-        f = f_top + (CHEEK_TUCK - f_top) * smooth(v)
-        return surf_pt(a, z, f=f)
-    b = Builder(); b.grid(fn, 10, 10)
-    ob = b.build("Helmet_CheekGuard_" + ("L" if side > 0 else "R"), STEEL_M, False, hcoll)
-    add_solidify(ob, PLATE_THICK); return ob
-parts += [cheek(1), cheek(-1)]
-
-# 7. Neck guard ---------------------------------------------------------------
-def neck_fn(u, v):
-    a = math.radians(NECK_DEG[0] + (NECK_DEG[1] - NECK_DEG[0]) * u)
-    z = NECK_TOP_Z + (NECK_BOT_Z - NECK_TOP_Z) * v
-    f_top = surf_f(NECK_TOP_Z) + (THICK + 0.002) / RY
-    return surf_pt(a, z, f=f_top + (NECK_FLARE - f_top) * v * v)
-b = Builder(); b.grid(neck_fn, 16, 8)
-ng = b.build("Helmet_NeckGuard", STEEL_M, False, hcoll); add_solidify(ng, PLATE_THICK); parts.append(ng)
-
-# 8. Rivets -------------------------------------------------------------------
 b = Builder()
-for d in (-150, -120, -60, -30, 30, 60, 120, 150, 180):
-    a = math.radians(d); z = rim_z(a) + 0.020
-    b.sphere(surf_pt(a, z, THICK), RIVET_R, 0.6, normal_at(a, z))
-for side in (1, -1):        # pin each cheek guard
-    for d in (82, 110):
-        a = side * math.radians(d); z = CHEEK_TOP_Z - 0.012
-        f = surf_f(CHEEK_TOP_Z) + (THICK + 0.002 + PLATE_THICK) / RX
-        b.sphere(surf_pt(a, z, f=f), RIVET_R, 0.6, normal_at(a, z))
-parts.append(b.build("Helmet_Rivets", BRASS_M, True, hcoll))
+for side in (1, -1):
+    # jaw-to-cheek seam and jaw-to-nose seam
+    weld_line(b, [(side * (SLIT_OUT_DEG + (SIDE_DEG - SLIT_OUT_DEG) * k / 14), SLIT_BOT_Z) for k in range(29)], 0.0)
+    # vertical seam between face plates and back plate
+    weld_line(b, [(side * SIDE_DEG, JAW_BOT_Z + 0.03 + (SEAM_Z - JAW_BOT_Z - 0.03) * k / 24) for k in range(25)], 0.002)
+weld_line(b, [(-NOSE_DEG - 1 + (2 * NOSE_DEG + 2) * k / 5, SLIT_BOT_Z) for k in range(6)], 0.003)
+parts.append(b.build("Helmet_Welds", WELD_M, False, hcoll, flat=False))
+
+b = Builder()
+bolt_spots = [(a, SEAM_Z, THICK + DENT + 0.004 + BAND_OUT * 0.3) for a in range(0, 360, 30) if a not in (0,)]
+bolt_spots += [(s * 70, (SLIT_BOT_Z + BROW_OUTER_Z) / 2, THICK + DENT + 0.002) for s in (1, -1)]
+bolt_spots += [(s * 78, JAW_BOT_Z + 0.03, THICK + DENT) for s in (1, -1)]
+bolt_spots += [(s * 160, BACK_BOT_Z + 0.03, THICK + DENT + 0.001) for s in (1, -1)]
+for a, z, off in bolt_spots:
+    p = plate_pt(a, z, off - 0.002, dent=False)
+    b.cylinder(p, outward(a, z), BOLT_R, 0.006, seg=6, twist=random.random())
+parts.append(b.build("Helmet_Bolts", DARK_M, True, hcoll))
+
+b = Builder()
+for row, z in enumerate((0.128, 0.146, 0.164)):
+    for k in range(-2, 3):
+        a = k * 9 + (4.5 if row == 1 else 0)
+        if row == 1 and k == 2: continue
+        p = plate_pt(a, z, THICK + DENT - 0.001, dent=False, zlo=JAW_BOT_Z - 0.01)
+        b.cylinder(p, outward(a, z), HOLE_R, 0.0018, seg=10)
+parts.append(b.build("Helmet_BreathingHoles", BLACK_M, True, hcoll))
 
 # ---------------------------------------------------------------------------
 # Hierarchy: MetalHelmet (empty) -> parts, MetalHelmet bone-parented to Head
@@ -322,12 +335,15 @@ bpy.context.view_layer.update()
 # Fit check: no helmet vertex inside the player, report min clearance
 # ---------------------------------------------------------------------------
 dg = bpy.context.evaluated_depsgraph_get()
-def bvh_of(ob):
-    ev = ob.evaluated_get(dg); me = ev.to_mesh()
-    bm = bmesh.new(); bm.from_mesh(me); bm.transform(ob.matrix_world); t = BVHTree.FromBMesh(bm)
-    closed = all(e.is_manifold for e in bm.edges)   # inside test only valid on closed meshes
-    bm.free(); ev.to_mesh_clear(); return t, closed
-body = [bvh_of(o) for o in player_coll.objects if o.type == 'MESH']
+def is_inside(t, p):
+    """Ray-parity test: odd number of surface crossings = inside a closed mesh."""
+    n, o, d = 0, p.copy(), Vector((0.0123, 0.0071, 1.0)).normalized()
+    while True:
+        hit = t.ray_cast(o, d)[0]
+        if hit is None: return n % 2 == 1
+        n += 1; o = hit + d * 1e-5
+
+
 print("\nFIT CHECK (clearance to player surface, meters)")
 worst_all = 1e9
 for ob in parts:
@@ -338,7 +354,7 @@ for ob in parts:
         for t, closed in body:
             hit, nrm, _, dist = t.find_nearest(p)
             if hit is None: continue
-            if closed and (p - hit).dot(nrm) < 0: inside += 1; dist = -dist
+            if closed and is_inside(t, p): inside += 1; dist = -dist
             worst = min(worst, dist)
     ev.to_mesh_clear(); worst_all = min(worst_all, worst)
     print(f"  {ob.name:24s} verts={len(ob.data.vertices):5d}  min clearance={worst:+.4f}  inside={inside}")
@@ -370,8 +386,10 @@ if '--render' in flags:
     cam.data.lens = 60; scene.camera = cam
     scene.render.engine = 'CYCLES'; scene.cycles.samples = 48; scene.cycles.device = 'CPU'
     scene.render.resolution_x = scene.render.resolution_y = 640
-    target = Vector((0, CY, 0.22))
-    for name, az, el, dist in (("front_3q", -35, 12, 1.0), ("side", 90, 5, 1.0), ("back_3q", 145, 20, 1.0), ("full_body", -25, 10, 2.6)):
+    target = Vector((0, CY, 0.24))
+    shots = (("front", 0, 5, 1.0), ("front_3q", -35, 12, 1.0), ("side", 90, 5, 1.0),
+             ("back_3q", 145, 20, 1.0), ("full_body", -25, 10, 2.6))
+    for name, az, el, dist in shots:
         tgt = target if name != "full_body" else Vector((0, 0, 0.0))
         d = Vector((math.sin(math.radians(az)) * math.cos(math.radians(el)),
                     -math.cos(math.radians(az)) * math.cos(math.radians(el)), math.sin(math.radians(el))))
