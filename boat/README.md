@@ -49,7 +49,7 @@ The Unity script does this for you.
 For waves, subclass `BoatController` and override `GetWaterHeight(worldPos)`.
 On Unity versions before 6, rename `linearDamping/angularDamping/linearVelocity` to `drag/angularDrag/velocity`.
 
-**Roblox:** Import with the 3D Importer (File → Import 3D). You get a Model with every part as its own MeshPart in the right place. If the boat is grey, upload `textures/T_Boat.png` as a Decal/Image and paste its ID into each MeshPart's `TextureID`. Weld everything to `Boat`, and add a `VehicleSeat` on the rear bench.
+**Roblox:** Import with the 3D Importer (File → Import 3D). You get a Model with every part as its own MeshPart in the right place. If the boat is grey, upload `textures/T_Boat.png` as a Decal/Image and paste its ID into each MeshPart's `TextureID`. Weld everything to `Hull`, and add a `VehicleSeat` on the rear bench.
 
 **Blender:** textures don't show in the default *Solid* view. Switch to *Material Preview* (press `Z` → Material Preview, or the second sphere icon top-right).
 
