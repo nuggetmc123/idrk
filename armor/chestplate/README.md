@@ -17,8 +17,8 @@ Bolted-together scrap-metal chest armor (clean steel by default — set `RUST` i
 ## Parts (every one is its own object)
 
 Breastplate, Backplate, BellyLame_1-3, Gorget, PauldronCap.L/R, PauldronLame_1-2.L/R,
-Strap_1-2.L/R, Buckle_1-2.L/R, ScrapPatch (hazard-striped), plus separate objects for the rivets, bolts,
-rolled rims and weld beads (`Rivets_*`, `Bolts_*`, `Rim_*`, `Weld_*`). The welded crack across the breastplate is off by default; set `CRACK_WELD["enabled"] = True` to bring it back. You can delete, move or remodel any part on its own.
+Strap_1-2.L/R, Buckle_1-2.L/R, plus separate objects for the rivets, bolts,
+rolled rims and weld beads (`Rivets_*`, `Bolts_*`, `Rim_*`, `Weld_*`). The welded crack and the hazard-striped scrap patch are off by default; set `CRACK_WELD["enabled"]` or `SCRAP_PATCH["enabled"]` to `True` to bring them back. You can delete, move or remodel any part on its own.
 
 All parts share one material (`ChestPlate_Atlas`), so the whole set is a single draw call.
 
@@ -35,7 +35,7 @@ To repaint, edit the textures in `textures/`, or change the `Proc_*` materials a
 
 **By settings:** open `build_chestplate.py` and edit the SETTINGS block. You can change the gap from the body
 (`CLEARANCE`), plate thickness, dent count and depth, rivet size and spacing, neckline shape, plate coverage,
-belly lame count, rust amount (`RUST`, 0 = clean), pauldron size and dome height, strap heights, scrap patch position, the crack weld (on/off and path) and the random `SEED`. Then run:
+belly lame count, rust amount (`RUST`, 0 = clean), pauldron size and dome height, strap heights, scrap patch (on/off and position), the crack weld (on/off and path) and the random `SEED`. Then run:
 
 ```sh
 blender --background --python build_chestplate.py

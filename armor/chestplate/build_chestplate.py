@@ -74,7 +74,7 @@ PAULDRON = dict(
     lames=2, lame_len=0.040, lame_overlap=0.012, lame_angle=105,
 )
 STRAPS = dict(heights=[-0.092, -0.180], width=0.018, theta=(62, 120), thickness=0.0035)
-SCRAP_PATCH = dict(theta=34, z=0.010, half_theta=17, half_z=0.032, skew=0.010)
+SCRAP_PATCH = dict(enabled=False, theta=34, z=0.010, half_theta=17, half_z=0.032, skew=0.010)
 CRACK_WELD = dict(enabled=False, points=[(-26, 0.060), (-30, 0.030), (-24, 0.005), (-31, -0.030), (-27, -0.060)])
 
 ATLAS_SIZE = 1024
@@ -1129,7 +1129,8 @@ def main():
     build_backplate(col)
     build_belly_lames(col)
     rebuild_layer_bvh()
-    build_scrap_patch(col)
+    if SCRAP_PATCH['enabled']:
+        build_scrap_patch(col)
     if CRACK_WELD['enabled']:
         build_crack_weld(col)
     build_straps(col)
