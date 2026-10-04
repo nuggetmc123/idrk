@@ -118,4 +118,38 @@ bpy.ops.export_scene.fbx(
     path_mode="COPY",
     embed_textures=True,
 )
+# Same model in formats that hold their textures more reliably than FBX:
+base = os.path.splitext(dst)[0]
+# .glb: textures always travel inside it (Blender, Roblox, Windows 3D Viewer, Godot, web)
+bpy.ops.export_scene.gltf(filepath=base + ".glb", export_format="GLB", use_selection=True)
+# .blend: textures packed in, and it opens in Material Preview so they're visible straight away
+for screen in bpy.data.screens:
+    for area in screen.areas:
+        if area.type == "VIEW_3D":
+            for space in area.spaces:
+                if space.type == "VIEW_3D":
+                    space.shading.type = "MATERIAL"
+                    space.shading.color_type = "TEXTURE"
+                    space.region_3d.view_location = (0, 0.2, 0.2)
+                    space.region_3d.view_distance = 7.5
+for i in bpy.data.images:
+    if i.has_data and not i.packed_file:
+        i.pack()
+bpy.ops.wm.save_as_mainfile(filepath=base + ".blend", compress=True, check_existing=False)
+# folder: FBX + the PNGs sitting next to it, for engines that won't read embedded textures
+folder = base + "_with_textures"
+os.makedirs(folder, exist_ok=True)
+for i in bpy.data.images:
+    if i.has_data:
+        i.unpack(method="REMOVE") if i.packed_file else None
+        name = os.path.basename(i.filepath) or (i.name + ".png")
+        i.filepath_raw = os.path.join(folder, name)
+        i.file_format = "PNG"
+        i.save()
+bpy.ops.export_scene.fbx(
+    filepath=os.path.join(folder, os.path.basename(dst)),
+    use_selection=True, object_types={"MESH"}, apply_unit_scale=True, apply_scale_options="FBX_SCALE_ALL",
+    axis_forward="-Z", axis_up="Y", bake_space_transform=True, mesh_smooth_type="FACE", add_leaf_bones=False,
+    path_mode="RELATIVE", embed_textures=False,
+)
 print("wrote", dst, "with", [b.name for b in banners])

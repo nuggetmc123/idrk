@@ -10,6 +10,9 @@ clean army-green tiller outboard.
 |---|---|
 | `Boat.fbx` | The model, textures embedded (Unity / Unreal / Roblox / Godot) |
 | `Boat_LostVR.fbx` | Your edited boat with "LOST VR" banners (`Banner_L`, `Banner_R`) on both sides, textures embedded |
+| `Boat_LostVR.blend` | Same, for Blender: textures packed inside, opens already textured |
+| `Boat_LostVR.glb` | Same, as glTF: textures always inside (Roblox, Windows 3D Viewer, Godot, web) |
+| `Boat_LostVR_with_textures.zip` | Same FBX with the PNGs next to it, for programs that ignore embedded textures |
 | `textures/T_Banner.png` | The banner texture (2048×384) |
 | `add_banner.py` / `make_banner.py` | Put the banner on any boat FBX that has a `Hull`: `python3 add_banner.py in.fbx out.fbx` |
 | `Boat_Collider.fbx` | Optional simple physics hull (separate so it doesn't cover the boat) |
