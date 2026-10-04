@@ -75,7 +75,7 @@ PAULDRON = dict(
 )
 STRAPS = dict(heights=[-0.092, -0.180], width=0.018, theta=(62, 120), thickness=0.0035)
 SCRAP_PATCH = dict(theta=34, z=0.010, half_theta=17, half_z=0.032, skew=0.010)
-CRACK_WELD = dict(points=[(-26, 0.060), (-30, 0.030), (-24, 0.005), (-31, -0.030), (-27, -0.060)])
+CRACK_WELD = dict(enabled=False, points=[(-26, 0.060), (-30, 0.030), (-24, 0.005), (-31, -0.030), (-27, -0.060)])
 
 ATLAS_SIZE = 1024
 BAKE_SAMPLES = 16
@@ -1130,7 +1130,8 @@ def main():
     build_belly_lames(col)
     rebuild_layer_bvh()
     build_scrap_patch(col)
-    build_crack_weld(col)
+    if CRACK_WELD['enabled']:
+        build_crack_weld(col)
     build_straps(col)
     rebuild_layer_bvh()
     build_gorget(col)
