@@ -416,9 +416,9 @@ collider = mesh_obj("Boat_Collider", bm, M_BLACK, boat_root)
 
 # --------------------------------------------------------------------------- flatten for export
 # Engines (Roblox especially) misplace parts when an FBX has empties, nested parents and
-# rotated pivots, and many ignore multi-material/embedded textures. So the export is just
-# three plain meshes with world-space geometry and no rotation, sharing ONE baked texture:
-#   Boat (hull + everything static)   Motor (origin on the steering axis)   Propeller (origin on the shaft)
+# rotated pivots, and many ignore multi-material/embedded textures. So every part is exported
+# as its own plain top-level mesh (no parents, no rotation), all sharing ONE baked texture.
+# Motor_* parts steer together, Propeller_* parts spin together (the game script groups them).
 def subtree(root):
     out = []
     for c in root.children:
@@ -452,22 +452,15 @@ for o in [o for o in bpy.data.objects if o.type == "EMPTY"]:
     bpy.data.objects.remove(o)
 
 
-def join(objs, name, origin):
-    select(objs)
-    bpy.ops.object.join()
-    o = bpy.context.view_layer.objects.active
-    o.name = o.data.name = name
-    bpy.context.scene.cursor.location = origin
-    bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
-    return o
-
-
-body = join(body_meshes, "Boat", Vector((0, 0, 0)))
-motor_obj = join(motor_meshes, "Motor", motor_pos)
-prop_obj = join(prop_meshes, "Propeller", prop_pos)
+# Every part stays its own object (top-level, no rotation) with its origin at its own centre.
+for o in meshes:
+    o.data.name = o.name
+select(body_meshes + motor_meshes + prop_meshes)
+bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
+print("pivots: motor", tuple(round(v, 3) for v in motor_pos), "propeller", tuple(round(v, 3) for v in prop_pos))
 
 # --- bake all materials into one shared atlas texture
-parts = [body, motor_obj, prop_obj]
+parts = body_meshes + motor_meshes + prop_meshes
 for o in parts:
     o.data.uv_layers.active = o.data.uv_layers["UVMap"]
     o.data.uv_layers.new(name="UVAtlas").active = True
@@ -522,8 +515,8 @@ for img in [i for i in bpy.data.images if i is not atlas]:
 for m in [m for m in bpy.data.materials if m is not M_BOAT]:
     bpy.data.materials.remove(m)
 
-# Motor and propeller stay top-level (no parenting) so nothing can get offset on import;
-# the game script parents/rotates them at runtime.
+# Parts stay top-level (no parenting) so nothing can get offset on import;
+# the game script groups the Motor_* / Propeller_* parts under pivots at runtime.
 
 # --------------------------------------------------------------------------- export
 os.chdir(OUT)

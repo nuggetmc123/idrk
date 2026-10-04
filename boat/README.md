@@ -21,14 +21,22 @@ clean army-green tiller outboard.
 
 ## What's in the FBX
 
-Three plain meshes, no empties, no nested parents, no rotations, one material (`M_Boat`) and
-one texture (`T_Boat.png`), so parts land where they should in any engine:
+Every part is its own object (41 of them), each with its origin at its own centre, so you can
+select, move, hide, recolour or delete any of them. No empties, no nested parents, no rotations,
+one material (`M_Boat`) and one texture (`T_Boat.png`), so nothing gets misplaced on import.
 
-| Mesh | Origin | Use |
-|---|---|---|
-| `Boat` | centre of the boat at the waterline | hull, benches, fuel can... everything static |
-| `Motor` | on the outboard's steering axis | rotate around up to steer |
-| `Propeller` | on the propeller shaft | spin around the boat's forward axis |
+| Group | Parts |
+|---|---|
+| Hull | `Hull`, `Gunwale`, `Keel_Strip`, `Transom_Plate`, `Rib_0`-`Rib_3` |
+| Inside | `Seat_Rear`, `Seat_Middle`, `Seat_Front` (+ `_Support`), `Floorboard_0`-`Floorboard_3` |
+| Fittings | `Bow_Ring`, `Cleat_L/R`, `Oarlock_L/R` |
+| Fuel can | `Fuel_Can`, `Fuel_Can_Handle`, `Fuel_Can_Cap` |
+| Motor (steers) | `Motor_Cowling`, `Motor_Cowling_Band`, `Motor_Clamp`, `Motor_Midsection`, `Motor_Leg`, `Motor_AntiCav_Plate`, `Motor_Gearcase`, `Motor_Skeg`, `Motor_Tiller`, `Motor_Tiller_Grip`, `Motor_Pull_Cord` |
+| Propeller (spins) | `Propeller_Hub`, `Propeller_Blade_0`-`_2` |
+
+To steer/spin them yourself, group them under pivots at these points (Blender coords / Unity coords):
+steering axis `(0, 2.38, 0)` / `(0, 0, -2.38)`, propeller shaft `(0, 2.67, -0.34)` / `(0, -0.34, -2.67)`.
+The Unity script does this for you.
 
 ## Unity quick start
 
@@ -41,7 +49,7 @@ one texture (`T_Boat.png`), so parts land where they should in any engine:
 For waves, subclass `BoatController` and override `GetWaterHeight(worldPos)`.
 On Unity versions before 6, rename `linearDamping/angularDamping/linearVelocity` to `drag/angularDrag/velocity`.
 
-**Roblox:** Import with the 3D Importer (File → Import 3D). You get a Model with `Boat`, `Motor` and `Propeller` MeshParts in the right places. If the boat is grey, upload `textures/T_Boat.png` as a Decal/Image and paste its ID into each MeshPart's `TextureID`. Weld everything to `Boat`, and add a `VehicleSeat` on the rear bench.
+**Roblox:** Import with the 3D Importer (File → Import 3D). You get a Model with every part as its own MeshPart in the right place. If the boat is grey, upload `textures/T_Boat.png` as a Decal/Image and paste its ID into each MeshPart's `TextureID`. Weld everything to `Boat`, and add a `VehicleSeat` on the rear bench.
 
 **Blender:** textures don't show in the default *Solid* view. Switch to *Material Preview* (press `Z` → Material Preview, or the second sphere icon top-right).
 

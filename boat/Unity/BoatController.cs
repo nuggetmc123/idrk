@@ -5,8 +5,8 @@ using UnityEngine;
 ///
 /// Setup:
 ///  1. Drop Boat.fbx in the scene. Add a Rigidbody (mass ~350) and this script to the
-///     top object (the prefab root that holds Boat, Motor and Propeller).
-///  2. Collision is added automatically (convex MeshCollider on "Boat"). For a cheaper one,
+///     top object (the prefab root that holds all the parts).
+///  2. Collision is added automatically (convex MeshCollider on "Hull"). For a cheaper one,
 ///     drop Boat_Collider.fbx in as a child instead; its renderer is hidden at runtime.
 ///  3. Set waterLevel to your ocean height (or override GetWaterHeight for waves).
 ///     Seat, exit and float points are created automatically if you leave them empty.
@@ -17,8 +17,8 @@ using UnityEngine;
 public class BoatController : MonoBehaviour
 {
     [Header("Parts (auto-found by name)")]
-    public Transform motorPivot;      // "Motor"     - origin is on the steering axis
-    public Transform propeller;       // "Propeller" - origin is on the shaft
+    public Transform motorPivot;      // auto-created; all "Motor_*" parts go under it
+    public Transform propeller;       // auto-created; all "Propeller_*" parts go under it
     public Transform driverSeat;      // auto-created at the rear bench
     public Transform exitPoint;       // auto-created on the left side
     public Transform[] floatPoints;   // auto-created under the hull
@@ -58,12 +58,10 @@ public class BoatController : MonoBehaviour
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.centerOfMass = new Vector3(0f, -0.15f, 0f);
 
-        motorPivot = motorPivot ? motorPivot : Find("Motor");
-        propeller  = propeller  ? propeller  : Find("Propeller");
-        // The FBX keeps every part top-level so nothing gets offset on import;
-        // hook the propeller onto the motor here so it swings with the steering.
-        if (motorPivot && propeller && propeller.parent != motorPivot)
-            propeller.SetParent(motorPivot, true);
+        // The FBX keeps every part top-level so nothing gets offset on import.
+        // Group them here: Motor_* swing around the steering axis, Propeller_* spin on the shaft.
+        motorPivot = motorPivot ? motorPivot : Group("Motor_Pivot", "Motor_", new Vector3(0f, 0f, -2.38f), transform);
+        propeller  = propeller  ? propeller  : Group("Propeller_Pivot", "Propeller_", new Vector3(0f, -0.34f, -2.67f), motorPivot);
 
         // Points in boat space (metres, +Z = bow).
         driverSeat = driverSeat ? driverSeat : Point("Seat_Driver", new Vector3(0f, 0.25f, -1.65f));
@@ -80,12 +78,23 @@ public class BoatController : MonoBehaviour
         if (motorPivot) motorRest = motorPivot.localRotation;
 
         var col = Find("Boat_Collider");
-        if (!col) col = Find("Boat");
+        if (!col) col = Find("Hull");
         if (col)
         {
             if (col.name == "Boat_Collider" && col.TryGetComponent(out MeshRenderer mr)) mr.enabled = false;
             if (!col.GetComponent<Collider>()) col.gameObject.AddComponent<MeshCollider>().convex = true;
         }
+    }
+
+    Transform Group(string n, string prefix, Vector3 localPos, Transform parent)
+    {
+        var pivot = Point(n, localPos);
+        var parts = new System.Collections.Generic.List<Transform>();
+        foreach (var t in GetComponentsInChildren<Transform>(true))
+            if (t.name.StartsWith(prefix)) parts.Add(t);
+        foreach (var t in parts) t.SetParent(pivot, true);
+        if (parent && parent != transform) pivot.SetParent(parent, true);
+        return pivot;
     }
 
     Transform Point(string n, Vector3 localPos)
