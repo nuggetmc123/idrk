@@ -1,5 +1,5 @@
 """
-Builds a low-poly survival-game style motor skiff (think Rust's rowboat / Stranded Deep's
+Builds a low-poly survival-game style motor skiff (think Rust's rowboat, minus the rust / Stranded Deep's
 small boats) in Blender and exports it as FBX (+ GLB and .blend).
 
 Run with Blender's Python:   python3 build_boat.py      (needs `pip install bpy`)
@@ -94,30 +94,22 @@ def tex_wood():
     return save_png("T_Boat_Wood", col)
 
 
-def tex_rust_metal():
-    n1 = fbm(S, 6, 4)
-    n2 = fbm(S, 5, 8)
-    paint = np.array([0.20, 0.26, 0.20])  # chipped army green
-    rust = np.array([0.36, 0.16, 0.06])
-    rust_dark = np.array([0.15, 0.07, 0.03])
-    m = np.clip((n1 - 0.48) * 6, 0, 1)[..., None]
-    r = rust * (1 - n2[..., None]) + rust_dark * n2[..., None]
-    col = paint * (1 - m) + r * m
-    col *= (0.85 + 0.3 * fbm(S, 3, 16))[..., None]
-    return save_png("T_Boat_RustMetal", col)
+def tex_painted_metal():
+    # clean army-green paint with a little subtle mottling, no rust
+    paint = np.array([0.20, 0.27, 0.20])
+    col = paint * (0.92 + 0.12 * fbm(S, 4, 6))[..., None]
+    return save_png("T_Boat_PaintedMetal", col)
 
 
-def tex_rust_bare():
-    n1 = fbm(S, 6, 6)
-    steel = np.array([0.38, 0.38, 0.37])
-    rust = np.array([0.40, 0.18, 0.07])
-    m = np.clip((n1 - 0.4) * 4, 0, 1)[..., None]
-    return save_png("T_Boat_BareMetal", steel * (1 - m) + rust * m)
+def tex_steel():
+    steel = np.array([0.42, 0.43, 0.44])
+    brushed = fbm(S, 3, 32)
+    return save_png("T_Boat_Steel", steel * (0.9 + 0.15 * brushed)[..., None])
 
 
 IMG_WOOD = tex_wood()
-IMG_RUST = tex_rust_metal()
-IMG_BARE = tex_rust_bare()
+IMG_PAINT = tex_painted_metal()
+IMG_STEEL = tex_steel()
 
 
 # --------------------------------------------------------------------------- materials
@@ -136,8 +128,8 @@ def material(name, color=(0.5, 0.5, 0.5), image=None, rough=0.8, metal=0.0):
 
 
 M_WOOD = material("M_Boat_Wood", image=IMG_WOOD, rough=0.9)
-M_RUST = material("M_Boat_RustPaint", image=IMG_RUST, rough=0.75, metal=0.3)
-M_BARE = material("M_Boat_BareMetal", image=IMG_BARE, rough=0.6, metal=0.7)
+M_PAINT = material("M_Boat_PaintedMetal", image=IMG_PAINT, rough=0.55, metal=0.2)
+M_STEEL = material("M_Boat_Steel", image=IMG_STEEL, rough=0.4, metal=0.8)
 M_BLACK = material("M_Boat_Rubber", (0.03, 0.03, 0.03), rough=0.9)
 M_RED = material("M_Boat_FuelCan", (0.45, 0.05, 0.03), rough=0.5, metal=0.4)
 M_ROPE = material("M_Boat_Rope", (0.55, 0.47, 0.32), rough=1.0)
@@ -321,7 +313,7 @@ for i in range(N_ST + 1):
     t = i / N_ST
     _, _, zk = station(t)
     keel.append((0, LEN_STERN + (LEN_BOW - LEN_STERN) * t, zk - 0.02))
-rail("Keel_Strip", keel, 0.03, M_BARE, boat_root)
+rail("Keel_Strip", keel, 0.03, M_STEEL, boat_root)
 
 # --------------------------------------------------------------------------- interior
 def beam_at(t, z):
@@ -356,49 +348,41 @@ for k, t in enumerate((0.05, 0.27, 0.55, 0.80)):
     rail(f"Rib_{k}", [(x * 0.95, y, z + 0.03) for x, z in pts], 0.022, M_WOOD, boat_root)
 
 # transom reinforcement plate where the motor clamps on
-box("Transom_Plate", (0.55, 0.03, 0.35), (0, LEN_STERN + 0.035, 0.32), M_RUST, boat_root)
+box("Transom_Plate", (0.55, 0.03, 0.35), (0, LEN_STERN + 0.035, 0.32), M_PAINT, boat_root)
 
 # bow eye + cleats
-cylinder("Bow_Ring", 0.05, 0.015, (0, LEN_BOW - 0.02, station(1)[1] - 0.12), M_BARE, boat_root,
+cylinder("Bow_Ring", 0.05, 0.015, (0, LEN_BOW - 0.02, station(1)[1] - 0.12), M_STEEL, boat_root,
          rot=(math.radians(90), 0, 0), seg=6)
 for side in (-1, 1):
     box(f"Cleat_{'L' if side < 0 else 'R'}", (0.04, 0.18, 0.04),
-        (side * 0.62, y_at(0.06), station(0.06)[1] + 0.05), M_BARE, boat_root)
+        (side * 0.62, y_at(0.06), station(0.06)[1] + 0.05), M_STEEL, boat_root)
     # oar locks
     cylinder(f"Oarlock_{'L' if side < 0 else 'R'}", 0.03, 0.12,
-             (side * (station(0.42)[0] + 0.02), y_at(0.42), station(0.42)[1] + 0.07), M_BARE, boat_root, seg=6)
-
-# rusty patch plates riveted over damage (very Rust)
-for k, (side, t, zf) in enumerate(((1, 0.30, 0.25), (-1, 0.55, 0.15), (1, 0.70, 0.35))):
-    w, zg, zk = station(t)
-    z = zk + (zg - zk) * (0.5 + zf)
-    xx = beam_at(t, z) + 0.05 + 0.025
-    box(f"Patch_{k}", (0.012, 0.42, 0.24), (side * xx, y_at(t), z), M_RUST, boat_root,
-            rot=(0, side * math.radians(-12), rng.uniform(-0.06, 0.06)))
+             (side * (station(0.42)[0] + 0.02), y_at(0.42), station(0.42)[1] + 0.07), M_STEEL, boat_root, seg=6)
 
 # --------------------------------------------------------------------------- outboard motor
 # Pivot = steering axis. Rotate Motor_Pivot around its local up axis to steer.
 motor = empty("Motor_Pivot", (0, LEN_STERN + 0.18, 0.0), boat_root, kind="SINGLE_ARROW", size=0.4)
-box("Motor_Clamp", (0.20, 0.14, 0.18), (0, -0.07, 0.55), M_BARE, motor)
-cow = box("Motor_Cowling", (0.36, 0.48, 0.38), (0, 0.10, 0.80), M_RUST, motor)
+box("Motor_Clamp", (0.20, 0.14, 0.18), (0, -0.07, 0.55), M_STEEL, motor)
+cow = box("Motor_Cowling", (0.36, 0.48, 0.38), (0, 0.10, 0.80), M_PAINT, motor)
 m = cow.modifiers.new("bevel", "BEVEL"); m.width = 0.06; m.segments = 1
 apply_modifiers(cow)
 smart_uv(cow)
 box("Motor_Cowling_Band", (0.37, 0.49, 0.05), (0, 0.10, 0.65), M_BLACK, motor)
-box("Motor_Midsection", (0.18, 0.24, 0.20), (0, 0.06, 0.52), M_RUST, motor)
-box("Motor_Leg", (0.07, 0.14, 0.78), (0, 0.04, 0.05), M_RUST, motor)
-box("Motor_AntiCav_Plate", (0.26, 0.34, 0.012), (0, 0.06, -0.24), M_BARE, motor)
-cylinder("Motor_Gearcase", 0.055, 0.40, (0, 0.06, -0.34), M_RUST, motor, rot=(math.radians(90), 0, 0), seg=6)
-box("Motor_Skeg", (0.02, 0.10, 0.14), (0, 0.10, -0.43), M_BARE, motor, rot=(math.radians(-10), 0, 0))
+box("Motor_Midsection", (0.18, 0.24, 0.20), (0, 0.06, 0.52), M_PAINT, motor)
+box("Motor_Leg", (0.07, 0.14, 0.78), (0, 0.04, 0.05), M_PAINT, motor)
+box("Motor_AntiCav_Plate", (0.26, 0.34, 0.012), (0, 0.06, -0.24), M_STEEL, motor)
+cylinder("Motor_Gearcase", 0.055, 0.40, (0, 0.06, -0.34), M_PAINT, motor, rot=(math.radians(90), 0, 0), seg=6)
+box("Motor_Skeg", (0.02, 0.10, 0.14), (0, 0.10, -0.43), M_STEEL, motor, rot=(math.radians(-10), 0, 0))
 # tiller arm reaching into the boat, the driver holds the grip
-box("Motor_Tiller", (0.06, 0.60, 0.05), (0.0, -0.32, 0.72), M_BARE, motor, rot=(math.radians(-8), 0, 0))
+box("Motor_Tiller", (0.06, 0.60, 0.05), (0.0, -0.32, 0.72), M_STEEL, motor, rot=(math.radians(-8), 0, 0))
 cylinder("Motor_Tiller_Grip", 0.035, 0.22, (0.0, -0.66, 0.66), M_BLACK, motor, rot=(math.radians(90 - 8), 0, 0), seg=6)
 cylinder("Motor_Pull_Cord", 0.03, 0.03, (0.0, -0.16, 0.95), M_BLACK, motor, rot=(math.radians(90), 0, 0), seg=6)
 
 # Propeller: separate object, origin on the shaft, spin around local Y (Blender) / Z (Unity).
 prop = empty("Propeller", (0, 0.29, -0.34), motor, kind="CIRCLE", size=0.15)
 prop.rotation_euler = (math.radians(90), 0, 0)
-cylinder("Propeller_Hub", 0.04, 0.12, (0, 0, 0), M_BARE, prop, seg=6, r2=0.025)
+cylinder("Propeller_Hub", 0.04, 0.12, (0, 0, 0), M_STEEL, prop, seg=6, r2=0.025)
 for k in range(3):
     a = k * 2 * math.pi / 3
     bm = bmesh.new()
@@ -406,7 +390,7 @@ for k in range(3):
     vs = [(0.03, -0.02, 0), (0.13, -0.035, 0.02), (0.15, 0.02, -0.02), (0.03, 0.03, 0)]
     vv = [bm.verts.new(v) for v in vs]
     bm.faces.new(vv)
-    sol_b = mesh_obj(f"Propeller_Blade_{k}", bm, M_BARE, prop)
+    sol_b = mesh_obj(f"Propeller_Blade_{k}", bm, M_STEEL, prop)
     sol_b.rotation_euler = (0, 0, a)
     s = sol_b.modifiers.new("t", "SOLIDIFY"); s.thickness = 0.012
     apply_modifiers(sol_b)

@@ -1,8 +1,8 @@
 # Drivable survival boat (FBX)
 
 A low-poly, beat-up wooden motor skiff in the style of Rust's rowboat / Stranded Deep's small boats:
-plank hull with patched-up rusty plates, three benches, oars, a fuel can, rope, and a
-chipped army-green tiller outboard.
+plank hull, three benches, oars, a fuel can, rope, and a
+clean army-green tiller outboard.
 
 ![preview](preview.png)
 
@@ -11,7 +11,7 @@ chipped army-green tiller outboard.
 | `Boat.fbx` | The model, textures embedded (Unity / Unreal / Roblox / Godot) |
 | `Boat.glb` | Same model as glTF (web / three.js / Godot) |
 | `Boat.blend` | Blender source |
-| `textures/` | 1024² wood, rusty-paint and bare-metal textures |
+| `textures/` | 1024² wood, painted-metal and steel textures |
 | `Unity/BoatController.cs` | Buoyancy + driving + enter/exit script |
 | `build_boat.py` | Regenerates everything (`pip install bpy && python3 build_boat.py`) |
 | `render_preview.py` | Re-renders the preview images |
@@ -22,7 +22,7 @@ chipped army-green tiller outboard.
 
 ```
 Boat                      root, put the Rigidbody + BoatController here
-├─ Hull, Gunwale, Seat_*, Rib_*, Oar_*, Fuel_Can, Patch_* ...   (static meshes)
+├─ Hull, Gunwale, Seat_*, Rib_*, Oar_*, Fuel_Can ...   (static meshes)
 ├─ Motor_Pivot            rotate around up to steer the outboard
 │  ├─ Motor_Cowling, Motor_Leg, Motor_Tiller ...
 │  ├─ Propeller           spin around the boat's forward axis
