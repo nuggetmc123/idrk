@@ -49,6 +49,8 @@ DENT_RADIUS = 0.028
 RIVET_RADIUS = 0.0048
 RIVET_SPACING = 0.032
 RIM_RADIUS = 0.0045         # rolled / welded-on edge bars
+FBX_METALLIC = 0.35          # metal / roughness values on the exported material
+FBX_ROUGHNESS = 0.5
 RUST = 0.0                  # 0 = clean steel, 1 = fully rusted scrap (scales every rust patch)
 
 # Torso axis (the body is a rounded pod centred here, measured from the mesh).
@@ -1041,13 +1043,13 @@ def bake_atlas(tex_dir):
         nd.location = (-500, y)
         return nd
 
+    # Only the colour map is wired in. FBX has no real slots for roughness / metallic / normal maps,
+    # and importers (including different Blender versions) hook them up differently, which can turn
+    # the steel into black chrome or blotchy shading. Fixed values import the same everywhere; the
+    # full map set is still in textures/ for setting up the material by hand in a game engine.
     nt.links.new(tex("BaseColor", 300).outputs['Color'], bsdf.inputs['Base Color'])
-    nt.links.new(tex("Metallic", 0).outputs['Color'], bsdf.inputs['Metallic'])
-    nt.links.new(tex("Roughness", -300).outputs['Color'], bsdf.inputs['Roughness'])
-    nm = nt.nodes.new('ShaderNodeNormalMap')
-    nm.location = (-200, -600)
-    nt.links.new(tex("Normal", -600).outputs['Color'], nm.inputs['Color'])
-    nt.links.new(nm.outputs['Normal'], bsdf.inputs['Normal'])
+    bsdf.inputs['Metallic'].default_value = FBX_METALLIC
+    bsdf.inputs['Roughness'].default_value = FBX_ROUGHNESS
     for o in objs:
         o.data.materials.clear()
         o.data.materials.append(fm)
@@ -1066,6 +1068,10 @@ def export(col):
                   add_leaf_bones=False, bake_anim=False, path_mode='COPY', embed_textures=True,
                   mesh_smooth_type='FACE', use_tspace=True)
     bpy.ops.export_scene.fbx(filepath=os.path.join(OUT_DIR, "ChestPlate.fbx"), **common)
+    # armor together with the player model, sharing one armature
+    player = [o for o in bpy.data.objects if o.type == 'MESH' and o.parent == ARM and o not in parts]
+    select_only(parts + player + [ARM], ARM)
+    bpy.ops.export_scene.fbx(filepath=os.path.join(OUT_DIR, "ChestPlate_WithPlayer.fbx"), **common)
     # single merged skinned mesh
     copies = []
     for o in parts:
