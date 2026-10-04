@@ -1,6 +1,6 @@
 # Drivable survival boat (FBX)
 
-A beat-up wooden motor skiff in the style of Rust's rowboat / Stranded Deep's small boats:
+A low-poly, beat-up wooden motor skiff in the style of Rust's rowboat / Stranded Deep's small boats:
 plank hull with patched-up rusty plates, three benches, oars, a fuel can, rope, and a
 chipped army-green tiller outboard.
 
@@ -16,7 +16,7 @@ chipped army-green tiller outboard.
 | `build_boat.py` | Regenerates everything (`pip install bpy && python3 build_boat.py`) |
 | `render_preview.py` | Re-renders the preview images |
 
-**Specs:** ~4.5 m long, 1.7 m beam, ~4.1k polys, real-world metres, Y-up, bow faces +Z in Unity.
+**Specs:** ~4.5 m long, 1.7 m beam, ~1.4k triangles (low poly, flat shaded), real-world metres, Y-up, bow faces +Z in Unity.
 
 ## Hierarchy (the parts that make it drivable)
 

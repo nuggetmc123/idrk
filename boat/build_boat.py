@@ -1,5 +1,5 @@
 """
-Builds a survival-game style motor skiff (think Rust's rowboat / Stranded Deep's
+Builds a low-poly survival-game style motor skiff (think Rust's rowboat / Stranded Deep's
 small boats) in Blender and exports it as FBX (+ GLB and .blend).
 
 Run with Blender's Python:   python3 build_boat.py      (needs `pip install bpy`)
@@ -190,7 +190,7 @@ def smart_uv(obj, island=0.02):
     bpy.ops.object.mode_set(mode="OBJECT")
 
 
-def box(name, size, loc, mat, parent=None, bevel=0.0, rot=(0, 0, 0)):
+def box(name, size, loc, mat, parent=None, rot=(0, 0, 0)):
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     for v in bm.verts:
@@ -198,20 +198,15 @@ def box(name, size, loc, mat, parent=None, bevel=0.0, rot=(0, 0, 0)):
     o = mesh_obj(name, bm, mat, parent)
     o.location = loc
     o.rotation_euler = rot
-    if bevel:
-        m = o.modifiers.new("bevel", "BEVEL")
-        m.width = bevel
-        m.segments = 2
-        apply_modifiers(o)
     smart_uv(o)
     return o
 
 
-def cylinder(name, r, depth, loc, mat, parent=None, rot=(0, 0, 0), seg=16, r2=None):
+def cylinder(name, r, depth, loc, mat, parent=None, rot=(0, 0, 0), seg=6, r2=None):
     bm = bmesh.new()
     bmesh.ops.create_cone(bm, cap_ends=True, segments=seg, radius1=r,
                           radius2=r if r2 is None else r2, depth=depth)
-    o = mesh_obj(name, bm, mat, parent, smooth=True)
+    o = mesh_obj(name, bm, mat, parent)
     o.location = loc
     o.rotation_euler = rot
     smart_uv(o)
@@ -220,7 +215,7 @@ def cylinder(name, r, depth, loc, mat, parent=None, rot=(0, 0, 0), seg=16, r2=No
 
 # --------------------------------------------------------------------------- hull
 LEN_STERN, LEN_BOW = 2.2, -2.35   # Y of transom and of the stem (bow = -Y)
-N_ST = 28
+N_ST = 9
 
 
 def station(t):
@@ -239,11 +234,8 @@ def profile(t):
     w, zg, zk = station(t)
     half = [
         (w, zg),
-        (w * 0.97, zg - (zg - zk) * 0.30),
-        (w * 0.90, zg - (zg - zk) * 0.62),
-        (w * 0.80, zk + 0.10 * (1 - t)),      # chine
-        (w * 0.50, zk + 0.045 * (1 - t)),
-        (w * 0.22, zk + 0.012),
+        (w * 0.92, zg - (zg - zk) * 0.55),
+        (w * 0.72, zk + 0.08 * (1 - t)),      # chine
         (0.0, zk),
     ]
     left = [(-x, z) for x, z in half]
@@ -281,16 +273,16 @@ bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.03)
 bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 
 boat_root = empty("Boat", (0, 0, 0), kind="ARROWS", size=0.6)
-hull = mesh_obj("Hull", bm, M_WOOD, boat_root, smooth=True)
+hull = mesh_obj("Hull", bm, M_WOOD, boat_root)
 # make sure normals point outwards (keel face should face -Z)
-if hull.data.polygons[N_ST // 2 * 12 + 5].normal.z > 0.2:
+lowest = min(hull.data.polygons, key=lambda p: p.center.z)
+if lowest.normal.z > 0:
     for p in hull.data.polygons:
         p.flip()
 sol = hull.modifiers.new("thickness", "SOLIDIFY")
 sol.thickness = 0.04
 sol.offset = -1
 sol.use_even_offset = True
-hull.modifiers.new("ws", "WEIGHTED_NORMAL").keep_sharp = True
 apply_modifiers(hull)
 
 # --------------------------------------------------------------------------- gunwale rail & keel strip
@@ -298,7 +290,7 @@ def rail(name, pts, radius, mat, parent, cyclic=False):
     cu = bpy.data.curves.new(name, "CURVE")
     cu.dimensions = "3D"
     cu.bevel_depth = radius
-    cu.bevel_resolution = 2
+    cu.bevel_resolution = 0   # 4-sided tube
     cu.use_fill_caps = True
     sp = cu.splines.new("POLY")
     sp.points.add(len(pts) - 1)
@@ -334,7 +326,7 @@ rail("Keel_Strip", keel, 0.03, M_BARE, boat_root)
 # --------------------------------------------------------------------------- interior
 def beam_at(t, z):
     """Interior half-width at station t, height z (linear on the profile)."""
-    pts = profile(t)[:7]
+    pts = profile(t)[:len(profile(t)) // 2 + 1]
     for (x0, z0), (x1, z1) in zip(pts, pts[1:]):
         if min(z0, z1) <= z <= max(z0, z1) and z0 != z1:
             return abs(x0 + (x1 - x0) * (z - z0) / (z1 - z0)) - 0.05
@@ -348,14 +340,14 @@ def y_at(t):
 bench_z = 0.22
 for n, t in (("Seat_Rear", 0.12), ("Seat_Middle", 0.42), ("Seat_Front", 0.68)):
     hw = beam_at(t, bench_z)
-    box(n, (hw * 2, 0.30, 0.045), (0, y_at(t), bench_z), M_WOOD, boat_root, bevel=0.008)
+    box(n, (hw * 2, 0.30, 0.045), (0, y_at(t), bench_z), M_WOOD, boat_root)
     # vertical support under the bench
     box(n + "_Support", (0.05, 0.26, bench_z - station(t)[2] - 0.05),
         (0, y_at(t), (bench_z + station(t)[2]) / 2 + 0.02), M_WOOD, boat_root)
 
 # floor boards
 for k, x in enumerate((-0.30, -0.10, 0.10, 0.30)):
-    box(f"Floorboard_{k}", (0.17, 2.6, 0.025), (x, 0.55, -0.13 - abs(x) * 0.0), M_WOOD, boat_root, bevel=0.004)
+    box(f"Floorboard_{k}", (0.17, 2.6, 0.025), (x, 0.55, -0.13 - abs(x) * 0.0), M_WOOD, boat_root)
 
 # ribs (frames) inside the hull
 for k, t in enumerate((0.05, 0.27, 0.55, 0.80)):
@@ -364,51 +356,49 @@ for k, t in enumerate((0.05, 0.27, 0.55, 0.80)):
     rail(f"Rib_{k}", [(x * 0.95, y, z + 0.03) for x, z in pts], 0.022, M_WOOD, boat_root)
 
 # transom reinforcement plate where the motor clamps on
-box("Transom_Plate", (0.55, 0.03, 0.35), (0, LEN_STERN + 0.035, 0.32), M_RUST, boat_root, bevel=0.005)
+box("Transom_Plate", (0.55, 0.03, 0.35), (0, LEN_STERN + 0.035, 0.32), M_RUST, boat_root)
 
 # bow eye + cleats
 cylinder("Bow_Ring", 0.05, 0.015, (0, LEN_BOW - 0.02, station(1)[1] - 0.12), M_BARE, boat_root,
-         rot=(math.radians(90), 0, 0), seg=12)
+         rot=(math.radians(90), 0, 0), seg=6)
 for side in (-1, 1):
     box(f"Cleat_{'L' if side < 0 else 'R'}", (0.04, 0.18, 0.04),
-        (side * 0.62, y_at(0.06), station(0.06)[1] + 0.05), M_BARE, boat_root, bevel=0.01)
+        (side * 0.62, y_at(0.06), station(0.06)[1] + 0.05), M_BARE, boat_root)
     # oar locks
     cylinder(f"Oarlock_{'L' if side < 0 else 'R'}", 0.03, 0.12,
-             (side * (station(0.42)[0] + 0.02), y_at(0.42), station(0.42)[1] + 0.07), M_BARE, boat_root, seg=10)
+             (side * (station(0.42)[0] + 0.02), y_at(0.42), station(0.42)[1] + 0.07), M_BARE, boat_root, seg=6)
 
 # rusty patch plates riveted over damage (very Rust)
 for k, (side, t, zf) in enumerate(((1, 0.30, 0.25), (-1, 0.55, 0.15), (1, 0.70, 0.35))):
     w, zg, zk = station(t)
     z = zk + (zg - zk) * (0.5 + zf)
     xx = beam_at(t, z) + 0.05 + 0.025
-    box(f"Patch_{k}", (0.012, 0.42, 0.24), (side * xx, y_at(t), z), M_RUST, boat_root, bevel=0.003,
+    box(f"Patch_{k}", (0.012, 0.42, 0.24), (side * xx, y_at(t), z), M_RUST, boat_root,
             rot=(0, side * math.radians(-12), rng.uniform(-0.06, 0.06)))
 
 # --------------------------------------------------------------------------- outboard motor
 # Pivot = steering axis. Rotate Motor_Pivot around its local up axis to steer.
 motor = empty("Motor_Pivot", (0, LEN_STERN + 0.18, 0.0), boat_root, kind="SINGLE_ARROW", size=0.4)
-box("Motor_Clamp", (0.20, 0.14, 0.18), (0, -0.07, 0.55), M_BARE, motor, bevel=0.01)
+box("Motor_Clamp", (0.20, 0.14, 0.18), (0, -0.07, 0.55), M_BARE, motor)
 cow = box("Motor_Cowling", (0.36, 0.48, 0.38), (0, 0.10, 0.80), M_RUST, motor)
-m = cow.modifiers.new("bevel", "BEVEL"); m.width = 0.07; m.segments = 4
+m = cow.modifiers.new("bevel", "BEVEL"); m.width = 0.06; m.segments = 1
 apply_modifiers(cow)
-for p in cow.data.polygons:
-    p.use_smooth = True
 smart_uv(cow)
-box("Motor_Cowling_Band", (0.37, 0.49, 0.05), (0, 0.10, 0.65), M_BLACK, motor, bevel=0.01)
-box("Motor_Midsection", (0.18, 0.24, 0.20), (0, 0.06, 0.52), M_RUST, motor, bevel=0.03)
-box("Motor_Leg", (0.07, 0.14, 0.78), (0, 0.04, 0.05), M_RUST, motor, bevel=0.02)
-box("Motor_AntiCav_Plate", (0.26, 0.34, 0.012), (0, 0.06, -0.24), M_BARE, motor, bevel=0.004)
-cylinder("Motor_Gearcase", 0.055, 0.40, (0, 0.06, -0.34), M_RUST, motor, rot=(math.radians(90), 0, 0), seg=16)
+box("Motor_Cowling_Band", (0.37, 0.49, 0.05), (0, 0.10, 0.65), M_BLACK, motor)
+box("Motor_Midsection", (0.18, 0.24, 0.20), (0, 0.06, 0.52), M_RUST, motor)
+box("Motor_Leg", (0.07, 0.14, 0.78), (0, 0.04, 0.05), M_RUST, motor)
+box("Motor_AntiCav_Plate", (0.26, 0.34, 0.012), (0, 0.06, -0.24), M_BARE, motor)
+cylinder("Motor_Gearcase", 0.055, 0.40, (0, 0.06, -0.34), M_RUST, motor, rot=(math.radians(90), 0, 0), seg=6)
 box("Motor_Skeg", (0.02, 0.10, 0.14), (0, 0.10, -0.43), M_BARE, motor, rot=(math.radians(-10), 0, 0))
 # tiller arm reaching into the boat, the driver holds the grip
-box("Motor_Tiller", (0.06, 0.60, 0.05), (0.0, -0.32, 0.72), M_BARE, motor, rot=(math.radians(-8), 0, 0), bevel=0.01)
-cylinder("Motor_Tiller_Grip", 0.035, 0.22, (0.0, -0.66, 0.66), M_BLACK, motor, rot=(math.radians(90 - 8), 0, 0), seg=12)
-cylinder("Motor_Pull_Cord", 0.03, 0.03, (0.0, -0.16, 0.95), M_BLACK, motor, rot=(math.radians(90), 0, 0), seg=10)
+box("Motor_Tiller", (0.06, 0.60, 0.05), (0.0, -0.32, 0.72), M_BARE, motor, rot=(math.radians(-8), 0, 0))
+cylinder("Motor_Tiller_Grip", 0.035, 0.22, (0.0, -0.66, 0.66), M_BLACK, motor, rot=(math.radians(90 - 8), 0, 0), seg=6)
+cylinder("Motor_Pull_Cord", 0.03, 0.03, (0.0, -0.16, 0.95), M_BLACK, motor, rot=(math.radians(90), 0, 0), seg=6)
 
 # Propeller: separate object, origin on the shaft, spin around local Y (Blender) / Z (Unity).
 prop = empty("Propeller", (0, 0.29, -0.34), motor, kind="CIRCLE", size=0.15)
 prop.rotation_euler = (math.radians(90), 0, 0)
-cylinder("Propeller_Hub", 0.04, 0.12, (0, 0, 0), M_BARE, prop, seg=12, r2=0.025)
+cylinder("Propeller_Hub", 0.04, 0.12, (0, 0, 0), M_BARE, prop, seg=6, r2=0.025)
 for k in range(3):
     a = k * 2 * math.pi / 3
     bm = bmesh.new()
@@ -426,21 +416,21 @@ for k in range(3):
 empty("FX_Prop_Wash", (0, 0.45, -0.34), motor, kind="CONE", size=0.15)
 
 # --------------------------------------------------------------------------- props (loot-y clutter)
-box("Fuel_Can", (0.17, 0.32, 0.36), (0.33, 1.30, 0.065), M_RED, boat_root, bevel=0.02)
-box("Fuel_Can_Handle", (0.04, 0.16, 0.04), (0.33, 1.30, 0.265), M_RED, boat_root, bevel=0.01)
-cylinder("Fuel_Can_Cap", 0.03, 0.05, (0.33, 1.18, 0.265), M_BLACK, boat_root, seg=10)
+box("Fuel_Can", (0.17, 0.32, 0.36), (0.33, 1.30, 0.065), M_RED, boat_root)
+box("Fuel_Can_Handle", (0.04, 0.16, 0.04), (0.33, 1.30, 0.265), M_RED, boat_root)
+cylinder("Fuel_Can_Cap", 0.03, 0.05, (0.33, 1.18, 0.265), M_BLACK, boat_root, seg=6)
 
 rail("Rope_Coil", [(math.cos(a) * (0.16 - a * 0.004) - 0.2, math.sin(a) * (0.16 - a * 0.004) + y_at(0.82),
                               station(0.82)[2] + 0.12 + a * 0.003)
-                             for a in np.linspace(0, 6 * math.pi, 90)], 0.017, M_ROPE, boat_root)
+                             for a in np.linspace(0, 4 * math.pi, 17)], 0.02, M_ROPE, boat_root)
 
 # Two oars stowed along the benches
 for side in (-1, 1):
     x = side * 0.42
     o = cylinder(f"Oar_{'L' if side < 0 else 'R'}_Shaft", 0.022, 2.1, (x, 0.30, bench_z + 0.06), M_WOOD, boat_root,
-                 rot=(math.radians(90), 0, 0), seg=8)
+                 rot=(math.radians(90), 0, 0), seg=6)
     box(f"Oar_{'L' if side < 0 else 'R'}_Blade", (0.15, 0.48, 0.015), (x, 0.30 - 1.2, bench_z + 0.06), M_WOOD,
-        boat_root, bevel=0.005)
+        boat_root)
 
 # --------------------------------------------------------------------------- gameplay sockets
 sockets = empty("Sockets", (0, 0, 0), boat_root)
