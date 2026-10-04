@@ -498,7 +498,8 @@ atlas.filepath_raw = os.path.join(TEX, "T_Boat.png")
 atlas.file_format = "PNG"
 atlas.save()
 
-M_BOAT = material("M_Boat", image=atlas, rough=0.8)
+# White base colour: engines multiply it with the texture, so anything darker tints the boat.
+M_BOAT = material("M_Boat", (1.0, 1.0, 1.0), image=atlas, rough=0.8)
 for o in parts:
     o.data.materials.clear()
     o.data.materials.append(M_BOAT)
@@ -520,6 +521,17 @@ for m in [m for m in bpy.data.materials if m is not M_BOAT]:
 
 # --------------------------------------------------------------------------- export
 os.chdir(OUT)
+atlas.pack()  # texture lives inside the .blend, no missing-file pink
+# Open the .blend already textured: Material Preview, and Solid mode set to show textures too.
+for screen in bpy.data.screens:
+    for area in screen.areas:
+        if area.type == "VIEW_3D":
+            for space in area.spaces:
+                if space.type == "VIEW_3D":
+                    space.shading.type = "MATERIAL"
+                    space.shading.color_type = "TEXTURE"
+                    space.region_3d.view_location = (0, 0.2, 0.2)
+                    space.region_3d.view_distance = 7.5
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "Boat.blend"), compress=True, check_existing=False)
 
 FBX_OPTS = dict(
