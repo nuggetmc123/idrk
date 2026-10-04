@@ -4,11 +4,11 @@ using UnityEngine;
 /// Drivable survival-style boat (Rust / Stranded Deep feel).
 ///
 /// Setup:
-///  1. Drop Boat.fbx in the scene. Add a Rigidbody (mass ~350, drag 0, angular drag 0)
-///     and this script to the root "Boat" object.
-///  2. On the child "Boat_Collider" add a MeshCollider (Convex ON) and disable its MeshRenderer.
-///  3. Fields auto-fill from the child names in the FBX; set waterLevel to your ocean height
-///     (or override GetWaterHeight for waves).
+///  1. Drop Boat.fbx in the scene. Add a Rigidbody (mass ~350) and this script to the
+///     top object (the prefab root that holds Boat, Motor, Propeller and Boat_Collider).
+///  2. On the child "Boat_Collider" add a MeshCollider (Convex ON). Its renderer is hidden at runtime.
+///  3. Set waterLevel to your ocean height (or override GetWaterHeight for waves).
+///     Seat, exit and float points are created automatically if you leave them empty.
 ///
 /// Controls: E enter/exit (when near), W/S throttle, A/D steer, Space = stop engine.
 /// </summary>
@@ -16,11 +16,11 @@ using UnityEngine;
 public class BoatController : MonoBehaviour
 {
     [Header("Parts (auto-found by name)")]
-    public Transform motorPivot;      // "Motor_Pivot"  - swings for steering
-    public Transform propeller;       // "Propeller"    - spins
-    public Transform driverSeat;      // "Seat_Driver"
-    public Transform exitPoint;       // "Exit_Left"
-    public Transform[] floatPoints;   // "Float_*"
+    public Transform motorPivot;      // "Motor"     - origin is on the steering axis
+    public Transform propeller;       // "Propeller" - origin is on the shaft
+    public Transform driverSeat;      // auto-created at the rear bench
+    public Transform exitPoint;       // auto-created on the left side
+    public Transform[] floatPoints;   // auto-created under the hull
 
     [Header("Water")]
     public float waterLevel = 0f;
@@ -57,21 +57,37 @@ public class BoatController : MonoBehaviour
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.centerOfMass = new Vector3(0f, -0.15f, 0f);
 
-        motorPivot = motorPivot ? motorPivot : Find("Motor_Pivot");
+        motorPivot = motorPivot ? motorPivot : Find("Motor");
         propeller  = propeller  ? propeller  : Find("Propeller");
-        driverSeat = driverSeat ? driverSeat : Find("Seat_Driver");
-        exitPoint  = exitPoint  ? exitPoint  : Find("Exit_Left");
+        // The FBX keeps every part top-level so nothing gets offset on import;
+        // hook the propeller onto the motor here so it swings with the steering.
+        if (motorPivot && propeller && propeller.parent != motorPivot)
+            propeller.SetParent(motorPivot, true);
+
+        // Points in boat space (metres, +Z = bow).
+        driverSeat = driverSeat ? driverSeat : Point("Seat_Driver", new Vector3(0f, 0.25f, -1.65f));
+        exitPoint  = exitPoint  ? exitPoint  : Point("Exit_Left", new Vector3(-1.4f, 0.4f, 0f));
         if (floatPoints == null || floatPoints.Length == 0)
-        {
-            var list = new System.Collections.Generic.List<Transform>();
-            foreach (var t in GetComponentsInChildren<Transform>())
-                if (t.name.StartsWith("Float_")) list.Add(t);
-            floatPoints = list.ToArray();
-        }
+            floatPoints = new[]
+            {
+                Point("Float_FL", new Vector3(-0.55f, -0.25f,  1.21f)),
+                Point("Float_FR", new Vector3( 0.55f, -0.25f,  1.21f)),
+                Point("Float_RL", new Vector3(-0.60f, -0.25f, -1.84f)),
+                Point("Float_RR", new Vector3( 0.60f, -0.25f, -1.84f)),
+                Point("Float_Center", new Vector3(0f, -0.25f, -0.38f)),
+            };
         if (motorPivot) motorRest = motorPivot.localRotation;
 
         var col = Find("Boat_Collider");
         if (col && col.TryGetComponent(out MeshRenderer mr)) mr.enabled = false;
+    }
+
+    Transform Point(string n, Vector3 localPos)
+    {
+        var t = new GameObject(n).transform;
+        t.SetParent(transform, false);
+        t.localPosition = localPos;
+        return t;
     }
 
     Transform Find(string n)

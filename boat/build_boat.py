@@ -403,18 +403,6 @@ box("Fuel_Can", (0.17, 0.32, 0.36), (0.33, 1.30, 0.065), M_RED, boat_root)
 box("Fuel_Can_Handle", (0.04, 0.16, 0.04), (0.33, 1.30, 0.265), M_RED, boat_root)
 cylinder("Fuel_Can_Cap", 0.03, 0.05, (0.33, 1.18, 0.265), M_BLACK, boat_root, seg=6)
 
-# --------------------------------------------------------------------------- gameplay sockets
-sockets = empty("Sockets", (0, 0, 0), boat_root)
-empty("Seat_Driver", (0, y_at(0.12), bench_z + 0.03), sockets, kind="ARROWS")
-empty("Seat_Passenger_1", (0, y_at(0.42), bench_z + 0.03), sockets, kind="ARROWS")
-empty("Seat_Passenger_2", (0, y_at(0.68), bench_z + 0.03), sockets, kind="ARROWS")
-empty("Exit_Left", (-1.4, 0.0, 0.4), sockets)
-empty("Exit_Right", (1.4, 0.0, 0.4), sockets)
-for n, (x, t) in {"Float_FL": (-0.55, 0.75), "Float_FR": (0.55, 0.75),
-                  "Float_RL": (-0.6, 0.08), "Float_RR": (0.6, 0.08),
-                  "Float_Center": (0.0, 0.40)}.items():
-    empty(n, (x, y_at(t), -0.25), sockets, kind="SPHERE", size=0.12)
-
 # --------------------------------------------------------------------------- collider (convex hull)
 bm = bmesh.new()
 bm.from_mesh(hull.data)
@@ -423,15 +411,121 @@ bmesh.ops.delete(bm, geom=[g for g in ch["geom_interior"] + ch["geom_unused"] if
                  context="VERTS")
 bmesh.ops.dissolve_limit(bm, angle_limit=math.radians(8), verts=bm.verts, edges=bm.edges)
 bmesh.ops.triangulate(bm, faces=bm.faces)
-col = mesh_obj("Boat_Collider", bm, M_BLACK, boat_root)
-col.display_type = "WIRE"
-col.hide_render = True
-col["collider"] = 1
+collider = mesh_obj("Boat_Collider", bm, M_BLACK, boat_root)
+
+
+# --------------------------------------------------------------------------- flatten for export
+# Engines (Roblox especially) misplace parts when an FBX has empties, nested parents and
+# rotated pivots, and many ignore multi-material/embedded textures. So the export is just
+# three plain meshes with world-space geometry and no rotation, sharing ONE baked texture:
+#   Boat (hull + everything static)   Motor (origin on the steering axis)   Propeller (origin on the shaft)
+def subtree(root):
+    out = []
+    for c in root.children:
+        out.append(c)
+        out += subtree(c)
+    return out
+
+
+prop_pos = prop.matrix_world.translation.copy()
+motor_pos = motor.matrix_world.translation.copy()
+prop_meshes = [o for o in subtree(prop) if o.type == "MESH"]
+motor_meshes = [o for o in subtree(motor) if o.type == "MESH" and o not in prop_meshes]
+body_meshes = [o for o in subtree(boat_root) if o.type == "MESH" and o not in prop_meshes + motor_meshes
+               and o is not collider]
+
+
+def select(objs, active=None):
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in objs:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = active or objs[0]
+
+
+# bake every transform into the vertices and drop all parents
+meshes = body_meshes + motor_meshes + prop_meshes + [collider]
+select(meshes)
+bpy.ops.object.parent_clear(type="CLEAR_KEEP_TRANSFORM")
+bpy.ops.object.make_single_user(object=True, obdata=True)
+bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+for o in [o for o in bpy.data.objects if o.type == "EMPTY"]:
+    bpy.data.objects.remove(o)
+
+
+def join(objs, name, origin):
+    select(objs)
+    bpy.ops.object.join()
+    o = bpy.context.view_layer.objects.active
+    o.name = o.data.name = name
+    bpy.context.scene.cursor.location = origin
+    bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+    return o
+
+
+body = join(body_meshes, "Boat", Vector((0, 0, 0)))
+motor_obj = join(motor_meshes, "Motor", motor_pos)
+prop_obj = join(prop_meshes, "Propeller", prop_pos)
+
+# --- bake all materials into one shared atlas texture
+parts = [body, motor_obj, prop_obj]
+for o in parts:
+    o.data.uv_layers.active = o.data.uv_layers["UVMap"]
+    o.data.uv_layers.new(name="UVAtlas").active = True
+select(parts)
+bpy.ops.object.mode_set(mode="EDIT")
+bpy.ops.mesh.select_all(action="SELECT")
+bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.004, scale_to_bounds=False)
+bpy.ops.uv.pack_islands(margin=0.004, rotate=True)
+bpy.ops.object.mode_set(mode="OBJECT")
+
+ATLAS = 2048
+atlas = bpy.data.images.new("T_Boat", ATLAS, ATLAS, alpha=False)
+for mat in {s.material for o in parts for s in o.material_slots}:
+    nt = mat.node_tree
+    uvn = nt.nodes.new("ShaderNodeUVMap")
+    uvn.uv_map = "UVMap"  # read the source textures through their original UVs
+    for n in nt.nodes:
+        if n.type == "TEX_IMAGE":
+            nt.links.new(uvn.outputs["UV"], n.inputs["Vector"])
+    target = nt.nodes.new("ShaderNodeTexImage")
+    target.image = atlas
+    nt.nodes.active = target
+
+sc = bpy.context.scene
+sc.render.engine = "CYCLES"
+sc.cycles.device = "CPU"
+sc.cycles.samples = 1
+sc.render.bake.use_pass_direct = False
+sc.render.bake.use_pass_indirect = False
+sc.render.bake.use_pass_color = True
+sc.render.bake.margin = 8
+select(parts)
+bpy.ops.object.bake(type="DIFFUSE")
+atlas.filepath_raw = os.path.join(TEX, "T_Boat.png")
+atlas.file_format = "PNG"
+atlas.save()
+
+M_BOAT = material("M_Boat", image=atlas, rough=0.8)
+for o in parts:
+    o.data.materials.clear()
+    o.data.materials.append(M_BOAT)
+    o.data.uv_layers.remove(o.data.uv_layers["UVMap"])
+    o.data.uv_layers["UVAtlas"].name = "UVMap"
+collider.data.materials.clear()
+collider.data.uv_layers.remove(collider.data.uv_layers[0]) if collider.data.uv_layers else None
+collider.display_type = "WIRE"
+collider.hide_render = True
+for img in [i for i in bpy.data.images if i is not atlas]:
+    os.remove(bpy.path.abspath(img.filepath_raw))  # only the baked atlas ships
+    bpy.data.images.remove(img)
+for m in [m for m in bpy.data.materials if m is not M_BOAT]:
+    bpy.data.materials.remove(m)
+
+# Motor and propeller stay top-level (no parenting) so nothing can get offset on import;
+# the game script parents/rotates them at runtime.
 
 # --------------------------------------------------------------------------- export
 os.chdir(OUT)
-for o in bpy.data.objects:
-    o.select_set(True)
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "Boat.blend"), compress=True, check_existing=False)
 
 bpy.ops.export_scene.fbx(
@@ -441,9 +535,8 @@ bpy.ops.export_scene.fbx(
     apply_scale_options="FBX_SCALE_ALL",
     axis_forward="-Z",
     axis_up="Y",
-    bake_space_transform=True,   # no -90° X rotation on the root in Unity
-    object_types={"EMPTY", "MESH"},
-    use_mesh_modifiers=True,
+    bake_space_transform=True,   # no -90° X rotation on the parts in Unity
+    object_types={"MESH"},
     mesh_smooth_type="FACE",
     add_leaf_bones=False,
     path_mode="COPY",
@@ -451,5 +544,5 @@ bpy.ops.export_scene.fbx(
 )
 bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, "Boat.glb"), export_format="GLB")
 
-tris = sum(len(o.data.polygons) for o in bpy.data.objects if o.type == "MESH" and o.name != "Boat_Collider")
-print("objects:", len(bpy.data.objects), "polys:", tris)
+tris = sum(len(p.vertices) - 2 for o in parts for p in o.data.polygons)
+print("objects:", [o.name for o in bpy.data.objects], "tris:", tris)

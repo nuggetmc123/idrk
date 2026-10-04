@@ -1,4 +1,4 @@
-"""Renders preview.png of Boat.blend (python3 render_preview.py)."""
+"""Renders preview.png by importing the exported Boat.fbx (python3 render_preview.py [all])."""
 import math
 import os
 import sys
@@ -7,7 +7,12 @@ import bpy
 from mathutils import Vector
 
 OUT = os.path.dirname(os.path.abspath(__file__))
-bpy.ops.wm.open_mainfile(filepath=os.path.join(OUT, "Boat.blend"))
+bpy.ops.wm.read_factory_settings(use_empty=True)
+bpy.ops.import_scene.fbx(filepath=os.path.join(OUT, "Boat.fbx"))
+for o in bpy.data.objects:
+    if o.name.startswith("Boat_Collider"):
+        o.hide_render = True
+    print("imported", o.name, tuple(round(v, 2) for v in o.location), tuple(round(v, 2) for v in o.rotation_euler), [m.name for m in o.data.materials])
 sc = bpy.context.scene
 sc.render.engine = "CYCLES"
 sc.cycles.samples = 48
