@@ -1,7 +1,8 @@
 """Builds a low-poly, flat-shaded chicken (survival-game style) and exports it as FBX.
 
 Run with Blender's Python module:  python3 build_chicken.py
-Outputs chicken.fbx (mesh + armature + Idle/Walk/Peck/Flap animations) next to this script.
+Outputs chicken.fbx and chicken.blend (separate part meshes + armature + Idle/Walk/Peck/Flap
+animations) next to this script.
 """
 import math
 import os
@@ -11,6 +12,10 @@ import bmesh
 from mathutils import Matrix, Vector
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Overall size multiplier, baked into the meshes, the bones and the animation offsets.
+# The chicken is modelled ~0.5 m tall, so 5.0 gives a ~2.5 m chicken.
+SCALE = 5.0
 
 # ---------------------------------------------------------------- scene reset
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -38,30 +43,31 @@ for name, rgb in PALETTE.items():
     bsdf.inputs["Roughness"].default_value = 0.9
     m.diffuse_color = (*rgb, 1.0)
     MATS[name] = m
-MAT_INDEX = {n: i for i, n in enumerate(MATS)}
 
 # ---------------------------------------------------------------- mesh helpers
-# Every part is added to one bmesh; each face records its material and each
-# vertex the bone that rigidly owns it.
-bm = bmesh.new()
-vert_bone = {}
+# Each named part becomes its own mesh object, rigidly skinned to one bone.
+# Pieces added under the same part name are merged into that object.
+PARTS = {}  # part name -> {"bm": BMesh, "bone": str, "mats": [material names]}
 
 
-def add_part(make, mat, bone, xform=Matrix.Identity(4), deform=None):
+def add_part(part, make, mat, bone, xform=Matrix.Identity(4), deform=None):
+    entry = PARTS.setdefault(part, {"bm": bmesh.new(), "bone": bone, "mats": []})
+    assert entry["bone"] == bone, f"part {part} is bound to {entry['bone']}, not {bone}"
+    if mat not in entry["mats"]:
+        entry["mats"].append(mat)
     tmp = bmesh.new()
     make(tmp)
     if deform:
         for v in tmp.verts:
             v.co = deform(v.co.copy())
-    bmesh.ops.transform(tmp, matrix=xform, verts=tmp.verts)
+    bmesh.ops.transform(tmp, matrix=Matrix.Scale(SCALE, 4) @ xform, verts=tmp.verts)
+    bm = entry["bm"]
     mapping = {}
     for v in tmp.verts:
-        nv = bm.verts.new(v.co)
-        mapping[v] = nv
-        vert_bone[nv] = bone
+        mapping[v] = bm.verts.new(v.co)
     for f in tmp.faces:
         nf = bm.faces.new([mapping[v] for v in f.verts])
-        nf.material_index = MAT_INDEX[mat]
+        nf.material_index = entry["mats"].index(mat)
     tmp.free()
 
 
@@ -86,7 +92,7 @@ def T(loc=(0, 0, 0), rot=(0, 0, 0), scale=(1, 1, 1)):
     return Matrix.Translation(loc) @ R @ S
 
 
-# Chicken faces -Y (Blender front); Z up; units are metres (~0.45 m tall).
+# Chicken faces -Y (Blender front); Z up; coordinates below are metres before SCALE.
 
 # Body: plump egg shape, chest forward, rump lifted toward the tail.
 def body_deform(co):
@@ -100,36 +106,36 @@ def body_deform(co):
     return Vector((x, y, z))
 
 
-add_part(sphere(8, 6), "Feather", "Body",
+add_part("Body", sphere(8, 6), "Feather", "Body",
          T((0, 0.02, 0.22), scale=(0.15, 0.21, 0.14)), body_deform)
 
 # Neck (hackle feathers) and head.
-add_part(sphere(7, 5), "FeatherLight", "Neck",
+add_part("Neck", sphere(7, 5), "FeatherLight", "Neck",
          T((0, -0.15, 0.33), rot=(-30, 0, 0), scale=(0.075, 0.075, 0.1)))
-add_part(sphere(6, 5, 0.07), "FeatherLight", "Head",
+add_part("Head", sphere(6, 5, 0.07), "FeatherLight", "Head",
          T((0, -0.19, 0.42), scale=(0.85, 1.0, 1.0)))
 
 # Beak: 4-sided cone pointing forward and a touch down.
-add_part(cone(4, 0.024, 0.0, 0.07), "Beak", "Head",
+add_part("Beak", cone(4, 0.024, 0.0, 0.07), "Beak", "Head",
          T((0, -0.275, 0.415), rot=(100, 0, 45), scale=(1.0, 0.75, 1.0)))
 
 # Comb: three jagged spikes along the top of the head.
 for i, (dy, h) in enumerate(((-0.03, 0.04), (0.0, 0.05), (0.03, 0.04))):
-    add_part(cone(4, 0.028, 0.004, h), "Comb", "Head",
+    add_part("Comb", cone(4, 0.028, 0.004, h), "Comb", "Head",
              T((0, -0.19 + dy, 0.465 + h * 0.4), rot=(-15 + i * 15, 0, 45), scale=(0.4, 1.0, 1.0)))
 
 # Wattle under the beak.
-add_part(sphere(5, 4, 0.022), "Comb", "Head",
+add_part("Wattle", sphere(5, 4, 0.022), "Comb", "Head",
          T((0, -0.245, 0.37), scale=(0.6, 0.8, 1.4)))
 
 # Eyes.
-for side in (-1, 1):
-    add_part(sphere(5, 4, 0.013), "Eye", "Head",
+for side, part in ((-1, "Eye.R"), (1, "Eye.L")):
+    add_part(part, sphere(5, 4, 0.013), "Eye", "Head",
              T((side * 0.056, -0.215, 0.43)))
 
 # Tail: fan of dark feathers angled up and back.
 for ang in (-36, -18, 0, 18, 36):
-    add_part(sphere(6, 4), "FeatherDark", "Tail",
+    add_part("Tail", sphere(6, 4), "FeatherDark", "Tail",
              T((math.sin(math.radians(ang)) * 0.03, 0.2, 0.33),
                rot=(-35, ang, 0), scale=(0.018, 0.045, 0.11)),
              lambda co: co + Vector((0, 0, 0.09)))
@@ -142,43 +148,49 @@ def wing_deform(co):
 
 
 for side, bone in ((-1, "Wing.R"), (1, "Wing.L")):
-    add_part(sphere(6, 4), "Feather", bone,
+    add_part(bone, sphere(6, 4), "Feather", bone,
              T((side * 0.13, 0.04, 0.25), rot=(-12, side * -8, side * 6), scale=(0.035, 0.15, 0.08)),
              wing_deform)
 
 # Legs and feet.
 for side, bone in ((-1, "Leg.R"), (1, "Leg.L")):
     x = side * 0.06
-    add_part(cone(6, 0.035, 0.03, 0.06), "Feather", bone,      # thigh feathers
+    add_part("Thigh" + bone[3:], cone(6, 0.035, 0.03, 0.06), "Feather", bone,     # thigh feathers
              T((x, 0.02, 0.12)))
-    add_part(cone(5, 0.012, 0.011, 0.11), "Leg", bone,         # shank
+    add_part(bone, cone(5, 0.012, 0.011, 0.11), "Leg", bone,        # shank
              T((x, 0.02, 0.055)))
     for ang in (-30, 0, 30):                                    # three front toes
         a = math.radians(ang)
-        add_part(cube(1.0), "Leg", bone,
+        add_part("Foot" + bone[3:], cube(1.0), "Leg", bone,
                  T((x + math.sin(a) * 0.035, 0.02 - math.cos(a) * 0.035, 0.006),
                    rot=(0, 0, -ang), scale=(0.012, 0.07, 0.01)))
-    add_part(cube(1.0), "Leg", bone,                            # back toe
+    add_part("Foot" + bone[3:], cube(1.0), "Leg", bone,                          # back toe
              T((x, 0.045, 0.006), scale=(0.012, 0.04, 0.01)))
 
-bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
-bm.normal_update()
-
-mesh = bpy.data.meshes.new("ChickenMesh")
-bones_of_verts = [vert_bone.get(v) for v in bm.verts]
-bm.to_mesh(mesh)
-bm.free()
-for m in MATS.values():
-    mesh.materials.append(m)
-for p in mesh.polygons:
-    p.use_smooth = False  # flat shaded, faceted look
-
-chicken = bpy.data.objects.new("Chicken", mesh)
-scene.collection.objects.link(chicken)
+part_objs = []
+for part, entry in PARTS.items():
+    bm = entry["bm"]
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    # Put each part's origin at its own centre so it is easy to move/scale in Blender.
+    center = sum((v.co for v in bm.verts), Vector()) / len(bm.verts)
+    bmesh.ops.translate(bm, vec=-center, verts=bm.verts)
+    bm.normal_update()
+    mesh = bpy.data.meshes.new(part)
+    bm.to_mesh(mesh)
+    bm.free()
+    for mat in entry["mats"]:
+        mesh.materials.append(MATS[mat])
+    for poly in mesh.polygons:
+        poly.use_smooth = False  # flat shaded, faceted look
+    obj = bpy.data.objects.new(part, mesh)
+    obj.location = center
+    scene.collection.objects.link(obj)
+    part_objs.append((obj, entry["bone"]))
 
 # Simple box-projected UVs so engines that require UVs are happy.
-bpy.context.view_layer.objects.active = chicken
-chicken.select_set(True)
+for obj, _ in part_objs:
+    obj.select_set(True)
+bpy.context.view_layer.objects.active = part_objs[0][0]
 bpy.ops.object.mode_set(mode='EDIT')
 bpy.ops.mesh.select_all(action='SELECT')
 bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.02)
@@ -205,20 +217,17 @@ BONES = {  # name: (head, tail, parent)
 }
 for name, (h, t, parent) in BONES.items():
     b = eb.new(name)
-    b.head, b.tail, b.roll = h, t, 0.0
+    b.head, b.tail, b.roll = Vector(h) * SCALE, Vector(t) * SCALE, 0.0
     if parent:
         b.parent = eb[parent]
 bpy.ops.object.mode_set(mode='OBJECT')
 
-for name in BONES:
-    if name != "Root":
-        chicken.vertex_groups.new(name=name)
-for i, bone in enumerate(bones_of_verts):
-    chicken.vertex_groups[bone].add([i], 1.0, 'REPLACE')
-
-chicken.parent = rig
-mod = chicken.modifiers.new("Armature", 'ARMATURE')
-mod.object = rig
+# Every vertex of a part is fully weighted to that part's bone. New geometry made by
+# extruding/duplicating in Edit Mode inherits the group, so edits stay rigged.
+for obj, bone in part_objs:
+    obj.vertex_groups.new(name=bone).add(range(len(obj.data.vertices)), 1.0, 'REPLACE')
+    obj.parent = rig
+    obj.modifiers.new("Armature", 'ARMATURE').object = rig
 
 # ---------------------------------------------------------------- animations
 for pb in rig.pose.bones:
@@ -241,7 +250,7 @@ def make_action(name, length, keys):
             pb.rotation_euler = [math.radians(a) for a in r]
             pb.keyframe_insert("rotation_euler", frame=f)
         for f, l in chans.get("loc", []):
-            pb.location = l
+            pb.location = [c * SCALE for c in l]
             pb.keyframe_insert("location", frame=f)
     act.frame_range = (1, length)
     track = rig.animation_data.nla_tracks.new()
@@ -290,7 +299,8 @@ make_action("Flap", 21, {
 # ---------------------------------------------------------------- export
 bpy.ops.object.select_all(action='DESELECT')
 rig.select_set(True)
-chicken.select_set(True)
+for obj, _ in part_objs:
+    obj.select_set(True)
 bpy.ops.export_scene.fbx(
     filepath=os.path.join(OUT_DIR, "chicken.fbx"),
     use_selection=True,
@@ -306,4 +316,5 @@ bpy.ops.export_scene.fbx(
     path_mode='AUTO',
 )
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT_DIR, "chicken.blend"))
-print("verts:", len(mesh.vertices), "tris:", sum(len(p.vertices) - 2 for p in mesh.polygons))
+for obj, bone in part_objs:
+    print(f"{obj.name:10s} -> {bone:7s} verts {len(obj.data.vertices)}")
