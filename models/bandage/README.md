@@ -1,6 +1,6 @@
 # Bandage model
 
-A rolled cloth bandage with a loose strip lying on the ground, in the style of the bandages in Rust and Strayed VR.
+A single loose cloth bandage strip lying on the ground, with soft wrinkles, a curled end and frayed cut ends, in the style of the bandages in Rust and Strayed VR.
 
 ![preview](preview.png)
 
@@ -12,10 +12,10 @@ A rolled cloth bandage with a loose strip lying on the ground, in the style of t
 | `bandage.blend` | Blender source file |
 | `build_bandage.py` | Script that generates everything above |
 
-- About 5.2k triangles, 2.6k vertices, one mesh, one material (`M_Bandage`).
-- Real-world size: about 17 × 5 × 5 cm (1 unit = 1 m). The pivot sits on the ground under the roll.
+- About 2.5k triangles, 1.3k vertices, one mesh, one material (`M_Bandage`).
+- Real-world size: a 30 × 5 cm strip, about 32 × 12 × 1.5 cm including the S-bend (1 unit = 1 m). The pivot sits on the ground at the middle of the strip.
 - The UVs repeat the texture every 5 cm along the strip, so leave texture wrap on **Repeat**.
 - **Unreal:** tick *Flip Green Channel* on the normal map, because Unreal expects DirectX-style normal maps.
 
-To change the size, number of wraps or tail length, edit the constants at the top of
+To change the length, width, bend or wrinkles, edit the constants at the top of
 `build_bandage.py` and run `pip install bpy numpy && python3 build_bandage.py`.

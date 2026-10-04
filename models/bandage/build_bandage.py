@@ -1,8 +1,8 @@
-"""Builds a game-ready rolled bandage (Rust / Strayed VR style) and exports it to FBX.
+"""Builds a game-ready loose cloth bandage strip (Rust / Strayed VR style) and exports it to FBX.
 
 Run with:  pip install bpy numpy && python3 build_bandage.py
 Outputs (next to this script): bandage.fbx, bandage.blend, textures/*.png
-Units: metres. Roll axis is +Y; the loose tail unrolls along +X and lies on the ground (Z = 0).
+Units: metres. The strip lies on the ground (Z = 0) and runs roughly along +X.
 """
 import math
 import os
@@ -14,103 +14,93 @@ OUT = os.path.dirname(os.path.abspath(__file__))
 TEX = os.path.join(OUT, "textures")
 os.makedirs(TEX, exist_ok=True)
 
-WIDTH = 0.05          # bandage width (5 cm)
-R_INNER = 0.009       # radius of the hole in the middle
-TURNS = 7             # wraps in the roll
-THICK = 0.0019        # cloth thickness per layer
-GAP = 0.0004          # gap between layers so the wraps read on the sides
-SEG_PER_TURN = 32
-TAIL_LEN = 0.14       # how far the unrolled strip lies out on the ground
-TAIL_SEGS = 36
-WIDTH_SEGS = 4
+LENGTH = 0.30         # strip length (30 cm)
+WIDTH = 0.05          # strip width (5 cm)
+THICK = 0.0018        # cloth thickness
+LEN_SEGS = 90
+WIDTH_SEGS = 6
 TILE = 0.05           # metres of cloth per texture repeat (along the strip)
 
-PITCH = THICK + GAP
-R_OUTER = R_INNER + THICK + PITCH * (TURNS - 1)
 rng = np.random.default_rng(7)
 
 
-# ---------------------------------------------------------------- centre-line (x, z)
-def build_path():
-    pts = []
-    n = TURNS * SEG_PER_TURN
-    end = -math.pi / 2                     # spiral ends at the bottom, tangent = +X
-    for i in range(n + 1):
-        t = i / n
-        th = end - 2 * math.pi * TURNS * (1 - t)
-        r = R_OUTER - PITCH * TURNS * (1 - t)
-        pts.append((r * math.cos(th), R_OUTER + r * math.sin(th)))
-    # tail: lies on the ground with gentle wrinkles, lifts and curls a bit at the end
-    for i in range(1, TAIL_SEGS + 1):
-        t = i / TAIL_SEGS
-        x = t * TAIL_LEN
-        wrinkle = 0.0012 * max(0.0, math.sin(t * math.pi * 5.0 + 0.6)) ** 2
-        lift = 0.010 * t ** 4
-        pts.append((x, wrinkle + lift))
-    return pts
+# ---------------------------------------------------------------- centre-line
+def centre(t):
+    """Point on the centre-line at t in [0, 1]: a lazy S-bend seen from above."""
+    x = (t - 0.5) * LENGTH
+    y = 0.035 * math.sin(t * math.pi * 1.6 - 0.4)
+    return x, y
 
 
-def path_frames(pts):
-    """Arc length + left normal (points inward on the spiral, up on the tail)."""
-    s, out = 0.0, []
-    for i, p in enumerate(pts):
-        a = pts[max(i - 1, 0)]
-        b = pts[min(i + 1, len(pts) - 1)]
-        tx, tz = b[0] - a[0], b[1] - a[1]
-        L = math.hypot(tx, tz)
-        tx, tz = tx / L, tz / L
-        if i:
-            s += math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1])
-        out.append((p, (-tz, tx), s))
-    return out
+def height(t, v):
+    """Lift of the cloth at (t along, v across) - soft wrinkles, rumpled edges, curled ends."""
+    w = 2 * v - 1                                           # -1 .. 1 across the width
+    z = 0.0030 * max(0.0, math.sin(t * math.pi * 6.0 + 0.8)) ** 2      # ridges across the strip
+    z += 0.0022 * max(0.0, math.sin(t * math.pi * 3.0 + 2.0 + w)) ** 3  # diagonal fold
+    z += 0.0012 * (w * w) * (0.5 + 0.5 * math.sin(t * 23.0))           # wavy edges
+    z += 0.012 * max(0.0, (t - 0.88) / 0.12) ** 2 * (0.7 + 0.3 * w)     # one end curls up
+    z += 0.004 * max(0.0, (0.06 - t) / 0.06) ** 2                       # other end lifts a touch
+    return z
 
 
 # ---------------------------------------------------------------- mesh
 def build_mesh():
-    frames = path_frames(build_path())
-    n_tail_start = TURNS * SEG_PER_TURN
-    verts, faces, uvs = [], [], []
+    rows = []
+    s = 0.0
+    prev = None
+    for i in range(LEN_SEGS + 1):
+        t = i / LEN_SEGS
+        a, b = centre(max(t - 1e-3, 0)), centre(min(t + 1e-3, 1))
+        tx, ty = b[0] - a[0], b[1] - a[1]
+        L = math.hypot(tx, ty)
+        tx, ty = tx / L, ty / L
+        cx, cy = centre(t)
+        if prev:
+            s += math.hypot(cx - prev[0], cy - prev[1])
+        prev = (cx, cy)
+        rows.append((t, cx, cy, tx, ty, s))
+
+    verts = []
     ring = (WIDTH_SEGS + 1) * 2
-    last = len(frames) - 1
-    for i, ((x, z), (nx, nz), s) in enumerate(frames):
-        for side in (0, 1):            # 0 = outer/bottom face of the cloth, 1 = inner/top
-            off = THICK * side
+    for i, (t, cx, cy, tx, ty, _) in enumerate(rows):
+        nx, ny = -ty, tx                                  # across the strip, in the ground plane
+        for side in (0, 1):                               # 0 = underside, 1 = top
             for j in range(WIDTH_SEGS + 1):
                 v = j / WIDTH_SEGS
-                y = (v - 0.5) * WIDTH
-                px, pz = x + nx * off, z + nz * off
-                if i == last:          # frayed, roughly-cut end
-                    px += rng.uniform(-0.004, 0.002)
-                if i > n_tail_start:   # a little sag across the width of the loose tail
-                    pz += 0.0009 * math.sin(v * math.pi)
-                verts.append((px, y, pz))
+                off = (v - 0.5) * WIDTH
+                along = 0.0
+                if i in (0, LEN_SEGS):                    # frayed, roughly-cut ends
+                    along = rng.uniform(-0.004, 0.004) if 0 < j < WIDTH_SEGS else rng.uniform(-0.002, 0.0)
+                    along *= -1 if i == 0 else 1
+                elif j in (0, WIDTH_SEGS):                # slightly ragged long edges
+                    off += rng.uniform(-0.0006, 0.0006) * (1 if j else -1)
+                z = height(t, v) + THICK * side
+                verts.append((cx + nx * off + tx * along, cy + ny * off + ty * along, z))
+
     def vid(i, side, j):
         return i * ring + side * (WIDTH_SEGS + 1) + j
 
-    for i in range(last):
-        u0, u1 = frames[i][2] / TILE, frames[i + 1][2] / TILE
+    faces, uvs = [], []
+    for i in range(LEN_SEGS):
+        u0, u1 = rows[i][5] / TILE, rows[i + 1][5] / TILE
         for j in range(WIDTH_SEGS):
             v0, v1 = j / WIDTH_SEGS, (j + 1) / WIDTH_SEGS
-            # outer face
-            faces.append((vid(i, 0, j), vid(i, 0, j + 1), vid(i + 1, 0, j + 1), vid(i + 1, 0, j)))
-            uvs.append(((u0, v0), (u0, v1), (u1, v1), (u1, v0)))
-            # inner face
-            faces.append((vid(i, 1, j), vid(i + 1, 1, j), vid(i + 1, 1, j + 1), vid(i, 1, j + 1)))
+            faces.append((vid(i, 0, j), vid(i + 1, 0, j), vid(i + 1, 0, j + 1), vid(i, 0, j + 1)))
             uvs.append(((u0, v0), (u1, v0), (u1, v1), (u0, v1)))
-        # side walls (the layered edges of the roll)
-        for j, flip in ((0, False), (WIDTH_SEGS, True)):
-            q = (vid(i, 0, j), vid(i + 1, 0, j), vid(i + 1, 1, j), vid(i, 1, j))
+            faces.append((vid(i, 1, j), vid(i, 1, j + 1), vid(i + 1, 1, j + 1), vid(i + 1, 1, j)))
+            uvs.append(((u0, v0), (u0, v1), (u1, v1), (u1, v0)))
+        for j, flip in ((0, False), (WIDTH_SEGS, True)):   # long edges
+            q = (vid(i, 0, j), vid(i, 1, j), vid(i + 1, 1, j), vid(i + 1, 0, j))
+            uv = ((u0, 0), (u0, 0.04), (u1, 0.04), (u1, 0))
             faces.append(q[::-1] if flip else q)
-            e = 0.04
-            uv = ((u0, 0), (u1, 0), (u1, e), (u0, e))
             uvs.append(uv[::-1] if flip else uv)
-    # end caps
-    for i, flip in ((0, True), (last, False)):
+    for i, flip in ((0, False), (LEN_SEGS, True)):          # cut ends
         for j in range(WIDTH_SEGS):
-            q = (vid(i, 0, j), vid(i, 1, j), vid(i, 1, j + 1), vid(i, 0, j + 1))
+            q = (vid(i, 0, j), vid(i, 0, j + 1), vid(i, 1, j + 1), vid(i, 1, j))
+            uv = ((0, j / WIDTH_SEGS), (0, (j + 1) / WIDTH_SEGS),
+                  (0.04, (j + 1) / WIDTH_SEGS), (0.04, j / WIDTH_SEGS))
             faces.append(q[::-1] if flip else q)
-            uvs.append(((0, j / WIDTH_SEGS), (0.04, j / WIDTH_SEGS),
-                        (0.04, (j + 1) / WIDTH_SEGS), (0, (j + 1) / WIDTH_SEGS)))
+            uvs.append(uv[::-1] if flip else uv)
 
     me = bpy.data.meshes.new("Bandage")
     me.from_pydata(verts, [], faces)
@@ -120,7 +110,6 @@ def build_mesh():
             uvl.data[li].uv = uv
     me.validate()
     me.update()
-    # make sure everything faces outward
     obj = bpy.data.objects.new("Bandage", me)
     bpy.context.scene.collection.objects.link(obj)
     bpy.context.view_layer.objects.active = obj
