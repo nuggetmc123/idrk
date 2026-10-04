@@ -1,7 +1,7 @@
 # Drivable survival boat (FBX)
 
 A low-poly, beat-up wooden motor skiff in the style of Rust's rowboat / Stranded Deep's small boats:
-plank hull, three benches, oars, a fuel can, rope, and a
+plank hull, three benches, a fuel can, and a
 clean army-green tiller outboard.
 
 ![preview](preview.png)
@@ -22,7 +22,7 @@ clean army-green tiller outboard.
 
 ```
 Boat                      root, put the Rigidbody + BoatController here
-├─ Hull, Gunwale, Seat_*, Rib_*, Oar_*, Fuel_Can ...   (static meshes)
+├─ Hull, Gunwale, Seat_*, Rib_*, Fuel_Can ...   (static meshes)
 ├─ Motor_Pivot            rotate around up to steer the outboard
 │  ├─ Motor_Cowling, Motor_Leg, Motor_Tiller ...
 │  ├─ Propeller           spin around the boat's forward axis

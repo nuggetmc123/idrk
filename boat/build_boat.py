@@ -132,7 +132,6 @@ M_PAINT = material("M_Boat_PaintedMetal", image=IMG_PAINT, rough=0.55, metal=0.2
 M_STEEL = material("M_Boat_Steel", image=IMG_STEEL, rough=0.4, metal=0.8)
 M_BLACK = material("M_Boat_Rubber", (0.03, 0.03, 0.03), rough=0.9)
 M_RED = material("M_Boat_FuelCan", (0.45, 0.05, 0.03), rough=0.5, metal=0.4)
-M_ROPE = material("M_Boat_Rope", (0.55, 0.47, 0.32), rough=1.0)
 
 
 # --------------------------------------------------------------------------- helpers
@@ -403,18 +402,6 @@ empty("FX_Prop_Wash", (0, 0.45, -0.34), motor, kind="CONE", size=0.15)
 box("Fuel_Can", (0.17, 0.32, 0.36), (0.33, 1.30, 0.065), M_RED, boat_root)
 box("Fuel_Can_Handle", (0.04, 0.16, 0.04), (0.33, 1.30, 0.265), M_RED, boat_root)
 cylinder("Fuel_Can_Cap", 0.03, 0.05, (0.33, 1.18, 0.265), M_BLACK, boat_root, seg=6)
-
-rail("Rope_Coil", [(math.cos(a) * (0.16 - a * 0.004) - 0.2, math.sin(a) * (0.16 - a * 0.004) + y_at(0.82),
-                              station(0.82)[2] + 0.12 + a * 0.003)
-                             for a in np.linspace(0, 4 * math.pi, 17)], 0.02, M_ROPE, boat_root)
-
-# Two oars stowed along the benches
-for side in (-1, 1):
-    x = side * 0.42
-    o = cylinder(f"Oar_{'L' if side < 0 else 'R'}_Shaft", 0.022, 2.1, (x, 0.30, bench_z + 0.06), M_WOOD, boat_root,
-                 rot=(math.radians(90), 0, 0), seg=6)
-    box(f"Oar_{'L' if side < 0 else 'R'}_Blade", (0.15, 0.48, 0.015), (x, 0.30 - 1.2, bench_z + 0.06), M_WOOD,
-        boat_root)
 
 # --------------------------------------------------------------------------- gameplay sockets
 sockets = empty("Sockets", (0, 0, 0), boat_root)
