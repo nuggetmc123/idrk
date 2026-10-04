@@ -515,6 +515,7 @@ collider.data.materials.clear()
 collider.data.uv_layers.remove(collider.data.uv_layers[0]) if collider.data.uv_layers else None
 collider.display_type = "WIRE"
 collider.hide_render = True
+collider.hide_viewport = True   # it's a solid lid over the boat; keep it out of sight in the .blend
 for img in [i for i in bpy.data.images if i is not atlas]:
     os.remove(bpy.path.abspath(img.filepath_raw))  # only the baked atlas ships
     bpy.data.images.remove(img)
@@ -528,9 +529,7 @@ for m in [m for m in bpy.data.materials if m is not M_BOAT]:
 os.chdir(OUT)
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "Boat.blend"), compress=True, check_existing=False)
 
-bpy.ops.export_scene.fbx(
-    filepath=os.path.join(OUT, "Boat.fbx"),
-    use_selection=False,
+FBX_OPTS = dict(
     apply_unit_scale=True,
     apply_scale_options="FBX_SCALE_ALL",
     axis_forward="-Z",
@@ -539,10 +538,17 @@ bpy.ops.export_scene.fbx(
     object_types={"MESH"},
     mesh_smooth_type="FACE",
     add_leaf_bones=False,
-    path_mode="COPY",
-    embed_textures=True,
 )
-bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, "Boat.glb"), export_format="GLB")
+# The visible model. The collider is NOT in here: it's a closed convex hull, so in a viewer
+# or engine it shows up as a solid lid covering the inside of the boat.
+select(parts)
+bpy.ops.export_scene.fbx(filepath=os.path.join(OUT, "Boat.fbx"), use_selection=True,
+                         path_mode="COPY", embed_textures=True, **FBX_OPTS)
+bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, "Boat.glb"), export_format="GLB", use_selection=True)
+# Optional low-poly physics hull, in its own file.
+collider.hide_viewport = False
+select([collider])
+bpy.ops.export_scene.fbx(filepath=os.path.join(OUT, "Boat_Collider.fbx"), use_selection=True, **FBX_OPTS)
 
 tris = sum(len(p.vertices) - 2 for o in parts for p in o.data.polygons)
 print("objects:", [o.name for o in bpy.data.objects], "tris:", tris)

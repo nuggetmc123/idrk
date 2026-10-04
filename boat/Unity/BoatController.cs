@@ -5,8 +5,9 @@ using UnityEngine;
 ///
 /// Setup:
 ///  1. Drop Boat.fbx in the scene. Add a Rigidbody (mass ~350) and this script to the
-///     top object (the prefab root that holds Boat, Motor, Propeller and Boat_Collider).
-///  2. On the child "Boat_Collider" add a MeshCollider (Convex ON). Its renderer is hidden at runtime.
+///     top object (the prefab root that holds Boat, Motor and Propeller).
+///  2. Collision is added automatically (convex MeshCollider on "Boat"). For a cheaper one,
+///     drop Boat_Collider.fbx in as a child instead; its renderer is hidden at runtime.
 ///  3. Set waterLevel to your ocean height (or override GetWaterHeight for waves).
 ///     Seat, exit and float points are created automatically if you leave them empty.
 ///
@@ -79,7 +80,12 @@ public class BoatController : MonoBehaviour
         if (motorPivot) motorRest = motorPivot.localRotation;
 
         var col = Find("Boat_Collider");
-        if (col && col.TryGetComponent(out MeshRenderer mr)) mr.enabled = false;
+        if (!col) col = Find("Boat");
+        if (col)
+        {
+            if (col.name == "Boat_Collider" && col.TryGetComponent(out MeshRenderer mr)) mr.enabled = false;
+            if (!col.GetComponent<Collider>()) col.gameObject.AddComponent<MeshCollider>().convex = true;
+        }
     }
 
     Transform Point(string n, Vector3 localPos)
