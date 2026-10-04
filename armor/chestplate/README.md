@@ -1,6 +1,6 @@
 # Scrap-metal chest plate (PeeperLeeper)
 
-Rusty, bolted-together chest armor in a Rust-style scavenged look, fitted to `../PeeperLeeper.fbx` and skinned to its rig.
+Bolted-together scrap-metal chest armor (clean steel by default — set `RUST` in the script to add rust back), fitted to `../PeeperLeeper.fbx` and skinned to its rig.
 
 ![front](previews/pose_front.png)
 
@@ -35,7 +35,7 @@ To repaint, edit the textures in `textures/`, or change the `Proc_*` materials a
 
 **By settings:** open `build_chestplate.py` and edit the SETTINGS block. You can change the gap from the body
 (`CLEARANCE`), plate thickness, dent count and depth, rivet size and spacing, neckline shape, plate coverage,
-belly lame count, pauldron size and dome height, strap heights, scrap patch position, the crack weld path and the random `SEED`. Then run:
+belly lame count, rust amount (`RUST`, 0 = clean), pauldron size and dome height, strap heights, scrap patch position, the crack weld path and the random `SEED`. Then run:
 
 ```sh
 blender --background --python build_chestplate.py

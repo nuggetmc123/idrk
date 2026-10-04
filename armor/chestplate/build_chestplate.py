@@ -49,6 +49,7 @@ DENT_RADIUS = 0.028
 RIVET_RADIUS = 0.0048
 RIVET_SPACING = 0.032
 RIM_RADIUS = 0.0045         # rolled / welded-on edge bars
+RUST = 0.0                  # 0 = clean steel, 1 = fully rusted scrap (scales every rust patch)
 
 # Torso axis (the body is a rounded pod centred here, measured from the mesh).
 AXIS_Y = 0.015
@@ -798,7 +799,7 @@ class NT:
 
 
 def rust_layers(t, steel, steel_dark, rust_amount, seed):
-    """Shared rusty steel look: returns (color, metallic, roughness, height, coords)."""
+    """Shared steel look (rust scaled by RUST): returns (color, metallic, roughness, height, coords)."""
     co = t.node('ShaderNodeTexCoord').outputs['Object']
     off = t.node('ShaderNodeVectorMath', operation='ADD')
     t.link(co, off.inputs[0])
@@ -818,6 +819,7 @@ def rust_layers(t, steel, steel_dark, rust_amount, seed):
     m = t.math('ADD', m, t.math('MULTIPLY', cav, 0.5, False), False)
     m = t.math('ADD', m, t.math('MULTIPLY', t.ramp(streak, 0.55, 0.75), 0.25, False), False)
     rust = t.ramp(m, 1.02 - rust_amount * 0.5, 1.10 - rust_amount * 0.5)
+    rust = t.math('MULTIPLY', rust, RUST)
     rust_col = t.mixc(t.ramp(pits, 0.35, 0.7), (0.30, 0.10, 0.03), (0.55, 0.22, 0.07))
     rust_col = t.mixc(t.ramp(big, 0.55, 0.8), rust_col, (0.16, 0.06, 0.025))
     metal_col = t.mixc(tint, steel_dark, steel)
@@ -830,7 +832,7 @@ def rust_layers(t, steel, steel_dark, rust_amount, seed):
     col = col.outputs[2]
     metal = t.mixf(rust, 0.65, 0.05)
     rough = t.mixf(rust, t.mixf(tint, 0.38, 0.55), 0.92)
-    height = t.math('ADD', t.math('MULTIPLY', rust, 0.6, False), t.math('MULTIPLY', pits, 0.4, False), False)
+    height = t.math('ADD', t.math('MULTIPLY', rust, 0.6, False), t.math('MULTIPLY', pits, 0.4 * RUST + 0.05, False), False)
     return col, metal, rough, height, co
 
 
