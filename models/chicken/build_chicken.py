@@ -163,7 +163,7 @@ add_part("Body", loft(
     segs=10), "Feather", "Body")
 
 # Fluffy vent feathers under the tail.
-add_part("Body", loft([(0, 0.1, 0.19), (0, 0.17, 0.23), (0, 0.21, 0.27)],
+add_part("BodyFluff", loft([(0, 0.1, 0.19), (0, 0.17, 0.23), (0, 0.21, 0.27)],
                       [(0.07, 0.05), (0.055, 0.045), (0, 0)], segs=8, jag=0.25),
          "Feather", "Body")
 
@@ -182,9 +182,9 @@ add_part("Head", loft(
     segs=8), "Hackle", "Head")
 
 # Upper and lower beak: short, slightly hooked.
-add_part("Beak", loft([(0, -0.222, HEAD_Z - 0.004), (0, -0.25, HEAD_Z - 0.01), (0, -0.27, HEAD_Z - 0.022)],
+add_part("Beak.Upper", loft([(0, -0.222, HEAD_Z - 0.004), (0, -0.25, HEAD_Z - 0.01), (0, -0.27, HEAD_Z - 0.022)],
                       [(0.016, 0.012), (0.009, 0.007), (0, 0)], segs=6), "Beak", "Head")
-add_part("Beak", loft([(0, -0.222, HEAD_Z - 0.018), (0, -0.248, HEAD_Z - 0.022), (0, -0.258, HEAD_Z - 0.025)],
+add_part("Beak.Lower", loft([(0, -0.222, HEAD_Z - 0.018), (0, -0.248, HEAD_Z - 0.022), (0, -0.258, HEAD_Z - 0.025)],
                       [(0.012, 0.006), (0.006, 0.004), (0, 0)], segs=6), "Beak", "Head")
 
 # Serrated single comb running from the beak back over the crown.
@@ -196,16 +196,16 @@ add_part("Comb", blade([
 ], 0.012), "Comb", "Head")
 
 # Wattles and ear lobes.
-for side in (-1, 1):
-    add_part("Wattle", sphere(6, 5, 1.0), "Comb", "Head",
+for side, sfx in ((-1, ".R"), (1, ".L")):
+    add_part("Wattle" + sfx, sphere(6, 5, 1.0), "Comb", "Head",
              T(mirror(side, (0.011, -0.226, HEAD_Z - 0.045)), scale=(0.011, 0.014, 0.024)))
-    add_part("Wattle", sphere(5, 4, 1.0), "Comb", "Head",
+    add_part("EarLobe" + sfx, sphere(5, 4, 1.0), "Comb", "Head",
              T(mirror(side, (0.04, -0.16, HEAD_Z - 0.018)), scale=(0.006, 0.012, 0.014)))
 
 # Eyes: amber iris with a black pupil.
-for side, part in ((-1, "Eye.R"), (1, "Eye.L")):
-    add_part(part, sphere(6, 5, 0.011), "Iris", "Head", T(mirror(side, (0.036, -0.198, HEAD_Z + 0.006))))
-    add_part(part, sphere(5, 4, 0.006), "Pupil", "Head", T(mirror(side, (0.045, -0.2, HEAD_Z + 0.007))))
+for side, sfx in ((-1, ".R"), (1, ".L")):
+    add_part("Eye" + sfx, sphere(6, 5, 0.011), "Iris", "Head", T(mirror(side, (0.036, -0.198, HEAD_Z + 0.006))))
+    add_part("Pupil" + sfx, sphere(5, 4, 0.006), "Pupil", "Head", T(mirror(side, (0.045, -0.2, HEAD_Z + 0.007))))
 
 # ---------------------------------------------------------------- tail
 # Upright fan of dark feathers, the centre ones tallest.
@@ -214,7 +214,7 @@ for i, fan in enumerate((-40, -25, -10, 10, 25, 40)):
     h = 1.0 - abs(fan) / 110.0
     feather = loft([(0, 0, 0), (0, 0.03, 0.06 * h), (0, 0.06, 0.12 * h), (0, 0.1, 0.16 * h), (0, 0.13, 0.17 * h)],
                    [(0.006, 0.02), (0.006, 0.032), (0.005, 0.034), (0.004, 0.026), (0, 0)], segs=4)
-    add_part("Tail", feather, "FeatherDark", "Tail",
+    add_part(f"TailFeather.{i + 1}", feather, "FeatherDark", "Tail",
              T(TAIL_BASE + Vector((math.sin(math.radians(fan)) * 0.04, 0, 0)), rot=(0, fan, fan * 0.15)))
 
 # ---------------------------------------------------------------- wings
@@ -226,7 +226,7 @@ for side, bone in ((-1, "Wing.R"), (1, "Wing.L")):
         "FeatherWing", bone, T((side * 0.128, 0, 0), rot=(0, 0, side * 6)))
     # Primary flight feathers poking out along the lower back edge.
     for k in range(4):
-        add_part(bone, loft([(0, 0, 0), (0, 0.06, -0.005), (0, 0.12, 0.0), (0, 0.15, 0.01)],
+        add_part(f"WingFeather{bone[4:]}.{k + 1}", loft([(0, 0, 0), (0, 0.06, -0.005), (0, 0.12, 0.0), (0, 0.15, 0.01)],
                             [(0.004, 0.014), (0.004, 0.017), (0.003, 0.012), (0, 0)], segs=4),
                  "FeatherDark", bone,
                  T((side * (0.135 - k * 0.006), 0.04 + k * 0.012, 0.235 + k * 0.01), rot=(-6, 0, side * (4 + k * 3))))
@@ -243,20 +243,28 @@ for side, sfx in ((-1, ".R"), (1, ".L")):
     # Scaly yellow shank with a small spur.
     add_part("Shank" + sfx, loft([HOCK + off, (HOCK + ANKLE) / 2 + off, ANKLE + off],
                                  [(0.012, 0.013), (0.01, 0.011), (0.011, 0.012)], segs=6), "Leg", "Shank" + sfx)
-    add_part("Shank" + sfx, loft([ANKLE + off + Vector((0, 0.008, 0.03)), ANKLE + off + Vector((0, 0.022, 0.028))],
+    add_part("Spur" + sfx, loft([ANKLE + off + Vector((0, 0.008, 0.03)), ANKLE + off + Vector((0, 0.022, 0.028))],
                                  [(0.004, 0.004), (0, 0)], segs=4), "Claw", "Shank" + sfx)
     # Three forward toes and one back toe, each ending in a claw.
-    for ang, length in ((-32, 0.06), (0, 0.072), (32, 0.06), (180, 0.032)):
+    for toe, ang, length in (("Inner", -32, 0.06), ("Middle", 0, 0.072), ("Outer", 32, 0.06), ("Back", 180, 0.032)):
         d = Vector((math.sin(math.radians(ang)) * side, -math.cos(math.radians(ang)), 0))
         base = ANKLE + off + Vector((0, 0, -0.006))
         tip = base + d * length + Vector((0, 0, -0.004))
-        add_part("Foot" + sfx, loft([base, base + d * length * 0.5, tip],
+        add_part(f"Toe{sfx}.{toe}", loft([base, base + d * length * 0.5, tip],
                                     [(0.008, 0.007), (0.006, 0.005), (0.004, 0.004)], segs=5),
                  "Leg", "Foot" + sfx)
-        add_part("Foot" + sfx, loft([tip, tip + d * 0.014 + Vector((0, 0, -0.004))],
+        add_part(f"Claw{sfx}.{toe}", loft([tip, tip + d * 0.014 + Vector((0, 0, -0.004))],
                                     [(0.004, 0.004), (0, 0)], segs=4), "Claw", "Foot" + sfx)
 
 # ---------------------------------------------------------------- build objects
+# Parts are grouped into collections (folders in Blender's Outliner) by the bone they follow.
+REGIONS = {"Body": "Body", "Neck1": "Head", "Neck2": "Head", "Head": "Head", "Tail": "Tail",
+           "Wing.L": "Wings", "Wing.R": "Wings"}
+collections = {}
+for name in ("Head", "Body", "Wings", "Tail", "Legs"):
+    collections[name] = bpy.data.collections.new("Chicken_" + name)
+    scene.collection.children.link(collections[name])
+
 part_objs = []
 for part, entry in PARTS.items():
     bm = entry["bm"]
@@ -273,7 +281,8 @@ for part, entry in PARTS.items():
         poly.use_smooth = False  # flat shaded, faceted look
     obj = bpy.data.objects.new(part, mesh)
     obj.location = center
-    scene.collection.objects.link(obj)
+    region = REGIONS.get(next(iter(entry["weights"][0])), "Legs")
+    collections[region].objects.link(obj)
     part_objs.append((obj, entry["weights"]))
 
 # Simple projected UVs so engines that require UVs are happy.
@@ -491,5 +500,5 @@ tris = 0
 for obj, _ in part_objs:
     t = sum(len(p.vertices) - 2 for p in obj.data.polygons)
     tris += t
-    print(f"{obj.name:10s} tris {t:4d}  bones {sorted(obj.vertex_groups.keys())}")
+    print(f"{obj.name:20s} tris {t:4d}  bones {sorted(obj.vertex_groups.keys())}")
 print("total tris:", tris)

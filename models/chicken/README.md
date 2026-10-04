@@ -14,12 +14,20 @@ amber eyes, jointed yellow legs with claws.
 |---|---|
 | Size | ~2.75 m tall (`SCALE = 5.0` at the top of the script; 1.0 gives a real-size ~0.55 m hen) |
 | Polycount | ~1,670 tris |
-| Parts | 17 separate meshes: Body, Neck, Head, Beak, Comb, Wattle, Eye.L/R, Tail, Wing.L/R, Thigh.L/R, Shank.L/R, Foot.L/R |
+| Parts | 53 separate meshes, grouped in Blender into `Chicken_Head`, `Chicken_Body`, `Chicken_Wings`, `Chicken_Tail`, `Chicken_Legs` collections |
 | Materials | 10 solid colours (`PALETTE` in the script) |
 | Rig | Root, Body, Neck1, Neck2, Head, Tail, Wing.L/R, Thigh.L/R, Shank.L/R, Foot.L/R |
 | Animations @ 30 fps | `Idle` (73f), `Walk` (25f loop), `Run` (17f loop), `Peck` (31f), `Flap` (25f), `Death` (41f) |
 
 Exported with forward `-Z` and up `Y`, so in Unity the chicken faces `+Z`.
+
+## Parts
+
+- **Head (13):** Neck, Head, Beak.Upper, Beak.Lower, Comb, Wattle.L/R, EarLobe.L/R, Eye.L/R, Pupil.L/R
+- **Body (2):** Body, BodyFluff
+- **Wings (10):** Wing.L/R, WingFeather.L.1-4, WingFeather.R.1-4
+- **Tail (6):** TailFeather.1-6
+- **Legs (22 = 11 per side):** Thigh, Shank, Spur, Toe.Inner/Middle/Outer/Back, Claw.Inner/Middle/Outer/Back
 
 ## Editing parts
 
