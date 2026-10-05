@@ -1,7 +1,15 @@
 # PeeperLeeper clothing pack
 
-20 survival-style clothing pieces (Rust / Stray-VR vibe) fitted to
+20 beat-up survival clothing pieces in a Rust-like style, fitted to
 `PlayerModel/PeeperLeeper.fbx`, the legless, long-armed monkey player.
+
+Everything looks scavenged and sewn together from scraps:
+- mismatched patch panels (re-dyed, sun-bleached, burlap, hide, denim), raised and layered
+- dark cross-stitches along every seam
+- torn, ragged hems and cuffs with loose threads hanging off
+- rips and holes, including worn-through elbows on the long sleeves
+- dirty cloth wraps around arms and shins
+- grimy, faded, oil- and mud-stained textures
 
 ![overview](overview.jpg)
 
@@ -37,7 +45,7 @@ Each piece's folder (for example `Pants/01_CargoPants/`) holds:
 - **Legs:** the player model has no legs, so trousers and shorts get hanging fabric legs
   below the body (long for pants, short for shorts). Their tops tuck inside the body and
   they are weighted to `Hips`.
-- Triangle budget: about 1.7k–3.4k faces for bottoms and short-sleeve tops, about 5–6k for long sleeves.
+- Size: about 3–5.5k vertices for bottoms and tees (striped tee about 9k), about 9–10.5k for long sleeves.
 
 ## Regenerating / making more
 
@@ -51,6 +59,8 @@ python3 tools/build_all.py PlayerModel/PeeperLeeper.fbx . hoodie     # just one
 python3 tools/contact_sheet.py . overview.jpg
 ```
 
+The wear-and-tear pass lives in the `Wear` class in `tools/clothing_lib.py`. Change the
+`seed` passed to `wear(...)` in a garment function to get a different patch layout, tears and wraps.
 Each garment is a short function in `tools/build_all.py`. For example, `cargo_pants` lists
 its materials, cuts, pockets and belt, so new pieces are mostly copy-and-edit work. The
 geometry helpers live in `tools/clothing_lib.py`.

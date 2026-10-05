@@ -103,7 +103,7 @@ def _c(hexstr):
     return srgb
 
 
-def make_texture(kind, colors, seed=0, n=512, grime=0.3):
+def make_texture(kind, colors, seed=0, n=512, grime=0.3, wear=1.0):
     """Return an (n, n, 3) sRGB float array for a fabric pattern."""
     rng = np.random.default_rng(seed)
     X, Y = _grid(n)
@@ -182,6 +182,22 @@ def make_texture(kind, colors, seed=0, n=512, grime=0.3):
         img = np.broadcast_to(C[0], (n, n, 3)).copy()
     img = img * (0.9 + 0.2 * grain)[..., None]
     img = img * (1 - grime * blotch ** 2)[..., None]
+    if wear and kind not in ('flat', 'metal'):
+        # sun-bleached fading toward a dusty grey-beige
+        fade = fftnoise(n, 3, rng)[..., None] * 0.45 * wear
+        dust = _c('#8a8170')
+        img = img * (1 - fade) + (img.mean(axis=2, keepdims=True) * 0.5 + dust * 0.5) * fade
+        # dark oily/mud stains with hard-ish edges
+        st = fftnoise(n, 6, rng)
+        m = np.clip((st - 0.7) * 6, 0, 1)[..., None] * 0.45 * wear
+        img = img * (1 - m) + _c('#2e2418') * m
+        # rusty-brown splotches
+        st2 = fftnoise(n, 14, rng)
+        m2 = np.clip((st2 - 0.78) * 8, 0, 1)[..., None] * 0.35 * wear
+        img = img * (1 - m2) + _c('#5a2f17') * m2
+        # scuffs: fine light streaks
+        sc = fftnoise(n, 120, rng)
+        img = img * (1 + 0.18 * wear * np.clip((sc - 0.72) * 6, 0, 1))[..., None]
     return np.clip(img, 0, 1)
 
 
@@ -201,10 +217,12 @@ class Mat:
     """One material slot of a garment."""
 
     def __init__(self, name, kind, colors, tile=0.6, raise_=0.0, rough=0.9,
-                 metal=0.0, seed=0, grime=0.3):
+                 metal=0.0, seed=0, grime=0.38, res=512, stitch=None, wear=1.0):
         self.name, self.kind, self.colors = name, kind, colors
         self.tile, self.raise_, self.rough, self.metal = tile, raise_, rough, metal
-        self.seed, self.grime = seed, grime
+        self.seed, self.grime, self.res, self.wear = seed, grime, res, wear
+        self.stitch = (kind in ('fabric', 'burlap', 'denim', 'camo', 'plaid', 'waffle',
+                                'rib', 'leather')) if stitch is None else stitch
 
     def build(self, tex_dir, prefix):
         m = bpy.data.materials.new(f'{prefix}_{self.name}')
@@ -219,7 +237,8 @@ class Mat:
         if self.kind != 'flat':
             path = os.path.join(tex_dir, f'{prefix}_{self.name}.jpg')
             img = save_texture(make_texture(self.kind, self.colors, self.seed,
-                                            grime=self.grime), path)
+                                            n=self.res, grime=self.grime,
+                                            wear=self.wear), path)
             tn = nt.nodes.new('ShaderNodeTexImage')
             tn.image = img
             nt.links.new(tn.outputs['Color'], bsdf.inputs['Base Color'])
@@ -339,7 +358,7 @@ class Shell:
 
     def __init__(self, ctx, keep, cuts=(), regions=(), holes=(), gap=0.03,
                  gap_arm=None, min_gap=None, min_gap_arm=None, thick=0.012,
-                 smooth=0, wrinkle=0.006, wrinkle_freq=9.0, sleeve_folds=0.0,
+                 smooth=0, wrinkle=0.01, wrinkle_freq=8.0, sleeve_folds=0.0,
                  seed=0, mats=None):
         self.loops = {}
         rng = random.Random(seed)
@@ -395,9 +414,22 @@ class Shell:
             f.material_index = 0
             p = f.calc_center_median()
             for r in regions:
-                if r.pred(p):
+                if hasattr(r, 'which'):
+                    mi = r.which(p)
+                    if mi is not None:
+                        f.material_index = mi
+                elif r.pred(p):
                     f.material_index = r.mat
             f.smooth = True
+        # torn edges to hang fraying threads from
+        fray_src = []
+        for v in bm.verts:
+            if not v.is_boundary:
+                continue
+            for c in cuts:
+                if c.ragged and -c.ragged - 0.01 <= c.d(v.co) <= 1e-4:
+                    fray_src.append((v, c.no.copy()))
+                    break
         if named:   # re-find loop verts (slicing may have added some)
             loop_verts = {c.name: [v for v in bm.verts if v.is_boundary and
                                    abs(c.d(v.co)) < 1e-4] for c in named}
@@ -442,6 +474,7 @@ class Shell:
         bm.normal_update()
         for name, vs in loop_verts.items():
             self.loops[name] = [(v.co.copy(), v.normal.copy()) for v in vs]
+        self.fray = [(v.co + v.normal * thick * 0.5, d) for v, d in fray_src]
         self.thick = thick
         self.bm = _solidify(bm, thick)
         bm.free()
@@ -554,7 +587,7 @@ def ordered_loop(loop, center=V(0, LEG_Y, 0)):
 
 def leg_tube(bm, side, z_top, z_bot, r_top, r_bot, mat, cap_mat, segs=20,
              rings=12, wobble=0.006, ragged=0.0, flare=0.0, blouse=0.0,
-             stripe_mat=None, seed=0):
+             stripe_mat=None, seed=0, panels=None):
     """A trouser leg hanging below the legless body (top end hides inside)."""
     rng = random.Random(seed * 7 + (side > 0))
     cx = LEG_X * side
@@ -585,6 +618,10 @@ def leg_tube(bm, side, z_top, z_bot, r_top, r_bot, mat, cap_mat, segs=20,
             ang = 2 * math.pi * (k + 0.5) / segs
             outer = math.cos(ang) * side
             f.material_index = stripe_mat if (stripe_mat is not None and outer > 0.93) else mat
+            if panels is not None and f.material_index == mat:
+                mi = panels.which(f.calc_center_median())
+                if mi is not None:
+                    f.material_index = mi
             f.smooth = True
             faces.append(f)
     # dark recessed cap so the leg reads as hollow fabric from below
@@ -648,7 +685,36 @@ def transfer_weights(ctx, ob):
             vg.add([idx], w, 'REPLACE')
 
 
-def finish(ctx, name, bm, mats, tex_dir, max_dist=0.6):
+def stitch_seams(ctx, bm, mats, thread, spacing=0.032):
+    """Cross-stitches along every seam where two scrap materials meet."""
+    placed = []
+    todo = []
+    for e in bm.edges:
+        if len(e.link_faces) != 2:
+            continue
+        f1, f2 = e.link_faces
+        m1, m2 = f1.material_index, f2.material_index
+        if m1 == m2 or not (mats[m1].stitch and mats[m2].stitch):
+            continue
+        mid = (e.verts[0].co + e.verts[1].co) / 2
+        n = (f1.normal + f2.normal).normalized()
+        loc, _, _, _ = ctx.bvh.find_nearest(mid)
+        if (mid - loc).dot(n) <= 0:          # inner surface: hidden
+            continue
+        todo.append((mid, n, (e.verts[1].co - e.verts[0].co).normalized()))
+    cell = {}
+    for mid, n, d in todo:
+        key = tuple(int(c // spacing) for c in mid)
+        near = [cell.get((key[0] + i, key[1] + j, key[2] + k))
+                for i in (-1, 0, 1) for j in (-1, 0, 1) for k in (-1, 0, 1)]
+        if any(q is not None and (q - mid).length < spacing for q in near):
+            continue
+        cell[key] = mid
+        across = d.cross(n).normalized()
+        box(bm, mid + n * 0.003, n, (0.006, 0.03, 0.005), thread, up=across)
+
+
+def finish(ctx, name, bm, mats, tex_dir, max_dist=0.6, thread=None):
     stray = 0
     for v in bm.verts:     # safety net: nothing may float far off the body
         loc, nrm, _, d = ctx.bvh.find_nearest(v.co)
@@ -657,6 +723,8 @@ def finish(ctx, name, bm, mats, tex_dir, max_dist=0.6):
             stray += 1
     if stray:
         print(f'WARNING {name}: pulled in {stray} stray vertices')
+    if thread is not None:
+        stitch_seams(ctx, bm, mats, thread)
     box_uvs(bm, mats)
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
@@ -691,3 +759,173 @@ def export(path, objs):
         filepath=path, use_selection=True, object_types={'ARMATURE', 'MESH'},
         add_leaf_bones=False, bake_anim=False, path_mode='COPY',
         embed_textures=True, mesh_smooth_type='FACE', use_mesh_modifiers=True)
+
+
+# ---------------------------------------------------------------- wear & tear
+SCRAP_PALETTE = [
+    ('burlap', ['#9b7f52']), ('leather', ['#5b3a22']), ('fabric', ['#5d6044']),
+    ('denim', ['#3d5576', '#c4ccd8']), ('fabric', ['#6e6a62']), ('fabric', ['#7a4b33']),
+    ('burlap', ['#7d6a4a']), ('fabric', ['#3f4648']), ('leather', ['#3b2c20']),
+]
+
+
+def _shade(hexstr, k, mix=None, t=0.0):
+    c = _c(hexstr) * k
+    if mix is not None:
+        c = c * (1 - t) + _c(mix) * t
+    c = np.clip(c, 0, 1)
+    return '#' + ''.join(f'{int(round(x * 255)):02x}' for x in c)
+
+
+class Panels:
+    """Split a garment into mismatched scrap panels with random planes."""
+
+    def __init__(self, planes, pool, weights, seed):
+        self.planes = planes
+        self.pool, self.weights, self.seed = pool, weights, seed
+        self._cache = {}
+
+    def which(self, p):
+        key = tuple((p - co).dot(no) > 0 for co, no in self.planes)
+        if key not in self._cache:
+            r = random.Random(hash(key) ^ (self.seed * 2654435761))
+            self._cache[key] = r.choices(self.pool, self.weights)[0]
+        return self._cache[key]
+
+
+class Wear:
+    """Turns a clean garment into a beat-up, scavenged one.
+
+    Appends scrap-fabric materials, a thread material and a wrap material to
+    the garment's material list, and hands out panel layouts, random tears,
+    fraying threads and cloth/tape wraps."""
+
+    def __init__(self, mats, seed, kind, scraps=3, main_weight=0.45):
+        self.mats, self.seed, self.kind = mats, seed, kind
+        self.rng = random.Random(seed * 31 + 7)
+        main = mats[0]
+        base = main.colors[0]
+        pool = [0]
+        # same cloth, re-dyed darker and bleached lighter
+        mats.append(Mat('ScrapDark', main.kind, [_shade(base, 0.68, '#3a2c1c', 0.25)] +
+                        main.colors[1:], tile=main.tile, raise_=0.004, seed=seed + 101,
+                        res=256))
+        mats.append(Mat('ScrapFaded', main.kind, [_shade(base, 1.15, '#a39a86', 0.4)] +
+                        main.colors[1:], tile=main.tile, raise_=0.006, seed=seed + 102,
+                        res=256))
+        pool += [len(mats) - 2, len(mats) - 1]
+        for i in range(scraps - 2 if scraps > 2 else 0):
+            k, cols = self.rng.choice(SCRAP_PALETTE)
+            mats.append(Mat(f'Scrap{i}', k, cols, tile=0.4, raise_=0.005 + 0.002 * i,
+                            seed=seed + 110 + i, res=256))
+            pool.append(len(mats) - 1)
+        self.pool = pool
+        rest = (1 - main_weight) / (len(pool) - 1)
+        self.weights = [main_weight] + [rest] * (len(pool) - 1)
+        mats.append(Mat('Thread', 'flat', ['#1c1712'], stitch=False))
+        self.thread = len(mats) - 1
+        mats.append(Mat('Wrap', 'fabric', ['#b9ae95'], tile=0.25, seed=seed + 120,
+                        res=256, stitch=False))
+        self.wrap = len(mats) - 1
+        self.panels = self._panels()
+
+    def _panels(self):
+        r = self.rng
+        planes = []
+        if self.kind in ('top', 'long'):
+            for _ in range(5):          # torso
+                a = r.uniform(0, math.pi)
+                no = V(math.cos(a), r.uniform(-0.3, 0.3), math.sin(a))
+                planes.append((V(r.uniform(-0.25, 0.25), 0, r.uniform(0.35, 0.85)), no))
+            reach = (0.5, 0.95) if self.kind == 'top' else (0.5, 1.7)
+            for s in (1, -1):           # sleeves
+                for _ in range(2 if self.kind == 'long' else 1):
+                    planes.append((V(s * r.uniform(*reach), 0, 0.77),
+                                   V(1, r.uniform(-0.6, 0.6), r.uniform(-0.6, 0.6))))
+        else:
+            for _ in range(5):          # hips + legs
+                a = r.uniform(0, math.pi)
+                no = V(math.cos(a), r.uniform(-0.3, 0.3), math.sin(a) * 1.4)
+                planes.append((V(r.uniform(-0.2, 0.2), 0, r.uniform(-0.3, 0.3)), no))
+        return Panels(planes, self.pool, self.weights, self.seed)
+
+    def holes(self, ctx, n=3, z=(0.32, 0.85), r=(0.05, 0.08), elbows=False):
+        out = []
+        for i in range(n):
+            a = self.rng.uniform(0, 2 * math.pi)
+            zz = self.rng.uniform(*z)
+            d = V(math.cos(a), math.sin(a), 0)
+            hit = ctx.bvh.ray_cast(V(0, LEG_Y, zz) + d * 0.9, -d, 1.5)
+            if hit[0] is not None and abs(hit[0].x) < 0.33:
+                out.append(hole(hit[0], self.rng.uniform(*r), self.seed + i))
+        if elbows:
+            for s in (1, -1):
+                if self.rng.random() < 0.75:
+                    co, _ = arm_point(FOREARM, 0.03, s)
+                    hit = ctx.bvh.ray_cast(co + V(0, 1, 0), V(0, -1, 0), 2)
+                    if hit[0] is not None:
+                        out.append(hole(hit[0], 0.065, self.seed + 9 + s))
+        return out
+
+    def fray(self, bm, src, mat=0, every=2, length=(0.015, 0.05)):
+        """Loose threads hanging off torn edges. src: [(point, outward dir)]."""
+        r = self.rng
+        for i, (p, d) in enumerate(src):
+            if i % every or r.random() < 0.35:
+                continue
+            ln = r.uniform(*length)
+            dirn = (d + V(r.uniform(-.4, .4), r.uniform(-.4, .4), r.uniform(-.4, .1))
+                    + V(0, 0, -0.5)).normalized()
+            mid = p + dirn * ln * 0.5 + V(r.uniform(-.004, .004), r.uniform(-.004, .004), 0)
+            sweep(bm, [p, mid, p + dirn * ln + V(0, 0, -ln * 0.3)], 0.0032, mat,
+                  closed=False, sides=3)
+
+    def leg_fray(self, bm, rims, z_bot):
+        src = [(p, V(0, 0, -1)) for rim in rims for p in rim]
+        self.fray(bm, src, every=1)
+
+
+def wrap_band(bm, ring, axis, width, mat, lift=0.003, thick=0.008, tilt=0.0):
+    """A strip of cloth or tape wrapped round a limb. ring: [(point, normal)]."""
+    axis = Vector(axis).normalized()
+    n = len(ring)
+    if n < 3:
+        return
+    rows = []
+    for i, (p, nr) in enumerate(ring):
+        sh = axis * (tilt * math.sin(2 * math.pi * i / n))
+        a = p + nr * lift + sh
+        b = p + nr * (lift + thick) + sh
+        rows.append([bm.verts.new(a - axis * width / 2), bm.verts.new(b - axis * width / 2),
+                     bm.verts.new(b + axis * width / 2), bm.verts.new(a + axis * width / 2)])
+    faces = []
+    for i in range(n):
+        r0, r1 = rows[i], rows[(i + 1) % n]
+        for k in range(4):
+            k1 = (k + 1) % 4
+            try:
+                faces.append(bm.faces.new((r0[k], r0[k1], r1[k1], r1[k])))
+            except ValueError:
+                pass
+    bm.normal_update()
+    c = sum((p for p, _ in ring), Vector()) / n
+    flip = sum((f.calc_center_median() - c).dot(f.normal) for f in faces) < 0
+    for f in faces:
+        if flip:
+            f.normal_flip()
+        f.material_index = mat
+        f.smooth = False
+
+
+def leg_ring(side, z, r, n=20):
+    out = []
+    for k in range(n):
+        a = 2 * math.pi * k / n
+        nr = V(math.cos(a), math.sin(a), 0)
+        out.append((V(LEG_X * side, LEG_Y, z) + nr * r, nr))
+    return out
+
+
+def limb_ring(bvh, bone, t, side, n=20):
+    co, d = arm_point(bone, t, side)
+    return ring_on(bvh, co, d, n=n, far=0.35), d
