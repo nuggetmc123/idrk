@@ -11,7 +11,7 @@ Bolted-together scrap-metal chest armor (clean steel by default — set `RUST` i
 | `ChestPlate.fbx` | Armor rigged to the PeeperLeeper armature, **one object per part**. Textures are embedded. |
 | `ChestPlate_WithPlayer.fbx` | The armor **plus the PeeperLeeper player model**, all on one armature. Import this one to see it on the character. |
 | `ChestPlate_Merged.fbx` | The same armor as a single skinned mesh, for engines or cosmetics that want one mesh. |
-| `ChestPlate.blend` | Editable scene with the player model, the armor, the atlas material and the procedural source materials (`Proc_*`). |
+| `ChestPlate.blend` | Editable scene with the player model and the armor. |
 | `build_chestplate.py` | The generator. Change the numbers in its SETTINGS block and re-run to rebuild everything. |
 
 ## Parts (every one is its own object)
@@ -47,4 +47,4 @@ blender --background --python build_chestplate.py
 python3 build_chestplate.py
 ```
 
-A rebuild takes about 3 minutes, most of it the texture bake. Set `RENDER_PREVIEWS = False` to skip the preview renders.
+A rebuild takes about 1.5 minutes (about 3 with `USE_TEXTURES`, which adds a texture bake). Set `RENDER_PREVIEWS = False` to skip the preview renders.
