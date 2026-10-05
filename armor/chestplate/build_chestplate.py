@@ -52,6 +52,18 @@ RIM_RADIUS = 0.0045         # rolled / welded-on edge bars
 FBX_METALLIC = 0.35          # metal / roughness values on the exported material
 FBX_ROUGHNESS = 0.5
 GRIME = 0.0                 # 0 = clean finish, 1 = paint chips, dirt in the gaps, blotchy tone
+USE_TEXTURES = False        # False = plain colour materials (imports reliably anywhere);
+                            # True = bake a texture atlas (needed for RUST / GRIME detail)
+FLAT_MATERIALS = {          # name, base colour (linear RGB), metallic, roughness - edit freely
+    'rust':       ("Steel",          (0.13, 0.127, 0.124), 0.35, 0.50),
+    'rust_dark':  ("Steel_Dark",     (0.07, 0.069, 0.067), 0.35, 0.50),
+    'galvanized': ("Steel_Light",    (0.22, 0.224, 0.228), 0.35, 0.45),
+    'steel':      ("Steel_Hardware", (0.08, 0.079, 0.077), 0.40, 0.45),
+    'weld':       ("Weld",           (0.07, 0.065, 0.07), 0.30, 0.60),
+    'paint':      ("Paint_Teal",     (0.06, 0.17, 0.18), 0.0, 0.60),
+    'hazard':     ("Paint_Yellow",   (0.62, 0.43, 0.05), 0.0, 0.60),
+    'leather':    ("Leather",        (0.115, 0.058, 0.026), 0.0, 0.75),
+}
 RUST = 0.0                  # 0 = clean steel, 1 = fully rusted scrap (scales every rust patch)
 
 # Torso axis (the body is a rounded pod centred here, measured from the mesh).
@@ -954,6 +966,25 @@ def unwrap_all(objs):
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
+def flat_materials():
+    """One plain material per part type - no textures, so nothing for an importer to misread."""
+    mats = {}
+    for o, key, _ in BUILT:
+        if key not in mats:
+            name, colour, metal, rough = FLAT_MATERIALS[key]
+            m = bpy.data.materials.new(name)
+            m.use_nodes = True
+            b = m.node_tree.nodes['Principled BSDF']
+            b.inputs['Base Color'].default_value = (*colour, 1.0)
+            b.inputs['Metallic'].default_value = metal
+            b.inputs['Roughness'].default_value = rough
+            m.diffuse_color = (*colour, 1.0)        # solid-mode viewport colour
+            mats[key] = m
+        o.data.materials.clear()
+        o.data.materials.append(mats[key])
+    unwrap_all([o for o, _, _ in BUILT])           # UVs kept so the parts can be textured later
+
+
 def bake_atlas(tex_dir):
     os.makedirs(tex_dir, exist_ok=True)
     sc = bpy.context.scene
@@ -1150,7 +1181,10 @@ def main():
         bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
         bm.to_mesh(o.data)
         bm.free()
-    bake_atlas(os.path.join(OUT_DIR, "textures"))
+    if USE_TEXTURES:
+        bake_atlas(os.path.join(OUT_DIR, "textures"))
+    else:
+        flat_materials()
     skin_all()
     export(col)
     ARM.data.pose_position = 'POSE'

@@ -12,7 +12,6 @@ Bolted-together scrap-metal chest armor (clean steel by default — set `RUST` i
 | `ChestPlate_WithPlayer.fbx` | The armor **plus the PeeperLeeper player model**, all on one armature. Import this one to see it on the character. |
 | `ChestPlate_Merged.fbx` | The same armor as a single skinned mesh, for engines or cosmetics that want one mesh. |
 | `ChestPlate.blend` | Editable scene with the player model, the armor, the atlas material and the procedural source materials (`Proc_*`). |
-| `textures/` | 1024² atlas: BaseColor, Roughness, Metallic, Normal (OpenGL / Blender style), plus `MetallicSmoothness` for Unity's Standard shader. |
 | `build_chestplate.py` | The generator. Change the numbers in its SETTINGS block and re-run to rebuild everything. |
 
 ## Parts (every one is its own object)
@@ -21,10 +20,11 @@ Breastplate, Backplate, BellyLame_1-3, Gorget, PauldronCap.L/R, PauldronLame_1-2
 Strap_1-2.L/R, Buckle_1-2.L/R, plus separate objects for the rivets, bolts,
 rolled rims and weld beads (`Rivets_*`, `Bolts_*`, `Rim_*`, `Weld_*`). The welded crack and the hazard-striped scrap patch are off by default; set `CRACK_WELD["enabled"]` or `SCRAP_PATCH["enabled"]` to `True` to bring them back. You can delete, move or remodel any part on its own.
 
-All parts share one material (`ChestPlate_Atlas`), so the whole set is a single draw call. In the FBX files that material uses only the
-colour map, with fixed metallic / roughness values (`FBX_METALLIC`, `FBX_ROUGHNESS` in the script). FBX has no reliable slots for
-roughness, metallic or normal maps, so wiring them in made the armor import as black chrome with blotchy shading in some Blender versions.
-The full map set is still in `textures/` if you want to hook it up by hand in a game engine.
+The armor uses plain colour materials with **no textures**: `Steel`, `Steel_Dark`, `Steel_Light`, `Steel_Hardware`,
+`Paint_Teal` and `Leather`. Textures from FBX files get mapped differently by different Blender versions and engines,
+so plain materials are the version that looks the same everywhere. To recolour a part type, change its material's
+Base Color in Blender, or edit `FLAT_MATERIALS` in the script. Every part still has UVs if you want to texture it later.
+Setting `USE_TEXTURES = True` (needed for `RUST` / `GRIME` detail) bakes a texture atlas into `textures/` instead.
 
 ## Fit and rig
 
@@ -35,7 +35,7 @@ The full map set is still in `textures/` if you want to hook it up by hand in a 
 ## Editing
 
 **By hand:** open `ChestPlate.blend`, select a part, then press Tab to edit it. Keep the Armature modifier on each part so it still deforms.
-To repaint, edit the textures in `textures/`, or change the `Proc_*` materials and re-bake them.
+To recolour, edit the materials' Base Color.
 
 **By settings:** open `build_chestplate.py` and edit the SETTINGS block. You can change the gap from the body
 (`CLEARANCE`), plate thickness, dent count and depth, rivet size and spacing, neckline shape, plate coverage,
