@@ -39,7 +39,7 @@ To repaint, edit the textures in `textures/`, or change the `Proc_*` materials a
 
 **By settings:** open `build_chestplate.py` and edit the SETTINGS block. You can change the gap from the body
 (`CLEARANCE`), plate thickness, dent count and depth, rivet size and spacing, neckline shape, plate coverage,
-belly lame count, rust amount (`RUST`, 0 = clean), pauldron size and dome height, strap heights, scrap patch (on/off and position), the crack weld (on/off and path) and the random `SEED`. Then run:
+belly lame count, rust amount (`RUST`, 0 = clean), stains and paint chips (`GRIME`, 0 = clean), pauldron size and dome height, strap heights, scrap patch (on/off and position), the crack weld (on/off and path) and the random `SEED`. Then run:
 
 ```sh
 blender --background --python build_chestplate.py

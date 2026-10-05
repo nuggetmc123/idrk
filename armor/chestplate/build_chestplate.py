@@ -47,10 +47,11 @@ DENTS = 6                   # dents per big plate
 DENT_DEPTH = 0.0045
 DENT_RADIUS = 0.028
 RIVET_RADIUS = 0.0048
-RIVET_SPACING = 0.032
+RIVET_SPACING = 0.050
 RIM_RADIUS = 0.0045         # rolled / welded-on edge bars
 FBX_METALLIC = 0.35          # metal / roughness values on the exported material
 FBX_ROUGHNESS = 0.5
+GRIME = 0.0                 # 0 = clean finish, 1 = paint chips, dirt in the gaps, blotchy tone
 RUST = 0.0                  # 0 = clean steel, 1 = fully rusted scrap (scales every rust patch)
 
 # Torso axis (the body is a rounded pod centred here, measured from the mesh).
@@ -456,8 +457,6 @@ def build_breastplate(col):
     bm = bmesh.new()
     rivet_line(bm, P, N, [(i, nv - 2) for i in range(1, nu - 1)])                 # along neckline
     rivet_line(bm, P, N, [(i, 1) for i in range(1, nu - 1)])                      # bottom edge
-    rivet_line(bm, P, N, [(1, j) for j in range(1, nv - 1)], spacing=0.028)        # sides
-    rivet_line(bm, P, N, [(nu - 2, j) for j in range(1, nv - 1)], spacing=0.028)
     register(mesh_object("Rivets_Breastplate", bm, col), 'steel', TORSO)
     bm = bmesh.new()
     rim_along(bm, P, N, [(i, nv - 1) for i in range(nu)])
@@ -485,10 +484,9 @@ def build_backplate(col):
     bm = bmesh.new()
     rivet_line(bm, P, N, [(i, nv - 2) for i in range(1, nu - 1)])
     rivet_line(bm, P, N, [(i, 1) for i in range(1, nu - 1)])
-    # a vertical repair seam down the middle with bolts either side
+    # a vertical repair seam down the middle, bolted down one side
     mid = nu // 2
-    rivet_line(bm, P, N, [(mid - 2, j) for j in range(1, nv - 1)], spacing=0.026, bolts=True)
-    rivet_line(bm, P, N, [(mid + 2, j) for j in range(1, nv - 1)], spacing=0.026, bolts=True)
+    rivet_line(bm, P, N, [(mid - 2, j) for j in range(1, nv - 1)], spacing=0.045, bolts=True)
     register(mesh_object("Bolts_Backplate", bm, col), 'steel', TORSO)
     bm = bmesh.new()
     rim_along(bm, P, N, [(i, nv - 1) for i in range(nu)])
@@ -522,7 +520,7 @@ def build_belly_lames(col):
         obj, N = grid_to_object(f"BellyLame_{k + 1}", P, col)
         register(obj, 'galvanized' if k == 1 else 'rust', TORSO)
         bm = bmesh.new()
-        rivet_line(bm, P, N, [(i, nv // 2) for i in range(1, nu - 1)], spacing=0.04)
+        rivet_line(bm, P, N, [(i, nv // 2) for i in range(1, nu - 1)], spacing=0.065)
         register(mesh_object(f"Rivets_BellyLame_{k + 1}", bm, col), 'steel', TORSO)
 
 
@@ -654,7 +652,7 @@ def build_gorget(col):
     register(obj, 'rust_dark', ["Chest"])
     bm = bmesh.new()
     rim_along(bm, P, N, [(i % nu, nv - 1) for i in range(nu + 1)], radius=RIM_RADIUS * 0.9)
-    rivet_line(bm, P, N, [(i % nu, 1) for i in range(nu + 1)], spacing=0.04)
+    rivet_line(bm, P, N, [(i % nu, 1) for i in range(nu + 1)], spacing=0.065)
     register(mesh_object("Rim_Gorget", bm, col), 'steel', ["Chest"])
 
 
@@ -726,8 +724,7 @@ def build_pauldron(col, sx):
     register(obj, 'paint', bones)
     bm = bmesh.new()
     rim_along(bm, P, N, [(i, nv - 1) for i in range(nu)])
-    rivet_line(bm, P, N, [(i, nv - 3) for i in range(1, nu - 1)], spacing=0.026)
-    rivet_line(bm, P, N, [(nu // 2, j) for j in range(2, nv - 3)], spacing=0.022)
+    rivet_line(bm, P, N, [(i, nv - 3) for i in range(1, nu - 1)], spacing=0.042)
     register(mesh_object(f"Rim_Pauldron.{side}", bm, col), 'steel', bones)
 
 
@@ -812,7 +809,7 @@ def rust_layers(t, steel, steel_dark, rust_amount, seed):
     stretch.inputs[1].default_value = (9.0, 9.0, 1.0)      # vertical drip streaks
     big = t.noise(co, 9, 6, 0.62, 0.35)
     pits = t.noise(co, 95, 3, 0.5)
-    tint = t.noise(co, 4, 2, 0.5)
+    tint = t.mixf(GRIME, 0.5, t.noise(co, 4, 2, 0.5))       # blotchy tone only with grime
     streak = t.noise(stretch.outputs[0], 7, 3, 0.5)
     ao = t.node('ShaderNodeAmbientOcclusion', samples=8)
     ao.inputs['Distance'].default_value = 0.02
@@ -826,7 +823,7 @@ def rust_layers(t, steel, steel_dark, rust_amount, seed):
     rust_col = t.mixc(t.ramp(big, 0.55, 0.8), rust_col, (0.16, 0.06, 0.025))
     metal_col = t.mixc(tint, steel_dark, steel)
     col = t.mixc(rust, metal_col, rust_col)
-    dirt = t.mixc(t.ramp(cav, 0.1, 0.8), (1, 1, 1), (0.45, 0.42, 0.4))
+    dirt = t.mixc(t.math('MULTIPLY', t.ramp(cav, 0.1, 0.8), GRIME), (1, 1, 1), (0.45, 0.42, 0.4))
     col = t.node('ShaderNodeMix', data_type='RGBA', blend_type='MULTIPLY')
     t.link(1.0, col.inputs[0])
     t.link(t.mixc(rust, metal_col, rust_col), col.inputs[6])
@@ -834,7 +831,7 @@ def rust_layers(t, steel, steel_dark, rust_amount, seed):
     col = col.outputs[2]
     metal = t.mixf(rust, 0.65, 0.05)
     rough = t.mixf(rust, t.mixf(tint, 0.38, 0.55), 0.92)
-    height = t.math('ADD', t.math('MULTIPLY', rust, 0.6, False), t.math('MULTIPLY', pits, 0.4 * RUST + 0.05, False), False)
+    height = t.math('ADD', t.math('MULTIPLY', rust, 0.6, False), t.math('MULTIPLY', pits, 0.4 * RUST + 0.05 * GRIME, False), False)
     return col, metal, rough, height, co
 
 
@@ -873,6 +870,7 @@ def make_material(key):
     elif key in ('paint', 'hazard'):
         col, metal, rough, height, co = rust_layers(t, (0.33, 0.32, 0.31), (0.12, 0.12, 0.12), 0.7, seed)
         chip = t.ramp(t.math('ADD', t.noise(co, 14, 6, 0.65, 0.2), t.math('MULTIPLY', t.noise(co, 70, 3), 0.3, False), False), 0.80, 0.84)
+        chip = t.math('MULTIPLY', chip, GRIME)
         if key == 'hazard':
             w = t.node('ShaderNodeTexWave', wave_type='BANDS', bands_direction='DIAGONAL')
             t.link(co, w.inputs['Vector'])
@@ -881,9 +879,9 @@ def make_material(key):
             stripe = t.ramp(w.outputs['Fac'], 0.48, 0.52, 'LINEAR')
             paint = t.mixc(stripe, (0.62, 0.43, 0.05), (0.035, 0.03, 0.03))
         else:
-            paint = t.mixc(t.noise(co, 6, 2), (0.10, 0.24, 0.26), (0.14, 0.30, 0.30))   # faded teal
+            paint = t.mixc(t.mixf(GRIME, 0.5, t.noise(co, 6, 2)), (0.10, 0.24, 0.26), (0.14, 0.30, 0.30))   # teal
         fade = t.mixc(t.ramp(t.noise(co, 3, 2), 0.3, 0.7), paint, (0.45, 0.42, 0.36))
-        paint = t.mixc(0.35, paint, fade)
+        paint = t.mixc(0.35 * GRIME, paint, fade)
         col = t.mixc(chip, paint, col)
         metal = t.mixf(chip, 0.0, metal)
         rough = t.mixf(chip, 0.68, rough)
