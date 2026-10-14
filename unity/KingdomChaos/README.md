@@ -9,14 +9,26 @@ Works in Unity 2021.3 or newer, including Unity 6, with the Built-in render pipe
 
 ## Getting it into Unity
 
-1. In Unity Hub, create a new project. The **2D** or **Universal 2D** template is the
-   natural fit, but any template works.
-2. In the editor, choose **Assets > Import Package > Custom Package…**, pick
-   `KingdomChaos.unitypackage` and click **Import**. (Or copy this `KingdomChaos` folder
-   into your project's `Assets` folder.)
-3. Choose **Tools > Kingdom Chaos > Create Game Scene**. This creates
-   `Assets/KingdomChaos/KingdomChaos.unity`, opens it, and adds it to Build Settings.
-4. Press **Play**.
+There are two downloads; use whichever matches how you add things.
+
+**Option A: Package Manager** (`com.nuggetmc.kingdomchaos-0.1.0.tgz`)
+
+1. Open **Window > Package Manager**.
+2. Click the **+** in the top-left corner and choose **Install package from tarball…**
+   (called **Add package from tarball…** in older versions).
+3. Pick the `.tgz` file. **Kingdom Chaos** appears in the list under **In Project**.
+
+**Option B: Import Package** (`KingdomChaos.unitypackage`)
+
+1. Choose **Assets > Import Package > Custom Package…** from the top menu. This is
+   not the Package Manager window; a `.unitypackage` never shows up there.
+2. Pick the `.unitypackage` file and click **Import** in the window that lists the files.
+
+Then, either way:
+
+1. Choose **Tools > Kingdom Chaos > Create Game Scene**. This creates
+   `Assets/KingdomChaos/KingdomChaos.unity`, opens it and adds it to Build Settings.
+2. Press **Play**, and click inside the Game view so it gets your keyboard.
 
 If you'd rather set it up by hand: make an empty GameObject in any scene, add the
 **Kingdom Chaos Game** component, and press Play. The component sets up the camera itself.
@@ -45,11 +57,11 @@ Input works whichever setting **Project Settings > Player > Active Input Handlin
 
 | File | What it holds |
 | --- | --- |
-| `Scripts/KCData.cs` | Every number: weapons, pets, enemy stats, stage waves, the save format. Balancing happens here. |
-| `Scripts/KingdomChaosGame.cs` | The game: player, combat, enemy AI (one method per enemy), level flow, drawing, HUD and menus. |
-| `Scripts/KCPainter.cs` | A small vector drawing layer (circles, rounded rectangles, outlines) that builds one mesh per frame. |
-| `Scripts/KCInput.cs` | Keyboard and mouse, for either input system. |
-| `Scripts/KCAudio.cs` | Sound effects, synthesised at startup. |
+| `Runtime/KCData.cs` | Every number: weapons, pets, enemy stats, stage waves, the save format. Balancing happens here. |
+| `Runtime/KingdomChaosGame.cs` | The game: player, combat, enemy AI (one method per enemy), level flow, drawing, HUD and menus. |
+| `Runtime/KCPainter.cs` | A small vector drawing layer (circles, rounded rectangles, outlines) that builds one mesh per frame. |
+| `Runtime/KCInput.cs` | Keyboard and mouse, for either input system. |
+| `Runtime/KCAudio.cs` | Sound effects, synthesised at startup. |
 | `Editor/KingdomChaosMenu.cs` | The **Tools > Kingdom Chaos** menu item. |
 
 The game runs in "canvas pixels", the same units as the browser version: the view is

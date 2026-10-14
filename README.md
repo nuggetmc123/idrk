@@ -32,15 +32,16 @@ Training Room with dummies and a DPS meter. Worlds 2–8 show on the map as "com
 
 ### Kingdom Chaos in Unity (`unity/`)
 
-`unity/KingdomChaos/` is a C# port of the same game for Unity 2021.3+ / Unity 6, and
-`unity/KingdomChaos.unitypackage` is that folder packed for **Assets > Import Package >
-Custom Package…**. After importing, **Tools > Kingdom Chaos > Create Game Scene** builds a
+`unity/KingdomChaos/` is a C# port of the same game for Unity 2021.3+ / Unity 6, packed
+two ways: `unity/KingdomChaos.unitypackage` for **Assets > Import Package > Custom
+Package…**, and `unity/com.nuggetmc.kingdomchaos-<version>.tgz` for **Window > Package
+Manager > + > Install package from tarball…**. After installing either, **Tools > Kingdom Chaos > Create Game Scene** builds a
 ready-to-play scene. Everything is drawn from code, so there are no sprites to set up; see
 `unity/KingdomChaos/README.md` for details.
 
 The package is generated, not hand-made: after changing anything under
 `unity/KingdomChaos/`, run `python3 unity/build_unitypackage.py` and commit the rebuilt
-`.unitypackage` alongside it. Once on `main`, it can be downloaded from
+`.unitypackage` and `.tgz` alongside it. Once on `main`, it can be downloaded from
 https://nuggetmc123.github.io/idrk/unity/KingdomChaos.unitypackage.
 
 ## Making changes

@@ -8,8 +8,8 @@ namespace KingdomChaos.EditorTools
 {
     // Tools > Kingdom Chaos > Create Game Scene: builds a ready-to-play scene so there is
     // nothing to wire up by hand. It makes a vertex-colour material (saved as an asset so it
-    // is included in builds), a scene with a camera and the game object, saves the scene next
-    // to this folder, and adds it to the top of Build Settings.
+    // is included in builds), a scene with a camera and the game object, saves the scene in
+    // the KingdomChaos folder, and adds it to the top of Build Settings.
     public static class KingdomChaosMenu
     {
         [MenuItem("Tools/Kingdom Chaos/Create Game Scene")]
@@ -47,17 +47,21 @@ namespace KingdomChaos.EditorTools
                 "Scene created at " + scenePath + ".\n\nPress Play to start the game.", "OK");
         }
 
-        // The folder the KingdomChaos package was imported into (Assets/KingdomChaos by default).
+        // Where to save the scene and material: the imported KingdomChaos folder under Assets, or
+        // Assets/KingdomChaos when it was installed through the Package Manager (packages are
+        // read-only, so nothing can be saved inside them).
         static string FolderOfThisPackage()
         {
             foreach (var guid in AssetDatabase.FindAssets("KingdomChaosMenu t:MonoScript"))
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);          // .../KingdomChaos/Editor/KingdomChaosMenu.cs
+                if (!path.StartsWith("Assets/")) continue;
                 string editorDir = System.IO.Path.GetDirectoryName(path)?.Replace('\\', '/');
                 string root = System.IO.Path.GetDirectoryName(editorDir)?.Replace('\\', '/');
                 if (!string.IsNullOrEmpty(root) && AssetDatabase.IsValidFolder(root)) return root;
             }
-            return "Assets";
+            if (!AssetDatabase.IsValidFolder("Assets/KingdomChaos")) AssetDatabase.CreateFolder("Assets", "KingdomChaos");
+            return "Assets/KingdomChaos";
         }
     }
 }

@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-"""Build unity/KingdomChaos.unitypackage from unity/KingdomChaos/.
+"""Build both Unity downloads from unity/KingdomChaos/.
 
-A .unitypackage is a gzipped tar with one directory per asset, named by the asset's GUID,
-holding `asset` (the file itself, omitted for folders), `asset.meta` and `pathname` (where
-it lands inside the project). This writes any missing .meta files first, with GUIDs derived
-from the asset path so they stay stable between builds, then packs everything up.
+- KingdomChaos.unitypackage, for Assets > Import Package > Custom Package. A gzipped tar
+  with one directory per asset, named by the asset's GUID, holding `asset` (the file itself,
+  omitted for folders), `asset.meta` and `pathname` (where it lands in the project).
+- com.nuggetmc.kingdomchaos-<version>.tgz, for Window > Package Manager > + > Install
+  package from tarball. The folder as-is under a `package/` prefix, .meta files included
+  (Package Manager packages are read-only, so Unity can't generate them itself).
+
+Missing .meta files are written first, with GUIDs derived from the asset path so they stay
+stable between builds.
 
     python3 unity/build_unitypackage.py
 """
 import hashlib
 import io
+import json
 import os
 import tarfile
 
@@ -33,6 +39,10 @@ def meta_for(project_path, is_dir):
     if project_path.endswith(".cs"):
         return head + ("MonoImporter:\n  externalObjects: {}\n  serializedVersion: 2\n"
                        "  defaultReferences: []\n  executionOrder: 0\n  icon: {instanceID: 0}\n") + TAIL
+    if project_path.endswith(".asmdef"):
+        return head + "AssemblyDefinitionImporter:\n  externalObjects: {}\n" + TAIL
+    if project_path.endswith("package.json"):
+        return head + "PackageManifestImporter:\n  externalObjects: {}\n" + TAIL
     if project_path.endswith((".md", ".txt")):
         return head + "TextScriptImporter:\n  externalObjects: {}\n" + TAIL
     return head + "DefaultImporter:\n  externalObjects: {}\n" + TAIL
@@ -62,6 +72,14 @@ def add_bytes(tar, name, data):
     tar.addfile(info, io.BytesIO(data))
 
 
+def add_dir(tar, name):
+    info = tarfile.TarInfo(name)
+    info.type = tarfile.DIRTYPE
+    info.mtime = 0
+    info.mode = 0o755
+    tar.addfile(info)
+
+
 def main():
     items = list(entries())
     for disk, proj, is_dir in items:
@@ -70,17 +88,41 @@ def main():
             with open(meta, "w", newline="\n") as fh:
                 fh.write(meta_for(proj, is_dir))
 
-    with tarfile.open(OUT, "w:gz", format=tarfile.GNU_FORMAT) as tar:
+    # .unitypackage (package.json only matters to the Package Manager, so it stays out)
+    with tarfile.open(OUT, "w:gz", format=tarfile.USTAR_FORMAT) as tar:
         for disk, proj, is_dir in items:
+            if proj.endswith("/package.json"):
+                continue
             with open(disk + ".meta", "rb") as fh:
                 meta = fh.read()
             guid = next(l.split(":", 1)[1].strip() for l in meta.decode().splitlines() if l.startswith("guid:"))
-            add_bytes(tar, f"{guid}/pathname", proj.encode())
-            add_bytes(tar, f"{guid}/asset.meta", meta)
+            add_dir(tar, guid)
             if not is_dir:
                 with open(disk, "rb") as fh:
                     add_bytes(tar, f"{guid}/asset", fh.read())
-    print(f"wrote {os.path.relpath(OUT)} ({len(items)} assets)")
+            add_bytes(tar, f"{guid}/asset.meta", meta)
+            add_bytes(tar, f"{guid}/pathname", proj.encode())
+    print(f"wrote {os.path.relpath(OUT)}")
+
+    # Package Manager tarball
+    with open(os.path.join(SRC, "package.json")) as fh:
+        manifest = json.load(fh)
+    tgz = os.path.join(HERE, f"{manifest['name']}-{manifest['version']}.tgz")
+    for old in os.listdir(HERE):
+        if old.startswith(manifest["name"] + "-") and old.endswith(".tgz") and os.path.join(HERE, old) != tgz:
+            os.remove(os.path.join(HERE, old))
+    with tarfile.open(tgz, "w:gz", format=tarfile.USTAR_FORMAT) as tar:
+        add_dir(tar, "package")
+        for disk, proj, is_dir in items[1:]:
+            rel = proj[len(PROJECT_ROOT) + 1:]
+            if is_dir:
+                add_dir(tar, f"package/{rel}")
+            else:
+                with open(disk, "rb") as fh:
+                    add_bytes(tar, f"package/{rel}", fh.read())
+            with open(disk + ".meta", "rb") as fh:
+                add_bytes(tar, f"package/{rel}.meta", fh.read())
+    print(f"wrote {os.path.relpath(tgz)}")
 
 
 if __name__ == "__main__":

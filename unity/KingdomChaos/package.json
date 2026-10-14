@@ -1,0 +1,8 @@
+{
+  "name": "com.nuggetmc.kingdomchaos",
+  "version": "0.1.0",
+  "displayName": "Kingdom Chaos",
+  "description": "A Castle Crashers-style side-scrolling beat 'em up: the Knight, three weapons, two pets and World 1 with the Goblin Captain and King Slime. Everything is drawn from code. After installing, choose Tools > Kingdom Chaos > Create Game Scene and press Play.",
+  "unity": "2021.3",
+  "author": { "name": "nuggetmc123" }
+}
