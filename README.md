@@ -64,7 +64,8 @@ For local testing, `?relay=ws://127.0.0.1:8787` points the game at `npx wrangler
 
 ### Kingdom Chaos in Unity (`unity/`)
 
-`unity/KingdomChaos/` is a C# port of the same game for Unity 2021.3+ / Unity 6, packed
+`unity/KingdomChaos/` is a single-player C# port of the same game (online co-op is browser-only)
+for Unity 2021.3+ / Unity 6, packed
 two ways: `unity/KingdomChaos.unitypackage` for **Assets > Import Package > Custom
 Package…**, and `unity/com.nuggetmc.kingdomchaos-<version>.tgz` for **Window > Package
 Manager > + > Install package from tarball…**. After installing either, pressing Play
