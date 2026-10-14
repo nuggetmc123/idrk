@@ -11,24 +11,56 @@ Open the URL and you're in the game — there is no menu or landing page in fron
 
 A second, separate game: a Castle Crashers–style side-scrolling beat 'em up, living
 entirely in `kingdom/index.html` and served at
-**https://nuggetmc123.github.io/idrk/kingdom/**. It shares nothing with BRAWLBOUND (no
-`profile.js`, no relay); progress is saved to `localStorage` under `kingdomChaos.save.v1`.
+**https://nuggetmc123.github.io/idrk/kingdom/**. It doesn't use `profile.js`; progress is
+saved to `localStorage` under `kingdomChaos.save.v1`. The file also works opened straight
+off disk.
 
-This is the first playable slice of the full concept: one hero (the Knight), three
-weapons (Iron Sword, Titan Hammer, Frost Bow), two pets (Slime Buddy, Ember Fox), and all
-of World 1, Greenleaf Forest: four stages of Green Slimes, Goblin Scouts, Goblin Archers
-and Thorn Boars, the Goblin Captain mini-boss in 1-4 and King Slime in 1-5. There is also a
-Training Room with dummies and a DPS meter. Worlds 2–8 show on the map as "coming soon".
+What's in it: one hero (the Knight, in five armour colours), three weapons (Iron Sword,
+Titan Hammer, Frost Bow), two pets (Slime Buddy, Ember Fox), and all of World 1, Greenleaf
+Forest: four stages of Green Slimes, Goblin Scouts, Goblin Archers and Thorn Boars, the
+Goblin Captain mini-boss in 1-4 and King Slime in 1-5. There is also a Training Room with
+dummies and a DPS meter. Worlds 2–8 show on the map as "coming soon".
 
 - **Controls:** A/D move, W/S move up and down the lane, Space jump (twice for a double
   jump), Shift dodge roll, left click or J light combo, right click or K heavy, S + attack
-  in the air for a ground slam, Q Royal Spin, E pick up food and open chests, F pet fury,
-  Esc pause, M mute.
+  in the air for a ground slam, Q Royal Spin, E pick up food, open chests and revive a
+  friend, F pet fury, Esc pause, M mute.
 - **Where things live:** stats are plain tables near the top of the script: `WEAPONS`,
   `PETS`, `EDEF` (enemies) and `STAGES` (waves per stage). Enemy behaviour is one function
   per type in `AI`. Adding a stage is just another `STAGES` entry.
 - **Progression:** XP levels the hero (+10 max HP and +6% damage per level), coins buy
   weapons and pet eggs on the world map, and clearing a stage unlocks the next.
+
+### Online co-op
+
+**Play with friends** on the main menu makes a party with a 5-character code (or joins
+one); up to four knights. Friends can join with the code, or with the invite link
+(`?join=CODE`), which only helps people when the game is opened from the hosted URL rather
+than from a file. Anyone can join mid-stage; their knight drops in next to the party.
+
+It runs on the same relay Worker as BRAWLBOUND (`worker/`, `wss://brawlbound-mp...`),
+unchanged: Kingdom Chaos rooms are named `KC-<code>` so the two games never meet in a
+lobby, and it only uses messages the relay already has (`join`, `roster`, `setClass`,
+`setName`, `start`, `matchEnded`, `input`, `snapshot`, `host_left`).
+
+- **The host runs the fight.** Their browser simulates the stage exactly as in solo play,
+  but with a knight per player; everyone else sends their keys (`input`, about 30 times a
+  second) and draws the `snapshot` the host sends back (25 times a second, smoothed
+  between updates). Your own knight therefore responds after one round trip through the
+  relay.
+- **Everyone keeps their own progress.** Your loadout (weapon, pet, level, colour) rides
+  in the roster's `cls` field so the host can build your knight. Coins go to whoever picks
+  them up, XP from kills goes to the whole party, and the host sends each player what they
+  earned, which their own browser adds to their own save.
+- **Co-op rules:** enemies get +60% HP per extra knight and drop double coins; a knight
+  at 0 HP is down, not out. A friend can press E next to them, everyone gets back up when
+  a wave is cleared, and the stage is only lost if the whole party is down. Pausing online
+  doesn't freeze anyone else's game.
+- **If the host leaves** mid-stage, the relay ends the match and everyone lands back on
+  their own world map; leaving from the map just hands the party to the next person.
+
+For local testing, `?relay=ws://127.0.0.1:8787` points the game at `npx wrangler dev
+--local` in `worker/` instead of the deployed relay.
 
 ### Kingdom Chaos in Unity (`unity/`)
 
