@@ -11,7 +11,7 @@ Works in Unity 2021.3 or newer, including Unity 6, with the Built-in render pipe
 
 There are two downloads; use whichever matches how you add things.
 
-**Option A: Package Manager** (`com.nuggetmc.kingdomchaos-0.1.0.tgz`)
+**Option A: Package Manager** (`com.nuggetmc.kingdomchaos-0.1.1.tgz`)
 
 1. Open **Window > Package Manager**.
 2. Click the **+** in the top-left corner and choose **Install package from tarball…**
@@ -24,14 +24,12 @@ There are two downloads; use whichever matches how you add things.
    not the Package Manager window; a `.unitypackage` never shows up there.
 2. Pick the `.unitypackage` file and click **Import** in the window that lists the files.
 
-Then, either way:
+Then, either way, press **Play** and click inside the Game view so it gets your keyboard.
+The game adds itself to whatever scene is open, so there's nothing to set up.
 
-1. Choose **Tools > Kingdom Chaos > Create Game Scene**. This creates
-   `Assets/KingdomChaos/KingdomChaos.unity`, opens it and adds it to Build Settings.
-2. Press **Play**, and click inside the Game view so it gets your keyboard.
-
-If you'd rather set it up by hand: make an empty GameObject in any scene, add the
-**Kingdom Chaos Game** component, and press Play. The component sets up the camera itself.
+**Tools > Kingdom Chaos > Create Game Scene** is optional: it makes a dedicated
+`Assets/KingdomChaos/KingdomChaos.unity` scene and adds it to Build Settings, which you want
+before making a standalone build.
 
 ## Controls
 

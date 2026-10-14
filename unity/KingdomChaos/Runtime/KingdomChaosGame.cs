@@ -9,9 +9,10 @@ namespace KingdomChaos
        One hero (Knight), three weapons, World 1 (four stages + King Slime),
        two pets, XP / levels / coins / shop, saved with PlayerPrefs.
 
-       Put this component on an empty GameObject in an empty scene and press
-       Play (or use Tools > Kingdom Chaos > Create Game Scene). It sets up its
-       own camera, draws everything from code and needs no other assets.
+       Just press Play: AutoStart adds the game to whatever scene is open if it
+       isn't there already (Tools > Kingdom Chaos > Create Game Scene also makes a
+       dedicated scene). It sets up its own camera, draws everything from code
+       and needs no other assets.
 
        The simulation works in "canvas pixels", the same units as the browser
        version: the screen is 960 x 540, x runs along the level, y is depth in
@@ -158,8 +159,20 @@ namespace KingdomChaos
 
         /* ---------------------------------------------------------------- unity lifecycle */
 
+        static KingdomChaosGame instance;
+
+        // Starts the game when Play is pressed in any scene that doesn't already have it, so a
+        // fresh project needs no setup beyond installing the package.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        static void AutoStart()
+        {
+            if (instance == null) new GameObject("Kingdom Chaos").AddComponent<KingdomChaosGame>();
+        }
+
         void Awake()
         {
+            if (instance != null && instance != this) { enabled = false; Destroy(gameObject); return; }
+            instance = this;
             save = LoadSave();
             cam = Camera.main;
             if (cam == null)
