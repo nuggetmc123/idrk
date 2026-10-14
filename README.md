@@ -35,8 +35,8 @@ Training Room with dummies and a DPS meter. Worlds 2–8 show on the map as "com
 `unity/KingdomChaos/` is a C# port of the same game for Unity 2021.3+ / Unity 6, packed
 two ways: `unity/KingdomChaos.unitypackage` for **Assets > Import Package > Custom
 Package…**, and `unity/com.nuggetmc.kingdomchaos-<version>.tgz` for **Window > Package
-Manager > + > Install package from tarball…**. After installing either, **Tools > Kingdom Chaos > Create Game Scene** builds a
-ready-to-play scene. Everything is drawn from code, so there are no sprites to set up; see
+Manager > + > Install package from tarball…**. After installing either, pressing Play
+starts the game in whatever scene is open. Everything is drawn from code, so there are no sprites to set up; see
 `unity/KingdomChaos/README.md` for details.
 
 The package is generated, not hand-made: after changing anything under
