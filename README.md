@@ -30,6 +30,19 @@ Training Room with dummies and a DPS meter. Worlds 2–8 show on the map as "com
 - **Progression:** XP levels the hero (+10 max HP and +6% damage per level), coins buy
   weapons and pet eggs on the world map, and clearing a stage unlocks the next.
 
+### Kingdom Chaos in Unity (`unity/`)
+
+`unity/KingdomChaos/` is a C# port of the same game for Unity 2021.3+ / Unity 6, and
+`unity/KingdomChaos.unitypackage` is that folder packed for **Assets > Import Package >
+Custom Package…**. After importing, **Tools > Kingdom Chaos > Create Game Scene** builds a
+ready-to-play scene. Everything is drawn from code, so there are no sprites to set up; see
+`unity/KingdomChaos/README.md` for details.
+
+The package is generated, not hand-made: after changing anything under
+`unity/KingdomChaos/`, run `python3 unity/build_unitypackage.py` and commit the rebuilt
+`.unitypackage` alongside it. Once on `main`, it can be downloaded from
+https://nuggetmc123.github.io/idrk/unity/KingdomChaos.unitypackage.
+
 ## Making changes
 
 Edit `index.html`, commit, and push to `main`. The workflow in
