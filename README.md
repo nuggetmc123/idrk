@@ -7,6 +7,29 @@
 The whole game is a single self-contained file, `index.html`, served at the site root.
 Open the URL and you're in the game — there is no menu or landing page in front of it.
 
+## Kingdom Chaos (`kingdom/`)
+
+A second, separate game: a Castle Crashers–style side-scrolling beat 'em up, living
+entirely in `kingdom/index.html` and served at
+**https://nuggetmc123.github.io/idrk/kingdom/**. It shares nothing with BRAWLBOUND (no
+`profile.js`, no relay); progress is saved to `localStorage` under `kingdomChaos.save.v1`.
+
+This is the first playable slice of the full concept: one hero (the Knight), three
+weapons (Iron Sword, Titan Hammer, Frost Bow), two pets (Slime Buddy, Ember Fox), and all
+of World 1, Greenleaf Forest: four stages of Green Slimes, Goblin Scouts, Goblin Archers
+and Thorn Boars, the Goblin Captain mini-boss in 1-4 and King Slime in 1-5. There is also a
+Training Room with dummies and a DPS meter. Worlds 2–8 show on the map as "coming soon".
+
+- **Controls:** A/D move, W/S move up and down the lane, Space jump (twice for a double
+  jump), Shift dodge roll, left click or J light combo, right click or K heavy, S + attack
+  in the air for a ground slam, Q Royal Spin, E pick up food and open chests, F pet fury,
+  Esc pause, M mute.
+- **Where things live:** stats are plain tables near the top of the script: `WEAPONS`,
+  `PETS`, `EDEF` (enemies) and `STAGES` (waves per stage). Enemy behaviour is one function
+  per type in `AI`. Adding a stage is just another `STAGES` entry.
+- **Progression:** XP levels the hero (+10 max HP and +6% damage per level), coins buy
+  weapons and pet eggs on the world map, and clearing a stage unlocks the next.
+
 ## Making changes
 
 Edit `index.html`, commit, and push to `main`. The workflow in
