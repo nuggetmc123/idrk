@@ -7,6 +7,13 @@
 The whole game is a single self-contained file, `index.html`, served at the site root.
 Open the URL and you're in the game — there is no menu or landing page in front of it.
 
+## Kart VR (Unity)
+
+The [`KartVR/`](KartVR/) folder is a separate project: a first-person VR go-kart game for
+Unity, with a hub, racing, bumper karts, free roam and private lobbies you join with a
+6-digit code. See [`KartVR/README.md`](KartVR/README.md) for setup. It doesn't affect the
+browser game or the Pages deploy.
+
 ## Making changes
 
 Edit `index.html`, commit, and push to `main`. The workflow in
