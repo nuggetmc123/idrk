@@ -56,47 +56,44 @@ The wrist menu floats above your left controller. Poke it with your right hand:
 
 ---
 
-## Setup (about 20 minutes, one time)
+## Setup
 
-### 1. Open the project
-This `KartVR` folder **is** a Unity project.
-1. Install **Unity Hub** and **Unity 6 LTS** (any 6000.0 or newer version). Tick **Android Build Support** if you want to play on Quest.
-2. Unity Hub → **Add** → **Add project from disk** → pick this **`KartVR`** folder. If Hub says the editor version isn't installed, choose the Unity 6 version you have.
-3. The first open takes a few minutes while Unity downloads packages (Input System, XR Plugin Management, OpenXR are already listed in `Packages/manifest.json`).
-4. Unity will say there are **compile errors** and offer **Safe Mode**. Click **Ignore**. The errors are only because Photon Fusion isn't imported yet (step 4).
-5. If asked to **enable the new Input System backends**, click **Yes** (Unity restarts).
+### Play solo first (about 5 minutes)
+1. Install **Unity Hub** and **Unity 6** (any 6000.x version). Tick **Android Build Support** if you want to play on Quest later.
+2. Unity Hub → **Add** → **Add project from disk** → pick this **`KartVR`** folder. If it says the editor version
+   isn't installed, pick the Unity 6 version you have. The first open takes a few minutes.
+3. If Unity asks to **enable the new Input System**, click **Yes** (Unity restarts).
+4. Top menu: **KartVR → Build Prototype World** → **Build it**.
+   (If it says text resources are being added, click **Import** if asked, then click **Build Prototype World** again.)
+5. Press **▶ Play**. You can walk around the hub, customize your kart in **YOUR GARAGE**, and race, bump and free roam, **solo**.
 
-### 2. Turn on VR
-**Edit → Project Settings → XR Plug-in Management** (click *Install* if it asks):
-- **Android tab:** tick **OpenXR**. Under OpenXR, add the **Oculus Touch Controller Profile** (and the **Meta Quest Touch Plus/Pro** profiles if listed) and enable the **Meta Quest Support** feature.
-- **Windows tab** (for Quest Link / SteamVR testing): tick **OpenXR** and add the same controller profiles.
-- Fix anything the yellow ⚠ "Project Validation" list shows.
+Without Photon Fusion the game runs **offline**: everything works except playing with other people.
+**KartVR → Check Multiplayer** tells you which mode you're in.
 
-### 3. TextMeshPro
-**Window → TextMeshPro → Import TMP Essential Resources.**
-
-### 4. Photon Fusion 2 (the multiplayer)
-1. Make a free account at **dashboard.photonengine.com**, click **Create a new app**, pick **Fusion**, version **Fusion 2**. Copy the **App ID**.
-2. Import **Photon Fusion 2** from the Unity Asset Store (free) or from photonengine.com → SDKs.
-3. When the **Fusion Hub** window opens (or **Tools → Fusion → Fusion Hub**), paste your App ID.
+### Turn on multiplayer (optional)
+1. Make a free account at **dashboard.photonengine.com** → **Create a new app** → **Fusion** → **Fusion 2**. Copy the **App ID**.
+2. Import **Photon Fusion 2** (Unity Asset Store, free) into the project.
+3. A KartVR message pops up saying **multiplayer is now ON** (it switches over by itself).
+   Paste your App ID in **Tools → Fusion → Fusion Hub**.
+4. Run **KartVR → Build Prototype World** again so the world uses real networking.
+5. Select the **GameState** object and tick **Is Master Client Object** on its NetworkObject if you see it.
+   If Fusion complains about prefabs, run **Tools → Fusion → Rebuild Prefab Table**.
 
 The free Photon plan allows 20 players online at once, which is plenty for playing with friends.
 
-### 5. Build the world
-**Menu bar → KartVR → Build Prototype World.** This generates:
-- textures and materials in `Assets/KartVR/Textures` and `Assets/KartVR/Materials`
-- `Assets/KartVR/Prefabs/Kart.prefab` (the networked kart) and `Player.prefab` (your walking avatar)
-- `Assets/KartVR/Scenes/KartWorld.unity`, with the hub and garages, race track, bumper arena, free-roam stunt park, sky and lighting, VR rig and managers. It's added to Build Settings for you.
+### Turn on VR (optional)
+**Edit → Project Settings → XR Plug-in Management** → click **Install XR Plugin Management** if asked, then:
+- **Windows tab** (Quest Link / SteamVR): tick **OpenXR** and add the **Oculus Touch Controller Profile**.
+- **Android tab** (playing on the Quest itself): tick **OpenXR**, add the same controller profile and enable **Meta Quest Support**.
+- Fix anything the yellow ⚠ "Project Validation" list shows.
 
-Then select the **GameState** object in the scene and, on its **NetworkObject**, tick
-**Is Master Client Object** if you see it. That way, if the player who started a
-session leaves, the session's game state moves to someone else. (The code also has a fallback.)
-If Fusion complains about the Kart prefab not being registered, run **Tools → Fusion → Rebuild Prefab Table**.
+### Test with friends on one PC
+**Window → Multiplayer → Multiplayer Play Mode** (Unity 6), turn on a second player, and press Play
+(multiplayer needs Photon Fusion). Or make a Windows build and run it next to the editor.
 
-### 6. Play
-- **In the editor:** press Play. You'll connect to the public hub. With no headset you get keyboard and mouse controls.
-- **Test multiplayer on one PC:** **Window → Multiplayer → Multiplayer Play Mode** (Unity 6), turn on a second player, and press Play. Or make a Windows build and run it next to the editor.
-- **On Quest:** turn on Developer Mode, plug in the headset, then **File → Build Profiles → Android → Switch Platform**. In Player Settings use **IL2CPP + ARM64** and press **Build And Run**.
+### Play on Quest
+Turn on Developer Mode and plug in the headset, then **File → Build Profiles → Android → Switch Platform**.
+In Player Settings use **IL2CPP + ARM64**, then **Build And Run**.
 
 ---
 
@@ -107,6 +104,9 @@ Scripts/
   Core/         KartMode (Hub/Race/Bumper/FreeRoam), PlayerProfile (name + color), KartUI helpers
   Network/      SessionManager: connects, matchmaking, private codes, switching sessions
                 GameState: which mode this session is in (owned by the master client)
+                OfflineFusion/: a tiny stand-in for Photon Fusion so the game runs solo before Fusion is
+                imported (switched off automatically once it is)
+Setup/Editor/   FusionSwitch: detects Photon Fusion and turns multiplayer on/off (KARTVR_FUSION define)
   Core/         KartLook: paint/pattern/booster/wheels/spoiler (packed into one networked int)
   Kart/         KartController: driving physics, booster, garage parking, network sync, laps, bumping
                 KartVisuals: builds the detailed kart model from its KartLook (incl. booster flames)

@@ -98,13 +98,27 @@ namespace KartVR
             _ = RunConnect(() => ConnectPublic(mode));
         }
 
+        /// <summary>False until Photon Fusion 2 is imported (the game then runs solo, offline).</summary>
+        public static bool MultiplayerAvailable
+        {
+#if KARTVR_FUSION
+            get { return true; }
+#else
+            get { return false; }
+#endif
+        }
+
+        const string OfflineMessage = "Playing OFFLINE (solo). Import Photon Fusion 2 to play online with friends.";
+
         public void CreatePrivateLobby()
         {
+            if (!MultiplayerAvailable) { SetStatus(OfflineMessage, 6f); return; }
             _ = RunConnect(CreatePrivate);
         }
 
         public void JoinPrivateLobby(string code)
         {
+            if (!MultiplayerAvailable) { SetStatus(OfflineMessage, 6f); return; }
             code = (code ?? "").Trim();
             if (code.Length != 6 || !code.All(char.IsDigit))
             {
@@ -131,6 +145,9 @@ namespace KartVR
         public string DescribeLobby()
         {
             if (!IsConnected) return Busy ? "Connecting..." : "Offline";
+            if (!MultiplayerAvailable)
+                return "OFFLINE - SOLO PLAY\n" + (GameState.Instance != null && GameState.Instance.IsReady
+                    ? KartModeInfo.DisplayName(GameState.Instance.Mode) : KartModeInfo.DisplayName(RequestedMode));
             string mode = GameState.Instance != null && GameState.Instance.IsReady
                 ? KartModeInfo.DisplayName(GameState.Instance.Mode)
                 : KartModeInfo.DisplayName(RequestedMode);

@@ -44,9 +44,15 @@ namespace KartVR.EditorTools
         {
             if (Resources.Load<TMP_Settings>("TMP Settings") == null)
             {
-                EditorUtility.DisplayDialog("KartVR",
-                    "TextMeshPro resources are missing.\n\nGo to Window > TextMeshPro > Import TMP Essential Resources, then run this again.",
-                    "OK");
+                // The text system needs its basic resources once per project. Import them for the user.
+                if (ImportTextMeshProEssentials())
+                    EditorUtility.DisplayDialog("KartVR",
+                        "Text resources are being added to the project (click Import if Unity asks).\n\nWhen that's done, click KartVR > Build Prototype World again.",
+                        "OK");
+                else
+                    EditorUtility.DisplayDialog("KartVR",
+                        "TextMeshPro resources are missing.\n\nGo to Window > TextMeshPro > Import TMP Essential Resources, then run this again.",
+                        "OK");
                 return;
             }
             if (!EditorUtility.DisplayDialog("KartVR",
@@ -95,6 +101,21 @@ namespace KartVR.EditorTools
         }
 
         // ================================================================== helpers
+
+        /// <summary>Runs Window > TextMeshPro > Import TMP Essential Resources. Returns false if that isn't available.</summary>
+        static bool ImportTextMeshProEssentials()
+        {
+            foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+            {
+                var type = asm.GetType("TMPro.TMP_PackageResourceImporter", false);
+                if (type == null) continue;
+                var method = type.GetMethod("ImportResources", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                if (method == null || method.GetParameters().Length != 3) return false;
+                method.Invoke(null, new object[] { true, false, false });
+                return true;
+            }
+            return false;
+        }
 
         static void EnsureFolder(string path)
         {
