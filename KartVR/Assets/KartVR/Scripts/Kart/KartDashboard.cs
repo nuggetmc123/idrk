@@ -35,7 +35,7 @@ namespace KartVR
         void LateUpdate()
         {
             if (kart == null || !kart.IsReady) return;
-            bool show = kart.IsLocal;
+            bool show = kart.IsLocal && !kart.Parked;
             if (display) display.gameObject.SetActive(show);
             if (bigDisplay) bigDisplay.gameObject.SetActive(show);
             if (!show || Time.time < nextRefresh) return;
@@ -56,12 +56,19 @@ namespace KartVR
                 case KartMode.FreeRoam:
                     sb.Append("FREE ROAM\n");
                     break;
-                default:
-                    sb.Append("HUB - drive into a portal\n");
-                    break;
             }
 
-            sb.Append(Mathf.RoundToInt(kart.Speed * 3.6f)).Append(" km/h\n");
+            sb.Append(Mathf.RoundToInt(kart.Speed * 3.6f)).Append(" km/h");
+            if (kart.Look.booster != KartBooster.None)
+            {
+                // Boost meter: filled blocks show charge; READY means press A.
+                int blocks = Mathf.RoundToInt(kart.BoostCharge * 8f);
+                sb.Append("   <color=#FF9A2E>").Append(new string('|', blocks)).Append("</color>")
+                  .Append("<color=#555555>").Append(new string('|', 8 - blocks)).Append("</color>");
+                if (kart.Boosting) sb.Append(" BOOST!");
+                else if (kart.BoostCharge >= 1f) sb.Append(" READY (A)");
+            }
+            sb.Append('\n');
             if (sessions != null)
             {
                 string transient = sessions.TransientStatus;

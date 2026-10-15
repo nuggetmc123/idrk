@@ -4,10 +4,10 @@ using UnityEngine;
 namespace KartVR
 {
     /// <summary>
-    /// The lobby code terminal in the hub. Drive up next to it and poke the keys:
+    /// The lobby code terminal in the hub. Walk up to it and poke the keys:
     /// type a friend's 6-digit code and press JOIN, or press CREATE to make your
     /// own private lobby (the code then shows on the screen to share).
-    /// Also has color buttons to repaint your kart. Builds itself at runtime.
+    /// Builds itself at runtime.
     /// </summary>
     public class KeypadTerminal : MonoBehaviour
     {
@@ -43,16 +43,7 @@ namespace KartVR
             PokeButton.Create(face, "Join", "JOIN", new Vector3(0.2f, 0.08f, 0f), wide, new Color(0.4f, 1f, 0.5f), Join, 0.45f);
             createButton = PokeButton.Create(face, "Create", "CREATE LOBBY", new Vector3(0.2f, -0.025f, 0f), wide, new Color(1f, 0.6f, 0.9f), CreateOrLeave, 0.3f);
 
-            // Kart colors.
-            var swatch = new Vector3(0.08f, 0.08f, 0.04f);
-            for (int i = 0; i < PlayerProfile.Palette.Length; i++)
-            {
-                int index = i;
-                var pos = new Vector3(0.06f + (i % 4) * 0.095f, -0.14f - (i / 4) * 0.095f, 0f);
-                PokeButton.Create(face, "Color_" + i, "", pos, swatch, PlayerProfile.Palette[i],
-                    () => { if (KartController.Local) KartController.Local.SetColor(index); else PlayerProfile.ColorIndex = index; });
-            }
-            KartUI.Label(face, "Kart color", new Vector3(0.2f, -0.33f, 0f), 0.25f, Color.white, new Vector2(0.4f, 0.06f));
+            KartUI.Label(face, "Customize your kart\nin YOUR GARAGE", new Vector3(0.2f, -0.25f, 0f), 0.3f, new Color(1f, 0.8f, 0.4f), new Vector2(0.4f, 0.2f));
         }
 
         void KeyPressed(string key)

@@ -3,7 +3,7 @@ using UnityEngine;
 namespace KartVR
 {
     /// <summary>
-    /// Drive your kart through it to go to another mode.
+    /// Walk (or drive) through it to go to another mode.
     /// Public hub: matches you into a public session of that mode.
     /// Private lobby: takes the whole lobby there together.
     /// </summary>
@@ -19,9 +19,10 @@ namespace KartVR
             GetComponent<Collider>().isTrigger = true;
         }
 
-        public void Activate(KartController kart)
+        /// <summary>Called by the local player's avatar or kart when it enters the portal.</summary>
+        public void Activate()
         {
-            if (kart != KartController.Local || Time.time < nextAllowed) return;
+            if (Time.time < nextAllowed) return;
             var sessions = SessionManager.Instance;
             if (sessions == null || sessions.Busy || !sessions.IsConnected) return;
             nextAllowed = Time.time + 3f;

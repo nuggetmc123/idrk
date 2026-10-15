@@ -8,16 +8,18 @@ namespace KartVR
     /// wire up. Every action has a VR binding plus keyboard and gamepad
     /// fallbacks, so you can test in the editor without a headset.
     ///
-    /// VR:       Right trigger = gas, Left trigger = brake/reverse,
-    ///           Left stick = steer, Grip (either) = drift,
+    /// Driving (VR): Right trigger = gas, Left trigger = brake/reverse,
+    ///           Left stick = steer, Grip (either) = drift, A = booster,
     ///           B = respawn, X = recenter view, Y = show/hide wrist menu.
-    /// Keyboard: W/S or arrows = gas/brake, A/D = steer, Space = drift,
+    /// Walking (VR, hub): Left stick = walk, Right stick = snap turn.
+    /// Keyboard: W/S or arrows = gas/brake (walk), A/D = steer (strafe),
+    ///           Q/E = turn, Shift = booster, Space = drift,
     ///           R = respawn, C = recenter, Tab = wrist menu,
     ///           hold right mouse = look around, left click = press buttons.
     /// </summary>
     public static class KartInput
     {
-        static InputAction gas, brake, steer, drift, respawn, recenter, menu;
+        static InputAction gas, brake, steer, drift, respawn, recenter, menu, boost, move, turn;
         static bool initialized;
 
         static void Init()
@@ -68,6 +70,30 @@ namespace KartVR
             menu.AddBinding("<Gamepad>/start");
             menu.AddBinding("<Keyboard>/tab");
 
+            boost = new InputAction("Boost", InputActionType.Button);
+            boost.AddBinding("<XRController>{RightHand}/{PrimaryButton}");
+            boost.AddBinding("<Gamepad>/buttonSouth");
+            boost.AddBinding("<Keyboard>/leftShift");
+
+            move = new InputAction("Move", InputActionType.Value, expectedControlType: "Vector2");
+            move.AddBinding("<XRController>{LeftHand}/{Primary2DAxis}");
+            move.AddBinding("<Gamepad>/leftStick");
+            move.AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/w")
+                .With("Down", "<Keyboard>/s")
+                .With("Left", "<Keyboard>/a")
+                .With("Right", "<Keyboard>/d");
+
+            turn = new InputAction("Turn", InputActionType.Value, expectedControlType: "Axis");
+            turn.AddBinding("<XRController>{RightHand}/{Primary2DAxis}/x");
+            turn.AddBinding("<Gamepad>/rightStick/x");
+            turn.AddCompositeBinding("1DAxis")
+                .With("Negative", "<Keyboard>/q")
+                .With("Positive", "<Keyboard>/e");
+
+            boost.Enable();
+            move.Enable();
+            turn.Enable();
             gas.Enable();
             brake.Enable();
             steer.Enable();
@@ -81,6 +107,9 @@ namespace KartVR
         public static float Brake { get { Init(); return Mathf.Clamp01(brake.ReadValue<float>()); } }
         public static float Steer { get { Init(); return Mathf.Clamp(steer.ReadValue<float>(), -1f, 1f); } }
         public static bool DriftHeld { get { Init(); return drift.IsPressed(); } }
+        public static bool BoostHeld { get { Init(); return boost.IsPressed(); } }
+        public static Vector2 Move { get { Init(); return Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f); } }
+        public static float Turn { get { Init(); return Mathf.Clamp(turn.ReadValue<float>(), -1f, 1f); } }
 
         // "Pressed this frame" checks only work reliably from Update, not FixedUpdate.
         public static bool RespawnPressed { get { Init(); return respawn.WasPressedThisFrame(); } }

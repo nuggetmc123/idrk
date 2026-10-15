@@ -11,6 +11,9 @@ namespace KartVR
     /// kart and simulates it locally with arcade physics. Its pose is sent over
     /// the network; everyone else's karts are kinematic and smoothly follow.
     ///
+    /// In the Hub the kart is parked in its owner's garage (you walk around as
+    /// your <see cref="PlayerAvatar"/>). In Race / Bumper / Free Roam you drive it.
+    ///
     /// Bumping: when your kart rams someone, you send an RPC to that kart's
     /// owner, who applies the knock to their own kart.
     /// </summary>
@@ -35,7 +38,6 @@ namespace KartVR
         }
 
         [Header("Handling per mode")]
-        public Tuning hubTuning = new Tuning { maxSpeed = 11, reverseSpeed = 5, acceleration = 10, braking = 25, coastDecel = 4, turnRate = 110, grip = 9, driftGrip = 2.5f, bumpPower = 0.6f };
         public Tuning raceTuning = new Tuning { maxSpeed = 24, reverseSpeed = 7, acceleration = 14, braking = 30, coastDecel = 5, turnRate = 95, grip = 10, driftGrip = 2.5f, bumpPower = 0.6f };
         public Tuning bumperTuning = new Tuning { maxSpeed = 12, reverseSpeed = 8, acceleration = 13, braking = 22, coastDecel = 4, turnRate = 130, grip = 4, driftGrip = 2, bumpPower = 1.7f };
         public Tuning freeRoamTuning = new Tuning { maxSpeed = 22, reverseSpeed = 7, acceleration = 13, braking = 28, coastDecel = 5, turnRate = 100, grip = 9, driftGrip = 2.5f, bumpPower = 0.8f };
@@ -43,13 +45,13 @@ namespace KartVR
         [Header("Parts (found by name if left empty)")]
         public Transform seatAnchor;
         public Transform headAnchor;
-        public Transform steeringWheel;
-        public Transform[] frontWheels;
-        public Transform[] allWheels;
+        public KartVisuals visuals;
 
         // ---- Networked state ----
         [Networked] public NetworkString<_16> Nickname { get; set; }
-        [Networked] public int ColorIndex { get; set; }
+        [Networked] public int LookPacked { get; set; }
+        [Networked] public int GarageIndex { get; set; }
+        [Networked] public NetworkBool Boosting { get; set; }
         [Networked] Vector3 NetPosition { get; set; }
         [Networked] Quaternion NetRotation { get; set; }
         [Networked] Vector3 NetVelocity { get; set; }
@@ -69,6 +71,11 @@ namespace KartVR
         public bool IsLocal { get; private set; }
         public float Speed => rb != null ? rb.linearVelocity.magnitude : 0f;
         public KartMode CurrentMode { get; private set; } = KartMode.Hub;
+        public KartLook Look => KartLook.Unpack(LookPacked);
+        public bool Parked => CurrentMode == KartMode.Hub;
+
+        /// <summary>0..1 booster charge (local kart only).</summary>
+        public float BoostCharge { get; private set; } = 1f;
 
         Rigidbody rb;
         bool placed;
@@ -85,20 +92,17 @@ namespace KartVR
         Vector3 groundNormal = Vector3.up;
         bool drifting;
         float driftStart;
-        float boostUntil, stunUntil, upsideDownSince = -1f;
+        float boostUntil, boostSpeedMul = 1.35f, stunUntil, upsideDownSince = -1f;
         float wheelSpin;
+        float nextGarageCheck;
 
         void Awake()
         {
             rb = GetComponent<Rigidbody>();
             if (seatAnchor == null) seatAnchor = transform.Find("Seat");
             if (headAnchor == null) headAnchor = transform.Find("HeadAnchor");
-            if (steeringWheel == null) steeringWheel = transform.Find("SteeringWheel");
-            if (frontWheels == null || frontWheels.Length == 0)
-                frontWheels = new[] { transform.Find("WheelFL"), transform.Find("WheelFR") }.Where(t => t).ToArray();
-            if (allWheels == null || allWheels.Length == 0)
-                allWheels = new[] { "WheelFL", "WheelFR", "WheelBL", "WheelBR" }
-                    .Select(n => transform.Find(n)).Where(t => t).ToArray();
+            if (visuals == null) visuals = GetComponent<KartVisuals>();
+            if (visuals == null) visuals = gameObject.AddComponent<KartVisuals>();
 
             var mat = new PhysicsMaterial("KartBody")
             {
@@ -119,14 +123,13 @@ namespace KartVR
             if (IsLocal)
             {
                 Local = this;
-                rb.isKinematic = false;
                 rb.interpolation = RigidbodyInterpolation.Interpolate;
                 rb.centerOfMass = new Vector3(0f, 0.25f, 0f);
                 Nickname = PlayerProfile.Nickname;
-                ColorIndex = PlayerProfile.ColorIndex;
+                LookPacked = PlayerProfile.Look.Pack();
+                GarageIndex = -1;
                 NetPosition = transform.position;
                 NetRotation = transform.rotation;
-                if (KartRig.Instance != null) KartRig.Instance.AttachTo(this);
             }
             else
             {
@@ -134,6 +137,7 @@ namespace KartVR
                 rb.interpolation = RigidbodyInterpolation.None;
                 seenTeleport = TeleportCount;
             }
+            visuals.Apply(Look);
         }
 
         public override void Despawned(NetworkRunner runner, bool hasState)
@@ -154,23 +158,30 @@ namespace KartVR
                 {
                     case KartMode.Race: return raceTuning;
                     case KartMode.Bumper: return bumperTuning;
-                    case KartMode.FreeRoam: return freeRoamTuning;
-                    default: return hubTuning;
+                    default: return freeRoamTuning;
                 }
             }
         }
 
-        /// <summary>True while the kart isn't allowed to drive (race countdown, results screens).</summary>
+        /// <summary>True while the kart isn't allowed to drive (parked, race countdown, results screens).</summary>
         public bool Frozen
         {
             get
             {
+                if (Parked) return true;
                 if (CurrentMode == KartMode.Race && RaceManager.Instance != null && RaceManager.Instance.IsReady)
                     return RaceManager.Instance.State == RaceState.Countdown;
                 if (CurrentMode == KartMode.Bumper && BumperManager.Instance != null && BumperManager.Instance.IsReady)
                     return BumperManager.Instance.State == BumperState.Results;
                 return false;
             }
+        }
+
+        /// <summary>Change your kart's look (called by your garage editor). Saved on this device.</summary>
+        public void SetLook(KartLook look)
+        {
+            PlayerProfile.Look = look;
+            if (IsLocal) LookPacked = look.Pack();
         }
 
         // ---------------- Local (owner) logic ----------------
@@ -183,9 +194,18 @@ namespace KartVR
             brake = KartInput.Brake;
             steer = KartInput.Steer;
             driftHeld = KartInput.DriftHeld;
-            if (KartInput.RespawnPressed) Respawn();
 
+            ClaimGarage();
             TrackModeChanges();
+
+            if (Parked)
+            {
+                Boosting = false;
+                return;
+            }
+
+            if (KartInput.RespawnPressed) Respawn();
+            UpdateBooster();
 
             var area = SpawnArea.Get(CurrentMode);
             if (area != null && transform.position.y < area.killY)
@@ -205,6 +225,46 @@ namespace KartVR
             else upsideDownSince = -1f;
         }
 
+        void UpdateBooster()
+        {
+            var look = Look;
+            var stats = KartParts.Stats(look.booster);
+            bool active = Time.time < boostUntil;
+            if (look.booster != KartBooster.None)
+            {
+                if (!active) BoostCharge = Mathf.Min(1f, BoostCharge + Time.deltaTime / stats.recharge);
+                if (KartInput.BoostHeld && BoostCharge >= 1f && !Frozen)
+                {
+                    BoostCharge = 0f;
+                    boostUntil = Time.time + stats.seconds;
+                    boostSpeedMul = stats.speedMul;
+                    rb.AddForce(transform.forward * 4f, ForceMode.VelocityChange);
+                    Buzz(XRNode.RightHand, 0.6f, 0.2f);
+                }
+            }
+            Boosting = Time.time < boostUntil;
+        }
+
+        /// <summary>Each player takes the lowest free garage bay. If two pick the same one, the lower player id keeps it.</summary>
+        void ClaimGarage()
+        {
+            if (Time.time < nextGarageCheck || Garage.Count == 0) return;
+            nextGarageCheck = Time.time + 0.5f;
+            int me = Object.StateAuthority.PlayerId;
+            bool conflict = GarageIndex < 0 || GarageIndex >= Garage.Count || All.Any(k =>
+                k != this && k.IsReady && k.GarageIndex == GarageIndex && k.Object.StateAuthority.PlayerId < me);
+            if (!conflict) return;
+            for (int i = 0; i < Garage.Count; i++)
+            {
+                if (!All.Any(k => k != this && k.IsReady && k.GarageIndex == i))
+                {
+                    GarageIndex = i;
+                    if (Parked) ParkInGarage();
+                    return;
+                }
+            }
+        }
+
         void TrackModeChanges()
         {
             var gs = GameState.Instance;
@@ -215,7 +275,12 @@ namespace KartVR
                 placed = true;
                 CurrentMode = gs.Mode;
                 ResetProgress();
-                TeleportToSlot();
+                if (Parked) ParkInGarage();
+                else
+                {
+                    rb.isKinematic = false;
+                    TeleportToSlot();
+                }
                 if (RaceManager.Instance != null && RaceManager.Instance.IsReady) seenRaceId = RaceManager.Instance.RaceId;
                 if (BumperManager.Instance != null && BumperManager.Instance.IsReady) seenRoundId = BumperManager.Instance.RoundId;
             }
@@ -238,6 +303,21 @@ namespace KartVR
             }
         }
 
+        void ParkInGarage()
+        {
+            rb.isKinematic = true;
+            var garage = Garage.Get(GarageIndex);
+            if (garage != null)
+            {
+                Teleport(garage.ParkPosition, garage.ParkRotation);
+            }
+            else
+            {
+                // No bay free (more players than garages): park out of sight.
+                Teleport(new Vector3(0f, -50f, 0f), Quaternion.identity);
+            }
+        }
+
         void ResetProgress()
         {
             Lap = 0;
@@ -246,9 +326,11 @@ namespace KartVR
             FinishTime = 0f;
             Score = 0;
             lastCheckpoint = null;
+            BoostCharge = 1f;
+            boostUntil = 0f;
         }
 
-        int SlotIndex()
+        public int SlotIndex()
         {
             // Everyone sorts the player list the same way, so slots don't collide.
             var players = Runner.ActivePlayers.OrderBy(p => p.PlayerId).ToList();
@@ -258,7 +340,7 @@ namespace KartVR
 
         void TeleportToSlot()
         {
-            var area = SpawnArea.Get(CurrentMode) ?? SpawnArea.Get(KartMode.Hub);
+            var area = SpawnArea.Get(CurrentMode);
             if (area == null) return;
             var pose = area.GetSlot(SlotIndex());
             Teleport(pose.position + Vector3.up * 0.3f, pose.rotation);
@@ -266,7 +348,7 @@ namespace KartVR
 
         public void Respawn()
         {
-            if (!IsLocal) return;
+            if (!IsLocal || Parked) return;
             if (CurrentMode == KartMode.Race && lastCheckpoint != null)
             {
                 var t = lastCheckpoint.transform;
@@ -285,8 +367,11 @@ namespace KartVR
             rb.position = position;
             rb.rotation = rotation;
             transform.SetPositionAndRotation(position, rotation);
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            if (!rb.isKinematic)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
             NetPosition = position;
             NetRotation = rotation;
             NetVelocity = Vector3.zero;
@@ -294,15 +379,9 @@ namespace KartVR
             drifting = false;
         }
 
-        public void SetColor(int index)
-        {
-            PlayerProfile.ColorIndex = index;
-            if (IsLocal) ColorIndex = PlayerProfile.ColorIndex;
-        }
-
         void FixedUpdate()
         {
-            if (!IsReady || !IsLocal) return;
+            if (!IsReady || !IsLocal || rb.isKinematic) return;
             var t = CurrentTuning;
             float dt = Time.fixedDeltaTime;
 
@@ -326,7 +405,7 @@ namespace KartVR
             Vector3 localVel = transform.InverseTransformDirection(rb.linearVelocity);
             float forwardSpeed = localVel.z;
             bool boosting = Time.time < boostUntil;
-            float maxSpeed = t.maxSpeed * (boosting ? 1.35f : 1f);
+            float maxSpeed = t.maxSpeed * (boosting ? boostSpeedMul : 1f);
 
             if (grounded)
             {
@@ -346,7 +425,7 @@ namespace KartVR
                 {
                     drifting = false;
                     // Mini-turbo for a long drift.
-                    if (Time.time - driftStart > 1.0f) boostUntil = Time.time + 0.8f;
+                    if (Time.time - driftStart > 1.0f) { boostUntil = Time.time + 0.8f; boostSpeedMul = 1.3f; }
                 }
 
                 // --- Grip: kill sideways sliding ---
@@ -374,6 +453,7 @@ namespace KartVR
                 Vector3 av = rb.angularVelocity;
                 av.y = Mathf.Lerp(av.y, steerIn * t.turnRate * 0.3f * Mathf.Deg2Rad, 0.1f);
                 rb.angularVelocity = av;
+                if (boosting) rb.AddForce(transform.forward * 6f, ForceMode.Acceleration);
             }
 
             Stabilize(dt);
@@ -414,25 +494,26 @@ namespace KartVR
             if (!IsLocal) return;
             NetPosition = rb.position;
             NetRotation = rb.rotation;
-            NetVelocity = rb.linearVelocity;
+            NetVelocity = rb.isKinematic ? Vector3.zero : rb.linearVelocity;
             NetSteer = steer;
         }
 
         void OnTriggerEnter(Collider other)
         {
-            if (!IsReady || !IsLocal) return;
+            if (!IsReady || !IsLocal || Parked) return;
 
             if (other.TryGetComponent(out Checkpoint cp)) PassCheckpoint(cp);
 
             if (other.TryGetComponent(out BoostPad pad))
             {
                 boostUntil = Time.time + pad.boostSeconds;
+                boostSpeedMul = 1.35f;
                 rb.AddForce(transform.forward * pad.kick, ForceMode.VelocityChange);
                 Buzz(XRNode.RightHand, 0.5f, 0.15f);
                 Buzz(XRNode.LeftHand, 0.5f, 0.15f);
             }
 
-            if (other.TryGetComponent(out ModePortal portal)) portal.Activate(this);
+            if (other.TryGetComponent(out ModePortal portal)) portal.Activate();
         }
 
         void PassCheckpoint(Checkpoint cp)
@@ -460,7 +541,22 @@ namespace KartVR
 
         void OnCollisionEnter(Collision collision)
         {
-            if (!IsReady || !IsLocal || collision.rigidbody == null) return;
+            if (!IsReady || !IsLocal || rb.isKinematic) return;
+
+            // Bouncy bumpers in the arena.
+            var bouncer = collision.collider.GetComponentInParent<Bouncer>();
+            if (bouncer != null)
+            {
+                Vector3 away = transform.position - collision.collider.transform.position;
+                away.y = 0f;
+                rb.AddForce(away.normalized * bouncer.power + Vector3.up * bouncer.lift, ForceMode.VelocityChange);
+                stunUntil = Time.time + 0.4f;
+                Buzz(XRNode.RightHand, 0.8f, 0.15f);
+                Buzz(XRNode.LeftHand, 0.8f, 0.15f);
+                return;
+            }
+
+            if (collision.rigidbody == null) return;
             var other = collision.rigidbody.GetComponent<KartController>();
             if (other == null || other == this || !other.IsReady) return;
 
@@ -535,14 +631,19 @@ namespace KartVR
                 }
             }
 
+            visuals.Apply(Look);
+            visuals.SetBoosting(Boosting);
+
             float steerVisual = IsLocal ? steer : NetSteer;
-            float forward = Vector3.Dot(IsLocal ? rb.linearVelocity : NetVelocity, transform.forward);
-            wheelSpin += forward / 0.22f * Mathf.Rad2Deg * Time.deltaTime;
-            foreach (var w in allWheels)
-                if (w) w.localRotation = Quaternion.Euler(wheelSpin, 0f, 90f);
-            foreach (var w in frontWheels)
-                if (w) w.localRotation = Quaternion.Euler(0f, steerVisual * 25f, 0f) * Quaternion.Euler(wheelSpin, 0f, 90f);
-            if (steeringWheel) steeringWheel.localRotation = Quaternion.Euler(-60f, 0f, 0f) * Quaternion.Euler(0f, steerVisual * -90f, 0f);
+            if (Parked) steerVisual = 0f;
+            float forward = Vector3.Dot(IsLocal && !rb.isKinematic ? rb.linearVelocity : NetVelocity, transform.forward);
+            wheelSpin += forward / 0.23f * Mathf.Rad2Deg * Time.deltaTime;
+            foreach (var w in visuals.AllWheels)
+                if (w) w.GetChild(0).localRotation = Quaternion.Euler(wheelSpin, 0f, 0f);
+            foreach (var w in visuals.FrontWheels)
+                if (w) w.localRotation = Quaternion.Euler(0f, steerVisual * 25f, 0f);
+            if (visuals.SteeringWheel)
+                visuals.SteeringWheel.localRotation = Quaternion.AngleAxis(steerVisual * -90f, Quaternion.Euler(-60f, 0f, 0f) * Vector3.up);
         }
     }
 }

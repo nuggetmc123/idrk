@@ -5,18 +5,18 @@ using UnityEngine;
 namespace KartVR
 {
     /// <summary>
-    /// What other players see of you: a head and two hands sitting in your kart,
-    /// your kart color, and a name tag. The owner copies its real headset and
-    /// controller poses (relative to the kart) into networked values.
+    /// The driver you see sitting in a kart: full body in the kart's colors,
+    /// with head and hands following the player's real headset and controllers,
+    /// plus a name tag. Hidden while the kart is parked in its garage (the
+    /// player is walking around the hub instead). On your own kart the helmet
+    /// is hidden so it doesn't block your view, but you can look down and see
+    /// your body and gloves.
     /// </summary>
     public class KartAvatar : NetworkBehaviour
     {
-        [Tooltip("Found by name (NetHead / NetLeftHand / NetRightHand / NameTag) if left empty.")]
-        public Transform head, leftHand, rightHand;
         public TextMeshPro nameTag;
-        [Tooltip("Renderers tinted with the player's color. Defaults to the 'Body' child.")]
-        public Renderer[] colorRenderers;
 
+        // Poses relative to the kart, sent by the owner.
         [Networked] Vector3 HeadPos { get; set; }
         [Networked] Quaternion HeadRot { get; set; }
         [Networked] Vector3 LeftPos { get; set; }
@@ -25,24 +25,25 @@ namespace KartVR
         [Networked] Quaternion RightRot { get; set; }
 
         KartController kart;
-        int appliedColor = -1;
-        string appliedName;
+        AvatarBody body;
+        Vector3 sHead = new Vector3(0f, 1.15f, -0.3f), sLeft = new Vector3(-0.17f, 0.75f, 0.2f), sRight = new Vector3(0.17f, 0.75f, 0.2f);
+        Quaternion sHeadRot = Quaternion.identity, sLeftRot = Quaternion.identity, sRightRot = Quaternion.identity;
+
+        // Seat geometry in kart space.
+        static readonly Vector3 Hips = new Vector3(0f, 0.5f, -0.35f);
+        static readonly Vector3 LeftPedal = new Vector3(-0.13f, 0.36f, 0.62f);
+        static readonly Vector3 RightPedal = new Vector3(0.13f, 0.36f, 0.62f);
 
         void Awake()
         {
             kart = GetComponent<KartController>();
-            if (head == null) head = transform.Find("NetHead");
-            if (leftHand == null) leftHand = transform.Find("NetLeftHand");
-            if (rightHand == null) rightHand = transform.Find("NetRightHand");
+            var bodyGo = new GameObject("Driver");
+            bodyGo.transform.SetParent(transform, false);
+            body = bodyGo.AddComponent<AvatarBody>();
             if (nameTag == null)
             {
                 var t = transform.Find("NameTag");
                 if (t) nameTag = t.GetComponent<TextMeshPro>();
-            }
-            if (colorRenderers == null || colorRenderers.Length == 0)
-            {
-                var body = transform.Find("Body");
-                if (body) colorRenderers = new[] { body.GetComponent<Renderer>() };
             }
         }
 
@@ -50,19 +51,9 @@ namespace KartVR
         {
             if (HasStateAuthority)
             {
-                // You don't need to see your own avatar head (it would block the camera)
-                // or your network hands (the rig shows your real hands).
-                SetVisible(head, false);
-                SetVisible(leftHand, false);
-                SetVisible(rightHand, false);
+                body.SetHeadVisible(false);
                 if (nameTag) nameTag.gameObject.SetActive(false);
             }
-        }
-
-        static void SetVisible(Transform t, bool visible)
-        {
-            if (t == null) return;
-            foreach (var r in t.GetComponentsInChildren<Renderer>()) r.enabled = visible;
         }
 
         public override void FixedUpdateNetwork()
@@ -78,45 +69,68 @@ namespace KartVR
             RightRot = Quaternion.Inverse(transform.rotation) * rig.rightHand.rotation;
         }
 
+        static bool Received(Quaternion q) => !(q.x == 0f && q.y == 0f && q.z == 0f && q.w == 0f);
+
         public override void Render()
         {
-            if (kart != null && kart.IsReady)
+            if (kart == null || !kart.IsReady) return;
+            var look = kart.Look;
+            body.Build(look.paint, look.accent);
+
+            bool driving = !kart.Parked;
+            body.SetVisible(driving);
+            if (nameTag && !HasStateAuthority)
             {
-                if (kart.ColorIndex != appliedColor)
+                nameTag.gameObject.SetActive(driving);
+                nameTag.text = kart.Nickname.ToString();
+            }
+            if (!driving) return;
+
+            if (HasStateAuthority)
+            {
+                // Your own driver: use the live rig so your body matches your hands exactly.
+                var rig = KartRig.Instance;
+                if (rig != null && rig.IsAttachedTo(kart))
                 {
-                    appliedColor = kart.ColorIndex;
-                    var c = PlayerProfile.GetColor(appliedColor);
-                    foreach (var r in colorRenderers) if (r) KartUI.SetColor(r.material, c);
-                }
-                string n = kart.Nickname.ToString();
-                if (nameTag && n != appliedName)
-                {
-                    appliedName = n;
-                    nameTag.text = n;
+                    sHead = transform.InverseTransformPoint(rig.head.position);
+                    sHeadRot = Quaternion.Inverse(transform.rotation) * rig.head.rotation;
+                    sLeft = transform.InverseTransformPoint(rig.leftHand.position);
+                    sLeftRot = Quaternion.Inverse(transform.rotation) * rig.leftHand.rotation;
+                    sRight = transform.InverseTransformPoint(rig.rightHand.position);
+                    sRightRot = Quaternion.Inverse(transform.rotation) * rig.rightHand.rotation;
                 }
             }
-
-            if (HasStateAuthority) return;
-
-            float k = 1f - Mathf.Exp(-20f * Time.deltaTime);
-            Follow(head, HeadPos, HeadRot, k);
-            Follow(leftHand, LeftPos, LeftRot, k);
-            Follow(rightHand, RightPos, RightRot, k);
-
-            // Name tag faces the local camera.
-            if (nameTag && KartRig.Instance != null)
+            else if (Received(HeadRot))
             {
+                float k = 1f - Mathf.Exp(-20f * Time.deltaTime);
+                sHead = Vector3.Lerp(sHead, HeadPos, k); sHeadRot = Quaternion.Slerp(sHeadRot, HeadRot, k);
+                sLeft = Vector3.Lerp(sLeft, LeftPos, k); sLeftRot = Quaternion.Slerp(sLeftRot, LeftRot, k);
+                sRight = Vector3.Lerp(sRight, RightPos, k); sRightRot = Quaternion.Slerp(sRightRot, RightRot, k);
+            }
+
+            // Keep body parts inside the kart even if someone's tracking goes wild.
+            Vector3 head = transform.TransformPoint(ClampLocal(sHead, 0.6f, new Vector3(0f, 1.15f, -0.3f)));
+            Vector3 left = transform.TransformPoint(ClampLocal(sLeft, 0.9f, new Vector3(-0.17f, 0.75f, 0.2f)));
+            Vector3 right = transform.TransformPoint(ClampLocal(sRight, 0.9f, new Vector3(0.17f, 0.75f, 0.2f)));
+
+            body.Pose(transform.TransformPoint(Hips), transform.rotation,
+                head, transform.rotation * sHeadRot,
+                left, transform.rotation * sLeftRot,
+                right, transform.rotation * sRightRot,
+                transform.TransformPoint(LeftPedal), transform.TransformPoint(RightPedal));
+
+            if (nameTag && !HasStateAuthority && KartRig.Instance != null)
+            {
+                nameTag.transform.position = head + Vector3.up * 0.55f;
                 Vector3 away = nameTag.transform.position - KartRig.Instance.head.position;
                 if (away.sqrMagnitude > 0.01f) nameTag.transform.rotation = Quaternion.LookRotation(away, Vector3.up);
             }
         }
 
-        static void Follow(Transform t, Vector3 localPos, Quaternion localRot, float k)
+        static Vector3 ClampLocal(Vector3 p, float maxDistance, Vector3 center)
         {
-            // An all-zero quaternion means nothing has been received yet.
-            if (t == null || (localRot.x == 0f && localRot.y == 0f && localRot.z == 0f && localRot.w == 0f)) return;
-            t.localPosition = Vector3.Lerp(t.localPosition, localPos, k);
-            t.localRotation = Quaternion.Slerp(t.localRotation, localRot, k);
+            Vector3 d = p - center;
+            return d.magnitude > maxDistance ? center + d.normalized * maxDistance : p;
         }
     }
 }

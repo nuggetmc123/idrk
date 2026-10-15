@@ -34,10 +34,16 @@ namespace KartVR
         [Tooltip("The Kart prefab (must have a NetworkObject). The builder fills this in.")]
         public NetworkObject kartPrefab;
 
+        [Tooltip("The on-foot Player prefab used in the hub (must have a NetworkObject). The builder fills this in.")]
+        public NetworkObject playerPrefab;
+
         [Range(2, 20)] public int maxPlayersPerSession = 12;
 
-        [Tooltip("Plain lit material that buttons and panels built at runtime copy.")]
+        [Tooltip("Plain lit material that buttons, panels, karts and avatars built at runtime copy.")]
         public Material baseMaterial;
+
+        [Tooltip("Additive particle material for booster flames.")]
+        public Material particleMaterial;
 
         public NetworkRunner Runner { get; private set; }
         public bool IsConnected => Runner != null && Runner.IsRunning;
@@ -69,6 +75,7 @@ namespace KartVR
             Instance = this;
             DontDestroyOnLoad(gameObject);
             KartUI.BaseMaterial = baseMaterial;
+            KartUI.ParticleMaterial = particleMaterial;
             worldSceneIndex = SceneManager.GetActiveScene().buildIndex;
 
             // Smoother physics for a camera that rides on a rigidbody.
@@ -300,16 +307,18 @@ namespace KartVR
 
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            // In Shared Mode every client spawns its own kart.
+            // In Shared Mode every client spawns its own kart and its own walking avatar.
             if (player != runner.LocalPlayer) return;
-            if (kartPrefab == null)
+            if (kartPrefab == null || playerPrefab == null)
             {
-                Debug.LogError("[KartVR] SessionManager has no Kart prefab assigned.");
+                Debug.LogError("[KartVR] SessionManager is missing the Kart or Player prefab. Run KartVR > Build Prototype World.");
                 return;
             }
-            var area = SpawnArea.Get(RequestedMode) ?? SpawnArea.Get(KartMode.Hub);
+            var area = SpawnArea.Get(KartMode.Hub);
             Pose pose = area != null ? area.GetSlot(0) : new Pose(Vector3.up, Quaternion.identity);
-            runner.Spawn(kartPrefab, pose.position, pose.rotation, player);
+            // The kart starts out of sight; it parks itself in your garage (or drives to the grid) right away.
+            runner.Spawn(kartPrefab, new Vector3(0f, -50f, 0f), Quaternion.identity, player);
+            runner.Spawn(playerPrefab, pose.position, pose.rotation, player);
         }
 
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)

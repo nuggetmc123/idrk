@@ -1,36 +1,52 @@
 # Kart VR
 
-A first-person VR go-kart game for Unity (Meta Quest / PC VR). You sit in the
-kart and drive with the controllers, with no arm-swing movement. Everyone
-meets in a **Hub**. From there you can **Race**, play **Bumper Karts**, or
-**Free Roam**, either with whoever is online or in a **private lobby** that
-your friends join with a 6-digit code.
+A first-person VR go-kart game for Unity (Meta Quest / PC VR). Everyone meets
+in a **Hub**, walking around with full bodies (thumbstick movement, no arm-swing
+movement). Every player has a **garage** where their customized kart is on display. From the hub
+you can **Race**, play **Bumper Karts**, or **Free Roam**, sitting in your kart and driving
+with the controllers, either with whoever is online or in a **private lobby** that your
+friends join with a 6-digit code.
 
 ## What's in the game
 
 | Area | What you do |
 |---|---|
-| **Hub** | Where everyone spawns and meets. Three portals (Race / Bumper Karts / Free Roam), two lobby-code keypads, kart color buttons, a big board showing your lobby. |
-| **Race** | 3-lap race on a ~370 m track with walls, 8 checkpoints (no shortcuts), boost pads, a 5-second countdown, live positions, results, then the next race starts automatically. |
-| **Bumper Karts** | 2-minute rounds on a round platform over lava. Ram people for **+1**, fall off for **−1**. Highest score wins. |
-| **Free Roam** | A big open map with ramps, a mega ramp, a plateau, hills, slalom poles and a boost strip. |
+| **Hub** | You **walk around on foot** with a full body (helmet, racing suit, arms that follow your real hands, legs that step). There's a plaza with a fountain and a spinning gold trophy, lamps, trees and benches. Three glowing portals (Race / Bumper Karts / Free Roam), two lobby-code kiosks, a big lobby board, and **12 garages**. |
+| **Garages** | Every player automatically gets their own garage bay. **Your kart is parked in it on a turntable whenever you're in the hub, so everyone walking by can see it.** The sign above the door shows the owner's name and the neon trim glows in their paint color. Walk into **YOUR GARAGE** and use the wall panel to change your kart. Only the owner can use a garage's panel. |
+| **Race** | 3-lap race on a ~370 m track with red/white barriers, painted lines, a start gantry with **countdown lights**, a grandstand full of fans, a "KART VR" arch, boost pads with chevrons, **a jump**, and trees. Live positions, results, then the next race starts automatically. |
+| **Bumper Karts** | 2-minute rounds on a neon-lit platform over a lava lake. A **spinning sweeper bar** shoves anyone in its way, and **bouncy bumpers** fling you across the arena. Ram people for **+1**, fall off for **−1**. |
+| **Free Roam** | A stunt park: a mega ramp with **boost hoops** to fly through, a **skate bowl** of quarter pipes, a kicker chain, a plateau with a drop-off jump, hills, a lake, rocks, a ring road and lots of trees. |
+
+### Customizing your kart (in your garage)
+| Part | Options |
+|---|---|
+| **Paint** and **Accent** | 12 colors each |
+| **Pattern** | Solid, Racing Stripes, Two-Tone, Checkered, Flames, Camo |
+| **Booster** | None, Twin Rockets, Jet Engine, Mega Rockets. Boosters give you a **boost button (A)** with a recharge meter on your dashboard, and shoot flames when used. Each one is a trade-off: Twin Rockets are balanced, the Jet lasts longest, Mega Rockets are the fastest but recharge slowly. |
+| **Wheels** | Standard, Chunky Off-Road (with tread), Racing Slicks (colored rims) |
+| **Spoiler** | None, Lip, Wing, Big Wing |
+
+Your choices are saved on your device and everyone else sees them, in your garage and on the track.
 
 ### Lobby codes / private lobbies
-- **Create:** drive up to a keypad in the hub and poke **CREATE LOBBY** (or use the wrist menu). A 6-digit code appears on the keypad, your dashboard and the hub board. Give it to your friends.
-- **Join:** type the code on the keypad and poke **JOIN**.
-- **In a private lobby**, driving into a portal takes the **whole lobby** to that mode together. The **Hub** button on the wrist menu brings everyone back.
+- **Create:** walk up to a lobby-code kiosk in the hub and poke **CREATE LOBBY** (or use the wrist menu). A 6-digit code appears on the kiosk, your wrist menu and the hub board. Give it to your friends.
+- **Join:** type the code on the kiosk and poke **JOIN**.
+- **In a private lobby**, walking into a portal takes the **whole lobby** to that mode together. The **Hub** button on the wrist menu brings everyone back.
 - **In public**, a portal puts you in a public session of that mode with whoever else is playing it.
-- **Leave Lobby** (keypad or wrist menu) takes you back to the public hub.
+- **Leave Lobby** (kiosk or wrist menu) takes you back to the public hub.
 
 ### Controls
 | | VR | Keyboard (testing without a headset) |
 |---|---|---|
+| **Walk** (hub) | Left thumbstick (the way you're looking) | W/A/S/D |
+| **Turn** (hub) | Right thumbstick (snap turn) | Q / E |
 | Gas | Right trigger | W / ↑ |
 | Brake / reverse | Left trigger | S / ↓ |
 | Steer | Left thumbstick | A / D |
 | Drift (hold through a corner; long drifts give a mini-boost) | Either grip | Space |
+| **Booster** (if your kart has one) | A | Left Shift |
 | Respawn | B | R |
-| Recenter view to the seat | X | C |
+| Recenter view | X | C |
 | Show/hide wrist menu | Y | Tab |
 | Press buttons | Touch them with your hand | Left click |
 | Look around | Your head | Hold right mouse |
@@ -68,8 +84,9 @@ The free Photon plan allows 20 players online at once, which is plenty for playi
 
 ### 5. Build the world
 **Menu bar → KartVR → Build Prototype World.** This generates:
-- `Assets/KartVR/Prefabs/Kart.prefab`, the networked kart
-- `Assets/KartVR/Scenes/KartWorld.unity`, with the hub, race track, bumper arena, free-roam map, VR rig and managers. It's added to Build Settings for you.
+- textures and materials in `Assets/KartVR/Textures` and `Assets/KartVR/Materials`
+- `Assets/KartVR/Prefabs/Kart.prefab` (the networked kart) and `Player.prefab` (your walking avatar)
+- `Assets/KartVR/Scenes/KartWorld.unity`, with the hub and garages, race track, bumper arena, free-roam stunt park, sky and lighting, VR rig and managers. It's added to Build Settings for you.
 
 Then select the **GameState** object in the scene and, on its **NetworkObject**, tick
 **Is Master Client Object** if you see it. That way, if the player who started a
@@ -90,13 +107,18 @@ Scripts/
   Core/         KartMode (Hub/Race/Bumper/FreeRoam), PlayerProfile (name + color), KartUI helpers
   Network/      SessionManager: connects, matchmaking, private codes, switching sessions
                 GameState: which mode this session is in (owned by the master client)
-  Kart/         KartController: driving physics, network sync, laps, bumping
-                KartAvatar: your head/hands/name/color as others see them
-                KartDashboard: speed/lap/position/countdown on your dashboard
+  Core/         KartLook: paint/pattern/booster/wheels/spoiler (packed into one networked int)
+  Kart/         KartController: driving physics, booster, garage parking, network sync, laps, bumping
+                KartVisuals: builds the detailed kart model from its KartLook (incl. booster flames)
+                KartAvatar: the driver's body sitting in the kart
+                KartDashboard: speed/boost meter/lap/position/countdown on your dashboard
                 KartInput: all controls (VR + keyboard + gamepad)
-  Player/       KartRig: the VR camera + hands, sits in your kart's seat; HandPoker
-  Interaction/  PokeButton (touch-to-press 3D buttons), KeypadTerminal, WristMenu
-  World/        SpawnArea, Checkpoint, BoostPad, ModePortal, InfoBoard
+  Player/       PlayerAvatar: you on foot in the hub (walk, snap turn, synced body)
+                AvatarBody: the racer body (helmet, suit, IK arms and legs)
+                KartRig: the VR camera + hands; rides your avatar in the hub, your kart elsewhere
+  Interaction/  PokeButton (touch-to-press 3D buttons), KeypadTerminal, WristMenu, GarageEditor
+  World/        Garage, SpawnArea, Checkpoint, BoostPad, ModePortal, InfoBoard,
+                Rotator (clock-synced spinning), Bouncer, StartLights
   Modes/        RaceManager (countdown → race → results loop), BumperManager (rounds + scores)
 Editor/         KartWorldBuilder: the "Build Prototype World" menu
 ```
@@ -104,14 +126,18 @@ Editor/         KartWorldBuilder: the "Build Prototype World" menu
 - **Networking:** Photon Fusion 2 in **Shared Mode**. Each player owns and simulates their own kart, so your own driving never lags. Other karts smoothly follow their owner's updates. When you ram someone, an RPC tells *their* game to knock their kart. A session stays alive as long as anyone is in it.
 - **Public vs private:** public sessions are matched by a `mode` property, so a public race session only matches other public race sessions. A private lobby is a hidden session named after its code. Inside one, modes are switched by changing `GameState.Mode`, and every kart teleports to that mode's spawn area.
 - **All maps live in one scene**, spread far apart. Switching session reloads the scene for a clean start.
+- **Each player spawns two network objects:** a `Player` (on foot) and a `Kart`. In the hub the kart parks itself in the player's garage and the VR rig rides the avatar; in other modes the avatar hides and the rig sits in the kart.
+- **Garages** are claimed automatically: each player takes the lowest free bay, and if two pick the same one, the lower player id keeps it.
+- **Performance:** scenery is marked static so Unity batches it, karts and bodies share materials, and there are no real-time point lights (glowing parts use emissive materials). That keeps it light enough for Quest.
 - **Tuning:** select the Kart prefab and look at `KartController`. There's a separate *Tuning* block per mode (top speed, acceleration, turn rate, grip, drift grip, bump power). Laps and round lengths are on the `GameState` object (`RaceManager` / `BumperManager`).
 - **Adding your own maps or art:** replace the generated blocks with your models. The things that matter are a `SpawnArea` (with child slots) for each mode, `Checkpoint`s in order with index 0 at the finish line, and `ModePortal`s in the hub. Re-running the builder overwrites the scene and prefab, so after you start customising, stop using it (or copy the scene first).
 
 ## Known limits / ideas for next steps
 - This is a prototype with block art. Swap in real kart and track models.
 - Your name is a random "Racer1234" saved on the device. A VR keyboard for renaming would be a nice addition.
+- More than 12 players in one session: extra karts park out of sight (there are 12 garages).
 - No anti-cheat: each player reports their own laps and scores. Fine for friends.
-- Possible additions: a physical steering wheel you grab, items/power-ups, more tracks, lap-time leaderboards, voice chat (Photon Voice).
+- Possible additions: a physical steering wheel you grab, items/power-ups, more tracks, lap-time leaderboards, voice chat (Photon Voice), more kart parts and stickers.
 - Comfort: the kart is auto-leveled to reduce rolling. If anyone gets motion sick, a tunneling vignette is a good add.
 
 ## Note on versions
