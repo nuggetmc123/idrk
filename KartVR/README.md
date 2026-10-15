@@ -88,11 +88,18 @@ licensed to you through your own free account.)
 
 The free Photon plan allows 20 players online at once, which is plenty for playing with friends.
 
-### Turn on VR (optional)
-**Edit → Project Settings → XR Plug-in Management** → click **Install XR Plugin Management** if asked, then:
-- **Windows tab** (Quest Link / SteamVR): tick **OpenXR** and add the **Oculus Touch Controller Profile**.
-- **Android tab** (playing on the Quest itself): tick **OpenXR**, add the same controller profile and enable **Meta Quest Support**.
-- Fix anything the yellow ⚠ "Project Validation" list shows.
+### Turn on VR (optional, one click)
+Click **KartVR → Set Up VR (Quest)**. It installs Unity's VR support (OpenXR), switches it on for PC (Quest Link)
+and for the Quest headset, and adds the Quest controllers. Unity reloads once in the middle; say **Yes** if it asks to
+restart. A message lists what was done (and anything it couldn't do, with the exact click).
+
+Doing it by hand instead: **Edit → Project Settings → XR Plug-in Management** (click *Install XR Plugin Management* if
+that's all you see). The platform tabs are **icons**: the **monitor** icon is PC, the **Android robot** is Quest. On each,
+tick **OpenXR**, then in **OpenXR** (left list) add the **Oculus Touch Controller Profile** with **+**; on the Android tab
+also tick **Meta Quest Support**.
+
+**Play in VR on your PC:** install the Meta Quest Link app, connect the Quest (cable or Air Link), set Link as the
+OpenXR runtime (Link app → Settings → General), then press **▶ Play** in Unity.
 
 ### Test with friends on one PC
 **Window → Multiplayer → Multiplayer Play Mode** (Unity 6), turn on a second player, and press Play
