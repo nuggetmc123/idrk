@@ -139,7 +139,6 @@ namespace Fusion
 
     public struct NetworkInput { }
     public struct SimulationMessagePtr { }
-    public struct ReliableKey { }
     public class SessionInfo { }
     public class HostMigrationToken { }
 
@@ -165,8 +164,8 @@ namespace Fusion
         void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList);
         void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data);
         void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken);
-        void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data);
-        void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress);
+        void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, Sockets.ReliableKey key, ReadOnlySpan<byte> data);
+        void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, Sockets.ReliableKey key, float progress);
         void OnSceneLoadDone(NetworkRunner runner);
         void OnSceneLoadStart(NetworkRunner runner);
     }
@@ -177,5 +176,6 @@ namespace Fusion.Sockets
     public struct NetAddress { }
     public enum NetDisconnectReason { Unknown, Requested, Timeout }
     public enum NetConnectFailedReason { Timeout, ServerFull, ServerRefused }
+    public struct ReliableKey { }
 }
 #endif
