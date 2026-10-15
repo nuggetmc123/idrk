@@ -16,7 +16,11 @@ namespace KartVR
     {
         public static PlayerAvatar Local { get; private set; }
 
-        public float walkSpeed = 2.6f;
+        public float walkSpeed = 4.5f;
+        [Tooltip("Hold the right trigger (or A / Shift) to run.")]
+        public float runSpeed = 8f;
+
+        Vector3 skyCarry;
         public float snapTurnDegrees = 45f;
         public TextMeshPro nameTag;
 
@@ -146,7 +150,8 @@ namespace KartVR
             Vector2 stick = KartInput.Move;
             Vector3 fwd = Vector3.ProjectOnPlane(rig.head.forward, Vector3.up).normalized;
             Vector3 right = Vector3.Cross(Vector3.up, fwd);
-            Vector3 move = (fwd * stick.y + right * stick.x) * walkSpeed;
+            bool running = KartInput.BoostHeld || (KartRig.IsXR && KartInput.Gas > 0.5f);
+            Vector3 move = (fwd * stick.y + right * stick.x) * (running ? runSpeed : walkSpeed);
 
             // Keep the capsule under your real head when you walk around your room.
             Vector3 headLocal = transform.InverseTransformPoint(rig.head.position);
@@ -154,6 +159,18 @@ namespace KartVR
 
             if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -1f;
             verticalVelocity += Physics.gravity.y * Time.deltaTime;
+
+            // Sky Zone beam: float up, then get pushed off onto the island (the push keeps going until you land).
+            Vector3 feet = new Vector3(rig.head.position.x, transform.position.y, rig.head.position.z);
+            var lift = SkyLift.At(feet);
+            if (lift != null)
+            {
+                Vector3 v = lift.Velocity(feet);
+                verticalVelocity = v.y;
+                skyCarry = new Vector3(v.x, 0f, v.z);
+            }
+            else if (controller.isGrounded) skyCarry = Vector3.zero;
+            move += skyCarry;
             move.y = verticalVelocity;
             controller.Move(move * Time.deltaTime);
 

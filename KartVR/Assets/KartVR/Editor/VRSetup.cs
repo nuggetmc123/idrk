@@ -29,7 +29,31 @@ namespace KartVR.EditorTools
         {
             if (Application.isBatchMode) return;
             if (EditorPrefs.GetBool(PendingKey, false)) EditorApplication.delayCall += Resume;
+            EditorApplication.playModeStateChanged -= BeforePlay;
+            EditorApplication.playModeStateChanged += BeforePlay;
         }
+
+        /// <summary>
+        /// Every time you press Play: make sure the Quest controller profiles are switched on, otherwise OpenXR
+        /// never reports the controllers and your hands stay frozen.
+        /// </summary>
+        static void BeforePlay(PlayModeStateChange change)
+        {
+            if (change != PlayModeStateChange.ExitingEditMode || !PackagesInstalled()) return;
+            foreach (var group in new[] { BuildTargetGroup.Standalone, BuildTargetGroup.Android })
+            {
+                int on = EnableFeatures(group, ControllerProfiles);
+                if (on == 0)
+                    Debug.LogWarning("[KartVR] Couldn't switch on the Quest controller profile for " + group +
+                                     ". Your hands won't move in VR until it's on: KartVR > Set Up VR (Quest).");
+            }
+            AssetDatabase.SaveAssets();
+        }
+
+        static readonly string[] ControllerProfiles =
+        {
+            "OculusTouchControllerProfile", "MetaQuestTouchPlusControllerProfile", "MetaQuestTouchProControllerProfile",
+        };
 
         [MenuItem("KartVR/Set Up VR (Quest)", priority = 1)]
         public static void Run()
@@ -96,7 +120,7 @@ namespace KartVR.EditorTools
                 if (EnableOpenXR(group)) done.Add("OpenXR switched on for " + where);
                 else todo.Add("Tick OpenXR on the " + where + " in Edit > Project Settings > XR Plug-in Management");
 
-                int profiles = EnableFeatures(group, "OculusTouchControllerProfile", "MetaQuestTouchPlusControllerProfile", "MetaQuestTouchProControllerProfile");
+                int profiles = EnableFeatures(group, ControllerProfiles);
                 if (profiles > 0) done.Add("Quest controllers added for " + where);
                 else todo.Add("Under XR Plug-in Management > OpenXR (" + where + "), add Oculus Touch Controller Profile with the + button");
 
@@ -113,7 +137,7 @@ namespace KartVR.EditorTools
                 msg += (msg.Length > 0 ? "\n\n" : "") + "Still to do by hand (Unity didn't let me):\n- " + string.Join("\n- ", todo) +
                        "\n\nThe XR Plug-in Management page is open now.";
             msg += "\n\nTo play on PC with your Quest: connect Quest Link, then press Play.";
-            if (todo.Count > 0) SettingsService.OpenProjectSettings("Project/XR Plug-in Management");
+            if (todo.Count > 0 && interactive) SettingsService.OpenProjectSettings("Project/XR Plug-in Management");
             Debug.Log("[KartVR] VR setup:\n" + msg);
             if (interactive) EditorUtility.DisplayDialog("Kart VR - VR setup", msg, "OK");
         }
@@ -157,7 +181,7 @@ namespace KartVR.EditorTools
             if (perTargetType == null || generalType == null) return null;
 
             // The settings asset is registered under this key.
-            string key = generalType.GetField("k_SettingsKey", BindingFlags.Public | BindingFlags.Static)?.GetValue(null) as string
+            string key = (generalType.GetField("settingsKey", BindingFlags.Public | BindingFlags.Static) ?? generalType.GetField("k_SettingsKey", BindingFlags.Public | BindingFlags.Static))?.GetValue(null) as string
                          ?? "com.unity.xr.management.loader_settings";
             EditorBuildSettings.TryGetConfigObject(key, out UnityEngine.Object perTarget);
             if (perTarget == null)
@@ -214,7 +238,17 @@ namespace KartVR.EditorTools
                 var get = settingsType?.GetMethod("GetSettingsForBuildTargetGroup", BindingFlags.Public | BindingFlags.Static);
                 var settings = get?.Invoke(null, new object[] { group });
                 if (settings == null) return 0;
-                var features = settingsType.GetMethod("GetFeatures", Type.EmptyTypes)?.Invoke(settings, null) as Array;
+
+                // Make OpenXR discover all its features first; a freshly made settings asset has an empty list.
+                var helpers = FindType("UnityEditor.XR.OpenXR.Features.FeatureHelpers");
+                helpers?.GetMethod("RefreshFeatures", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(BuildTargetGroup) }, null)
+                    ?.Invoke(null, new object[] { group });
+
+                // OpenXRSettings has both GetFeatures() and GetFeatures<T>(); pick the plain one
+                // (asking for "GetFeatures with no arguments" directly throws "ambiguous match").
+                var getFeatures = settingsType.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                    .FirstOrDefault(m => m.Name == "GetFeatures" && !m.IsGenericMethodDefinition && m.GetParameters().Length == 0);
+                var features = getFeatures?.Invoke(settings, null) as Array;
                 if (features == null) return 0;
                 int on = 0;
                 foreach (var f in features)

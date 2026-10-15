@@ -93,6 +93,7 @@ namespace KartVR
         public KartSteeringWheel Wheel => wheel;
 
         bool grounded;
+        bool inLift;
         Vector3 groundNormal = Vector3.up;
         bool drifting;
         float driftStart;
@@ -401,6 +402,23 @@ namespace KartVR
             float control = stunned ? 0.3f : 1f;
             float throttle = frozen || Finished ? 0f : (gas - brake) * control;
             float steerIn = frozen ? 0f : steer;
+
+            // Riding a Sky Zone beam: float up, then get pushed onto the island.
+            var lift = frozen ? null : SkyLift.At(rb.position);
+            if (lift != null)
+            {
+                if (!inLift)
+                {
+                    Buzz(XRNode.RightHand, 0.3f, 0.2f);
+                    Buzz(XRNode.LeftHand, 0.3f, 0.2f);
+                }
+                inLift = true;
+                rb.linearVelocity = lift.Velocity(rb.position);
+                rb.angularVelocity = Vector3.zero;
+                Stabilize(dt);
+                return;
+            }
+            inLift = false;
 
             if (frozen)
             {

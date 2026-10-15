@@ -37,7 +37,9 @@ namespace KartVR.EditorTools
                 return;
             }
 
-            if (File.Exists(KartWorldBuilder.WorldScenePath))
+            if (File.Exists(KartWorldBuilder.WorldScenePath) && !KartWorldBuilder.WorldUpToDate)
+                Debug.Log("[KartVR] This version adds new things to the world (Sky Zones); rebuilding it...");
+            else if (File.Exists(KartWorldBuilder.WorldScenePath))
             {
                 // Open straight into the game instead of an empty "Untitled" scene.
                 var active = EditorSceneManager.GetActiveScene();
@@ -79,7 +81,7 @@ namespace KartVR.EditorTools
             EditorApplication.update -= Tick;
             try
             {
-                EditorUtility.DisplayProgressBar("Kart VR", "Building the game world (first time only)...", 0.6f);
+                EditorUtility.DisplayProgressBar("Kart VR", "Building the game world...", 0.6f);
                 KartWorldBuilder.BuildWorld();
             }
             catch (System.Exception e)

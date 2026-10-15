@@ -16,6 +16,7 @@ friends join with a 6-digit code.
 | **Race** | 3-lap race on a ~370 m track with red/white barriers, painted lines, a start gantry with **countdown lights**, a grandstand full of fans, a "KART VR" arch, boost pads with chevrons, **a jump**, and trees. Live positions, results, then the next race starts automatically. |
 | **Bumper Karts** | 2-minute rounds on a neon-lit platform over a lava lake. A **spinning sweeper bar** shoves anyone in its way, and **bouncy bumpers** fling you across the arena. Ram people for **+1**, fall off for **−1**. |
 | **Free Roam** | A stunt park: a mega ramp with **boost hoops** to fly through, a **skate bowl** of quarter pipes, a kicker chain, a plateau with a drop-off jump, hills, a lake, rocks, a ring road and lots of trees. |
+| **Sky Zones** | Every map has a glowing blue **SKY ZONE beam**. Walk or drive into it and you float up to an island in the sky; jump off the edge to come back down. **Hub:** a sky garden. **Race:** a rainbow **sky route** (outer lane on the first bend) that flies round the corner and drops you back on the track. **Bumper:** a second arena in the sky. **Free Roam:** a sky stunt park with a big jump and boost hoops. |
 
 ### Customizing your kart (in your garage)
 | Part | Options |
@@ -38,7 +39,7 @@ Your choices are saved on your device and everyone else sees them, in your garag
 ### Controls
 | | VR | Keyboard (testing without a headset) |
 |---|---|---|
-| **Walk** (hub) | Left thumbstick (the way you're looking) | W/A/S/D |
+| **Walk** (hub) | Left thumbstick (the way you're looking); hold **right trigger** to run | W/A/S/D, hold Shift to run |
 | **Turn** (hub) | Right thumbstick (snap turn) | Q / E |
 | Gas | Right trigger | W / ↑ |
 | Brake / reverse | Left trigger | S / ↓ |
@@ -91,7 +92,8 @@ The free Photon plan allows 20 players online at once, which is plenty for playi
 ### Turn on VR (optional, one click)
 Click **KartVR → Set Up VR (Quest)**. It installs Unity's VR support (OpenXR), switches it on for PC (Quest Link)
 and for the Quest headset, and adds the Quest controllers. Unity reloads once in the middle; say **Yes** if it asks to
-restart. A message lists what was done (and anything it couldn't do, with the exact click).
+restart. A message lists what was done (and anything it couldn't do, with the exact click). Every time you press
+**▶ Play** it also re-checks that the Quest controller profiles are on (without them your hands don't move).
 
 Doing it by hand instead: **Edit → Project Settings → XR Plug-in Management** (click *Install XR Plugin Management* if
 that's all you see). The platform tabs are **icons**: the **monitor** icon is PC, the **Android robot** is Quest. On each,

@@ -15,7 +15,7 @@ namespace KartVR
     ///           Grip = grab the steering wheel and turn it with your hands
     ///           (or steer with the left stick), X = drift, A = booster,
     ///           B = respawn, left stick click = recenter view, Y = show/hide wrist menu.
-    /// Walking (VR, hub): Left stick = walk, Right stick = snap turn.
+    /// Walking (VR, hub): Left stick = walk (hold right trigger to run), Right stick = snap turn.
     /// Keyboard: W/S or arrows = gas/brake (walk), A/D = steer (strafe),
     ///           Q/E = turn, Shift = booster, Space = drift,
     ///           R = respawn, C = recenter, Tab = wrist menu,
