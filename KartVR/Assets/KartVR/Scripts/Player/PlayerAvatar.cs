@@ -240,10 +240,10 @@ namespace KartVR
             float swing = Mathf.Sin(walkPhase) * 0.28f * stride;
             float liftL = Mathf.Max(0f, Mathf.Cos(walkPhase)) * 0.12f * stride;
             float liftR = Mathf.Max(0f, -Mathf.Cos(walkPhase)) * 0.12f * stride;
-            Vector3 footL = feet - sideways * 0.12f + fwd * swing + Vector3.up * (0.04f + liftL);
-            Vector3 footR = feet + sideways * 0.12f - fwd * swing + Vector3.up * (0.04f + liftR);
+            Vector3 footL = feet - sideways * 0.11f + fwd * swing + Vector3.up * liftL;
+            Vector3 footR = feet + sideways * 0.11f - fwd * swing + Vector3.up * liftR;
             float bob = Mathf.Abs(Mathf.Sin(walkPhase)) * 0.03f * stride;
-            Vector3 hips = new Vector3(head.x, feet.y + headHeight * 0.55f + bob, head.z) - fwd * 0.08f;
+            Vector3 hips = new Vector3(head.x, feet.y + headHeight * 0.565f + bob, head.z) - fwd * 0.05f;
 
             body.Pose(hips, bodyRot, head, headRot, left, leftRot, right, rightRot, footL, footR);
 

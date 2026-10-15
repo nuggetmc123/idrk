@@ -45,6 +45,9 @@ namespace KartVR
         [Tooltip("Additive particle material for booster flames.")]
         public Material particleMaterial;
 
+        [Tooltip("Player body model (Models/Racer.fbx). Leave empty to use the simple shape body.")]
+        public GameObject racerModel;
+
         public NetworkRunner Runner { get; private set; }
         public bool IsConnected => Runner != null && Runner.IsRunning;
         public bool IsPrivate { get; private set; }
@@ -76,6 +79,7 @@ namespace KartVR
             DontDestroyOnLoad(gameObject);
             KartUI.BaseMaterial = baseMaterial;
             KartUI.ParticleMaterial = particleMaterial;
+            KartUI.RacerModel = racerModel;
             worldSceneIndex = SceneManager.GetActiveScene().buildIndex;
 
             // Smoother physics for a camera that rides on a rigidbody.

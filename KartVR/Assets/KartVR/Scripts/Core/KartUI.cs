@@ -20,6 +20,9 @@ namespace KartVR
         /// <summary>Additive particle material for flames and sparks (set by SessionManager).</summary>
         public static Material ParticleMaterial;
 
+        /// <summary>The player body model (Models/Racer.fbx, set by SessionManager). Null = use the simple shape body.</summary>
+        public static GameObject RacerModel;
+
         static readonly Dictionary<PrimitiveType, Mesh> Meshes = new Dictionary<PrimitiveType, Mesh>();
         static readonly Dictionary<string, Material> Materials = new Dictionary<string, Material>();
 

@@ -26,6 +26,7 @@ namespace KartVR.EditorTools
         const string ScenePath = Root + "/Scenes/KartWorld.unity";
         const string KartPrefabPath = Root + "/Prefabs/Kart.prefab";
         const string PlayerPrefabPath = Root + "/Prefabs/Player.prefab";
+        const string RacerModelPath = Root + "/Models/Racer.fbx";
 
         static readonly Vector3 RaceOrigin = new Vector3(0f, 0f, 320f);
         static readonly Vector3 BumperOrigin = new Vector3(320f, 0f, 0f);
@@ -67,11 +68,13 @@ namespace KartVR.EditorTools
             // KartUI builds kart/avatar parts at runtime from these.
             KartUI.BaseMaterial = baseLit;
             KartUI.ParticleMaterial = particle;
+            var racerModel = PrepareRacerModel();
+            KartUI.RacerModel = racerModel;
 
             var kartPrefab = BuildKartPrefab();
             var playerPrefab = BuildPlayerPrefab();
 
-            BuildManagers(kartPrefab, playerPrefab);
+            BuildManagers(kartPrefab, playerPrefab, racerModel);
             BuildRig();
             MarkStatic(BuildHub());
             MarkStatic(BuildRaceTrack());
@@ -517,9 +520,32 @@ namespace KartVR.EditorTools
 
         // ================================================================== managers + rig
 
-        static void BuildManagers(GameObject kartPrefab, GameObject playerPrefab)
+        /// <summary>
+        /// The player body model. Blender exports include a camera and a light; turn those off
+        /// in the importer so they never end up inside every player.
+        /// </summary>
+        static GameObject PrepareRacerModel()
+        {
+            var importer = AssetImporter.GetAtPath(RacerModelPath) as ModelImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning("[KartVR] No player model at " + RacerModelPath + "; players will use the simple shape body.");
+                return null;
+            }
+            if (importer.importCameras || importer.importLights || importer.animationType != ModelImporterAnimationType.None)
+            {
+                importer.importCameras = false;
+                importer.importLights = false;
+                importer.animationType = ModelImporterAnimationType.None;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<GameObject>(RacerModelPath);
+        }
+
+        static void BuildManagers(GameObject kartPrefab, GameObject playerPrefab, GameObject racerModel)
         {
             var sm = new GameObject("SessionManager").AddComponent<SessionManager>();
+            sm.racerModel = racerModel;
             sm.kartPrefab = kartPrefab.GetComponent<NetworkObject>();
             sm.playerPrefab = playerPrefab.GetComponent<NetworkObject>();
             sm.baseMaterial = baseLit;

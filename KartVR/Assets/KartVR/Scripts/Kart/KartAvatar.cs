@@ -30,9 +30,9 @@ namespace KartVR
         Quaternion sHeadRot = Quaternion.identity, sLeftRot = Quaternion.identity, sRightRot = Quaternion.identity;
 
         // Seat geometry in kart space.
-        static readonly Vector3 Hips = new Vector3(0f, 0.5f, -0.35f);
-        static readonly Vector3 LeftPedal = new Vector3(-0.13f, 0.36f, 0.62f);
-        static readonly Vector3 RightPedal = new Vector3(0.13f, 0.36f, 0.62f);
+        static readonly Vector3 Hips = new Vector3(0f, 0.53f, -0.35f);
+        static readonly Vector3 LeftPedal = new Vector3(-0.13f, 0.31f, 0.34f);   // where the boot soles rest
+        static readonly Vector3 RightPedal = new Vector3(0.13f, 0.31f, 0.34f);
 
         void Awake()
         {

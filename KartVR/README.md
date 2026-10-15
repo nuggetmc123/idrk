@@ -114,7 +114,7 @@ Scripts/
                 KartDashboard: speed/boost meter/lap/position/countdown on your dashboard
                 KartInput: all controls (VR + keyboard + gamepad)
   Player/       PlayerAvatar: you on foot in the hub (walk, snap turn, synced body)
-                AvatarBody: the racer body (helmet, suit, IK arms and legs)
+                AvatarBody: the racer body: Models/Racer.fbx parts on IK joints (or simple shapes as a fallback)
                 KartRig: the VR camera + hands; rides your avatar in the hub, your kart elsewhere
   Interaction/  PokeButton (touch-to-press 3D buttons), KeypadTerminal, WristMenu, GarageEditor
   World/        Garage, SpawnArea, Checkpoint, BoostPad, ModePortal, InfoBoard,
@@ -131,6 +131,24 @@ Editor/         KartWorldBuilder: the "Build Prototype World" menu
 - **Performance:** scenery is marked static so Unity batches it, karts and bodies share materials, and there are no real-time point lights (glowing parts use emissive materials). That keeps it light enough for Quest.
 - **Tuning:** select the Kart prefab and look at `KartController`. There's a separate *Tuning* block per mode (top speed, acceleration, turn rate, grip, drift grip, bump power). Laps and round lengths are on the `GameState` object (`RaceManager` / `BumperManager`).
 - **Adding your own maps or art:** replace the generated blocks with your models. The things that matter are a `SpawnArea` (with child slots) for each mode, `Checkpoint`s in order with index 0 at the finish line, and `ModePortal`s in the hub. Re-running the builder overwrites the scene and prefab, so after you start customising, stop using it (or copy the scene first).
+
+## The player model (`Assets/KartVR/Models/Racer.fbx`)
+Every player's body uses this model, walking in the hub and sitting in karts.
+- It's made of **separate rigid parts** (no skeleton needed). The game attaches each part to a joint and
+  moves the joints with simple IK, so arms follow your real controllers and legs step when you walk.
+- Joints are **measured from the parts themselves** (e.g. the elbow is where `UpperArm_L` and `Forearm_L`
+  overlap), so you can re-export it with different proportions and it still lines up.
+- **Colors:** orange parts become the player's **paint** color, white parts their **accent** color, and dark
+  parts stay dark. The visor stays glossy black.
+- On your own body the helmet is hidden so it doesn't block your view, but you can look down and see your suit and gloves.
+
+To use a different model, export it from Blender as FBX with parts named like these:
+`Helmet, Visor, HelmetStripe, ChinBar, Neck, Torso, SuitStripe, Hips, Belt,
+Shoulder_L/R, UpperArm_L/R, Forearm_L/R, GloveCuff_L/R, Glove_L/R, Thigh_L/R, Shin_L/R, Boot_L/R`
+(`Helmet`, `Torso`, `Hips`, `Neck` and the `_L/_R` arm and leg parts are required; extras follow the torso).
+Model it standing, facing -Y in Blender (the default front), feet at the origin. Replace `Racer.fbx` and run
+**KartVR > Build Prototype World** again. If the model is missing or a required part isn't found, players fall back
+to a simple body made of shapes.
 
 ## Known limits / ideas for next steps
 - This is a prototype with block art. Swap in real kart and track models.
