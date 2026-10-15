@@ -42,18 +42,16 @@ The wrist menu floats above your left controller. Poke it with your right hand:
 
 ## Setup (about 20 minutes, one time)
 
-### 1. Make the Unity project
-1. Install **Unity Hub** and **Unity 6 LTS** (6000.0 or newer). Tick **Android Build Support** (with OpenJDK and Android SDK & NDK) if you want to play on Quest.
-2. In Unity Hub: **New project → Universal 3D** (URP). Name it anything.
-3. Copy this repo's **`KartVR/Assets/KartVR`** folder into your new project's **`Assets`** folder.
-   (Unity will show compile errors until steps 2–4 below are done. That's normal.)
+### 1. Open the project
+This `KartVR` folder **is** a Unity project.
+1. Install **Unity Hub** and **Unity 6 LTS** (any 6000.0 or newer version). Tick **Android Build Support** if you want to play on Quest.
+2. Unity Hub → **Add** → **Add project from disk** → pick this **`KartVR`** folder. If Hub says the editor version isn't installed, choose the Unity 6 version you have.
+3. The first open takes a few minutes while Unity downloads packages (Input System, XR Plugin Management, OpenXR are already listed in `Packages/manifest.json`).
+4. Unity will say there are **compile errors** and offer **Safe Mode**. Click **Ignore**. The errors are only because Photon Fusion isn't imported yet (step 4).
+5. If asked to **enable the new Input System backends**, click **Yes** (Unity restarts).
 
-### 2. Install packages (Window → Package Manager → Unity Registry)
-- **Input System**. When it asks to switch input handling and restart, say **Yes**.
-- **XR Plugin Management**
-- **OpenXR Plugin**
-
-Then go to **Edit → Project Settings → XR Plug-in Management**:
+### 2. Turn on VR
+**Edit → Project Settings → XR Plug-in Management** (click *Install* if it asks):
 - **Android tab:** tick **OpenXR**. Under OpenXR, add the **Oculus Touch Controller Profile** (and the **Meta Quest Touch Plus/Pro** profiles if listed) and enable the **Meta Quest Support** feature.
 - **Windows tab** (for Quest Link / SteamVR testing): tick **OpenXR** and add the same controller profiles.
 - Fix anything the yellow ⚠ "Project Validation" list shows.
