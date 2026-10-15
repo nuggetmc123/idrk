@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
+using UnityEditor.Compilation;
 using UnityEngine;
 
 namespace KartVR.Setup
@@ -29,6 +30,45 @@ namespace KartVR.Setup
         static FusionSwitch()
         {
             EditorApplication.delayCall += Check;
+            // If importing Fusion still ends in "exists in both Assembly-CSharp and Fusion.Runtime" errors,
+            // flip the switch from here: this runs even when the compile fails.
+            CompilationPipeline.assemblyCompilationFinished -= OnCompiled;
+            CompilationPipeline.assemblyCompilationFinished += OnCompiled;
+        }
+
+        static void OnCompiled(string assemblyPath, CompilerMessage[] messages)
+        {
+            foreach (var m in messages)
+            {
+                if (m.type != CompilerMessageType.Error) continue;
+                if (m.message.Contains("Fusion.Runtime") && m.message.Contains("Assembly-CSharp"))
+                {
+                    Debug.Log("[KartVR] Real Photon Fusion clashes with the offline stand-in; switching multiplayer ON.");
+                    Apply(true);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Watches imports: the moment Photon Fusion's files arrive (before Unity compiles them), switch the
+        /// offline stand-in off so the two never clash.
+        /// </summary>
+        class ImportWatcher : AssetPostprocessor
+        {
+            static void OnPostprocessAllAssets(string[] imported, string[] deleted, string[] moved, string[] movedFrom)
+            {
+                foreach (var path in imported)
+                {
+                    var p = path.Replace('\\', '/');
+                    if (p.StartsWith("Assets/Photon/Fusion", StringComparison.OrdinalIgnoreCase) &&
+                        (p.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) || p.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        Apply(true);
+                        return;
+                    }
+                }
+            }
         }
 
         [MenuItem("KartVR/Check Multiplayer (Photon Fusion)")]
@@ -63,7 +103,12 @@ namespace KartVR.Setup
 
         static void Check()
         {
-            bool fusion = HasFusion();
+            // Loaded Fusion assembly, or its files sitting in the project (in case they haven't compiled yet).
+            Apply(HasFusion() || System.IO.Directory.Exists("Assets/Photon/Fusion"));
+        }
+
+        static void Apply(bool fusion)
+        {
             bool changed = false;
             foreach (var target in new[] { NamedBuildTarget.Standalone, NamedBuildTarget.Android })
             {

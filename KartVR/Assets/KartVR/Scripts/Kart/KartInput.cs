@@ -1,5 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.XR;
+using XRDevice = UnityEngine.XR.InputDevice;
+using XRUsages = UnityEngine.XR.CommonUsages;
 
 namespace KartVR
 {
@@ -111,19 +114,76 @@ namespace KartVR
             menu.Enable();
         }
 
-        public static float Gas { get { Init(); return Mathf.Clamp01(gas.ReadValue<float>()); } }
-        public static float Brake { get { Init(); return Mathf.Clamp01(brake.ReadValue<float>()); } }
-        public static float Steer { get { Init(); return Mathf.Clamp(steer.ReadValue<float>(), -1f, 1f); } }
-        public static bool DriftHeld { get { Init(); return drift.IsPressed(); } }
-        public static bool LeftGripHeld { get { Init(); return gripLeft.IsPressed(); } }
-        public static bool RightGripHeld { get { Init(); return gripRight.IsPressed(); } }
-        public static bool BoostHeld { get { Init(); return boost.IsPressed(); } }
-        public static Vector2 Move { get { Init(); return Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f); } }
-        public static float Turn { get { Init(); return Mathf.Clamp(turn.ReadValue<float>(), -1f, 1f); } }
+        // Every control reads BOTH the Input System and Unity's built-in XR controller API and uses whichever is
+        // active. So VR controllers keep working even if the Input System isn't receiving them (e.g. new input
+        // backends switched off in Player Settings).
+        public static float Gas { get { Init(); return Mathf.Clamp01(Mathf.Max(gas.ReadValue<float>(), XRVal(XRNode.RightHand, XRUsages.trigger))); } }
+        public static float Brake { get { Init(); return Mathf.Clamp01(Mathf.Max(brake.ReadValue<float>(), XRVal(XRNode.LeftHand, XRUsages.trigger))); } }
+        public static float Steer { get { Init(); return Mathf.Clamp(Strongest(steer.ReadValue<float>(), XRAxis(XRNode.LeftHand, XRUsages.primary2DAxis).x), -1f, 1f); } }
+        public static bool DriftHeld { get { Init(); return drift.IsPressed() || XRBtn(XRNode.LeftHand, XRUsages.primaryButton); } }
+        public static bool LeftGripHeld { get { Init(); return gripLeft.IsPressed() || XRGrip(XRNode.LeftHand); } }
+        public static bool RightGripHeld { get { Init(); return gripRight.IsPressed() || XRGrip(XRNode.RightHand); } }
+        public static bool BoostHeld { get { Init(); return boost.IsPressed() || XRBtn(XRNode.RightHand, XRUsages.primaryButton); } }
+        public static Vector2 Move
+        {
+            get
+            {
+                Init();
+                Vector2 a = move.ReadValue<Vector2>(), b = XRAxis(XRNode.LeftHand, XRUsages.primary2DAxis);
+                return Vector2.ClampMagnitude(a.sqrMagnitude >= b.sqrMagnitude ? a : b, 1f);
+            }
+        }
+        public static float Turn { get { Init(); return Mathf.Clamp(Strongest(turn.ReadValue<float>(), XRAxis(XRNode.RightHand, XRUsages.primary2DAxis).x), -1f, 1f); } }
 
         // "Pressed this frame" checks only work reliably from Update, not FixedUpdate.
-        public static bool RespawnPressed { get { Init(); return respawn.WasPressedThisFrame(); } }
-        public static bool RecenterPressed { get { Init(); return recenter.WasPressedThisFrame(); } }
-        public static bool MenuPressed { get { Init(); return menu.WasPressedThisFrame(); } }
+        public static bool RespawnPressed { get { Init(); return respawn.WasPressedThisFrame() || XRPressed(0, XRNode.RightHand, XRUsages.secondaryButton); } }
+        public static bool RecenterPressed { get { Init(); return recenter.WasPressedThisFrame() || XRPressed(1, XRNode.LeftHand, XRUsages.primary2DAxisClick); } }
+        public static bool MenuPressed { get { Init(); return menu.WasPressedThisFrame() || XRPressed(2, XRNode.LeftHand, XRUsages.secondaryButton); } }
+
+        /// <summary>True when the headset is on but neither controller is visible to Unity.</summary>
+        public static bool ControllersMissing =>
+            UnityEngine.XR.XRSettings.isDeviceActive && !Dev(XRNode.LeftHand).isValid && !Dev(XRNode.RightHand).isValid;
+
+        // ---------------- Unity's built-in XR controller API (backup path) ----------------
+
+        static XRDevice Dev(XRNode node) => UnityEngine.XR.InputDevices.GetDeviceAtXRNode(node);
+
+        static float XRVal(XRNode node, UnityEngine.XR.InputFeatureUsage<float> usage)
+        {
+            var d = Dev(node);
+            return d.isValid && d.TryGetFeatureValue(usage, out float v) ? v : 0f;
+        }
+
+        static bool XRBtn(XRNode node, UnityEngine.XR.InputFeatureUsage<bool> usage)
+        {
+            var d = Dev(node);
+            return d.isValid && d.TryGetFeatureValue(usage, out bool v) && v;
+        }
+
+        static Vector2 XRAxis(XRNode node, UnityEngine.XR.InputFeatureUsage<Vector2> usage)
+        {
+            var d = Dev(node);
+            if (!d.isValid || !d.TryGetFeatureValue(usage, out Vector2 v)) return Vector2.zero;
+            return v.sqrMagnitude < 0.15f * 0.15f ? Vector2.zero : v; // small dead zone
+        }
+
+        static bool XRGrip(XRNode node) => XRBtn(node, XRUsages.gripButton) || XRVal(node, XRUsages.grip) > 0.6f;
+
+        static float Strongest(float a, float b) => Mathf.Abs(a) >= Mathf.Abs(b) ? a : b;
+
+        // Edge detection for XR buttons: remember each button's state once per frame.
+        static readonly bool[] xrWas = new bool[3], xrNow = new bool[3];
+        static readonly int[] xrFrame = { -1, -1, -1 };
+
+        static bool XRPressed(int slot, XRNode node, UnityEngine.XR.InputFeatureUsage<bool> usage)
+        {
+            if (xrFrame[slot] != Time.frameCount)
+            {
+                xrFrame[slot] = Time.frameCount;
+                xrWas[slot] = xrNow[slot];
+                xrNow[slot] = XRBtn(node, usage);
+            }
+            return xrNow[slot] && !xrWas[slot];
+        }
     }
 }

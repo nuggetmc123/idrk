@@ -63,9 +63,16 @@ namespace KartVR
             if (rig == null || !rig.IsAttachedTo(kart)) return;
             HeadPos = transform.InverseTransformPoint(rig.head.position);
             HeadRot = Quaternion.Inverse(transform.rotation) * rig.head.rotation;
-            LeftPos = transform.InverseTransformPoint(rig.leftHand.position);
+            Vector3 leftWorld = rig.leftHand.position, rightWorld = rig.rightHand.position;
+            if (kart.visuals != null && kart.visuals.SteeringWheel != null)
+            {
+                // Others see your hands on the wheel's rim while you hold it.
+                if (kart.Wheel.LeftHeld) leftWorld = KartSteeringWheel.RimPoint(kart.visuals.SteeringWheel, leftWorld);
+                if (kart.Wheel.RightHeld) rightWorld = KartSteeringWheel.RimPoint(kart.visuals.SteeringWheel, rightWorld);
+            }
+            LeftPos = transform.InverseTransformPoint(leftWorld);
             LeftRot = Quaternion.Inverse(transform.rotation) * rig.leftHand.rotation;
-            RightPos = transform.InverseTransformPoint(rig.rightHand.position);
+            RightPos = transform.InverseTransformPoint(rightWorld);
             RightRot = Quaternion.Inverse(transform.rotation) * rig.rightHand.rotation;
         }
 
@@ -106,6 +113,14 @@ namespace KartVR
                 sHead = Vector3.Lerp(sHead, HeadPos, k); sHeadRot = Quaternion.Slerp(sHeadRot, HeadRot, k);
                 sLeft = Vector3.Lerp(sLeft, LeftPos, k); sLeftRot = Quaternion.Slerp(sLeftRot, LeftRot, k);
                 sRight = Vector3.Lerp(sRight, RightPos, k); sRightRot = Quaternion.Slerp(sRightRot, RightRot, k);
+            }
+
+            // Your own hands holding the steering wheel snap onto its rim, so the grip looks solid.
+            if (HasStateAuthority && kart.visuals != null && kart.visuals.SteeringWheel != null)
+            {
+                var pivot = kart.visuals.SteeringWheel;
+                if (kart.Wheel.LeftHeld) sLeft = transform.InverseTransformPoint(KartSteeringWheel.RimPoint(pivot, transform.TransformPoint(sLeft)));
+                if (kart.Wheel.RightHeld) sRight = transform.InverseTransformPoint(KartSteeringWheel.RimPoint(pivot, transform.TransformPoint(sRight)));
             }
 
             // Keep body parts inside the kart even if someone's tracking goes wild.

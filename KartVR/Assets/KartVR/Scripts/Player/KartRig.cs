@@ -45,6 +45,45 @@ namespace KartVR
             Instance = this;
         }
 
+        void OnEnable() { Application.onBeforeRender += ApplyXRPoses; }
+        void OnDisable() { Application.onBeforeRender -= ApplyXRPoses; }
+
+        /// <summary>
+        /// Backup tracking: read the headset and controller poses straight from Unity's XR system, so your hands
+        /// follow the controllers even if the Input System isn't receiving them.
+        /// </summary>
+        void ApplyXRPoses()
+        {
+            if (!IsXR) return;
+            ApplyPose(head, XRNode.CenterEye, UnityEngine.XR.CommonUsages.centerEyePosition, UnityEngine.XR.CommonUsages.centerEyeRotation);
+            ApplyPose(leftHand, XRNode.LeftHand, UnityEngine.XR.CommonUsages.devicePosition, UnityEngine.XR.CommonUsages.deviceRotation);
+            ApplyPose(rightHand, XRNode.RightHand, UnityEngine.XR.CommonUsages.devicePosition, UnityEngine.XR.CommonUsages.deviceRotation);
+        }
+
+        static void ApplyPose(Transform t, XRNode node, UnityEngine.XR.InputFeatureUsage<Vector3> posUsage, UnityEngine.XR.InputFeatureUsage<Quaternion> rotUsage)
+        {
+            if (t == null) return;
+            var device = UnityEngine.XR.InputDevices.GetDeviceAtXRNode(node);
+            if (!device.isValid) return;
+            if (device.TryGetFeatureValue(posUsage, out Vector3 pos)) t.localPosition = pos;
+            if (device.TryGetFeatureValue(rotUsage, out Quaternion rot) && rot.w * rot.w + rot.x * rot.x + rot.y * rot.y + rot.z * rot.z > 0.5f)
+                t.localRotation = rot;
+        }
+
+        float missingSince = -1f;
+
+        /// <summary>Warn (once) if the headset is on but Unity can't see the controllers.</summary>
+        void CheckControllers()
+        {
+            if (!KartInput.ControllersMissing) { missingSince = -1f; return; }
+            if (missingSince < 0f) { missingSince = Time.time; return; }
+            if (Time.time - missingSince < 4f) return;
+            missingSince = float.MaxValue; // warn once
+            const string msg = "Controllers not found! In Unity: KartVR > Set Up VR (Quest). Also turn the controllers on and check Quest Link.";
+            Debug.LogWarning("[KartVR] " + msg + " (OpenXR needs the 'Oculus Touch Controller Profile' under XR Plug-in Management > OpenXR.)");
+            if (SessionManager.Instance != null) SessionManager.Instance.SetStatus(msg, 15f);
+        }
+
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
@@ -155,6 +194,8 @@ namespace KartVR
 
         void Update()
         {
+            ApplyXRPoses();
+            CheckControllers();
             ChooseAttachment();
 
             if (recenterAt > 0f && Time.time >= recenterAt) { recenterAt = -1f; Recenter(); }

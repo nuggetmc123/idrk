@@ -21,7 +21,8 @@ namespace KartVR
         /// <summary>The wheel's tilt towards the driver (matches KartVisuals).</summary>
         public static readonly Quaternion Tilt = Quaternion.Euler(-60f, 0f, 0f);
 
-        const float GrabRadius = 0.3f;        // how close your hand must be to the wheel's center
+        const float GrabRadius = 0.35f;       // how close your hand must be to the wheel's center
+        public const float RimRadius = 0.15f; // the wheel's size (matches KartVisuals)
         const float ReturnSpeed = 300f;       // degrees/second the wheel recenters / follows the stick
 
         /// <summary>Wheel angle in degrees: + = turned right (clockwise as the driver sees it).</summary>
@@ -79,13 +80,12 @@ namespace KartVR
             }
 
             Vector3 offset = Vector3.ProjectOnPlane(hand.position - center, normal);
-            bool justPressed = !h.wasGripping;
             h.wasGripping = true;
 
             if (!h.held)
             {
-                // Grab only if you squeeze while your hand is on the wheel (not if you were already squeezing).
-                if (!justPressed || (hand.position - center).magnitude > GrabRadius || offset.magnitude < 0.03f) return;
+                // Grab when you squeeze near the wheel, or keep squeezing and move your hand onto it.
+                if ((hand.position - center).magnitude > GrabRadius || offset.magnitude < 0.03f) return;
                 h.held = true;
                 h.lastAngle = Vector3.SignedAngle(reference, offset, normal);
                 Buzz(node, 0.25f, 0.05f);
@@ -98,6 +98,16 @@ namespace KartVR
             h.lastAngle = a;
             sum += delta;
             holding++;
+        }
+
+        /// <summary>Where a hand holding the wheel sits on its rim (for drawing the glove on the wheel).</summary>
+        public static Vector3 RimPoint(Transform pivot, Vector3 hand)
+        {
+            Quaternion frame = (pivot.parent != null ? pivot.parent.rotation : Quaternion.identity) * Tilt;
+            Vector3 normal = frame * Vector3.up;
+            Vector3 offset = Vector3.ProjectOnPlane(hand - pivot.position, normal);
+            if (offset.sqrMagnitude < 0.0001f) offset = frame * Vector3.forward;
+            return pivot.position + offset.normalized * RimRadius + normal * 0.02f;
         }
 
         static void Buzz(XRNode node, float amplitude, float duration)
