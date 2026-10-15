@@ -1088,6 +1088,19 @@ const CLASSES = {
     specialText:'Slips out of the world and reappears where you were aiming — untouchable on the way, invisible after.',
     bars:{Damage:3,Range:1,Speed:5,Health:2},
     botRange:60, botSp:240
+  },
+  racer:{
+    key:'racer', name:'Racer', role:'Close range · speed demon',
+    color:'#ff6a1a', dark:'#4a1504', light:'#ffd2a8',
+    hp:104, speed:276, radius:14,
+    attackCd:0.34, specialCd:7.5,
+    melee:true,
+    weapon:'Chain Whip',
+    weaponText:'A length of drive chain off the back wheel, swung wide. Hits a broad arc and throws people off their line.',
+    special:'Full Throttle',
+    specialText:'Pins it in a straight line, running over everyone in the way and leaving a strip of burning rubber behind. You keep the speed for a moment after.',
+    bars:{Damage:3,Range:2,Speed:5,Health:3},
+    botRange:72, botSp:240
   }
 };
 const CLASS_KEYS = Object.keys(CLASSES);
@@ -1124,7 +1137,8 @@ function classIcon(k, size){
     alchemist:`<path d="M16 5 h6 v9 l7 13 a5 5 0 0 1 -4 8 h-12 a5 5 0 0 1 -4 -8 l7 -13 z" fill="none" stroke="${c.color}" stroke-width="2.2"/><path d="M12 24 h14 l3 5 a4 4 0 0 1 -3 6 h-14 a4 4 0 0 1 -3 -6 z" fill="${c.color}" opacity=".75"/><circle cx="16" cy="29" r="1.8" fill="${c.light}"/><circle cx="22" cy="31" r="1.4" fill="${c.light}"/>`,
     stormcaller:`<path d="M21 3 L9 21 h8 l-4 14 L30 16 h-9 z" fill="${c.color}"/><path d="M21 3 L13 17 h6 z" fill="${c.light}"/>`,
     gladiator:`<line x1="19" y1="34" x2="19" y2="14" stroke="${c.dark}" stroke-width="3"/><path d="M9 14 v-8 M19 14 v-11 M29 14 v-8" stroke="${c.color}" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M8 15 h22" stroke="${c.color}" stroke-width="3" stroke-linecap="round"/><path d="M19 3 l2 4 h-4 z" fill="${c.light}"/>`,
-    phantom:`<path d="M19 4 a11 11 0 0 1 11 11 v19 l-5 -4 l-4 4 l-2 -4 l-2 4 l-4 -4 l-5 4 v-19 a11 11 0 0 1 11 -11 z" fill="${c.color}" opacity=".85"/><circle cx="15" cy="16" r="2.6" fill="${c.dark}"/><circle cx="23" cy="16" r="2.6" fill="${c.dark}"/>`
+    phantom:`<path d="M19 4 a11 11 0 0 1 11 11 v19 l-5 -4 l-4 4 l-2 -4 l-2 4 l-4 -4 l-5 4 v-19 a11 11 0 0 1 11 -11 z" fill="${c.color}" opacity=".85"/><circle cx="15" cy="16" r="2.6" fill="${c.dark}"/><circle cx="23" cy="16" r="2.6" fill="${c.dark}"/>`,
+    racer:`<path d="M5 22 a14 14 0 0 1 28 -4 v8 a4 4 0 0 1 -4 4 h-20 a4 4 0 0 1 -4 -4 z" fill="${c.color}"/><path d="M16 8 a14 14 0 0 1 6 0 v22 h-6 z" fill="#f4f1fa"/><path d="M14 16 h19 v7 h-17 a3 3 0 0 1 -3 -3 z" fill="#14121c"/><path d="M17 17.5 h12" stroke="${c.light}" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>`
   }[k];
   return `<svg width="${s}" height="${s}" viewBox="0 0 38 38" aria-hidden="true">${g}</svg>`;
 }
@@ -2528,6 +2542,9 @@ function doAttack(p){
     case 'phantom':
       meleeSwing(p, {range:60, arc:1.0, dmg:17, kb:110});
       break;
+    case 'racer':
+      meleeSwing(p, {range:72, arc:1.5, dmg:19, kb:230});
+      break;
   }
 }
 
@@ -2736,6 +2753,39 @@ function doSpecial(p){
       smokePuff(p.x, p.y, c.light, 18, 90);
       floatText(p.x, p.y-26, 'PHASE', c.light);
       SFX.play('smoke');
+      break;
+    }
+    case 'racer': {
+      const dist = 270, steps = 36;
+      const sx = p.x, sy = p.y;
+      let ex = p.x, ey = p.y;
+      for(let i=1;i<=steps;i++){
+        const nx = sx + Math.cos(p.aim)*dist*i/steps;
+        const ny = sy + Math.sin(p.aim)*dist*i/steps;
+        if(nx<p.r||ny<p.r||nx>W-p.r||ny>H-p.r) break;
+        if(circleHitsWall(nx,ny,p.r)) break;       // a bike can't ride through walls
+        ex = nx; ey = ny;
+      }
+      p.x = ex; p.y = ey;
+      const side = p.aim + Math.PI/2;
+      for(const q of G.players){
+        if(q === p || !q.alive) continue;
+        if(segDist(q.x,q.y,sx,sy,ex,ey) < q.r + 22){
+          // thrown off to whichever side of the bike they were on
+          const s = Math.sign(Math.cos(side)*(q.x-sx) + Math.sin(side)*(q.y-sy)) || 1;
+          damage(q, 28, p, Math.cos(side)*s*340 + Math.cos(p.aim)*120,
+                           Math.sin(side)*s*340 + Math.sin(p.aim)*120);
+        }
+      }
+      // burning rubber along the line it took
+      const len = Math.hypot(ex-sx, ey-sy);
+      for(let d=0; d<len; d+=14){
+        const t = d/len;
+        burst(sx + (ex-sx)*t, sy + (ey-sy)*t, Math.random() < 0.5 ? c.color : '#3a3542', 2, 40, 0.6);
+      }
+      p.fx.haste = Math.max(p.fx.haste, 1.6);
+      floatText(p.x, p.y-26, 'FULL THROTTLE', c.light);
+      SFX.play('dash');
       break;
     }
   }
@@ -4089,6 +4139,52 @@ function drawBody(p, c, flip){
     ctx.fillStyle = '#3c1f0f';
     ctx.fillRect(flip*1-3,-11,2.2,1.8);
     ctx.fillRect(flip*1+1,-11,2.2,1.8);
+  } else if(k === 'racer'){
+    // leathers: a white stripe down the suit and armoured shoulders
+    ctx.fillStyle = '#f4f1fa';
+    ctx.fillRect(-2, -7, 4, 20);
+    ctx.fillStyle = c.dark;
+    ctx.beginPath(); ctx.ellipse(-9,-5,4.4,3.4,0,0,TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse( 9,-5,4.4,3.4,0,0,TAU); ctx.fill();
+    ctx.fillStyle = '#b9b4c8';                        // knee sliders
+    ctx.fillRect(-9, 10, 5, 3.5);
+    ctx.fillRect( 4, 10, 5, 3.5);
+    // the race number, on the side of the chest facing the camera
+    ctx.fillStyle = '#f4f1fa';
+    ctx.beginPath(); ctx.arc(flip*5.5, 0, 3.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#14121c';
+    ctx.font = '800 5px Segoe UI, system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('46', flip*5.5, 0.3);
+    ctx.textBaseline = 'alphabetic';
+
+    // full-face helmet, a touch bigger than a head
+    ctx.fillStyle = c.color;
+    ctx.beginPath(); ctx.arc(0,-12,9,0,TAU); ctx.fill();
+    ctx.beginPath();                                  // aero hump off the back
+    ctx.moveTo(-flip*5,-19);
+    ctx.quadraticCurveTo(-flip*13,-18,-flip*11,-9);
+    ctx.lineTo(-flip*6,-8);
+    ctx.fill();
+    ctx.save();                                       // white stripe over the crown
+    ctx.beginPath(); ctx.arc(0,-12,9,0,TAU); ctx.clip();
+    ctx.fillStyle = '#f4f1fa';
+    ctx.fillRect(-flip*1.5-2.2,-22,4.4,20);
+    ctx.restore();
+    ctx.fillStyle = c.dark;                           // chin bar
+    ctx.beginPath(); ctx.ellipse(flip*1.5,-5,6.5,2.6,0,0,TAU); ctx.fill();
+    ctx.fillStyle = '#14121c';                        // tinted visor
+    ctx.beginPath();
+    ctx.moveTo(flip*-4,-15); ctx.lineTo(flip*8.6,-15);
+    ctx.quadraticCurveTo(flip*9.6,-11,flip*8,-8);
+    ctx.lineTo(flip*-3,-8);
+    ctx.quadraticCurveTo(flip*-5,-11.5,flip*-4,-15);
+    ctx.fill();
+    ctx.strokeStyle = c.light;                        // glare across it
+    ctx.globalAlpha *= 0.75;
+    ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(flip*-1.5,-13); ctx.lineTo(flip*6,-13.2); ctx.stroke();
+    ctx.globalAlpha /= 0.75;
   } else {
     /* The unlockable roster shares one helmet, told apart by its crest and
        colours, so a new fighter never needs new art to be readable. */
@@ -4189,6 +4285,20 @@ function drawWeapon(p, c, a){
     glow.addColorStop(1,'rgba(180,115,255,0)');
     ctx.fillStyle = glow;
     ctx.beginPath(); ctx.arc(3,-11,10 + Math.sin(G.time*4)*1.2,0,TAU); ctx.fill();
+  } else if(k === 'racer'){
+    ctx.translate(9,3);
+    ctx.fillStyle = '#1c1a24';                        // gloved fist
+    ctx.beginPath(); ctx.arc(0,0,3.6,0,TAU); ctx.fill();
+    ctx.fillStyle = c.color;
+    ctx.fillRect(-2.6,-1,5.2,2);
+    const swing = p.atkCd > 0 ? p.atkCd / CLASSES.racer.attackCd : 0;
+    for(let i=1;i<=7;i++){                            // links trailing in a curve
+      const t = i/7;
+      const lx = t*22;
+      const ly = Math.sin(t*2.6 + G.time*7)*2.2*t - swing*t*t*10;
+      ctx.fillStyle = i % 2 ? '#c9c6d4' : '#8d899c';
+      ctx.beginPath(); ctx.ellipse(lx, ly, 2.4, 1.5, 0, 0, TAU); ctx.fill();
+    }
   }
   ctx.restore();
 }

@@ -33,14 +33,14 @@ Opening `index.html` straight off disk works too, since the game has no external
 
 ## The roster
 
-Twenty fighters, each with a main weapon and a special ability, defined in `CLASSES` and
+Twenty-one fighters, each with a main weapon and a special ability, defined in `CLASSES` and
 implemented in `doAttack` / `doSpecial`:
 
 | | Fighters |
 | --- | --- |
 | Starting five | Assassin, Ninja, Archer, Wizard, Witch |
 | Battle pass, tiers 5-50 | Berserker, Gunslinger, Frostmage, Paladin, Bomber, Sniper, Duelist, Necromancer, Monk, Ranger |
-| Shop only | Samurai, Alchemist, Stormcaller, Gladiator, Phantom |
+| Shop only | Samurai, Alchemist, Stormcaller, Gladiator, Racer, Phantom |
 
 Adding a fighter means a `CLASSES` entry, a `case` in `doAttack` and `doSpecial`, and an
 icon in `classIcon`. Everything else is shared: close-range weapons all go through
@@ -60,12 +60,12 @@ The menu is three tabs:
   select screen that PLAY opens, not here.
 - **Stats** — the career record, plus a per-fighter breakdown.
 - **Battle Pass** — tier progress across five pages, chests to open, and rewards to claim.
-- **Shop** — buy the five shop fighters and any skin, with coins.
+- **Shop** — buy the six shop fighters and any skin, with coins.
 - **Locker** — everything you own: the hat you wear, and the skin each fighter wears.
 
 ## Starting a match
 
-PLAY opens a fighter select screen showing all twenty. So does the panel shown on death
+PLAY opens a fighter select screen showing all twenty-one. So does the panel shown on death
 mid-match — `ownedClassKeys()` is the single source of truth for "what can this player
 respawn as", used by the panel's grid, its keyboard/gamepad cycling, and the class the
 Deploy button actually sends out. A human is never offered a fighter they have not
@@ -128,7 +128,7 @@ Every collection (`owned`, `skins`, `hats`, `chests`, `opened`, `claimed`) is gr
 for the same reason and merges as a union.
 
 - **Fighters** — ten come from the battle pass, two per page at tiers 5 and 10 of each,
-  and are never sold. Five more are sold only in the shop and never appear on the track,
+  and are never sold. Six more are sold only in the shop and never appear on the track,
   so each route has something the other cannot give you.
 - **Skins** — a palette swap, so one definition reskins any fighter. Ids are
   `<fighter>:<skin>`, and a skin can only be bought for a fighter you own.

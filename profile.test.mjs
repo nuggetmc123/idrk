@@ -110,9 +110,9 @@ check('coins untouched by that', Career.coins, 1500);
 check('every pass fighter sits on the track',
       Career.catalog.passFighters.every(f => Career.tierOf(f) !== null), true);
 
-// the shop five are the mirror image: sold, and never on the track
+// the shop six are the mirror image: sold, and never on the track
 const shopIds = Object.keys(Career.catalog.shopFighters);
-check('there are five shop fighters', shopIds.length, 5);
+check('there are six shop fighters', shopIds.length, 6);
 check('none of them are on the track', shopIds.every(f => Career.tierOf(f) === null), true);
 check('cannot afford Samurai (3000)', Career.buy('fighter','samurai'), false);
 d.earned += 3000;

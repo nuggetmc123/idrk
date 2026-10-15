@@ -32,13 +32,14 @@ const PASS_FIGHTERS = [
   'sniper', 'duelist', 'necromancer', 'monk', 'ranger'
 ];
 
-/* Five more are sold for coins and never appear on the track, so the shop
+/* Six more are sold for coins and never appear on the track, so the shop
    has something the pass will never hand over. */
 const SHOP_FIGHTERS = {
   samurai:     {name:'Samurai',     price:3000},
   alchemist:   {name:'Alchemist',   price:3500},
   stormcaller: {name:'Stormcaller', price:4000},
   gladiator:   {name:'Gladiator',   price:4500},
+  racer:       {name:'Racer',       price:5000},
   phantom:     {name:'Phantom',     price:6000}
 };
 
