@@ -1,4 +1,3 @@
-#if !KARTVR_FUSION
 using UnityEngine;
 
 namespace Fusion
@@ -23,4 +22,3 @@ namespace Fusion
         public void RequestStateAuthority() { }
     }
 }
-#endif

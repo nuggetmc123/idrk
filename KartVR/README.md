@@ -119,8 +119,8 @@ Scripts/
   Network/      SessionManager: connects, matchmaking, private codes, switching sessions
                 GameState: which mode this session is in (owned by the master client)
                 OfflineFusion/: a tiny stand-in for Photon Fusion so the game runs solo before Fusion is
-                imported (switched off automatically once it is)
-Setup/Editor/   FusionSwitch: detects Photon Fusion and turns multiplayer on/off (KARTVR_FUSION define)
+                imported (deleted automatically once Fusion is in the project, restored if it is removed)
+Setup/Editor/   FusionSwitch: detects Photon Fusion, removes/restores the stand-in, spots duplicate script copies
   Core/         KartLook: paint/pattern/booster/wheels/spoiler (packed into one networked int)
   Kart/         KartController: driving physics, booster, garage parking, network sync, laps, bumping
                 KartVisuals: builds the detailed kart model from its KartLook (incl. booster flames)

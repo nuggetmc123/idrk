@@ -99,14 +99,7 @@ namespace KartVR
         }
 
         /// <summary>False until Photon Fusion 2 is imported (the game then runs solo, offline).</summary>
-        public static bool MultiplayerAvailable
-        {
-#if KARTVR_FUSION
-            get { return true; }
-#else
-            get { return false; }
-#endif
-        }
+        public static bool MultiplayerAvailable => typeof(NetworkRunner).Assembly.GetName().Name == "Fusion.Runtime";
 
         const string OfflineMessage = "Playing OFFLINE (solo). Import Photon Fusion 2 to play online with friends.";
 
@@ -370,7 +363,9 @@ namespace KartVR
         public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
         public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
         public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
+        // Fusion 2.0 passes ArraySegment, Fusion 2.1+ passes ReadOnlySpan. Having both means any version compiles.
         public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, Fusion.Sockets.ReliableKey key, ReadOnlySpan<byte> data) { }
+        public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, Fusion.Sockets.ReliableKey key, ArraySegment<byte> data) { }
         public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, Fusion.Sockets.ReliableKey key, float progress) { }
         public void OnSceneLoadDone(NetworkRunner runner) { }
         public void OnSceneLoadStart(NetworkRunner runner) { }

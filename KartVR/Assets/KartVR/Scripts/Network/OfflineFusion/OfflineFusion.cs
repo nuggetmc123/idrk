@@ -1,4 +1,3 @@
-#if !KARTVR_FUSION
 // =============================================================================
 // OFFLINE STAND-IN FOR PHOTON FUSION
 //
@@ -6,9 +5,9 @@
 // Fusion 2 is imported. It has the same names as the parts of Fusion the game
 // uses, so the rest of the code doesn't need to change.
 //
-// As soon as you import Photon Fusion 2, KartVR/Setup detects it and adds the
-// KARTVR_FUSION define, which switches this whole folder off and the real
-// multiplayer on. You don't need to touch anything here.
+// As soon as you import Photon Fusion 2, KartVR/Setup (FusionSwitch) detects it
+// and deletes this folder, which switches the real multiplayer on. If Fusion is
+// removed, it puts this folder back. You don't need to touch anything here.
 // =============================================================================
 using System;
 using System.Collections.Generic;
@@ -178,4 +177,3 @@ namespace Fusion.Sockets
     public enum NetConnectFailedReason { Timeout, ServerFull, ServerRefused }
     public struct ReliableKey { }
 }
-#endif
