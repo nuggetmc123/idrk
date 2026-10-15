@@ -211,7 +211,7 @@ namespace KartVR.EditorTools
             Prim(PrimitiveType.Cube, "RearBumper", t, new Vector3(0f, 0.4f, -0.95f), new Vector3(1.2f, 0.2f, 0.15f), dark, false);
             Prim(PrimitiveType.Cube, "SeatBack", t, new Vector3(0f, 0.8f, -0.62f), new Vector3(0.6f, 0.55f, 0.1f), dark, false);
             Prim(PrimitiveType.Cube, "Dash", t, new Vector3(0f, 0.68f, 0.55f), new Vector3(0.9f, 0.18f, 0.3f), dark, false);
-            Prim(PrimitiveType.Cylinder, "SteeringWheel", t, new Vector3(0f, 0.85f, 0.22f), new Vector3(0.32f, 0.015f, 0.32f), dark, false,
+            Prim(PrimitiveType.Cylinder, "SteeringWheel", t, new Vector3(0f, 0.7f, 0.2f), new Vector3(0.28f, 0.012f, 0.28f), dark, false,
                 Quaternion.Euler(-60f, 0f, 0f));
 
             var wheelScale = new Vector3(0.44f, 0.08f, 0.44f);
