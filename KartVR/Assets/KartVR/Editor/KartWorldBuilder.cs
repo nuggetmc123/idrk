@@ -39,10 +39,14 @@ namespace KartVR.EditorTools
             neonCyan, lampGlow, checker, hazard, tire, crowdBase, particle, baseLit, rock, sand;
         static Material[] crowd;
 
+        public const string WorldScenePath = ScenePath;
+
+        public static bool TextResourcesReady => Resources.Load<TMP_Settings>("TMP Settings") != null;
+
         [MenuItem("KartVR/Build Prototype World")]
         public static void Build()
         {
-            if (Resources.Load<TMP_Settings>("TMP Settings") == null)
+            if (!TextResourcesReady)
             {
                 // The text system needs its basic resources once per project. Import them for the user.
                 if (ImportTextMeshProEssentials())
@@ -60,6 +64,20 @@ namespace KartVR.EditorTools
                     "Build it", "Cancel"))
                 return;
 
+            BuildWorld();
+
+            EditorUtility.DisplayDialog("KartVR",
+                "Done! The KartWorld scene is open. Press Play!\n\n" +
+                "No headset? W/A/S/D to walk or drive, Q/E to turn, hold right mouse to look, left click to press buttons.\n\n" +
+                (KartVR.SessionManager.MultiplayerAvailable
+                    ? "Multiplayer is ON (make sure your Photon App ID is set in Tools > Fusion > Fusion Hub)."
+                    : "You're in OFFLINE solo mode. Import Photon Fusion 2 to play online."),
+                "Let's go");
+        }
+
+        /// <summary>Builds everything with no questions asked (used by the menu and by first-time auto setup).</summary>
+        public static void BuildWorld()
+        {
             EnsureFolder(Root + "/Textures");
             EnsureFolder(Root + "/Materials");
             EnsureFolder(Root + "/Prefabs");
@@ -92,18 +110,12 @@ namespace KartVR.EditorTools
             scenes.Insert(0, new EditorBuildSettingsScene(ScenePath, true));
             EditorBuildSettings.scenes = scenes.ToArray();
             AssetDatabase.SaveAssets();
-
-            EditorUtility.DisplayDialog("KartVR",
-                "Done! KartWorld scene is open and set as the first scene in Build Settings.\n\n" +
-                "Make sure you've set your Photon App ID (Fusion Hub), then press Play.\n" +
-                "No headset? W/A/S/D to walk or drive, Q/E to turn, hold right mouse to look, left click to press buttons.",
-                "Let's go");
         }
 
         // ================================================================== helpers
 
         /// <summary>Runs Window > TextMeshPro > Import TMP Essential Resources. Returns false if that isn't available.</summary>
-        static bool ImportTextMeshProEssentials()
+        public static bool ImportTextMeshProEssentials()
         {
             foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
             {

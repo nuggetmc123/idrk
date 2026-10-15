@@ -58,14 +58,16 @@ The wrist menu floats above your left controller. Poke it with your right hand:
 
 ## Setup
 
-### Play solo first (about 5 minutes)
+### Play solo first (about 5 minutes, almost no clicks)
 1. Install **Unity Hub** and **Unity 6** (any 6000.x version). Tick **Android Build Support** if you want to play on Quest later.
 2. Unity Hub → **Add** → **Add project from disk** → pick this **`KartVR`** folder. If it says the editor version
-   isn't installed, pick the Unity 6 version you have. The first open takes a few minutes.
+   isn't installed, pick the Unity 6 version you have.
 3. If Unity asks to **enable the new Input System**, click **Yes** (Unity restarts).
-4. Top menu: **KartVR → Build Prototype World** → **Build it**.
-   (If it says text resources are being added, click **Import** if asked, then click **Build Prototype World** again.)
+4. **Wait.** The first time it opens, the project sets itself up: it adds the text resources, builds the whole
+   game world and opens it. A "Kart VR is ready!" message pops up when it's done.
 5. Press **▶ Play**. You can walk around the hub, customize your kart in **YOUR GARAGE**, and race, bump and free roam, **solo**.
+
+(You can rebuild the world any time with **KartVR → Build Prototype World**.)
 
 Without Photon Fusion the game runs **offline**: everything works except playing with other people.
 **KartVR → Check Multiplayer** tells you which mode you're in.
