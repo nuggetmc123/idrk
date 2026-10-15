@@ -23,6 +23,9 @@ namespace KartVR.Setup
     {
         const string Define = "KARTVR_FUSION";
 
+        /// <summary>Set when Fusion first appears; the game's editor scripts finish setup after recompiling.</summary>
+        public static string PendingKey => "KartVR.PendingFusionSetup." + Application.dataPath;
+
         static FusionSwitch()
         {
             EditorApplication.delayCall += Check;
@@ -74,15 +77,12 @@ namespace KartVR.Setup
             }
             if (!changed) return;
 
+            // After Unity recompiles, KartVRAutoSetup sees this and applies the App ID + rebuilds the world.
+            if (fusion) EditorPrefs.SetBool(PendingKey, true);
+            else EditorPrefs.DeleteKey(PendingKey);
             Debug.Log(fusion
-                ? "[KartVR] Photon Fusion 2 found: multiplayer ON. Run KartVR > Build Prototype World again so the karts and players use real networking."
-                : "[KartVR] Photon Fusion 2 not found: running OFFLINE (solo). Import Photon Fusion 2 to play online.");
-            if (fusion)
-                EditorUtility.DisplayDialog("KartVR",
-                    "Photon Fusion 2 found: multiplayer is now ON.\n\n" +
-                    "1. Paste your App ID in Tools > Fusion > Fusion Hub.\n" +
-                    "2. Run KartVR > Build Prototype World again (so the world uses real networking).",
-                    "OK");
+                ? "[KartVR] Photon Fusion 2 found: switching multiplayer ON (finishing setup after recompiling)..."
+                : "[KartVR] Photon Fusion 2 not found: running OFFLINE (solo). Use KartVR > Set Up Multiplayer to play online.");
         }
     }
 }

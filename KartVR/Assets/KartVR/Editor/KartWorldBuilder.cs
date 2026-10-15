@@ -595,6 +595,19 @@ namespace KartVR.EditorTools
         /// <summary>Best effort: tick "Is Master Client Object" so the GameState moves to a new owner when the master leaves.</summary>
         static void TryTickMasterClientObject(NetworkObject no)
         {
+            // Fusion 2 keeps these as bits in a "Flags" enum field.
+            const System.Reflection.BindingFlags any = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            var flagsField = no.GetType().GetField("Flags", any);
+            if (flagsField != null && flagsField.FieldType.IsEnum)
+            {
+                long bits = System.Convert.ToInt64(flagsField.GetValue(no));
+                foreach (var name in new[] { "MasterClientObject", "AllowStateAuthorityOverride" })
+                    if (System.Enum.IsDefined(flagsField.FieldType, name))
+                        bits |= System.Convert.ToInt64(System.Enum.Parse(flagsField.FieldType, name));
+                flagsField.SetValue(no, System.Enum.ToObject(flagsField.FieldType, bits));
+                EditorUtility.SetDirty(no);
+            }
+
             var so = new SerializedObject(no);
             var it = so.GetIterator();
             bool found = false;
@@ -720,7 +733,7 @@ namespace KartVR.EditorTools
 
             Board(hub, "HelpBoard", new Vector3(-16f, 3.2f, -5f), Quaternion.Euler(0f, -62f, 0f), new Vector2(10f, 4.6f), 2.4f,
                 "<b>HOW TO PLAY</b>\nWalk: left stick   Turn: right stick\nWalk into a PORTAL to play\nYOUR GARAGE: customize your kart\n" +
-                "Driving: R trigger gas, L trigger brake, L stick steer\nGrip drift, A booster, B respawn, Y menu", neonPink);
+                "Driving: GRAB THE WHEEL (grip) and turn it! R trigger gas, L trigger brake\nX drift, A booster, B respawn, Y menu", neonPink);
 
             // Lamps, trees and benches around the plaza.
             for (int i = 0; i < 8; i++)

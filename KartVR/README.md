@@ -42,14 +42,18 @@ Your choices are saved on your device and everyone else sees them, in your garag
 | **Turn** (hub) | Right thumbstick (snap turn) | Q / E |
 | Gas | Right trigger | W / ↑ |
 | Brake / reverse | Left trigger | S / ↓ |
-| Steer | Left thumbstick | A / D |
-| Drift (hold through a corner; long drifts give a mini-boost) | Either grip | Space |
+| **Steer** | **Grab the steering wheel** (grip) with one or both hands and turn it, or use the left thumbstick | A / D |
+| Drift (hold through a corner; long drifts give a mini-boost) | X | Space |
 | **Booster** (if your kart has one) | A | Left Shift |
 | Respawn | B | R |
-| Recenter view | X | C |
+| Recenter view | Click the left thumbstick | C |
 | Show/hide wrist menu | Y | Tab |
 | Press buttons | Touch them with your hand | Left click |
 | Look around | Your head | Hold right mouse |
+
+**The steering wheel:** in VR, put your hand on the wheel and squeeze **grip** to hold it, then turn it like a real
+wheel. One hand or two both work. Let go and it springs back to the middle. Not holding it? The left thumbstick turns
+the wheel smoothly for you.
 
 The wrist menu floats above your left controller. Poke it with your right hand:
 **Recenter, Respawn, Hub, Create/Leave Lobby**, plus your lobby info.
@@ -72,14 +76,15 @@ The wrist menu floats above your left controller. Poke it with your right hand:
 Without Photon Fusion the game runs **offline**: everything works except playing with other people.
 **KartVR → Check Multiplayer** tells you which mode you're in.
 
-### Turn on multiplayer (optional)
-1. Make a free account at **dashboard.photonengine.com** → **Create a new app** → **Fusion** → **Fusion 2**. Copy the **App ID**.
-2. Import **Photon Fusion 2** (Unity Asset Store, free) into the project.
-3. A KartVR message pops up saying **multiplayer is now ON** (it switches over by itself).
-   Paste your App ID in **Tools → Fusion → Fusion Hub**.
-4. Run **KartVR → Build Prototype World** again so the world uses real networking.
-5. Select the **GameState** object and tick **Is Master Client Object** on its NetworkObject if you see it.
-   If Fusion complains about prefabs, run **Tools → Fusion → Rebuild Prefab Table**.
+### Turn on multiplayer (optional, 3 steps)
+Open **KartVR → Set Up Multiplayer**. It has buttons for each step:
+1. **Open Photon website** → make a free account → **Create a new app** → **Fusion** → **Fusion 2** → copy the **App ID**.
+2. **Paste the App ID** into the window.
+3. **Find Photon Fusion 2 in the Asset Store** → **Add to My Assets** → **Open in Unity** → **Import**.
+
+That's it. When the import finishes, the project switches multiplayer on, fills in your App ID and rebuilds the
+world with real networking by itself, then tells you it's ready. (Photon can't be included in this download: it's
+licensed to you through your own free account.)
 
 The free Photon plan allows 20 players online at once, which is plenty for playing with friends.
 

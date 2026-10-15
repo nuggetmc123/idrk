@@ -87,6 +87,10 @@ namespace KartVR
         // Input cached in Update for use in FixedUpdate.
         float gas, brake, steer;
         bool driftHeld;
+        readonly KartSteeringWheel wheel = new KartSteeringWheel();
+
+        /// <summary>The grabbable steering wheel (local kart only).</summary>
+        public KartSteeringWheel Wheel => wheel;
 
         bool grounded;
         Vector3 groundNormal = Vector3.up;
@@ -192,7 +196,12 @@ namespace KartVR
 
             gas = KartInput.Gas;
             brake = KartInput.Brake;
-            steer = KartInput.Steer;
+            // Steering comes from the wheel: grab it in VR (grip) and turn it, or it follows the stick smoothly.
+            var rig = KartRig.Instance;
+            bool seated = KartRig.IsXR && rig != null && rig.IsAttachedTo(this) && !Parked;
+            wheel.Tick(visuals.SteeringWheel, seated ? rig.leftHand : null, seated ? rig.rightHand : null,
+                KartInput.LeftGripHeld, KartInput.RightGripHeld, Parked ? 0f : KartInput.Steer, seated, Time.deltaTime);
+            steer = wheel.Steer;
             driftHeld = KartInput.DriftHeld;
 
             ClaimGarage();
@@ -643,7 +652,12 @@ namespace KartVR
             foreach (var w in visuals.FrontWheels)
                 if (w) w.localRotation = Quaternion.Euler(0f, steerVisual * 25f, 0f);
             if (visuals.SteeringWheel)
-                visuals.SteeringWheel.localRotation = Quaternion.AngleAxis(steerVisual * -90f, Quaternion.Euler(-60f, 0f, 0f) * Vector3.up);
+            {
+                // Turn the wheel model by the same angle your hands turned it (+ = clockwise as the driver sees it:
+                // the top of the wheel moves to the right).
+                float wheelAngle = IsLocal ? wheel.Angle : NetSteer * KartSteeringWheel.FullSteerAngle;
+                visuals.SteeringWheel.localRotation = Quaternion.AngleAxis(wheelAngle, KartSteeringWheel.Tilt * Vector3.up);
+            }
         }
     }
 }

@@ -9,8 +9,9 @@ namespace KartVR
     /// fallbacks, so you can test in the editor without a headset.
     ///
     /// Driving (VR): Right trigger = gas, Left trigger = brake/reverse,
-    ///           Left stick = steer, Grip (either) = drift, A = booster,
-    ///           B = respawn, X = recenter view, Y = show/hide wrist menu.
+    ///           Grip = grab the steering wheel and turn it with your hands
+    ///           (or steer with the left stick), X = drift, A = booster,
+    ///           B = respawn, left stick click = recenter view, Y = show/hide wrist menu.
     /// Walking (VR, hub): Left stick = walk, Right stick = snap turn.
     /// Keyboard: W/S or arrows = gas/brake (walk), A/D = steer (strafe),
     ///           Q/E = turn, Shift = booster, Space = drift,
@@ -19,7 +20,7 @@ namespace KartVR
     /// </summary>
     public static class KartInput
     {
-        static InputAction gas, brake, steer, drift, respawn, recenter, menu, boost, move, turn;
+        static InputAction gas, brake, steer, drift, respawn, recenter, menu, boost, move, turn, gripLeft, gripRight;
         static bool initialized;
 
         static void Init()
@@ -50,8 +51,7 @@ namespace KartVR
                 .With("Positive", "<Keyboard>/rightArrow");
 
             drift = new InputAction("Drift", InputActionType.Button);
-            drift.AddBinding("<XRController>{RightHand}/{GripButton}");
-            drift.AddBinding("<XRController>{LeftHand}/{GripButton}");
+            drift.AddBinding("<XRController>{LeftHand}/{PrimaryButton}");
             drift.AddBinding("<Gamepad>/rightShoulder");
             drift.AddBinding("<Keyboard>/space");
 
@@ -61,7 +61,7 @@ namespace KartVR
             respawn.AddBinding("<Keyboard>/r");
 
             recenter = new InputAction("Recenter", InputActionType.Button);
-            recenter.AddBinding("<XRController>{LeftHand}/{PrimaryButton}");
+            recenter.AddBinding("<XRController>{LeftHand}/{Primary2DAxisClick}");
             recenter.AddBinding("<Gamepad>/select");
             recenter.AddBinding("<Keyboard>/c");
 
@@ -91,6 +91,14 @@ namespace KartVR
                 .With("Negative", "<Keyboard>/q")
                 .With("Positive", "<Keyboard>/e");
 
+            // Grips grab the steering wheel (one per hand).
+            gripLeft = new InputAction("GripLeft", InputActionType.Button);
+            gripLeft.AddBinding("<XRController>{LeftHand}/{GripButton}");
+            gripRight = new InputAction("GripRight", InputActionType.Button);
+            gripRight.AddBinding("<XRController>{RightHand}/{GripButton}");
+
+            gripLeft.Enable();
+            gripRight.Enable();
             boost.Enable();
             move.Enable();
             turn.Enable();
@@ -107,6 +115,8 @@ namespace KartVR
         public static float Brake { get { Init(); return Mathf.Clamp01(brake.ReadValue<float>()); } }
         public static float Steer { get { Init(); return Mathf.Clamp(steer.ReadValue<float>(), -1f, 1f); } }
         public static bool DriftHeld { get { Init(); return drift.IsPressed(); } }
+        public static bool LeftGripHeld { get { Init(); return gripLeft.IsPressed(); } }
+        public static bool RightGripHeld { get { Init(); return gripRight.IsPressed(); } }
         public static bool BoostHeld { get { Init(); return boost.IsPressed(); } }
         public static Vector2 Move { get { Init(); return Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f); } }
         public static float Turn { get { Init(); return Mathf.Clamp(turn.ReadValue<float>(), -1f, 1f); } }

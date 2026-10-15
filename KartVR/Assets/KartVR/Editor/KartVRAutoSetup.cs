@@ -23,9 +23,19 @@ namespace KartVR.EditorTools
             EditorApplication.delayCall += Begin;
         }
 
+        static string PendingKey => "KartVR.PendingFusionSetup." + Application.dataPath;
+
         static void Begin()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+
+            // Photon Fusion was just imported: finish multiplayer setup once Unity is idle.
+            if (SessionManager.MultiplayerAvailable && EditorPrefs.GetBool(PendingKey, false) && KartWorldBuilder.TextResourcesReady)
+            {
+                EditorApplication.update -= FinishMultiplayer;
+                EditorApplication.update += FinishMultiplayer;
+                return;
+            }
 
             if (File.Exists(KartWorldBuilder.WorldScenePath))
             {
@@ -90,6 +100,27 @@ namespace KartVR.EditorTools
                     ? "Multiplayer is ON (set your Photon App ID in Tools > Fusion > Fusion Hub)."
                     : "You're playing OFFLINE (solo). Import Photon Fusion 2 later to play online with friends."),
                 "Let's go");
+        }
+
+        static void FinishMultiplayer()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode) return;
+            EditorApplication.update -= FinishMultiplayer;
+            EditorPrefs.DeleteKey(PendingKey);
+            try
+            {
+                EditorUtility.DisplayProgressBar("Kart VR", "Turning multiplayer on and rebuilding the world...", 0.6f);
+                MultiplayerSetup.FinishSetup(false);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogException(e);
+                Stop("Multiplayer is installed, but setup didn't finish. Open KartVR > Set Up Multiplayer and click Finish setup.");
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+            }
         }
 
         static void Stop(string message)
