@@ -85,7 +85,7 @@ namespace KartVR
         public void Pose(Vector3 hips, Quaternion bodyRot, Vector3 headPos, Quaternion headRot,
             Vector3 leftHand, Quaternion leftRot, Vector3 rightHand, Quaternion rightRot, Vector3 leftFoot, Vector3 rightFoot)
         {
-            if (model != null) model.Pose(hips, bodyRot, headPos, headRot, leftHand, rightHand, leftFoot, rightFoot);
+            if (model != null) model.Pose(hips, bodyRot, headPos, headRot, leftHand, leftRot, rightHand, rightRot, leftFoot, rightFoot);
             else if (prims != null) prims.Pose(hips, bodyRot, headPos, headRot, leftHand, leftRot, rightHand, rightRot, leftFoot, rightFoot);
         }
 
@@ -301,8 +301,32 @@ namespace KartVR
                 bone.t.SetPositionAndRotation(from, bodyRot * rot);
             }
 
+            /// <summary>
+            /// Turns a controller's rotation into the glove's: the glove's fingers (down in the rest pose) point
+            /// where the controller points, and its thumb side (forward in the rest pose) is the controller's top.
+            /// </summary>
+            static readonly Quaternion GloveFromController = Quaternion.Euler(-90f, 0f, 0f);
+
+            /// <summary>
+            /// One arm. The glove always lands exactly on your controller: if it's further than the model's arm
+            /// reaches, the arm stretches a little (up to 30%) and then the shoulder gives the rest.
+            /// </summary>
+            void Arm(Bone upper, Bone lower, Bone hand, Vector3 shoulder, Vector3 target, Quaternion handRot, Vector3 hint,
+                Vector3 rShoulder, Vector3 rElbow, Vector3 rWrist, Quaternion bodyRot)
+            {
+                float reach = Vector3.Distance(shoulder, target), length = upperArm + lowerArm;
+                float stretch = Mathf.Clamp(reach / (length * 0.98f), 1f, 1.3f);
+                upper.t.localScale = lower.t.localScale = Vector3.one * stretch;
+                float a = upperArm * stretch, b = lowerArm * stretch;
+                if (reach > (a + b) * 0.99f) shoulder += (target - shoulder).normalized * (reach - (a + b) * 0.99f);
+                Vector3 elbow = SolveJoint(shoulder, target, a, b, hint, out Vector3 wrist);
+                Aim(upper, shoulder, rElbow - rShoulder, elbow, bodyRot);
+                Aim(lower, elbow, rWrist - rElbow, wrist, bodyRot);
+                hand.t.SetPositionAndRotation(target, handRot * GloveFromController); // turns with your real wrist
+            }
+
             public void Pose(Vector3 hips, Quaternion bodyRot, Vector3 headPos, Quaternion headRot,
-                Vector3 leftHand, Vector3 rightHand, Vector3 leftSole, Vector3 rightSole)
+                Vector3 leftHand, Quaternion leftRot, Vector3 rightHand, Quaternion rightRot, Vector3 leftSole, Vector3 rightSole)
             {
                 Vector3 up = bodyRot * Vector3.up, right = bodyRot * Vector3.right, fwd = bodyRot * Vector3.forward;
 
@@ -318,14 +342,8 @@ namespace KartVR
                 // Arms: shoulders ride the torso, elbows bend down and out.
                 Quaternion torsoRot = torso.t.rotation;
                 Vector3 shL = hips + torsoRot * (rShoulderL - rPelvis), shR = hips + torsoRot * (rShoulderR - rPelvis);
-                Vector3 elL = SolveJoint(shL, leftHand, upperArm, lowerArm, -up - right * 0.6f - fwd * 0.3f, out Vector3 wrL);
-                Vector3 elR = SolveJoint(shR, rightHand, upperArm, lowerArm, -up + right * 0.6f - fwd * 0.3f, out Vector3 wrR);
-                Aim(upperL, shL, rElbowL - rShoulderL, elL, bodyRot);
-                Aim(lowerL, elL, rWristL - rElbowL, wrL, bodyRot);
-                Aim(upperR, shR, rElbowR - rShoulderR, elR, bodyRot);
-                Aim(lowerR, elR, rWristR - rElbowR, wrR, bodyRot);
-                handL.t.SetPositionAndRotation(wrL, lowerL.t.rotation); // gloves follow the forearm
-                handR.t.SetPositionAndRotation(wrR, lowerR.t.rotation);
+                Arm(upperL, lowerL, handL, shL, leftHand, leftRot, -up - right * 0.6f - fwd * 0.3f, rShoulderL, rElbowL, rWristL, bodyRot);
+                Arm(upperR, lowerR, handR, shR, rightHand, rightRot, -up + right * 0.6f - fwd * 0.3f, rShoulderR, rElbowR, rWristR, bodyRot);
 
                 // Legs: hips ride the pelvis, knees bend forward, boots stay flat.
                 Vector3 hipL = hips + bodyRot * (rHipL - rPelvis), hipR = hips + bodyRot * (rHipR - rPelvis);
@@ -436,7 +454,7 @@ namespace KartVR
             {
                 Vector3 elbow = SolveJoint(root, target, a, b, hint, out Vector3 end);
                 KartUI.Span(upper, root, elbow, thickUpper);
-                KartUI.Span(lower, elbow, end, thickLower);
+                KartUI.Span(lower, elbow, target, thickLower); // reaches all the way to your hand, even past arm's length
             }
         }
     }

@@ -52,8 +52,20 @@ namespace KartVR
             if (rightHand != null && rightHand.GetComponent<UIPointer>() == null) rightHand.gameObject.AddComponent<UIPointer>().node = XRNode.RightHand;
         }
 
-        void OnEnable() { Application.onBeforeRender += ApplyXRPoses; }
-        void OnDisable() { Application.onBeforeRender -= ApplyXRPoses; }
+        /// <summary>
+        /// Fires right before each frame is drawn, after the newest headset and controller poses are in. Your own
+        /// body poses itself here, so its hands sit exactly on your controllers instead of a frame behind.
+        /// </summary>
+        public static event System.Action AfterPoses;
+
+        void OnEnable() { Application.onBeforeRender += BeforeRender; }
+        void OnDisable() { Application.onBeforeRender -= BeforeRender; }
+
+        void BeforeRender()
+        {
+            ApplyXRPoses();
+            AfterPoses?.Invoke();
+        }
 
         /// <summary>
         /// Backup tracking: read the headset and controller poses straight from Unity's XR system, so your hands

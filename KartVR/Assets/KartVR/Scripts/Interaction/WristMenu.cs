@@ -14,8 +14,10 @@ namespace KartVR
     /// </summary>
     public class WristMenu : MonoBehaviour
     {
-        public Vector3 panelOffset = new Vector3(0f, 0.1f, 0.03f);
-        public Vector3 panelTilt = new Vector3(35f, 0f, 0f);
+        // Where the menu floats above your left controller. Set here (not in the scene) so older saved values can't
+        // put it back down on your hand.
+        static readonly Vector3 PanelOffset = new Vector3(0f, 0.155f, 0.035f);
+        static readonly Vector3 PanelTilt = new Vector3(35f, 0f, 0f);
 
         enum Page { Main, Sound, Controls, Voice }
 
@@ -36,8 +38,8 @@ namespace KartVR
         {
             panel = new GameObject("WristPanel").transform;
             panel.SetParent(transform, false);
-            panel.localPosition = panelOffset;
-            panel.localRotation = Quaternion.Euler(panelTilt);
+            panel.localPosition = PanelOffset;
+            panel.localRotation = Quaternion.Euler(PanelTilt);
 
             KartUI.Box(panel, "Backing", new Vector3(0f, -0.03f, 0.012f), new Vector3(0.25f, 0.25f, 0.01f), new Color(0.1f, 0.1f, 0.15f));
             var tabSize = new Vector3(0.058f, 0.028f, 0.02f);

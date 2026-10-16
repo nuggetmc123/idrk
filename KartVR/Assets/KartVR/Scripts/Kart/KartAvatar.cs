@@ -51,6 +51,7 @@ namespace KartVR
         {
             if (HasStateAuthority)
             {
+                KartRig.AfterPoses += LatePose;
                 body.SetHeadVisible(false);
                 if (nameTag) nameTag.gameObject.SetActive(false);
             }
@@ -78,8 +79,25 @@ namespace KartVR
 
         static bool Received(Quaternion q) => !(q.x == 0f && q.y == 0f && q.z == 0f && q.w == 0f);
 
+        bool posingLate;
+
+        public override void Despawned(NetworkRunner runner, bool hasState)
+        {
+            KartRig.AfterPoses -= LatePose;
+        }
+
+        /// <summary>Your own driver: posed after the newest controller poses, so the gloves stay on your hands.</summary>
+        void LatePose()
+        {
+            if (this == null || Object == null || !Object.IsValid) return;
+            posingLate = true;
+            Render();
+            posingLate = false;
+        }
+
         public override void Render()
         {
+            if (HasStateAuthority && !posingLate && KartRig.Instance != null) return; // done in LatePose instead
             if (kart == null || !kart.IsReady) return;
             var look = kart.Look;
             body.Build(look.paint, look.accent);

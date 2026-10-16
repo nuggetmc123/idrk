@@ -74,6 +74,7 @@ namespace KartVR
             if (IsLocal)
             {
                 Local = this;
+                KartRig.AfterPoses += LatePose;
                 body.SetHeadVisible(false);
                 if (nameTag) nameTag.gameObject.SetActive(false);
                 FeetPos = transform.position;
@@ -84,6 +85,7 @@ namespace KartVR
 
         public override void Despawned(NetworkRunner runner, bool hasState)
         {
+            KartRig.AfterPoses -= LatePose;
             if (Local == this) Local = null;
         }
 
@@ -225,8 +227,20 @@ namespace KartVR
             if (other.TryGetComponent(out ModePortal portal)) portal.Activate();
         }
 
+        bool posingLate;
+
+        /// <summary>Your own body: posed after the newest controller poses (see <see cref="KartRig.AfterPoses"/>).</summary>
+        void LatePose()
+        {
+            if (this == null || !IsReady) return;
+            posingLate = true;
+            Render();
+            posingLate = false;
+        }
+
         public override void Render()
         {
+            if (IsLocal && !posingLate && KartRig.Instance != null) return; // done in LatePose instead
             var kart = OwnKart();
             if (kart != null)
             {
