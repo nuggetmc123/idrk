@@ -91,7 +91,7 @@ with your right hand. Four pages:
 - **Sound:** sound effects volume and music volume (- / +).
 - **Controls:** turning style (Snap 30°, Snap 45° or Smooth), steering (grab the wheel, or left stick only), and a
   list of the controls.
-- **Camera:** **Spawn Quest Cam** / Remove, Take Photo, Follows you / Stays put, Zoom, Bring Cam Here, PC monitor (PC only).
+- **Camera:** **Spawn Quest Cam** / Remove, Take Photo, Follows you / Stays put, Zoom, Bring Cam Here, Live preview, PC monitor (PC only).
 
 ### Quest Cam (filming yourself)
 Spawn it from **Menu > Camera > Spawn Quest Cam**. It appears in front of you, looking at you. **Grab it with grip**
@@ -103,6 +103,7 @@ and put it wherever you like; let go and it stays there. A live preview shows on
   view, and record it with OBS (off by default; turn it off again if your headset view acts up).
 - **Follows you** (default): it keeps its spot next to you, even riding along with your kart. **Stays put**: it
   stays where you left it in the world.
+- **Live preview** on/off: the picture on the cam's back screen. Off = the cam only renders when you take a photo.
 - Footage is smoothed so hand wobble doesn't show, and your own helmet shows up on camera (it's only hidden from
   your own eyes). The cam is only on your computer: other players don't see it.
 

@@ -24,7 +24,7 @@ namespace KartVR
         readonly PokeButton[] tabs = new PokeButton[4];
         Page page;
         TextMeshPro info, sfxBar, musicBar;
-        PokeButton lobbyButton, buildButton, turnButton, wheelButton, camButton, camModeButton, camZoomButton, camMonitorButton;
+        PokeButton lobbyButton, buildButton, turnButton, wheelButton, camButton, camModeButton, camZoomButton, camMonitorButton, camPreviewButton;
         float nextRefresh;
 
         static readonly Color TabOn = new Color(0.4f, 0.85f, 1f), TabOff = new Color(0.35f, 0.38f, 0.45f);
@@ -124,13 +124,13 @@ namespace KartVR
                 () => { QuestCam.CycleFov(); RefreshCamera(); }, 0.085f);
             PokeButton.Create(root, "CamHere", "Bring Cam Here", new Vector3(l, -0.032f, 0f), half, new Color(0.6f, 0.9f, 1f),
                 () => { if (QuestCam.IsOut) QuestCam.Instance.BringHere(); else QuestCam.Spawn(); RefreshCamera(); }, 0.085f);
-            camMonitorButton = PokeButton.Create(root, "CamMonitor", "", new Vector3(r, -0.032f, 0f), half, new Color(0.7f, 0.75f, 1f),
+            camPreviewButton = PokeButton.Create(root, "CamPreview", "", new Vector3(r, -0.032f, 0f), half, new Color(0.7f, 0.75f, 1f),
+                () => { QuestCam.LivePreview = !QuestCam.LivePreview; RefreshCamera(); }, 0.075f);
+            camMonitorButton = PokeButton.Create(root, "CamMonitor", "", new Vector3(0f, -0.066f, 0f), new Vector3(0.24f, 0.026f, 0.02f), new Color(0.7f, 0.75f, 1f),
                 () => { QuestCam.MonitorView = !QuestCam.MonitorView; RefreshCamera(); }, 0.075f);
             KartUI.Label(root,
-                "Grab the cam with grip. Trigger (while holding it) = photo.\n" +
-                "Photos go to your Quest's pictures (Pictures/KartVR).\n" +
-                "Video: Meta button > Camera > Record video.",
-                new Vector3(0f, -0.072f, 0f), 0.06f, new Color(0.85f, 0.9f, 1f), new Vector2(0.24f, 0.05f));
+                "Grip = grab it, trigger = photo (to Pictures/KartVR). Video: Meta button > Camera > Record.",
+                new Vector3(0f, -0.093f, 0f), 0.05f, new Color(0.85f, 0.9f, 1f), new Vector2(0.25f, 0.02f));
             RefreshCamera();
         }
 
@@ -139,10 +139,11 @@ namespace KartVR
             camButton?.SetLabel(QuestCam.IsOut ? "Remove Cam" : "Spawn Quest Cam");
             camModeButton?.SetLabel(QuestCam.Follow ? "Follows you" : "Stays put");
             camZoomButton?.SetLabel("Zoom: " + Mathf.RoundToInt(QuestCam.Fov) + "°");
+            camPreviewButton?.SetLabel(QuestCam.LivePreview ? "Live preview: on" : "Live preview: off");
             if (camMonitorButton != null)
             {
                 camMonitorButton.gameObject.SetActive(QuestCam.MonitorSupported); // PC only
-                camMonitorButton.SetLabel(QuestCam.MonitorView ? "PC monitor: cam" : "PC monitor: you");
+                camMonitorButton.SetLabel(QuestCam.MonitorView ? "PC monitor shows: the cam" : "PC monitor shows: you");
             }
         }
 

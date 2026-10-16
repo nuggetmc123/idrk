@@ -24,7 +24,7 @@ namespace KartVR
     {
         public static QuestCam Instance { get; private set; }
 
-        const string FollowKey = "kartvr.camFollow", FovKey = "kartvr.camFov", MonitorKey = "kartvr.camMonitor";
+        const string FollowKey = "kartvr.camFollow", FovKey = "kartvr.camFov", MonitorKey = "kartvr.camMonitor", PreviewKey = "kartvr.camPreview";
         static readonly float[] Fovs = { 60f, 75f, 90f };
         static bool wanted; // stays on across scene reloads (changing map or server)
 
@@ -34,6 +34,13 @@ namespace KartVR
             get => PlayerPrefs.GetInt(FollowKey, 1) == 1;
             set { PlayerPrefs.SetInt(FollowKey, value ? 1 : 0); PlayerPrefs.Save(); Instance?.RememberSpot(); }
         }
+        /// <summary>Live picture on the cam's back screen. Off = the cam only renders when you take a photo.</summary>
+        public static bool LivePreview
+        {
+            get => PlayerPrefs.GetInt(PreviewKey, 1) == 1;
+            set { PlayerPrefs.SetInt(PreviewKey, value ? 1 : 0); PlayerPrefs.Save(); if (Instance != null && Instance.previewCam != null && !Instance.takingPhoto) Instance.previewCam.enabled = value; }
+        }
+
         /// <summary>PC only, off by default: show the cam's view on your monitor instead of your eyes (for OBS).</summary>
         public static bool MonitorView
         {
@@ -117,10 +124,18 @@ namespace KartVR
             wanted = false;
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
+            OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single); // the first scene is already loaded
         }
 
         static void OnSceneLoaded(Scene s, LoadSceneMode m)
         {
+            if (runner == null)
+            {
+                var go = new GameObject("QuestCamWarmupRunner");
+                DontDestroyOnLoad(go);
+                runner = go.AddComponent<Runner>();
+            }
+            if (!wanted) runner.StartCoroutine(Prewarm());
             // Changing map or server reloads the world; bring the camera along.
             if (wanted && Instance == null) new GameObject("QuestCam").AddComponent<QuestCam>();
         }
@@ -132,12 +147,12 @@ namespace KartVR
 
             view = new GameObject("QuestCamView").transform;
             view.SetParent(transform.parent, false);
-            previewTexture = new RenderTexture(480, 270, 16) { name = "QuestCamPreview" };
-            previewTexture.Create();
-            // The preview camera is never "enabled": it's drawn by hand in LateUpdate (Camera.Render). A live extra
-            // camera inside the VR frame is what made the headset flash.
+            previewTexture = NewTexture(480, 270);
+            // A plain camera that renders into a texture every frame, like an in-game mirror: the standard,
+            // well-supported way in VR. It's never switched on and off every frame and never drawn by hand
+            // (Camera.Render), which is what made the headset flash.
             previewCam = MakeCamera("Preview", previewTexture, -50f);
-            previewCam.enabled = false;
+            previewCam.enabled = LivePreview;
             ApplyMonitor();
         }
 
@@ -164,17 +179,33 @@ namespace KartVR
             if (KartRig.Instance != null && view.position == Vector3.zero) BringHere();
         }
 
-        Camera MakeCamera(string name, RenderTexture target, float depth)
+        static RenderTexture NewTexture(int w, int h)
         {
+            var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "QuestCam" + w, antiAliasing = 1, useMipMap = false };
+            rt.Create();
+            return rt;
+        }
+
+        Camera MakeCamera(string name, RenderTexture target, float depth) => MakeCamera(view, name, target, depth);
+
+        static Camera MakeCamera(Transform parent, string name, RenderTexture target, float depth)
+        {
+            // Set everything up while the object is inactive, so the camera never renders even one frame
+            // with the wrong settings (e.g. straight into your headset).
             var go = new GameObject("QuestCam" + name);
-            go.transform.SetParent(view, false);
+            go.SetActive(false);
+            go.transform.SetParent(parent, false);
             var cam = go.AddComponent<Camera>();
+            cam.allowHDR = false;
+            cam.allowMSAA = false;
+            cam.useOcclusionCulling = false;
             cam.stereoTargetEye = StereoTargetEyeMask.None;
             cam.targetTexture = target;
             cam.depth = depth;
             cam.nearClipPlane = 0.05f;
             cam.farClipPlane = 1000f;
             cam.fieldOfView = Fov;
+            go.SetActive(true);
             return cam;
         }
 
@@ -255,7 +286,6 @@ namespace KartVR
             previewCam.fieldOfView = fov;
             if (screenCam) screenCam.fieldOfView = fov;
             // The preview is only for you to aim with; on Quest render it every other frame to save power.
-            if (Application.platform != RuntimePlatform.Android || (Time.frameCount & 1) == 0) previewCam.Render();
 
             // Trigger on the hand holding the cam = take a photo.
             if (heldBy >= 0)
@@ -299,22 +329,34 @@ namespace KartVR
             Instance.TakePhoto();
         }
 
+        bool takingPhoto;
+
         void TakePhoto()
         {
+            if (!takingPhoto) StartCoroutine(PhotoRoutine());
+        }
+
+        System.Collections.IEnumerator PhotoRoutine()
+        {
+            takingPhoto = true;
             const int w = 1920, h = 1080;
-            var rt = RenderTexture.GetTemporary(w, h, 24);
-            var old = previewCam.targetTexture;
-            previewCam.targetTexture = rt;
-            previewCam.Render();
-            previewCam.targetTexture = old;
+            var big = NewTexture(w, h);
+            // Let the camera draw one normal frame into the big texture, then read it.
+            previewCam.targetTexture = big;
+            previewCam.enabled = true;
+            yield return new WaitForEndOfFrame();
 
             var prev = RenderTexture.active;
-            RenderTexture.active = rt;
+            RenderTexture.active = big;
             var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
             tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
             tex.Apply();
             RenderTexture.active = prev;
-            RenderTexture.ReleaseTemporary(rt);
+
+            previewCam.targetTexture = previewTexture;
+            previewCam.enabled = LivePreview;
+            big.Release();
+            Destroy(big);
             byte[] jpg = tex.EncodeToJPG(92);
             Destroy(tex);
 
@@ -324,7 +366,31 @@ namespace KartVR
             AudioManager.Play(AudioManager.Sfx.Click, 1f, 0.6f);
             Buzz(heldBy == 0 ? XRNode.LeftHand : XRNode.RightHand, 0.6f, 0.08f);
             SessionManager.Instance?.SetStatus(where != null ? "Photo saved: " + where : "Couldn't save the photo (see the Console)", 5f);
+            takingPhoto = false;
         }
+
+        // ---------------- warm-up
+
+        /// <summary>
+        /// The first time a second camera renders, Unity prepares shaders for it, which can hitch the headset for
+        /// a frame. Do that once while the world is loading instead of when you spawn the cam.
+        /// </summary>
+        static System.Collections.IEnumerator Prewarm()
+        {
+            var rt = NewTexture(64, 36);
+            var holder = new GameObject("QuestCamWarmup");
+            var cam = MakeCamera(holder.transform, "Warmup", rt, -60f);
+            if (KartRig.Instance != null && KartRig.Instance.head != null)
+                holder.transform.SetPositionAndRotation(KartRig.Instance.head.position, KartRig.Instance.head.rotation);
+            yield return null;
+            yield return null;
+            Destroy(holder);
+            rt.Release();
+            Destroy(rt);
+        }
+
+        class Runner : MonoBehaviour { }
+        static Runner runner;
 
         static void Buzz(XRNode node, float amplitude, float duration)
         {
