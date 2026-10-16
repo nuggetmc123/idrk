@@ -103,6 +103,14 @@ namespace KartVR.EditorTools
             Configure(true);
         }
 
+        /// <summary>Used by the Quest build: make sure OpenXR + the Quest settings are on. False if VR isn't installed yet.</summary>
+        public static bool EnsureQuestReady()
+        {
+            if (!PackagesInstalled()) return false;
+            Configure(false);
+            return true;
+        }
+
         static bool PackagesInstalled() =>
             FindType("UnityEngine.XR.OpenXR.OpenXRLoader") != null &&
             FindType("UnityEditor.XR.Management.Metadata.XRPackageMetadataStore") != null;

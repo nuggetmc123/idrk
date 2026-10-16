@@ -22,7 +22,7 @@ namespace KartVR
         readonly Transform[] pages = new Transform[3];
         readonly PokeButton[] tabs = new PokeButton[3];
         Page page;
-        TextMeshPro info, sfxBar, musicBar;
+        TextMeshPro info, sfxBar, musicBar, engineBar;
         PokeButton lobbyButton, buildButton, turnButton, wheelButton;
         float nextRefresh;
 
@@ -80,18 +80,22 @@ namespace KartVR
 
         void BuildSound(Transform root)
         {
-            var small = new Vector3(0.04f, 0.032f, 0.02f);
-            KartUI.Label(root, "Sound effects", new Vector3(0f, 0.045f, 0f), 0.11f, Color.white, new Vector2(0.24f, 0.02f));
-            PokeButton.Create(root, "SfxDown", "-", new Vector3(-0.1f, 0.018f, 0f), small, new Color(1f, 0.6f, 0.5f), () => ChangeSfx(-0.1f), 0.2f);
-            sfxBar = KartUI.Label(root, "", new Vector3(0f, 0.018f, 0f), 0.11f, new Color(0.6f, 1f, 0.7f), new Vector2(0.15f, 0.03f));
-            PokeButton.Create(root, "SfxUp", "+", new Vector3(0.1f, 0.018f, 0f), small, new Color(0.5f, 1f, 0.6f), () => ChangeSfx(0.1f), 0.2f);
-
-            KartUI.Label(root, "Music", new Vector3(0f, -0.022f, 0f), 0.11f, Color.white, new Vector2(0.24f, 0.02f));
-            PokeButton.Create(root, "MusicDown", "-", new Vector3(-0.1f, -0.05f, 0f), small, new Color(1f, 0.6f, 0.5f), () => ChangeMusic(-0.1f), 0.2f);
-            musicBar = KartUI.Label(root, "", new Vector3(0f, -0.05f, 0f), 0.11f, new Color(0.6f, 0.85f, 1f), new Vector2(0.15f, 0.03f));
-            PokeButton.Create(root, "MusicUp", "+", new Vector3(0.1f, -0.05f, 0f), small, new Color(0.5f, 1f, 0.6f), () => ChangeMusic(0.1f), 0.2f);
-            KartUI.Label(root, "All sounds and music are made by the game", new Vector3(0f, -0.088f, 0f), 0.07f, new Color(1f, 1f, 1f, 0.6f), new Vector2(0.24f, 0.015f));
+            sfxBar = VolumeRow(root, "Sound effects", 0.045f, d => ChangeSfx(d), new Color(0.6f, 1f, 0.7f));
+            engineBar = VolumeRow(root, "Kart engine", -0.008f, d => ChangeEngine(d), new Color(1f, 0.85f, 0.5f));
+            musicBar = VolumeRow(root, "Music", -0.061f, d => ChangeMusic(d), new Color(0.6f, 0.85f, 1f));
+            KartUI.Label(root, "All sounds and music are made by the game", new Vector3(0f, -0.108f, 0f), 0.065f, new Color(1f, 1f, 1f, 0.6f), new Vector2(0.24f, 0.015f));
             RefreshSound();
+        }
+
+        /// <summary>A title, then [-] bar [+] underneath it. Returns the bar's text.</summary>
+        static TextMeshPro VolumeRow(Transform root, string title, float y, System.Action<float> change, Color barColor)
+        {
+            var small = new Vector3(0.04f, 0.028f, 0.02f);
+            KartUI.Label(root, title, new Vector3(0f, y, 0f), 0.1f, Color.white, new Vector2(0.24f, 0.018f));
+            PokeButton.Create(root, title + "Down", "-", new Vector3(-0.1f, y - 0.025f, 0f), small, new Color(1f, 0.6f, 0.5f), () => change(-0.1f), 0.2f);
+            var bar = KartUI.Label(root, "", new Vector3(0f, y - 0.025f, 0f), 0.1f, barColor, new Vector2(0.15f, 0.028f));
+            PokeButton.Create(root, title + "Up", "+", new Vector3(0.1f, y - 0.025f, 0f), small, new Color(0.5f, 1f, 0.6f), () => change(0.1f), 0.2f);
+            return bar;
         }
 
         void BuildControls(Transform root)
@@ -132,6 +136,13 @@ namespace KartVR
             AudioManager.Play(AudioManager.Sfx.Checkpoint, 0.8f); // a sample at the new volume
         }
 
+        void ChangeEngine(float d)
+        {
+            GameSettings.EngineVolume = Mathf.Round((GameSettings.EngineVolume + d) * 10f) / 10f;
+            AudioManager.RefreshVolumes();
+            RefreshSound();
+        }
+
         void ChangeMusic(float d)
         {
             GameSettings.MusicVolume = Mathf.Round((GameSettings.MusicVolume + d) * 10f) / 10f;
@@ -161,6 +172,7 @@ namespace KartVR
         {
             if (sfxBar) sfxBar.text = Bar(GameSettings.SfxVolume);
             if (musicBar) musicBar.text = Bar(GameSettings.MusicVolume);
+            if (engineBar) engineBar.text = Bar(GameSettings.EngineVolume);
         }
 
         void RefreshControls()

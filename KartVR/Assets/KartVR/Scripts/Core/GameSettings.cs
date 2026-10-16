@@ -7,7 +7,8 @@ namespace KartVR
     /// <summary>Settings from the menu (three-line button), saved on this device.</summary>
     public static class GameSettings
     {
-        const string SfxKey = "kartvr.sfxVolume", MusicKey = "kartvr.musicVolume", TurnKey = "kartvr.turnStyle", WheelKey = "kartvr.grabWheel";
+        const string SfxKey = "kartvr.sfxVolume", MusicKey = "kartvr.musicVolume", EngineKey = "kartvr.engineVolume",
+            TurnKey = "kartvr.turnStyle", WheelKey = "kartvr.grabWheel";
 
         /// <summary>Sound effects volume, 0..1.</summary>
         public static float SfxVolume
@@ -21,6 +22,13 @@ namespace KartVR
         {
             get => PlayerPrefs.GetFloat(MusicKey, 0.45f);
             set { PlayerPrefs.SetFloat(MusicKey, Mathf.Clamp01(value)); PlayerPrefs.Save(); }
+        }
+
+        /// <summary>Kart engine volume, 0..1 (on top of the sound effects volume).</summary>
+        public static float EngineVolume
+        {
+            get => PlayerPrefs.GetFloat(EngineKey, 0.5f);
+            set { PlayerPrefs.SetFloat(EngineKey, Mathf.Clamp01(value)); PlayerPrefs.Save(); }
         }
 
         /// <summary>How the right stick turns you when walking or flying.</summary>

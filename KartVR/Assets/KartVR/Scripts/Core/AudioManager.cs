@@ -18,10 +18,11 @@ namespace KartVR
         static readonly Dictionary<Sfx, AudioClip> clips = new Dictionary<Sfx, AudioClip>();
         static AudioClip engine, garageMusic, turboMusic;
         static Host host;
-        static float sfxVolume = 0.8f, musicVolume = 0.45f;
+        static float sfxVolume = 0.8f, musicVolume = 0.45f, engineVolume = 0.5f;
 
         public static AudioClip EngineClip { get { Init(); return engine; } }
         public static float SfxVolume => sfxVolume;
+        public static float EngineVolume => engineVolume;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Init()
@@ -39,6 +40,7 @@ namespace KartVR
         {
             sfxVolume = GameSettings.SfxVolume;
             musicVolume = GameSettings.MusicVolume;
+            engineVolume = GameSettings.EngineVolume;
         }
 
         /// <summary>A sound that plays "in your head" (menus, your own kart).</summary>
@@ -187,12 +189,15 @@ namespace KartVR
             });
             clips[Sfx.Error] = Make("Error", 0.3f, (t, d) => Square(t * 140f, 0.5f) * 0.35f * (t % 0.15f < 0.11f ? 1f : 0f));
 
-            // Engine: a loop whose length is a whole number of cycles (90 Hz at 22050 Hz = 245 samples), so it never clicks.
+            // Engine: a soft, low electric-kart hum (mostly pure tones, no buzzy saw/square waves) with a gentle
+            // "purr" pulse. The loop is a whole number of cycles (63 Hz = 350 samples, purr 21 Hz = 1050 samples)
+            // so it never clicks when it repeats.
             var eng = new float[Rate];
             for (int i = 0; i < eng.Length; i++)
             {
-                float p = i / 245f;
-                eng[i] = Saw(p) * 0.35f + Square(p * 2f, 0.3f) * 0.18f + Mathf.Sin(p * Mathf.PI * 2f) * 0.35f + Saw(p * 3f) * 0.08f;
+                float a = i / 350f * Mathf.PI * 2f;
+                float purr = 0.82f + 0.18f * Mathf.Sin(i / 1050f * Mathf.PI * 2f);
+                eng[i] = (Mathf.Sin(a) * 0.6f + Mathf.Sin(a * 2f) * 0.22f + Mathf.Sin(a * 3f) * 0.06f) * purr * 0.8f;
             }
             engine = Clip("Engine", eng);
 
@@ -336,8 +341,9 @@ namespace KartVR
 
             bool parked = kart == null || !kart.IsReady || kart.Parked;
             float s = Mathf.Clamp01(speed / 25f);
-            source.pitch = 0.65f + s * 1.35f;
-            float target = parked ? 0f : AudioManager.SfxVolume * (0.18f + 0.3f * s);
+            // A narrower pitch range and a quiet idle, so it's a background hum rather than a whine.
+            source.pitch = 0.8f + s * 0.7f;
+            float target = parked ? 0f : AudioManager.SfxVolume * AudioManager.EngineVolume * (0.12f + 0.28f * s);
             source.volume = Mathf.MoveTowards(source.volume, target, dt * 2f);
             // Your own kart sounds like it's around you; other karts come from where they are.
             source.spatialBlend = kart != null && kart.IsLocal ? 0.3f : 1f;
