@@ -109,9 +109,11 @@ namespace KartVR
             KartUI.Label(root,
                 "<b>Drive:</b> R trigger gas, L trigger brake, grab wheel (grip)\n" +
                 "X drift  A boost  B respawn  L stick click recenter\n" +
-                "<b>Walk:</b> L stick (hold R trigger = run), R stick turn\n" +
+                "<b>Walk:</b> L stick (click R stick = run), R stick turn\n" +
                 "<b>Free Roam:</b> R stick click = build mode",
                 new Vector3(0f, -0.06f, 0f), 0.065f, new Color(0.85f, 0.9f, 1f), new Vector2(0.24f, 0.07f));
+            PokeButton.Create(root, "Tutorial", "Play the tutorial again", new Vector3(0f, -0.112f, 0f), new Vector3(0.24f, 0.026f, 0.02f),
+                new Color(1f, 0.85f, 0.4f), () => { if (SessionManager.Instance != null && !SessionManager.Instance.Busy && !Tutorial.Running) SessionManager.Instance.StartTutorial(); }, 0.09f);
             RefreshControls();
         }
 

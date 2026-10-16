@@ -17,7 +17,7 @@ namespace KartVR
         public static PlayerAvatar Local { get; private set; }
 
         public float walkSpeed = 4.5f;
-        [Tooltip("Hold the right trigger (or A / Shift) to run.")]
+        [Tooltip("Click the right stick (or hold Shift) to run.")]
         public float runSpeed = 8f;
         public TextMeshPro nameTag;
 
@@ -39,7 +39,7 @@ namespace KartVR
         CharacterController controller;
         AvatarBody body;
         float verticalVelocity;
-        bool turnLatched;
+        bool turnLatched, runToggled;
         bool placed;
         KartMode lastMode = KartMode.Race;
         int seenTeleport;
@@ -162,7 +162,10 @@ namespace KartVR
             Vector2 stick = KartInput.Move;
             Vector3 fwd = Vector3.ProjectOnPlane(rig.head.forward, Vector3.up).normalized;
             Vector3 right = Vector3.Cross(Vector3.up, fwd);
-            bool running = KartInput.BoostHeld || (KartRig.IsXR && KartInput.Gas > 0.5f);
+            // Click the right stick to run; you keep running until you let go of the walk stick.
+            if (KartInput.RunPressed) runToggled = !runToggled;
+            if (stick.sqrMagnitude < 0.01f) runToggled = false;
+            bool running = runToggled || KartInput.RunKeyHeld;
             Vector3 move = (fwd * stick.y + right * stick.x) * (running ? runSpeed : walkSpeed);
 
             // Keep the capsule under your real head when you walk around your room.

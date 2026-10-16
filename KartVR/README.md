@@ -43,10 +43,21 @@ and so on. Use the **SERVER BOARD** in the garage to hop to another server (e.g.
 number). People on the same hub server go to the same map server when they use the map board.
 - **Leave Lobby** (kiosk or wrist menu) takes you back to the public hub.
 
+### Tutorial (first time you play)
+The first time the game starts on a headset you're put in a **solo tutorial** in Free Roam instead of the hub. A panel
+in front of you walks through driving (gas, steering, brake/reverse, drift, boost, top speed, respawn) and building
+(enter build mode, fly, pick, place, delete, back to the kart). Each step ticks off when you do it, or point at
+**Skip step** and pull the trigger. At the end press **PLAY!** and you go to the hub; after that the game always starts
+there. Menu > Controls > **Play the tutorial again** replays it.
+
+### Speed screen
+Your kart has a small screen above the steering wheel showing your speed in **MPH**, with lap, position, boost and
+messages underneath. (The old floating speed text is gone.)
+
 ### Controls
 | | VR | Keyboard (testing without a headset) |
 |---|---|---|
-| **Walk** (hub) | Left thumbstick (the way you're looking); hold **right trigger** to run | W/A/S/D, hold Shift to run |
+| **Walk** (hub) | Left thumbstick (the way you're looking); **click the right thumbstick** to run | W/A/S/D, hold Shift to run |
 | **Turn** (hub) | Right thumbstick (snap turn) | Q / E |
 | Gas | Right trigger | W / ↑ |
 | Brake / reverse | Left trigger | S / ↓ |
@@ -54,7 +65,7 @@ number). People on the same hub server go to the same map server when they use t
 | Drift (hold through a corner; long drifts give a mini-boost) | X | Space |
 | **Booster** (if your kart has one) | A | Left Shift |
 | Respawn | B | R |
-| Run (hub) | Hold right trigger | Shift |
+| Run (hub) | Click the right thumbstick (you stop running when you stop walking) | Shift |
 | Recenter view | Click the left thumbstick | C |
 | **Menu + settings** | **Menu button** (three lines, left controller) | Tab / Esc |
 | Press buttons | Touch them with your hand, **or point the laser and pull the trigger** | Left click |

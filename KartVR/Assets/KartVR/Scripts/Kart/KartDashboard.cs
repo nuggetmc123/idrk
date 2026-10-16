@@ -5,8 +5,9 @@ using UnityEngine;
 namespace KartVR
 {
     /// <summary>
-    /// The screen on your kart's dashboard: speed, lap, position, countdown,
-    /// scores, results and connection messages. Only shown on your own kart.
+    /// The little screen mounted on your kart, just above the steering wheel: big MPH number, plus one line for
+    /// lap / position / boost / messages. The race countdown still shows big in front of you.
+    /// Only shown on your own kart. (The old floating speed text is switched off.)
     /// </summary>
     public class KartDashboard : MonoBehaviour
     {
@@ -16,6 +17,8 @@ namespace KartVR
         KartController kart;
         float nextRefresh;
         readonly StringBuilder sb = new StringBuilder();
+        Transform screen;
+        TextMeshPro mph, info;
 
         void Awake()
         {
@@ -32,11 +35,29 @@ namespace KartVR
             }
         }
 
+        /// <summary>A real screen on the kart: dark panel with a glowing edge, built in code (no world rebuild needed).</summary>
+        void BuildScreen()
+        {
+            screen = new GameObject("SpeedScreen").transform;
+            screen.SetParent(transform, false);
+            screen.localPosition = new Vector3(0f, 0.93f, 0.5f);
+            screen.localRotation = Quaternion.Euler(28f, 0f, 0f); // tilted back towards your eyes
+            KartUI.Box(screen, "Panel", new Vector3(0f, 0f, 0.012f), new Vector3(0.36f, 0.2f, 0.02f), new Color(0.04f, 0.05f, 0.07f));
+            KartUI.Part(screen, PrimitiveType.Cube, new Vector3(0f, 0.102f, 0.01f), new Vector3(0.37f, 0.008f, 0.025f), KartUI.Glow(new Color(0.3f, 0.9f, 1f)));
+            KartUI.Part(screen, PrimitiveType.Cube, new Vector3(0f, -0.08f, 0.012f), new Vector3(0.024f, 0.16f, 0.02f), KartUI.Carbon(), new Vector3(0f, 0f, 0f), "Stand");
+            mph = KartUI.Label(screen, "0", new Vector3(-0.03f, 0.022f, 0f), 1.1f, Color.white, new Vector2(0.24f, 0.12f), TextAlignmentOptions.Right);
+            KartUI.Label(screen, "MPH", new Vector3(0.13f, 0.005f, 0f), 0.28f, new Color(0.3f, 0.9f, 1f), new Vector2(0.09f, 0.05f), TextAlignmentOptions.Left);
+            info = KartUI.Label(screen, "", new Vector3(0f, -0.065f, 0f), 0.13f, new Color(0.85f, 0.95f, 1f), new Vector2(0.34f, 0.06f));
+            info.enableWordWrapping = true;
+        }
+
         void LateUpdate()
         {
             if (kart == null || !kart.IsReady) return;
             bool show = kart.IsLocal && !kart.Parked;
-            if (display) display.gameObject.SetActive(show);
+            if (display) display.gameObject.SetActive(false); // old floating speed text: removed
+            if (show && screen == null) BuildScreen();
+            if (screen) screen.gameObject.SetActive(show);
             if (bigDisplay) bigDisplay.gameObject.SetActive(show);
             if (!show || Time.time < nextRefresh) return;
             nextRefresh = Time.time + 0.1f;
@@ -50,7 +71,7 @@ namespace KartVR
             else if (kart.CurrentMode == KartMode.FreeRoam)
                 sb.Append(BuildMode.Active ? "BUILD MODE\n" : "FREE ROAM   (right stick click = build)\n");
 
-            sb.Append(Mathf.RoundToInt(kart.Speed * 3.6f)).Append(" km/h");
+            mph.text = "<b>" + Mathf.RoundToInt(kart.Speed * 2.23694f) + "</b>";
             if (kart.Look.booster != KartBooster.None)
             {
                 // Boost meter: filled blocks show charge; READY means press A.
@@ -68,7 +89,9 @@ namespace KartVR
                 else if (sessions.IsPrivate) sb.Append("Lobby code: ").Append(KartUI.FormatCode(sessions.LobbyCode)).Append('\n');
             }
 
-            if (display) display.text = sb.ToString();
+            // Small text under the speed: lap / position / boost / messages (two lines at most).
+            string line = sb.ToString().Trim('\n', ' ').Replace("\n", "   ");
+            info.text = line.Length > 110 ? line.Substring(0, 110) + "..." : line;
             if (bigDisplay) bigDisplay.text = big;
         }
 

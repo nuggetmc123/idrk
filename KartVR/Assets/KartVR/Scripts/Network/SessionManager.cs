@@ -61,6 +61,8 @@ namespace KartVR
         /// drive and use every map; the server board / keypad try online again.
         /// </summary>
         public bool IsSolo { get; private set; }
+        /// <summary>In the first-time tutorial (a solo Free Roam game on this headset only).</summary>
+        public bool IsTutorial { get; private set; }
         /// <summary>Why the last online attempt failed (shown on the hub boards and the menu).</summary>
         public string OnlineError { get; private set; } = "";
         public string LobbyCode { get; private set; }
@@ -110,7 +112,9 @@ namespace KartVR
             MicPermission.Request();
             float until = Time.realtimeSinceStartup + 15f;
             while (MicPermission.Waiting && Time.realtimeSinceStartup < until) yield return null;
-            JoinPublic(KartMode.Hub);
+            // First time on this device: the tutorial comes first, then the hub.
+            if (Tutorial.Done) JoinPublic(KartMode.Hub);
+            else StartTutorial();
         }
 
         // ---------- Public API (called by portals, keypad, wrist menu) ----------
@@ -181,6 +185,8 @@ namespace KartVR
                 : KartModeInfo.DisplayName(RequestedMode);
             string problem = Diagnose();
             if (problem != null) return "<color=#ff9f43>PROBLEM: " + problem + "</color>";
+            if (IsTutorial)
+                return "TUTORIAL\nFollow the steps on the panel in front of you.";
             if (IsSolo)
                 return "PLAYING SOLO - " + mode.ToUpper() + "\nCouldn't go online: " + OnlineError + "\nPress a SERVER button to try again.";
             if (IsPrivate)
@@ -238,6 +244,47 @@ namespace KartVR
             // A bad lobby code etc.: back to the public hub.
             await Task.Delay(3000);
             if (!Busy && !IsConnected) JoinPublic(KartMode.Hub);
+        }
+
+        /// <summary>Start (or replay) the tutorial: a solo Free Roam game with a step-by-step guide.</summary>
+        public void StartTutorial()
+        {
+            _ = RunTutorial();
+        }
+
+        async Task RunTutorial()
+        {
+            if (Busy) return;
+            Busy = true;
+            bool ok = false;
+            try
+            {
+                SetStatus("Starting the tutorial...", 10f);
+                var result = await StartSession(new StartGameArgs
+                {
+                    GameMode = GameMode.Single,
+                    SessionName = "KARTVR_TUTORIAL",
+                    PlayerCount = 1,
+                }, KartMode.FreeRoam, false, null);
+                ok = result.Ok;
+                if (!ok) SetStatus("Couldn't start the tutorial: " + result.ShutdownReason, 8f);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+            Busy = false;
+            IsTutorial = ok;
+            if (ok) Tutorial.Begin();
+            else JoinPublic(KartMode.Hub); // never get stuck: skip straight to the game
+        }
+
+        /// <summary>Called when the last tutorial step is done: off to the hub with everyone.</summary>
+        public void FinishTutorial()
+        {
+            IsTutorial = false;
+            SetStatus("Tutorial complete! Joining the hub...", 6f);
+            JoinPublic(KartMode.Hub);
         }
 
         /// <summary>A one-player game on this headset only. Needs no internet or App ID, so it always works.</summary>
@@ -394,6 +441,7 @@ namespace KartVR
             RequestedMode = mode;
             IsPrivate = isPrivate;
             IsSolo = false;
+            if (IsTutorial) { IsTutorial = false; Tutorial.Stop(); } // left the tutorial early: you'll get it again next launch
             LobbyCode = code;
 
             var go = new GameObject("NetworkRunner");

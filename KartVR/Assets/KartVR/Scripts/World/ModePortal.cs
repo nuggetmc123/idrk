@@ -35,7 +35,7 @@ namespace KartVR
             var sessions = SessionManager.Instance;
             if (sessions == null || sessions.Busy || !sessions.IsConnected) return false;
             AudioManager.Play(AudioManager.Sfx.Teleport);
-            if (sessions.IsPrivate || sessions.IsSolo) // the whole lobby moves together (solo: just you, no internet needed)
+            if (sessions.IsPrivate || sessions.IsSolo || sessions.IsTutorial) // the whole lobby moves together (solo: just you, no internet needed)
             {
                 if (GameState.Instance != null) GameState.Instance.RequestMode(mode);
             }

@@ -15,7 +15,7 @@ namespace KartVR
     ///           Grip = grab the steering wheel and turn it with your hands
     ///           (or steer with the left stick), X = drift, A = booster,
     ///           B = respawn, left stick click = recenter view, menu button (three lines) = menu + settings.
-    /// Walking (VR, hub): Left stick = walk (hold right trigger to run), Right stick = snap turn.
+    /// Walking (VR, hub): Left stick = walk (click the right stick to run), Right stick = snap turn.
     /// Build mode (Free Roam): right stick click / B key; see the Build* properties below.
     /// Keyboard: W/S or arrows = gas/brake (walk), A/D = steer (strafe),
     ///           Q/E = turn, Shift = booster, Space = drift,
@@ -25,7 +25,7 @@ namespace KartVR
     public static class KartInput
     {
         static InputAction gas, brake, steer, drift, respawn, recenter, menu, boost, move, turn, gripLeft, gripRight,
-            flyUp, buildToggle, buildPlace, buildDelete, buildRotate, buildNext, buildPrev;
+            flyUp, runClick, buildToggle, buildPlace, buildDelete, buildRotate, buildNext, buildPrev;
         static bool initialized;
 
         static void Init()
@@ -109,6 +109,9 @@ namespace KartVR
             flyUp.AddCompositeBinding("1DAxis")
                 .With("Negative", "<Keyboard>/leftCtrl")
                 .With("Positive", "<Keyboard>/space");
+            runClick = new InputAction("Run", InputActionType.Button);
+            runClick.AddBinding("<Gamepad>/leftStickPress");
+            runClick.Enable();
             buildToggle = new InputAction("BuildToggle", InputActionType.Button);
             buildToggle.AddBinding("<Keyboard>/b");
             buildToggle.AddBinding("<Gamepad>/rightStickPress");
@@ -173,6 +176,11 @@ namespace KartVR
         // VR: right stick click = enter/leave, right trigger = place, left trigger = delete, right grip = rotate,
         // A / X = next / previous item, B = undo, left stick = fly, right stick up/down = fly up/down.
 
+        /// <summary>Walking: click the right stick to start running (it stops when you stop walking).</summary>
+        public static bool RunPressed { get { Init(); return Pressed(4, runClick, XRNode.RightHand, XRUsages.primary2DAxisClick); } }
+        /// <summary>Keyboard: hold Shift to run.</summary>
+        public static bool RunKeyHeld => Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed;
+
         public static bool BuildTogglePressed { get { Init(); return Pressed(3, buildToggle, XRNode.RightHand, XRUsages.primary2DAxisClick); } }
         public static bool BuildPlaceHeld { get { Init(); return buildPlace.IsPressed() || XRVal(XRNode.RightHand, XRUsages.trigger) > 0.6f; } }
         public static bool BuildDeleteHeld { get { Init(); return buildDelete.IsPressed() || XRVal(XRNode.LeftHand, XRUsages.trigger) > 0.6f; } }
@@ -217,9 +225,9 @@ namespace KartVR
 
         // ---------------- "pressed this frame" for buttons read two ways
 
-        static readonly bool[] xrWas = new bool[4], xrNow = new bool[4];
-        static readonly int[] xrFrame = { -1, -1, -1, -1 }, firedFrame = { -1, -1, -1, -1 };
-        static readonly float[] quietUntil = new float[4];
+        static readonly bool[] xrWas = new bool[5], xrNow = new bool[5];
+        static readonly int[] xrFrame = { -1, -1, -1, -1, -1 }, firedFrame = { -1, -1, -1, -1, -1 };
+        static readonly float[] quietUntil = new float[5];
 
         /// <summary>
         /// One physical press = one "pressed". The button is read through the Input System AND Unity's XR API

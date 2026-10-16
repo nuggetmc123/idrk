@@ -97,7 +97,7 @@ namespace KartVR.EditorTools
             servers.AddComponent<ServerBoard>();
             Terminal(hub, "CodeTerminal", new Vector3(-6.5f, 0f, south + 1.2f), Quaternion.Euler(0f, 180f, 0f));
             Board(hub, "HelpBoard", new Vector3(11f, 2.3f, south + 0.2f), Quaternion.Euler(0f, 180f, 0f), new Vector2(8.5f, 3.4f), 2f,
-                "<b>HOW TO PLAY</b>\nWalk: left stick (hold R trigger to run)   Turn: right stick\n" +
+                "<b>HOW TO PLAY</b>\nWalk: left stick (click right stick to run)   Turn: right stick\n" +
                 "Touch a map on the MAP BOARD to play   Your GARAGE: customize your kart\n" +
                 "Driving: GRAB THE WHEEL (grip) and turn it! R trigger gas, L trigger brake\n" +
                 "X drift, A booster, B respawn   MENU button (three lines): menu + settings", neonPink);
