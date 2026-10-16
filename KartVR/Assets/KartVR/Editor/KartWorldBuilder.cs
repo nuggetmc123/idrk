@@ -118,6 +118,7 @@ namespace KartVR.EditorTools
             BuildSkyDomes();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
+            FusionBake.BakeAndSave(scene); // networked scene objects (GameState...) must be baked or they won't start in builds
             var scenes = EditorBuildSettings.scenes.Where(s => s.path != ScenePath).ToList();
             scenes.Insert(0, new EditorBuildSettingsScene(ScenePath, true));
             EditorBuildSettings.scenes = scenes.ToArray();

@@ -128,8 +128,7 @@ namespace KartVR
             transform.SetParent(avatar.transform, false);
             transform.localPosition = Vector3.zero;
             transform.localRotation = Quaternion.identity;
-            SetHandVisuals(true); // your walking body is hidden from you, so show the rig's own hands
-            
+            SetHandVisuals(false); // your body's gloves are your hands
             ScheduleRecenter();
         }
 

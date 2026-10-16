@@ -64,6 +64,9 @@ namespace KartVR.EditorTools
             Directory.CreateDirectory(OutputFolder);
             string path = Path.Combine(OutputFolder, ApkName);
             var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
+            // Bake Photon's scene objects (the GameState) into the saved scene; without it the game state never starts on the headset.
+            if (SessionManager.MultiplayerAvailable)
+                foreach (var scenePath in scenes) FusionBake.BakeAndSave(scenePath);
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
                 scenes = scenes,

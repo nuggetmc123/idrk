@@ -71,7 +71,6 @@ namespace KartVR
             {
                 Local = this;
                 body.SetHeadVisible(false);
-                body.HideWholeBodyFromSelf();
                 if (nameTag) nameTag.gameObject.SetActive(false);
                 FeetPos = transform.position;
             }
@@ -216,6 +215,12 @@ namespace KartVR
                 var look = kart.Look;
                 body.Build(look.paint, look.accent);
                 if (nameTag && !IsLocal) nameTag.text = kart.Nickname.ToString();
+            }
+            else if (IsLocal)
+            {
+                // No kart (yet): still give you a body, in your saved colors.
+                var look = PlayerProfile.Look;
+                body.Build(look.paint, look.accent);
             }
 
             bool show = InHub && (!IsLocal || (KartRig.Instance != null && KartRig.Instance.IsAttachedTo(this)));
