@@ -45,18 +45,10 @@ namespace KartVR
             string big = "";
             var sessions = SessionManager.Instance;
 
-            switch (kart.CurrentMode)
-            {
-                case KartMode.Race:
-                    big = RaceText();
-                    break;
-                case KartMode.Bumper:
-                    big = BumperText();
-                    break;
-                case KartMode.FreeRoam:
-                    sb.Append("FREE ROAM\n");
-                    break;
-            }
+            if (KartModeInfo.IsRace(kart.CurrentMode)) big = RaceText();
+            else if (KartModeInfo.IsBumper(kart.CurrentMode)) big = BumperText();
+            else if (kart.CurrentMode == KartMode.FreeRoam)
+                sb.Append(BuildMode.Active ? "BUILD MODE\n" : "FREE ROAM   (right stick click = build)\n");
 
             sb.Append(Mathf.RoundToInt(kart.Speed * 3.6f)).Append(" km/h");
             if (kart.Look.booster != KartBooster.None)

@@ -35,7 +35,7 @@ namespace KartVR
         {
             if (!HasStateAuthority) return;
 
-            if (GameState.CurrentMode != KartMode.Bumper)
+            if (!KartModeInfo.IsBumper(GameState.CurrentMode))
             {
                 if (State != BumperState.Idle) State = BumperState.Idle;
                 return;

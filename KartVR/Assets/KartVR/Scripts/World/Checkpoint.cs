@@ -11,6 +11,8 @@ namespace KartVR
     public class Checkpoint : MonoBehaviour
     {
         public int index;
+        [Tooltip("Which race map this checkpoint belongs to.")]
+        public KartMode map = KartMode.Race;
 
         void Reset()
         {

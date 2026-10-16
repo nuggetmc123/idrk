@@ -38,7 +38,7 @@ namespace KartVR
                     break;
                 case Kind.Race:
                     var race = RaceManager.Instance;
-                    if (race != null && race.IsReady && GameState.CurrentMode == KartMode.Race)
+                    if (race != null && race.IsReady && KartModeInfo.IsRace(GameState.CurrentMode))
                     {
                         string header = race.State == RaceState.Countdown ? "Starting in " + Mathf.CeilToInt(race.PhaseRemaining)
                             : race.State == RaceState.Racing ? "Race time " + KartUI.FormatTime(race.Elapsed)
@@ -48,7 +48,7 @@ namespace KartVR
                     break;
                 case Kind.Bumper:
                     var bumper = BumperManager.Instance;
-                    if (bumper != null && bumper.IsReady && GameState.CurrentMode == KartMode.Bumper)
+                    if (bumper != null && bumper.IsReady && KartModeInfo.IsBumper(GameState.CurrentMode))
                     {
                         string header = bumper.State == BumperState.Playing ? "Time left " + KartUI.FormatTime(bumper.PhaseRemaining) : "Round over";
                         body = header + "\n" + bumper.StandingsText();

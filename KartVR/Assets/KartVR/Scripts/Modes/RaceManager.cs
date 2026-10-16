@@ -30,7 +30,24 @@ namespace KartVR
         [Networked] TickTimer Phase { get; set; }
         [Networked] TickTimer RaceClock { get; set; }
 
-        Checkpoint[] checkpoints = new Checkpoint[0];
+        Checkpoint[] allCheckpoints = new Checkpoint[0];
+        Checkpoint[] mapCheckpoints = new Checkpoint[0];
+        KartMode checkpointsFor = KartMode.Hub;
+
+        /// <summary>The checkpoints of the race map the session is on, in order.</summary>
+        Checkpoint[] checkpoints
+        {
+            get
+            {
+                var mode = GameState.CurrentMode;
+                if (mode != checkpointsFor)
+                {
+                    checkpointsFor = mode;
+                    mapCheckpoints = allCheckpoints.Where(c => c != null && c.map == mode).OrderBy(c => c.index).ToArray();
+                }
+                return mapCheckpoints;
+            }
+        }
         public int CheckpointCount => checkpoints.Length;
         public bool IsReady => Object != null && Object.IsValid;
 
@@ -41,8 +58,7 @@ namespace KartVR
 
         void Awake()
         {
-            checkpoints = FindObjectsByType<Checkpoint>(FindObjectsSortMode.None)
-                .OrderBy(c => c.index).ToArray();
+            allCheckpoints = FindObjectsByType<Checkpoint>(FindObjectsSortMode.None);
         }
 
         public override void Spawned() { Instance = this; }
@@ -62,7 +78,7 @@ namespace KartVR
         {
             if (!HasStateAuthority) return;
 
-            if (GameState.CurrentMode != KartMode.Race)
+            if (!KartModeInfo.IsRace(GameState.CurrentMode))
             {
                 if (State != RaceState.Idle) State = RaceState.Idle;
                 return;

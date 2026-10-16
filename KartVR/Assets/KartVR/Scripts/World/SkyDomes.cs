@@ -14,25 +14,7 @@ namespace KartVR
     /// </summary>
     public static class SkyDomes
     {
-        public enum Theme { Day, Sunny, Night, Sunset }
-
-        public struct Spec
-        {
-            public string name;
-            public Vector3 center;
-            public float radius;
-            public Theme theme;
-        }
-
-        // Map origins match KartWorldBuilder. Every map's ground fits inside its dome and no
-        // other map's ground is inside it (maps are 320-380 m apart).
-        public static readonly Spec[] Domes =
-        {
-            new Spec { name = "HubDome", center = Vector3.zero, radius = 130f, theme = Theme.Day },
-            new Spec { name = "RaceDome", center = new Vector3(0f, 0f, 320f), radius = 165f, theme = Theme.Sunny },
-            new Spec { name = "BumperDome", center = new Vector3(320f, 0f, 0f), radius = 190f, theme = Theme.Night },
-            new Spec { name = "FreeRoamDome", center = new Vector3(-380f, 0f, 0f), radius = 235f, theme = Theme.Sunset },
-        };
+        public enum Theme { Day, Sunny, Night, Sunset, Desert, Ice }
 
         public const string RootName = "SkyDomes";
 
@@ -54,8 +36,13 @@ namespace KartVR
             if (GameObject.Find(RootName) != null) return;
 
             var root = new GameObject(RootName).transform;
-            foreach (var d in Domes)
+            foreach (var d in KartMaps.All)
             {
+                // Domes go around whatever maps this scene actually has, wherever they are.
+                var mapRoot = GameObject.Find(d.root);
+                if (mapRoot == null) continue;
+                var map = d;
+                map.center = mapRoot.transform.position;
                 var tex = Paint(d.theme, 512);
                 var shader = Shader.Find("Unlit/Texture");
                 Material mat;
@@ -68,14 +55,14 @@ namespace KartVR
                     mat.SetTexture("_EmissionMap", tex);
                     mat.SetColor("_EmissionColor", Color.white);
                 }
-                Create(root, d, InsideOutSphere(), mat);
+                Create(root, map, InsideOutSphere(), mat);
             }
             Debug.Log("[KartVR] Added sky domes. (Run KartVR > Build Prototype World to bake them into the scene.)");
         }
 
-        public static GameObject Create(Transform parent, Spec d, Mesh mesh, Material mat)
+        public static GameObject Create(Transform parent, KartMaps.Map d, Mesh mesh, Material mat)
         {
-            var go = new GameObject(d.name);
+            var go = new GameObject(d.mode + "Dome");
             go.transform.SetParent(parent, false);
             go.transform.localPosition = d.center;
             go.transform.localScale = Vector3.one * d.radius * 2f; // the sphere mesh is 1 m across
@@ -187,6 +174,10 @@ namespace KartVR
                     return c;
                 case Theme.Night:
                     return NightSky(u, v, rng);
+                case Theme.Desert:
+                    return DesertSky(u, v);
+                case Theme.Ice:
+                    return IceSky(u, v, rng);
                 default:
                     return SunsetSky(u, v);
             }
@@ -226,6 +217,53 @@ namespace KartVR
             c = Color.Lerp(c, new Color(0.5f, 0.25f, 0.85f), streak * Mathf.Clamp01(n * 1.3f - 0.3f) * 0.7f);
             // Stars (fewer near the glowing horizon).
             if (rng.NextDouble() < 0.004 * up) c = Color.Lerp(c, Color.white, 0.6f + (float)rng.NextDouble() * 0.4f);
+            c.a = 1f;
+            return c;
+        }
+
+        static Color DesertSky(float u, float v)
+        {
+            if (v < 0.5f) return Color.Lerp(new Color(0.55f, 0.32f, 0.18f), new Color(0.85f, 0.6f, 0.38f), Mathf.InverseLerp(0.3f, 0.5f, v));
+            // Flat-topped mesas: a stepped skyline.
+            float a = u * 24f;
+            float step = Mathf.Floor(a);
+            float mesa = Mathf.Abs(Mathf.Sin(step * 12.9898f) * 43758.5453f) % 1f;
+            float top = 0.5f + (mesa > 0.45f ? 0.03f + (mesa - 0.45f) * 0.12f : 0.008f);
+            if (v < top)
+            {
+                float band = Mathf.Sin(v * 900f) * 0.04f;
+                return Color.Lerp(new Color(0.62f, 0.3f, 0.16f), new Color(0.82f, 0.45f, 0.24f), Mathf.InverseLerp(0.5f, top, v) + band);
+            }
+            float up = Mathf.InverseLerp(0.5f, 1f, v);
+            var c = Color.Lerp(new Color(1f, 0.85f, 0.6f), new Color(0.35f, 0.6f, 0.95f), Mathf.Pow(up, 0.5f));
+            // Hot sun high in the sky.
+            float du = Mathf.DeltaAngle(u * 360f, 40f) / 360f * 2f, dv = v - 0.82f;
+            float d = Mathf.Sqrt(du * du + dv * dv);
+            if (d < 0.03f) c = new Color(1f, 0.98f, 0.85f);
+            else c = Color.Lerp(c, new Color(1f, 0.95f, 0.75f), Mathf.Clamp01(1f - d / 0.15f) * 0.5f);
+            c.a = 1f;
+            return c;
+        }
+
+        static Color IceSky(float u, float v, System.Random rng)
+        {
+            if (v < 0.5f) return Color.Lerp(new Color(0.55f, 0.65f, 0.75f), new Color(0.85f, 0.92f, 1f), Mathf.InverseLerp(0.3f, 0.5f, v));
+            // Snowy mountains with icy blue shadows.
+            float peak = Skyline(u, 0.12f, 13f);
+            if (v < peak)
+            {
+                float snow = Mathf.InverseLerp(peak - 0.05f, peak, v);
+                return Color.Lerp(new Color(0.35f, 0.42f, 0.55f), new Color(0.95f, 0.97f, 1f), snow * 0.9f + 0.1f * WrapNoise(u, v, 30f, 13f));
+            }
+            float up = Mathf.InverseLerp(0.5f, 1f, v);
+            var c = Color.Lerp(new Color(0.25f, 0.3f, 0.5f), new Color(0.02f, 0.03f, 0.1f), Mathf.Pow(up, 0.5f));
+            // Green and purple northern lights.
+            float wave = 0.72f + 0.07f * Mathf.Sin(u * Mathf.PI * 6f) + 0.03f * Mathf.Sin(u * Mathf.PI * 14f);
+            float curtain = Mathf.Exp(-Mathf.Pow((v - wave) * 18f, 2f)) * (0.5f + 0.5f * WrapNoise(u * 8f, 0f, 2f, 5f));
+            c = Color.Lerp(c, new Color(0.3f, 1f, 0.6f), curtain * 0.8f);
+            float curtain2 = Mathf.Exp(-Mathf.Pow((v - wave - 0.06f) * 22f, 2f)) * WrapNoise(u * 6f, 1f, 2f, 9f);
+            c = Color.Lerp(c, new Color(0.7f, 0.4f, 1f), curtain2 * 0.5f);
+            if (rng.NextDouble() < 0.003 * up) c = Color.Lerp(c, Color.white, 0.7f);
             c.a = 1f;
             return c;
         }

@@ -16,6 +16,7 @@ namespace KartVR
     ///           (or steer with the left stick), X = drift, A = booster,
     ///           B = respawn, left stick click = recenter view, Y = show/hide wrist menu.
     /// Walking (VR, hub): Left stick = walk (hold right trigger to run), Right stick = snap turn.
+    /// Build mode (Free Roam): right stick click / B key; see the Build* properties below.
     /// Keyboard: W/S or arrows = gas/brake (walk), A/D = steer (strafe),
     ///           Q/E = turn, Shift = booster, Space = drift,
     ///           R = respawn, C = recenter, Tab = wrist menu,
@@ -23,7 +24,8 @@ namespace KartVR
     /// </summary>
     public static class KartInput
     {
-        static InputAction gas, brake, steer, drift, respawn, recenter, menu, boost, move, turn, gripLeft, gripRight;
+        static InputAction gas, brake, steer, drift, respawn, recenter, menu, boost, move, turn, gripLeft, gripRight,
+            flyUp, buildToggle, buildPlace, buildDelete, buildRotate, buildNext, buildPrev;
         static bool initialized;
 
         static void Init()
@@ -100,6 +102,32 @@ namespace KartVR
             gripRight = new InputAction("GripRight", InputActionType.Button);
             gripRight.AddBinding("<XRController>{RightHand}/{GripButton}");
 
+            // Build mode (Free Roam). VR uses the controller buttons directly (see the Build* properties).
+            flyUp = new InputAction("FlyUp", InputActionType.Value, expectedControlType: "Axis");
+            flyUp.AddBinding("<Gamepad>/rightStick/y");
+            flyUp.AddCompositeBinding("1DAxis")
+                .With("Negative", "<Keyboard>/leftCtrl")
+                .With("Positive", "<Keyboard>/space");
+            buildToggle = new InputAction("BuildToggle", InputActionType.Button);
+            buildToggle.AddBinding("<Keyboard>/b");
+            buildToggle.AddBinding("<Gamepad>/rightStickPress");
+            buildPlace = new InputAction("BuildPlace", InputActionType.Button);
+            buildPlace.AddBinding("<Keyboard>/f");
+            buildPlace.AddBinding("<Gamepad>/rightTrigger");
+            buildDelete = new InputAction("BuildDelete", InputActionType.Button);
+            buildDelete.AddBinding("<Keyboard>/g");
+            buildDelete.AddBinding("<Gamepad>/leftTrigger");
+            buildRotate = new InputAction("BuildRotate", InputActionType.Button);
+            buildRotate.AddBinding("<Keyboard>/t");
+            buildRotate.AddBinding("<Gamepad>/rightShoulder");
+            buildNext = new InputAction("BuildNext", InputActionType.Button);
+            buildNext.AddBinding("<Keyboard>/2");
+            buildNext.AddBinding("<Gamepad>/buttonSouth");
+            buildPrev = new InputAction("BuildPrev", InputActionType.Button);
+            buildPrev.AddBinding("<Keyboard>/1");
+            buildPrev.AddBinding("<Gamepad>/buttonWest");
+            foreach (var a in new[] { flyUp, buildToggle, buildPlace, buildDelete, buildRotate, buildNext, buildPrev }) a.Enable();
+
             gripLeft.Enable();
             gripRight.Enable();
             boost.Enable();
@@ -140,6 +168,19 @@ namespace KartVR
         public static bool RecenterPressed { get { Init(); return recenter.WasPressedThisFrame() || XRPressed(1, XRNode.LeftHand, XRUsages.primary2DAxisClick); } }
         public static bool MenuPressed { get { Init(); return menu.WasPressedThisFrame() || XRPressed(2, XRNode.LeftHand, XRUsages.secondaryButton); } }
 
+        // ---------------- Build mode (Free Roam) ----------------
+        // VR: right stick click = enter/leave, right trigger = place, left trigger = delete, right grip = rotate,
+        // A / X = next / previous item, B = undo, left stick = fly, right stick up/down = fly up/down.
+
+        public static bool BuildTogglePressed { get { Init(); return buildToggle.WasPressedThisFrame() || XRPressed(3, XRNode.RightHand, XRUsages.primary2DAxisClick); } }
+        public static bool BuildPlaceHeld { get { Init(); return buildPlace.IsPressed() || XRVal(XRNode.RightHand, XRUsages.trigger) > 0.6f; } }
+        public static bool BuildDeleteHeld { get { Init(); return buildDelete.IsPressed() || XRVal(XRNode.LeftHand, XRUsages.trigger) > 0.6f; } }
+        public static bool BuildRotateHeld { get { Init(); return buildRotate.IsPressed() || XRGrip(XRNode.RightHand); } }
+        public static bool BuildNextHeld { get { Init(); return buildNext.IsPressed() || XRBtn(XRNode.RightHand, XRUsages.primaryButton); } }
+        public static bool BuildPrevHeld { get { Init(); return buildPrev.IsPressed() || XRBtn(XRNode.LeftHand, XRUsages.primaryButton); } }
+        public static bool BuildFastHeld { get { Init(); return XRGrip(XRNode.LeftHand) || Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed; } }
+        public static float FlyVertical { get { Init(); return Mathf.Clamp(Strongest(flyUp.ReadValue<float>(), XRAxis(XRNode.RightHand, XRUsages.primary2DAxis).y), -1f, 1f); } }
+
         /// <summary>True when the headset is on but neither controller is visible to Unity.</summary>
         public static bool ControllersMissing =>
             UnityEngine.XR.XRSettings.isDeviceActive && !Dev(XRNode.LeftHand).isValid && !Dev(XRNode.RightHand).isValid;
@@ -172,8 +213,8 @@ namespace KartVR
         static float Strongest(float a, float b) => Mathf.Abs(a) >= Mathf.Abs(b) ? a : b;
 
         // Edge detection for XR buttons: remember each button's state once per frame.
-        static readonly bool[] xrWas = new bool[3], xrNow = new bool[3];
-        static readonly int[] xrFrame = { -1, -1, -1 };
+        static readonly bool[] xrWas = new bool[4], xrNow = new bool[4];
+        static readonly int[] xrFrame = { -1, -1, -1, -1 };
 
         static bool XRPressed(int slot, XRNode node, UnityEngine.XR.InputFeatureUsage<bool> usage)
         {

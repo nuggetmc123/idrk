@@ -11,11 +11,14 @@ friends join with a 6-digit code.
 
 | Area | What you do |
 |---|---|
-| **Hub** | You **walk around on foot** with a full body (helmet, racing suit, arms that follow your real hands, legs that step). There's a plaza with a fountain and a spinning gold trophy, lamps, trees and benches. Three glowing portals (Race / Bumper Karts / Free Roam), two lobby-code kiosks, a big lobby board, and **12 garages**. |
+| **Hub** | You **walk around on foot** with a full body (helmet, racing suit, arms that follow your real hands, legs that step). There's a plaza with a fountain and a spinning gold trophy, lamps, trees and benches. Five glowing portals (Race / Canyon Race / Bumper Karts / Ice Bumper / Free Roam), two lobby-code kiosks, a big lobby board, and **12 garages**. |
 | **Garages** | Every player automatically gets their own garage bay. **Your kart is parked in it on a turntable whenever you're in the hub, so everyone walking by can see it.** The sign above the door shows the owner's name and the neon trim glows in their paint color. Walk into **YOUR GARAGE** and use the wall panel to change your kart. Only the owner can use a garage's panel. |
 | **Race** | 3-lap race on a ~370 m track with red/white barriers, painted lines, a start gantry with **countdown lights**, a grandstand full of fans, a "KART VR" arch, boost pads with chevrons, **a jump**, and trees. Live positions, results, then the next race starts automatically. |
 | **Bumper Karts** | 2-minute rounds on a neon-lit platform over a lava lake. A **spinning sweeper bar** shoves anyone in its way, and **bouncy bumpers** fling you across the arena. Ram people for **+1**, fall off for **−1**. |
-| **Free Roam** | A stunt park: a mega ramp with **boost hoops** to fly through, a **skate bowl** of quarter pipes, a kicker chain, a plateau with a drop-off jump, hills, a lake, rocks, a ring road and lots of trees. |
+| **Canyon Race** | A second race track (~460 m) through a red-rock desert canyon: tall striped cliff walls, mesas, boulders and cacti, plus boost pads, a jump and a grandstand. Same 3-lap race rules. |
+| **Ice Bumper** | Bumper karts on a **slippery sheet of ice** over freezing water: two crossed sweeper bars, **snowman bumpers**, icebergs and snowy pine islands under the northern lights. |
+| **Free Roam** | **One big open world** (about 900 m across): roads crossing the middle plus two ring roads, a **stunt park** (mega ramp, boost hoops, skate bowl, kickers), a **jump strip** of ever-bigger ramps and a plateau drop-off, a **lake** with an island and hills, a **forest**, rocks and big hills round the edge. Plus **build mode** (below). |
+| **Sky domes** | Every map has its own painted sky dome (day, sunny mountains, lava night, desert, northern lights, sunset), so you never see the other maps. The dome's edge is an **invisible barrier**: go past it and you're put back. |
 
 ### Customizing your kart (in your garage)
 | Part | Options |
@@ -55,8 +58,28 @@ Your choices are saved on your device and everyone else sees them, in your garag
 wheel. One hand or two both work. Let go and it springs back to the middle. Not holding it? The left thumbstick turns
 the wheel smoothly for you.
 
+### Build mode (Free Roam)
+**Click the right thumbstick** (or the **Build Mode** button on the wrist menu, or **B** on the keyboard) to hop out of
+your kart and **fly around**. Point with your right hand: a blue preview shows where the piece goes. Everyone in the
+session sees what you build (up to 250 pieces; after that the oldest go). You can't fly or build past the barrier.
+
+Pieces: Ramp, Big Ramp, Kicker, Road, Road Corner, Boost Pad, Bush, Tree, Pine Tree, Wall, Cone, Rock, Quarter Pipe,
+Bouncer, Boost Hoop, Block.
+
+| | VR | Keyboard |
+|---|---|---|
+| Fly | Left thumbstick (hold **left grip** = fast) | W/A/S/D (Shift = fast) |
+| Up / down | Right thumbstick up / down | Space / Left Ctrl |
+| Turn | Right thumbstick left / right | Q / E |
+| **Place** | Right trigger | F |
+| Rotate 45° | Right grip | T |
+| Change piece | A (next) / X (previous) | 2 / 1 |
+| Delete (point at a piece, the laser turns red) | Left trigger | G |
+| Undo your last piece | B | R |
+| Back to your kart | Click the right thumbstick | B |
+
 The wrist menu floats above your left controller. Poke it with your right hand:
-**Recenter, Respawn, Hub, Create/Leave Lobby**, plus your lobby info.
+**Recenter, Respawn, Hub, Create/Leave Lobby, Build Mode** (in Free Roam), plus your lobby info.
 
 ---
 
@@ -116,7 +139,7 @@ In Player Settings use **IL2CPP + ARM64**, then **Build And Run**.
 
 ```
 Scripts/
-  Core/         KartMode (Hub/Race/Bumper/FreeRoam), PlayerProfile (name + color), KartUI helpers
+  Core/         KartMode (which map/mode), KartMaps (where each map is + its dome/barrier), PlayerProfile, KartUI helpers
   Network/      SessionManager: connects, matchmaking, private codes, switching sessions
                 GameState: which mode this session is in (owned by the master client)
                 OfflineFusion/: a tiny stand-in for Photon Fusion so the game runs solo before Fusion is
@@ -135,7 +158,9 @@ Setup/Editor/   FusionSwitch: detects Photon Fusion, removes/restores the stand-
   World/        Garage, SpawnArea, Checkpoint, BoostPad, ModePortal, InfoBoard,
                 Rotator (clock-synced spinning), Bouncer, StartLights
   Modes/        RaceManager (countdown → race → results loop), BumperManager (rounds + scores)
-Editor/         KartWorldBuilder: the "Build Prototype World" menu
+  Build/        BuildMode (fly + place pieces), BuildCatalog (the pieces), BuildManager (syncs pieces to everyone)
+  World/        SkyDomes (painted dome per map; also added at Play if an old scene lacks them)
+Editor/         KartWorldBuilder (+ .Maps, .Domes): the "Build Prototype World" menu
 ```
 
 - **Networking:** Photon Fusion 2 in **Shared Mode**. Each player owns and simulates their own kart, so your own driving never lags. Other karts smoothly follow their owner's updates. When you ram someone, an RPC tells *their* game to knock their kart. A session stays alive as long as anyone is in it.
@@ -145,7 +170,7 @@ Editor/         KartWorldBuilder: the "Build Prototype World" menu
 - **Garages** are claimed automatically: each player takes the lowest free bay, and if two pick the same one, the lower player id keeps it.
 - **Performance:** scenery is marked static so Unity batches it, karts and bodies share materials, and there are no real-time point lights (glowing parts use emissive materials). That keeps it light enough for Quest.
 - **Tuning:** select the Kart prefab and look at `KartController`. There's a separate *Tuning* block per mode (top speed, acceleration, turn rate, grip, drift grip, bump power). Laps and round lengths are on the `GameState` object (`RaceManager` / `BumperManager`).
-- **Adding your own maps or art:** replace the generated blocks with your models. The things that matter are a `SpawnArea` (with child slots) for each mode, `Checkpoint`s in order with index 0 at the finish line, and `ModePortal`s in the hub. Re-running the builder overwrites the scene and prefab, so after you start customising, stop using it (or copy the scene first).
+- **Adding your own maps or art:** replace the generated blocks with your models. The things that matter are a `SpawnArea` (with child slots) for each mode, `Checkpoint`s in order with index 0 at the finish line (and their `map` set to the race they belong to), `ModePortal`s in the hub, and an entry in `KartMaps` (position + dome size) for each map. Re-running the builder overwrites the scene and prefab, so after you start customising, stop using it (or copy the scene first).
 
 ## The player model (`Assets/KartVR/Models/Racer.fbx`)
 Every player's body uses this model, walking in the hub and sitting in karts.

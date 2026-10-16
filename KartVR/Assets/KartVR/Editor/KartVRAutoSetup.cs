@@ -38,7 +38,7 @@ namespace KartVR.EditorTools
             }
 
             if (File.Exists(KartWorldBuilder.WorldScenePath) && !KartWorldBuilder.WorldUpToDate)
-                Debug.Log("[KartVR] This version changes the world (sky domes); rebuilding it...");
+                Debug.Log("[KartVR] This version changes the world (new maps); rebuilding it...");
             else if (File.Exists(KartWorldBuilder.WorldScenePath))
             {
                 // Open straight into the game instead of an empty "Untitled" scene.

@@ -14,7 +14,7 @@ namespace KartVR
 
         Transform panel;
         TextMeshPro info;
-        PokeButton lobbyButton;
+        PokeButton lobbyButton, buildButton;
         float nextRefresh;
 
         void Start()
@@ -24,7 +24,7 @@ namespace KartVR
             panel.localPosition = panelOffset;
             panel.localRotation = Quaternion.Euler(panelTilt);
 
-            KartUI.Box(panel, "Backing", new Vector3(0f, 0f, 0.012f), new Vector3(0.22f, 0.15f, 0.01f), new Color(0.1f, 0.1f, 0.15f));
+            KartUI.Box(panel, "Backing", new Vector3(0f, -0.02f, 0.012f), new Vector3(0.22f, 0.19f, 0.01f), new Color(0.1f, 0.1f, 0.15f));
             info = KartUI.Label(panel, "", new Vector3(0f, 0.045f, 0f), 0.12f, Color.white, new Vector2(0.21f, 0.06f));
 
             var size = new Vector3(0.065f, 0.035f, 0.02f);
@@ -32,6 +32,7 @@ namespace KartVR
             PokeButton.Create(panel, "Respawn", "Respawn", new Vector3(0f, -0.005f, 0f), size, new Color(1f, 0.85f, 0.4f), Respawn, 0.1f);
             PokeButton.Create(panel, "Hub", "Hub", new Vector3(0.072f, -0.005f, 0f), size, new Color(0.5f, 1f, 0.6f), () => SessionManager.Instance?.GoToHub(), 0.1f);
             lobbyButton = PokeButton.Create(panel, "Lobby", "Create Lobby", new Vector3(0f, -0.05f, 0f), new Vector3(0.21f, 0.035f, 0.02f), new Color(1f, 0.6f, 0.9f), ToggleLobby, 0.1f);
+            buildButton = PokeButton.Create(panel, "Build", "Build Mode", new Vector3(0f, -0.09f, 0f), new Vector3(0.21f, 0.035f, 0.02f), new Color(0.5f, 0.9f, 1f), BuildMode.Toggle, 0.1f);
         }
 
         static void Respawn()
@@ -59,6 +60,9 @@ namespace KartVR
             if (s == null) return;
             info.text = s.DescribeLobby();
             lobbyButton.SetLabel(s.IsPrivate ? "Leave Lobby" : "Create Private Lobby");
+            // Build mode is a Free Roam thing.
+            buildButton.gameObject.SetActive(GameState.CurrentMode == KartMode.FreeRoam);
+            buildButton.SetLabel(BuildMode.Active ? "Back to Kart" : "Build Mode");
         }
     }
 }

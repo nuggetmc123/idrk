@@ -217,6 +217,7 @@ namespace KartVR
             }
             else
             {
+                if (BuildMode.Active) return; // flying around freely in build mode
                 var kart = KartController.Local;
                 if (kart != null && attachedKart != kart) AttachTo(kart);
             }

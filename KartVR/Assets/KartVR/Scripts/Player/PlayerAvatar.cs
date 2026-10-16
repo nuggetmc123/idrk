@@ -161,6 +161,12 @@ namespace KartVR
             controller.Move(move * Time.deltaTime);
 
             if (transform.position.y < -10f) RespawnInHub();
+            // The invisible barrier at the edge of the hub's sky dome.
+            if (KartMaps.OutOfBounds(KartMode.Hub, rig.head.position))
+            {
+                if (SessionManager.Instance != null) SessionManager.Instance.SetStatus("Out of bounds! Back you go.", 2f);
+                RespawnInHub();
+            }
         }
 
         public override void FixedUpdateNetwork()

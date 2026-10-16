@@ -17,7 +17,7 @@ namespace KartVR
             var race = RaceManager.Instance;
             if (lights == null || lights.Length == 0) return;
             int state; // -1 = off, 0..n = that many red, 99 = green
-            if (race == null || !race.IsReady || GameState.CurrentMode != KartMode.Race) state = -1;
+            if (race == null || !race.IsReady || !KartModeInfo.IsRace(GameState.CurrentMode)) state = -1;
             else if (race.State == RaceState.Countdown)
             {
                 float total = race.countdownSeconds;

@@ -28,9 +28,12 @@ namespace KartVR.EditorTools
         const string PlayerPrefabPath = Root + "/Prefabs/Player.prefab";
         const string RacerModelPath = Root + "/Models/Racer.fbx";
 
-        static readonly Vector3 RaceOrigin = new Vector3(0f, 0f, 320f);
-        static readonly Vector3 BumperOrigin = new Vector3(320f, 0f, 0f);
-        static readonly Vector3 FreeRoamOrigin = new Vector3(-380f, 0f, 0f);
+        // Every map sits in its own sky dome (see KartMaps), far enough apart that you never see another map.
+        static readonly Vector3 RaceOrigin = KartMaps.Get(KartMode.Race).center;
+        static readonly Vector3 BumperOrigin = KartMaps.Get(KartMode.Bumper).center;
+        static readonly Vector3 FreeRoamOrigin = KartMaps.Get(KartMode.FreeRoam).center;
+        static readonly Vector3 CanyonOrigin = KartMaps.Get(KartMode.CanyonRace).center;
+        static readonly Vector3 IceOrigin = KartMaps.Get(KartMode.IceBumper).center;
 
         // Materials (created as assets so the scene can reference them).
         static Material white, dark, metal, chrome, plaza, garageFloor, hubGrass, raceGrass, freeGrass, asphalt, lineWhite,
@@ -42,7 +45,7 @@ namespace KartVR.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 3; // 3 = sky domes
+        public const int WorldVersion = 4; // 4 = new maps, big free roam
         const string WorldVersionFile = "ProjectSettings/KartVRWorldVersion.txt";
         public static bool WorldUpToDate =>
             File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
@@ -107,8 +110,10 @@ namespace KartVR.EditorTools
             BuildManagers(kartPrefab, playerPrefab, racerModel);
             BuildRig();
             MarkStatic(BuildHub());
-            MarkStatic(BuildRaceTrack());
+            MarkStatic(BuildRaceTrack(MeadowCircuit));
+            MarkStatic(BuildRaceTrack(CanyonCircuit));
             MarkStatic(BuildBumperArena());
+            MarkStatic(BuildIceRink());
             MarkStatic(BuildFreeRoam());
             BuildSkyDomes();
 
@@ -392,8 +397,8 @@ namespace KartVR.EditorTools
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             // Light haze inside each map; barely touches the sky domes (130-235 m away).
-            RenderSettings.fogStartDistance = 200f;
-            RenderSettings.fogEndDistance = 900f;
+            RenderSettings.fogStartDistance = 250f;
+            RenderSettings.fogEndDistance = 1500f;
             RenderSettings.fogColor = new Color(0.72f, 0.82f, 0.94f);
             QualitySettings.shadowDistance = 90f;
         }
@@ -598,6 +603,7 @@ namespace KartVR.EditorTools
             gs.AddComponent<GameState>();
             gs.AddComponent<RaceManager>();
             gs.AddComponent<BumperManager>();
+            gs.AddComponent<BuildManager>();
             TryTickMasterClientObject(no);
         }
 
@@ -646,7 +652,7 @@ namespace KartVR.EditorTools
             head.transform.localPosition = new Vector3(0f, 1.6f, 0f);
             var cam = head.AddComponent<Camera>();
             cam.nearClipPlane = 0.03f;
-            cam.farClipPlane = 700f;
+            cam.farClipPlane = 1000f; // the biggest dome (Free Roam) is 900 m across
             head.AddComponent<AudioListener>();
             var tpd = head.AddComponent<TrackedPoseDriver>();
             tpd.trackingType = TrackedPoseDriver.TrackingType.RotationAndPosition;
@@ -719,6 +725,7 @@ namespace KartVR.EditorTools
             Portal(hub, "RacePortal", KartMode.Race, new Vector3(-20f, 0f, 40f), portalRace, glowRace, "RACE");
             Portal(hub, "BumperPortal", KartMode.Bumper, new Vector3(0f, 0f, 44f), portalBumper, glowBumper, "BUMPER KARTS");
             Portal(hub, "FreeRoamPortal", KartMode.FreeRoam, new Vector3(20f, 0f, 40f), portalFree, glowFree, "FREE ROAM");
+            ExtraHubPortals(hub);
 
             // Garages: 6 down each side, open towards the plaza.
             float[] zs = { -27.5f, -16.5f, -5.5f, 5.5f, 16.5f, 27.5f };
@@ -880,8 +887,40 @@ namespace KartVR.EditorTools
         // ================================================================== race track
 
         // A closed loop; tightest corner has a ~21 m radius and the 15 m wide road never overlaps itself.
-        static Vector3 TrackPoint(float t) =>
-            RaceOrigin + new Vector3(70f * Mathf.Cos(t) - 6f * Mathf.Cos(3f * t), 0f, 45f * Mathf.Sin(t) + 10f * Mathf.Sin(2f * t));
+        /// <summary>Everything that differs between race maps. t runs 0..2pi round the loop; t = -pi/2 is the start line.</summary>
+        class Circuit
+        {
+            public string name, title;
+            public KartMode mode;
+            public Vector3 origin;
+            public System.Func<float, Vector3> curve; // track centre line, relative to origin
+            public Vector2 groundSize;
+            public System.Func<Material> ground, wallA, wallB, boardGlow;
+            public System.Action<Transform, Circuit, System.Random> scenery;
+            public int seed;
+        }
+
+        static readonly Circuit MeadowCircuit = new Circuit
+        {
+            name = "RaceTrack", title = "RACE", mode = KartMode.Race, origin = RaceOrigin, seed = 7,
+            curve = t => new Vector3(70f * Mathf.Cos(t) - 6f * Mathf.Cos(3f * t), 0f, 45f * Mathf.Sin(t) + 10f * Mathf.Sin(2f * t)),
+            groundSize = new Vector2(240f, 180f),
+            ground = () => raceGrass, wallA = () => wallRed, wallB = () => wallWhite, boardGlow = () => glowRace,
+            scenery = MeadowScenery,
+        };
+
+        static readonly Circuit CanyonCircuit = new Circuit
+        {
+            name = "CanyonTrack", title = "CANYON RACE", mode = KartMode.CanyonRace, origin = CanyonOrigin, seed = 21,
+            curve = t => new Vector3(80f * Mathf.Cos(t) + 14f * Mathf.Sin(2f * t), 0f, 55f * Mathf.Sin(t) - 18f * Mathf.Cos(2f * t) - 17f),
+            groundSize = new Vector2(270f, 245f),
+            ground = () => sand, wallA = () => rampRed, wallB = () => wallWhite, boardGlow = () => boost,
+            scenery = CanyonScenery,
+        };
+
+        static Circuit circuit = MeadowCircuit; // the one being built right now
+
+        static Vector3 TrackPoint(float t) => circuit.origin + circuit.curve(t);
 
         static Vector3 TrackTangent(float t) => (TrackPoint(t + 0.001f) - TrackPoint(t - 0.001f)).normalized;
 
@@ -908,11 +947,12 @@ namespace KartVR.EditorTools
             return best;
         }
 
-        static Transform BuildRaceTrack()
+        static Transform BuildRaceTrack(Circuit c)
         {
-            var race = Group("RaceTrack", null, RaceOrigin);
-            var rng = new System.Random(7);
-            Prim(PrimitiveType.Cube, "Ground", race, new Vector3(0f, -0.5f, 0f), new Vector3(240f, 1f, 180f), raceGrass);
+            circuit = c;
+            var race = Group(c.name, null, c.origin);
+            var rng = new System.Random(c.seed);
+            Prim(PrimitiveType.Cube, "Ground", race, new Vector3(0f, -0.5f, 0f), new Vector3(c.groundSize.x, 1f, c.groundSize.y), c.ground());
 
             const int segments = 120;
             const float halfWidth = 7.5f;
@@ -938,7 +978,7 @@ namespace KartVR.EditorTools
                     Vector3 wa = a + na * halfWidth, wb = b + nb * halfWidth;
                     Vector3 wd = wb - wa;
                     var wall = Prim(PrimitiveType.Cube, "Wall", road, Vector3.zero,
-                        new Vector3(0.5f, 1f, wd.magnitude + 0.3f), i % 2 == 0 ? wallRed : wallWhite);
+                        new Vector3(0.5f, 1f, wd.magnitude + 0.3f), i % 2 == 0 ? c.wallA() : c.wallB());
                     wall.transform.SetPositionAndRotation((wa + wb) * 0.5f + Vector3.up * 0.5f, Quaternion.LookRotation(wd, Vector3.up));
                 }
             }
@@ -956,14 +996,16 @@ namespace KartVR.EditorTools
                 col.isTrigger = true;
                 col.center = new Vector3(0f, 2f, 0f);
                 col.size = new Vector3(halfWidth * 2f + 1f, 4f, 1f);
-                cp.AddComponent<Checkpoint>().index = k;
+                var checkpoint = cp.AddComponent<Checkpoint>();
+                checkpoint.index = k;
+                checkpoint.map = c.mode;
                 if (k == 0) StartGantry(cp.transform, halfWidth);
                 else if (k == 4) Arch(cp.transform, halfWidth, "KART VR", neonPink);
             }
 
             // Starting grid, 2 wide, behind the line.
             var grid = new GameObject("RaceGrid").AddComponent<SpawnArea>();
-            grid.mode = KartMode.Race;
+            grid.mode = c.mode;
             grid.killY = -5f;
             grid.transform.SetParent(race, true);
             grid.transform.position = TrackPoint(start);
@@ -996,29 +1038,89 @@ namespace KartVR.EditorTools
                 Ramp(jump, "JumpRamp", Vector3.zero, 0f, 6f, halfWidth * 2f - 0.4f, 8f, rampMat);
             }
 
-            // Grandstand outside the start straight, tire stacks and trees.
-            Grandstand(race, TrackPoint(start) - RaceOrigin + new Vector3(0f, 0f, -17f), rng);
+            c.scenery(race, c, rng);
+
+            var board = Board(race, "RaceBoard", new Vector3(0f, 9f, 0f), Quaternion.identity, new Vector2(14f, 9f), 4f, c.title, c.boardGlow());
+            var info = board.transform.parent.gameObject.AddComponent<InfoBoard>();
+            info.kind = InfoBoard.Kind.Race;
+            info.text = board;
+            info.title = c.title;
+            return race;
+        }
+
+        /// <summary>Meadow race: grandstand, tire stacks and lots of trees.</summary>
+        static void MeadowScenery(Transform race, Circuit c, System.Random rng)
+        {
+            const float halfWidth = 7.5f;
+            float start = -Mathf.PI / 2f;
+            Grandstand(race, TrackPoint(start) - c.origin + new Vector3(0f, 0f, -17f), rng);
             foreach (float t in new[] { 0.35f, 1.3f, 2.4f, 3.5f, 4.3f, 5.6f })
             {
                 Vector3 outward = Vector3.Cross(Vector3.up, TrackTangent(t)) * -(halfWidth + 1.6f);
                 for (int i = 0; i < 3; i++)
-                    Prim(PrimitiveType.Cylinder, "Tires", race, TrackPoint(t) - RaceOrigin + outward + new Vector3(0f, 0.2f + i * 0.35f, 0f), new Vector3(1.1f, 0.17f, 1.1f), tire);
+                    Prim(PrimitiveType.Cylinder, "Tires", race, TrackPoint(t) - c.origin + outward + new Vector3(0f, 0.2f + i * 0.35f, 0f), new Vector3(1.1f, 0.17f, 1.1f), tire);
             }
             for (int i = 0; i < 70; i++)
             {
                 var p = new Vector3((float)rng.NextDouble() * 220f - 110f, 0f, (float)rng.NextDouble() * 160f - 80f);
-                float d = DistanceToTrack(p + RaceOrigin);
+                float d = DistanceToTrack(p + c.origin);
                 if (d < 13f) continue;
                 if (Mathf.Abs(p.x) < 18f && p.z < -50f) continue; // keep the grandstand clear
                 Tree(race, p, 0.8f + (float)rng.NextDouble() * 0.6f, rng);
             }
+        }
 
-            var board = Board(race, "RaceBoard", new Vector3(0f, 9f, 0f), Quaternion.identity, new Vector2(14f, 9f), 4f, "RACE", glowRace);
-            var info = board.transform.parent.gameObject.AddComponent<InfoBoard>();
-            info.kind = InfoBoard.Kind.Race;
-            info.text = board;
-            info.title = "RACE";
-            return race;
+        /// <summary>Canyon race: red rock walls and mesas around the edge, boulders, cacti and a grandstand.</summary>
+        static void CanyonScenery(Transform race, Circuit c, System.Random rng)
+        {
+            float start = -Mathf.PI / 2f;
+            Grandstand(race, TrackPoint(start) - c.origin + new Vector3(0f, 0f, -17f), rng);
+            var cliff = Mat("CanyonRock", new Color(0.72f, 0.38f, 0.22f), 0.15f, 0f, null);
+            var cliffDark = Mat("CanyonRockDark", new Color(0.55f, 0.27f, 0.16f), 0.15f, 0f, null);
+            var cactus = Mat("Cactus", new Color(0.3f, 0.55f, 0.28f), 0.2f);
+
+            // A ring of tall canyon walls around the map's edge.
+            for (int i = 0; i < 36; i++)
+            {
+                float a = i * Mathf.PI * 2f / 36f;
+                float w = 18f + (float)rng.NextDouble() * 10f, h = 18f + (float)rng.NextDouble() * 26f;
+                var p = new Vector3(Mathf.Sin(a) * 128f, h * 0.5f - 1f, Mathf.Cos(a) * 112f);
+                Prim(PrimitiveType.Cube, "CanyonWall", race, p, new Vector3(w, h, 14f), i % 3 == 0 ? cliffDark : cliff, true,
+                    Quaternion.Euler(0f, a * Mathf.Rad2Deg + (float)rng.NextDouble() * 20f - 10f, 0f));
+                // Layered stripes.
+                Prim(PrimitiveType.Cube, "Stripe", race, p + new Vector3(0f, h * 0.15f, 0f), new Vector3(w + 0.3f, 1.2f, 14.3f), cliffDark, false,
+                    Quaternion.Euler(0f, a * Mathf.Rad2Deg, 0f));
+            }
+
+            // Mesas and boulders in the open spaces, cacti everywhere else.
+            for (int i = 0; i < 90; i++)
+            {
+                var p = new Vector3((float)rng.NextDouble() * 220f - 110f, 0f, (float)rng.NextDouble() * 170f - 85f);
+                float d = DistanceToTrack(p + c.origin);
+                if (d < 12f) continue;
+                if (Mathf.Abs(p.x) < 18f && p.z < -60f) continue; // grandstand
+                if (Mathf.Abs(p.x) < 7f && Mathf.Abs(p.z) < 5f) continue; // info board
+                double roll = rng.NextDouble();
+                if (roll < 0.15 && d > 22f)
+                {
+                    float r = 6f + (float)rng.NextDouble() * 6f, h = 6f + (float)rng.NextDouble() * 10f;
+                    Prim(PrimitiveType.Cylinder, "Mesa", race, p + new Vector3(0f, h * 0.5f, 0f), new Vector3(r, h * 0.5f, r), cliff);
+                    Prim(PrimitiveType.Cylinder, "MesaTop", race, p + new Vector3(0f, h + 0.2f, 0f), new Vector3(r + 1f, 0.3f, r + 1f), cliffDark, false);
+                }
+                else if (roll < 0.45)
+                {
+                    float sz = 1.5f + (float)rng.NextDouble() * 3f;
+                    Prim(PrimitiveType.Sphere, "Boulder", race, p, new Vector3(sz * 1.4f, sz, sz * 1.2f), cliff);
+                }
+                else
+                {
+                    var g = Group("Cactus", race, p, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f));
+                    float h = 2.5f + (float)rng.NextDouble() * 2.5f;
+                    Prim(PrimitiveType.Capsule, "Trunk", g, new Vector3(0f, h * 0.5f, 0f), new Vector3(0.6f, h * 0.5f, 0.6f), cactus);
+                    Prim(PrimitiveType.Capsule, "ArmL", g, new Vector3(-0.6f, h * 0.55f, 0f), new Vector3(0.4f, 0.7f, 0.4f), cactus, false, Quaternion.Euler(0f, 0f, 0f));
+                    Prim(PrimitiveType.Capsule, "ArmR", g, new Vector3(0.6f, h * 0.7f, 0f), new Vector3(0.4f, 0.6f, 0.4f), cactus, false);
+                }
+            }
         }
 
         static void Chevrons(Transform pad)
@@ -1184,98 +1286,6 @@ namespace KartVR.EditorTools
                 Prim(PrimitiveType.Cube, "Panel", q, p, new Vector3(width, 0.4f, len), mat, true, Quaternion.Euler(-am, 0f, 0f));
             }
             Prim(PrimitiveType.Cube, "Deck", q, new Vector3(0f, radius * 0.95f, radius + 1.5f), new Vector3(width, 0.4f, 3f), stone);
-        }
-
-        static Transform BuildFreeRoam()
-        {
-            var f = Group("FreeRoam", null, FreeRoamOrigin);
-            var rng = new System.Random(3);
-            Prim(PrimitiveType.Cube, "Ground", f, new Vector3(0f, -0.5f, 0f), new Vector3(320f, 1f, 320f), freeGrass);
-
-            // A ring road around the park.
-            for (int i = 0; i < 64; i++)
-            {
-                float a0 = i * Mathf.PI * 2f / 64f, a1 = (i + 1) * Mathf.PI * 2f / 64f;
-                Vector3 p0 = new Vector3(Mathf.Cos(a0) * 120f, 0.01f, Mathf.Sin(a0) * 120f), p1 = new Vector3(Mathf.Cos(a1) * 120f, 0.01f, Mathf.Sin(a1) * 120f);
-                var seg = Prim(PrimitiveType.Cube, "RingRoad", f, (p0 + p1) * 0.5f, new Vector3(12f, 0.02f, (p1 - p0).magnitude + 0.3f), asphalt, false);
-                seg.transform.localRotation = Quaternion.LookRotation(p1 - p0, Vector3.up);
-            }
-
-            // Jumps of every size.
-            Ramp(f, "Ramp1", new Vector3(0f, 0f, 30f), 0f, 12f, 8f, 14f, rampMat);
-            Ramp(f, "Ramp2", new Vector3(35f, 0f, 10f), 90f, 16f, 10f, 20f, rampBlue);
-            Ramp(f, "Ramp3", new Vector3(-40f, 0f, 40f), -45f, 20f, 10f, 24f, rampRed);
-            Ramp(f, "MegaRamp", new Vector3(0f, 0f, 90f), 0f, 30f, 14f, 28f, rampMat);
-            // Boost hoops to fly through after the mega ramp.
-            for (int i = 0; i < 3; i++)
-                BoostHoop(f, new Vector3(0f, 15f - i * 3f, 112f + i * 14f));
-            // Kicker chain: hop-hop-hop.
-            for (int i = 0; i < 5; i++)
-                Ramp(f, "Kicker" + i, new Vector3(-80f, 0f, -20f + i * 14f), 0f, 5f, 8f, 12f, i % 2 == 0 ? rampBlue : rampRed);
-
-            // Skate-park bowl: four quarter pipes facing each other.
-            var bowl = new Vector3(70f, 0f, -70f);
-            QuarterPipe(f, bowl + new Vector3(0f, 0f, 14f), 0f, 24f, 6f, rampBlue);
-            QuarterPipe(f, bowl + new Vector3(0f, 0f, -14f), 180f, 24f, 6f, rampBlue);
-            QuarterPipe(f, bowl + new Vector3(14f, 0f, 0f), 90f, 24f, 6f, rampRed);
-            QuarterPipe(f, bowl + new Vector3(-14f, 0f, 0f), -90f, 24f, 6f, rampRed);
-
-            // Raised plateau with a ramp up to it, and a drop-off jump off the far side.
-            Prim(PrimitiveType.Cube, "Plateau", f, new Vector3(-70f, 2.5f, -60f), new Vector3(30f, 5f, 30f), stone);
-            Ramp(f, "PlateauRamp", new Vector3(-70f, 0f, -34f), 180f, 22f, 10f, 13.5f, rampMat);
-            Ramp(f, "PlateauKicker", new Vector3(-70f, 5f, -76f), 180f, 4f, 8f, 15f, rampRed);
-
-            // Hills, rocks and a lake.
-            Prim(PrimitiveType.Sphere, "Hill1", f, new Vector3(60f, -14f, 60f), Vector3.one * 40f, freeGrass);
-            Prim(PrimitiveType.Sphere, "Hill2", f, new Vector3(95f, -20f, 5f), Vector3.one * 50f, freeGrass);
-            Prim(PrimitiveType.Sphere, "Hill3", f, new Vector3(-30f, -16f, -100f), Vector3.one * 40f, freeGrass);
-            Prim(PrimitiveType.Cylinder, "LakeShore", f, new Vector3(-75f, 0.01f, 60f), new Vector3(40f, 0.02f, 34f), sand, false);
-            Prim(PrimitiveType.Cylinder, "Lake", f, new Vector3(-75f, 0.04f, 60f), new Vector3(34f, 0.02f, 28f), water, false);
-            for (int i = 0; i < 14; i++)
-            {
-                var p = new Vector3((float)rng.NextDouble() * 260f - 130f, 0f, (float)rng.NextDouble() * 260f - 130f);
-                float s = 1.5f + (float)rng.NextDouble() * 3f;
-                Prim(PrimitiveType.Sphere, "Rock", f, p, new Vector3(s * 1.3f, s, s), rock);
-            }
-
-            // Slalom poles and a boost strip.
-            for (int i = 0; i < 8; i++)
-                Prim(PrimitiveType.Cylinder, "Pole" + i, f, new Vector3(-20f + (i % 2) * 6f, 1.5f, -20f - i * 10f), new Vector3(0.6f, 1.5f, 0.6f), i % 2 == 0 ? wallRed : wallWhite);
-            for (int i = 0; i < 4; i++)
-            {
-                var pad = Prim(PrimitiveType.Cube, "BoostPad" + i, f, new Vector3(30f, 0.03f, -30f - i * 12f), new Vector3(5f, 0.05f, 3f), boost);
-                pad.GetComponent<Collider>().isTrigger = true;
-                pad.AddComponent<BoostPad>();
-                Chevrons(pad.transform);
-            }
-
-            // Trees, keeping the stunt areas clear.
-            for (int i = 0; i < 90; i++)
-            {
-                var p = new Vector3((float)rng.NextDouble() * 300f - 150f, 0f, (float)rng.NextDouble() * 300f - 150f);
-                float r = new Vector2(p.x, p.z).magnitude;
-                if (r < 40f || (r > 112f && r < 128f)) continue;            // spawn area and ring road
-                if (Vector3.Distance(p, bowl) < 26f) continue;
-                if (Vector3.Distance(p, new Vector3(-75f, 0f, 60f)) < 22f) continue;
-                if (Mathf.Abs(p.x) < 12f && p.z > 20f && p.z < 160f) continue; // ramp run-out
-                if (Vector3.Distance(p, new Vector3(-70f, 0f, -55f)) < 30f) continue;
-                Tree(f, p, 0.8f + (float)rng.NextDouble() * 0.7f, rng);
-            }
-
-            var spawn = new GameObject("FreeRoamSpawn").AddComponent<SpawnArea>();
-            spawn.mode = KartMode.FreeRoam;
-            spawn.killY = -10f;
-            spawn.transform.SetParent(f, false);
-            for (int i = 0; i < 12; i++)
-            {
-                var slot = new GameObject("Slot" + i).transform;
-                slot.SetParent(spawn.transform, false);
-                slot.localPosition = new Vector3((i % 4 - 1.5f) * 3.5f, 0f, -(i / 4) * 4f);
-            }
-
-            Board(f, "FreeRoamSign", new Vector3(0f, 4.5f, 14f), Quaternion.identity, new Vector2(11f, 3.2f), 2.8f,
-                "<b>FREE ROAM STUNT PARK</b>\nMega ramp ahead  -  bowl to the right  -  kickers to the left\nWrist menu > Hub to go back", glowFree);
-            return f;
         }
 
         static void BoostHoop(Transform parent, Vector3 pos)

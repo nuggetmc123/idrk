@@ -13,7 +13,7 @@ namespace KartVR.EditorTools
         {
             var group = Group(SkyDomes.RootName, null, Vector3.zero);
             var mesh = DomeMesh();
-            foreach (var d in SkyDomes.Domes)
+            foreach (var d in KartMaps.All)
             {
                 var go = SkyDomes.Create(group, d, mesh, DomeMaterial(d.theme));
                 // Batching only: never an occluder (it would hide the whole map inside it).

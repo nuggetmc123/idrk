@@ -158,12 +158,9 @@ namespace KartVR
         {
             get
             {
-                switch (CurrentMode)
-                {
-                    case KartMode.Race: return raceTuning;
-                    case KartMode.Bumper: return bumperTuning;
-                    default: return freeRoamTuning;
-                }
+                if (KartModeInfo.IsRace(CurrentMode)) return raceTuning;
+                if (KartModeInfo.IsBumper(CurrentMode)) return bumperTuning;
+                return freeRoamTuning;
             }
         }
 
@@ -173,9 +170,10 @@ namespace KartVR
             get
             {
                 if (Parked) return true;
-                if (CurrentMode == KartMode.Race && RaceManager.Instance != null && RaceManager.Instance.IsReady)
+                if (IsLocal && BuildMode.Active) return true; // flying around in build mode
+                if (KartModeInfo.IsRace(CurrentMode) && RaceManager.Instance != null && RaceManager.Instance.IsReady)
                     return RaceManager.Instance.State == RaceState.Countdown;
-                if (CurrentMode == KartMode.Bumper && BumperManager.Instance != null && BumperManager.Instance.IsReady)
+                if (KartModeInfo.IsBumper(CurrentMode) && BumperManager.Instance != null && BumperManager.Instance.IsReady)
                     return BumperManager.Instance.State == BumperState.Results;
                 return false;
             }
@@ -213,15 +211,25 @@ namespace KartVR
                 return;
             }
 
-            if (KartInput.RespawnPressed) Respawn();
+            if (KartInput.RespawnPressed && !BuildMode.Active) Respawn(); // in build mode B means undo
             UpdateBooster();
 
             var area = SpawnArea.Get(CurrentMode);
             if (area != null && transform.position.y < area.killY)
             {
-                if (CurrentMode == KartMode.Bumper && BumperManager.Instance != null &&
+                if (KartModeInfo.IsBumper(CurrentMode) && BumperManager.Instance != null &&
                     BumperManager.Instance.State == BumperState.Playing)
                     Score -= 1;
+                Respawn();
+            }
+
+            // The invisible barrier at the edge of the map's sky dome.
+            if (area != null && KartMaps.OutOfBounds(CurrentMode, transform.position))
+            {
+                if (KartModeInfo.IsBumper(CurrentMode) && BumperManager.Instance != null &&
+                    BumperManager.Instance.State == BumperState.Playing)
+                    Score -= 1;
+                if (SessionManager.Instance != null) SessionManager.Instance.SetStatus("Out of bounds! Back you go.", 2f);
                 Respawn();
             }
 
@@ -294,7 +302,7 @@ namespace KartVR
                 if (BumperManager.Instance != null && BumperManager.Instance.IsReady) seenRoundId = BumperManager.Instance.RoundId;
             }
 
-            if (CurrentMode == KartMode.Race && RaceManager.Instance != null && RaceManager.Instance.IsReady &&
+            if (KartModeInfo.IsRace(CurrentMode) && RaceManager.Instance != null && RaceManager.Instance.IsReady &&
                 RaceManager.Instance.RaceId != seenRaceId)
             {
                 // A new race started: line up on the grid.
@@ -303,7 +311,7 @@ namespace KartVR
                 TeleportToSlot();
             }
 
-            if (CurrentMode == KartMode.Bumper && BumperManager.Instance != null && BumperManager.Instance.IsReady &&
+            if (KartModeInfo.IsBumper(CurrentMode) && BumperManager.Instance != null && BumperManager.Instance.IsReady &&
                 BumperManager.Instance.RoundId != seenRoundId)
             {
                 seenRoundId = BumperManager.Instance.RoundId;
@@ -358,7 +366,7 @@ namespace KartVR
         public void Respawn()
         {
             if (!IsLocal || Parked) return;
-            if (CurrentMode == KartMode.Race && lastCheckpoint != null)
+            if (KartModeInfo.IsRace(CurrentMode) && lastCheckpoint != null)
             {
                 var t = lastCheckpoint.transform;
                 Teleport(t.position - t.forward * 3f + Vector3.up * 0.5f,
@@ -439,6 +447,7 @@ namespace KartVR
 
                 // --- Grip: kill sideways sliding ---
                 float grip = stunned ? 1f : drifting ? t.driftGrip : t.grip;
+                if (CurrentMode == KartMode.IceBumper) grip *= 0.3f; // slippery!
                 localVel.x = Mathf.Lerp(localVel.x, 0f, 1f - Mathf.Exp(-grip * dt));
 
                 rb.linearVelocity = transform.TransformDirection(localVel);
@@ -528,7 +537,7 @@ namespace KartVR
         void PassCheckpoint(Checkpoint cp)
         {
             var race = RaceManager.Instance;
-            if (CurrentMode != KartMode.Race || race == null || !race.IsReady) return;
+            if (!KartModeInfo.IsRace(CurrentMode) || cp.map != CurrentMode || race == null || !race.IsReady) return;
             if (race.State != RaceState.Racing || Finished || race.CheckpointCount < 2) return;
             if (cp.index != NextCheckpoint) return; // wrong order (or going backwards)
 
@@ -579,12 +588,12 @@ namespace KartVR
             if (closing < 2.5f) return;
 
             var t = CurrentTuning;
-            Vector3 knock = toOther * closing * t.bumpPower + Vector3.up * (CurrentMode == KartMode.Bumper ? 2f : 0.5f);
+            Vector3 knock = toOther * closing * t.bumpPower + Vector3.up * (KartModeInfo.IsBumper(CurrentMode) ? 2f : 0.5f);
             other.RPC_ReceiveBump(knock);
             Buzz(XRNode.RightHand, 0.7f, 0.12f);
             Buzz(XRNode.LeftHand, 0.7f, 0.12f);
 
-            if (CurrentMode == KartMode.Bumper && BumperManager.Instance != null &&
+            if (KartModeInfo.IsBumper(CurrentMode) && BumperManager.Instance != null &&
                 BumperManager.Instance.State == BumperState.Playing)
             {
                 lastHitTime.TryGetValue(other, out float last);
