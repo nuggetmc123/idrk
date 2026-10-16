@@ -23,18 +23,27 @@ namespace KartVR
         public void Activate()
         {
             if (Time.time < nextAllowed) return;
-            var sessions = SessionManager.Instance;
-            if (sessions == null || sessions.Busy || !sessions.IsConnected) return;
-            nextAllowed = Time.time + 3f;
+            if (Travel(targetMode)) nextAllowed = Time.time + 3f;
+        }
 
+        /// <summary>
+        /// Go to a map. Public play: join that map's session on your server number.
+        /// Private lobby: take the whole lobby there. Returns false if busy connecting.
+        /// </summary>
+        public static bool Travel(KartMode mode)
+        {
+            var sessions = SessionManager.Instance;
+            if (sessions == null || sessions.Busy || !sessions.IsConnected) return false;
+            AudioManager.Play(AudioManager.Sfx.Teleport);
             if (sessions.IsPrivate)
             {
-                if (GameState.Instance != null) GameState.Instance.RequestMode(targetMode);
+                if (GameState.Instance != null) GameState.Instance.RequestMode(mode);
             }
             else
             {
-                sessions.JoinPublic(targetMode);
+                sessions.JoinPublic(mode);
             }
+            return true;
         }
     }
 }

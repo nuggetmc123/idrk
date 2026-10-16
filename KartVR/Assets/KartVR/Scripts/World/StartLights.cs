@@ -28,6 +28,8 @@ namespace KartVR
             else state = -1;
 
             if (state == shown) return;
+            if (state == 99) AudioManager.Play(AudioManager.Sfx.Go);
+            else if (state > 0 && state > shown) AudioManager.Play(AudioManager.Sfx.Beep);
             shown = state;
             var off = KartUI.Mat(new Color(0.15f, 0.05f, 0.05f), 0.8f);
             var red = KartUI.Glow(new Color(1f, 0.1f, 0.05f));

@@ -19,7 +19,6 @@ namespace KartVR
         public float walkSpeed = 4.5f;
         [Tooltip("Hold the right trigger (or A / Shift) to run.")]
         public float runSpeed = 8f;
-        public float snapTurnDegrees = 45f;
         public TextMeshPro nameTag;
 
         // Everything in world space; sent by the owner.
@@ -135,14 +134,13 @@ namespace KartVR
 
             // Snap turn around your head so you don't swing sideways.
             float turn = KartInput.Turn;
-            if (Mathf.Abs(turn) > 0.7f && !turnLatched)
+            float degrees = GameSettings.TurnAmount(turn, ref turnLatched, Time.deltaTime); // snap or smooth (menu > Controls)
+            if (degrees != 0f)
             {
-                turnLatched = true;
                 controller.enabled = false;
-                transform.RotateAround(rig.head.position, Vector3.up, Mathf.Sign(turn) * snapTurnDegrees);
+                transform.RotateAround(rig.head.position, Vector3.up, degrees);
                 controller.enabled = true;
             }
-            else if (Mathf.Abs(turn) < 0.3f) turnLatched = false;
 
             // Smooth walking in the direction you look.
             Vector2 stick = KartInput.Move;
@@ -165,6 +163,7 @@ namespace KartVR
             if (KartMaps.OutOfBounds(KartMode.Hub, rig.head.position))
             {
                 if (SessionManager.Instance != null) SessionManager.Instance.SetStatus("Out of bounds! Back you go.", 2f);
+                AudioManager.Play(AudioManager.Sfx.Error);
                 RespawnInHub();
             }
         }

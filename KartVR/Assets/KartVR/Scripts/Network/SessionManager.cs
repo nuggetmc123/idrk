@@ -29,6 +29,12 @@ namespace KartVR
         public static SessionManager Instance { get; private set; }
 
         const string PrivatePrefix = "KARTVR_PRIV_";
+        const string PublicPrefix = "KARTVR_PUB_";
+
+        /// <summary>Players per session: one for each garage in the hub.</summary>
+        public const int MaxPlayers = 6;
+        /// <summary>How many numbered public servers we look through for a free spot.</summary>
+        public const int ServerCount = 30;
         const string ModeProperty = "mode";
 
         [Tooltip("The Kart prefab (must have a NetworkObject). The builder fills this in.")]
@@ -37,7 +43,6 @@ namespace KartVR
         [Tooltip("The on-foot Player prefab used in the hub (must have a NetworkObject). The builder fills this in.")]
         public NetworkObject playerPrefab;
 
-        [Range(2, 20)] public int maxPlayersPerSession = 12;
 
         [Tooltip("Plain lit material that buttons, panels, karts and avatars built at runtime copy.")]
         public Material baseMaterial;
@@ -53,6 +58,8 @@ namespace KartVR
         public bool IsPrivate { get; private set; }
         public string LobbyCode { get; private set; }
         public bool Busy { get; private set; }
+        /// <summary>Which numbered public server you're on (1, 2, 3...). People on the same hub server go through portals together.</summary>
+        public int ServerNumber { get; private set; } = 1;
 
         /// <summary>The mode we asked for when we connected. The first player in a session uses it to set GameState.Mode.</summary>
         public KartMode RequestedMode { get; private set; }
@@ -95,7 +102,20 @@ namespace KartVR
 
         public void JoinPublic(KartMode mode)
         {
-            _ = RunConnect(() => ConnectPublic(mode));
+            _ = RunConnect(() => ConnectPublic(mode, ServerNumber));
+        }
+
+        /// <summary>Move to a numbered public hub server (from the server board). If it's full you get the next free one.</summary>
+        public void JoinServer(int number)
+        {
+            if (!MultiplayerAvailable) { SetStatus(OfflineMessage, 6f); return; }
+            number = Mathf.Clamp(number, 1, ServerCount);
+            if (!IsPrivate && number == ServerNumber && IsConnected && GameState.CurrentMode == KartMode.Hub)
+            {
+                SetStatus("You're already on server " + number, 3f);
+                return;
+            }
+            _ = RunConnect(() => ConnectPublic(KartMode.Hub, number));
         }
 
         /// <summary>False until Photon Fusion 2 is imported (the game then runs solo, offline).</summary>
@@ -146,7 +166,7 @@ namespace KartVR
                 : KartModeInfo.DisplayName(RequestedMode);
             if (IsPrivate)
                 return "PRIVATE LOBBY  CODE " + KartUI.FormatCode(LobbyCode) + "\n" + mode + " - " + PlayerCount + " player(s)";
-            return "PUBLIC " + mode.ToUpper() + "\n" + PlayerCount + " player(s) online here";
+            return "SERVER " + ServerNumber + "  -  " + mode.ToUpper() + "\n" + PlayerCount + "/" + MaxPlayers + " players";
         }
 
         public void SetStatus(string text, float seconds = 4f)
@@ -183,25 +203,42 @@ namespace KartVR
             }
         }
 
-        async Task<bool> ConnectPublic(KartMode mode)
+        /// <summary>
+        /// Join public server number `first` for this mode; if it's full, try the next number, and so on.
+        /// Each server holds <see cref="MaxPlayers"/> players.
+        /// </summary>
+        async Task<bool> ConnectPublic(KartMode mode, int first)
         {
-            SetStatus("Finding a public " + KartModeInfo.DisplayName(mode) + " session...", 30f);
-            var result = await StartSession(new StartGameArgs
+            first = Mathf.Clamp(first, 1, ServerCount);
+            for (int i = 0; i < ServerCount; i++)
             {
-                GameMode = GameMode.Shared,
-                SessionName = null, // null = join any matching public session, or create one
-                SessionProperties = new Dictionary<string, SessionProperty> { [ModeProperty] = (int)mode },
-                IsVisible = true,
-                PlayerCount = maxPlayersPerSession,
-            }, mode, false, null);
+                int number = (first - 1 + i) % ServerCount + 1;
+                SetStatus("Joining server " + number + " (" + KartModeInfo.DisplayName(mode) + ")...", 30f);
+                var result = await StartSession(new StartGameArgs
+                {
+                    GameMode = GameMode.Shared,
+                    SessionName = PublicPrefix + mode + "_" + number,
+                    SessionProperties = new Dictionary<string, SessionProperty> { [ModeProperty] = (int)mode },
+                    IsVisible = true,
+                    PlayerCount = MaxPlayers,
+                }, mode, false, null);
 
-            if (!result.Ok)
-            {
-                SetStatus("Couldn't connect: " + result.ShutdownReason);
-                return false;
+                if (result.Ok)
+                {
+                    ServerNumber = number;
+                    SetStatus(number == first
+                        ? "Joined server " + number + " (" + KartModeInfo.DisplayName(mode) + ")"
+                        : "Server " + first + " is full, so you joined server " + number, 5f);
+                    return true;
+                }
+                if (result.ShutdownReason != ShutdownReason.GameIsFull)
+                {
+                    SetStatus("Couldn't connect: " + result.ShutdownReason);
+                    return false;
+                }
             }
-            SetStatus("Joined public " + KartModeInfo.DisplayName(mode), 3f);
-            return true;
+            SetStatus("Every server is full! Try again in a bit.");
+            return false;
         }
 
         async Task<bool> CreatePrivate()
@@ -256,7 +293,7 @@ namespace KartVR
                 GameMode = GameMode.Shared,
                 SessionName = PrivatePrefix + code,
                 IsVisible = false, // never shows up in public matchmaking
-                PlayerCount = maxPlayersPerSession,
+                PlayerCount = MaxPlayers,
             };
         }
 

@@ -14,7 +14,7 @@ namespace KartVR
     /// Driving (VR): Right trigger = gas, Left trigger = brake/reverse,
     ///           Grip = grab the steering wheel and turn it with your hands
     ///           (or steer with the left stick), X = drift, A = booster,
-    ///           B = respawn, left stick click = recenter view, Y = show/hide wrist menu.
+    ///           B = respawn, left stick click = recenter view, menu button (three lines) = menu + settings.
     /// Walking (VR, hub): Left stick = walk (hold right trigger to run), Right stick = snap turn.
     /// Build mode (Free Roam): right stick click / B key; see the Build* properties below.
     /// Keyboard: W/S or arrows = gas/brake (walk), A/D = steer (strafe),
@@ -71,7 +71,8 @@ namespace KartVR
             recenter.AddBinding("<Keyboard>/c");
 
             menu = new InputAction("Menu", InputActionType.Button);
-            menu.AddBinding("<XRController>{LeftHand}/{SecondaryButton}");
+            menu.AddBinding("<XRController>{LeftHand}/{MenuButton}"); // the three-lines button
+            menu.AddBinding("<Keyboard>/escape");
             menu.AddBinding("<Gamepad>/start");
             menu.AddBinding("<Keyboard>/tab");
 
@@ -166,7 +167,7 @@ namespace KartVR
         // "Pressed this frame" checks only work reliably from Update, not FixedUpdate.
         public static bool RespawnPressed { get { Init(); return respawn.WasPressedThisFrame() || XRPressed(0, XRNode.RightHand, XRUsages.secondaryButton); } }
         public static bool RecenterPressed { get { Init(); return recenter.WasPressedThisFrame() || XRPressed(1, XRNode.LeftHand, XRUsages.primary2DAxisClick); } }
-        public static bool MenuPressed { get { Init(); return menu.WasPressedThisFrame() || XRPressed(2, XRNode.LeftHand, XRUsages.secondaryButton); } }
+        public static bool MenuPressed { get { Init(); return menu.WasPressedThisFrame() || XRPressed(2, XRNode.LeftHand, XRUsages.menuButton); } }
 
         // ---------------- Build mode (Free Roam) ----------------
         // VR: right stick click = enter/leave, right trigger = place, left trigger = delete, right grip = rotate,

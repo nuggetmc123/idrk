@@ -45,7 +45,7 @@ namespace KartVR.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 4; // 4 = new maps, big free roam
+        public const int WorldVersion = 5; // 5 = garage hub, smoother ramps, rounded kart hull
         const string WorldVersionFile = "ProjectSettings/KartVRWorldVersion.txt";
         public static bool WorldUpToDate =>
             File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
@@ -526,9 +526,16 @@ namespace KartVR.EditorTools
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
 
+            // Rounded underside (a capsule along the kart) so the nose rides up ramps and over small edges
+            // instead of catching on them; a box above it, clear of the ground, gives the kart its width for bumping.
+            var hull = root.AddComponent<CapsuleCollider>();
+            hull.direction = 2; // along Z
+            hull.center = new Vector3(0f, 0.45f, 0f);
+            hull.radius = 0.3f;
+            hull.height = 1.9f;
             var box = root.AddComponent<BoxCollider>();
-            box.center = new Vector3(0f, 0.4f, 0f);
-            box.size = new Vector3(1.2f, 0.5f, 1.9f);
+            box.center = new Vector3(0f, 0.63f, 0f);
+            box.size = new Vector3(1.2f, 0.36f, 1.7f);
 
             root.AddComponent<NetworkObject>();
             root.AddComponent<KartVisuals>();   // builds the detailed model at runtime from the player's look
@@ -691,84 +698,6 @@ namespace KartVR.EditorTools
         }
 
         // ================================================================== hub
-
-        static Transform BuildHub()
-        {
-            var hub = Group("Hub", null, Vector3.zero);
-            var rng = new System.Random(1);
-
-            // Ground: tiled plaza with grass verges.
-            Prim(PrimitiveType.Cube, "Grass", hub, new Vector3(0f, -0.52f, 0f), new Vector3(150f, 1f, 150f), hubGrass);
-            Prim(PrimitiveType.Cube, "Plaza", hub, new Vector3(0f, -0.5f, 0f), new Vector3(120f, 1f, 120f), plaza);
-            // Hedges around the edge.
-            Prim(PrimitiveType.Cube, "Hedge", hub, new Vector3(0f, 0.6f, 61f), new Vector3(124f, 1.2f, 2f), leavesDark);
-            Prim(PrimitiveType.Cube, "Hedge", hub, new Vector3(0f, 0.6f, -61f), new Vector3(124f, 1.2f, 2f), leavesDark);
-            Prim(PrimitiveType.Cube, "Hedge", hub, new Vector3(61f, 0.6f, 0f), new Vector3(2f, 1.2f, 124f), leavesDark);
-            Prim(PrimitiveType.Cube, "Hedge", hub, new Vector3(-61f, 0.6f, 0f), new Vector3(2f, 1.2f, 124f), leavesDark);
-
-            BuildFountain(hub, Vector3.zero);
-
-            // Spawn: south of the fountain, facing the portals (+Z).
-            var spawn = new GameObject("HubSpawn").AddComponent<SpawnArea>();
-            spawn.mode = KartMode.Hub;
-            spawn.killY = -10f;
-            spawn.transform.SetParent(hub, false);
-            spawn.transform.localPosition = new Vector3(0f, 0f, -14f);
-            for (int i = 0; i < 12; i++)
-            {
-                var slot = new GameObject("Slot" + i).transform;
-                slot.SetParent(spawn.transform, false);
-                slot.localPosition = new Vector3((i % 4 - 1.5f) * 2f, 0.05f, -(i / 4) * 2f);
-            }
-
-            // Portals across the north side.
-            Portal(hub, "RacePortal", KartMode.Race, new Vector3(-20f, 0f, 40f), portalRace, glowRace, "RACE");
-            Portal(hub, "BumperPortal", KartMode.Bumper, new Vector3(0f, 0f, 44f), portalBumper, glowBumper, "BUMPER KARTS");
-            Portal(hub, "FreeRoamPortal", KartMode.FreeRoam, new Vector3(20f, 0f, 40f), portalFree, glowFree, "FREE ROAM");
-            ExtraHubPortals(hub);
-
-            // Garages: 6 down each side, open towards the plaza.
-            float[] zs = { -27.5f, -16.5f, -5.5f, 5.5f, 16.5f, 27.5f };
-            for (int i = 0; i < 6; i++)
-            {
-                GarageBay(hub, i, new Vector3(-48f, 0f, zs[i]), Quaternion.Euler(0f, -90f, 0f));
-                GarageBay(hub, i + 6, new Vector3(48f, 0f, zs[i]), Quaternion.Euler(0f, 90f, 0f));
-            }
-            Text(hub, "GaragesWest", "GARAGES", new Vector3(-40f, 7.5f, 0f), Quaternion.Euler(0f, -90f, 0f), 12f, Color.white, new Vector2(20f, 2f));
-            Text(hub, "GaragesEast", "GARAGES", new Vector3(40f, 7.5f, 0f), Quaternion.Euler(0f, 90f, 0f), 12f, Color.white, new Vector2(20f, 2f));
-
-            // Lobby code terminals beside the spawn, facing the middle.
-            Terminal(hub, "CodeTerminalWest", new Vector3(-9f, 0f, -14f), Quaternion.Euler(0f, -90f, 0f));
-            Terminal(hub, "CodeTerminalEast", new Vector3(9f, 0f, -14f), Quaternion.Euler(0f, 90f, 0f));
-
-            var board = Board(hub, "LobbyBoard", new Vector3(0f, 10f, 54f), Quaternion.identity, new Vector2(20f, 7.5f), 5f, "KART VR");
-            var info = board.transform.parent.gameObject.AddComponent<InfoBoard>();
-            info.kind = InfoBoard.Kind.Lobby;
-            info.text = board;
-            info.title = "KART VR";
-
-            Board(hub, "HelpBoard", new Vector3(-16f, 3.2f, -5f), Quaternion.Euler(0f, -62f, 0f), new Vector2(10f, 4.6f), 2.4f,
-                "<b>HOW TO PLAY</b>\nWalk: left stick (hold R trigger to run)   Turn: right stick\nWalk into a PORTAL to play\nYOUR GARAGE: customize your kart\n" +
-                "Driving: GRAB THE WHEEL (grip) and turn it! R trigger gas, L trigger brake\nX drift, A booster, B respawn, Y menu", neonPink);
-
-            // Lamps, trees and benches around the plaza.
-            for (int i = 0; i < 8; i++)
-            {
-                float a = i * Mathf.PI * 2f / 8f + 0.2f;
-                Lamp(hub, new Vector3(Mathf.Sin(a) * 17f, 0f, Mathf.Cos(a) * 17f));
-            }
-            foreach (var p in new[] { new Vector3(-32f, 0f, 50f), new Vector3(32f, 0f, 50f), new Vector3(-34f, 0f, -48f), new Vector3(34f, 0f, -48f),
-                         new Vector3(-12f, 0f, 54f), new Vector3(12f, 0f, 54f), new Vector3(-22f, 0f, -36f), new Vector3(22f, 0f, -36f) })
-            {
-                Prim(PrimitiveType.Cylinder, "Planter", hub, p + new Vector3(0f, 0.4f, 0f), new Vector3(3.2f, 0.4f, 3.2f), stone);
-                Tree(hub, p + new Vector3(0f, 0.8f, 0f), 0.9f, rng);
-            }
-            Bench(hub, new Vector3(-8f, 0f, 8f), 135f);
-            Bench(hub, new Vector3(8f, 0f, 8f), 225f);
-            Bench(hub, new Vector3(-8f, 0f, -6f), 45f);
-            Bench(hub, new Vector3(8f, 0f, -6f), 315f);
-            return hub;
-        }
 
         static void BuildFountain(Transform parent, Vector3 pos)
         {
@@ -1263,13 +1192,18 @@ namespace KartVR.EditorTools
 
         static void Ramp(Transform parent, string name, Vector3 pos, float yaw, float length, float width, float angle, Material mat)
         {
-            // Tilted box whose back edge is buried so the slope starts flush with the ground.
-            const float thickness = 1f;
-            float a = angle * Mathf.Deg2Rad;
-            float y = length * 0.5f * Mathf.Sin(a) - thickness * 0.5f * Mathf.Cos(a);
-            var r = Prim(PrimitiveType.Cube, name, parent, Vector3.zero, new Vector3(width, thickness, length), mat);
-            r.transform.localRotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(-angle, 0f, 0f);
-            r.transform.localPosition = pos + new Vector3(0f, y, 0f);
+            // A gentle lip (30% of the length at under half the angle) then the main slope, so karts roll on
+            // smoothly instead of hitting a step. The low end sits flush with the ground at local -Z.
+            var g = Group(name, parent, pos, Quaternion.Euler(0f, yaw, 0f));
+            Vector3 start = new Vector3(0f, 0f, -length * 0.5f);
+            foreach (var (len, ang) in new[] { (length * 0.3f, angle * 0.45f), (length * 0.7f, angle) })
+            {
+                float a = ang * Mathf.Deg2Rad;
+                var dir = new Vector3(0f, Mathf.Sin(a), Mathf.Cos(a));
+                var up = new Vector3(0f, Mathf.Cos(a), -Mathf.Sin(a));
+                Prim(PrimitiveType.Cube, "Slope", g, start + dir * (len * 0.5f) - up * 0.5f, new Vector3(width, 1f, len + 0.02f), mat, true, Quaternion.Euler(-ang, 0f, 0f));
+                start += dir * len;
+            }
         }
 
         /// <summary>A curved wall made of tilted panels (skate-park style). Opening faces local -Z.</summary>
@@ -1282,6 +1216,7 @@ namespace KartVR.EditorTools
                 float a0 = i * 80f / panels, a1 = (i + 1) * 80f / panels, am = (a0 + a1) * 0.5f;
                 // Point on a circle of `radius` centred at (0, radius, 0): angle 0 = ground, 90 = vertical wall.
                 Vector3 p = new Vector3(0f, radius - Mathf.Cos(am * Mathf.Deg2Rad) * radius, Mathf.Sin(am * Mathf.Deg2Rad) * radius);
+                p -= new Vector3(0f, Mathf.Cos(am * Mathf.Deg2Rad), -Mathf.Sin(am * Mathf.Deg2Rad)) * 0.2f; // top surface on the curve, no step
                 float len = 2f * Mathf.PI * radius * (a1 - a0) / 360f + 0.15f;
                 Prim(PrimitiveType.Cube, "Panel", q, p, new Vector3(width, 0.4f, len), mat, true, Quaternion.Euler(-am, 0f, 0f));
             }

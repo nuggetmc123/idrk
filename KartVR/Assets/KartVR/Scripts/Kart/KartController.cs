@@ -107,6 +107,7 @@ namespace KartVR
             if (headAnchor == null) headAnchor = transform.Find("HeadAnchor");
             if (visuals == null) visuals = GetComponent<KartVisuals>();
             if (visuals == null) visuals = gameObject.AddComponent<KartVisuals>();
+            if (GetComponent<KartEngineSound>() == null) gameObject.AddComponent<KartEngineSound>();
 
             var mat = new PhysicsMaterial("KartBody")
             {
@@ -114,7 +115,7 @@ namespace KartVR
                 staticFriction = 0f,
                 frictionCombine = PhysicsMaterialCombine.Minimum,
                 bounciness = 0.3f,
-                bounceCombine = PhysicsMaterialCombine.Maximum,
+                bounceCombine = PhysicsMaterialCombine.Minimum, // bounce off other karts, not off ramps and walls
             };
             foreach (var c in GetComponents<Collider>()) c.sharedMaterial = mat;
         }
@@ -196,7 +197,7 @@ namespace KartVR
             brake = KartInput.Brake;
             // Steering comes from the wheel: grab it in VR (grip) and turn it, or it follows the stick smoothly.
             var rig = KartRig.Instance;
-            bool seated = KartRig.IsXR && rig != null && rig.IsAttachedTo(this) && !Parked;
+            bool seated = KartRig.IsXR && rig != null && rig.IsAttachedTo(this) && !Parked && GameSettings.GrabWheel;
             wheel.Tick(visuals.SteeringWheel, seated ? rig.leftHand : null, seated ? rig.rightHand : null,
                 KartInput.LeftGripHeld, KartInput.RightGripHeld, Parked ? 0f : KartInput.Steer, seated, Time.deltaTime);
             steer = wheel.Steer;
@@ -230,6 +231,7 @@ namespace KartVR
                     BumperManager.Instance.State == BumperState.Playing)
                     Score -= 1;
                 if (SessionManager.Instance != null) SessionManager.Instance.SetStatus("Out of bounds! Back you go.", 2f);
+                AudioManager.Play(AudioManager.Sfx.Error);
                 Respawn();
             }
 
@@ -255,6 +257,7 @@ namespace KartVR
                     BoostCharge = 0f;
                     boostUntil = Time.time + stats.seconds;
                     boostSpeedMul = stats.speedMul;
+                    AudioManager.Play(AudioManager.Sfx.Boost);
                     rb.AddForce(transform.forward * 4f, ForceMode.VelocityChange);
                     Buzz(XRNode.RightHand, 0.6f, 0.2f);
                 }
@@ -494,6 +497,23 @@ namespace KartVR
                     groundNormal = hits[i].normal;
                 }
             }
+
+            // A second probe under the nose: as soon as the front reaches a ramp, start tilting up to meet it.
+            Vector3 nose = transform.position + transform.up * 0.6f + transform.forward * 0.9f;
+            count = Physics.RaycastNonAlloc(nose, -transform.up, hits, 1.2f, ~0, QueryTriggerInteraction.Ignore);
+            best = float.MaxValue;
+            Vector3 noseNormal = Vector3.zero;
+            for (int i = 0; i < count; i++)
+            {
+                if (hits[i].rigidbody == rb || hits[i].distance >= best) continue;
+                best = hits[i].distance;
+                noseNormal = hits[i].normal;
+            }
+            if (noseNormal != Vector3.zero)
+            {
+                groundNormal = grounded ? (groundNormal + noseNormal).normalized : noseNormal;
+                grounded = true;
+            }
         }
 
         /// <summary>Gently rotate the kart to match the ground (or level out in the air). Rolling around is bad for VR comfort.</summary>
@@ -527,6 +547,7 @@ namespace KartVR
                 boostUntil = Time.time + pad.boostSeconds;
                 boostSpeedMul = 1.35f;
                 rb.AddForce(transform.forward * pad.kick, ForceMode.VelocityChange);
+                AudioManager.Play(AudioManager.Sfx.Boost, 0.7f, 1.15f);
                 Buzz(XRNode.RightHand, 0.5f, 0.15f);
                 Buzz(XRNode.LeftHand, 0.5f, 0.15f);
             }
@@ -542,13 +563,16 @@ namespace KartVR
             if (cp.index != NextCheckpoint) return; // wrong order (or going backwards)
 
             lastCheckpoint = cp;
+            if (cp.index != 0) AudioManager.Play(AudioManager.Sfx.Checkpoint);
             if (cp.index == 0)
             {
                 if (Lap == 0) Lap = 1; // crossing the start line begins lap 1
+                else if (Lap < race.totalLaps) AudioManager.Play(AudioManager.Sfx.Lap);
                 else if (Lap >= race.totalLaps)
                 {
                     Finished = true;
                     FinishTime = race.Elapsed;
+                    AudioManager.Play(AudioManager.Sfx.Finish);
                     Buzz(XRNode.RightHand, 0.8f, 0.4f);
                     Buzz(XRNode.LeftHand, 0.8f, 0.4f);
                 }
@@ -568,6 +592,7 @@ namespace KartVR
                 Vector3 away = transform.position - collision.collider.transform.position;
                 away.y = 0f;
                 rb.AddForce(away.normalized * bouncer.power + Vector3.up * bouncer.lift, ForceMode.VelocityChange);
+                AudioManager.Play(AudioManager.Sfx.Bump, 1f, 1.3f);
                 stunUntil = Time.time + 0.4f;
                 Buzz(XRNode.RightHand, 0.8f, 0.15f);
                 Buzz(XRNode.LeftHand, 0.8f, 0.15f);
@@ -589,6 +614,7 @@ namespace KartVR
 
             var t = CurrentTuning;
             Vector3 knock = toOther * closing * t.bumpPower + Vector3.up * (KartModeInfo.IsBumper(CurrentMode) ? 2f : 0.5f);
+            AudioManager.PlayAt(AudioManager.Sfx.Bump, (transform.position + other.transform.position) * 0.5f);
             other.RPC_ReceiveBump(knock);
             Buzz(XRNode.RightHand, 0.7f, 0.12f);
             Buzz(XRNode.LeftHand, 0.7f, 0.12f);
@@ -609,6 +635,7 @@ namespace KartVR
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
         public void RPC_ReceiveBump(Vector3 velocityChange)
         {
+            AudioManager.PlayAt(AudioManager.Sfx.Bump, transform.position);
             if (rb == null || rb.isKinematic) return;
             rb.AddForce(velocityChange, ForceMode.VelocityChange);
             stunUntil = Time.time + 0.5f;

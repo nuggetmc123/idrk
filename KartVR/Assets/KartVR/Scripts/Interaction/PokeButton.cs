@@ -48,6 +48,7 @@ namespace KartVR
             if (Time.time < nextPress) return false;
             nextPress = Time.time + cooldown;
             pressedUntil = Time.time + 0.15f;
+            AudioManager.Play(AudioManager.Sfx.Click);
             onPressed.Invoke();
             return true;
         }
