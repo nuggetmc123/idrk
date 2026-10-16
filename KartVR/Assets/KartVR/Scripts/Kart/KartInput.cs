@@ -179,6 +179,8 @@ namespace KartVR
         public static bool BuildRotateHeld { get { Init(); return buildRotate.IsPressed() || XRGrip(XRNode.RightHand); } }
         public static bool BuildNextHeld { get { Init(); return buildNext.IsPressed() || XRBtn(XRNode.RightHand, XRUsages.primaryButton); } }
         public static bool BuildPrevHeld { get { Init(); return buildPrev.IsPressed() || XRBtn(XRNode.LeftHand, XRUsages.primaryButton); } }
+        /// <summary>Push-to-talk: hold Y (left controller), or V on the keyboard.</summary>
+        public static bool TalkHeld { get { Init(); return XRBtn(XRNode.LeftHand, XRUsages.secondaryButton) || Keyboard.current != null && Keyboard.current.vKey.isPressed; } }
         public static bool BuildFastHeld { get { Init(); return XRGrip(XRNode.LeftHand) || Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed; } }
         public static float FlyVertical { get { Init(); return Mathf.Clamp(Strongest(flyUp.ReadValue<float>(), XRAxis(XRNode.RightHand, XRUsages.primary2DAxis).y), -1f, 1f); } }
 

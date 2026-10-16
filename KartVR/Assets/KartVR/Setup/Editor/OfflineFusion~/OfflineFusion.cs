@@ -23,10 +23,14 @@ namespace Fusion
     public enum RpcTargets { All, StateAuthority, InputAuthority, Proxies }
 
     /// <summary>Offline: RPCs are just normal method calls on this computer.</summary>
+    public enum RpcChannel { Reliable, Unreliable }
+
     [AttributeUsage(AttributeTargets.Method)]
     public class RpcAttribute : Attribute
     {
         public RpcAttribute(RpcSources sources, RpcTargets targets) { }
+        public RpcChannel Channel { get; set; }
+        public bool InvokeLocal { get; set; } = true;
     }
 
     public struct PlayerRef : IEquatable<PlayerRef>

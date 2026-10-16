@@ -8,7 +8,21 @@ namespace KartVR
     public static class GameSettings
     {
         const string SfxKey = "kartvr.sfxVolume", MusicKey = "kartvr.musicVolume", EngineKey = "kartvr.engineVolume",
-            TurnKey = "kartvr.turnStyle", WheelKey = "kartvr.grabWheel";
+            TurnKey = "kartvr.turnStyle", WheelKey = "kartvr.grabWheel", MicKey = "kartvr.micMode", VoiceKey = "kartvr.voiceVolume";
+
+        /// <summary>Voice chat: open mic (talks when you speak), push-to-talk (hold Y) or muted.</summary>
+        public static MicMode Mic
+        {
+            get => (MicMode)Mathf.Clamp(PlayerPrefs.GetInt(MicKey, 0), 0, 2);
+            set { PlayerPrefs.SetInt(MicKey, (int)value); PlayerPrefs.Save(); }
+        }
+
+        /// <summary>How loud other players' voices are, 0..1.</summary>
+        public static float VoiceVolume
+        {
+            get => PlayerPrefs.GetFloat(VoiceKey, 1f);
+            set { PlayerPrefs.SetFloat(VoiceKey, Mathf.Clamp01(value)); PlayerPrefs.Save(); }
+        }
 
         /// <summary>Sound effects volume, 0..1.</summary>
         public static float SfxVolume

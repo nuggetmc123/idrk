@@ -86,11 +86,23 @@ Bouncer, Boost Hoop, Block.
 
 ### The menu (three-lines button)
 It starts closed. Press the **menu button** on your left controller to open it above your left hand, and poke it
-with your right hand (or point at it and pull the trigger). Three pages:
+with your right hand (or point at it and pull the trigger). Four pages:
 - **Menu:** Recenter, Respawn, Hub, Create/Leave Lobby, Build Mode (in Free Roam), plus your server/lobby info.
 - **Sound:** sound effects, kart engine and music volume (- / +).
 - **Controls:** turning style (Snap 30°, Snap 45° or Smooth), steering (grab the wheel, or left stick only), and a
   list of the controls.
+- **Voice:** mic mode (open mic / push-to-talk / muted), a live mic level meter, voice volume, and **Mic Test**.
+
+### Voice chat
+Talk to everyone on your server: their voices come from their head (or their kart), and a **green light** shows above
+whoever is talking. It runs through Photon Fusion, so there's nothing extra to install.
+- **Open mic** (default) sends only while you're actually speaking; **push-to-talk** sends while you hold **Y**
+  (V on the keyboard); **Muted** turns your mic off. Change it in **Menu > Voice**.
+- **Mic Test** plays your own voice back through the whole send/receive path, to check your mic works.
+- On Quest the headset asks for microphone permission the first time; say **Allow**. (If you said no: Settings > Apps
+  > Kart VR > Permissions > Microphone.)
+- Voice is 16 kHz, about 6 KB/s per talking player. Packets that arrive late or shuffled are put back in order, and a
+  lost packet is covered over so the voice doesn't stutter.
 
 ### Sound and music
 A soft engine hum (pitch follows your speed; turn it down with Menu > Sound > Kart engine), boosts, bumps, checkpoint dings, lap and finish fanfares, countdown beeps,

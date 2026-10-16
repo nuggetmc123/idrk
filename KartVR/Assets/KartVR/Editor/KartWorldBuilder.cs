@@ -45,7 +45,7 @@ namespace KartVR.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 5; // 5 = garage hub, smoother ramps, rounded kart hull
+        public const int WorldVersion = 6; // 6 = voice chat on the Player prefab
         const string WorldVersionFile = "ProjectSettings/KartVRWorldVersion.txt";
         public static bool WorldUpToDate =>
             File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
@@ -566,6 +566,7 @@ namespace KartVR.EditorTools
             cc.slopeLimit = 50f;
             root.AddComponent<NetworkObject>();
             root.AddComponent<PlayerAvatar>();
+            root.AddComponent<VoiceChat>();      // voice chat (mic in, 3D voices out)
             Text(root.transform, "NameTag", "Racer", new Vector3(0f, 2.1f, 0f), Quaternion.identity, 2.2f, Color.white, new Vector2(3f, 0.5f));
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, PlayerPrefabPath);
             Object.DestroyImmediate(root);

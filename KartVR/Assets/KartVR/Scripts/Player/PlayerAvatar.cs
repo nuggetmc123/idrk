@@ -84,6 +84,22 @@ namespace KartVR
         }
 
         /// <summary>The kart owned by the same player (for name and colors).</summary>
+        /// <summary>Where this player's voice comes from: their head in the hub, their kart's seat everywhere else.</summary>
+        public Vector3 VoicePosition
+        {
+            get
+            {
+                if (InHub)
+                {
+                    if (IsLocal && KartRig.Instance != null) return KartRig.Instance.head.position;
+                    return HeadPos;
+                }
+                var kart = OwnKart();
+                if (kart == null) return transform.position;
+                return kart.headAnchor != null ? kart.headAnchor.position : kart.transform.position + Vector3.up;
+            }
+        }
+
         KartController OwnKart()
         {
             if (!IsReady) return null;
