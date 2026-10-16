@@ -165,15 +165,15 @@ namespace KartVR
         public static float Turn { get { Init(); return Mathf.Clamp(Strongest(turn.ReadValue<float>(), XRAxis(XRNode.RightHand, XRUsages.primary2DAxis).x), -1f, 1f); } }
 
         // "Pressed this frame" checks only work reliably from Update, not FixedUpdate.
-        public static bool RespawnPressed { get { Init(); return respawn.WasPressedThisFrame() || XRPressed(0, XRNode.RightHand, XRUsages.secondaryButton); } }
-        public static bool RecenterPressed { get { Init(); return recenter.WasPressedThisFrame() || XRPressed(1, XRNode.LeftHand, XRUsages.primary2DAxisClick); } }
-        public static bool MenuPressed { get { Init(); return menu.WasPressedThisFrame() || XRPressed(2, XRNode.LeftHand, XRUsages.menuButton); } }
+        public static bool RespawnPressed { get { Init(); return Pressed(0, respawn, XRNode.RightHand, XRUsages.secondaryButton); } }
+        public static bool RecenterPressed { get { Init(); return Pressed(1, recenter, XRNode.LeftHand, XRUsages.primary2DAxisClick); } }
+        public static bool MenuPressed { get { Init(); return Pressed(2, menu, XRNode.LeftHand, XRUsages.menuButton); } }
 
         // ---------------- Build mode (Free Roam) ----------------
         // VR: right stick click = enter/leave, right trigger = place, left trigger = delete, right grip = rotate,
         // A / X = next / previous item, B = undo, left stick = fly, right stick up/down = fly up/down.
 
-        public static bool BuildTogglePressed { get { Init(); return buildToggle.WasPressedThisFrame() || XRPressed(3, XRNode.RightHand, XRUsages.primary2DAxisClick); } }
+        public static bool BuildTogglePressed { get { Init(); return Pressed(3, buildToggle, XRNode.RightHand, XRUsages.primary2DAxisClick); } }
         public static bool BuildPlaceHeld { get { Init(); return buildPlace.IsPressed() || XRVal(XRNode.RightHand, XRUsages.trigger) > 0.6f; } }
         public static bool BuildDeleteHeld { get { Init(); return buildDelete.IsPressed() || XRVal(XRNode.LeftHand, XRUsages.trigger) > 0.6f; } }
         public static bool BuildRotateHeld { get { Init(); return buildRotate.IsPressed() || XRGrip(XRNode.RightHand); } }
@@ -213,17 +213,38 @@ namespace KartVR
 
         static float Strongest(float a, float b) => Mathf.Abs(a) >= Mathf.Abs(b) ? a : b;
 
-        // Edge detection for XR buttons: remember each button's state once per frame.
+        // ---------------- "pressed this frame" for buttons read two ways
+
         static readonly bool[] xrWas = new bool[4], xrNow = new bool[4];
-        static readonly int[] xrFrame = { -1, -1, -1, -1 };
+        static readonly int[] xrFrame = { -1, -1, -1, -1 }, firedFrame = { -1, -1, -1, -1 };
+        static readonly float[] quietUntil = new float[4];
+
+        /// <summary>
+        /// One physical press = one "pressed". The button is read through the Input System AND Unity's XR API
+        /// (whichever works); both are checked every time, and after a press the button ignores further presses
+        /// for a moment, so the two can never count the same press twice (which used to open the menu and
+        /// close it again a frame later). Every caller in the same frame gets the same answer.
+        /// </summary>
+        static bool Pressed(int slot, InputAction action, XRNode node, UnityEngine.XR.InputFeatureUsage<bool> usage)
+        {
+            bool xr = XRPressed(slot, node, usage);           // always evaluated, so its state never goes stale
+            bool input = action.WasPressedThisFrame();
+            if (firedFrame[slot] == Time.frameCount) return true;
+            if (!(xr || input) || Time.unscaledTime < quietUntil[slot]) return false;
+            firedFrame[slot] = Time.frameCount;
+            quietUntil[slot] = Time.unscaledTime + 0.3f;
+            return true;
+        }
 
         static bool XRPressed(int slot, XRNode node, UnityEngine.XR.InputFeatureUsage<bool> usage)
         {
             if (xrFrame[slot] != Time.frameCount)
             {
+                bool now = XRBtn(node, usage);
+                // If nobody read this button last frame, don't compare with an old state (that made phantom presses).
+                xrWas[slot] = xrFrame[slot] == Time.frameCount - 1 ? xrNow[slot] : now;
+                xrNow[slot] = now;
                 xrFrame[slot] = Time.frameCount;
-                xrWas[slot] = xrNow[slot];
-                xrNow[slot] = XRBtn(node, usage);
             }
             return xrNow[slot] && !xrWas[slot];
         }
