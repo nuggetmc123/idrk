@@ -109,8 +109,24 @@ namespace KartVR.EditorTools
             else Debug.Log("[KartVR] " + msg.Replace("\n", " "));
         }
 
+        /// <summary>The App ID that actually goes into a build: the one in Fusion's settings asset ("" if none / no Fusion).</summary>
+        public static string FusionAppId
+        {
+            get
+            {
+                try
+                {
+                    Type settingsType = FindType("Fusion.Photon.Realtime.PhotonAppSettings");
+                    object global = settingsType == null ? null : GetMember(settingsType, null, "Global");
+                    object appSettings = global == null ? null : GetMember(settingsType, global, "AppSettings");
+                    return appSettings == null ? "" : (GetMember(appSettings.GetType(), appSettings, "AppIdFusion") as string ?? "").Trim();
+                }
+                catch (Exception) { return ""; }
+            }
+        }
+
         /// <summary>Writes the App ID into Fusion's settings asset (PhotonAppSettings.Global.AppSettings.AppIdFusion).</summary>
-        static bool TryApplyAppId(string id)
+        public static bool TryApplyAppId(string id)
         {
             try
             {

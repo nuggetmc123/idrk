@@ -66,7 +66,8 @@ namespace KartVR
             nextRefresh = Time.time + 0.5f;
             var s = SessionManager.Instance;
             if (s == null) return;
-            footer.text = s.IsPrivate
+            footer.text = s.IsSolo ? "Playing solo (offline): touch a map to go there"
+                : s.IsPrivate
                 ? "Private lobby: picking a map takes your whole lobby there"
                 : "Touch a map to go there (you'll play with people on server " + s.ServerNumber + ")";
         }

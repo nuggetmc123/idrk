@@ -99,7 +99,7 @@ namespace Fusion
     }
 
     public enum GameMode { Single, Shared, Server, Host, Client, AutoHostOrClient }
-    public enum ShutdownReason { Ok, Error, IncompatibleConfiguration, ServerInRoom, DisconnectedByPluginLogic, GameClosed, GameNotFound, MaxCcuReached, InvalidRegion, GameIdAlreadyExists, GameIsFull, InvalidAuthentication, CustomAuthenticationFailed, AuthenticationTicketExpired, PhotonCloudTimeout }
+    public enum ShutdownReason { Ok, Error, IncompatibleConfiguration, ServerInRoom, DisconnectedByPluginLogic, GameClosed, GameNotFound, MaxCcuReached, InvalidRegion, GameIdAlreadyExists, GameIsFull, InvalidAuthentication, CustomAuthenticationFailed, AuthenticationTicketExpired, PhotonCloudTimeout, AlreadyRunning, InvalidArguments, HostMigration, ConnectionTimeout, ConnectionRefused, OperationTimeout, OperationCanceled }
 
     public class SessionProperty
     {
@@ -138,6 +138,7 @@ namespace Fusion
     {
         public bool Ok;
         public ShutdownReason ShutdownReason;
+        public string ErrorMessage = "";
     }
 
     public struct NetworkInput { }

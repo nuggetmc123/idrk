@@ -37,11 +37,7 @@ namespace KartVR.EditorTools
                 EditorUtility.DisplayDialog("Kart VR - Build for Quest", "VR support isn't installed yet. Click KartVR > Set Up VR (Quest) first, then build again.", "OK");
                 return;
             }
-            if (string.IsNullOrEmpty(MultiplayerSetup.SavedAppId) &&
-                !EditorUtility.DisplayDialog("Kart VR - Build for Quest",
-                    "No Photon App ID is set, so this build can only be played OFFLINE (solo).\n\nSet it with KartVR > Set Up Multiplayer to play online.",
-                    "Build anyway", "Cancel"))
-                return;
+            if (!CheckMultiplayer()) return;
             if (!KartWorldBuilder.WorldUpToDate &&
                 EditorUtility.DisplayDialog("Kart VR - Build for Quest", "The game world is out of date. Rebuild it first? (Recommended)", "Rebuild world", "Build as is"))
                 KartWorldBuilder.BuildWorld();
@@ -86,6 +82,28 @@ namespace KartVR.EditorTools
                 "OK");
         }
 
+        /// <summary>
+        /// Online play in the APK needs Photon Fusion installed AND the App ID inside Fusion's settings asset
+        /// (that asset is what the headset reads). Copies the App ID from KartVR > Set Up Multiplayer into it.
+        /// </summary>
+        static bool CheckMultiplayer()
+        {
+            string problem = null;
+            if (!SessionManager.MultiplayerAvailable)
+                problem = "Photon Fusion 2 isn't installed in this project, so the APK can't go online.";
+            else
+            {
+                string saved = MultiplayerSetup.SavedAppId;
+                if (!string.IsNullOrEmpty(saved) && MultiplayerSetup.FusionAppId != saved) MultiplayerSetup.TryApplyAppId(saved);
+                if (string.IsNullOrEmpty(MultiplayerSetup.FusionAppId))
+                    problem = "No Photon App ID is set, so the APK can't go online (you'd play solo).\n\n" +
+                              "Paste it in KartVR > Set Up Multiplayer (or Tools > Fusion > Fusion Hub), then build again.";
+            }
+            if (problem == null) return true;
+            Debug.LogWarning("[KartVR] " + problem);
+            return EditorUtility.DisplayDialog("Kart VR - Build for Quest", problem, "Build anyway (solo only)", "Cancel");
+        }
+
         /// <summary>Everything Meta requires for a Quest app, plus sensible defaults.</summary>
         static void ApplySettings()
         {
@@ -114,10 +132,40 @@ namespace KartVR.EditorTools
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
             EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC;
 
+            // Quest's OpenXR runs on the classic Android "Activity" (Unity 6 defaults to GameActivity).
+            SetEnum(typeof(PlayerSettings.Android), "applicationEntry", "Activity");
+            // Don't let the build strip code Photon finds by reflection (that broke joining online).
+            if (System.Enum.IsDefined(typeof(ManagedStrippingLevel), "Minimal"))
+                PlayerSettings.SetManagedStrippingLevel(android, (ManagedStrippingLevel)System.Enum.Parse(typeof(ManagedStrippingLevel), "Minimal"));
+            WriteLinkXml();
+
             // The store refuses an upload whose version code isn't higher than the last one.
             if (string.IsNullOrEmpty(PlayerSettings.bundleVersion) || PlayerSettings.bundleVersion == "0.1") PlayerSettings.bundleVersion = "1.0";
             PlayerSettings.Android.bundleVersionCode = Mathf.Max(1, PlayerSettings.Android.bundleVersionCode + 1);
             AssetDatabase.SaveAssets();
+        }
+
+        const string LinkXmlPath = "Assets/KartVR/link.xml";
+
+        /// <summary>Keeps the game's and Photon's code whole in the build. Lists only assemblies this project has.</summary>
+        static void WriteLinkXml()
+        {
+            var keep = new[] { "Assembly-CSharp", "Fusion.Runtime", "Fusion.Common", "Fusion.Sockets", "Fusion.Realtime", "Fusion.Log", "Fusion.Unity" };
+            var present = System.AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetName().Name);
+            var lines = keep.Where(present.Contains).Select(n => "  <assembly fullname=\"" + n + "\" preserve=\"all\"/>");
+            string xml = "<linker>\n" + string.Join("\n", lines) + "\n</linker>\n";
+            if (File.Exists(LinkXmlPath) && File.ReadAllText(LinkXmlPath) == xml) return;
+            File.WriteAllText(LinkXmlPath, xml);
+            AssetDatabase.ImportAsset(LinkXmlPath);
+        }
+
+        /// <summary>Sets a static enum property by name, if this Unity version has it.</summary>
+        static void SetEnum(System.Type type, string property, string value)
+        {
+            var p = type.GetProperty(property, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            if (p == null || !p.CanWrite || !p.PropertyType.IsEnum) return;
+            try { p.SetValue(null, System.Enum.Parse(p.PropertyType, value)); }
+            catch (System.Exception e) { Debug.LogWarning("[KartVR] Couldn't set " + property + ": " + e.Message); }
         }
     }
 }

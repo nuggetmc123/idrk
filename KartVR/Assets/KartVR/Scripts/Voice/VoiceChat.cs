@@ -46,7 +46,6 @@ namespace KartVR
         readonly float[] packet = new float[VoiceCodec.PacketSamples];
         int packetFill;
         readonly NoiseGate gate = new NoiseGate();
-        bool askedPermission;
         float retryMicAt;
 
         public override void Spawned()
@@ -168,18 +167,12 @@ namespace KartVR
         {
             if (Time.time < retryMicAt) return false;
             retryMicAt = Time.time + 3f;
-#if UNITY_ANDROID
-            if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Microphone))
+            if (!MicPermission.Granted)
             {
-                if (!askedPermission)
-                {
-                    askedPermission = true;
-                    UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Microphone);
-                }
-                MicStatus = "Allow the microphone (headset popup, or Settings > Apps > Permissions)";
+                MicPermission.Request(); // only pops up if it wasn't asked at startup
+                MicStatus = "Mic not allowed. Quest Settings > Apps > Kart VR > Permissions > Microphone";
                 return false;
             }
-#endif
             if (Microphone.devices.Length == 0)
             {
                 MicStatus = "No microphone found";

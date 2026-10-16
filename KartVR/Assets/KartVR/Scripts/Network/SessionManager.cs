@@ -56,6 +56,13 @@ namespace KartVR
         public NetworkRunner Runner { get; private set; }
         public bool IsConnected => Runner != null && Runner.IsRunning;
         public bool IsPrivate { get; private set; }
+        /// <summary>
+        /// Playing on your own because going online failed (no internet, no Photon App ID...). You can still walk,
+        /// drive and use every map; the server board / keypad try online again.
+        /// </summary>
+        public bool IsSolo { get; private set; }
+        /// <summary>Why the last online attempt failed (shown on the hub boards and the menu).</summary>
+        public string OnlineError { get; private set; } = "";
         public string LobbyCode { get; private set; }
         public bool Busy { get; private set; }
         /// <summary>Which numbered public server you're on (1, 2, 3...). People on the same hub server go through portals together.</summary>
@@ -93,16 +100,23 @@ namespace KartVR
             Time.fixedDeltaTime = 1f / 72f;
         }
 
-        void Start()
+        System.Collections.IEnumerator Start()
         {
-            if (Instance == this) JoinPublic(KartMode.Hub);
+            if (Instance != this) yield break;
+            // Ask for the microphone BEFORE going online. On Quest the permission popup pauses the game; asking
+            // mid-session froze you in place and could drop the connection. Never wait more than 15 s for it.
+            SetStatus("Starting...", 30f);
+            MicPermission.Request();
+            float until = Time.realtimeSinceStartup + 15f;
+            while (MicPermission.Waiting && Time.realtimeSinceStartup < until) yield return null;
+            JoinPublic(KartMode.Hub);
         }
 
         // ---------- Public API (called by portals, keypad, wrist menu) ----------
 
         public void JoinPublic(KartMode mode)
         {
-            _ = RunConnect(() => ConnectPublic(mode, ServerNumber));
+            _ = RunConnect(() => ConnectPublic(mode, ServerNumber), mode);
         }
 
         /// <summary>Move to a numbered public hub server (from the server board). If it's full you get the next free one.</summary>
@@ -110,12 +124,12 @@ namespace KartVR
         {
             if (!MultiplayerAvailable) { SetStatus(OfflineMessage, 6f); return; }
             number = Mathf.Clamp(number, 1, ServerCount);
-            if (!IsPrivate && number == ServerNumber && IsConnected && GameState.CurrentMode == KartMode.Hub)
+            if (!IsPrivate && !IsSolo && number == ServerNumber && IsConnected && GameState.CurrentMode == KartMode.Hub)
             {
                 SetStatus("You're already on server " + number, 3f);
                 return;
             }
-            _ = RunConnect(() => ConnectPublic(KartMode.Hub, number));
+            _ = RunConnect(() => ConnectPublic(KartMode.Hub, number), KartMode.Hub);
         }
 
         /// <summary>False until Photon Fusion 2 is imported (the game then runs solo, offline).</summary>
@@ -157,13 +171,15 @@ namespace KartVR
 
         public string DescribeLobby()
         {
-            if (!IsConnected) return Busy ? "Connecting..." : "Offline";
+            if (!IsConnected) return Busy ? (string.IsNullOrEmpty(Status) ? "Connecting..." : Status) : "Offline";
             if (!MultiplayerAvailable)
                 return "OFFLINE - SOLO PLAY\n" + (GameState.Instance != null && GameState.Instance.IsReady
                     ? KartModeInfo.DisplayName(GameState.Instance.Mode) : KartModeInfo.DisplayName(RequestedMode));
             string mode = GameState.Instance != null && GameState.Instance.IsReady
                 ? KartModeInfo.DisplayName(GameState.Instance.Mode)
                 : KartModeInfo.DisplayName(RequestedMode);
+            if (IsSolo)
+                return "PLAYING SOLO - " + mode.ToUpper() + "\nCouldn't go online: " + OnlineError + "\nPress a SERVER button to try again.";
             if (IsPrivate)
                 return "PRIVATE LOBBY  CODE " + KartUI.FormatCode(LobbyCode) + "\n" + mode + " - " + PlayerCount + " player(s)";
             return "SERVER " + ServerNumber + "  -  " + mode.ToUpper() + "\n" + PlayerCount + "/" + MaxPlayers + " players";
@@ -178,7 +194,8 @@ namespace KartVR
 
         // ---------- Connection flow ----------
 
-        async Task RunConnect(Func<Task<bool>> attempt)
+        /// <param name="publicMode">Set for public joins: if going online fails, you play solo in this mode.</param>
+        async Task RunConnect(Func<Task<bool>> attempt, KartMode? publicMode = null)
         {
             if (Busy) return;
             Busy = true;
@@ -194,13 +211,43 @@ namespace KartVR
                 ok = false;
             }
             Busy = false;
+            if (ok || IsConnected) return;
 
-            // Anything that leaves us offline (bad code, network hiccup) falls back to the public hub.
-            if (!ok && !IsConnected)
+            if (publicMode.HasValue && MultiplayerAvailable)
             {
-                await Task.Delay(3000);
-                if (!Busy && !IsConnected) JoinPublic(KartMode.Hub);
+                // Couldn't get online: play solo instead of standing frozen with no player.
+                OnlineError = string.IsNullOrEmpty(Status) ? "unknown error" : Status.Replace("Couldn't connect: ", "");
+                await StartSolo(publicMode.Value);
+                return;
             }
+            // A bad lobby code etc.: back to the public hub.
+            await Task.Delay(3000);
+            if (!Busy && !IsConnected) JoinPublic(KartMode.Hub);
+        }
+
+        /// <summary>A one-player game on this headset only. Needs no internet or App ID, so it always works.</summary>
+        async Task StartSolo(KartMode mode)
+        {
+            if (Busy) return;
+            Busy = true;
+            try
+            {
+                var result = await StartSession(new StartGameArgs
+                {
+                    GameMode = GameMode.Single,
+                    SessionName = "KARTVR_SOLO",
+                    PlayerCount = 1,
+                }, mode, false, null);
+                IsSolo = result.Ok;
+                if (result.Ok) SetStatus("Couldn't go online (" + OnlineError + "). Playing solo.", 10f);
+                else SetStatus("Couldn't start the game: " + result.ShutdownReason + " " + result.ErrorMessage, 30f);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                SetStatus("Couldn't start the game: " + e.Message, 30f);
+            }
+            Busy = false;
         }
 
         /// <summary>
@@ -233,7 +280,7 @@ namespace KartVR
                 }
                 if (result.ShutdownReason != ShutdownReason.GameIsFull)
                 {
-                    SetStatus("Couldn't connect: " + result.ShutdownReason);
+                    SetStatus("Couldn't connect: " + Explain(result), 8f);
                     return false;
                 }
             }
@@ -286,6 +333,24 @@ namespace KartVR
             return true;
         }
 
+        /// <summary>Turns Fusion's failure reason into something you can act on.</summary>
+        static string Explain(StartGameResult result)
+        {
+            switch (result.ShutdownReason)
+            {
+                case ShutdownReason.InvalidAuthentication:
+                case ShutdownReason.CustomAuthenticationFailed:
+                    return "the Photon App ID is missing or wrong (KartVR > Set Up Multiplayer, then build again)";
+                case ShutdownReason.PhotonCloudTimeout:
+                case ShutdownReason.ConnectionTimeout:
+                case ShutdownReason.ConnectionRefused:
+                case ShutdownReason.OperationTimeout:
+                    return "no internet connection (check the headset's Wi-Fi)";
+                default:
+                    return result.ShutdownReason + (string.IsNullOrEmpty(result.ErrorMessage) ? "" : " - " + result.ErrorMessage);
+            }
+        }
+
         StartGameArgs PrivateArgs(string code)
         {
             return new StartGameArgs
@@ -312,6 +377,7 @@ namespace KartVR
 
             RequestedMode = mode;
             IsPrivate = isPrivate;
+            IsSolo = false;
             LobbyCode = code;
 
             var go = new GameObject("NetworkRunner");

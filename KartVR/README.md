@@ -179,6 +179,14 @@ the APK onto it. It shows up in your library under **Unknown Sources**.
    appears in their store/library on the headset to download.
 5. Each update: build again (the version number goes up by itself) and upload to the same channel.
 
+**If the APK can't join a lobby.** The hub's info board and the server board say why. Usually it's one of these:
+- **No Photon App ID in the build.** Paste it in **KartVR > Set Up Multiplayer**, then build again. The build menu now
+  copies it into Fusion's settings by itself and warns you if it's missing.
+- **No internet on the headset.** Check its Wi-Fi.
+- If going online fails, you now **play solo** (walk, drive, every map) instead of being stuck. Touch a server
+  button to try online again.
+- The game asks for the **microphone** when it starts. Press **Allow**: the popup pauses the game until you answer.
+
 Release channels are invite-only. To put it in the store for everyone, copy the build to the **Production** channel
 and submit it for Meta's review. Even alpha uploads must meet Meta's packaging rules (the build menu sets those).
 

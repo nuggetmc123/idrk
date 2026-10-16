@@ -224,6 +224,13 @@ namespace KartVR.EditorTools
                 EditorUtility.SetDirty(perTarget);
                 general = gs;
             }
+            // "Initialize XR on Startup": without it the APK starts with VR (and the controllers) switched off.
+            var initOnStart = general.GetType().GetProperty("InitManagerOnStart", inst);
+            if (initOnStart != null && initOnStart.CanWrite && !(initOnStart.GetValue(general) is bool on && on))
+            {
+                initOnStart.SetValue(general, true);
+                if (general is UnityEngine.Object g) EditorUtility.SetDirty(g);
+            }
             return GetMember(general, "Manager") ?? GetMember(general, "AssignedSettings");
         }
 

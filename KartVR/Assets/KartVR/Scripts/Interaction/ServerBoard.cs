@@ -41,6 +41,8 @@ namespace KartVR
             var s = SessionManager.Instance;
             if (s == null) return;
             if (!SessionManager.MultiplayerAvailable) info.text = "Offline (solo) - import Photon Fusion to play online";
+            else if (s.Busy) info.text = s.Status;
+            else if (s.IsSolo) info.text = "<color=#ffb347>Solo: couldn't go online.</color> Touch a server to try again";
             else if (s.IsPrivate) info.text = "In private lobby " + KartUI.FormatCode(s.LobbyCode) + " (servers are for public play)";
             else info.text = "You're on server " + s.ServerNumber + "  (" + s.PlayerCount + "/" + SessionManager.MaxPlayers + " players)";
         }
