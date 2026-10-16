@@ -132,6 +132,10 @@ namespace KartVR.EditorTools
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
             EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC;
 
+            // The Meta store rejects any APK whose install location isn't "auto".
+            PlayerSettings.Android.preferredInstallLocation = AndroidPreferredInstallLocation.Auto;
+            DropQuest1();
+
             // Quest's OpenXR runs on the classic Android "Activity" (Unity 6 defaults to GameActivity).
             SetEnum(typeof(PlayerSettings.Android), "applicationEntry", "Activity");
             // Don't let the build strip code Photon finds by reflection (that broke joining online).
@@ -143,6 +147,42 @@ namespace KartVR.EditorTools
             if (string.IsNullOrEmpty(PlayerSettings.bundleVersion) || PlayerSettings.bundleVersion == "0.1") PlayerSettings.bundleVersion = "1.0";
             PlayerSettings.Android.bundleVersionCode = Mathf.Max(1, PlayerSettings.Android.bundleVersionCode + 1);
             AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>
+        /// Meta no longer supports the original Quest 1. Unticks it in OpenXR's Meta Quest Support target devices so
+        /// the store doesn't warn about it. Uses reflection because the OpenXR package might not be there.
+        /// </summary>
+        static void DropQuest1()
+        {
+            try
+            {
+                const System.Reflection.BindingFlags any = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+                System.Type settingsType = null;
+                foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
+                    settingsType = settingsType ?? asm.GetType("UnityEngine.XR.OpenXR.OpenXRSettings", false);
+                var settings = settingsType?.GetMethod("GetSettingsForBuildTargetGroup", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                    ?.Invoke(null, new object[] { BuildTargetGroup.Android });
+                var getFeatures = settingsType?.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+                    .FirstOrDefault(m => m.Name == "GetFeatures" && !m.IsGenericMethodDefinition && m.GetParameters().Length == 0);
+                if (!(getFeatures?.Invoke(settings, null) is System.Array features)) return;
+                foreach (var feature in features)
+                {
+                    if (feature == null || feature.GetType().Name != "MetaQuestFeature") continue;
+                    if (!(feature.GetType().GetField("targetDevices", any)?.GetValue(feature) is System.Collections.IList devices)) return;
+                    for (int i = 0; i < devices.Count; i++)
+                    {
+                        object device = devices[i]; // a struct: change the copy, then put it back
+                        var name = device.GetType().GetField("manifestName", any)?.GetValue(device) as string;
+                        var enabled = device.GetType().GetField("enabled", any);
+                        if (name != "quest" || enabled == null) continue;
+                        enabled.SetValue(device, false);
+                        devices[i] = device;
+                        if (feature is Object o) EditorUtility.SetDirty(o);
+                    }
+                }
+            }
+            catch (System.Exception e) { Debug.LogWarning("[KartVR] Couldn't untick Quest 1: " + e.Message); }
         }
 
         const string LinkXmlPath = "Assets/KartVR/link.xml";
