@@ -111,8 +111,11 @@ namespace KartVR
         public bool IsAttachedTo(KartController kart) => kart != null && attachedKart == kart;
         public bool IsAttachedTo(PlayerAvatar avatar) => avatar != null && attachedAvatar == avatar;
 
+        bool handVisualsOn = true;
+
         void SetHandVisuals(bool visible)
         {
+            handVisualsOn = visible;
             // When a body is shown, its gloves are your hands; the rig's own spheres only show when detached.
             foreach (var h in new[] { leftHand, rightHand })
             {
@@ -236,6 +239,9 @@ namespace KartVR
         {
             ApplyXRPoses();
             RequestFloorTracking();
+            // Ball hands when you have no body: not on your player/kart yet, or an invisible moderator.
+            bool balls = attachedKart == null && attachedAvatar == null || ModPowers.InvisibleNow;
+            if (balls != handVisualsOn) SetHandVisuals(balls);
             CheckControllers();
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (!IsXR && !warnedNoVR && Time.realtimeSinceStartup > 6f)

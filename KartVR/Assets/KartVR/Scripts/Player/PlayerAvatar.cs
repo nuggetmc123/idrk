@@ -276,7 +276,8 @@ namespace KartVR
                 body.Build(look.paint, look.accent);
             }
 
-            bool show = Walking && (!IsLocal || (KartRig.Instance != null && KartRig.Instance.IsAttachedTo(this))) && !(kart != null && kart.Ghost);
+            bool show = Walking && (!IsLocal || (KartRig.Instance != null && KartRig.Instance.IsAttachedTo(this))) && !(kart != null && kart.Ghost) &&
+                        !(IsLocal && ModPowers.InvisibleNow); // invisible: no body at all, just ball hands (KartRig)
             body.SetVisible(show);
             if (nameTag && !IsLocal) nameTag.gameObject.SetActive(show);
             if (!show) return;

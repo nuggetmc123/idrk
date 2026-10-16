@@ -17,6 +17,9 @@ namespace KartVR
         /// <summary>A blaster in your right hand while walking: right trigger shoots, hits shove karts and players.</summary>
         public static bool Blaster;
 
+        /// <summary>You're an invisible moderator: your own body is hidden from you too, and you get ball hands.</summary>
+        public static bool InvisibleNow => Invisible && Moderation.IAmMod;
+
         public static void Reset() { Invisible = BuildAnywhere = Blaster = false; }
     }
 
