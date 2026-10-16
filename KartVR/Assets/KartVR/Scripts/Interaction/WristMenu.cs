@@ -259,7 +259,8 @@ namespace KartVR
             info.text = s.DescribeLobby();
             lobbyButton.SetLabel(s.IsPrivate ? "Leave Lobby" : "Create Private Lobby");
             // Build mode is a Free Roam thing.
-            buildButton.gameObject.SetActive(KartModeInfo.CanBuild(GameState.CurrentMode));
+            buildButton.gameObject.SetActive(KartModeInfo.CanBuild(GameState.CurrentMode) ||
+                ModPowers.BuildAnywhere && Moderation.IAmMod && GameState.CurrentMode != KartMode.Hub);
             buildButton.SetLabel(BuildMode.Active ? "Back to Kart" : "Build Mode");
             idLabel.text = "<b>" + PlayerProfile.Nickname + "   ID: " + PlayerIdentity.PlayerId + "</b>";
             modButton.gameObject.SetActive(Moderation.IAmMod);

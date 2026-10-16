@@ -106,7 +106,26 @@ namespace KartVR
             }
         }
 
-        KartController OwnKart()
+        /// <summary>An invisible moderator: hidden from everyone else.</summary>
+        public bool Ghost { get { var k = OwnKart(); return k != null && k.Ghost; } }
+
+        /// <summary>Where this player's right hand is (smoothed for other players).</summary>
+        public Vector3 RightHandPosition => IsLocal && KartRig.Instance != null ? KartRig.Instance.rightHand.position : sRight;
+        public Quaternion RightHandRotation => IsLocal && KartRig.Instance != null ? KartRig.Instance.rightHand.rotation : sRightRot;
+
+        Vector3 knock;
+
+        /// <summary>Hit by a moderator's blaster: a shove (capped so it can't fling you off the map).</summary>
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_Knock(Vector3 push)
+        {
+            push = Vector3.ClampMagnitude(push, 12f);
+            knock += new Vector3(push.x, 0f, push.z);
+            verticalVelocity = Mathf.Max(verticalVelocity, push.y);
+            AudioManager.PlayAt(AudioManager.Sfx.Bump, transform.position);
+        }
+
+        public KartController OwnKart()
         {
             if (!IsReady) return null;
             foreach (var k in KartController.All)
@@ -190,6 +209,8 @@ namespace KartVR
 
             if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -1f;
             verticalVelocity += Physics.gravity.y * Time.deltaTime;
+            move += knock;
+            knock = Vector3.MoveTowards(knock, Vector3.zero, 25f * Time.deltaTime);
             move.y = verticalVelocity;
             controller.Move(move * Time.deltaTime);
 
@@ -255,7 +276,7 @@ namespace KartVR
                 body.Build(look.paint, look.accent);
             }
 
-            bool show = Walking && (!IsLocal || (KartRig.Instance != null && KartRig.Instance.IsAttachedTo(this)));
+            bool show = Walking && (!IsLocal || (KartRig.Instance != null && KartRig.Instance.IsAttachedTo(this))) && !(kart != null && kart.Ghost);
             body.SetVisible(show);
             if (nameTag && !IsLocal) nameTag.gameObject.SetActive(show);
             if (!show) return;

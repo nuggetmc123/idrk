@@ -99,6 +99,7 @@ namespace KartVR
             else
             {
                 bool talking = Time.time - lastHeard < 0.25f;
+                if (avatar != null && avatar.Ghost) talking = false; // an invisible mod stays invisible
                 talkLight.gameObject.SetActive(talking);
                 if (talking) talkLight.position = speaker.transform.position + Vector3.up * 0.75f;
             }

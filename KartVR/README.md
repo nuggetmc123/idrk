@@ -80,6 +80,15 @@ rename**, or **Ban** 1 day / 7 days / forever (press twice). It shows their Play
 ban in moderation.json. Commands are **signed** with the mod's secret key and checked by the player's game, so a faked
 command does nothing.
 
+**Mod tools** (bottom row of the mod menu, only work for real moderators):
+- **Invisible:** nobody else sees you, your kart, your name or your talk light, and karts pass through you.
+- **Build anywhere:** build mode on every map, not just Free Roam / Tutorial Park (click the right stick in your kart).
+- **Blaster:** a toy laser blaster in your right hand while you're walking (hub, or out of your kart with Y). Pull the
+  right trigger: the bolt shoves karts and knocks players back (no damage). Everyone sees the bolt.
+
+Every player's game proves its Player ID with its secret key when it joins a server, and the mod tools, mod
+commands and build-anywhere pieces only work for a moderator who passed that check.
+
 **Anti-cheat.** There's no game server (Photon Shared Mode), so nothing is 100% hack-proof, but:
 - A modified copy of the APK can't go online (Android's genuine-app check). Banned players can still play solo.
 - Every headset watches the others: impossible speeds several checks in a row = flagged. Flagged players can't push

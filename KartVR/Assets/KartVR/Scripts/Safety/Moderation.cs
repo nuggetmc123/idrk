@@ -232,6 +232,7 @@ namespace KartVR
             StartCoroutine(Moderation.Fetch());
             gameObject.AddComponent<AntiCheat>();
             gameObject.AddComponent<NameEntry>();
+            gameObject.AddComponent<ModBlaster>();
             Moderation.Updated += () =>
             {
                 if (Moderation.IsBanned(out string why)) SessionManager.Instance?.Removed(why);

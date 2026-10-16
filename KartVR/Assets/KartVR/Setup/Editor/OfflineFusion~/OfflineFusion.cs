@@ -45,6 +45,12 @@ namespace Fusion
         public override string ToString() => "Player " + PlayerId;
     }
 
+    /// <summary>Who sent an RPC (offline it's always you).</summary>
+    public struct RpcInfo
+    {
+        public PlayerRef Source;
+    }
+
     public struct NetworkBool
     {
         bool value;

@@ -52,6 +52,68 @@ namespace KartVR
         /// <summary>The owner's Player ID and headset code (for the mod menu and bans).</summary>
         [Networked] public NetworkString<_16> PlayerId { get; set; }
         [Networked] public NetworkString<_16> DeviceHash { get; set; }
+        /// <summary>Moderator powers (only obeyed for a proven moderator, see <see cref="IsVerifiedMod"/>).</summary>
+        [Networked] public NetworkBool Hidden { get; set; }
+        [Networked] public NetworkBool BlasterOut { get; set; }
+
+        /// <summary>
+        /// This player proved (with their secret key) that the Player ID they send is really theirs. Checked on
+        /// every headset when they join, so nobody can copy a moderator's ID to get mod powers.
+        /// </summary>
+        public bool Verified { get; private set; }
+        public bool IsVerifiedMod => Verified && Moderation.IsMod(PlayerId.ToString());
+        /// <summary>Someone else's kart that a moderator made invisible.</summary>
+        public bool Ghost => !IsLocal && Hidden && IsVerifiedMod;
+        float lastHello = -10f;
+        bool ghostApplied;
+
+        static long UnixNow => System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        byte[] HelloBytes(long time) => System.Text.Encoding.UTF8.GetBytes("KVR-HELLO|" + PlayerId + "|" + Object.StateAuthority.PlayerId + "|" +
+            (SessionManager.Instance != null ? SessionManager.Instance.SessionName : "") + "|" + time);
+
+        void SendHello()
+        {
+            lastHello = Time.time;
+            long t = UnixNow;
+            RPC_Hello(t, PlayerIdentity.PublicModulus, PlayerIdentity.Sign(HelloBytes(t)));
+        }
+
+        /// <summary>"This ID is mine": the owner signs their ID, this session and the time; everyone checks it.</summary>
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        public void RPC_Hello(long time, byte[] key, byte[] signature)
+        {
+            if (IsLocal) { Verified = true; return; }
+            if (System.Math.Abs(UnixNow - time) > 600) return;
+            if (PlayerIdentity.Fingerprint(key) != PlayerId.ToString()) return;
+            if (PlayerIdentity.Verify(key, HelloBytes(time), signature)) Verified = true;
+        }
+
+        /// <summary>A late joiner asks the owner to prove their ID again.</summary>
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestHello()
+        {
+            if (Time.time - lastHello > 1f) SendHello();
+        }
+
+        /// <summary>A moderator's blaster shot, for everyone else to see.</summary>
+        [Rpc(RpcSources.StateAuthority, RpcTargets.Proxies)]
+        public void RPC_BlastFx(Vector3 from, Vector3 to)
+        {
+            if (IsVerifiedMod) ModBlaster.ShowShot(from, to);
+        }
+
+        /// <summary>Invisible moderator: hide the kart, driver and name for everyone else (and let karts pass through).</summary>
+        void ApplyGhost()
+        {
+            bool ghost = Ghost;
+            if (ghost == ghostApplied && (!ghost || Time.frameCount % 30 != 0)) return;
+            bool changed = ghost != ghostApplied;
+            ghostApplied = ghost;
+            if (ghost) foreach (var r in GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+            else if (changed) foreach (var r in GetComponentsInChildren<Renderer>(true)) r.enabled = true; // the driver/name fix themselves next frame
+            if (changed) foreach (var c in GetComponentsInChildren<Collider>(true)) c.enabled = !ghost;
+        }
 
         string checkedName, shownName;
         /// <summary>The name to show for this player. A rude name (only possible with a hacked game) shows as "Player".</summary>
@@ -154,6 +216,8 @@ namespace KartVR
                 Nickname = PlayerProfile.Nickname;
                 PlayerId = PlayerIdentity.PlayerId;
                 DeviceHash = PlayerIdentity.DeviceHash;
+                Verified = true;
+                SendHello();
                 LookPacked = PlayerProfile.Look.Pack();
                 GarageIndex = -1;
                 NetPosition = transform.position;
@@ -164,6 +228,7 @@ namespace KartVR
                 rb.isKinematic = true;
                 rb.interpolation = RigidbodyInterpolation.None;
                 seenTeleport = TeleportCount;
+                RPC_RequestHello();
             }
             visuals.Apply(Look);
         }
@@ -227,6 +292,8 @@ namespace KartVR
             steer = wheel.Steer;
             driftHeld = KartInput.DriftHeld;
             DriverOut = OnFoot.Active;
+            Hidden = ModPowers.Invisible && Moderation.IAmMod;
+            BlasterOut = ModPowers.Blaster && Moderation.IAmMod;
             if (OnFoot.Active) { gas = brake = 0f; steer = 0f; driftHeld = false; } // the triggers mean nothing to an empty kart
 
             ClaimGarage();
@@ -712,6 +779,7 @@ namespace KartVR
 
             visuals.Apply(Look);
             visuals.SetBoosting(Boosting);
+            if (!IsLocal) ApplyGhost();
 
             float steerVisual = IsLocal ? steer : NetSteer;
             if (Parked) steerVisual = 0f;

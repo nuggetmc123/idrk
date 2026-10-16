@@ -66,6 +66,8 @@ namespace KartVR
         /// <summary>Why the last online attempt failed (shown on the hub boards and the menu).</summary>
         public string OnlineError { get; private set; } = "";
         public string LobbyCode { get; private set; }
+        /// <summary>The Photon session we're in (part of what each player signs to prove their ID).</summary>
+        public string SessionName { get; private set; } = "";
         public bool Busy { get; private set; }
         /// <summary>Which numbered public server you're on (1, 2, 3...). People on the same hub server go through portals together.</summary>
         public int ServerNumber { get; private set; } = 1;
@@ -458,6 +460,7 @@ namespace KartVR
             hasConnectedOnce = true;
 
             joinedAt = -1f;
+            SessionName = args.SessionName ?? "";
             RequestedMode = mode;
             IsPrivate = isPrivate;
             IsSolo = false;
