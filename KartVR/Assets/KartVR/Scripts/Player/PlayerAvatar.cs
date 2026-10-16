@@ -71,6 +71,7 @@ namespace KartVR
             {
                 Local = this;
                 body.SetHeadVisible(false);
+                body.HideWholeBodyFromSelf();
                 if (nameTag) nameTag.gameObject.SetActive(false);
                 FeetPos = transform.position;
             }

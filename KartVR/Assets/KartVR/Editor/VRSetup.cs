@@ -111,6 +111,23 @@ namespace KartVR.EditorTools
             return true;
         }
 
+        /// <summary>
+        /// What's still missing for the Quest (Android) build to start in VR with working controllers.
+        /// Empty = all good. Without these the APK opens as a flat window and the controllers do nothing.
+        /// </summary>
+        public static List<string> QuestProblems()
+        {
+            var problems = new List<string>();
+            var manager = GetManagerSettings(BuildTargetGroup.Android);
+            if (manager == null || !HasOpenXRLoader(manager))
+                problems.Add("OpenXR isn't ticked on the Android tab of XR Plug-in Management");
+            if (CountFeatures(BuildTargetGroup.Android, true, ControllerProfiles) == 0)
+                problems.Add("No Quest controller profile on Android (OpenXR > Android tab > Interaction Profiles > + > Oculus Touch Controller Profile)");
+            if (CountFeatures(BuildTargetGroup.Android, true, "MetaQuestFeature") == 0)
+                problems.Add("Meta Quest Support isn't ticked (OpenXR > Android tab > OpenXR Feature Groups)");
+            return problems;
+        }
+
         static bool PackagesInstalled() =>
             FindType("UnityEngine.XR.OpenXR.OpenXRLoader") != null &&
             FindType("UnityEditor.XR.Management.Metadata.XRPackageMetadataStore") != null;
@@ -245,7 +262,10 @@ namespace KartVR.EditorTools
         }
 
         /// <summary>Turn on OpenXR features (controller profiles, Meta Quest support) by class name. Returns how many are on.</summary>
-        static int EnableFeatures(BuildTargetGroup group, params string[] typeNames)
+        static int EnableFeatures(BuildTargetGroup group, params string[] typeNames) => CountFeatures(group, false, typeNames);
+
+        /// <summary>Counts the named OpenXR features; switches them on first unless onlyCountEnabled.</summary>
+        static int CountFeatures(BuildTargetGroup group, bool onlyCountEnabled, params string[] typeNames)
         {
             try
             {
@@ -271,6 +291,11 @@ namespace KartVR.EditorTools
                     if (f == null || !typeNames.Contains(f.GetType().Name)) continue;
                     var enabled = f.GetType().GetProperty("enabled", BindingFlags.Public | BindingFlags.Instance);
                     if (enabled == null) continue;
+                    if (onlyCountEnabled)
+                    {
+                        if (enabled.GetValue(f) is bool isOn && isOn) on++;
+                        continue;
+                    }
                     enabled.SetValue(f, true);
                     if (f is UnityEngine.Object o) EditorUtility.SetDirty(o);
                     on++;

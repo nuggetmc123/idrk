@@ -21,6 +21,7 @@ namespace KartVR
     {
         int builtPaint = -1, builtAccent = -1;
         bool headVisible = true;
+        bool wholeBodyHiddenFromSelf;
         ModelRig model;
         PrimitiveRig prims;
 
@@ -40,6 +41,17 @@ namespace KartVR
             }
             if (model == null) prims = PrimitiveRig.Create(transform, paint, accent);
             SetHeadVisible(headVisible);
+            if (wholeBodyHiddenFromSelf) HideWholeBodyFromSelf();
+        }
+
+        /// <summary>
+        /// Walking around: you don't see your own body at all (it looked odd from inside), only your hands.
+        /// Everyone else still sees it.
+        /// </summary>
+        public void HideWholeBodyFromSelf()
+        {
+            wholeBodyHiddenFromSelf = true;
+            foreach (var r in GetComponentsInChildren<Renderer>(true)) SetHidden(r, true);
         }
 
         /// <summary>Hide your own helmet in first person so it doesn't block the camera.</summary>

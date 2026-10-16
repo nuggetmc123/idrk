@@ -37,6 +37,16 @@ namespace KartVR.EditorTools
                 EditorUtility.DisplayDialog("Kart VR - Build for Quest", "VR support isn't installed yet. Click KartVR > Set Up VR (Quest) first, then build again.", "OK");
                 return;
             }
+            var vrProblems = VRSetup.QuestProblems();
+            if (vrProblems.Count > 0)
+            {
+                SettingsService.OpenProjectSettings("Project/XR Plug-in Management");
+                EditorUtility.DisplayDialog("Kart VR - Build for Quest",
+                    "The APK would open as a flat window with no controllers (you couldn't move). Unity didn't let me switch these on, " +
+                    "so please tick them on the ANDROID tab (robot icon) of the page that just opened, then build again:\n\n- " +
+                    string.Join("\n- ", vrProblems), "OK");
+                return;
+            }
             if (!CheckMultiplayer()) return;
             if (!KartWorldBuilder.WorldUpToDate &&
                 EditorUtility.DisplayDialog("Kart VR - Build for Quest", "The game world is out of date. Rebuild it first? (Recommended)", "Rebuild world", "Build as is"))

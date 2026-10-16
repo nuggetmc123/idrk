@@ -179,6 +179,10 @@ the APK onto it. It shows up in your library under **Unknown Sources**.
    appears in their store/library on the headset to download.
 5. Each update: build again (the version number goes up by itself) and upload to the same channel.
 
+**If the APK opens as a flat window / you can't move.** VR didn't start on the headset. **Build for Quest** now checks
+the Android OpenXR settings (OpenXR ticked, Oculus Touch Controller Profile, Meta Quest Support) and won't build until
+they're on. It opens the page to tick them.
+
 **If the APK can't join a lobby.** The hub's info board and the server board say why. Usually it's one of these:
 - **No Photon App ID in the build.** Paste it in **KartVR > Set Up Multiplayer**, then build again. The build menu now
   copies it into Fusion's settings by itself and warns you if it's missing.

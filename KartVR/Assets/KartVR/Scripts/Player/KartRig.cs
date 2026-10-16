@@ -128,7 +128,8 @@ namespace KartVR
             transform.SetParent(avatar.transform, false);
             transform.localPosition = Vector3.zero;
             transform.localRotation = Quaternion.identity;
-            SetHandVisuals(false);
+            SetHandVisuals(true); // your walking body is hidden from you, so show the rig's own hands
+            
             ScheduleRecenter();
         }
 
@@ -199,10 +200,39 @@ namespace KartVR
             transform.position += offset;
         }
 
+        bool floorTracking, warnedNoVR;
+
+        /// <summary>
+        /// Ask the headset to measure height from the floor (on Quest standalone it can start at eye level,
+        /// which put you half under the ground).
+        /// </summary>
+        void RequestFloorTracking()
+        {
+            if (floorTracking || !IsXR) return;
+            var inputs = new System.Collections.Generic.List<XRInputSubsystem>();
+            SubsystemManager.GetSubsystems(inputs);
+            foreach (var input in inputs)
+            {
+                if (!input.running) continue;
+                if ((input.GetSupportedTrackingOriginModes() & TrackingOriginModeFlags.Floor) != 0)
+                    input.TrySetTrackingOriginMode(TrackingOriginModeFlags.Floor);
+                floorTracking = true;
+                ScheduleRecenter();
+            }
+        }
+
         void Update()
         {
             ApplyXRPoses();
+            RequestFloorTracking();
             CheckControllers();
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (!IsXR && !warnedNoVR && Time.realtimeSinceStartup > 6f)
+            {
+                warnedNoVR = true;
+                SessionManager.Instance?.SetStatus("VR didn't start, so the controllers can't work. In Unity: KartVR > Set Up VR (Quest), then build the APK again.", 120f);
+            }
+#endif
             ChooseAttachment();
 
             if (recenterAt > 0f && Time.time >= recenterAt) { recenterAt = -1f; Recenter(); }
