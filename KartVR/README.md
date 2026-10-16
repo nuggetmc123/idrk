@@ -240,7 +240,7 @@ the APK onto it. It shows up in your library under **Unknown Sources**.
    Utility).
 4. In the dashboard, invite friends to that channel by email or with an **invite link**. They accept, and the game
    appears in their store/library on the headset to download.
-5. Each update: build again (the version number goes up by itself) and upload to the same channel.
+5. Each update: build again (the version code is the build time, so it always goes up, even in a fresh copy of the project) and upload to the same channel.
 
 **If the APK opens as a flat window / you can't move.** VR didn't start on the headset. **Build for Quest** now checks
 the Android OpenXR settings (OpenXR ticked, Oculus Touch Controller Profile, Meta Quest Support) and won't build until

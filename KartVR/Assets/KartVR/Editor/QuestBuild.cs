@@ -158,7 +158,11 @@ namespace KartVR.EditorTools
 
             // The store refuses an upload whose version code isn't higher than the last one.
             if (string.IsNullOrEmpty(PlayerSettings.bundleVersion) || PlayerSettings.bundleVersion == "0.1") PlayerSettings.bundleVersion = "1.0";
-            PlayerSettings.Android.bundleVersionCode = Mathf.Max(1, PlayerSettings.Android.bundleVersionCode + 1);
+            // Counting up from the project's saved number broke whenever a fresh copy of the project was opened (the
+            // count started again from an old number). So the code is the number of minutes since 2025: every build
+            // is higher than every build before it, on any computer or project copy.
+            int byClock = (int)((System.DateTime.UtcNow - new System.DateTime(2025, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)).TotalMinutes);
+            PlayerSettings.Android.bundleVersionCode = Mathf.Max(PlayerSettings.Android.bundleVersionCode + 1, byClock);
             AssetDatabase.SaveAssets();
         }
 
