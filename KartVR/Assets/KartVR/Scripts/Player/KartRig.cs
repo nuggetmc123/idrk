@@ -43,6 +43,9 @@ namespace KartVR
             // A fresh scene load brings a fresh rig; drop any old one that survived.
             if (Instance != null && Instance != this) Destroy(Instance.gameObject);
             Instance = this;
+            // Your own helmet is on a layer only the Quest Cam sees (see AvatarBody.HiddenFromSelfLayer).
+            var cam = head != null ? head.GetComponent<Camera>() : null;
+            if (cam != null) cam.cullingMask &= ~(1 << AvatarBody.HiddenFromSelfLayer);
         }
 
         void OnEnable() { Application.onBeforeRender += ApplyXRPoses; }

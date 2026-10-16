@@ -199,7 +199,8 @@ namespace KartVR
             var rig = KartRig.Instance;
             bool seated = KartRig.IsXR && rig != null && rig.IsAttachedTo(this) && !Parked && GameSettings.GrabWheel;
             wheel.Tick(visuals.SteeringWheel, seated ? rig.leftHand : null, seated ? rig.rightHand : null,
-                KartInput.LeftGripHeld, KartInput.RightGripHeld, Parked ? 0f : KartInput.Steer, seated, Time.deltaTime);
+                KartInput.LeftGripHeld && !QuestCam.HeldBy(XRNode.LeftHand), KartInput.RightGripHeld && !QuestCam.HeldBy(XRNode.RightHand),
+                Parked ? 0f : KartInput.Steer, seated, Time.deltaTime);
             steer = wheel.Steer;
             driftHeld = KartInput.DriftHeld;
 

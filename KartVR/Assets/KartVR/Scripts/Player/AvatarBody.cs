@@ -43,6 +43,17 @@ namespace KartVR
         }
 
         /// <summary>Hide your own helmet in first person so it doesn't block the camera.</summary>
+        /// <summary>
+        /// Your own helmet goes on this layer instead of being switched off: your VR camera skips it (so it
+        /// doesn't block your view) but the Quest Cam still sees it, so recordings don't show you headless.
+        /// </summary>
+        public const int HiddenFromSelfLayer = 30;
+
+        static void SetHidden(Renderer r, bool hiddenFromSelf)
+        {
+            if (r) r.gameObject.layer = hiddenFromSelf ? HiddenFromSelfLayer : 0;
+        }
+
         public void SetHeadVisible(bool visible)
         {
             headVisible = visible;
@@ -267,7 +278,7 @@ namespace KartVR
 
             public void SetHeadVisible(bool visible)
             {
-                foreach (var r in headParts) if (r) r.enabled = visible;
+                foreach (var r in headParts) SetHidden(r, !visible);
             }
 
             /// <summary>Point a segment bone from `from` towards `to`, turning it the least from its rest direction.</summary>
@@ -364,8 +375,8 @@ namespace KartVR
 
             public void SetHeadVisible(bool visible)
             {
-                if (helmet) foreach (var r in helmet.GetComponentsInChildren<Renderer>()) r.enabled = visible;
-                if (neck) neck.GetComponent<Renderer>().enabled = visible;
+                if (helmet) foreach (var r in helmet.GetComponentsInChildren<Renderer>()) SetHidden(r, !visible);
+                if (neck) SetHidden(neck.GetComponent<Renderer>(), !visible);
             }
 
             public void Pose(Vector3 hips, Quaternion bodyRot, Vector3 headPos, Quaternion headRot,

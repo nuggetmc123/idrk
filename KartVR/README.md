@@ -86,11 +86,23 @@ Bouncer, Boost Hoop, Block.
 
 ### The menu (three-lines button)
 It starts closed. Press the **menu button** on your left controller to open it above your left hand, and poke it
-with your right hand. Three pages:
+with your right hand. Four pages:
 - **Menu:** Recenter, Respawn, Hub, Create/Leave Lobby, Build Mode (in Free Roam), plus your server/lobby info.
 - **Sound:** sound effects volume and music volume (- / +).
 - **Controls:** turning style (Snap 30°, Snap 45° or Smooth), steering (grab the wheel, or left stick only), and a
   list of the controls.
+- **Camera:** **Spawn Quest Cam** / Remove Quest Cam, Follows you / Stays put, Zoom, Bring Cam Here.
+
+### Quest Cam (recording yourself)
+Spawn it from **Menu > Camera > Spawn Quest Cam**. It appears in front of you, looking at you. **Grab it with grip**
+and put it wherever you like; let go and it stays there. A live preview shows on its back screen.
+- **Follows you** (default): it keeps its spot next to you, even riding along with your kart. **Stays put**: it
+  stays where you left it in the world.
+- **On PC (Quest Link / SteamVR)** your monitor shows the Quest Cam's view instead of your eyes, so record the game
+  window with OBS (or Win+Alt+R in Game Bar). Remove the cam and the monitor shows your eyes again.
+- **On a standalone Quest** the headset's own recorder films what *you* see; the cam's view is on its preview screen.
+- Footage is smoothed so hand wobble doesn't show, and your own helmet shows up on camera (it's only hidden from
+  your own eyes). The cam is only on your computer: other players don't see it.
 
 ### Sound and music
 Engine hum (pitch follows your speed), boosts, bumps, checkpoint dings, lap and finish fanfares, countdown beeps,
