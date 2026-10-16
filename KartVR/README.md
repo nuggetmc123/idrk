@@ -104,7 +104,8 @@ messages underneath. (The old floating speed text is gone.)
 | **Booster** (if your kart has one) | A | Left Shift |
 | Respawn | B | R |
 | Run (hub) | Click the right thumbstick (you stop running when you stop walking) | Shift |
-| Recenter view | Click the left thumbstick | C |
+| **Get out and walk** (any map) / get back in | **Y** | Y |
+| Recenter view | Menu > Recenter | C |
 | **Menu + settings** | **Menu button** (three lines, left controller) | Tab / Esc |
 | Press buttons | Touch them with your hand, **or point the laser and pull the trigger** | Left click |
 | Look around | Your head | Hold right mouse |
@@ -145,7 +146,7 @@ with your right hand (or point at it and pull the trigger). Four pages:
 ### Voice chat
 Talk to everyone on your server: their voices come from their head (or their kart), and a **green light** shows above
 whoever is talking. It runs through Photon Fusion, so there's nothing extra to install.
-- **Open mic** (default) sends only while you're actually speaking; **push-to-talk** sends while you hold **Y**
+- **Open mic** (default) sends only while you're actually speaking; **push-to-talk** sends while you hold the **left thumbstick in**
   (V on the keyboard); **Muted** turns your mic off. Change it in **Menu > Voice**.
 - **Mic Test** plays your own voice back through the whole send/receive path, to check your mic works.
 - On Quest the headset asks for microphone permission the first time; say **Allow**. (If you said no: Settings > Apps

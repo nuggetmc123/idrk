@@ -10,7 +10,7 @@ namespace KartVR
         const string SfxKey = "kartvr.sfxVolume", MusicKey = "kartvr.musicVolume", EngineKey = "kartvr.engineVolume",
             TurnKey = "kartvr.turnStyle", WheelKey = "kartvr.grabWheel", MicKey = "kartvr.micMode", VoiceKey = "kartvr.voiceVolume";
 
-        /// <summary>Voice chat: open mic (talks when you speak), push-to-talk (hold Y) or muted.</summary>
+        /// <summary>Voice chat: open mic (talks when you speak), push-to-talk (hold the left stick in) or muted.</summary>
         public static MicMode Mic
         {
             get => (MicMode)Mathf.Clamp(PlayerPrefs.GetInt(MicKey, 0), 0, 2);

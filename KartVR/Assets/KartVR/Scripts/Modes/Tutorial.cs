@@ -75,8 +75,13 @@ namespace KartVR
             createdAt = Time.time;
             steps = new[]
             {
+                // ---------------- Getting out and walking
+                new Step { title = "WELCOME TO KART VR!", text = "This quick tutorial teaches you to <b>walk</b>, <b>drive</b> and <b>build</b>.\n\nFirst, press <b>Y</b> (left controller) to <b>get out of your kart</b>.",
+                    done = () => OnFoot.Active },
+                new Step { title = "WALKING", text = "Walk with the <b>LEFT STICK</b>, turn with the <b>RIGHT STICK</b>, and click the <b>RIGHT STICK</b> in to run.\nYou can get out and walk like this on every map.\n\nPress <b>Y</b> again to get back in your kart.",
+                    done = () => !OnFoot.Active },
                 // ---------------- Driving
-                new Step { title = "WELCOME TO KART VR!", text = "This quick tutorial teaches you to <b>drive</b> and to <b>build</b>.\n\nHold the <b>RIGHT TRIGGER</b> to drive forward.",
+                new Step { title = "LET'S DRIVE", text = "Hold the <b>RIGHT TRIGGER</b> to drive forward.",
                     done = () => Mph > 8f },
                 new Step { title = "STEERING", text = "Grab the steering wheel with both <b>GRIPS</b> and turn it like a real wheel,\nor push the <b>LEFT STICK</b> left and right.\n\nDrive in a full circle!",
                     begin = () => turned = 0f, done = () => turned > 300f },
@@ -105,7 +110,7 @@ namespace KartVR
                 new Step { title = "BACK TO YOUR KART", text = "Click the <b>RIGHT STICK</b> again to jump back into your kart.\nTry driving over what you built!",
                     done = () => !BuildMode.Active },
                 // ---------------- Finish
-                new Step { title = "YOU'RE READY!", text = "The <b>three-lines button</b> opens the menu: settings, voice chat and private lobbies.\nIn the hub, walk with the left stick and <b>click the right stick to run</b>.\n\nPress <b>PLAY!</b> to go to the hub and race with everyone.",
+                new Step { title = "YOU'RE READY!", text = "The <b>three-lines button</b> opens the menu: settings, voice chat and private lobbies.\n<b>Y</b> gets you out of your kart on any map; hold the <b>left stick in</b> to talk (push-to-talk).\n\nPress <b>PLAY!</b> to go to the hub and race with everyone.",
                     done = () => false },
             };
         }

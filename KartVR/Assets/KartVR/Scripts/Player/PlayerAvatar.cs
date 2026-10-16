@@ -31,10 +31,14 @@ namespace KartVR
         [Networked] Vector3 FeetPos { get; set; }
         [Networked] float MoveSpeed { get; set; }
         [Networked] int TeleportCount { get; set; }
+        /// <summary>Out of the kart walking around (on a map that isn't the hub).</summary>
+        [Networked] NetworkBool OutOfKart { get; set; }
 
         public bool IsReady => Object != null && Object.IsValid;
         public bool IsLocal { get; private set; }
         public bool InHub => GameState.CurrentMode == KartMode.Hub;
+        /// <summary>On foot: always in the hub, and on other maps after pressing Y to get out of the kart.</summary>
+        public bool Walking => InHub || (IsLocal ? OnFoot.Active : (bool)OutOfKart);
 
         CharacterController controller;
         AvatarBody body;
@@ -89,7 +93,7 @@ namespace KartVR
         {
             get
             {
-                if (InHub)
+                if (Walking)
                 {
                     if (IsLocal && KartRig.Instance != null) return KartRig.Instance.head.position;
                     return HeadPos;
@@ -119,6 +123,13 @@ namespace KartVR
             FeetPos = feet;
         }
 
+        /// <summary>Hub: back to the spawn plaza. Other maps: back beside your kart.</summary>
+        public void Respawn()
+        {
+            if (InHub) RespawnInHub();
+            else OnFoot.PlaceNextToKart();
+        }
+
         public void RespawnInHub()
         {
             var area = SpawnArea.Get(KartMode.Hub);
@@ -138,12 +149,15 @@ namespace KartVR
             {
                 placed = true;
                 lastMode = mode;
+                OnFoot.Reset(); // a new map: you start in your kart
                 if (mode == KartMode.Hub) RespawnInHub();
             }
-            controller.enabled = InHub;
-            if (!InHub) return;
+            // Y: get out of the kart / back in (any map but the hub, where you always walk).
+            if (!InHub && KartInput.ExitKartPressed) OnFoot.Toggle();
+            controller.enabled = Walking;
+            if (!Walking) return;
 
-            if (KartInput.RespawnPressed) RespawnInHub();
+            if (KartInput.RespawnPressed) Respawn();
 
             var rig = KartRig.Instance;
             if (rig == null || !rig.IsAttachedTo(this)) return;
@@ -177,13 +191,13 @@ namespace KartVR
             move.y = verticalVelocity;
             controller.Move(move * Time.deltaTime);
 
-            if (transform.position.y < -10f) RespawnInHub();
-            // The invisible barrier at the edge of the hub's sky dome.
-            if (KartMaps.OutOfBounds(KartMode.Hub, rig.head.position))
+            if (transform.position.y < KartMaps.Get(mode).center.y - 10f) Respawn();
+            // The invisible barrier at the edge of the map's sky dome.
+            if (KartMaps.OutOfBounds(mode, rig.head.position))
             {
                 if (SessionManager.Instance != null) SessionManager.Instance.SetStatus("Out of bounds! Back you go.", 2f);
                 AudioManager.Play(AudioManager.Sfx.Error);
-                RespawnInHub();
+                Respawn();
             }
         }
 
@@ -199,6 +213,7 @@ namespace KartVR
             RightPos = rig.rightHand.position;
             RightRot = rig.rightHand.rotation;
             FeetPos = new Vector3(rig.head.position.x, transform.position.y, rig.head.position.z);
+            OutOfKart = OnFoot.Active;
             Vector3 v = controller.velocity;
             v.y = 0f;
             MoveSpeed = v.magnitude;
@@ -226,7 +241,7 @@ namespace KartVR
                 body.Build(look.paint, look.accent);
             }
 
-            bool show = InHub && (!IsLocal || (KartRig.Instance != null && KartRig.Instance.IsAttachedTo(this)));
+            bool show = Walking && (!IsLocal || (KartRig.Instance != null && KartRig.Instance.IsAttachedTo(this)));
             body.SetVisible(show);
             if (nameTag && !IsLocal) nameTag.gameObject.SetActive(show);
             if (!show) return;

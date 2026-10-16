@@ -14,7 +14,8 @@ namespace KartVR
     /// Driving (VR): Right trigger = gas, Left trigger = brake/reverse,
     ///           Grip = grab the steering wheel and turn it with your hands
     ///           (or steer with the left stick), X = drift, A = booster,
-    ///           B = respawn, left stick click = recenter view, menu button (three lines) = menu + settings.
+    ///           B = respawn, Y = get out and walk (Y again = back in), menu button (three lines) = menu + settings.
+    ///           Hold the left stick in = push-to-talk. Recenter is in the menu.
     /// Walking (VR, hub): Left stick = walk (click the right stick to run), Right stick = snap turn.
     /// Build mode (Free Roam): right stick click / B key; see the Build* properties below.
     /// Keyboard: W/S or arrows = gas/brake (walk), A/D = steer (strafe),
@@ -25,7 +26,7 @@ namespace KartVR
     public static class KartInput
     {
         static InputAction gas, brake, steer, drift, respawn, recenter, menu, boost, move, turn, gripLeft, gripRight,
-            flyUp, runClick, buildToggle, buildPlace, buildDelete, buildRotate, buildNext, buildPrev;
+            flyUp, runClick, exitKart, buildToggle, buildPlace, buildDelete, buildRotate, buildNext, buildPrev;
         static bool initialized;
 
         static void Init()
@@ -66,7 +67,6 @@ namespace KartVR
             respawn.AddBinding("<Keyboard>/r");
 
             recenter = new InputAction("Recenter", InputActionType.Button);
-            recenter.AddBinding("<XRController>{LeftHand}/{Primary2DAxisClick}");
             recenter.AddBinding("<Gamepad>/select");
             recenter.AddBinding("<Keyboard>/c");
 
@@ -112,6 +112,9 @@ namespace KartVR
             runClick = new InputAction("Run", InputActionType.Button);
             runClick.AddBinding("<Gamepad>/leftStickPress");
             runClick.Enable();
+            exitKart = new InputAction("ExitKart", InputActionType.Button);
+            exitKart.AddBinding("<Keyboard>/y");
+            exitKart.Enable();
             buildToggle = new InputAction("BuildToggle", InputActionType.Button);
             buildToggle.AddBinding("<Keyboard>/b");
             buildToggle.AddBinding("<Gamepad>/rightStickPress");
@@ -169,7 +172,10 @@ namespace KartVR
 
         // "Pressed this frame" checks only work reliably from Update, not FixedUpdate.
         public static bool RespawnPressed { get { Init(); return Pressed(0, respawn, XRNode.RightHand, XRUsages.secondaryButton); } }
-        public static bool RecenterPressed { get { Init(); return Pressed(1, recenter, XRNode.LeftHand, XRUsages.primary2DAxisClick); } }
+        /// <summary>Recenter: the menu button for it, or C on the keyboard (the left stick click is push-to-talk now).</summary>
+        public static bool RecenterPressed { get { Init(); return recenter.WasPressedThisFrame(); } }
+        /// <summary>Y: get out of your kart and walk around, Y again to get back in.</summary>
+        public static bool ExitKartPressed { get { Init(); return Pressed(5, exitKart, XRNode.LeftHand, XRUsages.secondaryButton); } }
         public static bool MenuPressed { get { Init(); return Pressed(2, menu, XRNode.LeftHand, XRUsages.menuButton); } }
 
         // ---------------- Build mode (Free Roam) ----------------
@@ -187,8 +193,8 @@ namespace KartVR
         public static bool BuildRotateHeld { get { Init(); return buildRotate.IsPressed() || XRGrip(XRNode.RightHand); } }
         public static bool BuildNextHeld { get { Init(); return buildNext.IsPressed() || XRBtn(XRNode.RightHand, XRUsages.primaryButton); } }
         public static bool BuildPrevHeld { get { Init(); return buildPrev.IsPressed() || XRBtn(XRNode.LeftHand, XRUsages.primaryButton); } }
-        /// <summary>Push-to-talk: hold Y (left controller), or V on the keyboard.</summary>
-        public static bool TalkHeld { get { Init(); return XRBtn(XRNode.LeftHand, XRUsages.secondaryButton) || Keyboard.current != null && Keyboard.current.vKey.isPressed; } }
+        /// <summary>Push-to-talk: hold the left stick in, or V on the keyboard.</summary>
+        public static bool TalkHeld { get { Init(); return XRBtn(XRNode.LeftHand, XRUsages.primary2DAxisClick) || Keyboard.current != null && Keyboard.current.vKey.isPressed; } }
         public static bool BuildFastHeld { get { Init(); return XRGrip(XRNode.LeftHand) || Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed; } }
         public static float FlyVertical { get { Init(); return Mathf.Clamp(Strongest(flyUp.ReadValue<float>(), XRAxis(XRNode.RightHand, XRUsages.primary2DAxis).y), -1f, 1f); } }
 
@@ -225,9 +231,9 @@ namespace KartVR
 
         // ---------------- "pressed this frame" for buttons read two ways
 
-        static readonly bool[] xrWas = new bool[5], xrNow = new bool[5];
-        static readonly int[] xrFrame = { -1, -1, -1, -1, -1 }, firedFrame = { -1, -1, -1, -1, -1 };
-        static readonly float[] quietUntil = new float[5];
+        static readonly bool[] xrWas = new bool[6], xrNow = new bool[6];
+        static readonly int[] xrFrame = { -1, -1, -1, -1, -1, -1 }, firedFrame = { -1, -1, -1, -1, -1, -1 };
+        static readonly float[] quietUntil = new float[6];
 
         /// <summary>
         /// One physical press = one "pressed". The button is read through the Input System AND Unity's XR API

@@ -113,7 +113,7 @@ namespace KartVR
             wheelButton = PokeButton.Create(root, "Wheel", "", new Vector3(0f, 0.004f, 0f), wide, new Color(0.7f, 0.75f, 1f), ToggleWheel, 0.1f);
             KartUI.Label(root,
                 "<b>Drive:</b> R trigger gas, L trigger brake, grab wheel (grip)\n" +
-                "X drift  A boost  B respawn  L stick click recenter\n" +
+                "X drift  A boost  B respawn  Y get out / in\n" +
                 "<b>Walk:</b> L stick (click R stick = run), R stick turn\n" +
                 "<b>Free Roam:</b> R stick click = build mode",
                 new Vector3(0f, -0.06f, 0f), 0.065f, new Color(0.85f, 0.9f, 1f), new Vector2(0.24f, 0.07f));
@@ -150,7 +150,7 @@ namespace KartVR
         void RefreshVoice()
         {
             var mode = GameSettings.Mic;
-            micButton?.SetLabel(mode == MicMode.Open ? "Mic: open (talk any time)" : mode == MicMode.PushToTalk ? "Mic: push-to-talk (hold Y)" : "Mic: muted");
+            micButton?.SetLabel(mode == MicMode.Open ? "Mic: open (talk any time)" : mode == MicMode.PushToTalk ? "Mic: push-to-talk (hold L stick in)" : "Mic: muted");
             micButton?.SetColor(mode == MicMode.Muted ? new Color(1f, 0.5f, 0.5f) : new Color(0.5f, 1f, 0.6f));
             micTestButton?.SetLabel(VoiceChat.MicTest ? "Mic Test: ON (tap to stop)" : "Mic Test: off");
             if (voiceBar) voiceBar.text = Bar(GameSettings.VoiceVolume);
@@ -170,7 +170,7 @@ namespace KartVR
 
         static void Respawn()
         {
-            if (GameState.CurrentMode == KartMode.Hub) PlayerAvatar.Local?.RespawnInHub();
+            if (GameState.CurrentMode == KartMode.Hub || OnFoot.Active) PlayerAvatar.Local?.Respawn();
             else KartController.Local?.Respawn();
         }
 

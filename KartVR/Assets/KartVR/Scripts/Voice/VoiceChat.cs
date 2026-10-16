@@ -10,7 +10,7 @@ namespace KartVR
     /// Lives on each player's Player object.
     ///
     /// Your side: records the headset mic at 16 kHz, only sends while you're talking
-    /// (or holding Y in push-to-talk), squeezes it with <see cref="VoiceCodec"/> and sends
+    /// (or holding the left stick in, in push-to-talk), squeezes it with <see cref="VoiceCodec"/> and sends
     /// 40 ms packets to the other players.
     /// Their side: a <see cref="JitterBuffer"/> smooths out the network and a 3D sound
     /// plays from the talker's head (or their kart). A light shows above them while they talk.
@@ -145,7 +145,7 @@ namespace KartVR
                 if (talking) RPC_Voice(bytes);
                 if (MicTest) Hear(bytes);
             }
-            MicStatus = mode == MicMode.PushToTalk ? (KartInput.TalkHeld ? "Talking (holding Y)" : "Hold Y to talk") : Sending ? "Talking" : "Open mic";
+            MicStatus = mode == MicMode.PushToTalk ? (KartInput.TalkHeld ? "Talking (holding the left stick in)" : "Hold the left stick in to talk") : Sending ? "Talking" : "Open mic";
         }
 
         void ReadMic(int start, int count, int length)

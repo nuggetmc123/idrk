@@ -84,7 +84,7 @@ namespace KartVR
             var look = kart.Look;
             body.Build(look.paint, look.accent);
 
-            bool driving = !kart.Parked;
+            bool driving = !kart.Parked && !kart.DriverOut; // nobody in the seat while they're out walking
             body.SetVisible(driving);
             if (nameTag && !HasStateAuthority)
             {

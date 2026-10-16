@@ -71,6 +71,8 @@ namespace KartVR
         [Networked] public int LookPacked { get; set; }
         [Networked] public int GarageIndex { get; set; }
         [Networked] public NetworkBool Boosting { get; set; }
+        /// <summary>The driver got out to walk around (Y); the kart waits, empty.</summary>
+        [Networked] public NetworkBool DriverOut { get; set; }
         [Networked] Vector3 NetPosition { get; set; }
         [Networked] Quaternion NetRotation { get; set; }
         [Networked] Vector3 NetVelocity { get; set; }
@@ -193,6 +195,7 @@ namespace KartVR
             {
                 if (Parked) return true;
                 if (IsLocal && BuildMode.Active) return true; // flying around in build mode
+                if (IsLocal && OnFoot.Active) return true;    // you got out to walk around
                 if (KartModeInfo.IsRace(CurrentMode) && RaceManager.Instance != null && RaceManager.Instance.IsReady)
                     return RaceManager.Instance.State == RaceState.Countdown;
                 if (KartModeInfo.IsBumper(CurrentMode) && BumperManager.Instance != null && BumperManager.Instance.IsReady)
@@ -223,17 +226,19 @@ namespace KartVR
                 KartInput.LeftGripHeld, KartInput.RightGripHeld, Parked ? 0f : KartInput.Steer, seated, Time.deltaTime);
             steer = wheel.Steer;
             driftHeld = KartInput.DriftHeld;
+            DriverOut = OnFoot.Active;
+            if (OnFoot.Active) { gas = brake = 0f; steer = 0f; driftHeld = false; } // the triggers mean nothing to an empty kart
 
             ClaimGarage();
             TrackModeChanges();
 
-            if (Parked)
+            if (Parked || OnFoot.Active)
             {
                 Boosting = false;
                 return;
             }
 
-            if (KartInput.RespawnPressed && !BuildMode.Active) Respawn(); // in build mode B means undo
+            if (KartInput.RespawnPressed && !BuildMode.Active && !OnFoot.Active) Respawn(); // in build mode B means undo; on foot it respawns you
             UpdateBooster();
 
             var area = SpawnArea.Get(CurrentMode);

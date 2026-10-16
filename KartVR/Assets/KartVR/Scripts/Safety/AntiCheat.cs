@@ -57,7 +57,7 @@ namespace KartVR
             }
             foreach (var avatar in FindObjectsByType<PlayerAvatar>(FindObjectsSortMode.None))
             {
-                if (avatar == null || !avatar.IsReady || avatar.IsLocal || !avatar.InHub) continue;
+                if (avatar == null || !avatar.IsReady || avatar.IsLocal || !avatar.Walking) continue;
                 Check(avatar, avatar.transform.position, MaxWalkSpeed, IdOf(avatar));
             }
         }

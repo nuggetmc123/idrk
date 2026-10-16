@@ -9,7 +9,7 @@ namespace KartVR
     /// The local player's VR rig (camera + hands). It isn't networked. In the
     /// Hub it rides on your walking <see cref="PlayerAvatar"/>; in every other
     /// mode it's parented to your kart's seat so you drive in first person.
-    /// Recenter (X button) lines your view back up.
+    /// Recenter (Menu > Recenter) lines your view back up.
     ///
     /// Without a headset it falls back to a desktop mode: hold right mouse to
     /// look around, left click to press buttons.
@@ -284,6 +284,13 @@ namespace KartVR
             else
             {
                 if (BuildMode.Active) return; // flying around freely in build mode
+                if (OnFoot.Active)
+                {
+                    // Out of the kart (Y): walk around on this map.
+                    var walker = PlayerAvatar.Local;
+                    if (walker != null && attachedAvatar != walker) AttachTo(walker);
+                    return;
+                }
                 var kart = KartController.Local;
                 if (kart != null && attachedKart != kart) AttachTo(kart);
             }
