@@ -91,16 +91,18 @@ with your right hand. Four pages:
 - **Sound:** sound effects volume and music volume (- / +).
 - **Controls:** turning style (Snap 30°, Snap 45° or Smooth), steering (grab the wheel, or left stick only), and a
   list of the controls.
-- **Camera:** **Spawn Quest Cam** / Remove Quest Cam, Follows you / Stays put, Zoom, Bring Cam Here.
+- **Camera:** **Spawn Quest Cam** / Remove, Take Photo, Follows you / Stays put, Zoom, Bring Cam Here, PC monitor (PC only).
 
-### Quest Cam (recording yourself)
+### Quest Cam (filming yourself)
 Spawn it from **Menu > Camera > Spawn Quest Cam**. It appears in front of you, looking at you. **Grab it with grip**
 and put it wherever you like; let go and it stays there. A live preview shows on its back screen.
+- **Photos:** pull the **trigger of the hand holding the cam** (or poke **Take Photo**). On Quest the photo is saved to
+  the headset's pictures (**Pictures/KartVR**, with your other media); on PC it goes to your Pictures/KartVR folder.
+- **Videos:** a game can't save videos into the Quest's media library itself; use the Quest's recorder
+  (**Meta button > Camera > Record video**). On PC you can switch **PC monitor: cam** on so the monitor shows the cam's
+  view, and record it with OBS (off by default; turn it off again if your headset view acts up).
 - **Follows you** (default): it keeps its spot next to you, even riding along with your kart. **Stays put**: it
   stays where you left it in the world.
-- **On PC (Quest Link / SteamVR)** your monitor shows the Quest Cam's view instead of your eyes, so record the game
-  window with OBS (or Win+Alt+R in Game Bar). Remove the cam and the monitor shows your eyes again.
-- **On a standalone Quest** the headset's own recorder films what *you* see; the cam's view is on its preview screen.
 - Footage is smoothed so hand wobble doesn't show, and your own helmet shows up on camera (it's only hidden from
   your own eyes). The cam is only on your computer: other players don't see it.
 

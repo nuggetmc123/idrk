@@ -24,7 +24,7 @@ namespace KartVR
         readonly PokeButton[] tabs = new PokeButton[4];
         Page page;
         TextMeshPro info, sfxBar, musicBar;
-        PokeButton lobbyButton, buildButton, turnButton, wheelButton, camButton, camModeButton, camZoomButton;
+        PokeButton lobbyButton, buildButton, turnButton, wheelButton, camButton, camModeButton, camZoomButton, camMonitorButton;
         float nextRefresh;
 
         static readonly Color TabOn = new Color(0.4f, 0.85f, 1f), TabOff = new Color(0.35f, 0.38f, 0.45f);
@@ -112,29 +112,38 @@ namespace KartVR
 
         void BuildCamera(Transform root)
         {
-            var wide = new Vector3(0.24f, 0.03f, 0.02f);
             var half = new Vector3(0.118f, 0.03f, 0.02f);
-            camButton = PokeButton.Create(root, "QuestCam", "Spawn Quest Cam", new Vector3(0f, 0.04f, 0f), wide, new Color(1f, 0.45f, 0.45f),
-                () => { QuestCam.Toggle(); RefreshCamera(); }, 0.11f);
-            camModeButton = PokeButton.Create(root, "CamMode", "", new Vector3(-0.061f, 0.004f, 0f), half, new Color(0.7f, 0.75f, 1f),
+            float l = -0.061f, r = 0.061f;
+            camButton = PokeButton.Create(root, "QuestCam", "Spawn Quest Cam", new Vector3(l, 0.04f, 0f), half, new Color(1f, 0.45f, 0.45f),
+                () => { QuestCam.Toggle(); RefreshCamera(); }, 0.085f);
+            PokeButton.Create(root, "CamPhoto", "Take Photo", new Vector3(r, 0.04f, 0f), half, new Color(1f, 0.85f, 0.4f),
+                () => { QuestCam.Photo(); RefreshCamera(); }, 0.085f);
+            camModeButton = PokeButton.Create(root, "CamMode", "", new Vector3(l, 0.004f, 0f), half, new Color(0.7f, 0.75f, 1f),
                 () => { QuestCam.Follow = !QuestCam.Follow; RefreshCamera(); }, 0.085f);
-            camZoomButton = PokeButton.Create(root, "CamZoom", "", new Vector3(0.061f, 0.004f, 0f), half, new Color(0.7f, 0.75f, 1f),
+            camZoomButton = PokeButton.Create(root, "CamZoom", "", new Vector3(r, 0.004f, 0f), half, new Color(0.7f, 0.75f, 1f),
                 () => { QuestCam.CycleFov(); RefreshCamera(); }, 0.085f);
-            PokeButton.Create(root, "CamHere", "Bring Cam Here", new Vector3(0f, -0.032f, 0f), wide, new Color(0.6f, 0.9f, 1f),
-                () => { if (QuestCam.IsOut) QuestCam.Instance.BringHere(); else QuestCam.Spawn(); RefreshCamera(); }, 0.1f);
+            PokeButton.Create(root, "CamHere", "Bring Cam Here", new Vector3(l, -0.032f, 0f), half, new Color(0.6f, 0.9f, 1f),
+                () => { if (QuestCam.IsOut) QuestCam.Instance.BringHere(); else QuestCam.Spawn(); RefreshCamera(); }, 0.085f);
+            camMonitorButton = PokeButton.Create(root, "CamMonitor", "", new Vector3(r, -0.032f, 0f), half, new Color(0.7f, 0.75f, 1f),
+                () => { QuestCam.MonitorView = !QuestCam.MonitorView; RefreshCamera(); }, 0.075f);
             KartUI.Label(root,
-                "Grab the cam with grip and point it at you.\n" +
-                "<b>PC (Quest Link):</b> your monitor shows the cam - record it with OBS.\n" +
-                "<b>Quest:</b> the preview is on the cam's back screen.",
+                "Grab the cam with grip. Trigger (while holding it) = photo.\n" +
+                "Photos go to your Quest's pictures (Pictures/KartVR).\n" +
+                "Video: Meta button > Camera > Record video.",
                 new Vector3(0f, -0.072f, 0f), 0.06f, new Color(0.85f, 0.9f, 1f), new Vector2(0.24f, 0.05f));
             RefreshCamera();
         }
 
         void RefreshCamera()
         {
-            camButton?.SetLabel(QuestCam.IsOut ? "Remove Quest Cam" : "Spawn Quest Cam");
+            camButton?.SetLabel(QuestCam.IsOut ? "Remove Cam" : "Spawn Quest Cam");
             camModeButton?.SetLabel(QuestCam.Follow ? "Follows you" : "Stays put");
             camZoomButton?.SetLabel("Zoom: " + Mathf.RoundToInt(QuestCam.Fov) + "°");
+            if (camMonitorButton != null)
+            {
+                camMonitorButton.gameObject.SetActive(QuestCam.MonitorSupported); // PC only
+                camMonitorButton.SetLabel(QuestCam.MonitorView ? "PC monitor: cam" : "PC monitor: you");
+            }
         }
 
         // ---------------- actions

@@ -9,12 +9,14 @@ namespace KartVR
     /// grab with either grip and put wherever you like, for filming yourself.
     ///
     /// - A live preview shows on its back screen.
-    /// - On PC (Quest Link / SteamVR) your monitor shows the Quest Cam's view
-    ///   instead of your eyes, so you can record it with OBS or Game Bar while
-    ///   you play in the headset.
+    /// - Pull the trigger of the hand holding it (or "Take Photo" in the menu) to
+    ///   save a photo of what it sees to your Quest's pictures (PC: Pictures/KartVR).
     /// - "Follows you": it keeps its spot next to you (it rides along in your
     ///   kart). "Stays put": it stays where you left it in the world.
-    /// - Footage is smoothed so hand wobble doesn't show.
+    /// - PC only, optional: "PC monitor: cam" shows its view on your monitor so OBS
+    ///   can record it.
+    /// - Videos: games can't write videos into the Quest's media library; use the
+    ///   Quest's own recorder (Meta button > Camera > Record video).
     ///
     /// It's only on your computer; other players don't see it.
     /// </summary>
@@ -22,7 +24,7 @@ namespace KartVR
     {
         public static QuestCam Instance { get; private set; }
 
-        const string FollowKey = "kartvr.camFollow", FovKey = "kartvr.camFov";
+        const string FollowKey = "kartvr.camFollow", FovKey = "kartvr.camFov", MonitorKey = "kartvr.camMonitor";
         static readonly float[] Fovs = { 60f, 75f, 90f };
         static bool wanted; // stays on across scene reloads (changing map or server)
 
@@ -32,6 +34,16 @@ namespace KartVR
             get => PlayerPrefs.GetInt(FollowKey, 1) == 1;
             set { PlayerPrefs.SetInt(FollowKey, value ? 1 : 0); PlayerPrefs.Save(); Instance?.RememberSpot(); }
         }
+        /// <summary>PC only, off by default: show the cam's view on your monitor instead of your eyes (for OBS).</summary>
+        public static bool MonitorView
+        {
+            get => PlayerPrefs.GetInt(MonitorKey, 0) == 1;
+            set { PlayerPrefs.SetInt(MonitorKey, value ? 1 : 0); PlayerPrefs.Save(); Instance?.ApplyMonitor(); }
+        }
+
+        /// <summary>Monitor view only makes sense on a PC with a headset (a standalone Quest has no monitor).</summary>
+        public static bool MonitorSupported => XRSettings.isDeviceActive && Application.platform != RuntimePlatform.Android;
+
         public static float Fov
         {
             get => PlayerPrefs.GetFloat(FovKey, 75f);
@@ -46,7 +58,9 @@ namespace KartVR
         readonly bool[] wasGrip = new bool[2];
         Vector3 holdPos, followPos;
         Quaternion holdRot, followRot;
-        bool usingScreen;
+        bool usingScreen, wasTrigger;
+        Renderer flash;
+        float flashUntil;
 
         /// <summary>True while the given hand holds the camera (so that grip doesn't also grab the wheel).</summary>
         public static bool HeldBy(XRNode node) =>
@@ -119,15 +133,29 @@ namespace KartVR
             view = new GameObject("QuestCamView").transform;
             view.SetParent(transform.parent, false);
             previewTexture = new RenderTexture(480, 270, 16) { name = "QuestCamPreview" };
+            previewTexture.Create();
+            // The preview camera is never "enabled": it's drawn by hand in LateUpdate (Camera.Render). A live extra
+            // camera inside the VR frame is what made the headset flash.
             previewCam = MakeCamera("Preview", previewTexture, -50f);
+            previewCam.enabled = false;
+            ApplyMonitor();
+        }
 
-            // PC with a headset: also film to the monitor so it can be recorded. (A standalone Quest has no monitor,
-            // and with no headset the monitor is your own view.)
-            usingScreen = XRSettings.isDeviceActive && Application.platform != RuntimePlatform.Android;
-            if (usingScreen)
+        void ApplyMonitor()
+        {
+            bool on = MonitorView && MonitorSupported;
+            if (on == usingScreen) return;
+            usingScreen = on;
+            if (on)
             {
-                screenCam = MakeCamera("Screen", null, 100f);
+                if (screenCam == null) screenCam = MakeCamera("Screen", null, 100f);
+                screenCam.enabled = true;
                 XRSettings.gameViewRenderMode = GameViewRenderMode.None; // stop mirroring your eyes onto the monitor
+            }
+            else
+            {
+                if (screenCam != null) screenCam.enabled = false;
+                XRSettings.gameViewRenderMode = GameViewRenderMode.LeftEye;
             }
         }
 
@@ -157,6 +185,7 @@ namespace KartVR
             KartUI.Part(transform, PrimitiveType.Cylinder, new Vector3(0f, 0f, 0.05f), new Vector3(0.06f, 0.02f, 0.06f), KartUI.Chrome(), new Vector3(90f, 0f, 0f));
             KartUI.Part(transform, PrimitiveType.Cylinder, new Vector3(0f, 0f, 0.071f), new Vector3(0.045f, 0.002f, 0.045f), KartUI.Mat(new Color(0.05f, 0.1f, 0.25f), 0.95f), new Vector3(90f, 0f, 0f));
             KartUI.Part(transform, PrimitiveType.Cube, new Vector3(0f, -0.075f, 0f), new Vector3(0.03f, 0.06f, 0.03f), body);
+            flash = KartUI.Part(transform, PrimitiveType.Cube, new Vector3(-0.045f, 0.035f, 0.036f), new Vector3(0.025f, 0.012f, 0.004f), KartUI.Glow(Color.white)).GetComponent<Renderer>();
             recLight = KartUI.Part(transform, PrimitiveType.Sphere, new Vector3(0.05f, 0.05f, 0.025f), Vector3.one * 0.015f, KartUI.Glow(new Color(1f, 0.1f, 0.1f))).GetComponent<Renderer>();
             KartUI.Part(transform, PrimitiveType.Cube, new Vector3(0f, 0f, -0.033f), new Vector3(0.135f, 0.085f, 0.004f), KartUI.Mat(Color.black, 0.9f));
             KartUI.Label(transform, "QUEST CAM", new Vector3(0f, 0.056f, -0.036f), 0.12f, Color.white, new Vector2(0.14f, 0.02f)); // readable from behind
@@ -226,7 +255,17 @@ namespace KartVR
             previewCam.fieldOfView = fov;
             if (screenCam) screenCam.fieldOfView = fov;
             // The preview is only for you to aim with; on Quest render it every other frame to save power.
-            previewCam.enabled = Application.platform != RuntimePlatform.Android || (Time.frameCount & 1) == 0;
+            if (Application.platform != RuntimePlatform.Android || (Time.frameCount & 1) == 0) previewCam.Render();
+
+            // Trigger on the hand holding the cam = take a photo.
+            if (heldBy >= 0)
+            {
+                bool trigger = (heldBy == 0 ? KartInput.Brake : KartInput.Gas) > 0.8f;
+                if (trigger && !wasTrigger) TakePhoto();
+                wasTrigger = trigger;
+            }
+            else wasTrigger = false;
+            if (flash != null) flash.enabled = Time.time < flashUntil;
             if (recLight) recLight.enabled = Mathf.Repeat(Time.time, 1f) < 0.6f;
         }
 
@@ -250,6 +289,41 @@ namespace KartVR
                 holdRot = Quaternion.Inverse(hand.rotation) * transform.rotation;
                 Buzz(node, 0.4f, 0.06f);
             }
+        }
+
+        // ---------------- photos (saved to the Quest's media / your PC's Pictures folder)
+
+        public static void Photo()
+        {
+            if (Instance == null) { Spawn(); return; }
+            Instance.TakePhoto();
+        }
+
+        void TakePhoto()
+        {
+            const int w = 1920, h = 1080;
+            var rt = RenderTexture.GetTemporary(w, h, 24);
+            var old = previewCam.targetTexture;
+            previewCam.targetTexture = rt;
+            previewCam.Render();
+            previewCam.targetTexture = old;
+
+            var prev = RenderTexture.active;
+            RenderTexture.active = rt;
+            var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            tex.Apply();
+            RenderTexture.active = prev;
+            RenderTexture.ReleaseTemporary(rt);
+            byte[] jpg = tex.EncodeToJPG(92);
+            Destroy(tex);
+
+            string name = "KartVR_" + System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string where = PhotoSaver.Save(jpg, name);
+            flashUntil = Time.time + 0.15f;
+            AudioManager.Play(AudioManager.Sfx.Click, 1f, 0.6f);
+            Buzz(heldBy == 0 ? XRNode.LeftHand : XRNode.RightHand, 0.6f, 0.08f);
+            SessionManager.Instance?.SetStatus(where != null ? "Photo saved: " + where : "Couldn't save the photo (see the Console)", 5f);
         }
 
         static void Buzz(XRNode node, float amplitude, float duration)
