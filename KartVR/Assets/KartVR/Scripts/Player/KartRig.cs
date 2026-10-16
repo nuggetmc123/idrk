@@ -46,6 +46,10 @@ namespace KartVR
             // Your own helmet is on a layer only the Quest Cam sees (see AvatarBody.HiddenFromSelfLayer).
             var cam = head != null ? head.GetComponent<Camera>() : null;
             if (cam != null) cam.cullingMask &= ~(1 << AvatarBody.HiddenFromSelfLayer);
+
+            // Laser pointers for clicking buttons from a distance (trigger).
+            if (leftHand != null && leftHand.GetComponent<UIPointer>() == null) leftHand.gameObject.AddComponent<UIPointer>().node = XRNode.LeftHand;
+            if (rightHand != null && rightHand.GetComponent<UIPointer>() == null) rightHand.gameObject.AddComponent<UIPointer>().node = XRNode.RightHand;
         }
 
         void OnEnable() { Application.onBeforeRender += ApplyXRPoses; }

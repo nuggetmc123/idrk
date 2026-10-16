@@ -57,7 +57,7 @@ number). People on the same hub server go to the same map server when they use t
 | Run (hub) | Hold right trigger | Shift |
 | Recenter view | Click the left thumbstick | C |
 | **Menu + settings** | **Menu button** (three lines, left controller) | Tab / Esc |
-| Press buttons | Touch them with your hand | Left click |
+| Press buttons | Touch them with your hand, **or point the laser and pull the trigger** | Left click |
 | Look around | Your head | Hold right mouse |
 
 **The steering wheel:** in VR, put your hand on the wheel and squeeze **grip** to hold it, then turn it like a real
@@ -86,26 +86,11 @@ Bouncer, Boost Hoop, Block.
 
 ### The menu (three-lines button)
 It starts closed. Press the **menu button** on your left controller to open it above your left hand, and poke it
-with your right hand. Four pages:
+with your right hand (or point at it and pull the trigger). Three pages:
 - **Menu:** Recenter, Respawn, Hub, Create/Leave Lobby, Build Mode (in Free Roam), plus your server/lobby info.
 - **Sound:** sound effects volume and music volume (- / +).
 - **Controls:** turning style (Snap 30°, Snap 45° or Smooth), steering (grab the wheel, or left stick only), and a
   list of the controls.
-- **Camera:** **Spawn Quest Cam** / Remove, Take Photo, Follows you / Stays put, Zoom, Bring Cam Here, Live preview, PC monitor (PC only).
-
-### Quest Cam (filming yourself)
-Spawn it from **Menu > Camera > Spawn Quest Cam**. It appears in front of you, looking at you. **Grab it with grip**
-and put it wherever you like; let go and it stays there. A live preview shows on its back screen.
-- **Photos:** pull the **trigger of the hand holding the cam** (or poke **Take Photo**). On Quest the photo is saved to
-  the headset's pictures (**Pictures/KartVR**, with your other media); on PC it goes to your Pictures/KartVR folder.
-- **Videos:** a game can't save videos into the Quest's media library itself; use the Quest's recorder
-  (**Meta button > Camera > Record video**). On PC you can switch **PC monitor: cam** on so the monitor shows the cam's
-  view, and record it with OBS (off by default; turn it off again if your headset view acts up).
-- **Follows you** (default): it keeps its spot next to you, even riding along with your kart. **Stays put**: it
-  stays where you left it in the world.
-- **Live preview** on/off: the picture on the cam's back screen. Off = the cam only renders when you take a photo.
-- Footage is smoothed so hand wobble doesn't show, and your own helmet shows up on camera (it's only hidden from
-  your own eyes). The cam is only on your computer: other players don't see it.
 
 ### Sound and music
 Engine hum (pitch follows your speed), boosts, bumps, checkpoint dings, lap and finish fanfares, countdown beeps,

@@ -22,7 +22,11 @@ namespace KartVR
         Renderer rend;
         Material mat;
         Color baseColor;
-        bool wasDown;
+        bool wasDown, wasHover;
+        float hoverUntil;
+
+        /// <summary>The laser pointer is on this button (call every frame while it is).</summary>
+        public void Hover() => hoverUntil = Time.time + 0.05f;
 
         void Awake()
         {
@@ -67,12 +71,14 @@ namespace KartVR
         void Update()
         {
             bool down = Time.time < pressedUntil;
+            bool hover = Time.time < hoverUntil;
             Vector3 target = down ? new Vector3(restScale.x, restScale.y, restScale.z * 0.5f) : restScale;
             transform.localScale = Vector3.Lerp(transform.localScale, target, 0.5f);
-            if (mat && down != wasDown)
+            if (mat && (down != wasDown || hover != wasHover))
             {
                 wasDown = down;
-                KartUI.SetColor(mat, down ? Color.Lerp(baseColor, Color.white, 0.5f) : baseColor);
+                wasHover = hover;
+                KartUI.SetColor(mat, down ? Color.Lerp(baseColor, Color.white, 0.5f) : hover ? Color.Lerp(baseColor, Color.white, 0.25f) : baseColor);
             }
         }
 

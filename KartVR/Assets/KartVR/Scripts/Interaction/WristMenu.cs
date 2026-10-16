@@ -6,10 +6,9 @@ namespace KartVR
     /// <summary>
     /// The menu: a panel floating above your left controller. Press the MENU
     /// button (three lines, left controller) to open or close it; it starts
-    /// closed. Poke it with your right hand. Four pages:
+    /// closed. Poke it with your right hand, or point at it and pull the trigger. Three pages:
     /// Menu (recenter, respawn, hub, lobby, build mode), Sound (effects and music
-    /// volume), Controls (turning style, steering wheel, list of controls) and
-    /// Camera (spawn / remove the Quest Cam, follow or stay, zoom).
+    /// volume) and Controls (turning style, steering wheel, list of controls).
     /// Keyboard: Tab or Esc opens it, left click presses buttons.
     /// </summary>
     public class WristMenu : MonoBehaviour
@@ -17,14 +16,14 @@ namespace KartVR
         public Vector3 panelOffset = new Vector3(0f, 0.1f, 0.03f);
         public Vector3 panelTilt = new Vector3(35f, 0f, 0f);
 
-        enum Page { Main, Sound, Controls, Camera }
+        enum Page { Main, Sound, Controls }
 
         Transform panel;
-        readonly Transform[] pages = new Transform[4];
-        readonly PokeButton[] tabs = new PokeButton[4];
+        readonly Transform[] pages = new Transform[3];
+        readonly PokeButton[] tabs = new PokeButton[3];
         Page page;
         TextMeshPro info, sfxBar, musicBar;
-        PokeButton lobbyButton, buildButton, turnButton, wheelButton, camButton, camModeButton, camZoomButton, camMonitorButton, camPreviewButton;
+        PokeButton lobbyButton, buildButton, turnButton, wheelButton;
         float nextRefresh;
 
         static readonly Color TabOn = new Color(0.4f, 0.85f, 1f), TabOff = new Color(0.35f, 0.38f, 0.45f);
@@ -37,12 +36,12 @@ namespace KartVR
             panel.localRotation = Quaternion.Euler(panelTilt);
 
             KartUI.Box(panel, "Backing", new Vector3(0f, -0.01f, 0.012f), new Vector3(0.25f, 0.21f, 0.01f), new Color(0.1f, 0.1f, 0.15f));
-            var tabSize = new Vector3(0.058f, 0.028f, 0.02f);
-            string[] names = { "Menu", "Sound", "Controls", "Camera" };
-            for (int i = 0; i < 4; i++)
+            var tabSize = new Vector3(0.078f, 0.028f, 0.02f);
+            string[] names = { "Menu", "Sound", "Controls" };
+            for (int i = 0; i < 3; i++)
             {
                 var p = (Page)i;
-                tabs[i] = PokeButton.Create(panel, "Tab" + names[i], names[i], new Vector3((i - 1.5f) * 0.061f, 0.075f, 0f), tabSize, TabOff, () => Show(p), 0.085f);
+                tabs[i] = PokeButton.Create(panel, "Tab" + names[i], names[i], new Vector3((i - 1) * 0.082f, 0.075f, 0f), tabSize, TabOff, () => Show(p), 0.1f);
                 pages[i] = new GameObject(names[i] + "Page").transform;
                 pages[i].SetParent(panel, false);
             }
@@ -50,7 +49,6 @@ namespace KartVR
             BuildMain(pages[0]);
             BuildSound(pages[1]);
             BuildControls(pages[2]);
-            BuildCamera(pages[3]);
             Show(Page.Main);
             panel.gameObject.SetActive(false); // closed until you press the menu button
         }
@@ -58,7 +56,7 @@ namespace KartVR
         void Show(Page p)
         {
             page = p;
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 3; i++)
             {
                 pages[i].gameObject.SetActive(i == (int)p);
                 tabs[i].SetColor(i == (int)p ? TabOn : TabOff);
@@ -108,43 +106,6 @@ namespace KartVR
                 "<b>Free Roam:</b> R stick click = build mode",
                 new Vector3(0f, -0.06f, 0f), 0.065f, new Color(0.85f, 0.9f, 1f), new Vector2(0.24f, 0.07f));
             RefreshControls();
-        }
-
-        void BuildCamera(Transform root)
-        {
-            var half = new Vector3(0.118f, 0.03f, 0.02f);
-            float l = -0.061f, r = 0.061f;
-            camButton = PokeButton.Create(root, "QuestCam", "Spawn Quest Cam", new Vector3(l, 0.04f, 0f), half, new Color(1f, 0.45f, 0.45f),
-                () => { QuestCam.Toggle(); RefreshCamera(); }, 0.085f);
-            PokeButton.Create(root, "CamPhoto", "Take Photo", new Vector3(r, 0.04f, 0f), half, new Color(1f, 0.85f, 0.4f),
-                () => { QuestCam.Photo(); RefreshCamera(); }, 0.085f);
-            camModeButton = PokeButton.Create(root, "CamMode", "", new Vector3(l, 0.004f, 0f), half, new Color(0.7f, 0.75f, 1f),
-                () => { QuestCam.Follow = !QuestCam.Follow; RefreshCamera(); }, 0.085f);
-            camZoomButton = PokeButton.Create(root, "CamZoom", "", new Vector3(r, 0.004f, 0f), half, new Color(0.7f, 0.75f, 1f),
-                () => { QuestCam.CycleFov(); RefreshCamera(); }, 0.085f);
-            PokeButton.Create(root, "CamHere", "Bring Cam Here", new Vector3(l, -0.032f, 0f), half, new Color(0.6f, 0.9f, 1f),
-                () => { if (QuestCam.IsOut) QuestCam.Instance.BringHere(); else QuestCam.Spawn(); RefreshCamera(); }, 0.085f);
-            camPreviewButton = PokeButton.Create(root, "CamPreview", "", new Vector3(r, -0.032f, 0f), half, new Color(0.7f, 0.75f, 1f),
-                () => { QuestCam.LivePreview = !QuestCam.LivePreview; RefreshCamera(); }, 0.075f);
-            camMonitorButton = PokeButton.Create(root, "CamMonitor", "", new Vector3(0f, -0.066f, 0f), new Vector3(0.24f, 0.026f, 0.02f), new Color(0.7f, 0.75f, 1f),
-                () => { QuestCam.MonitorView = !QuestCam.MonitorView; RefreshCamera(); }, 0.075f);
-            KartUI.Label(root,
-                "Grip = grab it, trigger = photo (to Pictures/KartVR). Video: Meta button > Camera > Record.",
-                new Vector3(0f, -0.093f, 0f), 0.05f, new Color(0.85f, 0.9f, 1f), new Vector2(0.25f, 0.02f));
-            RefreshCamera();
-        }
-
-        void RefreshCamera()
-        {
-            camButton?.SetLabel(QuestCam.IsOut ? "Remove Cam" : "Spawn Quest Cam");
-            camModeButton?.SetLabel(QuestCam.Follow ? "Follows you" : "Stays put");
-            camZoomButton?.SetLabel("Zoom: " + Mathf.RoundToInt(QuestCam.Fov) + "°");
-            camPreviewButton?.SetLabel(QuestCam.LivePreview ? "Live preview: on" : "Live preview: off");
-            if (camMonitorButton != null)
-            {
-                camMonitorButton.gameObject.SetActive(QuestCam.MonitorSupported); // PC only
-                camMonitorButton.SetLabel(QuestCam.MonitorView ? "PC monitor shows: the cam" : "PC monitor shows: you");
-            }
         }
 
         // ---------------- actions
@@ -219,7 +180,6 @@ namespace KartVR
                 if (open) Show(page);
             }
             if (!panel.gameObject.activeSelf || Time.time < nextRefresh) return;
-            if (page == Page.Camera) { nextRefresh = Time.time + 0.25f; RefreshCamera(); return; }
             if (page != Page.Main) return;
             nextRefresh = Time.time + 0.25f;
 
