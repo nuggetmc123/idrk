@@ -24,6 +24,7 @@ namespace KartVR
             new Entry { mode = KartMode.Bumper, title = "BUMPER KARTS", blurb = "Knock them into the lava", color = new Color(0.35f, 0.6f, 1f) },
             new Entry { mode = KartMode.IceBumper, title = "ICE BUMPER", blurb = "Slippery rink, snowmen", color = new Color(0.65f, 0.92f, 1f) },
             new Entry { mode = KartMode.FreeRoam, title = "FREE ROAM", blurb = "Big open world + BUILD MODE", color = new Color(0.45f, 1f, 0.5f) },
+            new Entry { mode = KartMode.Tutorial, title = "TUTORIAL", blurb = "Learn to drive + build (solo)", color = new Color(1f, 0.85f, 0.35f) },
         };
 
         TextMeshPro footer;
@@ -38,13 +39,13 @@ namespace KartVR
             KartUI.Part(transform, PrimitiveType.Cube, new Vector3(0f, -h * 0.5f, 0f), new Vector3(w + 0.1f, 0.08f, 0.08f), KartUI.Glow(new Color(1f, 0.3f, 0.8f)));
             KartUI.Label(transform, "<b>PICK A MAP</b>", new Vector3(0f, 1.05f, -0.03f), 4.5f, Color.white, new Vector2(10f, 0.55f));
 
-            var size = new Vector3(1.95f, 1.15f, 0.12f);
+            var size = new Vector3(1.68f, 1.15f, 0.12f);
             for (int i = 0; i < Maps.Length; i++)
             {
                 var e = Maps[i];
                 var mode = e.mode;
                 var button = PokeButton.Create(transform, e.title, "<b>" + e.title + "</b>\n<size=55%>" + e.blurb + "</size>",
-                    new Vector3((i - 2) * 2.1f, -0.2f, -0.03f), size, e.color, () => Go(mode), 2.1f);
+                    new Vector3((i - (Maps.Length - 1) * 0.5f) * 1.78f, -0.2f, -0.03f), size, e.color, () => Go(mode), 1.9f);
                 button.cooldown = 1f;
             }
             footer = KartUI.Label(transform, "", new Vector3(0f, -1.2f, -0.03f), 1.5f, new Color(0.8f, 0.95f, 1f), new Vector2(10f, 0.3f));
@@ -53,6 +54,16 @@ namespace KartVR
         void Go(KartMode mode)
         {
             if (Time.time < busyUntil) return;
+            if (mode == KartMode.Tutorial)
+            {
+                // The tutorial is always solo, in its own session.
+                var s = SessionManager.Instance;
+                if (s == null || s.Busy) return;
+                busyUntil = Time.time + 3f;
+                AudioManager.Play(AudioManager.Sfx.Teleport);
+                s.StartTutorial();
+                return;
+            }
             if (ModePortal.Travel(mode))
             {
                 busyUntil = Time.time + 3f;

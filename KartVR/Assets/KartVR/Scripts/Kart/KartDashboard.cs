@@ -68,6 +68,8 @@ namespace KartVR
 
             if (KartModeInfo.IsRace(kart.CurrentMode)) big = RaceText();
             else if (KartModeInfo.IsBumper(kart.CurrentMode)) big = BumperText();
+            else if (kart.CurrentMode == KartMode.Tutorial)
+                sb.Append(BuildMode.Active ? "BUILD MODE\n" : "TUTORIAL PARK\n");
             else if (kart.CurrentMode == KartMode.FreeRoam)
                 sb.Append(BuildMode.Active ? "BUILD MODE\n" : "FREE ROAM   (right stick click = build)\n");
 

@@ -44,7 +44,9 @@ number). People on the same hub server go to the same map server when they use t
 - **Leave Lobby** (kiosk or wrist menu) takes you back to the public hub.
 
 ### Tutorial (first time you play)
-The first time the game starts on a headset you're put in a **solo tutorial** in Free Roam instead of the hub. A panel
+The first time the game starts on a headset you're put in **Tutorial Park**, its own small map, solo, instead of
+the hub: a ring road with numbered station signs (drive, steer, brake, drift, boost pad, jump, respawn, build), cones,
+and a **BUILD ZONE** in the middle. You can go back any time with the **TUTORIAL** button on the hub's map wall. A panel
 in front of you walks through driving (gas, steering, brake/reverse, drift, boost, top speed, respawn) and building
 (enter build mode, fly, pick, place, delete, back to the kart). Each step ticks off when you do it, or point at
 **Skip step** and pull the trigger. At the end press **PLAY!** and you go to the hub; after that the game always starts

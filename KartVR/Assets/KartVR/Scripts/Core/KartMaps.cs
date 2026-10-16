@@ -26,6 +26,7 @@ namespace KartVR
             new Map { mode = KartMode.CanyonRace, root = "CanyonTrack", center = new Vector3(0f, 0f, -430f), radius = 170f, theme = SkyDomes.Theme.Desert },
             new Map { mode = KartMode.IceBumper, root = "IceRink", center = new Vector3(-360f, 0f, 0f), radius = 150f, theme = SkyDomes.Theme.Ice },
             new Map { mode = KartMode.FreeRoam, root = "FreeRoam", center = new Vector3(0f, 0f, 1300f), radius = 450f, theme = SkyDomes.Theme.Sunset },
+            new Map { mode = KartMode.Tutorial, root = "TutorialPark", center = new Vector3(-480f, 0f, -480f), radius = 110f, theme = SkyDomes.Theme.Sunny },
         };
 
         /// <summary>The barrier sits this far inside the dome.</summary>

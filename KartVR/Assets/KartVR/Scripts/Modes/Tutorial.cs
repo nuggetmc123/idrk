@@ -5,8 +5,8 @@ using UnityEngine;
 namespace KartVR
 {
     /// <summary>
-    /// The first-time tutorial. New players start here instead of the hub: a private, solo copy of the Free Roam
-    /// map, with a panel floating in front of them that walks through driving and then building. Each step
+    /// The first-time tutorial. New players start here instead of the hub: Tutorial Park, its own small map with a
+    /// station for each lesson (signs, cones, a boost pad, a jump and a build zone), played solo, with a panel floating in front of them that walks through driving and then building. Each step
     /// finishes by itself when you do it (or press SKIP STEP). Finishing unlocks the game: you go to the hub and
     /// from then on start there.
     ///
@@ -92,7 +92,7 @@ namespace KartVR
                 new Step { title = "RESPAWN", text = "Stuck or upside down? Press <b>B</b> to put your kart back on the track.\n\nTry it now.",
                     done = () => KartInput.RespawnPressed },
                 // ---------------- Building
-                new Step { title = "BUILD MODE", text = "In Free Roam you can <b>build</b>: ramps, roads, trees and more. Everyone on your server sees it.\n\nClick the <b>RIGHT STICK</b> (press it in) to hop out and fly.",
+                new Step { title = "BUILD MODE", text = "In Free Roam you can <b>build</b>: ramps, roads, trees and more. Everyone on your server sees it.\nTry it here in the <b>BUILD ZONE</b> in the middle of the park.\n\nClick the <b>RIGHT STICK</b> (press it in) to hop out and fly.",
                     done = () => BuildMode.Active },
                 new Step { title = "FLYING", text = "<b>LEFT STICK</b> flies around, <b>RIGHT STICK</b> up/down goes up and down, left/right turns.\nHold the <b>LEFT GRIP</b> to fly fast.\n\nFly around a bit!",
                     begin = () => flyStart = HeadPosition(), done = () => !BuildMode.Active || (HeadPosition() - flyStart).magnitude > 8f },
@@ -123,7 +123,7 @@ namespace KartVR
             if (index < 0)
             {
                 // Wait until you're in your kart in the tutorial world (but never more than 12 s: then just start).
-                bool inKart = Kart != null && Kart.IsReady && Kart.CurrentMode == KartMode.FreeRoam;
+                bool inKart = Kart != null && Kart.IsReady && Kart.CurrentMode == KartMode.Tutorial;
                 if (KartRig.Instance == null || !inKart && Time.time - createdAt < 12f) return;
                 Go(0);
             }

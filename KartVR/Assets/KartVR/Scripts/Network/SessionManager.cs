@@ -265,7 +265,7 @@ namespace KartVR
                     GameMode = GameMode.Single,
                     SessionName = "KARTVR_TUTORIAL",
                     PlayerCount = 1,
-                }, KartMode.FreeRoam, false, null);
+                }, KartMode.Tutorial, false, null);
                 ok = result.Ok;
                 if (!ok) SetStatus("Couldn't start the tutorial: " + result.ShutdownReason, 8f);
             }

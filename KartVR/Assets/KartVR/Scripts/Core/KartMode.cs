@@ -15,12 +15,16 @@ namespace KartVR
         FreeRoam = 3,
         CanyonRace = 4,
         IceBumper = 5,
+        /// <summary>Tutorial Park: where new players learn to drive and build (always solo).</summary>
+        Tutorial = 6,
     }
 
     public static class KartModeInfo
     {
         public static bool IsRace(KartMode mode) => mode == KartMode.Race || mode == KartMode.CanyonRace;
         public static bool IsBumper(KartMode mode) => mode == KartMode.Bumper || mode == KartMode.IceBumper;
+        /// <summary>Maps where build mode works.</summary>
+        public static bool CanBuild(KartMode mode) => mode == KartMode.FreeRoam || mode == KartMode.Tutorial;
 
         public static string DisplayName(KartMode mode)
         {
@@ -31,6 +35,7 @@ namespace KartVR
                 case KartMode.Bumper: return "Bumper Karts";
                 case KartMode.IceBumper: return "Ice Bumper";
                 case KartMode.FreeRoam: return "Free Roam";
+                case KartMode.Tutorial: return "Tutorial Park";
                 default: return "Hub";
             }
         }
