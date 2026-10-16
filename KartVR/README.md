@@ -16,7 +16,6 @@ friends join with a 6-digit code.
 | **Race** | 3-lap race on a ~370 m track with red/white barriers, painted lines, a start gantry with **countdown lights**, a grandstand full of fans, a "KART VR" arch, boost pads with chevrons, **a jump**, and trees. Live positions, results, then the next race starts automatically. |
 | **Bumper Karts** | 2-minute rounds on a neon-lit platform over a lava lake. A **spinning sweeper bar** shoves anyone in its way, and **bouncy bumpers** fling you across the arena. Ram people for **+1**, fall off for **−1**. |
 | **Free Roam** | A stunt park: a mega ramp with **boost hoops** to fly through, a **skate bowl** of quarter pipes, a kicker chain, a plateau with a drop-off jump, hills, a lake, rocks, a ring road and lots of trees. |
-| **Sky Zones** | Every map has a glowing blue **SKY ZONE beam**. Walk or drive into it and you float up to an island in the sky; jump off the edge to come back down. **Hub:** a sky garden. **Race:** a rainbow **sky route** (outer lane on the first bend) that flies round the corner and drops you back on the track. **Bumper:** a second arena in the sky. **Free Roam:** a sky stunt park with a big jump and boost hoops. |
 
 ### Customizing your kart (in your garage)
 | Part | Options |

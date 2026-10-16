@@ -19,8 +19,6 @@ namespace KartVR
         public float walkSpeed = 4.5f;
         [Tooltip("Hold the right trigger (or A / Shift) to run.")]
         public float runSpeed = 8f;
-
-        Vector3 skyCarry;
         public float snapTurnDegrees = 45f;
         public TextMeshPro nameTag;
 
@@ -159,18 +157,6 @@ namespace KartVR
 
             if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -1f;
             verticalVelocity += Physics.gravity.y * Time.deltaTime;
-
-            // Sky Zone beam: float up, then get pushed off onto the island (the push keeps going until you land).
-            Vector3 feet = new Vector3(rig.head.position.x, transform.position.y, rig.head.position.z);
-            var lift = SkyLift.At(feet);
-            if (lift != null)
-            {
-                Vector3 v = lift.Velocity(feet);
-                verticalVelocity = v.y;
-                skyCarry = new Vector3(v.x, 0f, v.z);
-            }
-            else if (controller.isGrounded) skyCarry = Vector3.zero;
-            move += skyCarry;
             move.y = verticalVelocity;
             controller.Move(move * Time.deltaTime);
 

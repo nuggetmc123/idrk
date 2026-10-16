@@ -36,13 +36,13 @@ namespace KartVR.EditorTools
         static Material white, dark, metal, chrome, plaza, garageFloor, hubGrass, raceGrass, freeGrass, asphalt, lineWhite,
             wallRed, wallWhite, stone, water, wood, leaves, leavesDark, bark, sign, glass, boost, arena, lava, rampMat,
             rampBlue, rampRed, portalRace, portalBumper, portalFree, glowRace, glowBumper, glowFree, neonWhite, neonPink,
-            neonCyan, lampGlow, checker, hazard, tire, crowdBase, particle, baseLit, rock, sand, cloud, skyBeam;
+            neonCyan, lampGlow, checker, hazard, tire, crowdBase, particle, baseLit, rock, sand;
         static Material[] crowd;
 
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 2; // 2 = Sky Zones
+        public const int WorldVersion = 3; // 3 = sky domes
         const string WorldVersionFile = "ProjectSettings/KartVRWorldVersion.txt";
         public static bool WorldUpToDate =>
             File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
@@ -110,6 +110,7 @@ namespace KartVR.EditorTools
             MarkStatic(BuildRaceTrack());
             MarkStatic(BuildBumperArena());
             MarkStatic(BuildFreeRoam());
+            BuildSkyDomes();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             var scenes = EditorBuildSettings.scenes.Where(s => s.path != ScenePath).ToList();
@@ -330,8 +331,6 @@ namespace KartVR.EditorTools
             neonPink = Mat("NeonPink", new Color(1f, 0.3f, 0.8f), 0.5f, 0f, null, null, new Color(1f, 0.25f, 0.75f) * 2f);
             neonCyan = Mat("NeonCyan", new Color(0.2f, 0.95f, 1f), 0.5f, 0f, null, null, new Color(0.2f, 0.9f, 1f) * 2f);
             lampGlow = Mat("LampGlow", new Color(1f, 0.92f, 0.7f), 0.5f, 0f, null, null, new Color(1f, 0.85f, 0.55f) * 2f);
-            cloud = Mat("Cloud", new Color(0.97f, 0.98f, 1f), 0.05f, 0f, null, null, new Color(0.32f, 0.34f, 0.4f));
-            skyBeam = MakeTransparent(Mat("SkyBeam", new Color(0.55f, 0.9f, 1f), 0.9f, 0f, null, null, new Color(0.4f, 0.8f, 1f) * 1.2f), 0.3f);
             checker = Mat("Checker", Color.white, 0.4f, 0f, checkerTex, new Vector2(8f, 1f));
             hazard = Mat("Hazard", Color.white, 0.4f, 0f, hazardTex, new Vector2(6f, 1f));
             tire = Mat("Tire", new Color(0.08f, 0.08f, 0.09f), 0.15f);
@@ -392,8 +391,9 @@ namespace KartVR.EditorTools
             RenderSettings.ambientGroundColor = new Color(0.28f, 0.25f, 0.22f);
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = 160f;
-            RenderSettings.fogEndDistance = 520f;
+            // Light haze inside each map; barely touches the sky domes (130-235 m away).
+            RenderSettings.fogStartDistance = 200f;
+            RenderSettings.fogEndDistance = 900f;
             RenderSettings.fogColor = new Color(0.72f, 0.82f, 0.94f);
             QualitySettings.shadowDistance = 90f;
         }
@@ -741,7 +741,7 @@ namespace KartVR.EditorTools
             info.title = "KART VR";
 
             Board(hub, "HelpBoard", new Vector3(-16f, 3.2f, -5f), Quaternion.Euler(0f, -62f, 0f), new Vector2(10f, 4.6f), 2.4f,
-                "<b>HOW TO PLAY</b>\nWalk: left stick (hold R trigger to run)   Turn: right stick\nWalk into a PORTAL to play   SKY ZONE: step into the blue beam\nYOUR GARAGE: customize your kart\n" +
+                "<b>HOW TO PLAY</b>\nWalk: left stick (hold R trigger to run)   Turn: right stick\nWalk into a PORTAL to play\nYOUR GARAGE: customize your kart\n" +
                 "Driving: GRAB THE WHEEL (grip) and turn it! R trigger gas, L trigger brake\nX drift, A booster, B respawn, Y menu", neonPink);
 
             // Lamps, trees and benches around the plaza.
@@ -760,7 +760,6 @@ namespace KartVR.EditorTools
             Bench(hub, new Vector3(8f, 0f, 8f), 225f);
             Bench(hub, new Vector3(-8f, 0f, -6f), 45f);
             Bench(hub, new Vector3(8f, 0f, -6f), 315f);
-            BuildHubSky(hub);
             return hub;
         }
 
@@ -962,8 +961,6 @@ namespace KartVR.EditorTools
                 else if (k == 4) Arch(cp.transform, halfWidth, "KART VR", neonPink);
             }
 
-            BuildRaceSky(race);
-
             // Starting grid, 2 wide, behind the line.
             var grid = new GameObject("RaceGrid").AddComponent<SpawnArea>();
             grid.mode = KartMode.Race;
@@ -1013,7 +1010,6 @@ namespace KartVR.EditorTools
                 float d = DistanceToTrack(p + RaceOrigin);
                 if (d < 13f) continue;
                 if (Mathf.Abs(p.x) < 18f && p.z < -50f) continue; // keep the grandstand clear
-                if (NearSkyRoute(p)) continue;
                 Tree(race, p, 0.8f + (float)rng.NextDouble() * 0.6f, rng);
             }
 
@@ -1158,7 +1154,6 @@ namespace KartVR.EditorTools
             info.text = board;
             info.title = "BUMPER KARTS";
             Prim(PrimitiveType.Cube, "BoardPillar", b, new Vector3(0f, -1f, 34.3f), new Vector3(1f, 22f, 1f), metal);
-            BuildBumperSky(b);
             return b;
         }
 
@@ -1279,8 +1274,7 @@ namespace KartVR.EditorTools
             }
 
             Board(f, "FreeRoamSign", new Vector3(0f, 4.5f, 14f), Quaternion.identity, new Vector2(11f, 3.2f), 2.8f,
-                "<b>FREE ROAM STUNT PARK</b>\nMega ramp ahead  -  bowl to the right  -  kickers to the left\nSKY ZONE: drive into the blue beam  -  Wrist menu > Hub to go back", glowFree);
-            BuildFreeRoamSky(f);
+                "<b>FREE ROAM STUNT PARK</b>\nMega ramp ahead  -  bowl to the right  -  kickers to the left\nWrist menu > Hub to go back", glowFree);
             return f;
         }
 
