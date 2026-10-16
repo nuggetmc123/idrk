@@ -24,6 +24,8 @@ namespace KartVR
         readonly PokeButton[] tabs = new PokeButton[4];
         Page page;
         TextMeshPro info, sfxBar, musicBar, engineBar;
+        TextMeshPro idLabel;
+        PokeButton modButton;
         PokeButton lobbyButton, buildButton, turnButton, wheelButton, micButton, micTestButton;
         TextMeshPro voiceBar, micMeter;
         float nextRefresh;
@@ -37,7 +39,7 @@ namespace KartVR
             panel.localPosition = panelOffset;
             panel.localRotation = Quaternion.Euler(panelTilt);
 
-            KartUI.Box(panel, "Backing", new Vector3(0f, -0.01f, 0.012f), new Vector3(0.25f, 0.21f, 0.01f), new Color(0.1f, 0.1f, 0.15f));
+            KartUI.Box(panel, "Backing", new Vector3(0f, -0.03f, 0.012f), new Vector3(0.25f, 0.25f, 0.01f), new Color(0.1f, 0.1f, 0.15f));
             var tabSize = new Vector3(0.058f, 0.028f, 0.02f);
             string[] names = { "Menu", "Sound", "Controls", "Voice" };
             for (int i = 0; i < 4; i++)
@@ -79,6 +81,9 @@ namespace KartVR
             PokeButton.Create(root, "Hub", "Hub", new Vector3(0.082f, 0.002f, 0f), size, new Color(0.5f, 1f, 0.6f), () => SessionManager.Instance?.GoToHub(), 0.1f);
             lobbyButton = PokeButton.Create(root, "Lobby", "Create Lobby", new Vector3(0f, -0.038f, 0f), wide, new Color(1f, 0.6f, 0.9f), ToggleLobby, 0.1f);
             buildButton = PokeButton.Create(root, "Build", "Build Mode", new Vector3(0f, -0.078f, 0f), wide, new Color(0.5f, 0.9f, 1f), BuildMode.Toggle, 0.1f);
+            // Who you are: give your Player ID to the game's owner to become a moderator.
+            idLabel = KartUI.Label(root, "", new Vector3(0f, -0.106f, 0f), 0.07f, new Color(0.8f, 0.85f, 1f, 0.8f), new Vector2(0.24f, 0.015f));
+            modButton = PokeButton.Create(root, "ModMenu", "Mod Menu", new Vector3(0f, -0.13f, 0f), new Vector3(0.24f, 0.026f, 0.02f), new Color(1f, 0.45f, 0.4f), ModMenu.Toggle, 0.1f);
         }
 
         void BuildSound(Transform root)
@@ -253,6 +258,8 @@ namespace KartVR
             // Build mode is a Free Roam thing.
             buildButton.gameObject.SetActive(GameState.CurrentMode == KartMode.FreeRoam);
             buildButton.SetLabel(BuildMode.Active ? "Back to Kart" : "Build Mode");
+            idLabel.text = PlayerProfile.Nickname + "   ID: " + PlayerIdentity.PlayerId;
+            modButton.gameObject.SetActive(Moderation.IAmMod);
         }
     }
 }

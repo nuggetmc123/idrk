@@ -43,6 +43,27 @@ namespace KartVR
             }
         }
 
+        const string LockedKey = "kartvr.nameLocked";
+
+        /// <summary>True once you've picked your name. It can't be changed after that (unless a moderator makes you).</summary>
+        public static bool NameLocked => PlayerPrefs.GetInt(LockedKey, 0) == 1;
+
+        /// <summary>Saves your chosen name for good (check it with <see cref="NameRules.Valid"/> first).</summary>
+        public static void SetLockedName(string name)
+        {
+            Nickname = name.Trim();
+            PlayerPrefs.SetInt(LockedKey, 1);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>A moderator asked for a new name: you get a temporary one until you pick it.</summary>
+        public static void UnlockName()
+        {
+            PlayerPrefs.SetInt(LockedKey, 0);
+            Nickname = "Player" + Random.Range(1000, 9999);
+            if (KartController.Local != null && KartController.Local.IsReady) KartController.Local.Nickname = Nickname;
+        }
+
         public static int ColorIndex
         {
             get

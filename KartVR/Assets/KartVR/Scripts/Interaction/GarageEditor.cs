@@ -90,7 +90,7 @@ namespace KartVR
             var owner = garage != null ? garage.Owner : null;
             title.text = mine ? "CUSTOMIZE YOUR KART" : "GARAGE";
             lockText.text = mine ? "" : owner != null
-                ? owner.Nickname + "'s garage\n<size=60%>Only they can customize here.\nFind YOUR GARAGE sign!</size>"
+                ? owner.DisplayName + "'s garage\n<size=60%>Only they can customize here.\nFind YOUR GARAGE sign!</size>"
                 : "Open bay";
             if (!mine) return;
 

@@ -71,7 +71,7 @@ namespace KartVR
             var sb = new StringBuilder();
             var list = KartController.All.Where(k => k.IsReady).OrderByDescending(k => k.Score).ToList();
             for (int i = 0; i < list.Count && i < max; i++)
-                sb.Append(i + 1).Append(". ").Append(list[i].Nickname.ToString()).Append("  ").Append(list[i].Score).Append('\n');
+                sb.Append(i + 1).Append(". ").Append(list[i].DisplayName).Append("  ").Append(list[i].Score).Append('\n');
             return sb.ToString();
         }
     }

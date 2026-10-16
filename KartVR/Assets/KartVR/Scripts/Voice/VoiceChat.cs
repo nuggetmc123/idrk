@@ -109,10 +109,10 @@ namespace KartVR
         void Capture()
         {
             var mode = GameSettings.Mic;
-            if (mode == MicMode.Muted)
+            if (mode == MicMode.Muted || Moderation.Muted)
             {
                 StopMic();
-                MicStatus = "Muted";
+                MicStatus = Moderation.Muted ? "Muted by a moderator" : "Muted";
                 MicLevel = 0f;
                 Sending = false;
                 return;

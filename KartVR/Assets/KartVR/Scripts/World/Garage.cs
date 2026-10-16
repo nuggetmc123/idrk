@@ -59,7 +59,7 @@ namespace KartVR
             {
                 if (owner == null) sign.text = "GARAGE " + (index + 1) + "\n<size=55%>open</size>";
                 else if (owner == KartController.Local) sign.text = "YOUR GARAGE\n<size=55%>walk in to customize</size>";
-                else sign.text = owner.Nickname.ToString().ToUpper() + "'S GARAGE";
+                else sign.text = owner.DisplayName.ToUpper() + "'S GARAGE";
             }
 
             Color c = owner != null ? owner.Look.PaintColor : new Color(0.35f, 0.35f, 0.4f);

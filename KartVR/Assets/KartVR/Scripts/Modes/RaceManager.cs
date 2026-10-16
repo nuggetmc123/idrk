@@ -165,7 +165,7 @@ namespace KartVR
             for (int i = 0; i < list.Count && i < max; i++)
             {
                 var k = list[i];
-                sb.Append(i + 1).Append(". ").Append(k.Nickname.ToString());
+                sb.Append(i + 1).Append(". ").Append(k.DisplayName);
                 if (k.Finished) sb.Append("  ").Append(KartUI.FormatTime(k.FinishTime));
                 else if (State == RaceState.Results) sb.Append("  DNF");
                 else sb.Append("  Lap ").Append(Mathf.Max(1, k.Lap)).Append('/').Append(totalLaps);

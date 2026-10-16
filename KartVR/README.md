@@ -50,6 +50,42 @@ in front of you walks through driving (gas, steering, brake/reverse, drift, boos
 **Skip step** and pull the trigger. At the end press **PLAY!** and you go to the hub; after that the game always starts
 there. Menu > Controls > **Play the tutorial again** replays it.
 
+### Names, moderators and anti-cheat
+**Your name.** The first time you play, a keyboard pops up: pick your name (3-16 letters, numbers or _). It's
+**locked** after that. Rude names (also spelled with numbers), "admin"/"staff"-style names, moderators' names and banned
+names are refused. If a bad one gets through, a moderator can **force a rename** or ban the player.
+
+**Your Player ID.** Menu > Menu shows your name and a Player ID like `3F9A2-C01B7`. It comes from a secret key made
+on your headset, so nobody can copy it to pretend to be you.
+
+**Making someone a moderator / banning for good.** Edit `Assets/KartVR/Resources/moderation.json`, **raise
+`"version"` by 1**, and push it to GitHub (`nuggetmc123/idrk`). Every headset downloads the newest list when the game
+starts, so no new APK is needed (the list built into the APK is the fallback).
+```json
+{
+  "version": 2,
+  "mods": [ { "name": "YourName", "id": "3F9A2-C01B7" } ],
+  "bans": [ { "name": "", "id": "AB12C-34D5E", "device": "", "reason": "cheating", "until": "" } ],
+  "blockedNames": [ "SomeBadName" ]
+}
+```
+A ban can use the Player ID, the headset code (`device`, shown in the mod menu: survives reinstalling) or the name.
+`"until": ""` is forever, or put a date like `"2026-12-31"`. Moderators' names are reserved for them.
+
+**Mod menu** (Menu > Mod Menu, only for moderators): everyone on your server, with a red **!** next to anyone the
+anti-cheat caught. Pick a player and **Kick** (can't play online for 5 minutes), **Mute** (10 minutes), **Force
+rename**, or **Ban** 1 day / 7 days / forever (press twice). It shows their Player ID and headset code for a permanent
+ban in moderation.json. Commands are **signed** with the mod's secret key and checked by the player's game, so a faked
+command does nothing.
+
+**Anti-cheat.** There's no game server (Photon Shared Mode), so nothing is 100% hack-proof, but:
+- A modified copy of the APK can't go online (Android's genuine-app check). Banned players can still play solo.
+- Every headset watches the others: impossible speeds several checks in a row = flagged. Flagged players can't push
+  you, and mods see the warning.
+- Bumps are capped (nobody can launch you into space), building is rate-limited, and rude names sent by a hacked
+  game show as "Player".
+- Everyone must play the **same version** of the game online; build a new APK for everybody after updates.
+
 ### Speed screen
 Your kart has a small screen above the steering wheel showing your speed in **MPH**, with lap, position, boost and
 messages underneath. (The old floating speed text is gone.)

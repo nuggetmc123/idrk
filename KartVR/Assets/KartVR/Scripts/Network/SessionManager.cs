@@ -318,6 +318,7 @@ namespace KartVR
         /// </summary>
         async Task<bool> ConnectPublic(KartMode mode, int first)
         {
+            if (OnlineBlocked(out string blocked)) { SetStatus("Couldn't connect: " + blocked, 15f); return false; }
             first = Mathf.Clamp(first, 1, ServerCount);
             for (int i = 0; i < ServerCount; i++)
             {
@@ -352,6 +353,7 @@ namespace KartVR
 
         async Task<bool> CreatePrivate()
         {
+            if (OnlineBlocked(out string blocked)) { SetStatus("Couldn't connect: " + blocked, 15f); return false; }
             for (int attempt = 0; attempt < 5; attempt++)
             {
                 string code = UnityEngine.Random.Range(0, 1000000).ToString("000000");
@@ -376,6 +378,7 @@ namespace KartVR
 
         async Task<bool> JoinPrivate(string code)
         {
+            if (OnlineBlocked(out string blocked)) { SetStatus("Couldn't connect: " + blocked, 15f); return false; }
             SetStatus("Joining lobby " + KartUI.FormatCode(code) + "...", 30f);
             var result = await StartSession(PrivateArgs(code), KartMode.Hub, true, code);
             if (!result.Ok)
@@ -393,6 +396,23 @@ namespace KartVR
             }
             SetStatus("Joined lobby " + KartUI.FormatCode(code), 5f);
             return true;
+        }
+
+        /// <summary>Banned, or a modified copy of the game: no online play (solo still works).</summary>
+        static bool OnlineBlocked(out string why)
+        {
+            if (AntiCheat.Tampered) { why = "this copy of the game was modified"; return true; }
+            if (Moderation.IsBanned(out why)) return true;
+            return false;
+        }
+
+        /// <summary>Kicked or banned by a moderator: leave the online game and play solo.</summary>
+        public void Removed(string why)
+        {
+            SetStatus(why, 20f);
+            if (!IsConnected || IsSolo || IsTutorial || !MultiplayerAvailable) return;
+            OnlineError = why;
+            _ = StartSolo(KartMode.Hub);
         }
 
         /// <summary>Turns Fusion's failure reason into something you can act on.</summary>

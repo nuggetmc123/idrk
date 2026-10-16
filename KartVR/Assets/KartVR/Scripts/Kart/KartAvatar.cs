@@ -89,7 +89,7 @@ namespace KartVR
             if (nameTag && !HasStateAuthority)
             {
                 nameTag.gameObject.SetActive(driving);
-                nameTag.text = kart.Nickname.ToString();
+                nameTag.text = kart.DisplayName;
             }
             if (!driving) return;
 

@@ -49,6 +49,25 @@ namespace KartVR
 
         // ---- Networked state ----
         [Networked] public NetworkString<_16> Nickname { get; set; }
+        /// <summary>The owner's Player ID and headset code (for the mod menu and bans).</summary>
+        [Networked] public NetworkString<_16> PlayerId { get; set; }
+        [Networked] public NetworkString<_16> DeviceHash { get; set; }
+
+        string checkedName, shownName;
+        /// <summary>The name to show for this player. A rude name (only possible with a hacked game) shows as "Player".</summary>
+        public string DisplayName
+        {
+            get
+            {
+                string n = Nickname.ToString();
+                if (n != checkedName)
+                {
+                    checkedName = n;
+                    shownName = NameRules.Valid(n, out _) || n.StartsWith("Racer") || n.StartsWith("Player") ? n : "Player";
+                }
+                return shownName;
+            }
+        }
         [Networked] public int LookPacked { get; set; }
         [Networked] public int GarageIndex { get; set; }
         [Networked] public NetworkBool Boosting { get; set; }
@@ -131,6 +150,8 @@ namespace KartVR
                 rb.interpolation = RigidbodyInterpolation.Interpolate;
                 rb.centerOfMass = new Vector3(0f, 0.25f, 0f);
                 Nickname = PlayerProfile.Nickname;
+                PlayerId = PlayerIdentity.PlayerId;
+                DeviceHash = PlayerIdentity.DeviceHash;
                 LookPacked = PlayerProfile.Look.Pack();
                 GarageIndex = -1;
                 NetPosition = transform.position;
@@ -635,6 +656,7 @@ namespace KartVR
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
         public void RPC_ReceiveBump(Vector3 velocityChange)
         {
+            velocityChange = Vector3.ClampMagnitude(velocityChange, 20f); // anti-cheat: no launching people into space
             AudioManager.PlayAt(AudioManager.Sfx.Bump, transform.position);
             if (rb == null || rb.isKinematic) return;
             rb.AddForce(velocityChange, ForceMode.VelocityChange);
@@ -642,6 +664,13 @@ namespace KartVR
             drifting = false;
             Buzz(XRNode.RightHand, 1f, 0.25f);
             Buzz(XRNode.LeftHand, 1f, 0.25f);
+        }
+
+        /// <summary>A moderator's signed command for this kart's owner (checked in <see cref="Moderation.Receive"/>).</summary>
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_Moderate(byte action, int arg, long time, byte[] modKey, byte[] signature)
+        {
+            Moderation.Receive(action, arg, time, modKey, signature);
         }
 
         static void Buzz(XRNode node, float amplitude, float duration)

@@ -112,6 +112,14 @@ namespace KartVR
 
         void Update()
         {
+            // Pick your name first; the tutorial waits (and hides) until you have.
+            if (NameEntry.Showing)
+            {
+                if (panel != null) panel.gameObject.SetActive(false);
+                createdAt = Time.time;
+                return;
+            }
+            if (panel != null && !panel.gameObject.activeSelf) panel.gameObject.SetActive(true);
             if (index < 0)
             {
                 // Wait until you're in your kart in the tutorial world (but never more than 12 s: then just start).

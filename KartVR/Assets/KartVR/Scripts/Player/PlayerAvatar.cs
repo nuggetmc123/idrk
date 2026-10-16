@@ -217,7 +217,7 @@ namespace KartVR
             {
                 var look = kart.Look;
                 body.Build(look.paint, look.accent);
-                if (nameTag && !IsLocal) nameTag.text = kart.Nickname.ToString();
+                if (nameTag && !IsLocal) nameTag.text = kart.DisplayName;
             }
             else if (IsLocal)
             {
