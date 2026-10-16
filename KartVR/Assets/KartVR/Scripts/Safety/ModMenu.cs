@@ -38,6 +38,7 @@ namespace KartVR
             // (Leaving it behind is what made Close look like it did nothing and the menu double up.)
             if (panel != null) Destroy(panel.gameObject);
             if (instance == this) instance = null;
+            SpawnMenu.Close();
         }
 
         Transform panel, listRoot;
@@ -80,7 +81,7 @@ namespace KartVR
             KartUI.Label(panel, "<b>YOUR TOOLS</b>", new Vector3(-0.33f, -0.27f, 0f), 0.22f, new Color(1f, 0.85f, 0.4f), new Vector2(0.46f, 0.04f));
             var tool = new Vector3(0.37f, 0.07f, 0.03f);
             invisibleButton = PokeButton.Create(panel, "Invisible", "", new Vector3(-0.39f, -0.34f, 0f), tool, new Color(0.75f, 0.6f, 1f), () => Flip(ref ModPowers.Invisible, "Invisible"), 0.24f);
-            buildButton = PokeButton.Create(panel, "BuildAnywhere", "", new Vector3(0f, -0.34f, 0f), tool, new Color(0.5f, 0.9f, 1f), () => Flip(ref ModPowers.BuildAnywhere, "Build anywhere"), 0.24f);
+            buildButton = PokeButton.Create(panel, "SpawnMenu", "Spawn Menu", new Vector3(0f, -0.34f, 0f), tool, new Color(0.5f, 1f, 0.65f), SpawnMenu.Toggle, 0.24f);
             blasterButton = PokeButton.Create(panel, "Blaster", "", new Vector3(0.39f, -0.34f, 0f), tool, new Color(1f, 0.5f, 0.4f), () => Flip(ref ModPowers.Blaster, "Blaster"), 0.24f);
             foreach (var b in new[] { invisibleButton, buildButton, blasterButton }) b.cooldown = 0.6f;
             RefreshTools();
@@ -93,7 +94,6 @@ namespace KartVR
             power = !power;
             AudioManager.Play(AudioManager.Sfx.Click, 1f, power ? 1.3f : 0.9f);
             string tip = what == "Invisible" ? (power ? "Nobody else can see you now" : "Everyone can see you again")
-                : what == "Build anywhere" ? (power ? "Click the right stick in your kart to build on this map" : "Build mode is back to Free Roam only")
                 : power ? "Get out of your kart (Y) and pull the right trigger to shoot" : "Blaster put away";
             SessionManager.Instance?.SetStatus(what + (power ? " ON: " : " OFF: ") + tip, 5f);
             RefreshTools();
@@ -102,7 +102,7 @@ namespace KartVR
         void RefreshTools()
         {
             invisibleButton.SetLabel("Invisible: " + (ModPowers.Invisible ? "<b>ON</b>" : "off"));
-            buildButton.SetLabel("Build anywhere: " + (ModPowers.BuildAnywhere ? "<b>ON</b>" : "off"));
+            buildButton.SetLabel("Spawn Menu");
             blasterButton.SetLabel("Blaster: " + (ModPowers.Blaster ? "<b>ON</b>" : "off"));
         }
 

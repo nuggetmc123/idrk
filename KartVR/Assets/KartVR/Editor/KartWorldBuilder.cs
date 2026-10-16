@@ -26,6 +26,7 @@ namespace KartVR.EditorTools
         const string ScenePath = Root + "/Scenes/KartWorld.unity";
         const string KartPrefabPath = Root + "/Prefabs/Kart.prefab";
         const string PlayerPrefabPath = Root + "/Prefabs/Player.prefab";
+        const string PropPrefabPath = Root + "/Prefabs/Prop.prefab";
         const string RacerModelPath = Root + "/Models/Racer.fbx";
 
         // Every map sits in its own sky dome (see KartMaps), far enough apart that you never see another map.
@@ -45,7 +46,7 @@ namespace KartVR.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 7; // 7 = Tutorial Park map
+        public const int WorldVersion = 8; // 8 = Spawn Menu props
         const string WorldVersionFile = "ProjectSettings/KartVRWorldVersion.txt";
         public static bool WorldUpToDate =>
             File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
@@ -107,7 +108,7 @@ namespace KartVR.EditorTools
             var kartPrefab = BuildKartPrefab();
             var playerPrefab = BuildPlayerPrefab();
 
-            BuildManagers(kartPrefab, playerPrefab, racerModel);
+            BuildManagers(kartPrefab, playerPrefab, BuildPropPrefab(), racerModel);
             BuildRig();
             MarkStatic(BuildHub());
             MarkStatic(BuildRaceTrack(MeadowCircuit));
@@ -557,6 +558,20 @@ namespace KartVR.EditorTools
             return prefab;
         }
 
+        /// <summary>Moderator spawnables (karts, balls, crates...): what it looks like is built at runtime.</summary>
+        static GameObject BuildPropPrefab()
+        {
+            var root = new GameObject("Prop");
+            var rb = root.AddComponent<Rigidbody>();
+            rb.mass = 20f;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            root.AddComponent<NetworkObject>();
+            root.AddComponent<SpawnedProp>();
+            var prefab = PrefabUtility.SaveAsPrefabAsset(root, PropPrefabPath);
+            Object.DestroyImmediate(root);
+            return prefab;
+        }
+
         static GameObject BuildPlayerPrefab()
         {
             var root = new GameObject("Player");
@@ -599,12 +614,13 @@ namespace KartVR.EditorTools
             return AssetDatabase.LoadAssetAtPath<GameObject>(RacerModelPath);
         }
 
-        static void BuildManagers(GameObject kartPrefab, GameObject playerPrefab, GameObject racerModel)
+        static void BuildManagers(GameObject kartPrefab, GameObject playerPrefab, GameObject propPrefab, GameObject racerModel)
         {
             var sm = new GameObject("SessionManager").AddComponent<SessionManager>();
             sm.racerModel = racerModel;
             sm.kartPrefab = kartPrefab.GetComponent<NetworkObject>();
             sm.playerPrefab = playerPrefab.GetComponent<NetworkObject>();
+            sm.propPrefab = propPrefab.GetComponent<NetworkObject>();
             sm.baseMaterial = baseLit;
             sm.particleMaterial = particle;
 

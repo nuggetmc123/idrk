@@ -44,6 +44,9 @@ namespace KartVR
         public NetworkObject playerPrefab;
 
 
+        [Tooltip("Things moderators spawn from the Spawn Menu (must have a NetworkObject). The builder fills this in.")]
+        public NetworkObject propPrefab;
+
         [Tooltip("Plain lit material that buttons, panels, karts and avatars built at runtime copy.")]
         public Material baseMaterial;
 

@@ -46,6 +46,15 @@ namespace Fusion
             return obj;
         }
 
+        public void Despawn(NetworkObject obj)
+        {
+            if (obj == null) return;
+            foreach (var b in obj.GetComponentsInChildren<NetworkBehaviour>(true)) { b.Despawned(this, true); behaviours.Remove(b); }
+            objects.Remove(obj);
+            obj.IsValid = false;
+            Destroy(obj.gameObject);
+        }
+
         void Register(NetworkObject obj, bool spawned)
         {
             if (obj == null || objects.Contains(obj)) return;
