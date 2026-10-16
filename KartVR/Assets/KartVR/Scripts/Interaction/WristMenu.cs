@@ -16,7 +16,7 @@ namespace KartVR
     {
         // Where the menu floats above your left controller. Set here (not in the scene) so older saved values can't
         // put it back down on your hand.
-        static readonly Vector3 PanelOffset = new Vector3(0f, 0.155f, 0.035f);
+        static readonly Vector3 PanelOffset = new Vector3(0f, 0.21f, 0.04f);
         static readonly Vector3 PanelTilt = new Vector3(35f, 0f, 0f);
 
         enum Page { Main, Sound, Controls, Voice }
@@ -84,7 +84,8 @@ namespace KartVR
             lobbyButton = PokeButton.Create(root, "Lobby", "Create Lobby", new Vector3(0f, -0.038f, 0f), wide, new Color(1f, 0.6f, 0.9f), ToggleLobby, 0.1f);
             buildButton = PokeButton.Create(root, "Build", "Build Mode", new Vector3(0f, -0.078f, 0f), wide, new Color(0.5f, 0.9f, 1f), BuildMode.Toggle, 0.1f);
             // Who you are: give your Player ID to the game's owner to become a moderator.
-            idLabel = KartUI.Label(root, "", new Vector3(0f, -0.106f, 0f), 0.07f, new Color(0.8f, 0.85f, 1f, 0.8f), new Vector2(0.24f, 0.015f));
+            KartUI.Box(root, "IdStrip", new Vector3(0f, -0.106f, 0.004f), new Vector3(0.24f, 0.022f, 0.004f), new Color(0.25f, 0.2f, 0.04f));
+            idLabel = KartUI.Label(root, "", new Vector3(0f, -0.106f, 0f), 0.095f, new Color(1f, 0.86f, 0.25f), new Vector2(0.235f, 0.02f));
             modButton = PokeButton.Create(root, "ModMenu", "Mod Menu", new Vector3(0f, -0.13f, 0f), new Vector3(0.24f, 0.026f, 0.02f), new Color(1f, 0.45f, 0.4f), ModMenu.Toggle, 0.1f);
         }
 
@@ -260,7 +261,7 @@ namespace KartVR
             // Build mode is a Free Roam thing.
             buildButton.gameObject.SetActive(KartModeInfo.CanBuild(GameState.CurrentMode));
             buildButton.SetLabel(BuildMode.Active ? "Back to Kart" : "Build Mode");
-            idLabel.text = PlayerProfile.Nickname + "   ID: " + PlayerIdentity.PlayerId;
+            idLabel.text = "<b>" + PlayerProfile.Nickname + "   ID: " + PlayerIdentity.PlayerId + "</b>";
             modButton.gameObject.SetActive(Moderation.IAmMod);
         }
     }
