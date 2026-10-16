@@ -78,6 +78,7 @@ namespace KartVR
         public int PlayerCount => IsConnected ? Runner.ActivePlayers.Count() : 0;
 
         int worldSceneIndex;
+        float joinedAt = -1f;
         bool hasConnectedOnce;
         bool shuttingDownOnPurpose;
 
@@ -178,11 +179,25 @@ namespace KartVR
             string mode = GameState.Instance != null && GameState.Instance.IsReady
                 ? KartModeInfo.DisplayName(GameState.Instance.Mode)
                 : KartModeInfo.DisplayName(RequestedMode);
+            string problem = Diagnose();
+            if (problem != null) return "<color=#ff9f43>PROBLEM: " + problem + "</color>";
             if (IsSolo)
                 return "PLAYING SOLO - " + mode.ToUpper() + "\nCouldn't go online: " + OnlineError + "\nPress a SERVER button to try again.";
             if (IsPrivate)
                 return "PRIVATE LOBBY  CODE " + KartUI.FormatCode(LobbyCode) + "\n" + mode + " - " + PlayerCount + " player(s)";
             return "SERVER " + ServerNumber + "  -  " + mode.ToUpper() + "\n" + PlayerCount + "/" + MaxPlayers + " players";
+        }
+
+        /// <summary>Connected but something's missing a few seconds later: say what, plus the first error the game hit.</summary>
+        string Diagnose()
+        {
+            if (joinedAt < 0f || Time.time - joinedAt < 6f) return null;
+            string what = null;
+            if (PlayerAvatar.Local == null) what = "your player didn't appear";
+            else if (GameState.Instance == null || !GameState.Instance.IsReady) what = "the game state didn't start";
+            if (what == null) return null;
+            return what + (string.IsNullOrEmpty(ErrorLog.First) ? "" : "\n<size=60%>" + ErrorLog.First + "</size>") +
+                   "\n<size=60%>(Send a photo of this board.)</size>";
         }
 
         public void SetStatus(string text, float seconds = 4f)
@@ -375,6 +390,7 @@ namespace KartVR
             }
             hasConnectedOnce = true;
 
+            joinedAt = -1f;
             RequestedMode = mode;
             IsPrivate = isPrivate;
             IsSolo = false;
@@ -433,9 +449,13 @@ namespace KartVR
             }
             var area = SpawnArea.Get(KartMode.Hub);
             Pose pose = area != null ? area.GetSlot(0) : new Pose(Vector3.up, Quaternion.identity);
-            // The kart starts out of sight; it parks itself in your garage (or drives to the grid) right away.
-            runner.Spawn(kartPrefab, new Vector3(0f, -50f, 0f), Quaternion.identity, player);
-            runner.Spawn(playerPrefab, pose.position, pose.rotation, player);
+            // Your walking player first (without it you can't move), then the kart, which starts out of sight and
+            // parks itself in your garage (or drives to the grid) right away. One failing never stops the other.
+            try { runner.Spawn(playerPrefab, pose.position, pose.rotation, player); }
+            catch (Exception e) { Debug.LogError("[KartVR] Couldn't spawn your player: " + e.Message); }
+            try { runner.Spawn(kartPrefab, new Vector3(0f, -50f, 0f), Quaternion.identity, player); }
+            catch (Exception e) { Debug.LogError("[KartVR] Couldn't spawn your kart: " + e.Message); }
+            joinedAt = Time.time;
         }
 
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)

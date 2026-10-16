@@ -240,13 +240,43 @@ namespace KartVR
             if (KartInput.RecenterPressed) Recenter();
 
             if (!IsXR) DesktopControls();
+            else if (attachedAvatar == null && attachedKart == null && !BuildMode.Active) LooseControls();
+        }
+
+        bool looseTurnLatched;
+
+        /// <summary>
+        /// Backup for VR when you aren't on your player or in your kart (e.g. it hasn't appeared): you can still
+        /// walk around with the left stick and turn with the right, at standing height, instead of being stuck.
+        /// </summary>
+        void LooseControls()
+        {
+            if (head == null) return;
+            if (transform.parent != null) return;
+            // Standing height even if the headset measures from eye level / you're sitting.
+            float headY = head.position.y;
+            if (headY < 1.2f) transform.position += Vector3.up * (standingEyeHeight - headY);
+
+            float degrees = GameSettings.TurnAmount(KartInput.Turn, ref looseTurnLatched, Time.deltaTime);
+            if (degrees != 0f) transform.RotateAround(head.position, Vector3.up, degrees);
+
+            Vector2 stick = KartInput.Move;
+            Vector3 fwd = Vector3.ProjectOnPlane(head.forward, Vector3.up).normalized;
+            Vector3 right = Vector3.Cross(Vector3.up, fwd);
+            transform.position += (fwd * stick.y + right * stick.x) * 4.5f * Time.deltaTime;
         }
 
         /// <summary>Hub = walk on foot, any other mode = sit in your kart.</summary>
         void ChooseAttachment()
         {
             var gs = GameState.Instance;
-            if (gs == null || !gs.IsReady) return;
+            if (gs == null || !gs.IsReady)
+            {
+                // The game state isn't ready (yet): you're in the hub anyway, so walk around on foot.
+                var walker = PlayerAvatar.Local;
+                if (walker != null && attachedAvatar != walker && attachedKart == null) AttachTo(walker);
+                return;
+            }
             if (gs.Mode == KartMode.Hub)
             {
                 var avatar = PlayerAvatar.Local;
