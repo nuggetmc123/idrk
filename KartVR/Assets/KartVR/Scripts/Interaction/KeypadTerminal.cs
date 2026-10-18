@@ -4,9 +4,9 @@ using UnityEngine;
 namespace KartVR
 {
     /// <summary>
-    /// The lobby code terminal in the hub. Walk up to it and poke the keys:
-    /// type a friend's 6-digit code and press JOIN, or press CREATE to make your
-    /// own private lobby (the code then shows on the screen to share).
+    /// The code keypad in the hub. Type a friend's 6-digit code (their room code or private lobby code, shown on
+    /// their ROOMS board and menu) and press JOIN to go to them on whatever map they're on, or press CREATE to
+    /// make your own private lobby (the code then shows on the screen to share).
     /// Builds itself at runtime.
     /// </summary>
     public class KeypadTerminal : MonoBehaviour
@@ -59,7 +59,7 @@ namespace KartVR
             var s = SessionManager.Instance;
             if (s == null || s.Busy) return;
             if (typed.Length != 6) { s.SetStatus("Type a 6-digit code first", 3f); return; }
-            s.JoinPrivateLobby(typed);
+            s.JoinCode(typed);
             typed = "";
         }
 

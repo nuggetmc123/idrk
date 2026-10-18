@@ -27,9 +27,18 @@ namespace Fusion
             foreach (var c in cbs) if (c != null && !callbacks.Contains(c)) callbacks.Add(c);
         }
 
+        public SessionInfo SessionInfo { get; private set; } = new SessionInfo();
+
+        /// <summary>Offline there are no other sessions to list.</summary>
+        public Task<StartGameResult> JoinSessionLobby(SessionLobby lobby, string lobbyID = null)
+        {
+            return Task.FromResult(new StartGameResult { Ok = false, ShutdownReason = ShutdownReason.GameNotFound, ErrorMessage = "offline" });
+        }
+
         public Task<StartGameResult> StartGame(StartGameArgs args)
         {
             IsRunning = true;
+            SessionInfo = new SessionInfo { Name = args.SessionName ?? args.SessionNameGenerator?.Invoke() ?? "OFFLINE", IsValid = true, PlayerCount = 1, MaxPlayers = args.PlayerCount ?? 1 };
             // Network objects already placed in the scene (e.g. GameState) come alive now.
             foreach (var obj in FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
                 Register(obj, false);

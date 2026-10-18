@@ -214,10 +214,10 @@ namespace KartVR.EditorTools
                     Prim(PrimitiveType.Cylinder, "Branch", tree, new Vector3(0f, h * (0.55f + b * 0.12f), 0f), new Vector3(0.18f, 1.4f, 0.18f), deadWood, false,
                         Quaternion.Euler(50f + b * 8f, b * 95f, 0f));
             }
-            for (int i = 0; i < 30; i++)
+            for (int i = 0; i < 14; i++)
             {
-                float a = i * 12f * Mathf.Deg2Rad;
-                float d = i % 2 == 0 ? 26f : 60f;
+                float a = (i * 360f / 14f + 8f) * Mathf.Deg2Rad;
+                float d = i % 2 == 0 ? 26f : 55f; // all well inside the spawn ring (80 m)
                 var p = new Vector3(Mathf.Sin(a) * d, 0f, Mathf.Cos(a) * d);
                 var pk = Group("JackOLantern", g, p, Quaternion.Euler(0f, -a * Mathf.Rad2Deg + 180f, 0f));
                 Prim(PrimitiveType.Sphere, "Pumpkin", pk, new Vector3(0f, 0.45f, 0f), new Vector3(1.1f, 0.85f, 1.1f), pumpkin, false);

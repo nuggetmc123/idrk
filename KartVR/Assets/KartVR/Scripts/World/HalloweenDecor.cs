@@ -67,10 +67,14 @@ namespace KartVR
             if (mode == KartMode.Backrooms) return; // nothing festive in the Backrooms
 
             // Jack-o'-lanterns dotted around, sat on whatever ground is there.
-            int pumpkins = Mathf.Clamp((int)(map.radius / 4f), 25, 70);
+            // Kept well away from where you spawn, so the start isn't a pumpkin patch.
+            var spawns = new List<Vector3>();
+            var area = SpawnArea.Get(mode);
+            if (area != null) foreach (Transform slot in area.transform) spawns.Add(slot.position);
+            int pumpkins = Mathf.Clamp((int)(map.radius / 12f), 10, 30);
             for (int i = 0; i < pumpkins; i++)
             {
-                if (!GroundPoint(map, rng, 0.85f, out var p)) continue;
+                if (!GroundPoint(map, rng, 0.85f, out var p) || NearAny(p, spawns, 30f)) continue;
                 JackOLantern(p, 0.8f + (float)rng.NextDouble() * 0.9f, (float)rng.NextDouble() * 360f);
             }
             // Ghosts bobbing about above head height.
@@ -114,12 +118,9 @@ namespace KartVR
             label.transform.rotation = Quaternion.identity;
             banner.name = "HalloweenBanner";
             // Pumpkins in the corners and along the walls, ghosts floating near the roof.
-            for (int i = 0; i < 14; i++)
-            {
-                float x = (i % 7 - 3f) * 6.5f;
-                float z = i < 7 ? north - 1.2f : south + 1.2f;
-                JackOLantern(center + new Vector3(x, 0f, z), 0.9f + (float)rng.NextDouble() * 0.5f, i < 7 ? 0f : 180f);
-            }
+            // Just one pumpkin in each corner (you spawn in the middle of the hub).
+            foreach (var corner in new[] { new Vector3(-20.5f, 0f, north - 1.4f), new Vector3(20.5f, 0f, north - 1.4f), new Vector3(-20.5f, 0f, south + 1.4f), new Vector3(20.5f, 0f, south + 1.4f) })
+                JackOLantern(center + corner, 1.1f + (float)rng.NextDouble() * 0.3f, corner.z > 0f ? 0f : 180f);
             for (int i = 0; i < 5; i++)
             {
                 var home = center + new Vector3((i - 2f) * 8f, 6.5f, -1f + (i % 2) * 6f);
@@ -143,6 +144,13 @@ namespace KartVR
                 }
             }
             p = default(Vector3);
+            return false;
+        }
+
+        static bool NearAny(Vector3 p, List<Vector3> points, float distance)
+        {
+            foreach (var q in points)
+                if ((p - q).sqrMagnitude < distance * distance) return true;
             return false;
         }
 

@@ -10,19 +10,18 @@ using UnityEngine.SceneManagement;
 namespace KartVR
 {
     /// <summary>
-    /// Owns the Photon Fusion connection (Shared Mode) and moves you between sessions.
+    /// Owns the Photon Fusion connection (Shared Mode) and moves you between rooms.
     ///
-    /// Public play: on launch you're matched into a public Hub session with
-    /// whoever is online. Driving into a mode portal in the public hub matches
-    /// you into a public session of that mode (Race / Bumper / Free Roam).
+    /// Public play: every room has a random 6-digit code. Going to a map (or the hub) puts you in the fullest room
+    /// on that map that still has space; only when they're all full is a new room with a new random code made.
+    /// Friends can join you anywhere by typing your room code on the hub keypad.
     ///
-    /// Private play: "Create" makes an invisible session named after a random
-    /// 6-digit code. Friends type that code on the hub keypad to join. Inside a
-    /// private lobby the portals move the WHOLE lobby together instead of
-    /// matchmaking, because everyone shares one GameState.
+    /// Private lobbies: a code of your own that nobody is matched into. There's no host: everyone in the lobby can
+    /// go to any map on their own and stays in the lobby (each map of a lobby is its own room, named after the
+    /// lobby code). Typing a lobby code takes you to wherever most of that lobby is.
     ///
-    /// Shared Mode keeps a session alive as long as anyone is in it, so the hub
-    /// survives whoever opened it leaving.
+    /// Public codes start with 1-4, private lobby codes with 5-9, so one keypad joins either.
+    /// Shared Mode keeps a room alive as long as anyone is in it.
     /// </summary>
     public class SessionManager : MonoBehaviour, INetworkRunnerCallbacks
     {
@@ -31,11 +30,9 @@ namespace KartVR
         const string PrivatePrefix = "KARTVR_PRIV_";
         const string PublicPrefix = "KARTVR_PUB_";
 
-        /// <summary>Players per session: one for each garage in the hub.</summary>
+        /// <summary>Players per room: one for each garage in the hub.</summary>
         public const int MaxPlayers = 6;
-        /// <summary>How many numbered public servers we look through for a free spot.</summary>
-        public const int ServerCount = 30;
-        const string ModeProperty = "mode";
+        const string ModeProperty = "mode", KindProperty = "kind", CodeProperty = "code";
 
         [Tooltip("The Kart prefab (must have a NetworkObject). The builder fills this in.")]
         public NetworkObject kartPrefab;
@@ -68,13 +65,14 @@ namespace KartVR
         public bool IsTutorial { get; private set; }
         /// <summary>Why the last online attempt failed (shown on the hub boards and the menu).</summary>
         public string OnlineError { get; private set; } = "";
+        /// <summary>The private lobby's code (only while <see cref="IsPrivate"/>).</summary>
         public string LobbyCode { get; private set; }
+        /// <summary>The code friends type to join you: your public room's code, or your private lobby's.</summary>
+        public string RoomCode => IsPrivate ? LobbyCode : publicCode;
+        string publicCode = "";
         /// <summary>The Photon session we're in (part of what each player signs to prove their ID).</summary>
         public string SessionName { get; private set; } = "";
         public bool Busy { get; private set; }
-        /// <summary>Which numbered public server you're on (1, 2, 3...). People on the same hub server go through portals together.</summary>
-        public int ServerNumber { get; private set; } = 1;
-
         /// <summary>The mode we asked for when we connected. The first player in a session uses it to set GameState.Mode.</summary>
         public KartMode RequestedMode { get; private set; }
 
@@ -85,6 +83,12 @@ namespace KartVR
         public int PlayerCount => IsConnected ? Runner.ActivePlayers.Count() : 0;
 
         int worldSceneIndex;
+        // Where we were before the current move, to go back if the move fails (a wrong code, a full map...).
+        bool lastPrivate;
+        string lastCode = "";
+        KartMode lastMode = KartMode.Hub;
+        bool lastValid;
+        List<SessionInfo> sessionList;
         float joinedAt = -1f;
         bool hasConnectedOnce;
         bool shuttingDownOnPurpose;
@@ -122,24 +126,12 @@ namespace KartVR
             else StartTutorial();
         }
 
-        // ---------- Public API (called by portals, keypad, wrist menu) ----------
+        // ---------- Public API (called by the map board, keypad, wrist menu) ----------
 
+        /// <summary>Go to a map in a public room: the fullest one with space, or a new one if they're all full.</summary>
         public void JoinPublic(KartMode mode)
         {
-            _ = RunConnect(() => ConnectPublic(mode, ServerNumber), mode);
-        }
-
-        /// <summary>Move to a numbered public hub server (from the server board). If it's full you get the next free one.</summary>
-        public void JoinServer(int number)
-        {
-            if (!MultiplayerAvailable) { SetStatus(OfflineMessage, 6f); return; }
-            number = Mathf.Clamp(number, 1, ServerCount);
-            if (!IsPrivate && !IsSolo && number == ServerNumber && IsConnected && GameState.CurrentMode == KartMode.Hub)
-            {
-                SetStatus("You're already on server " + number, 3f);
-                return;
-            }
-            _ = RunConnect(() => ConnectPublic(KartMode.Hub, number), KartMode.Hub);
+            _ = RunConnect(() => ConnectPublic(mode), mode);
         }
 
         /// <summary>False until Photon Fusion 2 is imported (the game then runs solo, offline).</summary>
@@ -153,16 +145,22 @@ namespace KartVR
             _ = RunConnect(CreatePrivate);
         }
 
-        public void JoinPrivateLobby(string code)
+        /// <summary>Join a friend by their room code (public room) or lobby code (private lobby), on whatever map they're on.</summary>
+        public void JoinCode(string code)
         {
             if (!MultiplayerAvailable) { SetStatus(OfflineMessage, 6f); return; }
             code = (code ?? "").Trim();
-            if (code.Length != 6 || !code.All(char.IsDigit))
+            if (code.Length != 6 || !code.All(char.IsDigit) || code[0] == '0')
             {
                 SetStatus("Codes are 6 digits", 3f);
                 return;
             }
-            _ = RunConnect(() => JoinPrivate(code));
+            if (IsConnected && !IsSolo && code == RoomCode)
+            {
+                SetStatus("You're already in " + KartUI.FormatCode(code), 3f);
+                return;
+            }
+            _ = RunConnect(() => ConnectToCode(code));
         }
 
         public void LeaveToPublicHub()
@@ -170,13 +168,27 @@ namespace KartVR
             JoinPublic(KartMode.Hub);
         }
 
-        /// <summary>"Go to the hub" button: in a private lobby take the group back, otherwise rejoin the public hub.</summary>
+        /// <summary>
+        /// Go to a map. Public: a public room on that map. Private lobby: that map in your lobby (just you; the rest
+        /// of the lobby stays where they are). Solo / tutorial: the map changes on this headset.
+        /// </summary>
+        public void Travel(KartMode mode)
+        {
+            if (IsPrivate)
+            {
+                string code = LobbyCode;
+                _ = RunConnect(() => ConnectPrivate(code, mode));
+            }
+            else JoinPublic(mode);
+        }
+
+        /// <summary>"Go to the hub" button: your lobby's hub in a private lobby, otherwise a public hub.</summary>
         public void GoToHub()
         {
-            if (IsPrivate && GameState.Instance != null && GameState.Instance.IsReady)
+            if (IsSolo && GameState.Instance != null && GameState.Instance.IsReady)
                 GameState.Instance.RequestMode(KartMode.Hub);
             else
-                JoinPublic(KartMode.Hub);
+                Travel(KartMode.Hub);
         }
 
         public string DescribeLobby()
@@ -193,10 +205,10 @@ namespace KartVR
             if (IsTutorial)
                 return "TUTORIAL\nFollow the steps on the panel in front of you.";
             if (IsSolo)
-                return "PLAYING SOLO - " + mode.ToUpper() + "\nCouldn't go online: " + OnlineError + "\nPress a SERVER button to try again.";
+                return "PLAYING SOLO - " + mode.ToUpper() + "\nCouldn't go online: " + OnlineError + "\nTouch a map or FIND A ROOM to try again.";
             if (IsPrivate)
-                return "PRIVATE LOBBY  CODE " + KartUI.FormatCode(LobbyCode) + "\n" + mode + " - " + PlayerCount + " player(s)";
-            return "SERVER " + ServerNumber + "  -  " + mode.ToUpper() + "\n" + PlayerCount + "/" + MaxPlayers + " players";
+                return "PRIVATE LOBBY  " + KartUI.FormatCode(LobbyCode) + "\n" + mode + " - " + PlayerCount + " here (anyone can go to any map)";
+            return "ROOM " + KartUI.FormatCode(RoomCode) + "  -  " + mode.ToUpper() + "\n" + PlayerCount + "/" + MaxPlayers + " players";
         }
 
         /// <summary>Connected but something's missing a few seconds later: say what, plus the first error the game hit.</summary>
@@ -246,9 +258,22 @@ namespace KartVR
                 await StartSolo(publicMode.Value);
                 return;
             }
-            // A bad lobby code etc.: back to the public hub.
-            await Task.Delay(3000);
-            if (!Busy && !IsConnected) JoinPublic(KartMode.Hub);
+            // A wrong code, a full map etc.: back to where you were.
+            await Task.Delay(2500);
+            if (Busy || IsConnected) return;
+            if (lastValid && lastPrivate)
+            {
+                string code = lastCode;
+                KartMode mode = lastMode;
+                _ = RunConnect(() => ConnectPrivate(code, mode), KartMode.Hub);
+            }
+            else if (lastValid && !string.IsNullOrEmpty(lastCode))
+            {
+                string code = lastCode;
+                KartMode mode = lastMode;
+                _ = RunConnect(() => ConnectPublicRoom(code, mode), mode);
+            }
+            else JoinPublic(KartMode.Hub);
         }
 
         /// <summary>Start (or replay) the tutorial: a solo Free Roam game with a step-by-step guide.</summary>
@@ -317,43 +342,87 @@ namespace KartVR
             Busy = false;
         }
 
-        /// <summary>
-        /// Join public server number `first` for this mode; if it's full, try the next number, and so on.
-        /// Each server holds <see cref="MaxPlayers"/> players.
-        /// </summary>
-        async Task<bool> ConnectPublic(KartMode mode, int first)
+        static string NewCode(bool isPrivate)
+        {
+            int first = isPrivate ? UnityEngine.Random.Range(5, 10) : UnityEngine.Random.Range(1, 5);
+            return first + UnityEngine.Random.Range(0, 100000).ToString("00000");
+        }
+
+        static bool IsPrivateCode(string code) => code.Length > 0 && code[0] >= '5';
+
+        StartGameArgs PublicArgs(KartMode mode, string code)
+        {
+            return new StartGameArgs
+            {
+                GameMode = GameMode.Shared,
+                SessionName = code == null ? null : PublicPrefix + code,
+                // With no name, Photon puts you in the fullest open room with these properties, and only makes a
+                // new one (named by the generator, so with a fresh random code) when they're all full.
+                SessionNameGenerator = () => PublicPrefix + NewCode(false),
+                SessionProperties = new Dictionary<string, SessionProperty> { [ModeProperty] = (int)mode, [KindProperty] = 0 },
+                IsVisible = true,
+                PlayerCount = MaxPlayers,
+            };
+        }
+
+        StartGameArgs PrivateArgs(string code, KartMode mode)
+        {
+            return new StartGameArgs
+            {
+                GameMode = GameMode.Shared,
+                SessionName = PrivatePrefix + code + "_" + (int)mode,
+                // Listed (so a lobby code can be found on whichever map its players are), but never matched into:
+                // public matchmaking only looks for kind 0.
+                SessionProperties = new Dictionary<string, SessionProperty> { [ModeProperty] = (int)mode, [KindProperty] = 1, [CodeProperty] = code },
+                IsVisible = true,
+                PlayerCount = MaxPlayers,
+            };
+        }
+
+        async Task<bool> ConnectPublic(KartMode mode)
         {
             if (OnlineBlocked(out string blocked)) { SetStatus("Couldn't connect: " + blocked, 15f); return false; }
-            first = Mathf.Clamp(first, 1, ServerCount);
-            for (int i = 0; i < ServerCount; i++)
+            SetStatus("Finding a room (" + KartModeInfo.DisplayName(mode) + ")...", 30f);
+            var result = await StartSession(PublicArgs(mode, null), mode, false, null);
+            if (!result.Ok)
             {
-                int number = (first - 1 + i) % ServerCount + 1;
-                SetStatus("Joining server " + number + " (" + KartModeInfo.DisplayName(mode) + ")...", 30f);
-                var result = await StartSession(new StartGameArgs
-                {
-                    GameMode = GameMode.Shared,
-                    SessionName = PublicPrefix + mode + "_" + number,
-                    SessionProperties = new Dictionary<string, SessionProperty> { [ModeProperty] = (int)mode },
-                    IsVisible = true,
-                    PlayerCount = MaxPlayers,
-                }, mode, false, null);
-
-                if (result.Ok)
-                {
-                    ServerNumber = number;
-                    SetStatus(number == first
-                        ? "Joined server " + number + " (" + KartModeInfo.DisplayName(mode) + ")"
-                        : "Server " + first + " is full, so you joined server " + number, 5f);
-                    return true;
-                }
-                if (result.ShutdownReason != ShutdownReason.GameIsFull)
-                {
-                    SetStatus("Couldn't connect: " + Explain(result), 8f);
-                    return false;
-                }
+                SetStatus("Couldn't connect: " + Explain(result), 8f);
+                return false;
             }
-            SetStatus("Every server is full! Try again in a bit.");
-            return false;
+            SetStatus("Joined room " + KartUI.FormatCode(publicCode) + " (" + KartModeInfo.DisplayName(mode) + ")", 5f);
+            return true;
+        }
+
+        /// <summary>A public room by its code (going back to it, or a friend's room).</summary>
+        async Task<bool> ConnectPublicRoom(string code, KartMode mode)
+        {
+            if (OnlineBlocked(out string blocked)) { SetStatus("Couldn't connect: " + blocked, 15f); return false; }
+            SetStatus("Joining room " + KartUI.FormatCode(code) + "...", 30f);
+            var result = await StartSession(PublicArgs(mode, code), mode, false, null);
+            if (!result.Ok)
+            {
+                SetStatus(result.ShutdownReason == ShutdownReason.GameIsFull ? "Room " + KartUI.FormatCode(code) + " is full (6 players)"
+                    : "Couldn't join: " + Explain(result), 6f);
+                return false;
+            }
+            SetStatus("Joined room " + KartUI.FormatCode(code), 5f);
+            return true;
+        }
+
+        /// <summary>A map in a private lobby (made if nobody in the lobby is on it yet).</summary>
+        async Task<bool> ConnectPrivate(string code, KartMode mode)
+        {
+            if (OnlineBlocked(out string blocked)) { SetStatus("Couldn't connect: " + blocked, 15f); return false; }
+            SetStatus("Going to " + KartModeInfo.DisplayName(mode) + " in your lobby...", 30f);
+            var result = await StartSession(PrivateArgs(code, mode), mode, true, code);
+            if (!result.Ok)
+            {
+                SetStatus(result.ShutdownReason == ShutdownReason.GameIsFull ? KartModeInfo.DisplayName(mode) + " is full in your lobby (6 players)"
+                    : "Couldn't connect: " + Explain(result), 6f);
+                return false;
+            }
+            SetStatus("Lobby " + KartUI.FormatCode(code) + ": " + KartModeInfo.DisplayName(mode), 5f);
+            return true;
         }
 
         async Task<bool> CreatePrivate()
@@ -361,16 +430,16 @@ namespace KartVR
             if (OnlineBlocked(out string blocked)) { SetStatus("Couldn't connect: " + blocked, 15f); return false; }
             for (int attempt = 0; attempt < 5; attempt++)
             {
-                string code = UnityEngine.Random.Range(0, 1000000).ToString("000000");
+                string code = NewCode(true);
                 SetStatus("Creating private lobby...", 30f);
-                var result = await StartSession(PrivateArgs(code), KartMode.Hub, true, code);
+                var result = await StartSession(PrivateArgs(code, KartMode.Hub), KartMode.Hub, true, code);
                 if (!result.Ok)
                 {
-                    SetStatus("Couldn't create lobby: " + result.ShutdownReason);
+                    SetStatus("Couldn't create lobby: " + Explain(result));
                     return false;
                 }
-                // If we aren't the master client, someone already had this code. Try another.
-                if (Runner.IsSharedModeMasterClient)
+                // Somebody's already in a room with this code: pick another.
+                if (Runner.ActivePlayers.Count() <= 1)
                 {
                     SetStatus("Private lobby created! Code: " + KartUI.FormatCode(code), 10f);
                     return true;
@@ -381,26 +450,80 @@ namespace KartVR
             return false;
         }
 
-        async Task<bool> JoinPrivate(string code)
+        /// <summary>
+        /// Find a code's room in Photon's room list and join it. A lobby code goes to the map most of the lobby is on.
+        /// </summary>
+        async Task<bool> ConnectToCode(string code)
         {
             if (OnlineBlocked(out string blocked)) { SetStatus("Couldn't connect: " + blocked, 15f); return false; }
-            SetStatus("Joining lobby " + KartUI.FormatCode(code) + "...", 30f);
-            var result = await StartSession(PrivateArgs(code), KartMode.Hub, true, code);
-            if (!result.Ok)
+            SetStatus("Looking for " + KartUI.FormatCode(code) + "...", 30f);
+            var rooms = await ListRooms();
+            bool isPrivate = IsPrivateCode(code);
+            if (rooms == null)
             {
-                SetStatus("Couldn't join: " + result.ShutdownReason);
+                // Couldn't get the list: try the room directly (a lobby's hub for lobby codes).
+                return isPrivate ? await ConnectPrivate(code, KartMode.Hub) : await ConnectPublicRoom(code, KartMode.Hub);
+            }
+            string publicName = PublicPrefix + code, privatePrefix = PrivatePrefix + code + "_";
+            var matches = rooms.Where(r => r != null && r.IsValid && (r.Name == publicName || r.Name.StartsWith(privatePrefix))).ToList();
+            if (matches.Count == 0)
+            {
+                SetStatus("Nobody is in " + KartUI.FormatCode(code) + " right now. Check the code?", 6f);
                 return false;
             }
-            // Shared Mode creates the session if it doesn't exist. If we're the
-            // master client we're alone in it: nobody is using that code.
-            if (Runner.IsSharedModeMasterClient && Runner.ActivePlayers.Count() <= 1)
+            var open = matches.Where(r => r.IsOpen && r.PlayerCount < MaxPlayers).ToList();
+            if (open.Count == 0)
             {
-                await ShutdownRunner();
-                SetStatus("No lobby found with code " + KartUI.FormatCode(code), 5f);
+                SetStatus(KartUI.FormatCode(code) + " is full (6 players)", 6f);
                 return false;
             }
-            SetStatus("Joined lobby " + KartUI.FormatCode(code), 5f);
-            return true;
+            // Where most of them are (the hub if it's a tie).
+            var best = open.OrderByDescending(r => r.PlayerCount).ThenBy(r => ModeOf(r) == KartMode.Hub ? 0 : 1).First();
+            var mode = ModeOf(best);
+            return best.Name.StartsWith(PrivatePrefix) ? await ConnectPrivate(code, mode) : await ConnectPublicRoom(code, mode);
+        }
+
+        static KartMode ModeOf(SessionInfo room)
+        {
+            if (room.Properties != null && room.Properties.TryGetValue(ModeProperty, out var p) && p != null)
+            {
+                int m = p;
+                if (Enum.IsDefined(typeof(KartMode), (KartMode)m)) return (KartMode)m;
+            }
+            return KartMode.Hub;
+        }
+
+        /// <summary>Photon's list of open rooms (we have to leave the current room to see it). Null if it can't be had.</summary>
+        async Task<List<SessionInfo>> ListRooms()
+        {
+            RememberRoom();
+            await ShutdownRunner();
+            var go = new GameObject("LobbyRunner");
+            DontDestroyOnLoad(go);
+            var runner = go.AddComponent<NetworkRunner>();
+            runner.AddCallbacks(this);
+            sessionList = null;
+            try
+            {
+                var result = await runner.JoinSessionLobby(SessionLobby.Shared);
+                if (!result.Ok) return null;
+                // The list arrives a moment after joining the lobby.
+                float until = Time.realtimeSinceStartup + 6f;
+                while (sessionList == null && Time.realtimeSinceStartup < until) await Task.Yield();
+                return sessionList ?? new List<SessionInfo>();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[KartVR] Couldn't list rooms: " + e.Message);
+                return null;
+            }
+            finally
+            {
+                shuttingDownOnPurpose = true;
+                try { if (runner != null && runner.IsRunning) await runner.Shutdown(); else if (runner != null) Destroy(runner.gameObject); }
+                catch (Exception) { }
+                shuttingDownOnPurpose = false;
+            }
         }
 
         /// <summary>Banned, or a modified copy of the game: no online play (solo still works).</summary>
@@ -438,19 +561,9 @@ namespace KartVR
             }
         }
 
-        StartGameArgs PrivateArgs(string code)
-        {
-            return new StartGameArgs
-            {
-                GameMode = GameMode.Shared,
-                SessionName = PrivatePrefix + code,
-                IsVisible = false, // never shows up in public matchmaking
-                PlayerCount = MaxPlayers,
-            };
-        }
-
         async Task<StartGameResult> StartSession(StartGameArgs args, KartMode mode, bool isPrivate, string code)
         {
+            RememberRoom();
             await ShutdownRunner();
 
             // Reload the world so scene network objects (GameState etc.) start fresh.
@@ -469,6 +582,7 @@ namespace KartVR
             IsSolo = false;
             if (IsTutorial) { IsTutorial = false; Tutorial.Stop(); } // left the tutorial early: you'll get it again next launch
             LobbyCode = code;
+            publicCode = "";
 
             var go = new GameObject("NetworkRunner");
             DontDestroyOnLoad(go);
@@ -485,8 +599,29 @@ namespace KartVR
             if (!result.Ok)
             {
                 Runner = null;
+                return result;
             }
+            NoteRoomName();
             return result;
+        }
+
+        /// <summary>Note the room we're leaving, to come back to if the move fails.</summary>
+        void RememberRoom()
+        {
+            if (!IsConnected || IsSolo || IsTutorial) return;
+            lastValid = true;
+            lastPrivate = IsPrivate;
+            lastCode = RoomCode ?? "";
+            lastMode = GameState.CurrentMode;
+        }
+
+        /// <summary>The real room name (a random public room gets its name from Photon) and the code in it.</summary>
+        void NoteRoomName()
+        {
+            var info = Runner != null ? Runner.SessionInfo : null;
+            string name = info != null && info.IsValid && !string.IsNullOrEmpty(info.Name) ? info.Name : SessionName;
+            SessionName = name ?? "";
+            if (!IsPrivate && SessionName.StartsWith(PublicPrefix)) publicCode = SessionName.Substring(PublicPrefix.Length);
         }
 
         async Task ShutdownRunner()
@@ -516,6 +651,7 @@ namespace KartVR
         {
             // In Shared Mode every client spawns its own kart and its own walking avatar.
             if (player != runner.LocalPlayer) return;
+            if (runner == Runner) NoteRoomName();
             if (kartPrefab == null || playerPrefab == null)
             {
                 Debug.LogError("[KartVR] SessionManager is missing the Kart or Player prefab. Run KartVR > Build Prototype World.");
@@ -544,7 +680,14 @@ namespace KartVR
 
         void ReconnectAfterDrop()
         {
-            if (!IsConnected && !Busy) JoinPublic(KartMode.Hub);
+            if (IsConnected || Busy) return;
+            // Back into your private lobby if you were in one, otherwise a public hub.
+            if (!string.IsNullOrEmpty(LobbyCode) && IsPrivate)
+            {
+                string code = LobbyCode;
+                _ = RunConnect(() => ConnectPrivate(code, KartMode.Hub), KartMode.Hub);
+            }
+            else JoinPublic(KartMode.Hub);
         }
 
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
@@ -557,7 +700,10 @@ namespace KartVR
         public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
         public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
         public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
-        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
+        {
+            this.sessionList = sessionList != null ? new List<SessionInfo>(sessionList) : new List<SessionInfo>();
+        }
         public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
         public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
         // Fusion 2.0 passes ArraySegment, Fusion 2.1+ passes ReadOnlySpan. Having both means any version compiles.

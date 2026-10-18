@@ -11,7 +11,7 @@ friends join with a 6-digit code.
 
 | Area | What you do |
 |---|---|
-| **Hub** | One **big indoor garage** where you **walk around on foot** with a full body (helmet, racing suit, arms that follow your real hands, legs that step). It has **6 garage bays** (one for each player on the server), a showroom trophy in the middle, a big **MAP BOARD** on the wall (two rows: Race, Canyon Race, Bumper Karts, Ice Bumper, Tag, Free Roam, City Race, Rooftop Bumper, Graveyard Tag, The Backrooms, Island or Tutorial), the **SERVER BOARD**, a lobby-code kiosk and the lobby board. |
+| **Hub** | One **big indoor garage** where you **walk around on foot** with a full body (helmet, racing suit, arms that follow your real hands, legs that step). It has **6 garage bays** (one for each player on the server), a showroom trophy in the middle, a big **MAP BOARD** on the wall (pick a game, RACE, BUMPER KARTS, TAG, FREE ROAM or TUTORIAL, then one of its maps), the **ROOMS** board, a lobby-code kiosk and the lobby board. |
 | **Garages** | Every player automatically gets their own garage bay. **Your kart is parked in it on a turntable whenever you're in the hub, so everyone walking by can see it.** The sign above the door shows the owner's name and the neon trim glows in their paint color. Walk into **YOUR GARAGE** and use the wall panel to change your kart. Only the owner can use a garage's panel. |
 | **Race** | 3-lap race on a big ~630 m track with red/white barriers, painted lines, a start gantry with **countdown lights**, a grandstand full of fans, a "KART VR" arch, boost pads with chevrons, **a jump**, and trees. Live positions, results, then the next race starts automatically. |
 | **Bumper Karts** | 2-minute rounds on a neon-lit platform over a lava lake. A **spinning sweeper bar** shoves anyone in its way, and **bouncy bumpers** fling you across the arena. Ram people for **+1**, fall off for **−1**. |
@@ -38,17 +38,19 @@ friends join with a 6-digit code.
 
 Your choices are saved on your device and everyone else sees them, in your garage and on the track.
 
-### Lobby codes / private lobbies
-- **Create:** walk up to a lobby-code kiosk in the hub and poke **CREATE LOBBY** (or use the wrist menu). A 6-digit code appears on the kiosk, your wrist menu and the hub board. Give it to your friends.
-- **Join:** type the code on the kiosk and poke **JOIN**.
-- **In a private lobby**, touching a map on the map board takes the **whole lobby** there together. The **Hub** button on the wrist menu brings everyone back.
-- **In public**, the map board takes you to that map on **your server**, with the other people on it.
-
-### Servers
-Each server holds **6 players** (one per garage). You start on **Server 1**; if it's full you're put on Server 2, then 3,
-and so on. Use the **SERVER BOARD** in the garage to hop to another server (e.g. to meet a friend: both pick the same
-number). People on the same hub server go to the same map server when they use the map board.
-- **Leave Lobby** (kiosk or wrist menu) takes you back to the public hub.
+### Rooms, codes and private lobbies
+- **Rooms fill up automatically.** Every public room holds **6 players** and has a random 6-digit **room code**.
+  When you go to the hub or a map you're put in the **fullest room on that map that still has space**; a new room
+  (with a new random code) is only made when they're all full.
+- **Join a friend anywhere:** your code is on the **ROOMS** board in the garage, your wrist menu and your kart's
+  screen. Your friend types it on the **keypad** next to the ROOMS board and pokes **JOIN**, and goes straight to you,
+  whether you're in the hub or on any map (if there's space).
+- **FIND A ROOM** (ROOMS board) puts you in another public hub room (and tries going online again if you're solo).
+- **Private lobbies:** poke **CREATE PRIVATE LOBBY** (ROOMS board, keypad or wrist menu). Nobody is matched into it;
+  friends join with its code the same way. **There's no host:** anyone in the lobby can go to **any map** on their
+  own and stays in the lobby (the code works on every map, and joining it takes you to wherever most of the lobby
+  is). The **Hub** button takes you back to your lobby's hub. **Leave Lobby** takes you back to public rooms.
+- Public codes start with 1-4, private lobby codes with 5-9.
 
 ### Levels, daily challenges and unlocks
 - **XP and levels:** everything earns XP: racing (more for a better finish, +80 for a win), bumping, tagging, drifting,
@@ -94,7 +96,7 @@ starts, so no new APK is needed (the list built into the APK is the fallback).
 A ban can use the Player ID, the headset code (`device`, shown in the mod menu: survives reinstalling) or the name.
 `"until": ""` is forever, or put a date like `"2026-12-31"`. Moderators' names are reserved for them.
 
-**Mod menu** (Menu > Mod Menu, only for moderators): everyone on your server, with a red **!** next to anyone the
+**Mod menu** (Menu > Mod Menu, only for moderators): everyone in your room, with a red **!** next to anyone the
 anti-cheat caught. Pick a player and **Kick** (can't play online for 5 minutes), **Mute** (10 minutes), **Force
 rename**, or **Ban** 1 day / 7 days / forever (press twice). It shows their Player ID and headset code for a permanent
 ban in moderation.json. Commands are **signed** with the mod's secret key and checked by the player's game, so a faked
@@ -110,10 +112,10 @@ command does nothing.
 - **Blaster:** a toy laser blaster in your right hand while you're walking (hub, or out of your kart with Y). Pull the
   right trigger: the bolt shoves karts and knocks players back (no damage). Everyone sees the bolt.
 
-Every player's game proves its Player ID with its secret key when it joins a server, and the mod tools, mod
+Every player's game proves its Player ID with its secret key when it joins a room, and the mod tools, mod
 commands and build-anywhere pieces only work for a moderator who passed that check.
 
-**Live events** (bottom row of the mod menu): start one for everyone on the server, or **Stop Event**.
+**Live events** (bottom row of the mod menu): start one for everyone in the room, or **Stop Event**.
 - **Disco Sing-Along** (2 min): a party song, a disco ball and coloured lights, and the words of an original
   karting song floating in front of everyone, in time with the music.
 - **Last Kart Standing** (up to 2.5 min): a red ring closes in on the middle of the map; anyone caught outside is
@@ -179,14 +181,14 @@ Bouncer, Boost Hoop, Block.
 ### The menu (three-lines button)
 It starts closed. Press the **menu button** on your left controller to open it above your left hand, and poke it
 with your right hand (or point at it and pull the trigger). Four pages:
-- **Menu:** Recenter, Respawn, Hub, Create/Leave Lobby, Build Mode (in Free Roam), plus your server/lobby info.
+- **Menu:** Recenter, Respawn, Hub, Create/Leave Lobby, Build Mode (in Free Roam), plus your room code / lobby info.
 - **Sound:** sound effects, kart engine and music volume (- / +).
 - **Controls:** turning style (Snap 30°, Snap 45° or Smooth), steering (grab the wheel, or left stick only), and a
   list of the controls.
 - **Voice:** mic mode (open mic / push-to-talk / muted), a live mic level meter, voice volume, and **Mic Test**.
 
 ### Voice chat
-Talk to everyone on your server: their voices come from their head (or their kart), and a **green light** shows above
+Talk to everyone in your room: their voices come from their head (or their kart), and a **green light** shows above
 whoever is talking. It runs through Photon Fusion, so there's nothing extra to install.
 - **Open mic** (default) sends only while you're actually speaking; **push-to-talk** sends while you hold the **left thumbstick in**
   (V on the keyboard); **Muted** turns your mic off. Change it in **Menu > Voice**.
@@ -275,12 +277,12 @@ the APK onto it. It shows up in your library under **Unknown Sources**.
 the Android OpenXR settings (OpenXR ticked, Oculus Touch Controller Profile, Meta Quest Support) and won't build until
 they're on. It opens the page to tick them.
 
-**If the APK can't join a lobby.** The hub's info board and the server board say why. Usually it's one of these:
+**If the APK can't join a lobby.** The hub's info board and the ROOMS board say why. Usually it's one of these:
 - **No Photon App ID in the build.** Paste it in **KartVR > Set Up Multiplayer**, then build again. The build menu now
   copies it into Fusion's settings by itself and warns you if it's missing.
 - **No internet on the headset.** Check its Wi-Fi.
-- If going online fails, you now **play solo** (walk, drive, every map) instead of being stuck. Touch a server
-  button to try online again.
+- If going online fails, you now **play solo** (walk, drive, every map) instead of being stuck. Touch **FIND A ROOM**
+  on the ROOMS board to try online again.
 - The game asks for the **microphone** when it starts. Press **Allow**: the popup pauses the game until you answer.
 
 Release channels are invite-only. To put it in the store for everyone, copy the build to the **Production** channel
@@ -317,7 +319,7 @@ Editor/         KartWorldBuilder (+ .Maps, .Domes): the "Build Prototype World" 
 ```
 
 - **Networking:** Photon Fusion 2 in **Shared Mode**. Each player owns and simulates their own kart, so your own driving never lags. Other karts smoothly follow their owner's updates. When you ram someone, an RPC tells *their* game to knock their kart. A session stays alive as long as anyone is in it.
-- **Public vs private:** public sessions are matched by a `mode` property, so a public race session only matches other public race sessions. A private lobby is a hidden session named after its code. Inside one, modes are switched by changing `GameState.Mode`, and every kart teleports to that mode's spawn area.
+- **Rooms:** a public room is a Photon session named `KARTVR_PUB_<code>` with `mode` and `kind = 0` properties; joining with no name lets Photon's random matchmaking (FillRoom) pick the fullest matching room, and `SessionNameGenerator` gives a new room a fresh random code. A private lobby has one session per map, `KARTVR_PRIV_<code>_<mode>` (`kind = 1`, never matched into). Typing a code looks it up in Photon's room list (`JoinSessionLobby`) and joins the busiest room with that code. Each session is one map; solo play and the tutorial switch maps with `GameState.Mode` instead.
 - **All maps live in one scene**, spread far apart. Switching session reloads the scene for a clean start.
 - **Each player spawns two network objects:** a `Player` (on foot) and a `Kart`. In the hub the kart parks itself in the player's garage and the VR rig rides the avatar; in other modes the avatar hides and the rig sits in the kart.
 - **Garages** are claimed automatically: each player takes the lowest free bay, and if two pick the same one, the lower player id keeps it.

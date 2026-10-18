@@ -32,8 +32,8 @@ namespace KartVR
                     if (s != null)
                     {
                         body = s.DescribeLobby();
-                        if (!s.IsPrivate) body += "\n\nWant to play with friends?\nUse the keypad: CREATE a lobby and share the code.";
-                        else body += "\n\nPortals take the whole lobby together.";
+                        if (!s.IsPrivate) body += "\n\nFriends can join you with your room code (keypad: JOIN),\nor CREATE a private lobby and share its code.";
+                        else body += "\n\nNo host: anyone can go to any map and stays in the lobby.";
                     }
                     break;
                 case Kind.Race:

@@ -90,6 +90,8 @@ namespace KartVR
                 string transient = sessions.TransientStatus;
                 if (!string.IsNullOrEmpty(transient)) sb.Append("<color=#FFD54A>").Append(transient).Append("</color>\n");
                 else if (sessions.IsPrivate) sb.Append("Lobby code: ").Append(KartUI.FormatCode(sessions.LobbyCode)).Append('\n');
+                else if (!sessions.IsSolo && !sessions.IsTutorial && !string.IsNullOrEmpty(sessions.RoomCode))
+                    sb.Append("Room code: ").Append(KartUI.FormatCode(sessions.RoomCode)).Append('\n');
             }
 
             // Small text under the speed: lap / position / boost / messages (two lines at most).

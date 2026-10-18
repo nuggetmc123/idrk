@@ -114,7 +114,11 @@ namespace Fusion
         public static implicit operator SessionProperty(int v) => new SessionProperty { PropertyValue = v };
         public static implicit operator SessionProperty(string v) => new SessionProperty { PropertyValue = v };
         public static implicit operator SessionProperty(bool v) => new SessionProperty { PropertyValue = v };
+        public static implicit operator int(SessionProperty p) => p != null && p.PropertyValue is int i ? i : 0;
+        public static implicit operator string(SessionProperty p) => p?.PropertyValue as string;
     }
+
+    public enum SessionLobby { Invalid, ClientServer, Shared, Custom }
 
     public struct SceneRef
     {
@@ -133,6 +137,7 @@ namespace Fusion
     {
         public GameMode GameMode;
         public string SessionName;
+        public Func<string> SessionNameGenerator;
         public Dictionary<string, SessionProperty> SessionProperties;
         public bool? IsVisible;
         public bool? IsOpen;
@@ -150,7 +155,16 @@ namespace Fusion
 
     public struct NetworkInput { }
     public struct SimulationMessagePtr { }
-    public class SessionInfo { }
+    public class SessionInfo
+    {
+        public string Name { get; set; } = "";
+        public bool IsValid { get; set; }
+        public bool IsOpen { get; set; } = true;
+        public bool IsVisible { get; set; } = true;
+        public int PlayerCount { get; set; }
+        public int MaxPlayers { get; set; }
+        public IReadOnlyDictionary<string, SessionProperty> Properties { get; set; } = new Dictionary<string, SessionProperty>();
+    }
     public class HostMigrationToken { }
 
     public class NetworkRunnerCallbackArgs
