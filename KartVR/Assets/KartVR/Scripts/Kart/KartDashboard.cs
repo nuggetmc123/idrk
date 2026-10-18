@@ -68,6 +68,7 @@ namespace KartVR
 
             if (KartModeInfo.IsRace(kart.CurrentMode)) big = RaceText();
             else if (KartModeInfo.IsBumper(kart.CurrentMode)) big = BumperText();
+            else if (KartModeInfo.IsTag(kart.CurrentMode)) big = TagText();
             else if (kart.CurrentMode == KartMode.Tutorial)
                 sb.Append(BuildMode.Active ? "BUILD MODE\n" : "TUTORIAL PARK\n");
             else if (kart.CurrentMode == KartMode.FreeRoam)
@@ -123,6 +124,21 @@ namespace KartVR
                     return "";
             }
             return "";
+        }
+
+        string TagText()
+        {
+            var tag = TagManager.Instance;
+            if (tag == null || !tag.IsReady) return "";
+            if (tag.State == TagState.Results)
+            {
+                sb.Append("ROUND OVER (next in ").Append(Mathf.CeilToInt(tag.PhaseRemaining)).Append(")\n").Append(tag.StandingsText(5));
+                return "";
+            }
+            var it = tag.ItKart;
+            sb.Append("TAG  ").Append(KartUI.FormatTime(tag.PhaseRemaining)).Append("   IT: ").Append(it != null ? it.DisplayName : "?")
+              .Append("   Score ").Append(kart.Score).Append('\n');
+            return tag.IsIt(kart) ? "<color=#ff4433>YOU'RE IT!</color>" : "";
         }
 
         string BumperText()

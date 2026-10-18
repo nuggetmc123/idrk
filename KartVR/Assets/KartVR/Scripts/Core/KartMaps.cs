@@ -21,11 +21,12 @@ namespace KartVR
         public static readonly Map[] All =
         {
             new Map { mode = KartMode.Hub, root = "Hub", center = Vector3.zero, radius = 60f, theme = SkyDomes.Theme.Day },
-            new Map { mode = KartMode.Race, root = "RaceTrack", center = new Vector3(0f, 0f, 320f), radius = 165f, theme = SkyDomes.Theme.Sunny },
+            new Map { mode = KartMode.Race, root = "RaceTrack", center = new Vector3(0f, 0f, 400f), radius = 205f, theme = SkyDomes.Theme.Sunny },
             new Map { mode = KartMode.Bumper, root = "BumperArena", center = new Vector3(320f, 0f, 0f), radius = 185f, theme = SkyDomes.Theme.Night },
-            new Map { mode = KartMode.CanyonRace, root = "CanyonTrack", center = new Vector3(0f, 0f, -430f), radius = 170f, theme = SkyDomes.Theme.Desert },
+            new Map { mode = KartMode.CanyonRace, root = "CanyonTrack", center = new Vector3(0f, 0f, -600f), radius = 245f, theme = SkyDomes.Theme.Desert },
             new Map { mode = KartMode.IceBumper, root = "IceRink", center = new Vector3(-360f, 0f, 0f), radius = 150f, theme = SkyDomes.Theme.Ice },
             new Map { mode = KartMode.FreeRoam, root = "FreeRoam", center = new Vector3(0f, 0f, 1300f), radius = 450f, theme = SkyDomes.Theme.Sunset },
+            new Map { mode = KartMode.Tag, root = "TagArena", center = new Vector3(700f, 0f, -700f), radius = 140f, theme = SkyDomes.Theme.Night },
             new Map { mode = KartMode.Tutorial, root = "TutorialPark", center = new Vector3(-480f, 0f, -480f), radius = 110f, theme = SkyDomes.Theme.Sunny },
         };
 

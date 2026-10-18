@@ -16,7 +16,14 @@ namespace KartVR
 
         const int Rate = 22050;
         static readonly Dictionary<Sfx, AudioClip> clips = new Dictionary<Sfx, AudioClip>();
-        static AudioClip engine, garageMusic, turboMusic;
+        static AudioClip engine, garageMusic, turboMusic, partyMusic;
+
+        /// <summary>Disco Sing-Along live event: plays the party song (one lyric line per bar).</summary>
+        public static bool PartyMode;
+        /// <summary>Seconds into the song that's playing (the lyrics follow this).</summary>
+        public static float MusicTime => host != null ? host.MusicTime : 0f;
+        /// <summary>One bar of the party song (4 beats at 120 bpm).</summary>
+        public const float PartyBar = 2f;
         static Host host;
         static float sfxVolume = 0.8f, musicVolume = 0.45f, engineVolume = 0.5f;
 
@@ -62,6 +69,7 @@ namespace KartVR
         class Host : MonoBehaviour
         {
             AudioSource music;
+            public float MusicTime => music != null ? music.time : 0f;
             readonly List<AudioSource> pool = new List<AudioSource>();
             int next;
 
@@ -109,7 +117,7 @@ namespace KartVR
             {
                 // Chill tune in the garage and free roam, fast tune when racing and bumping.
                 var mode = GameState.CurrentMode;
-                var want = mode == KartMode.Hub || mode == KartMode.FreeRoam || mode == KartMode.Tutorial ? garageMusic : turboMusic;
+                var want = PartyMode ? partyMusic : mode == KartMode.Hub || mode == KartMode.FreeRoam || mode == KartMode.Tutorial ? garageMusic : turboMusic;
                 if (music.clip != want)
                 {
                     music.clip = want;
@@ -220,6 +228,17 @@ namespace KartVR
                     72, 69, 65, -1, 69, -1, 72, -1,   72, -1, 76, -1, 79, -1, 76, 72,
                     74, -1, 77, 74, 69, -1, 65, -1,   70, 74, 77, -1, 82, -1, 81, 79,
                     77, -1, 72, -1, 69, 72, 77, -1,   76, -1, 72, -1, 67, -1, -1, -1,
+                }, fourOnFloor: true);
+            // "Kart VR Party" (for the Disco Sing-Along event): C - Am - F - G, one lyric line per bar.
+            partyMusic = Song("Kart VR Party", 120f,
+                new[] { 48, 45, 41, 43, 48, 45, 41, 43 },
+                new[] { new[] { 60, 64, 67 }, new[] { 57, 60, 64 }, new[] { 53, 57, 60 }, new[] { 55, 59, 62 } },
+                new[]
+                {
+                    72, -1, 72, 74, 76, -1, 74, 72,   69, -1, 72, -1, 76, 74, 72, -1,
+                    69, -1, 69, 72, 77, -1, 76, 74,   74, -1, 71, -1, 67, -1, -1, -1,
+                    76, -1, 76, 77, 79, -1, 77, 76,   76, -1, 72, -1, 69, 72, 76, -1,
+                    77, -1, 76, 74, 72, -1, 74, 76,   74, -1, 79, -1, 72, -1, -1, -1,
                 }, fourOnFloor: true);
         }
 

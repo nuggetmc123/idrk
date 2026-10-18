@@ -61,7 +61,7 @@ namespace KartVR
                 panel.position = rig.head.position + fwd * 1.2f - Vector3.up * 0.1f;
                 panel.rotation = Quaternion.LookRotation(fwd, Vector3.up);
             }
-            KartUI.Box(panel, "Backing", new Vector3(0f, 0f, 0.02f), new Vector3(1.2f, 0.8f, 0.02f), new Color(0.09f, 0.05f, 0.06f));
+            KartUI.Box(panel, "Backing", new Vector3(0f, -0.09f, 0.02f), new Vector3(1.2f, 0.98f, 0.02f), new Color(0.09f, 0.05f, 0.06f));
             KartUI.Part(panel, PrimitiveType.Cube, new Vector3(0f, 0.4f, 0.015f), new Vector3(1.22f, 0.015f, 0.025f), KartUI.Glow(new Color(1f, 0.35f, 0.3f)));
             KartUI.Label(panel, "<b>MOD MENU</b>", new Vector3(-0.2f, 0.34f, 0f), 0.6f, new Color(1f, 0.55f, 0.45f), new Vector2(0.7f, 0.08f));
             PokeButton.Create(panel, "Close", "Close", new Vector3(0.48f, 0.34f, 0f), new Vector3(0.18f, 0.07f, 0.03f), new Color(0.6f, 0.6f, 0.7f), Close, 0.3f).cooldown = 0.8f;
@@ -85,9 +85,23 @@ namespace KartVR
             blasterButton = PokeButton.Create(panel, "Blaster", "", new Vector3(0.39f, -0.34f, 0f), tool, new Color(1f, 0.5f, 0.4f), () => Flip(ref ModPowers.Blaster, "Blaster"), 0.24f);
             foreach (var b in new[] { invisibleButton, buildButton, blasterButton }) b.cooldown = 0.6f;
             RefreshTools();
+
+            // Live events for everyone on the server.
+            KartUI.Label(panel, "<b>LIVE EVENTS</b>", new Vector3(-0.33f, -0.43f, 0f), 0.22f, new Color(1f, 0.6f, 0.9f), new Vector2(0.46f, 0.04f));
+            eventStatus = KartUI.Label(panel, "", new Vector3(0.25f, -0.43f, 0f), 0.18f, Color.white, new Vector2(0.62f, 0.04f));
+            string[] labels = { "Disco\nSing-Along", "Last Kart\nStanding", "Low\nGravity", "Turbo\nFrenzy", "Ball\nRain", "Stop\nEvent" };
+            Color[] colors = { new Color(1f, 0.45f, 0.85f), new Color(1f, 0.4f, 0.3f), new Color(0.6f, 0.75f, 1f), new Color(1f, 0.8f, 0.3f), new Color(0.5f, 1f, 0.7f), new Color(0.6f, 0.6f, 0.65f) };
+            for (int i = 0; i < labels.Length; i++)
+            {
+                var e = (LiveEvent)(i + 1);
+                bool stop = i == labels.Length - 1;
+                PokeButton.Create(panel, "Event" + i, labels[i], new Vector3((i - 2.5f) * 0.195f, -0.51f, 0f), new Vector3(0.185f, 0.1f, 0.03f), colors[i],
+                    () => { if (EventManager.Instance == null) return; if (stop) EventManager.Instance.StopEvent(); else EventManager.Instance.StartEvent(e); }, 0.19f).cooldown = 1f;
+            }
         }
 
         PokeButton invisibleButton, buildButton, blasterButton;
+        TextMeshPro eventStatus;
 
         void Flip(ref bool power, string what)
         {
@@ -132,6 +146,9 @@ namespace KartVR
             if (!Moderation.IAmMod) { ModPowers.Reset(); Close(); return; }
             if (Time.time < nextRefresh) return;
             nextRefresh = Time.time + 1f;
+            var ev = EventManager.Instance;
+            eventStatus.text = EventManager.Running == LiveEvent.None || ev == null ? "No event running"
+                : "Now: " + EventManager.Names[(int)EventManager.Running] + "  (" + KartUI.FormatTime(ev.Remaining) + " left)";
 
             var others = KartController.All.Where(k => k != null && k.IsReady && !k.IsLocal).Take(5).ToList();
             if (!others.SequenceEqual(shown)) RebuildList(others);

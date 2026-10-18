@@ -114,6 +114,14 @@ namespace KartVR
 
         public static bool IAmMod => IsMod(PlayerIdentity.PlayerId);
 
+        /// <summary>True if this player (e.g. who sent an RPC) proved they're a moderator.</summary>
+        public static bool IsVerifiedModPlayer(Fusion.PlayerRef player)
+        {
+            foreach (var k in KartController.All)
+                if (k != null && k.IsReady && k.Object.StateAuthority == player) return k.IsVerifiedMod;
+            return false;
+        }
+
         /// <summary>A mod's name belongs to them: nobody else can pick it.</summary>
         public static bool NameReservedForSomeoneElse(string name) =>
             List.mods.Any(m => m != null && Same(m.name, name) && !Same(m.id, PlayerIdentity.PlayerId));
@@ -233,6 +241,7 @@ namespace KartVR
             gameObject.AddComponent<AntiCheat>();
             gameObject.AddComponent<NameEntry>();
             gameObject.AddComponent<ModBlaster>();
+            gameObject.AddComponent<LiveEventFx>();
             Moderation.Updated += () =>
             {
                 if (Moderation.IsBanned(out string why)) SessionManager.Instance?.Removed(why);

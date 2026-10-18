@@ -55,6 +55,9 @@ namespace KartVR
         /// <summary>Moderator powers (only obeyed for a proven moderator, see <see cref="IsVerifiedMod"/>).</summary>
         [Networked] public NetworkBool Hidden { get; set; }
         [Networked] public NetworkBool BlasterOut { get; set; }
+        /// <summary>Knocked out of a Last Kart Standing event (caught outside the ring).</summary>
+        [Networked] public NetworkBool Eliminated { get; set; }
+        int seenEventId = -1;
 
         /// <summary>
         /// This player proved (with their secret key) that the Player ID they send is really theirs. Checked on
@@ -162,7 +165,8 @@ namespace KartVR
 
         Rigidbody rb;
         bool placed;
-        int seenRaceId = -1, seenRoundId = -1, seenTeleport;
+        int seenRaceId = -1, seenRoundId = -1, seenTagRound = -1, seenTeleport;
+        float tagScoreTimer, nextTagAttempt;
         Checkpoint lastCheckpoint;
         readonly RaycastHit[] hits = new RaycastHit[8];
         readonly Dictionary<KartController, float> lastHitTime = new Dictionary<KartController, float>();
@@ -247,10 +251,43 @@ namespace KartVR
         {
             get
             {
-                if (KartModeInfo.IsRace(CurrentMode)) return raceTuning;
-                if (KartModeInfo.IsBumper(CurrentMode)) return bumperTuning;
-                return freeRoamTuning;
+                if (KartModeInfo.IsRace(CurrentMode)) return Turbo(raceTuning);
+                if (KartModeInfo.IsBumper(CurrentMode)) return Turbo(bumperTuning);
+                if (KartModeInfo.IsTag(CurrentMode))
+                {
+                    var tag = freeRoamTuning;
+                    tag.bumpPower = 0.5f;
+                    if (TagManager.Instance != null && TagManager.Instance.IsIt(this)) tag.maxSpeed *= 1.1f; // IT is a bit faster
+                    return Turbo(tag);
+                }
+                return Turbo(freeRoamTuning);
             }
+        }
+
+        /// <summary>Turbo Frenzy live event: much faster karts.</summary>
+        static Tuning Turbo(Tuning t)
+        {
+            float m = EventManager.SpeedMultiplier;
+            if (m == 1f) return t;
+            t.maxSpeed *= m;
+            t.acceleration *= m;
+            return t;
+        }
+
+        /// <summary>Last Kart Standing: caught outside the closing ring = out.</summary>
+        void CheckRing()
+        {
+            var ev = EventManager.Instance;
+            if (ev == null || !ev.IsReady) return;
+            if (ev.EventId != seenEventId) { seenEventId = ev.EventId; Eliminated = false; }
+            if (!EventManager.Active(LiveEvent.LastKartStanding)) { if (Eliminated) Eliminated = false; return; } // event over: drive again
+            if (Eliminated || ev.Winner.ToString().Length > 0 || Parked) return;
+            Vector3 d = transform.position - ev.Center;
+            d.y = 0f;
+            if (d.magnitude <= ev.RingRadius) return;
+            Eliminated = true;
+            AudioManager.Play(AudioManager.Sfx.Error);
+            SessionManager.Instance?.SetStatus("YOU'RE OUT! You got caught outside the ring. Watch who wins!", 8f);
         }
 
         /// <summary>True while the kart isn't allowed to drive (parked, race countdown, results screens).</summary>
@@ -261,6 +298,7 @@ namespace KartVR
                 if (Parked) return true;
                 if (IsLocal && BuildMode.Active) return true; // flying around in build mode
                 if (IsLocal && OnFoot.Active) return true;    // you got out to walk around
+                if (Eliminated) return true;                  // out of Last Kart Standing: watch the rest
                 if (KartModeInfo.IsRace(CurrentMode) && RaceManager.Instance != null && RaceManager.Instance.IsReady)
                     return RaceManager.Instance.State == RaceState.Countdown;
                 if (KartModeInfo.IsBumper(CurrentMode) && BumperManager.Instance != null && BumperManager.Instance.IsReady)
@@ -292,6 +330,7 @@ namespace KartVR
             steer = wheel.Steer;
             driftHeld = KartInput.DriftHeld;
             DriverOut = OnFoot.Active;
+            CheckRing();
             Hidden = ModPowers.Invisible && Moderation.IAmMod;
             BlasterOut = ModPowers.Blaster && Moderation.IAmMod;
             if (OnFoot.Active) { gas = brake = 0f; steer = 0f; driftHeld = false; } // the triggers mean nothing to an empty kart
@@ -303,6 +342,14 @@ namespace KartVR
             {
                 Boosting = false;
                 return;
+            }
+
+            // Tag: a point for every second you're not IT.
+            var tagRound = TagManager.Instance;
+            if (tagRound != null && tagRound.Playing && !tagRound.IsIt(this))
+            {
+                tagScoreTimer += Time.deltaTime;
+                if (tagScoreTimer >= 1f) { tagScoreTimer -= 1f; Score += 1; }
             }
 
             if (KartInput.RespawnPressed && !BuildMode.Active && !OnFoot.Active) Respawn(); // in build mode B means undo; on foot it respawns you
@@ -396,6 +443,15 @@ namespace KartVR
                 }
                 if (RaceManager.Instance != null && RaceManager.Instance.IsReady) seenRaceId = RaceManager.Instance.RaceId;
                 if (BumperManager.Instance != null && BumperManager.Instance.IsReady) seenRoundId = BumperManager.Instance.RoundId;
+                if (TagManager.Instance != null && TagManager.Instance.IsReady) seenTagRound = TagManager.Instance.RoundId;
+            }
+
+            if (KartModeInfo.IsTag(CurrentMode) && TagManager.Instance != null && TagManager.Instance.IsReady &&
+                TagManager.Instance.RoundId != seenTagRound)
+            {
+                seenTagRound = TagManager.Instance.RoundId;
+                ResetProgress();
+                TeleportToSlot();
             }
 
             if (KartModeInfo.IsRace(CurrentMode) && RaceManager.Instance != null && RaceManager.Instance.IsReady &&
@@ -711,6 +767,14 @@ namespace KartVR
             other.RPC_ReceiveBump(knock);
             Buzz(XRNode.RightHand, 0.7f, 0.12f);
             Buzz(XRNode.LeftHand, 0.7f, 0.12f);
+
+            // Tag: IT bumping someone makes them IT.
+            var tagGame = TagManager.Instance;
+            if (tagGame != null && tagGame.IsIt(this) && !tagGame.ItImmune && Time.time >= nextTagAttempt)
+            {
+                nextTagAttempt = Time.time + 0.5f;
+                tagGame.RPC_Tag(other.Object.StateAuthority);
+            }
 
             if (KartModeInfo.IsBumper(CurrentMode) && BumperManager.Instance != null &&
                 BumperManager.Instance.State == BumperState.Playing)

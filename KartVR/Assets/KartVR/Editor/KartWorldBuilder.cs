@@ -46,7 +46,7 @@ namespace KartVR.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 8; // 8 = Spawn Menu props
+        public const int WorldVersion = 9; // 9 = bigger race tracks, boundary walls, Tag Arena, live events
         const string WorldVersionFile = "ProjectSettings/KartVRWorldVersion.txt";
         public static bool WorldUpToDate =>
             File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
@@ -117,6 +117,7 @@ namespace KartVR.EditorTools
             MarkStatic(BuildIceRink());
             MarkStatic(BuildFreeRoam());
             MarkStatic(BuildTutorialPark());
+            MarkStatic(BuildTagArena());
             BuildSkyDomes();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -629,6 +630,8 @@ namespace KartVR.EditorTools
             gs.AddComponent<GameState>();
             gs.AddComponent<RaceManager>();
             gs.AddComponent<BumperManager>();
+            gs.AddComponent<TagManager>();
+            gs.AddComponent<EventManager>();
             gs.AddComponent<BuildManager>();
             TryTickMasterClientObject(no);
         }
@@ -834,7 +837,8 @@ namespace KartVR.EditorTools
 
         // ================================================================== race track
 
-        // A closed loop; tightest corner has a ~21 m radius and the 15 m wide road never overlaps itself.
+        // Closed loops, 1.7x the original size (longer straights, wider sweeping corners); the 15 m road never overlaps.
+        const float TrackScale = 1.7f;
         /// <summary>Everything that differs between race maps. t runs 0..2pi round the loop; t = -pi/2 is the start line.</summary>
         class Circuit
         {
@@ -851,8 +855,8 @@ namespace KartVR.EditorTools
         static readonly Circuit MeadowCircuit = new Circuit
         {
             name = "RaceTrack", title = "RACE", mode = KartMode.Race, origin = RaceOrigin, seed = 7,
-            curve = t => new Vector3(70f * Mathf.Cos(t) - 6f * Mathf.Cos(3f * t), 0f, 45f * Mathf.Sin(t) + 10f * Mathf.Sin(2f * t)),
-            groundSize = new Vector2(240f, 180f),
+            curve = t => TrackScale * new Vector3(70f * Mathf.Cos(t) - 6f * Mathf.Cos(3f * t), 0f, 45f * Mathf.Sin(t) + 10f * Mathf.Sin(2f * t)),
+            groundSize = new Vector2(420f, 330f),
             ground = () => raceGrass, wallA = () => wallRed, wallB = () => wallWhite, boardGlow = () => glowRace,
             scenery = MeadowScenery,
         };
@@ -860,8 +864,8 @@ namespace KartVR.EditorTools
         static readonly Circuit CanyonCircuit = new Circuit
         {
             name = "CanyonTrack", title = "CANYON RACE", mode = KartMode.CanyonRace, origin = CanyonOrigin, seed = 21,
-            curve = t => new Vector3(80f * Mathf.Cos(t) + 14f * Mathf.Sin(2f * t), 0f, 55f * Mathf.Sin(t) - 18f * Mathf.Cos(2f * t) - 17f),
-            groundSize = new Vector2(270f, 245f),
+            curve = t => TrackScale * new Vector3(80f * Mathf.Cos(t) + 14f * Mathf.Sin(2f * t), 0f, 55f * Mathf.Sin(t) - 18f * Mathf.Cos(2f * t) - 17f),
+            groundSize = new Vector2(500f, 470f),
             ground = () => sand, wallA = () => rampRed, wallB = () => wallWhite, boardGlow = () => boost,
             scenery = CanyonScenery,
         };
@@ -932,7 +936,7 @@ namespace KartVR.EditorTools
             }
 
             // Checkpoints in racing order; 0 is the start/finish line.
-            const int checkpointCount = 8;
+            const int checkpointCount = 12; // more on the bigger tracks, so nobody can cut across
             float start = -Mathf.PI / 2f;
             for (int k = 0; k < checkpointCount; k++)
             {
@@ -948,7 +952,7 @@ namespace KartVR.EditorTools
                 checkpoint.index = k;
                 checkpoint.map = c.mode;
                 if (k == 0) StartGantry(cp.transform, halfWidth);
-                else if (k == 4) Arch(cp.transform, halfWidth, "KART VR", neonPink);
+                else if (k == 6) Arch(cp.transform, halfWidth, "KART VR", neonPink);
             }
 
             // Starting grid, 2 wide, behind the line.
@@ -1008,9 +1012,9 @@ namespace KartVR.EditorTools
                 for (int i = 0; i < 3; i++)
                     Prim(PrimitiveType.Cylinder, "Tires", race, TrackPoint(t) - c.origin + outward + new Vector3(0f, 0.2f + i * 0.35f, 0f), new Vector3(1.1f, 0.17f, 1.1f), tire);
             }
-            for (int i = 0; i < 70; i++)
+            for (int i = 0; i < 160; i++)
             {
-                var p = new Vector3((float)rng.NextDouble() * 220f - 110f, 0f, (float)rng.NextDouble() * 160f - 80f);
+                var p = new Vector3(((float)rng.NextDouble() - 0.5f) * 220f * TrackScale, 0f, ((float)rng.NextDouble() - 0.5f) * 160f * TrackScale);
                 float d = DistanceToTrack(p + c.origin);
                 if (d < 13f) continue;
                 if (Mathf.Abs(p.x) < 18f && p.z < -50f) continue; // keep the grandstand clear
@@ -1028,11 +1032,11 @@ namespace KartVR.EditorTools
             var cactus = Mat("Cactus", new Color(0.3f, 0.55f, 0.28f), 0.2f);
 
             // A ring of tall canyon walls around the map's edge.
-            for (int i = 0; i < 36; i++)
+            for (int i = 0; i < 56; i++)
             {
-                float a = i * Mathf.PI * 2f / 36f;
+                float a = i * Mathf.PI * 2f / 56f;
                 float w = 18f + (float)rng.NextDouble() * 10f, h = 18f + (float)rng.NextDouble() * 26f;
-                var p = new Vector3(Mathf.Sin(a) * 128f, h * 0.5f - 1f, Mathf.Cos(a) * 112f);
+                var p = new Vector3(Mathf.Sin(a) * 128f * TrackScale, h * 0.5f - 1f, Mathf.Cos(a) * 112f * TrackScale);
                 Prim(PrimitiveType.Cube, "CanyonWall", race, p, new Vector3(w, h, 14f), i % 3 == 0 ? cliffDark : cliff, true,
                     Quaternion.Euler(0f, a * Mathf.Rad2Deg + (float)rng.NextDouble() * 20f - 10f, 0f));
                 // Layered stripes.
@@ -1041,9 +1045,9 @@ namespace KartVR.EditorTools
             }
 
             // Mesas and boulders in the open spaces, cacti everywhere else.
-            for (int i = 0; i < 90; i++)
+            for (int i = 0; i < 200; i++)
             {
-                var p = new Vector3((float)rng.NextDouble() * 220f - 110f, 0f, (float)rng.NextDouble() * 170f - 85f);
+                var p = new Vector3(((float)rng.NextDouble() - 0.5f) * 220f * TrackScale, 0f, ((float)rng.NextDouble() - 0.5f) * 170f * TrackScale);
                 float d = DistanceToTrack(p + c.origin);
                 if (d < 12f) continue;
                 if (Mathf.Abs(p.x) < 18f && p.z < -60f) continue; // grandstand

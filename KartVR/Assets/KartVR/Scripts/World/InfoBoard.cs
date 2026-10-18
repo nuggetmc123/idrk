@@ -6,7 +6,7 @@ namespace KartVR
     /// <summary>A big sign that shows lobby info, race standings or bumper scores.</summary>
     public class InfoBoard : MonoBehaviour
     {
-        public enum Kind { Lobby, Race, Bumper }
+        public enum Kind { Lobby, Race, Bumper, Tag }
 
         public Kind kind;
         public TextMeshPro text;
@@ -52,6 +52,16 @@ namespace KartVR
                     {
                         string header = bumper.State == BumperState.Playing ? "Time left " + KartUI.FormatTime(bumper.PhaseRemaining) : "Round over";
                         body = header + "\n" + bumper.StandingsText();
+                    }
+                    break;
+                case Kind.Tag:
+                    var tag = TagManager.Instance;
+                    if (tag != null && tag.IsReady && KartModeInfo.IsTag(GameState.CurrentMode))
+                    {
+                        var it = tag.ItKart;
+                        string header = tag.State == TagState.Playing ? "Time left " + KartUI.FormatTime(tag.PhaseRemaining) + "\nIT: " + (it != null ? it.DisplayName : "?")
+                            : "Round over";
+                        body = header + "\n" + tag.StandingsText();
                     }
                     break;
             }

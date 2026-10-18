@@ -83,6 +83,7 @@ namespace Fusion
 
         public bool Expired(NetworkRunner runner) => set && Time.time >= endTime;
         public bool IsRunning => set && Time.time < endTime;
+        public bool ExpiredOrNotRunning(NetworkRunner runner) => !set || Time.time >= endTime;
         public float? RemainingTime(NetworkRunner runner) => set ? Mathf.Max(0f, endTime - Time.time) : (float?)null;
     }
 

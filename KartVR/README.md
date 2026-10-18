@@ -11,14 +11,15 @@ friends join with a 6-digit code.
 
 | Area | What you do |
 |---|---|
-| **Hub** | One **big indoor garage** where you **walk around on foot** with a full body (helmet, racing suit, arms that follow your real hands, legs that step). It has **6 garage bays** (one for each player on the server), a showroom trophy in the middle, a big **MAP BOARD** on the wall (touch Race, Canyon Race, Bumper Karts, Ice Bumper or Free Roam to go there), the **SERVER BOARD**, a lobby-code kiosk and the lobby board. |
+| **Hub** | One **big indoor garage** where you **walk around on foot** with a full body (helmet, racing suit, arms that follow your real hands, legs that step). It has **6 garage bays** (one for each player on the server), a showroom trophy in the middle, a big **MAP BOARD** on the wall (touch Race, Canyon Race, Bumper Karts, Ice Bumper, Tag, Free Roam or Tutorial to go there), the **SERVER BOARD**, a lobby-code kiosk and the lobby board. |
 | **Garages** | Every player automatically gets their own garage bay. **Your kart is parked in it on a turntable whenever you're in the hub, so everyone walking by can see it.** The sign above the door shows the owner's name and the neon trim glows in their paint color. Walk into **YOUR GARAGE** and use the wall panel to change your kart. Only the owner can use a garage's panel. |
-| **Race** | 3-lap race on a ~370 m track with red/white barriers, painted lines, a start gantry with **countdown lights**, a grandstand full of fans, a "KART VR" arch, boost pads with chevrons, **a jump**, and trees. Live positions, results, then the next race starts automatically. |
+| **Race** | 3-lap race on a big ~630 m track with red/white barriers, painted lines, a start gantry with **countdown lights**, a grandstand full of fans, a "KART VR" arch, boost pads with chevrons, **a jump**, and trees. Live positions, results, then the next race starts automatically. |
 | **Bumper Karts** | 2-minute rounds on a neon-lit platform over a lava lake. A **spinning sweeper bar** shoves anyone in its way, and **bouncy bumpers** fling you across the arena. Ram people for **+1**, fall off for **−1**. |
-| **Canyon Race** | A second race track (~460 m) through a red-rock desert canyon: tall striped cliff walls, mesas, boulders and cacti, plus boost pads, a jump and a grandstand. Same 3-lap race rules. |
+| **Canyon Race** | A second race track (~780 m) through a red-rock desert canyon: tall striped cliff walls, mesas, boulders and cacti, plus boost pads, a jump and a grandstand. Same 3-lap race rules. |
 | **Ice Bumper** | Bumper karts on a **slippery sheet of ice** over freezing water: two crossed sweeper bars, **snowman bumpers**, icebergs and snowy pine islands under the northern lights. |
 | **Free Roam** | **One big open world** (about 900 m across): roads crossing the middle plus two ring roads, a **stunt park** (mega ramp, boost hoops, skate bowl, kickers), a **jump strip** of ever-bigger ramps and a plateau drop-off, a **lake** with an island and hills, a **forest**, rocks and big hills round the edge. Plus **build mode** (below). |
-| **Sky domes** | Every map has its own painted sky dome (day, sunny mountains, lava night, desert, northern lights, sunset), so you never see the other maps. The dome's edge is an **invisible barrier**: go past it and you're put back. |
+| **Tag** | Tag in karts in a neon night arena with pillars, broken walls to hide behind, a raised centre platform with ramps, bouncy bumpers and boost pads. One player is **IT** (a red ring and "IT!" float over them). **Bump someone to make them IT**; the new IT can't tag anyone for 3 seconds (no tag-backs). You get a point for every second you're not IT; highest score after 2.5 minutes wins. IT drives a little faster. |
+| **Sky domes** | Every map has its own painted sky dome (day, sunny mountains, lava night, desert, northern lights, sunset), so you never see the other maps. Just inside the dome is a **solid invisible wall** nobody can drive, walk or jump past, and past that the barrier puts you back as a backup. |
 
 ### Customizing your kart (in your garage)
 | Part | Options |
@@ -92,6 +93,15 @@ command does nothing.
 
 Every player's game proves its Player ID with its secret key when it joins a server, and the mod tools, mod
 commands and build-anywhere pieces only work for a moderator who passed that check.
+
+**Live events** (bottom row of the mod menu): start one for everyone on the server, or **Stop Event**.
+- **Disco Sing-Along** (2 min): a party song, a disco ball and coloured lights, and the words of an original
+  karting song floating in front of everyone, in time with the music.
+- **Last Kart Standing** (up to 2.5 min): a red ring closes in on the middle of the map; anyone caught outside is
+  out (their kart stops). Last kart inside wins. Not in the hub (karts are parked there).
+- **Low Gravity** (1 min): everything floats; ramps send you flying.
+- **Turbo Frenzy** (1 min): everyone's kart is 60% faster.
+- **Ball Rain** (1 min): beach balls fall from the sky all around you.
 
 **Anti-cheat.** There's no game server (Photon Shared Mode), so nothing is 100% hack-proof, but:
 - A modified copy of the APK can't go online (Android's genuine-app check). Banned players can still play solo.
