@@ -71,7 +71,7 @@ namespace KartVR
             else if (KartModeInfo.IsTag(kart.CurrentMode)) big = TagText();
             else if (kart.CurrentMode == KartMode.Tutorial)
                 sb.Append(BuildMode.Active ? "BUILD MODE\n" : "TUTORIAL PARK\n");
-            else if (kart.CurrentMode == KartMode.FreeRoam)
+            else if (KartModeInfo.IsFreeRoam(kart.CurrentMode))
                 sb.Append(BuildMode.Active ? "BUILD MODE\n" : "FREE ROAM   (right stick click = build)\n");
 
             mph.text = "<b>" + Mathf.RoundToInt(kart.Speed * 2.23694f) + "</b>";

@@ -46,7 +46,7 @@ namespace KartVR.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 10; // 10 = daily challenges board in the hub
+        public const int WorldVersion = 11; // 11 = city race, rooftop, graveyard, backrooms, island
         const string WorldVersionFile = "ProjectSettings/KartVRWorldVersion.txt";
         public static bool WorldUpToDate =>
             File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
@@ -118,6 +118,11 @@ namespace KartVR.EditorTools
             MarkStatic(BuildFreeRoam());
             MarkStatic(BuildTutorialPark());
             MarkStatic(BuildTagArena());
+            MarkStatic(BuildRaceTrack(CityCircuit));
+            MarkStatic(BuildRooftop());
+            MarkStatic(BuildGraveyard());
+            MarkStatic(BuildBackrooms());
+            MarkStatic(BuildIsland());
             BuildSkyDomes();
 
             EditorSceneManager.SaveScene(scene, ScenePath);

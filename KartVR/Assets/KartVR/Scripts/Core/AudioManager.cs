@@ -117,7 +117,7 @@ namespace KartVR
             {
                 // Chill tune in the garage and free roam, fast tune when racing and bumping.
                 var mode = GameState.CurrentMode;
-                var want = PartyMode ? partyMusic : mode == KartMode.Hub || mode == KartMode.FreeRoam || mode == KartMode.Tutorial ? garageMusic : turboMusic;
+                var want = PartyMode ? partyMusic : mode == KartMode.Hub || KartModeInfo.IsFreeRoam(mode) || mode == KartMode.Tutorial ? garageMusic : turboMusic;
                 if (music.clip != want)
                 {
                     music.clip = want;

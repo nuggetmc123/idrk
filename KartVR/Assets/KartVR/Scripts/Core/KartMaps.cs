@@ -27,6 +27,11 @@ namespace KartVR
             new Map { mode = KartMode.IceBumper, root = "IceRink", center = new Vector3(-360f, 0f, 0f), radius = 150f, theme = SkyDomes.Theme.Ice },
             new Map { mode = KartMode.FreeRoam, root = "FreeRoam", center = new Vector3(0f, 0f, 1300f), radius = 450f, theme = SkyDomes.Theme.Sunset },
             new Map { mode = KartMode.Tag, root = "TagArena", center = new Vector3(700f, 0f, -700f), radius = 140f, theme = SkyDomes.Theme.Night },
+            new Map { mode = KartMode.CityRace, root = "CityTrack", center = new Vector3(1000f, 0f, 300f), radius = 200f, theme = SkyDomes.Theme.Sunset },
+            new Map { mode = KartMode.RooftopBumper, root = "Rooftop", center = new Vector3(-900f, 0f, 300f), radius = 150f, theme = SkyDomes.Theme.Sunny },
+            new Map { mode = KartMode.GraveyardTag, root = "Graveyard", center = new Vector3(-900f, 0f, -400f), radius = 140f, theme = SkyDomes.Theme.Night },
+            new Map { mode = KartMode.Backrooms, root = "Backrooms", center = new Vector3(700f, 0f, -1150f), radius = 130f, theme = SkyDomes.Theme.Desert },
+            new Map { mode = KartMode.IslandFreeRoam, root = "Island", center = new Vector3(-1300f, 0f, 1300f), radius = 400f, theme = SkyDomes.Theme.Day },
             new Map { mode = KartMode.Tutorial, root = "TutorialPark", center = new Vector3(-480f, 0f, -480f), radius = 110f, theme = SkyDomes.Theme.Sunny },
         };
 

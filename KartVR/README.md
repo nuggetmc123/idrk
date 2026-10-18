@@ -11,7 +11,7 @@ friends join with a 6-digit code.
 
 | Area | What you do |
 |---|---|
-| **Hub** | One **big indoor garage** where you **walk around on foot** with a full body (helmet, racing suit, arms that follow your real hands, legs that step). It has **6 garage bays** (one for each player on the server), a showroom trophy in the middle, a big **MAP BOARD** on the wall (touch Race, Canyon Race, Bumper Karts, Ice Bumper, Tag, Free Roam or Tutorial to go there), the **SERVER BOARD**, a lobby-code kiosk and the lobby board. |
+| **Hub** | One **big indoor garage** where you **walk around on foot** with a full body (helmet, racing suit, arms that follow your real hands, legs that step). It has **6 garage bays** (one for each player on the server), a showroom trophy in the middle, a big **MAP BOARD** on the wall (two rows: Race, Canyon Race, Bumper Karts, Ice Bumper, Tag, Free Roam, City Race, Rooftop Bumper, Graveyard Tag, The Backrooms, Island or Tutorial), the **SERVER BOARD**, a lobby-code kiosk and the lobby board. |
 | **Garages** | Every player automatically gets their own garage bay. **Your kart is parked in it on a turntable whenever you're in the hub, so everyone walking by can see it.** The sign above the door shows the owner's name and the neon trim glows in their paint color. Walk into **YOUR GARAGE** and use the wall panel to change your kart. Only the owner can use a garage's panel. |
 | **Race** | 3-lap race on a big ~630 m track with red/white barriers, painted lines, a start gantry with **countdown lights**, a grandstand full of fans, a "KART VR" arch, boost pads with chevrons, **a jump**, and trees. Live positions, results, then the next race starts automatically. |
 | **Bumper Karts** | 2-minute rounds on a neon-lit platform over a lava lake. A **spinning sweeper bar** shoves anyone in its way, and **bouncy bumpers** fling you across the arena. Ram people for **+1**, fall off for **−1**. |
@@ -19,6 +19,12 @@ friends join with a 6-digit code.
 | **Ice Bumper** | Bumper karts on a **slippery sheet of ice** over freezing water: two crossed sweeper bars, **snowman bumpers**, icebergs and snowy pine islands under the northern lights. |
 | **Free Roam** | **One big open world** (about 900 m across): roads crossing the middle plus two ring roads, a **stunt park** (mega ramp, boost hoops, skate bowl, kickers), a **jump strip** of ever-bigger ramps and a plateau drop-off, a **lake** with an island and hills, a **forest**, rocks and big hills round the edge. Plus **build mode** (below). |
 | **Tag** | Tag in karts in a neon night arena with pillars, broken walls to hide behind, a raised centre platform with ramps, bouncy bumpers and boost pads. One player is **IT** (a red ring and "IT!" float over them). **Bump someone to make them IT**; the new IT can't tag anyone for 3 seconds (no tag-backs). You get a point for every second you're not IT; highest score after 2.5 minutes wins. IT drives a little faster. |
+| **City Race** | A night race through a neon city (~700 m): dark towers with lit windows and glowing roof lines, street lights all round the track, a grandstand, boost pads and a jump. Same 3-lap rules. |
+| **Rooftop Bumper** | Bumper karts on the roof of a skyscraper, with the city 80 m below. A helipad in the middle, a **swinging crane arm**, AC units to dodge and two bouncy vents. Fall off the edge and you're out of the round. |
+| **Graveyard Tag** | Tag in a spooky misty graveyard: rows of tombstones and crosses to weave between, dead trees, an iron fence, glowing jack-o'-lanterns, lantern posts and a crypt in the middle with ramps up onto its roof. |
+| **The Backrooms** | Tag in endless-looking **yellow rooms**: damp carpet, buzzing ceiling lights (some dead), wallpaper walls in a maze with doorways everywhere, under a low ceiling with a close yellow haze. **You can build here too** (click the right stick), so make your own hiding spots. |
+| **Island** | Tropical free roam (+ build mode): a sandy island in a turquoise sea with palm trees, beach huts, a ring road, a hill with a ramp, **beach jumps that launch you into the sea**, a pier and boost hoops. |
+| **Halloween** | Through **October** (and Nov 1) every map gets glowing jack-o'-lanterns, floating ghosts that turn to stare at you and flocks of bats; the hub gets orange/purple string lights and a HAPPY HALLOWEEN banner. It's decoration only and switches itself off after Halloween (`HalloweenDecor.cs`; set `HalloweenDecor.Force = true` to see it any time). |
 | **Sky domes** | Every map has its own painted sky dome (day, sunny mountains, lava night, desert, northern lights, sunset), so you never see the other maps. Just inside the dome is a **solid invisible wall** nobody can drive, walk or jump past, and past that the barrier puts you back as a backup. |
 
 ### Customizing your kart (in your garage)
@@ -150,7 +156,7 @@ messages underneath. (The old floating speed text is gone.)
 wheel. One hand or two both work. Let go and it springs back to the middle. Not holding it? The left thumbstick turns
 the wheel smoothly for you.
 
-### Build mode (Free Roam)
+### Build mode (Free Roam, Island, The Backrooms)
 **Click the right thumbstick** (or the **Build Mode** button on the wrist menu, or **B** on the keyboard) to hop out of
 your kart and **fly around**. Point with your right hand: a blue preview shows where the piece goes. Everyone in the
 session sees what you build (up to 250 pieces; after that the oldest go). You can't fly or build past the barrier.

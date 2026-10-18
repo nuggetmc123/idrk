@@ -170,9 +170,9 @@ namespace KartVR
                 sb.Append(done ? "<color=#7CFF8A>DONE  " : "<color=#ffffff>").Append(text).Append("</color>  <size=80%>")
                   .Append(done ? "" : Mathf.FloorToInt(Mathf.Min(p, target)) + "/" + target + "  ").Append("+").Append(xp).Append(" XP</size>\n");
             }
-            float race = Progress.BestLap(KartMode.Race), canyon = Progress.BestLap(KartMode.CanyonRace);
+            float race = Progress.BestLap(KartMode.Race), canyon = Progress.BestLap(KartMode.CanyonRace), city = Progress.BestLap(KartMode.CityRace);
             sb.Append("\n<size=85%>Best laps:  Race ").Append(race > 0f ? KartUI.FormatTime(race) : "-").Append("   Canyon ")
-              .Append(canyon > 0f ? KartUI.FormatTime(canyon) : "-").Append("</size>");
+              .Append(canyon > 0f ? KartUI.FormatTime(canyon) : "-").Append("   City ").Append(city > 0f ? KartUI.FormatTime(city) : "-").Append("</size>");
             profileText.text = sb.ToString();
         }
 

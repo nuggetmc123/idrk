@@ -42,11 +42,24 @@ namespace KartVR
                     fog = new Color(0.75f, 0.85f, 0.96f); sky = new Color(0.6f, 0.7f, 0.85f); equator = new Color(0.55f, 0.55f, 0.52f); ground = new Color(0.28f, 0.25f, 0.22f);
                     break;
             }
+            float fogStart = map.radius * 0.45f, fogEnd = map.radius * 3f;
+            if (mode == KartMode.Backrooms)
+            {
+                // Indoors under buzzing lights: flat yellow light from everywhere and a close haze so the rooms never end.
+                fog = new Color(0.78f, 0.72f, 0.45f); sky = equator = new Color(0.95f, 0.88f, 0.6f); ground = new Color(0.7f, 0.62f, 0.38f);
+                sunIntensity = baseIntensity * 0.15f; fogStart = 8f; fogEnd = 70f;
+            }
+            else if (mode == KartMode.GraveyardTag)
+            {
+                // Spooky green-purple mist that rolls in close.
+                fog = new Color(0.12f, 0.16f, 0.14f); sky = new Color(0.3f, 0.25f, 0.45f); equator = new Color(0.2f, 0.28f, 0.22f);
+                sunColor = new Color(0.6f, 0.75f, 1f); sunIntensity = baseIntensity * 0.4f; fogStart = 15f; fogEnd = 130f;
+            }
             RenderSettings.fog = mode != KartMode.Hub; // indoors: no haze
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = fog;
-            RenderSettings.fogStartDistance = map.radius * 0.45f;
-            RenderSettings.fogEndDistance = map.radius * 3f;
+            RenderSettings.fogStartDistance = fogStart;
+            RenderSettings.fogEndDistance = fogEnd;
             RenderSettings.ambientSkyColor = sky;
             RenderSettings.ambientEquatorColor = equator;
             RenderSettings.ambientGroundColor = ground;

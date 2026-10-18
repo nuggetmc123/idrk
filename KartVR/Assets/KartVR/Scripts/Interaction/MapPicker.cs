@@ -25,6 +25,11 @@ namespace KartVR
             new Entry { mode = KartMode.IceBumper, title = "ICE BUMPER", blurb = "Slippery rink, snowmen", color = new Color(0.65f, 0.92f, 1f) },
             new Entry { mode = KartMode.Tag, title = "TAG", blurb = "Bump someone to make them IT", color = new Color(1f, 0.4f, 0.45f) },
             new Entry { mode = KartMode.FreeRoam, title = "FREE ROAM", blurb = "Big open world + BUILD MODE", color = new Color(0.45f, 1f, 0.5f) },
+            new Entry { mode = KartMode.CityRace, title = "CITY RACE", blurb = "Night streets, neon towers", color = new Color(1f, 0.55f, 0.75f) },
+            new Entry { mode = KartMode.RooftopBumper, title = "ROOFTOP BUMPER", blurb = "Don't fall off the skyscraper", color = new Color(0.55f, 0.75f, 1f) },
+            new Entry { mode = KartMode.GraveyardTag, title = "GRAVEYARD TAG", blurb = "Spooky tag among the tombstones", color = new Color(0.75f, 0.55f, 1f) },
+            new Entry { mode = KartMode.Backrooms, title = "THE BACKROOMS", blurb = "Endless yellow rooms. Tag + build", color = new Color(0.95f, 0.88f, 0.5f) },
+            new Entry { mode = KartMode.IslandFreeRoam, title = "ISLAND", blurb = "Tropical free roam + BUILD MODE", color = new Color(0.4f, 0.95f, 0.85f) },
             new Entry { mode = KartMode.Tutorial, title = "TUTORIAL", blurb = "Learn to drive + build (solo)", color = new Color(1f, 0.85f, 0.35f) },
         };
 
@@ -33,24 +38,27 @@ namespace KartVR
 
         void Start()
         {
-            // One row of big buttons at hand height (the board's centre should be about 2 m off the floor).
+            // Two rows of big buttons at hand height (the board's centre should be about 2 m off the floor).
             const float w = 10.8f, h = 3f;
             KartUI.Box(transform, "Backing", new Vector3(0f, 0f, 0.1f), new Vector3(w, h, 0.15f), new Color(0.08f, 0.09f, 0.13f));
             KartUI.Part(transform, PrimitiveType.Cube, new Vector3(0f, h * 0.5f, 0f), new Vector3(w + 0.1f, 0.08f, 0.08f), KartUI.Glow(new Color(0.3f, 0.9f, 1f)));
             KartUI.Part(transform, PrimitiveType.Cube, new Vector3(0f, -h * 0.5f, 0f), new Vector3(w + 0.1f, 0.08f, 0.08f), KartUI.Glow(new Color(1f, 0.3f, 0.8f)));
             KartUI.Label(transform, "<b>PICK A MAP</b>", new Vector3(0f, 1.05f, -0.03f), 4.5f, Color.white, new Vector2(10f, 0.55f));
 
-            float spacing = 10.4f / Maps.Length;
-            var size = new Vector3(spacing - 0.1f, 1.15f, 0.12f);
+            int perRow = (Maps.Length + 1) / 2;
+            float spacing = 10.4f / perRow;
+            var size = new Vector3(spacing - 0.1f, 0.88f, 0.12f);
             for (int i = 0; i < Maps.Length; i++)
             {
                 var e = Maps[i];
                 var mode = e.mode;
+                int row = i / perRow, col = i % perRow;
+                int inRow = row == 0 ? perRow : Maps.Length - perRow;
                 var button = PokeButton.Create(transform, e.title, "<b>" + e.title + "</b>\n<size=55%>" + e.blurb + "</size>",
-                    new Vector3((i - (Maps.Length - 1) * 0.5f) * spacing, -0.2f, -0.03f), size, e.color, () => Go(mode), 1.65f);
+                    new Vector3((col - (inRow - 1) * 0.5f) * spacing, 0.3f - row * 0.97f, -0.03f), size, e.color, () => Go(mode), 1.45f);
                 button.cooldown = 1f;
             }
-            footer = KartUI.Label(transform, "", new Vector3(0f, -1.2f, -0.03f), 1.5f, new Color(0.8f, 0.95f, 1f), new Vector2(10f, 0.3f));
+            footer = KartUI.Label(transform, "", new Vector3(0f, -1.3f, -0.03f), 1.4f, new Color(0.8f, 0.95f, 1f), new Vector2(10f, 0.25f));
         }
 
         void Go(KartMode mode)
