@@ -107,7 +107,7 @@ namespace KartVR
             if (nameTag && !HasStateAuthority)
             {
                 nameTag.gameObject.SetActive(driving);
-                nameTag.text = kart.DisplayName;
+                nameTag.text = "<size=60%><color=#ffd54a>Lv " + kart.Level + "</color></size>\n" + kart.DisplayName;
             }
             if (!driving) return;
 

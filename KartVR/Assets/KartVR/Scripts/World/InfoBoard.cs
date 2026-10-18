@@ -6,7 +6,7 @@ namespace KartVR
     /// <summary>A big sign that shows lobby info, race standings or bumper scores.</summary>
     public class InfoBoard : MonoBehaviour
     {
-        public enum Kind { Lobby, Race, Bumper, Tag }
+        public enum Kind { Lobby, Race, Bumper, Tag, Daily }
 
         public Kind kind;
         public TextMeshPro text;
@@ -53,6 +53,17 @@ namespace KartVR
                         string header = bumper.State == BumperState.Playing ? "Time left " + KartUI.FormatTime(bumper.PhaseRemaining) : "Round over";
                         body = header + "\n" + bumper.StandingsText();
                     }
+                    break;
+                case Kind.Daily:
+                    var sb = new System.Text.StringBuilder("<b><color=#ffd54a>TODAY'S CHALLENGES</color></b>   <size=70%>(new ones every day, Level " + Progress.Level +
+                        (Progress.Streak > 1 ? ", " + Progress.Streak + " day streak" : "") + ")</size>\n");
+                    for (int i = 0; i < 3; i++)
+                    {
+                        string c = Progress.ChallengeText(i, out float p, out float target, out bool done, out int xp);
+                        sb.Append(done ? "<color=#7CFF8A>DONE: " + c + "</color>" : c + " <size=70%>(" + Mathf.FloorToInt(Mathf.Min(p, target)) + "/" + target + ")</size>")
+                          .Append(" <size=70%><color=#ffd54a>+" + xp + " XP</color></size>").Append(i < 2 ? "      " : "");
+                    }
+                    body = sb.ToString();
                     break;
                 case Kind.Tag:
                     var tag = TagManager.Instance;

@@ -60,6 +60,7 @@ namespace KartVR
             root = new GameObject("KartModel").transform;
             root.SetParent(transform, false);
 
+            BuildFlair(look);
             Color paint = look.PaintColor, accent = look.AccentColor;
             Material body = BodyMaterial(look);
             Material accentMat = KartUI.Paint(accent);
@@ -226,6 +227,71 @@ namespace KartVR
                 PatternTextures[key] = tex;
             }
             return KartUI.Mat(Color.white, 0.75f, 0.1f, default(Color), tex);
+        }
+
+        // ---------------- underglow + trail (unlocked by levelling up)
+
+        KartUnderglow glowKind;
+        readonly List<Renderer> glowParts = new List<Renderer>();
+        Light glowLight;
+        TrailRenderer trail;
+        Vector3 lastPos;
+
+        void BuildFlair(KartLook look)
+        {
+            glowParts.Clear();
+            glowLight = null;
+            trail = null;
+            glowKind = look.underglow;
+            if (look.underglow != KartUnderglow.None)
+            {
+                var glow = KartUI.Glow(KartParts.Glow(look.underglow));
+                if (look.underglow == KartUnderglow.Rainbow) glow = new Material(glow); // its own copy: the colour changes every frame
+                // Neon strips along the sides and under the floor, plus a soft light on the ground.
+                glowParts.Add(KartUI.Part(root, PrimitiveType.Cube, new Vector3(0f, 0.2f, -0.05f), new Vector3(0.9f, 0.015f, 1.7f), glow, Vector3.zero, "Underglow").GetComponent<Renderer>());
+                foreach (float x in new[] { -0.52f, 0.52f })
+                    glowParts.Add(KartUI.Part(root, PrimitiveType.Cube, new Vector3(x, 0.24f, -0.05f), new Vector3(0.03f, 0.03f, 1.75f), glow, Vector3.zero, "GlowStrip").GetComponent<Renderer>());
+                glowLight = new GameObject("UnderglowLight").AddComponent<Light>();
+                glowLight.transform.SetParent(root, false);
+                glowLight.transform.localPosition = new Vector3(0f, 0.15f, 0f);
+                glowLight.type = LightType.Point;
+                glowLight.range = 3.5f;
+                glowLight.intensity = 1.6f;
+                glowLight.color = KartParts.Glow(look.underglow);
+                glowLight.shadows = LightShadows.None;
+            }
+            if (look.trail != KartTrail.None)
+            {
+                var holder = new GameObject("Trail").transform;
+                holder.SetParent(root, false);
+                holder.localPosition = new Vector3(0f, 0.45f, -1.1f);
+                trail = holder.gameObject.AddComponent<TrailRenderer>();
+                trail.time = look.trail == KartTrail.Fire ? 0.5f : 0.7f;
+                trail.minVertexDistance = 0.25f;
+                trail.widthMultiplier = 0.45f;
+                trail.widthCurve = AnimationCurve.Linear(0f, 1f, 1f, 0f);
+                trail.colorGradient = KartParts.TrailColors(look.trail);
+                trail.sharedMaterial = KartUI.ParticleMaterial != null ? KartUI.ParticleMaterial : KartUI.Glow(Color.white);
+                trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                trail.emitting = false;
+            }
+            lastPos = transform.position;
+        }
+
+        void LateUpdate()
+        {
+            if (glowKind == KartUnderglow.Rainbow)
+            {
+                Color c = KartParts.Glow(glowKind);
+                foreach (var r in glowParts) if (r) KartUI.SetColor(r.sharedMaterial, c);
+                if (glowLight) glowLight.color = c;
+            }
+            if (trail != null)
+            {
+                float speed = Time.deltaTime > 0f ? (transform.position - lastPos).magnitude / Time.deltaTime : 0f;
+                trail.emitting = speed > 4f && speed < 80f; // not when teleporting
+            }
+            lastPos = transform.position;
         }
 
         static Texture2D MakePattern(KartPattern pattern, Color a, Color b)

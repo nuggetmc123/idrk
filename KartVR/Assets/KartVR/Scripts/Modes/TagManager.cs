@@ -94,14 +94,20 @@ namespace KartVR
             if (State != TagState.Playing || info.Source != It || target == It) return;
             if (!Immune.ExpiredOrNotRunning(Runner)) return;
             if (!Runner.ActivePlayers.Contains(target)) return;
+            var tagger = It;
             It = target;
             Immune = TickTimer.CreateFromSeconds(Runner, NoTagBackSeconds);
-            RPC_Tagged(target);
+            RPC_Tagged(target, tagger);
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-        void RPC_Tagged(PlayerRef target)
+        void RPC_Tagged(PlayerRef target, PlayerRef tagger)
         {
+            if (tagger == Runner.LocalPlayer)
+            {
+                Progress.Count(Progress.Goal.Tags);
+                Progress.Add(15, "Tagged someone!");
+            }
             var kart = KartController.All.FirstOrDefault(k => k != null && k.IsReady && k.Object.StateAuthority == target);
             if (kart != null) AudioManager.PlayAt(AudioManager.Sfx.Checkpoint, kart.transform.position, 1f, 0.7f);
             if (kart != null && kart.IsLocal) SessionManager.Instance?.SetStatus("YOU'RE IT! Bump someone to tag them", 4f);

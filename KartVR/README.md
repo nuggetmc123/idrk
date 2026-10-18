@@ -44,6 +44,19 @@ and so on. Use the **SERVER BOARD** in the garage to hop to another server (e.g.
 number). People on the same hub server go to the same map server when they use the map board.
 - **Leave Lobby** (kiosk or wrist menu) takes you back to the public hub.
 
+### Levels, daily challenges and unlocks
+- **XP and levels:** everything earns XP: racing (more for a better finish, +80 for a win), bumping, tagging, drifting,
+  driving, big jumps, lap records, Last Kart Standing wins and the tutorial. Levelling up shows a big banner with
+  confetti, and your **level shows over your head** for everyone.
+- **Daily login streak:** a bonus every day you play (50 XP x your streak, up to 7 days).
+- **Daily challenges:** 3 new ones every day (finish races, win one, drift 30 s, drive 5 km, bump 10 karts, tag 3
+  people, hit 10 boost pads, 5 big jumps), on the board in the hub and in **Menu > Profile**.
+- **Unlocks:** **underglow** (Cyan Lv 2, Pink Lv 4, Gold Lv 6, Lime Lv 9, Rainbow Lv 15) and **trails** (White Lv 3,
+  Fire Lv 5, Ice Lv 8, Neon Lv 12, Rainbow Lv 20), picked in your garage. Everyone sees them.
+- **Best laps** on each track, with a NEW LAP RECORD banner when you beat yours.
+- **Effects:** drift sparks (blue, then orange, then purple the longer you drift), tyre smoke, speed streaks when
+  you go fast, confetti when you finish a race, and haze and light matched to each map's sky.
+
 ### Tutorial (first time you play)
 The first time the game starts on a headset you're put in **Tutorial Park**, its own small map, solo, instead of
 the hub: a ring road with numbered station signs (drive, steer, brake, drift, boost pad, jump, respawn, build), cones,

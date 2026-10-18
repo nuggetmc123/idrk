@@ -57,7 +57,14 @@ namespace KartVR
         [Networked] public NetworkBool BlasterOut { get; set; }
         /// <summary>Knocked out of a Last Kart Standing event (caught outside the ring).</summary>
         [Networked] public NetworkBool Eliminated { get; set; }
+        /// <summary>The owner's level (shown over their head).</summary>
+        [Networked] public byte Level { get; set; }
+        /// <summary>0 = not drifting, 1-3 = drifting (blue, orange, purple sparks the longer it lasts).</summary>
+        [Networked] public byte DriftLevel { get; set; }
+        float airTime, statDistance;
+        Vector3 statLastPos;
         int seenEventId = -1;
+        float lapStartedAt;
 
         /// <summary>
         /// This player proved (with their secret key) that the Player ID they send is really theirs. Checked on
@@ -210,6 +217,7 @@ namespace KartVR
         public override void Spawned()
         {
             All.Add(this);
+            if (GetComponent<KartFx>() == null) gameObject.AddComponent<KartFx>();
             IsLocal = HasStateAuthority;
 
             if (IsLocal)
@@ -261,6 +269,42 @@ namespace KartVR
                     return Turbo(tag);
                 }
                 return Turbo(freeRoamTuning);
+            }
+        }
+
+        /// <summary>XP and daily-challenge stats from driving: distance, drift time, big jumps; plus the drift sparks.</summary>
+        void TrackStats()
+        {
+            float dt = Time.deltaTime;
+            bool driftingNow = drifting && Speed > 5f && grounded;
+            float driftFor = driftingNow ? Time.time - driftStart : 0f;
+            DriftLevel = (byte)(driftingNow ? (driftFor > 2.2f ? 3 : driftFor > 1f ? 2 : 1) : 0);
+            if (driftingNow) { Progress.Count(Progress.Goal.DriftSeconds, dt); Progress.Trickle(dt * 2f); }
+
+            // Distance (ignores teleports and respawns).
+            float step = (transform.position - statLastPos).magnitude;
+            statLastPos = transform.position;
+            if (step < 5f && grounded)
+            {
+                statDistance += step;
+                if (statDistance >= 50f)
+                {
+                    Progress.Count(Progress.Goal.DriveKm, statDistance / 1000f);
+                    Progress.Trickle(statDistance / 100f);
+                    statDistance = 0f;
+                }
+            }
+
+            // Big air: more than a second off the ground, then landing.
+            if (!grounded && !Frozen) airTime += dt;
+            else
+            {
+                if (airTime > 1f)
+                {
+                    Progress.Count(Progress.Goal.BigAir);
+                    Progress.Add(10, airTime > 2f ? "HUGE air!" : "Big air!");
+                }
+                airTime = 0f;
             }
         }
 
@@ -330,6 +374,7 @@ namespace KartVR
             steer = wheel.Steer;
             driftHeld = KartInput.DriftHeld;
             DriverOut = OnFoot.Active;
+            if (Time.frameCount % 30 == 0) Level = (byte)Mathf.Clamp(Progress.Level, 1, 99);
             CheckRing();
             Hidden = ModPowers.Invisible && Moderation.IAmMod;
             BlasterOut = ModPowers.Blaster && Moderation.IAmMod;
@@ -344,12 +389,14 @@ namespace KartVR
                 return;
             }
 
+            TrackStats();
+
             // Tag: a point for every second you're not IT.
             var tagRound = TagManager.Instance;
             if (tagRound != null && tagRound.Playing && !tagRound.IsIt(this))
             {
                 tagScoreTimer += Time.deltaTime;
-                if (tagScoreTimer >= 1f) { tagScoreTimer -= 1f; Score += 1; }
+                if (tagScoreTimer >= 1f) { tagScoreTimer -= 1f; Score += 1; Progress.Trickle(1f); }
             }
 
             if (KartInput.RespawnPressed && !BuildMode.Active && !OnFoot.Active) Respawn(); // in build mode B means undo; on foot it respawns you
@@ -696,6 +743,7 @@ namespace KartVR
                 boostUntil = Time.time + pad.boostSeconds;
                 boostSpeedMul = 1.35f;
                 rb.AddForce(transform.forward * pad.kick, ForceMode.VelocityChange);
+                if (IsLocal) Progress.Count(Progress.Goal.BoostPads);
                 AudioManager.Play(AudioManager.Sfx.Boost, 0.7f, 1.15f);
                 Buzz(XRNode.RightHand, 0.5f, 0.15f);
                 Buzz(XRNode.LeftHand, 0.5f, 0.15f);
@@ -715,17 +763,31 @@ namespace KartVR
             if (cp.index != 0) AudioManager.Play(AudioManager.Sfx.Checkpoint);
             if (cp.index == 0)
             {
-                if (Lap == 0) Lap = 1; // crossing the start line begins lap 1
-                else if (Lap < race.totalLaps) AudioManager.Play(AudioManager.Sfx.Lap);
-                else if (Lap >= race.totalLaps)
+                if (Lap == 0)
                 {
-                    Finished = true;
-                    FinishTime = race.Elapsed;
-                    AudioManager.Play(AudioManager.Sfx.Finish);
-                    Buzz(XRNode.RightHand, 0.8f, 0.4f);
-                    Buzz(XRNode.LeftHand, 0.8f, 0.4f);
+                    Lap = 1; // crossing the start line begins lap 1
+                    lapStartedAt = race.Elapsed;
                 }
-                else Lap++;
+                else
+                {
+                    Progress.LapDone(CurrentMode, race.Elapsed - lapStartedAt);
+                    lapStartedAt = race.Elapsed;
+                    if (Lap >= race.totalLaps)
+                    {
+                        Finished = true;
+                        FinishTime = race.Elapsed;
+                        AudioManager.Play(AudioManager.Sfx.Finish);
+                        Buzz(XRNode.RightHand, 0.8f, 0.4f);
+                        Buzz(XRNode.LeftHand, 0.8f, 0.4f);
+                        Progress.RaceFinished(race.PositionOf(this), KartController.All.Count);
+                        KartFx.Confetti(transform.position + Vector3.up * 2f, 1.5f);
+                    }
+                    else
+                    {
+                        Lap++; // (this was missing, so races could never finish)
+                        AudioManager.Play(AudioManager.Sfx.Lap);
+                    }
+                }
             }
             NextCheckpoint = (cp.index + 1) % race.CheckpointCount;
         }
@@ -784,6 +846,8 @@ namespace KartVR
                 {
                     lastHitTime[other] = Time.time;
                     Score += 1;
+                    Progress.Count(Progress.Goal.BumperHits);
+                    Progress.Add(5, "Bump!");
                 }
             }
         }

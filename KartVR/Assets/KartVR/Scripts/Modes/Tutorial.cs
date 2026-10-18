@@ -165,6 +165,7 @@ namespace KartVR
         void Finish()
         {
             Done = true;
+            Progress.Add(200, "Tutorial complete!");
             AudioManager.Play(AudioManager.Sfx.Teleport);
             if (BuildMode.Active) BuildMode.Toggle();
             Destroy(gameObject);

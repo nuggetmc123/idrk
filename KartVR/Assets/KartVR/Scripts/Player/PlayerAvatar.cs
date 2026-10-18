@@ -267,7 +267,7 @@ namespace KartVR
             {
                 var look = kart.Look;
                 body.Build(look.paint, look.accent);
-                if (nameTag && !IsLocal) nameTag.text = kart.DisplayName;
+                if (nameTag && !IsLocal) nameTag.text = "<size=60%><color=#ffd54a>Lv " + kart.Level + "</color></size>\n" + kart.DisplayName;
             }
             else if (IsLocal)
             {

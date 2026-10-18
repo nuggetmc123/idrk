@@ -28,7 +28,7 @@ namespace KartVR
             var face = new GameObject("Face").transform;
             face.SetParent(transform, false);
 
-            KartUI.Box(face, "Panel", new Vector3(0f, 0f, 0.03f), new Vector3(1.05f, 1.2f, 0.04f), new Color(0.1f, 0.1f, 0.14f));
+            KartUI.Box(face, "Panel", new Vector3(0f, -0.15f, 0.03f), new Vector3(1.05f, 1.5f, 0.04f), new Color(0.1f, 0.1f, 0.14f));
             KartUI.Box(face, "Trim", new Vector3(0f, 0.6f, 0.02f), new Vector3(1.05f, 0.03f, 0.05f), new Color(1f, 0.6f, 0.1f));
             title = KartUI.Label(face, "CUSTOMIZE", new Vector3(0f, 0.53f, 0f), 0.55f, Color.white, new Vector2(1f, 0.1f));
 
@@ -55,12 +55,35 @@ namespace KartVR
             Row(c, "BOOSTER", -0.07f, d => Change(l => { l.booster = (KartBooster)Wrap((int)l.booster + d, KartLook.Count<KartBooster>()); return l; }));
             Row(c, "WHEELS", -0.2f, d => Change(l => { l.wheels = (KartWheels)Wrap((int)l.wheels + d, KartLook.Count<KartWheels>()); return l; }));
             Row(c, "SPOILER", -0.33f, d => Change(l => { l.spoiler = (KartSpoiler)Wrap((int)l.spoiler + d, KartLook.Count<KartSpoiler>()); return l; }));
-            boosterInfo = KartUI.Label(c, "", new Vector3(0f, -0.45f, 0f), 0.26f, new Color(0.7f, 0.9f, 1f), new Vector2(1f, 0.08f));
+            // Unlocked by levelling up.
+            Row(c, "UNDERGLOW", -0.46f, d => { glowPick = Wrap(glowPick + d, KartLook.Count<KartUnderglow>()); TryUnlocked(); });
+            Row(c, "TRAIL", -0.59f, d => { trailPick = Wrap(trailPick + d, KartLook.Count<KartTrail>()); TryUnlocked(); });
+            boosterInfo = KartUI.Label(c, "", new Vector3(0f, -0.71f, 0f), 0.26f, new Color(0.7f, 0.9f, 1f), new Vector2(1f, 0.08f));
+            var look0 = KartController.Local != null && KartController.Local.IsReady ? KartController.Local.Look : PlayerProfile.Look;
+            glowPick = (int)look0.underglow;
+            trailPick = (int)look0.trail;
 
             lockText = KartUI.Label(face, "", new Vector3(0f, 0f, -0.01f), 0.6f, Color.white, new Vector2(0.95f, 0.6f));
         }
 
         static int Wrap(int v, int count) => ((v % count) + count) % count;
+
+        int glowPick, trailPick;
+
+        /// <summary>Put on the picked underglow / trail if your level is high enough (locked ones just show what you need).</summary>
+        void TryUnlocked()
+        {
+            int level = Progress.Level;
+            Change(l =>
+            {
+                if (level >= KartParts.UnderglowLevel[glowPick]) l.underglow = (KartUnderglow)glowPick;
+                if (level >= KartParts.TrailLevel[trailPick]) l.trail = (KartTrail)trailPick;
+                return l;
+            });
+        }
+
+        static string Locked(string name, int need, int level) =>
+            level >= need ? name : "<color=#888888>" + name + "</color>  <size=60%><color=#ffb347>Lv " + need + "</color></size>";
 
         void Row(Transform parent, string name, float y, System.Action<int> step)
         {
@@ -99,7 +122,10 @@ namespace KartVR
             valueLabels["BOOSTER"].text = KartParts.Name(look.booster);
             valueLabels["WHEELS"].text = KartParts.Name(look.wheels);
             valueLabels["SPOILER"].text = KartParts.Name(look.spoiler);
-            boosterInfo.text = KartParts.Describe(look.booster);
+            int lv = Progress.Level;
+            valueLabels["UNDERGLOW"].text = Locked(KartParts.Name((KartUnderglow)glowPick), KartParts.UnderglowLevel[glowPick], lv);
+            valueLabels["TRAIL"].text = Locked(KartParts.Name((KartTrail)trailPick), KartParts.TrailLevel[trailPick], lv);
+            boosterInfo.text = KartParts.Describe(look.booster) + "\n<size=80%><color=#ffd54a>Level " + lv + "</color>: level up to unlock more</size>";
             paintMarker.localPosition = paintSpots[look.paint % paintSpots.Count];
             accentMarker.localPosition = accentSpots[look.accent % accentSpots.Count];
         }

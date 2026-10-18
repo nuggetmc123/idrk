@@ -196,6 +196,8 @@ namespace KartVR
             {
                 shownWinner = winner;
                 Banner("<size=55%>LAST KART STANDING</size>\n<b>" + (winner == "Nobody" ? "Nobody survived!" : winner.ToUpper() + " WINS!") + "</b>");
+                var me = KartController.Local;
+                if (me != null && me.IsReady && !me.Eliminated && me.DisplayName == winner) Progress.Add(300, "Last Kart Standing champion!");
                 AudioManager.Play(AudioManager.Sfx.Finish);
             }
             // A warning when you're near the edge.
