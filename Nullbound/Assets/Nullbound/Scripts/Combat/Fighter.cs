@@ -49,6 +49,8 @@ namespace Nullbound
         [Networked] public NetworkBool Hidden { get; set; }
         /// <summary>Status effects everyone sees: 1 frozen, 2 burning, 4 barrier, 8 armour, 16 invincible mod, 32 tumbling.</summary>
         [Networked] public byte Status { get; set; }
+        /// <summary>Special (super) charge 0..100, so everyone can see it on the fighter's right arm.</summary>
+        [Networked] public byte SuperCharge { get; set; }
         [Networked] public Vector3 NetBody { get; set; }
         [Networked] public Vector3 NetHead { get; set; }
         [Networked] public Quaternion NetHeadRot { get; set; }
@@ -321,6 +323,8 @@ namespace Nullbound
             if (dt <= 0f) return;
             var s = Stats;
             float now = Time.time;
+            byte charge = (byte)Mathf.RoundToInt(SpecialReady * 100f);
+            if (charge != SuperCharge) SuperCharge = charge;
 
             if (Down)
             {

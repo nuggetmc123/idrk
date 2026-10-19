@@ -53,8 +53,8 @@ namespace Nullbound.EditorTools
             var leafMat = Mat("Pine", new Color(0.12f, 0.35f, 0.18f), 0.1f);
             var bark = Mat("Bark", new Color(0.3f, 0.2f, 0.12f), 0.1f);
 
-            // Ground, hills and the edge.
-            Prim(PrimitiveType.Cube, "Ground", scenery, new Vector3(0f, -0.5f, 0f), new Vector3(BattleHalf * 2f + 4f, 1f, BattleHalf * 2f + 4f), grass);
+            // Ground and the edge wall.
+            Prim(PrimitiveType.Cube, "Ground", scenery, new Vector3(0f, -0.5f, 0f), new Vector3(BattleHalf * 2f + 120f, 1f, BattleHalf * 2f + 120f), grass);
             foreach (var (pos, size) in new[]
             {
                 (new Vector3(0f, 1.5f, BattleHalf + 1f), new Vector3(BattleHalf * 2f + 4f, 3f, 2f)), (new Vector3(0f, 1.5f, -BattleHalf - 1f), new Vector3(BattleHalf * 2f + 4f, 3f, 2f)),
@@ -62,18 +62,12 @@ namespace Nullbound.EditorTools
             })
             {
                 Prim(PrimitiveType.Cube, "EdgeWall", scenery, pos, size, towerStone);
-                var barrier = Prim(PrimitiveType.Cube, "Barrier", scenery, pos + Vector3.up * 20f, new Vector3(size.x, 40f, size.z), wall);
+                var barrier = Prim(PrimitiveType.Cube, "Barrier", scenery, new Vector3(pos.x, SkyHeight * 0.5f, pos.z), new Vector3(size.x, SkyHeight, size.z), wall);
                 Object.DestroyImmediate(barrier.GetComponent<Renderer>());
                 Object.DestroyImmediate(barrier.GetComponent<MeshFilter>());
             }
-            // Mountains beyond the walls.
-            for (int i = 0; i < 18; i++)
-            {
-                float a = i * Mathf.PI * 2f / 18f;
-                float d = BattleHalf + 40f + (float)rng.NextDouble() * 30f;
-                float h = 40f + (float)rng.NextDouble() * 50f;
-                Prim(PrimitiveType.Sphere, "Mountain", scenery, new Vector3(Mathf.Cos(a) * d, h * 0.2f, Mathf.Sin(a) * d), new Vector3(70f, h, 70f), rockMat, false);
-            }
+            SkyBarrier(scenery);
+            RockBoundary(scenery, rockMat, rng);
 
             // The castle plaza in the middle.
             Take(Vector3.zero, 22f);
@@ -234,27 +228,98 @@ namespace Nullbound.EditorTools
                 if (s == 0) lower = level;
                 below = level;
             }
-            // Roof: two sloped halves resting on the top walls.
+            // Roof: two 45-degree halves meeting at the ridge, with gable ends closing the triangles at the sides.
             float top = storeys * h;
+            float slope = d * 0.5f / Mathf.Cos(45f * Mathf.Deg2Rad);
             foreach (float side in new[] { -1f, 1f })
             {
-                var r = Prim(PrimitiveType.Cube, "Roof", smash, Vector3.zero, new Vector3(w + 0.6f, 0.25f, d * 0.62f), roof, true);
-                r.transform.position = W(new Vector3(0f, top + 1.05f, side * d * 0.25f));
-                r.transform.rotation = rot * Quaternion.Euler(side * -33f, 0f, 0f);
-                MakeBreakable(r, nextBreakable++, 20f, roof);
-                var br = r.GetComponent<Breakable>();
-                br.restsOn = below.ToArray();
-                br.collapseWhen = 2;
-                br.regrowSeconds = 50f;
+                var r = Prim(PrimitiveType.Cube, "Roof", smash, Vector3.zero, new Vector3(w + 0.7f, 0.25f, slope + 0.6f), roof, true);
+                // Centre of the slope, pushed out by half the thickness so it sits on the gables.
+                r.transform.position = W(new Vector3(0f, top + d * 0.25f + 0.09f, side * (d * 0.25f + 0.09f)));
+                r.transform.rotation = rot * Quaternion.Euler(side * 45f, 0f, 0f);
+                RestOn(r, roof, 20f, below);
             }
-            var chimney = Prim(PrimitiveType.Cube, "Chimney", smash, Vector3.zero, new Vector3(0.7f, 1.6f, 0.7f), walls, true);
-            chimney.transform.position = W(new Vector3(w * 0.3f, top + 1.6f, d * 0.2f));
+            foreach (float side in new[] { -1f, 1f })
+            {
+                // A square turned 45 degrees: its top half is the gable triangle, its bottom half hides inside the wall.
+                float half = d * 0.5f / Mathf.Sqrt(2f) * 2f;
+                var g = Prim(PrimitiveType.Cube, "Gable", smash, Vector3.zero, new Vector3(t, half, half), walls, true);
+                g.transform.position = W(new Vector3(side * w * 0.5f, top, 0f));
+                g.transform.rotation = rot * Quaternion.Euler(45f, 0f, 0f);
+                RestOn(g, walls, 25f, below);
+            }
+            var chimney = Prim(PrimitiveType.Cube, "Chimney", smash, Vector3.zero, new Vector3(0.7f, 1.8f, 0.7f), walls, true);
+            chimney.transform.position = W(new Vector3(w * 0.3f, top + 2.6f, d * 0.2f));
             chimney.transform.rotation = rot;
-            MakeBreakable(chimney, nextBreakable++, 15f, walls);
-            chimney.GetComponent<Breakable>().restsOn = below.ToArray();
-            chimney.GetComponent<Breakable>().collapseWhen = 2;
+            RestOn(chimney, walls, 15f, below);
+            // A door frame and windows (looks), and a wooden beam along the ridge.
+            var ridge = Prim(PrimitiveType.Cube, "Ridge", smash, Vector3.zero, new Vector3(w + 0.8f, 0.3f, 0.3f), timber, true);
+            ridge.transform.position = W(new Vector3(0f, top + d * 0.5f + 0.2f, 0f));
+            ridge.transform.rotation = rot * Quaternion.Euler(45f, 0f, 0f);
+            RestOn(ridge, timber, 15f, below);
+            Prim(PrimitiveType.Cube, "DoorStep", scenery, pos + rot * new Vector3(0f, 0.1f, -d * 0.5f - 0.5f), new Vector3(w * 0.3f, 0.2f, 0.8f), timber, true, rot);
         }
 
+        static void RestOn(GameObject go, Material mat, float hp, List<Breakable> below)
+        {
+            MakeBreakable(go, nextBreakable++, hp, mat);
+            var br = go.GetComponent<Breakable>();
+            br.restsOn = below.ToArray();
+            br.collapseWhen = 2;
+            br.regrowSeconds = 50f;
+        }
+
+        /// <summary>The sky barrier: an invisible ceiling over the whole map (nobody gets launched out), drawn as a faint
+        /// glowing grid in the sky and up the edges so you can see where it is.</summary>
+        const float SkyHeight = 70f;
+        static void SkyBarrier(Transform scenery)
+        {
+            var grid = Tex("SkyGrid", 128, (u, v, r) =>
+            {
+                float lu = Mathf.Min(u, 1f - u), lv = Mathf.Min(v, 1f - v);
+                float line = Mathf.Clamp01(1f - Mathf.Min(lu, lv) * 40f);
+                return new Color(0.45f, 0.9f, 1f, line * 0.55f);
+            });
+            float span = BattleHalf * 2f + 4f;
+            var top = Fade(Mat("SkyBarrier", Color.white, 0f, 0f, grid, new Vector2(span / 10f, span / 10f), new Color(0.2f, 0.5f, 0.6f)));
+            var sides = Fade(Mat("SkyBarrierSide", Color.white, 0f, 0f, grid, new Vector2(span / 10f, (SkyHeight - 3f) / 10f), new Color(0.2f, 0.5f, 0.6f)));
+            var ceiling = Prim(PrimitiveType.Cube, "SkyCeiling", scenery, new Vector3(0f, SkyHeight + 1f, 0f), new Vector3(span, 2f, span), wall);
+            Object.DestroyImmediate(ceiling.GetComponent<Renderer>());
+            Object.DestroyImmediate(ceiling.GetComponent<MeshFilter>());
+            Prim(PrimitiveType.Quad, "SkyGrid", scenery, new Vector3(0f, SkyHeight, 0f), new Vector3(span, span, 1f), top, false, Quaternion.Euler(-90f, 0f, 0f));
+            float y = 3f + (SkyHeight - 3f) * 0.5f, e = BattleHalf + 2f;
+            foreach (var (p, yaw) in new[] { (new Vector3(0f, y, e), 0f), (new Vector3(0f, y, -e), 180f), (new Vector3(e, y, 0f), 90f), (new Vector3(-e, y, 0f), -90f) })
+                Prim(PrimitiveType.Quad, "SkyWall", scenery, p, new Vector3(span, SkyHeight - 3f, 1f), sides, false, Quaternion.Euler(0f, yaw, 0f));
+        }
+
+        /// <summary>A solid ring of cliffs all the way round the map (rocks overlap so there are no gaps), with big
+        /// mountains behind them.</summary>
+        static void RockBoundary(Transform scenery, Material rockMat, System.Random rng)
+        {
+            void Ring(float dist, float spacing, float minW, float maxW, float minH, float maxH, string name)
+            {
+                // Walk round the square, one rock every few metres; each rock is wider than the gap to the next.
+                float side = dist * 2f;
+                int perSide = Mathf.CeilToInt(side / spacing);
+                for (int edge = 0; edge < 4; edge++)
+                    for (int i = 0; i < perSide; i++)
+                    {
+                        float along = -dist + (i + (float)rng.NextDouble() * 0.3f) * side / perSide;
+                        Vector3 p = edge switch
+                        {
+                            0 => new Vector3(along, 0f, dist), 1 => new Vector3(dist, 0f, -along), 2 => new Vector3(-along, 0f, -dist), _ => new Vector3(-dist, 0f, along),
+                        };
+                        p += new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * spacing * 0.3f;
+                        float wdt = minW + (float)rng.NextDouble() * (maxW - minW);
+                        float hgt = minH + (float)rng.NextDouble() * (maxH - minH);
+                        Prim(PrimitiveType.Sphere, name, scenery, new Vector3(p.x, hgt * 0.15f, p.z), new Vector3(wdt, hgt, wdt * (0.8f + (float)rng.NextDouble() * 0.4f)), rockMat, false,
+                            Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f));
+                    }
+            }
+            Ring(BattleHalf + 9f, 9f, 16f, 22f, 12f, 24f, "Cliff");       // right behind the wall, touching each other
+            Ring(BattleHalf + 22f, 14f, 24f, 34f, 22f, 40f, "Cliff");      // a higher row behind, filling any gaps
+            Ring(BattleHalf + 50f, 28f, 55f, 80f, 45f, 90f, "Mountain");   // mountains in the distance
+        }
         /// <summary>A tall stone tower, floor by floor: smash a floor and everything above it comes down.</summary>
         static void Tower(Transform smash, Vector3 pos, int floors, Material stone, Material cap)
         {

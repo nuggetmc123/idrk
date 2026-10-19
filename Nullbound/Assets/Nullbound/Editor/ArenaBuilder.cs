@@ -26,7 +26,7 @@ namespace Nullbound.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 3; // 3 = the Battleground map
+        public const int WorldVersion = 4; // 4 = Battleground: fixed house roofs, sky barrier, rock wall
         const string WorldVersionFile = "ProjectSettings/NullboundWorldVersion.txt";
         public static bool WorldUpToDate => File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
         public static bool TextResourcesReady => Resources.Load<TMP_Settings>("TMP Settings") != null;

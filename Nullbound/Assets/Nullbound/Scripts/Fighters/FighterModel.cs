@@ -104,6 +104,9 @@ namespace Nullbound
             extras.Add(new Extra { t = t, anim = anim, basePos = t.localPosition, baseScale = t.localScale, baseRot = t.localRotation, phase = phase });
         }
 
+        public Transform BoneOf(Bone b) => bones[(int)b];
+        public float Scale => stats.scale;
+
         /// <summary>Show or hide the whole model (invisible moderators, K.O.).</summary>
         public void SetVisible(bool visible) { if (root != null) root.gameObject.SetActive(visible); }
 

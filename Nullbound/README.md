@@ -142,7 +142,11 @@ more knockback, and the target goes into a **ragdoll tumble** for 1.3 s: it flie
 ground and rolls over with its arms and legs flailing (you can't act until you stop rolling). Your own view doesn't
 spin (comfort); you get a vignette instead.
 
-**Your health and power are on your right forearm**: raise your right arm and look at the gold-framed screen behind
+**Everyone's health and super are on their right forearm**: every other fighter and bot carries a gold-framed screen
+on the outside of their right forearm with a green health bar and a gold super bar (flashing when the super is ready),
+so you can read how hurt someone is and whether their super is coming. Their name still floats above their head.
+
+**Your own health and power are on your right forearm**: raise your right arm and look at the gold-framed screen behind
 your hand for health, guard, special (ready or seconds left) and dash. The menu is still on the left wrist.
 
 Combos (4th hit launches), heavy hits, blocking with a guard meter (guard break stuns you), dodging (can't be hit
@@ -161,6 +165,12 @@ The real battle map, **300 m across**:
 - Walls and mountains round the edge, so nobody gets out.
 
 Everything that breaks rebuilds itself from the ground up after about a minute.
+
+**Edges:** a solid wall of cliffs runs all the way round the map (the rocks overlap, so there are no gaps), with big
+mountains behind it. **Sky barrier:** an invisible ceiling 70 m up stops anyone being launched out of the map. It's
+drawn as a faint glowing grid across the sky and up the edges, so you can see where the map ends. **Houses** have
+proper peaked roofs with closed gable ends, a ridge beam, a chimney and a door step. Smash the walls and the roof
+falls in.
 
 ## Training Grounds (Training only, 90 m across)
 
