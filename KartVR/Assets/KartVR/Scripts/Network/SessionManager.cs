@@ -205,7 +205,7 @@ namespace KartVR
             if (IsTutorial)
                 return "TUTORIAL\nFollow the steps on the panel in front of you.";
             if (IsSolo)
-                return "PLAYING SOLO - " + mode.ToUpper() + "\nCouldn't go online: " + OnlineError + "\nTouch a map or FIND A ROOM to try again.";
+                return "PLAYING SOLO - " + mode.ToUpper() + "\nCouldn't go online: " + OnlineError + "\nTouch a map to try again.";
             if (IsPrivate)
                 return "PRIVATE LOBBY  " + KartUI.FormatCode(LobbyCode) + "\n" + mode + " - " + PlayerCount + " here (anyone can go to any map)";
             return "ROOM " + KartUI.FormatCode(RoomCode) + "  -  " + mode.ToUpper() + "\n" + PlayerCount + "/" + MaxPlayers + " players";

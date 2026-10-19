@@ -45,8 +45,7 @@ Your choices are saved on your device and everyone else sees them, in your garag
 - **Join a friend anywhere:** your code is on the **ROOMS** board in the garage, your wrist menu and your kart's
   screen. Your friend types it on the **keypad** next to the ROOMS board and pokes **JOIN**, and goes straight to you,
   whether you're in the hub or on any map (if there's space).
-- **FIND A ROOM** (ROOMS board) puts you in another public hub room (and tries going online again if you're solo).
-- **Private lobbies:** poke **CREATE PRIVATE LOBBY** (ROOMS board, keypad or wrist menu). Nobody is matched into it;
+- **Private lobbies:** poke **CREATE LOBBY** on the keypad (or use the wrist menu). Nobody is matched into it;
   friends join with its code the same way. **There's no host:** anyone in the lobby can go to **any map** on their
   own and stays in the lobby (the code works on every map, and joining it takes you to wherever most of the lobby
   is). The **Hub** button takes you back to your lobby's hub. **Leave Lobby** takes you back to public rooms.
@@ -281,8 +280,8 @@ they're on. It opens the page to tick them.
 - **No Photon App ID in the build.** Paste it in **KartVR > Set Up Multiplayer**, then build again. The build menu now
   copies it into Fusion's settings by itself and warns you if it's missing.
 - **No internet on the headset.** Check its Wi-Fi.
-- If going online fails, you now **play solo** (walk, drive, every map) instead of being stuck. Touch **FIND A ROOM**
-  on the ROOMS board to try online again.
+- If going online fails, you now **play solo** (walk, drive, every map) instead of being stuck. Touch a map
+  on the map board to try online again.
 - The game asks for the **microphone** when it starts. Press **Allow**: the popup pauses the game until you answer.
 
 Release channels are invite-only. To put it in the store for everyone, copy the build to the **Production** channel

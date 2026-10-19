@@ -34,7 +34,9 @@ namespace KartVR
             var sessions = SessionManager.Instance;
             if (sessions == null || sessions.Busy || !sessions.IsConnected) return false;
             AudioManager.Play(AudioManager.Sfx.Teleport);
-            if (sessions.IsSolo || sessions.IsTutorial) // solo: the map just changes on this headset, no internet needed
+            // Solo because going online failed: try online again on the way (it falls back to solo if it still can't).
+            if (sessions.IsSolo && SessionManager.MultiplayerAvailable) { sessions.JoinPublic(mode); return true; }
+            if (sessions.IsSolo || sessions.IsTutorial) // offline build / tutorial: the map just changes on this headset
             {
                 if (GameState.Instance != null) GameState.Instance.RequestMode(mode);
             }
