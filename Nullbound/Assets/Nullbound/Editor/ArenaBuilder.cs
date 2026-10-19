@@ -26,7 +26,7 @@ namespace Nullbound.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 5; // 5 = real colliders on flat cylinders / squashed spheres, no sky barrier
+        public const int WorldVersion = 6; // 6 = menu has its own starry sky box
         const string WorldVersionFile = "ProjectSettings/NullboundWorldVersion.txt";
         public static bool WorldUpToDate => File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
         public static bool TextResourcesReady => Resources.Load<TMP_Settings>("TMP Settings") != null;
@@ -737,6 +737,25 @@ namespace Nullbound.EditorTools
                 light.intensity = 1.4f;
                 light.color = new Color(1f, 0.85f, 0.8f);
             }
+            // Its own sky: a closed starry dome-box all round, so the practice map (which is in the same world) can't be seen.
+            var stars = Tex("MenuStars", 512, (u, v, r) =>
+            {
+                double roll = r.NextDouble();
+                if (roll < 0.0025) return Color.white;
+                if (roll < 0.006) return new Color(0.7f, 0.75f, 1f);
+                float n = Noise(u, v, 4f, 3f);
+                return new Color(0.05f + n * 0.08f, 0.03f + n * 0.03f, 0.1f + n * 0.12f);
+            });
+            var unlit = Shader.Find("Unlit/Texture");
+            var skyMat = AssetDatabase.LoadAssetAtPath<Material>(Root + "/Materials/MenuSky.mat");
+            if (skyMat == null && unlit != null) { skyMat = new Material(unlit); AssetDatabase.CreateAsset(skyMat, Root + "/Materials/MenuSky.mat"); }
+            if (skyMat != null) { skyMat.mainTexture = stars; skyMat.mainTextureScale = new Vector2(3f, 2f); EditorUtility.SetDirty(skyMat); }
+            const float skyHalf = 55f, skyTop = 55f, skyBottom = -5f;
+            float wallH = skyTop - skyBottom, wallY = (skyTop + skyBottom) * 0.5f;
+            foreach (var (pos, yaw) in new[] { (new Vector3(0f, wallY, skyHalf), 0f), (new Vector3(0f, wallY, -skyHalf), 180f), (new Vector3(skyHalf, wallY, 0f), 90f), (new Vector3(-skyHalf, wallY, 0f), -90f) })
+                Prim(PrimitiveType.Quad, "SkyWall", room, pos, new Vector3(skyHalf * 2f, wallH, 1f), skyMat, false, Quaternion.Euler(0f, yaw, 0f));
+            Prim(PrimitiveType.Quad, "SkyCeiling", room, new Vector3(0f, skyTop, 0f), new Vector3(skyHalf * 2f, skyHalf * 2f, 1f), skyMat, false, Quaternion.Euler(-90f, 0f, 0f));
+
             var menu = new GameObject("MainMenu");
             menu.transform.SetParent(room, false);
             menu.AddComponent<MainMenu>();

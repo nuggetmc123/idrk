@@ -22,6 +22,8 @@ namespace Nullbound
         TextMeshPro nameText;
         Vector3 lastPos, smoothVel, rollAxis = Vector3.right;
         float tumbleBlend, nextTrail;
+        Transform stars;
+        bool headWasOff;
         Quaternion tumbleRot = Quaternion.identity;
 
         public void Init(Fighter f)
@@ -111,6 +113,37 @@ namespace Nullbound
             armPanel.position = Vector3.Lerp(elbow, wrist, 0.45f) + outward * (model.body.armThick * 0.6f + 0.02f) * k;
             Vector3 face = -outward; // the screen's front (-Z) points out from the arm
             armPanel.rotation = Quaternion.LookRotation(face, Vector3.Cross(face, arm));
+        }
+
+        Transform MakeStars()
+        {
+            var t = new GameObject("DazedStars").transform;
+            t.SetParent(transform, false);
+            var gold = NBUI.Glow(new Color(1f, 0.9f, 0.3f));
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * Mathf.PI * 0.5f;
+                NBUI.Part(t, PrimitiveType.Cube, new Vector3(Mathf.Cos(a) * 0.2f, Mathf.Sin(a * 2f) * 0.03f, Mathf.Sin(a) * 0.2f), Vector3.one * 0.05f, gold, new Vector3(0f, 0f, 45f), "Star");
+                NBUI.Part(t, PrimitiveType.Cube, new Vector3(Mathf.Cos(a) * 0.2f, Mathf.Sin(a * 2f) * 0.03f, Mathf.Sin(a) * 0.2f), Vector3.one * 0.05f, gold, new Vector3(45f, 0f, 0f), "Star");
+            }
+            return t;
+        }
+
+        /// <summary>A copy of their head flies off, tumbling, and rolls away.</summary>
+        static void ThrowHead(Transform headBone)
+        {
+            var copy = Instantiate(headBone.gameObject, headBone.position, headBone.rotation);
+            copy.SetActive(true);
+            copy.transform.localScale = headBone.lossyScale;
+            var life = copy.AddComponent<FxLife>();
+            life.life = 6f;
+            life.startScale = life.endScale = copy.transform.localScale;
+            life.shrinkAtEnd = true;
+            life.gravity = true;
+            life.velocity = Vector3.up * Random.Range(4f, 6.5f) + Random.insideUnitSphere * 2.5f;
+            life.spin = Random.insideUnitSphere * 540f;
+            life.drag = 0.4f;
+            copy.AddComponent<HeadBounce>();
         }
 
         static void Attach(Transform glove, Transform hand)
@@ -203,12 +236,35 @@ namespace Nullbound
                 nextTrail = Time.time + 0.06f;
                 Fx.Afterimage(feet, fighter.HeadPos, fighter.Stats.accent);
             }
+            // Dazed: stars spinning round their head.
+            bool dazed = fighter.IsDazed && !fighter.Down;
+            if (dazed && stars == null) stars = MakeStars();
+            if (stars != null)
+            {
+                stars.gameObject.SetActive(dazed);
+                if (dazed) { stars.position = fighter.HeadPos + Vector3.up * 0.22f; stars.Rotate(0f, 300f * Time.deltaTime, 0f, Space.World); }
+            }
+            // Head knocked / ripped off: hide it and send a copy flying (with gore on; otherwise it's just confetti).
+            bool headOff = (fighter.Injury & Fighter.HeadOff) != 0 && GameSettings.Gore;
+            var headBone = model.BoneOf(Bone.Head);
+            if (headOff && !headWasOff && headBone != null) ThrowHead(headBone);
+            if (headBone != null) headBone.gameObject.SetActive(!headOff);
+            headWasOff = headOff;
+
+            // Broken arm: it hangs limp at their side instead of following their hand.
+            Vector3 leftHand = fighter.LeftPos, rightHand = fighter.RightPos;
+            Quaternion leftRot = fighter.LeftRot, rightRot = fighter.RightRot;
+            Vector3 side = Vector3.Cross(Vector3.up, fighter.FacingFlat);
+            float sway = Mathf.Sin(Time.time * 3f) * 0.03f;
+            if (fighter.ArmBroken(true)) { leftHand = fighter.Center - side * 0.28f + Vector3.down * 0.42f + fighter.FacingFlat * sway; leftRot = Quaternion.LookRotation(Vector3.down, fighter.FacingFlat); }
+            if (fighter.ArmBroken(false)) { rightHand = fighter.Center + side * 0.28f + Vector3.down * 0.42f - fighter.FacingFlat * sway; rightRot = Quaternion.LookRotation(Vector3.down, fighter.FacingFlat); }
+
             model.handPulse = pulse;
             model.SetCurl(fighter.ShownCurl(true), fighter.ShownCurl(false));
             model.Pose(new PoseInput
             {
                 feet = feet, headPos = fighter.HeadPos, headRot = fighter.HeadRot,
-                leftPos = fighter.LeftPos, leftRot = fighter.LeftRot, rightPos = fighter.RightPos, rightRot = fighter.RightRot,
+                leftPos = leftHand, leftRot = leftRot, rightPos = rightHand, rightRot = rightRot,
                 fwd = fighter.FacingFlat, velocity = smoothVel, speed = speed, down = fighter.Down, airborne = air, blocking = fighter.Blocking,
                 tumble = tumbleBlend, tumbleRot = tumbleRot,
             }, Time.deltaTime);
@@ -230,6 +286,26 @@ namespace Nullbound
             SetFill(superFill, charge, w);
             bool ready = charge >= 0.999f;
             superRenderer.sharedMaterial = ready && Mathf.Repeat(Time.time * 3f, 1f) < 0.6f ? superReadyMat : superMat;
+        }
+    }
+
+    /// <summary>Keeps a flying head from falling through the floor: it bounces and rolls to a stop.</summary>
+    public class HeadBounce : MonoBehaviour
+    {
+        FxLife life;
+
+        void Start() => life = GetComponent<FxLife>();
+
+        void LateUpdate()
+        {
+            if (life == null || life.velocity.y > 0f) return;
+            if (Physics.Raycast(transform.position + Vector3.up * 0.3f, Vector3.down, out var hit, 0.42f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                transform.position = hit.point + Vector3.up * 0.12f;
+                life.velocity = new Vector3(life.velocity.x * 0.6f, Mathf.Abs(life.velocity.y) * 0.35f, life.velocity.z * 0.6f);
+                life.spin *= 0.6f;
+                if (life.velocity.y < 0.6f) { life.velocity.y = 0f; life.gravity = false; }
+            }
         }
     }
 }

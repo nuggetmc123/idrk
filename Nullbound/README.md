@@ -201,6 +201,24 @@ or 50 for a super, so nobody gets one-shot from full health by a single punch.) 
 damage). With nobody in your sights you fly a short way where you're looking. 4 s cooldown; getting hit knocks you out
 of the air. Giants are too heavy to fly, so they charge along the ground instead. Bots fly at you too.
 
+**Punch harder, hurt more**: punch damage grows with the square of your fist's speed (a light tap ~4, a full swing
+20+ before fighter power), up to the 45-per-hit cap.
+
+**Dazed, broken arms, grabs and head-offs**:
+- **Dazed** (stars spin round the head, 2.5 s): from a combo finisher, a guard break, or a heavy hit when below a
+  quarter of your health. You move slowly and can't block.
+- **Broken arm** (10 s, it hangs limp at your side): from a guard break or blocking a super. That fist hits for a
+  third, and you can't block.
+- **Grab**: squeeze the grip with your hand on someone dazed or with a broken arm. They're stuck in your hand for up
+  to 4 s; punch them with your other fist for 35% extra damage, or swing and let go to **throw** them (they roll).
+- **Rip**: grab them by the head and yank your hand away hard when they're dazed or under a third of their health.
+- **Knock their head off**: a hard, clean punch to the head that knocks someone out sends their head flying.
+- Heads only come off for players with Gore ON (the head flies, bounces and rolls; blood fountains from the neck).
+  With Gore off it's a confetti K.O.
+
+**Skies**: every place has its own sky: a starry night box round the main menu (so you can't see the practice map from
+there any more), a clear blue day over the Training Grounds, and a warm sunset over the Battleground.
+
 **Gore (wrist menu > Settings > Gore)**: OFF by default, and every hit and K.O. bursts into colourful confetti
 (streamers too on a K.O.). Turn it ON for blood: hits spray droplets that arc and fall, wet splats land on the ground
 around you, and a knocked-out fighter leaves a pool that spreads out under them. Realistic-ish but no wounds or body

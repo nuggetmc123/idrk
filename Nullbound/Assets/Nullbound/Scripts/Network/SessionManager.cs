@@ -140,6 +140,7 @@ namespace Nullbound
             int others = 0;
             foreach (var f in Fighter.All) if (f.IsReady && f != Fighter.Local && !f.Down) others++;
             AudioManager.InBattle = others > 0;
+            MapSky.Update(InMenu, CurrentMap);
             FillWithBots();
         }
 

@@ -62,7 +62,7 @@ namespace Nullbound
         [Networked] public Quaternion NetRightRot { get; set; }
 
         public FighterStats Stats => FighterInfo.Get(Kind);
-        public const byte Frozen = 1, Burning = 2, Shielded = 4, Armored = 8, Immune = 16, Tumbling = 32, Flying = 64;
+        public const byte Frozen = 1, Burning = 2, Shielded = 4, Armored = 8, Immune = 16, Tumbling = 32, Flying = 64; // (Dazed = 128 in Fighter.Grab)
         /// <summary>How long a super hit sends you rolling (ragdoll), and how much harder supers hit.</summary>
         public const float TumbleTime = 1.3f, SuperDamage = 1.25f, SuperKnock = 1.4f;
         public bool HasStatus(byte bit) => (Status & bit) != 0;
@@ -348,15 +348,24 @@ namespace Nullbound
                 return;
             }
 
+            // Held in someone's hand: you go where their hand goes.
+            if (HeldStep(dt))
+            {
+                DetectPunches(dt);
+                command.jump = command.dash = command.special = command.fly = false;
+                return;
+            }
+
             // Room scale: really stepping in your room moves your fighter (blocked by walls like the stick).
             FollowHead();
 
             bool stunned = now < stunUntil;
-            Blocking = command.block && !stunned && !GuardBroken && now > dashUntil;
+            // No blocking while dazed or with a broken arm.
+            Blocking = command.block && !stunned && !GuardBroken && now > dashUntil && now >= dazedUntil && (Injury & (LeftArmBroken | RightArmBroken)) == 0;
             if (!Blocking) guard = Mathf.Min(100f, guard + 25f * dt);
 
             // Walking (slower while blocking, none while stunned).
-            Vector3 wish = stunned ? Vector3.zero : command.move * s.moveSpeed * (Blocking ? 0.45f : 1f);
+            Vector3 wish = stunned ? Vector3.zero : command.move * s.moveSpeed * (Blocking ? 0.45f : 1f) * (now < dazedUntil ? 0.4f : 1f);
             float accel = grounded ? 22f : 7f;
             Vector3 flat = new Vector3(velocity.x, 0f, velocity.z);
             flat = Vector3.MoveTowards(flat, wish, accel * dt * Mathf.Max(1f, s.moveSpeed));
@@ -416,6 +425,7 @@ namespace Nullbound
             if (transform.position.y < KillY) KnockOut(Time.time - lastAttackedAt < 8f ? lastAttacker : null);
 
             DetectPunches(dt);
+            DetectGrabs();
             command.jump = command.dash = command.special = command.fly = false;
         }
 
@@ -467,6 +477,7 @@ namespace Nullbound
             if (!havePrevHands) { prevLeftLocal = l; prevRightLocal = r; havePrevHands = true; return; }
             Vector3 vl = space.TransformVector(l - prevLeftLocal) / dt, vr = space.TransformVector(r - prevRightLocal) / dt;
             prevLeftLocal = l; prevRightLocal = r;
+            lastHandVelL = vl; lastHandVelR = vr;
             LeftHandSpeed = vl.magnitude;
             RightHandSpeed = vr.magnitude;
             if (vl.magnitude > 25f || vr.magnitude > 25f) return; // tracking jump, not a punch
@@ -506,7 +517,10 @@ namespace Nullbound
             comboTarget = target;
             lastHitAt = Time.time;
 
-            float damage = Mathf.Clamp(2f + speed * 1.5f, 5f, 14f) * s.power * zoneScale;
+            // The harder (faster) you punch, the more it hurts: grows with the square of your fist's speed.
+            float damage = Mathf.Clamp(1f + speed * speed * 0.55f, 4f, 26f) * s.power * zoneScale;
+            if (ArmBroken(left)) damage *= 0.33f;                                     // broken arm: weak punches
+            if (holding != null && ReferenceEquals(target, holding)) damage *= HeldDamage; // punching someone you're holding
             if (heavy) damage *= 1.15f;
             damage *= 1f + 0.1f * (Mathf.Min(combo, 6) - 1);
             var flags = heavy ? HitFlags.Heavy : HitFlags.None;
@@ -628,8 +642,11 @@ namespace Nullbound
                 if ((flags & HitFlags.Launch) != 0 || super) ComfortVignette.Kick(super ? 1.4f : 1f);
             }
 
+            InjuryFromHit(flags, damage);
             RPC_Fx((byte)((flags & HitFlags.GuardBreak) != 0 ? FxKind.GuardBreak : (flags & HitFlags.Blocked) != 0 ? FxKind.Block : FxKind.Hit), point, damage, from);
-            if (Health <= 0f) KnockOut(attacker);
+            // A hard, clean hit to the head that knocks you out can knock your head clean off.
+            bool headShot = (flags & HitFlags.Blocked) == 0 && damage >= 12f && Vector3.Distance(point, HeadPos) < 0.3f;
+            if (Health <= 0f) KnockOut(attacker, headShot);
         }
 
         public enum FxKind : byte { Hit, Block, GuardBreak, Miss, KO, Slam, Flash, Respawn, Immune }
@@ -664,6 +681,7 @@ namespace Nullbound
                     Fx.Shockwave(transform.position, 2.5f, s.main);
                     Fx.Popup(pos + Vector3.up * 0.6f, "K.O.!", new Color(1f, 0.25f, 0.2f), 2.2f);
                     Gore.KnockOut(Center, transform.position);
+                    if (amount > 0.5f) Gore.HeadOff(HeadPos + Vector3.down * 0.15f);
                     break;
                 case FxKind.Slam:
                     if (!attackerHere) SlamFx(pos);
@@ -684,16 +702,20 @@ namespace Nullbound
 
         // ================================================================== KO + respawn (owner)
 
-        void KnockOut(Fighter by)
+        void KnockOut(Fighter by) => KnockOut(by, false);
+
+        void KnockOut(Fighter by, bool headOff)
         {
             if (Down) return;
             Down = true;
+            heldBy = null;
+            if (headOff) Injury |= HeadOff;
             Blocking = false;
             Health = 0f;
             Downs++;
             Streak = 0;
             respawnAt = Time.time + 4f;
-            RPC_Fx((byte)FxKind.KO, Center, 0f, PlayerRef.None);
+            RPC_Fx((byte)FxKind.KO, Center, headOff ? 1f : 0f, PlayerRef.None);
             if (by != null && by != this) by.RPC_ScoreKO(IsBot);
             if (!IsBot) ScreenFx.Message("K.O.!", "Back in the fight in a moment...", 3.5f);
         }
@@ -727,6 +749,9 @@ namespace Nullbound
             invulnerableUntil = Time.time + 1.5f;
             tumbleUntil = 0f;
             flyUntil = 0f;
+            Injury = 0;
+            dazedUntil = leftArmUntil = rightArmUntil = 0f;
+            heldBy = null;
             RPC_Fx((byte)FxKind.Respawn, transform.position, 0f, PlayerRef.None);
         }
 

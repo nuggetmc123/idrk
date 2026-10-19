@@ -36,6 +36,8 @@ namespace Nullbound
             if (now < armorUntil) st |= Armored;
             if (now < tumbleUntil) st |= Tumbling;
             if (now < flyUntil) st |= Flying;
+            if (now < dazedUntil) st |= Dazed;
+            UpdateInjuries(now);
             if (!IsBot && ModPowers.InvincibleNow) st |= Immune;
             Status = st;
 

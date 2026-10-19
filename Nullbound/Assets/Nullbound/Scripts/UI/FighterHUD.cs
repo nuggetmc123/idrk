@@ -102,7 +102,11 @@ namespace Nullbound
             specialText.text = me.SpecialReady >= 1f ? "<b>R-STICK: " + s.special + "</b>" : s.special + " " + Mathf.CeilToInt((1f - me.SpecialReady) * s.specialCooldown) + "s";
             info.text = me.Down ? "<color=#ff6b5b>K.O. - back in " + Mathf.CeilToInt(me.RespawnIn) + "</color>"
                 : s.name + "   " + me.KOs + " KO" + (me.Combo >= 2 ? "   <color=#ffcf4a>" + me.Combo + " combo</color>" : "") + (me.GuardBroken ? "   <color=#ff6b5b>GUARD BROKEN</color>" : "")
-                  + (me.FlyReady >= 1f ? "   <color=#7fe0ff>X: FLY</color>" : "");
+                  + (me.FlyReady >= 1f ? "   <color=#7fe0ff>X: FLY</color>" : "")
+                  + (me.IsDazed ? "   <color=#ffd24a>DAZED</color>" : "")
+                  + (me.ArmBroken(true) || me.ArmBroken(false) ? "   <color=#ff6b5b>BROKEN ARM</color>" : "")
+                  + (me.IsHeld ? "   <color=#ff6b5b>GRABBED!</color>" : "")
+                  + (me.Holding != null ? "   <color=#ffcf4a>HOLDING " + me.Holding.DisplayName + "</color>" : "");
         }
     }
 }

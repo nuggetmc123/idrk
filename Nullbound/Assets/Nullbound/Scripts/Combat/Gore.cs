@@ -52,6 +52,19 @@ namespace Nullbound
             else ConfettiBurst(pos, Vector3.up, 3f, true);
         }
 
+        /// <summary>A head coming off (the head itself is thrown by FighterVisual): a fountain from the neck with gore,
+        /// a big confetti pop without.</summary>
+        public static void HeadOff(Vector3 neck)
+        {
+            Mats();
+            if (!GameSettings.Gore) { ConfettiBurst(neck, Vector3.up, 3f, true); return; }
+            for (int i = 0; i < 6; i++)
+            {
+                int n = i;
+                Fx.Delayed(i * 0.18f, () => BloodSpray(neck + Vector3.down * 0.05f * n, Vector3.up + Random.insideUnitSphere * 0.3f, 1.6f - n * 0.2f, n == 0));
+            }
+        }
+
         static void BloodSpray(Vector3 pos, Vector3 dir, float k, bool big)
         {
             dir = dir.sqrMagnitude > 0.001f ? dir.normalized : Vector3.up;
