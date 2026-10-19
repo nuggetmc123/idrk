@@ -45,6 +45,8 @@ namespace Nullbound
         public bool IsTraining { get; private set; }
         /// <summary>Playing on your own because going online failed (training rules).</summary>
         public bool IsSolo { get; private set; }
+        /// <summary>Which map this session plays on: the Battleground online, the Training Grounds in training.</summary>
+        public ArenaMap CurrentMap { get; private set; } = ArenaMap.TrainingGrounds;
         /// <summary>In the main menu room (not in any match).</summary>
         public bool InMenu { get; private set; } = true;
         public bool Busy { get; private set; }
@@ -356,6 +358,7 @@ namespace Nullbound
             hasConnectedOnce = true;
 
             InMenu = false;
+            CurrentMap = training ? ArenaMap.TrainingGrounds : ArenaMap.Battleground;
             IsPrivate = isPrivate;
             IsTraining = false;
             IsSolo = false;

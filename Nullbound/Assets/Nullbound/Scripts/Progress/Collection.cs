@@ -4,15 +4,19 @@ using UnityEngine;
 namespace Nullbound
 {
     /// <summary>
-    /// Your coins and the fighters you own, saved on this headset. You earn coins by fighting (landing hits, KOs,
-    /// streaks) and spend them on crates in the main menu; each crate unlocks a fighter you don't have yet.
+    /// Your coins and the fighters you own, saved on this headset. You start with none: you earn
+    /// <see cref="CoinsPerKO"/> coins for every PLAYER you knock out (bots don't pay), and spend them on crates in the
+    /// main menu; each crate unlocks a fighter you don't have yet.
     /// Brawler and Speedster are free. Moderators have every fighter. No real money anywhere: all fighters are
     /// balanced by body type, so a rare fighter looks cooler but isn't stronger.
     /// </summary>
     public static class Collection
     {
-        const string CoinsKey = "nb.coins", OwnedKey = "nb.owned", StartedKey = "nb.started";
-        public const int StartingCoins = 300;
+        const string CoinsKey = "nb.coins", OwnedKey = "nb.owned", StartedKey = "nb.started", EconomyKey = "nb.economy";
+        public const int StartingCoins = 0;
+        public const int CoinsPerKO = 5;
+        /// <summary>Bumped when the coin rules change: everyone's coins start again from zero once (fighters are kept).</summary>
+        const int EconomyVersion = 2;
 
         public struct CrateType
         {
@@ -33,13 +37,13 @@ namespace Nullbound
         static readonly int[] DuplicateRefund = { 60, 120, 220, 400, 800 };
 
         public static event System.Action Changed;
-        static float fraction;
 
         static void FirstRun()
         {
-            if (PlayerPrefs.GetInt(StartedKey, 0) == 1) return;
+            if (PlayerPrefs.GetInt(StartedKey, 0) == 1 && PlayerPrefs.GetInt(EconomyKey, 1) == EconomyVersion) return;
             PlayerPrefs.SetInt(StartedKey, 1);
-            PlayerPrefs.SetInt(CoinsKey, StartingCoins); // enough for two crates straight away
+            PlayerPrefs.SetInt(EconomyKey, EconomyVersion);
+            PlayerPrefs.SetInt(CoinsKey, StartingCoins); // no free coins: earn them by fighting people
             PlayerPrefs.Save();
         }
 
@@ -53,16 +57,6 @@ namespace Nullbound
         {
             if (coins <= 0) return;
             Coins += coins;
-        }
-
-        /// <summary>For small amounts per hit: they add up and pay out whole coins.</summary>
-        public static void EarnFractional(float coins)
-        {
-            fraction += Mathf.Max(0f, coins);
-            if (fraction < 1f) return;
-            int whole = Mathf.FloorToInt(fraction);
-            fraction -= whole;
-            Earn(whole);
         }
 
         static bool Owned(int id)
@@ -105,7 +99,7 @@ namespace Nullbound
         public static CrateResult Open(int crateIndex)
         {
             var crate = Crates[Mathf.Clamp(crateIndex, 0, Crates.Length - 1)];
-            if (Coins < crate.cost) return new CrateResult { problem = "Not enough coins (" + crate.cost + " needed). Fight to earn more!" };
+            if (Coins < crate.cost) return new CrateResult { problem = "Not enough coins (" + crate.cost + " needed). Knock out players to earn more!" };
             Coins -= crate.cost;
 
             float roll = Random.value * 100f, sum = 0f;

@@ -56,13 +56,6 @@ namespace Nullbound
             }
         }
 
-        /// <summary>Coins for landing a hit (only you earn for yourself; hitting bots pays half).</summary>
-        void EarnForHit(IHittable target, float damage)
-        {
-            if (IsBot || !(target is Fighter f)) return;
-            Collection.EarnFractional(damage / (f.IsBot ? 12f : 6f));
-        }
-
         // ================================================================== specials
 
         void UseSpecial()
@@ -165,7 +158,6 @@ namespace Nullbound
                 Vector3 dir = Flat(to);
                 if (dir == Vector3.zero) dir = FacingFlat;
                 target.TakeHit(this, new HitData { damage = damage * Stats.power * falloff, knockback = (dir * outward + Vector3.up * up) * falloff, flags = flags, point = target.Center });
-                EarnForHit(target, damage * falloff);
             }
         }
 
@@ -186,7 +178,6 @@ namespace Nullbound
             if (poseRoot != null && poseHead != null)
                 poseRoot.RotateAround(poseHead.position, Vector3.up, Vector3.SignedAngle(FacingFlat, Flat(target.transform.position - transform.position), Vector3.up));
             target.TakeHit(this, new HitData { damage = 16f * Stats.power, knockback = Flat(target.transform.position - transform.position) * 8f + Vector3.up * 3f, flags = HitFlags.Special | HitFlags.Heavy, point = target.Center });
-            EarnForHit(target, 16f);
             Fx.Afterimage(from, from + Vector3.up * 1.6f, new Color(0.15f, 0.05f, 0.25f));
             SpecialFxLocal(SpecialType.ShadowStrike, from, transform.position);
             RPC_SpecialFx((byte)SpecialType.ShadowStrike, from, transform.position, Me);
@@ -226,7 +217,6 @@ namespace Nullbound
                 Vector3 to = target.Center - transform.position;
                 if (Vector3.Angle(fwd, Flat(to)) > 60f) continue;
                 target.TakeHit(this, new HitData { damage = 12f * Stats.power, knockback = Flat(to) * 14f + Vector3.up * 4f, flags = HitFlags.Special | HitFlags.Launch, point = target.Center });
-                EarnForHit(target, 12f);
             }
             SpecialFxLocal(SpecialType.Shockwave, transform.position + Vector3.up, fwd);
             RPC_SpecialFx((byte)SpecialType.Shockwave, transform.position + Vector3.up, fwd, Me);
@@ -244,7 +234,6 @@ namespace Nullbound
             yield return new WaitForSeconds(0.75f);
             if (!IsReady || target == null || !target.IsReady) yield break;
             target.TakeHit(this, new HitData { damage = 14f * Stats.power, knockback = Vector3.down * 22f + Flat(target.transform.position - transform.position) * 3f, flags = HitFlags.Special | HitFlags.Heavy, point = target.Center });
-            EarnForHit(target, 20f);
         }
 
         void Clones()
@@ -279,7 +268,6 @@ namespace Nullbound
                 var t = hb != null ? hb.Target : null;
                 if (t == null || ReferenceEquals(t, this) || !t.CanBeHitBy(this) || !done.Add(t)) continue;
                 t.TakeHit(this, new HitData { damage = 20f * Stats.power, knockback = dir * 10f + Vector3.up * 3f, flags = HitFlags.Special | HitFlags.Heavy | HitFlags.Launch, point = t.Center });
-                EarnForHit(t, 20f);
             }
             SpecialFxLocal(SpecialType.Beam, start, start + dir * length);
             RPC_SpecialFx((byte)SpecialType.Beam, start, start + dir * length, Me);

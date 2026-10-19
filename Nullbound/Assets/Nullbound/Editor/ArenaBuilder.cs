@@ -18,7 +18,7 @@ namespace Nullbound.EditorTools
     /// a sparring ring, training dummies, breakable pillars, crates and a wall, a KO board). Everything is made from
     /// simple shapes so it runs well on Quest; swap in real models whenever you like.
     /// </summary>
-    public static class ArenaBuilder
+    public static partial class ArenaBuilder
     {
         const string Root = "Assets/Nullbound";
         const string ScenePath = Root + "/Scenes/Arena.unity";
@@ -26,7 +26,7 @@ namespace Nullbound.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 2; // 2 = main menu room, bigger arena, voice chat on fighters
+        public const int WorldVersion = 3; // 3 = the Battleground map
         const string WorldVersionFile = "ProjectSettings/NullboundWorldVersion.txt";
         public static bool WorldUpToDate => File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
         public static bool TextResourcesReady => Resources.Load<TMP_Settings>("TMP Settings") != null;
@@ -76,6 +76,7 @@ namespace Nullbound.EditorTools
             BuildRig();
             BuildTrainingGrounds();
             BuildMainMenuRoom();
+            BuildBattleground();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             FusionBake.BakeAndSave(scene); // networked scene objects (ArenaState) must be baked or they won't start in builds
@@ -296,8 +297,8 @@ namespace Nullbound.EditorTools
             RenderSettings.ambientGroundColor = new Color(0.2f, 0.18f, 0.2f);
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = 60f;
-            RenderSettings.fogEndDistance = 260f;
+            RenderSettings.fogStartDistance = 90f;
+            RenderSettings.fogEndDistance = 380f;
             RenderSettings.fogColor = new Color(0.6f, 0.45f, 0.55f);
             QualitySettings.shadowDistance = 40f;
         }

@@ -42,8 +42,8 @@ and **Mod Menu** in Settings for moderators.
 
 ## Coins and crates
 
-- **Earn coins:** landing hits (bots pay half), **KOs** (30 for a player, 10 for a bot) and **streaks** (+20 from 3
-  in a row). New players start with 300 (two crates).
+- **Earn coins by fighting people:** **5 coins for every player you knock out**. You start with **0** coins, and
+  bots don't pay (so coins can't be farmed in Training). A Fighter Crate is 30 KOs, an Elite Crate 100.
 - **Fighter Crate (150):** Common 55%, Rare 28%, Epic 12%, Legendary 4.5%, Mythic 0.5%.
 - **Elite Crate (500):** Rare 50%, Epic 32%, Legendary 15%, Mythic 3%.
 - Each crate gives a fighter you **don't have yet**. Own them all and you get coins back instead.
@@ -128,7 +128,21 @@ Brawler and Speedster are free; the rest come from crates. Change names, colours
 Combos (4th hit launches), heavy hits, blocking with a guard meter (guard break stuns you), dodging (can't be hit
 mid-dash), K.O. and respawn, streaks. Pillars, crates, walls, buildings, the car and the dojo's paper walls break.
 
-## The arena: Training Grounds (now 90 m across)
+## The Battleground (Quick Match and private lobbies)
+
+The real battle map, **300 m across**:
+
+- **Castle plaza** in the middle: fountain, torches and the KO board.
+- **Three villages** of houses with smashable walls (punch a hole and walk in). When enough walls go, the **roof and
+  chimney fall in**. Some houses have two floors.
+- **Six stone towers** (4-6 floors). Smash a floor and **everything above it comes crashing down**.
+- **Big rocks** all over (the smaller ones break), **rolling hills**, **80 pine trees** and dirt roads.
+- **Two lookout platforms** with ramps for high-ground fights.
+- Walls and mountains round the edge, so nobody gets out.
+
+Everything that breaks rebuilds itself from the ground up after about a minute.
+
+## Training Grounds (Training only, 90 m across)
 
 - **Middle:** the sparring ring, with 8 breakable pillars round it.
 - **North:** 7 training dummies (damage, hits, DPS).

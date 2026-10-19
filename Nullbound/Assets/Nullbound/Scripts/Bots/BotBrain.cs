@@ -109,7 +109,7 @@ namespace Nullbound
             if (target == null)
             {
                 // Nobody to fight: wander back to the middle.
-                Vector3 home = -transform.position;
+                Vector3 home = SpawnPoint.MapCenter() - transform.position;
                 home.y = 0f;
                 if (home.magnitude > 3f) cmd.move = home.normalized * 0.5f;
                 Face(transform.position + (home.sqrMagnitude > 0.01f ? home : Vector3.forward));

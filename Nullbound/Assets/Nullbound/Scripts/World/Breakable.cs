@@ -6,6 +6,9 @@ namespace Nullbound
     /// <summary>
     /// A wall, pillar or crate that breaks: punch it enough, hit it with a slam, or get launched into it. It bursts
     /// into chunks for everyone (through <see cref="ArenaState"/>) and builds itself back up a while later.
+    /// Things can rest on others (<see cref="restsOn"/>): a roof falls when enough of its walls are gone, and a
+    /// tower's upper floors come down when the floor under them breaks. Every game works that out the same way
+    /// from the walls it saw break, so it needs no extra network messages.
     /// </summary>
     public class Breakable : MonoBehaviour, IHittable
     {
@@ -15,6 +18,9 @@ namespace Nullbound
         public float toughness = 40f;
         public float regrowSeconds = 35f;
         public Material chunkMaterial;
+        /// <summary>What holds this up. It collapses when at least <see cref="collapseWhen"/> of them are broken.</summary>
+        public Breakable[] restsOn = new Breakable[0];
+        public int collapseWhen = 1;
 
         float damage, brokenAt;
         public bool Broken { get; private set; }
@@ -65,7 +71,16 @@ namespace Nullbound
 
         void Update()
         {
+            if (!Broken && restsOn != null && restsOn.Length > 0)
+            {
+                int gone = 0;
+                foreach (var r in restsOn) if (r != null && r.Broken) gone++;
+                if (gone >= Mathf.Max(1, collapseWhen)) BreakLocal(Vector3.down * 3f);
+                return;
+            }
             if (!Broken || Time.time - brokenAt < regrowSeconds) return;
+            // Rebuild from the bottom up: wait until whatever this rests on is back.
+            if (restsOn != null) foreach (var r in restsOn) if (r != null && r.Broken) return;
             // Grow back, unless someone is standing in it.
             if (Physics.CheckBox(Center, transform.lossyScale * 0.45f, transform.rotation, ~0, QueryTriggerInteraction.Ignore)) { brokenAt += 2f; return; }
             Broken = false;

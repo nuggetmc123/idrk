@@ -80,9 +80,9 @@ namespace Nullbound
             playPage = new GameObject("Play").transform;
             playPage.SetParent(p, false);
             var big = new Vector3(0.78f, 0.17f, 0.04f);
-            Btn(playPage, "QuickMatch", "<b>QUICK MATCH</b>\n<size=60%>fight people online</size>", new Vector3(-0.41f, 0.15f, 0f), big, new Color(1f, 0.5f, 0.3f), () => { if (Ready()) SessionManager.Instance?.JoinPublic(); });
+            Btn(playPage, "QuickMatch", "<b>QUICK MATCH</b>\n<size=60%>the Battleground, online</size>", new Vector3(-0.41f, 0.15f, 0f), big, new Color(1f, 0.5f, 0.3f), () => { if (Ready()) SessionManager.Instance?.JoinPublic(); });
             Btn(playPage, "Training", "<b>TRAINING GROUNDS</b>\n<size=60%>you vs bots, dummies</size>", new Vector3(0.41f, 0.15f, 0f), big, new Color(0.45f, 1f, 0.55f), () => { if (Ready()) SessionManager.Instance?.StartTraining(); });
-            Btn(playPage, "Private", "<b>PRIVATE LOBBY</b>\n<size=60%>make one, share the code</size>", new Vector3(-0.41f, -0.05f, 0f), big, new Color(1f, 0.55f, 0.9f), () => { if (Ready()) SessionManager.Instance?.CreatePrivateLobby(); });
+            Btn(playPage, "Private", "<b>PRIVATE LOBBY</b>\n<size=60%>Battleground with friends</size>", new Vector3(-0.41f, -0.05f, 0f), big, new Color(1f, 0.55f, 0.9f), () => { if (Ready()) SessionManager.Instance?.CreatePrivateLobby(); });
             Btn(playPage, "JoinCode", "<b>JOIN A CODE</b>\n<size=60%>a friend's room or lobby</size>", new Vector3(0.41f, -0.05f, 0f), big, new Color(0.55f, 0.75f, 1f), () => { if (Ready()) { typed = ""; ShowCode(true); } });
             modButton = Btn(playPage, "ModMenu", "<b>MOD MENU</b>", new Vector3(0f, -0.23f, 0f), new Vector3(0.5f, 0.1f, 0.04f), new Color(1f, 0.4f, 0.35f), ModMenu.Toggle);
             status = NBUI.Label(p, "", new Vector3(0f, -0.38f, 0f), 0.55f, new Color(0.85f, 0.92f, 1f), new Vector2(1.6f, 0.1f));
@@ -184,7 +184,7 @@ namespace Nullbound
                         .Append(FighterInfo.RarityName((Rarity)r)).Append(" ").Append(c.odds[r]).Append("%</color>  ");
                 odds.Append('\n');
             }
-            odds.Append("<size=85%>Each crate gives a fighter you don't have yet. Earn coins by landing hits, KOs and streaks.\nAll fighters are balanced: rarer ones look cooler, they aren't stronger.</size>");
+            odds.Append("<size=85%>Each crate gives a fighter you don't have yet. Earn " + Collection.CoinsPerKO + " coins for every player you knock out.\nAll fighters are balanced: rarer ones look cooler, they aren't stronger.</size>");
             NBUI.Label(p, odds.ToString(), new Vector3(0f, -0.2f, 0f), 0.4f, Color.white, new Vector2(1.55f, 0.4f));
             crateText = NBUI.Label(p, "", new Vector3(0f, -0.56f, 0f), 0.6f, new Color(1f, 0.85f, 0.3f), new Vector2(1.6f, 0.2f));
 
@@ -212,7 +212,7 @@ namespace Nullbound
             if (Collection.Coins < c.cost)
             {
                 AudioManager.Play(AudioManager.Sfx.Error);
-                crateText.text = "Not enough coins (" + c.cost + "). Fight to earn more!";
+                crateText.text = "Not enough coins (" + c.cost + "). Knock out players to earn " + Collection.CoinsPerKO + " each!";
                 return;
             }
             pendingCrate = index;

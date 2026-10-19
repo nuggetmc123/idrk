@@ -496,7 +496,6 @@ namespace Nullbound
             }
 
             target.TakeHit(this, new HitData { damage = damage, knockback = kb, flags = flags, point = fist });
-            EarnForHit(target, damage);
 
             // Instant feedback on your side (the hit is confirmed by their game a moment later).
             bool blockedGuess = target is Fighter f && f.Blocking;
@@ -660,10 +659,12 @@ namespace Nullbound
             Streak++;
             if (!IsBot)
             {
-                int coins = victimWasBot ? 10 : 30;
-                if (Streak >= 3) coins += 20;
-                Collection.Earn(coins);
-                Fx.Popup(HeadPos + transform.forward * 0.6f, "+" + coins + " coins", new Color(1f, 0.85f, 0.3f), 1f);
+                // Coins only for knocking out real people (not bots).
+                if (!victimWasBot)
+                {
+                    Collection.Earn(Collection.CoinsPerKO);
+                    Fx.Popup(HeadPos + transform.forward * 0.6f, "+" + Collection.CoinsPerKO + " coins", new Color(1f, 0.85f, 0.3f), 1f);
+                }
                 ScreenFx.Message(Streak >= 3 ? Streak + " KO STREAK!" : "K.O.!", Streak >= 3 ? "You're on fire" : "Nice hit", 2f);
                 Health = Mathf.Min(Stats.maxHealth, Health + 15f); // a little health back for a KO
             }
