@@ -127,6 +127,21 @@ namespace Nullbound.EditorTools
                 catch (Exception e) { Debug.LogWarning("[Nullbound] Couldn't set Android entry point: " + e.Message); }
             }
 
+            // The game's materials use the Built-in Render Pipeline. If this was made as a URP/HDRP
+            // project, switch rendering back to built-in so nothing shows up pink.
+            if (GraphicsSettings.defaultRenderPipeline != null)
+            {
+                Debug.Log("[Nullbound] Switching the project to the Built-in Render Pipeline.");
+                GraphicsSettings.defaultRenderPipeline = null;
+            }
+            int level = QualitySettings.GetQualityLevel();
+            for (int i = 0; i < QualitySettings.names.Length; i++)
+            {
+                QualitySettings.SetQualityLevel(i, false);
+                if (QualitySettings.renderPipeline != null) QualitySettings.renderPipeline = null;
+            }
+            QualitySettings.SetQualityLevel(level, false);
+
             // Accept both input backends (the game reads XR devices directly and supports either).
             var ps = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset").FirstOrDefault();
             if (ps != null)
