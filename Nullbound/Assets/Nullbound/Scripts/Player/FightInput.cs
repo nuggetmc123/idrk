@@ -12,13 +12,13 @@ namespace Nullbound
     ///
     /// VR: PUNCH = really punch (swing your fist fast), BLOCK = put both fists up in front of your face,
     ///     Left stick = move, Right stick = turn, A = jump, B = dodge dash (the way the left stick points, or back),
-    ///     X = special ability, menu button (three lines) = wrist menu, click the right stick = recenter.
+    ///     click the right stick = super (special), X = fly at your target, menu button (three lines) = wrist menu.
     /// Keyboard: W/A/S/D move, Q/E turn, Space jump, Shift dash, F special, left click = punch (right),
     ///     G = punch (left), hold H = block, C = recenter, Tab/Esc = menu, hold right mouse = look around.
     /// </summary>
     public static class FightInput
     {
-        static InputAction jump, dash, special, recenter, menu, move, turn, gripLeft, gripRight, punchLeftKey, punchRightKey, blockKey;
+        static InputAction jump, dash, special, fly, recenter, menu, move, turn, gripLeft, gripRight, punchLeftKey, punchRightKey, blockKey;
         static bool initialized;
 
         static void Init()
@@ -37,9 +37,14 @@ namespace Nullbound
             dash.AddBinding("<Keyboard>/leftShift");
 
             special = new InputAction("Special", InputActionType.Button);
-            special.AddBinding("<XRController>{LeftHand}/{PrimaryButton}");
+            special.AddBinding("<XRController>{RightHand}/{Primary2DAxisClick}");
             special.AddBinding("<Gamepad>/buttonWest");
             special.AddBinding("<Keyboard>/f");
+
+            fly = new InputAction("Fly", InputActionType.Button);
+            fly.AddBinding("<XRController>{LeftHand}/{PrimaryButton}");
+            fly.AddBinding("<Gamepad>/buttonNorth");
+            fly.AddBinding("<Keyboard>/r");
 
             recenter = new InputAction("Recenter", InputActionType.Button);
             recenter.AddBinding("<Gamepad>/select");
@@ -83,7 +88,7 @@ namespace Nullbound
             blockKey.AddBinding("<Keyboard>/h");
             blockKey.AddBinding("<Gamepad>/leftTrigger");
 
-            foreach (var a in new[] { jump, dash, special, recenter, menu, move, turn, gripLeft, gripRight, punchLeftKey, punchRightKey, blockKey })
+            foreach (var a in new[] { jump, dash, special, fly, recenter, menu, move, turn, gripLeft, gripRight, punchLeftKey, punchRightKey, blockKey })
                 a.Enable();
         }
 
@@ -115,9 +120,11 @@ namespace Nullbound
         // "Pressed this frame" checks only work reliably from Update, not FixedUpdate.
         public static bool JumpPressed { get { Init(); return Pressed(0, jump, XRNode.RightHand, XRUsages.primaryButton); } }
         public static bool DashPressed { get { Init(); return Pressed(1, dash, XRNode.RightHand, XRUsages.secondaryButton); } }
-        public static bool SpecialPressed { get { Init(); return Pressed(3, special, XRNode.LeftHand, XRUsages.primaryButton); } }
+        public static bool SpecialPressed { get { Init(); return Pressed(3, special, XRNode.RightHand, XRUsages.primary2DAxisClick); } }
+        public static bool FlyPressed { get { Init(); return Pressed(5, fly, XRNode.LeftHand, XRUsages.primaryButton); } }
         public static bool MenuPressed { get { Init(); return Pressed(2, menu, XRNode.LeftHand, XRUsages.menuButton); } }
-        public static bool RecenterPressed { get { Init(); return Pressed(4, recenter, XRNode.RightHand, XRUsages.primary2DAxisClick); } }
+        /// <summary>Keyboard / gamepad only now (the right stick click is the super); in VR use the wrist menu's Recenter.</summary>
+        public static bool RecenterPressed { get { Init(); return recenter.WasPressedThisFrame(); } }
 
         /// <summary>Desktop only: a keyboard / mouse punch (in VR you just punch).</summary>
         public static bool KeyPunchRight { get { Init(); return punchRightKey.WasPressedThisFrame(); } }

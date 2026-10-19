@@ -21,7 +21,7 @@ namespace Nullbound
         Material hpGood, hpLow, superMat, superReadyMat;
         TextMeshPro nameText;
         Vector3 lastPos, smoothVel, rollAxis = Vector3.right;
-        float tumbleBlend;
+        float tumbleBlend, nextTrail;
         Quaternion tumbleRot = Quaternion.identity;
 
         public void Init(Fighter f)
@@ -197,6 +197,12 @@ namespace Nullbound
             }
             else tumbleRot = Quaternion.identity;
 
+            // Flying: a trail of after-images behind them.
+            if (fighter.HasStatus(Fighter.Flying) && Time.time >= nextTrail)
+            {
+                nextTrail = Time.time + 0.06f;
+                Fx.Afterimage(feet, fighter.HeadPos, fighter.Stats.accent);
+            }
             model.handPulse = pulse;
             model.SetCurl(fighter.ShownCurl(true), fighter.ShownCurl(false));
             model.Pose(new PoseInput

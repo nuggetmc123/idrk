@@ -8,7 +8,7 @@ namespace Nullbound
     public struct FighterCommand
     {
         public Vector3 move;    // world space, length 0..1
-        public bool jump, dash, special, block;
+        public bool jump, dash, special, block, fly;
     }
 
     /// <summary>
@@ -62,7 +62,7 @@ namespace Nullbound
         [Networked] public Quaternion NetRightRot { get; set; }
 
         public FighterStats Stats => FighterInfo.Get(Kind);
-        public const byte Frozen = 1, Burning = 2, Shielded = 4, Armored = 8, Immune = 16, Tumbling = 32;
+        public const byte Frozen = 1, Burning = 2, Shielded = 4, Armored = 8, Immune = 16, Tumbling = 32, Flying = 64;
         /// <summary>How long a super hit sends you rolling (ragdoll), and how much harder supers hit.</summary>
         public const float TumbleTime = 1.3f, SuperDamage = 1.25f, SuperKnock = 1.4f;
         public bool HasStatus(byte bit) => (Status & bit) != 0;
@@ -301,6 +301,7 @@ namespace Nullbound
             c.jump = FightInput.JumpPressed;
             c.dash = FightInput.DashPressed;
             c.special = FightInput.SpecialPressed;
+            c.fly = FightInput.FlyPressed;
             c.block = FightInput.KeyBlockHeld || GuardPose();
 
             // Turning rotates your rig around your head.
@@ -368,12 +369,13 @@ namespace Nullbound
                 dashUntil = now + s.dashTime;
                 dodgeUntil = now + s.dashTime + 0.1f;
                 nextDash = now + s.dashCooldown;
+                dashHits.Clear();
                 AudioManager.PlayAt(AudioManager.Sfx.Whoosh, transform.position + Vector3.up);
                 Fx.Afterimage(transform.position, HeadPos, s.main);
                 if (!IsBot) ComfortVignette.Kick(0.8f);
             }
             Dodging = now < dodgeUntil;
-            if (now < dashUntil) { velocity.x = dashDir.x * s.dashSpeed; velocity.z = dashDir.z * s.dashSpeed; }
+            if (now < dashUntil) { velocity.x = dashDir.x * s.dashSpeed; velocity.z = dashDir.z * s.dashSpeed; DashHits(); }
 
             // Jump.
             if (command.jump && grounded && !stunned)
@@ -384,9 +386,10 @@ namespace Nullbound
 
             // Special.
             if (command.special && !stunned && now >= nextSpecial) UseSpecial();
+            if (command.fly && !stunned && now >= nextFly) StartFly();
             if (Empowered && now > empoweredUntil) Empowered = false;
 
-            Gravity(dt);
+            if (!FlyStep(dt)) Gravity(dt);
             MoveBody((velocity + knock) * dt);
             // Tumbling: you keep sliding and rolling along the ground for a while instead of stopping dead.
             bool tumbling = now < tumbleUntil;
@@ -413,7 +416,7 @@ namespace Nullbound
             if (transform.position.y < KillY) KnockOut(Time.time - lastAttackedAt < 8f ? lastAttacker : null);
 
             DetectPunches(dt);
-            command.jump = command.dash = command.special = false;
+            command.jump = command.dash = command.special = command.fly = false;
         }
 
         void Gravity(float dt)
@@ -606,6 +609,7 @@ namespace Nullbound
             if ((flags & HitFlags.Freeze) != 0 && (flags & HitFlags.Blocked) == 0) { frozenUntil = Time.time + 1.1f; stunUntil = Mathf.Max(stunUntil, frozenUntil); }
             if ((flags & HitFlags.Burn) != 0 && (flags & HitFlags.Blocked) == 0) { burnUntil = Time.time + 3f; burnBy = attacker; }
             Health -= damage;
+            if ((flags & HitFlags.Blocked) == 0) flyUntil = 0f; // knocked out of the air
             if (attacker != null && attacker != this) { lastAttacker = attacker; lastAttackedAt = Time.time; }
             // Sideways push decays; the upward part becomes a real jump so launches arc and fall back down.
             Vector3 k = knockback * Stats.knockbackTaken;
@@ -720,6 +724,7 @@ namespace Nullbound
             MoveTo(SpawnPoint.Pick(transform.position));
             invulnerableUntil = Time.time + 1.5f;
             tumbleUntil = 0f;
+            flyUntil = 0f;
             RPC_Fx((byte)FxKind.Respawn, transform.position, 0f, PlayerRef.None);
         }
 

@@ -99,9 +99,10 @@ namespace Nullbound
             nextText = Time.time + 0.1f;
             var s = me.Stats;
             hpText.text = "<b>" + Mathf.CeilToInt(me.Health) + "</b> / " + Mathf.RoundToInt(s.maxHealth);
-            specialText.text = me.SpecialReady >= 1f ? "<b>X: " + s.special + "</b>" : s.special + " " + Mathf.CeilToInt((1f - me.SpecialReady) * s.specialCooldown) + "s";
+            specialText.text = me.SpecialReady >= 1f ? "<b>R-STICK: " + s.special + "</b>" : s.special + " " + Mathf.CeilToInt((1f - me.SpecialReady) * s.specialCooldown) + "s";
             info.text = me.Down ? "<color=#ff6b5b>K.O. - back in " + Mathf.CeilToInt(me.RespawnIn) + "</color>"
-                : s.name + "   " + me.KOs + " KO" + (me.Combo >= 2 ? "   <color=#ffcf4a>" + me.Combo + " combo</color>" : "") + (me.GuardBroken ? "   <color=#ff6b5b>GUARD BROKEN</color>" : "");
+                : s.name + "   " + me.KOs + " KO" + (me.Combo >= 2 ? "   <color=#ffcf4a>" + me.Combo + " combo</color>" : "") + (me.GuardBroken ? "   <color=#ff6b5b>GUARD BROKEN</color>" : "")
+                  + (me.FlyReady >= 1f ? "   <color=#7fe0ff>X: FLY</color>" : "");
         }
     }
 }

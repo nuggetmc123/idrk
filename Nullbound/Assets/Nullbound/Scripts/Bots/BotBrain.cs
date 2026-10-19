@@ -182,6 +182,9 @@ namespace Nullbound
                 }
             }
 
+            // Fly into them from range now and then.
+            if (!blocking && dist > 6f && dist < 20f && me.FlyReady >= 1f && Random.value < 0.5f * Time.deltaTime) cmd.fly = true;
+
             // Attack strings.
             if (!blocking && phase == PunchPhase.None && dist < 1.35f && Time.time >= nextAttack && !target.Down)
             {

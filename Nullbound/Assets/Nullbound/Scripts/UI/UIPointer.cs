@@ -49,8 +49,9 @@ namespace Nullbound
             dot.gameObject.SetActive(false);
         }
 
-        /// <summary>The direction you naturally point a Quest controller: forward, tipped down a bit.</summary>
-        public Ray Aim => new Ray(transform.position, transform.rotation * Quaternion.Euler(35f, 0f, 0f) * Vector3.forward);
+        /// <summary>Straight out of the controller, where it points (the hand already follows the controller's pointing
+        /// direction, so no extra tilt: the old downward tilt made the laser point at the floor).</summary>
+        public Ray Aim => new Ray(transform.position, transform.forward);
 
         void Update()
         {

@@ -132,10 +132,17 @@ Brawler and Speedster are free; the rest come from crates. Change names, colours
 | Move / turn | Left stick / right stick | W A S D / Q E |
 | Jump | A | Space |
 | Dodge dash | B (the way the stick points, or backwards) | Shift |
-| Special | X | F |
+| Super (special) | Click the right stick | F |
+| Fly at your target | X | R |
 | Menu | Menu button (three lines, left controller) | Tab / Esc |
 | Talk (push-to-talk mode) | Hold the left stick in | Hold V |
-| Recenter | Click the right stick | C |
+| Recenter | Wrist menu > Recenter view | C |
+
+**Dash hits**: dash (B) into someone and you ram them (7 damage, knocked back), once per dash.
+
+**Fly (X)**: look at an enemy and press X: you lock on and fly straight into them for a big launching hit (12
+damage). With nobody in your sights you fly a short way where you're looking. 4 s cooldown; getting hit knocks you out
+of the air. Giants are too heavy to fly, so they charge along the ground instead. Bots fly at you too.
 
 **Supers hit hard and send you rolling**: a clean special that launches or hits heavy does 25% more damage and 40%
 more knockback, and the target goes into a **ragdoll tumble** for 1.3 s: it flies back, bounces, slides along the

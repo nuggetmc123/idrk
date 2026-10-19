@@ -112,6 +112,7 @@ namespace Nullbound
         {
             attached = null;
             if (transform.parent == null) return;
+            looseFloorY = transform.parent.position.y; // the fighter's feet
             transform.SetParent(null, true);
             SceneManager.MoveGameObjectToScene(gameObject, SceneManager.GetActiveScene());
             transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
@@ -203,6 +204,7 @@ namespace Nullbound
             {
                 placedInMenu = true;
                 transform.SetPositionAndRotation(MainMenu.Instance.StandPoint, MainMenu.Instance.StandRotation);
+                looseFloorY = MainMenu.Instance.StandPoint.y;
                 if (!IsXR) { head.localPosition = new Vector3(0f, standingEyeHeight, 0f); yaw = transform.eulerAngles.y; }
             }
 
@@ -215,13 +217,19 @@ namespace Nullbound
         }
 
         bool looseTurnLatched;
+        float looseFloorY;
 
         /// <summary>Backup for VR before your fighter appears: walk with the left stick, turn with the right.</summary>
         void LooseControls()
         {
             if (head == null || transform.parent != null) return;
-            float headY = head.position.y;
-            if (headY < 1.2f) transform.position += Vector3.up * (standingEyeHeight - headY);
+            // Keep the rig's floor on the menu's floor, lifted only if the headset reports you sitting / no floor. This is
+            // set fresh every frame: it used to ADD a lift while the headset was still starting up, and once floor
+            // tracking kicked in that lift stayed, so you stood about 1.6 m too tall in the main menu.
+            float local = head.localPosition.y;
+            float lift = local < 1.2f ? standingEyeHeight - local : 0f;
+            var p = transform.position;
+            transform.position = new Vector3(p.x, looseFloorY + lift, p.z);
             float degrees = GameSettings.TurnAmount(FightInput.Turn, ref looseTurnLatched, Time.deltaTime);
             if (degrees != 0f) transform.RotateAround(head.position, Vector3.up, degrees);
             Vector2 stick = FightInput.Move;

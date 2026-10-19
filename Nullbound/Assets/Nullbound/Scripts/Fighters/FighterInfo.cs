@@ -112,7 +112,7 @@ namespace Nullbound
             {
                 name = name, rarity = rarity, body = body, head = head, top = top, back = back, glove = glove,
                 main = C(main), accent = C(accent), eyes = eyes != null ? C(eyes) : C(accent),
-                specialType = special, special = specialName, specialHow = "Press X: " + SpecialHow(special), style = style,
+                specialType = special, special = specialName, specialHow = "Click the right stick: " + SpecialHow(special), style = style,
                 strengths = BodyStrength(body), weakness = BodyWeakness(body), specialCooldown = SpecialCooldown(special),
                 jumpSpeed = 6f, dashSpeed = 18f, dashTime = 0.17f, scale = 1f,
             };

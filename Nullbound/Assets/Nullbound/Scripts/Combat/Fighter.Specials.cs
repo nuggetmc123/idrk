@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Nullbound
 {
     /// <summary>
-    /// Every fighter's special (X), status effects (frozen, burning, barrier, armour) and coins for landing hits.
+    /// Every fighter's special (click the right stick), status effects (frozen, burning, barrier, armour) and coins for landing hits.
     /// Like punches, specials are worked out on the owner's game; everyone else just sees the effects
     /// (<see cref="RPC_SpecialFx"/>) and takes the hits through <see cref="RPC_Hit"/>.
     /// </summary>
@@ -35,6 +35,7 @@ namespace Nullbound
             if (now < barrierUntil) st |= Shielded;
             if (now < armorUntil) st |= Armored;
             if (now < tumbleUntil) st |= Tumbling;
+            if (now < flyUntil) st |= Flying;
             if (!IsBot && ModPowers.InvincibleNow) st |= Immune;
             Status = st;
 
