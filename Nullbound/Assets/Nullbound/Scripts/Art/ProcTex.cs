@@ -5,8 +5,8 @@ namespace Nullbound.Art
     /// <summary>
     /// One generated PBR texture set, laid out like Unity's Texture2D.SetPixels (row 0 = bottom).
     /// albedo: sRGB colour (alpha = 1 unless the surface is cut out).
-    /// normal: tangent-space normal packed for BOTH Unity decoders: R = x, G = y, B = z, A = x
-    ///   (mobile reads RGB, desktop reads the DXT5nm layout AG), so runtime-made normal maps work everywhere.
+    /// normal: tangent-space normal, R = x, G = y, B = z, A = 1. That works with both of Unity's decoders for an
+    ///   uncompressed texture: mobile reads RGB, desktop reads x = R * A and y = G (so A must be 1, not x).
     /// mask: Standard shader _MetallicGlossMap layout: R = metallic, A = smoothness. G = ambient occlusion
     ///   (bound as _OcclusionMap, which the Standard shader reads from G).
     /// emission: optional, null when the surface doesn't glow.
@@ -26,7 +26,7 @@ namespace Nullbound.Art
     /// Everything is TILEABLE: u and v run 0..1 over the texture, and every noise takes a whole number of cells
     /// across it, so the left edge matches the right edge and the bottom matches the top (no seams when repeated).
     /// </summary>
-    public static class ProcTex
+    public static partial class ProcTex
     {
         // ------------------------------------------------------------------ hashing
 
@@ -54,7 +54,7 @@ namespace Nullbound.Art
             }
         }
 
-        static int Wrap(int i, int n) { i %= n; return i < 0 ? i + n : i; }
+        public static int Wrap(int i, int n) { i %= n; return i < 0 ? i + n : i; }
         public static float Frac(float x) => x - Mathf.Floor(x);
         static float Fade(float t) => t * t * t * (t * (t * 6f - 15f) + 10f);
 
@@ -72,10 +72,25 @@ namespace Nullbound.Art
             return Mathf.Lerp(Mathf.Lerp(a, b, fx), Mathf.Lerp(c, d, fx), fy);
         }
 
+        // 256 gradient directions (the same angles Hash01 * 2 pi picked before, to 1/256 of a turn), so a sample costs
+        // two table reads instead of a sine and a cosine.
+        static readonly float[] gradX = GradTable(true), gradY = GradTable(false);
+
+        static float[] GradTable(bool cos)
+        {
+            var t = new float[256];
+            for (int i = 0; i < 256; i++)
+            {
+                float a = (i + 0.5f) / 256f * Mathf.PI * 2f;
+                t[i] = cos ? Mathf.Cos(a) : Mathf.Sin(a);
+            }
+            return t;
+        }
+
         static float Grad(int ix, int iy, int seed, float dx, float dy)
         {
-            float a = Hash01(ix, iy, seed) * Mathf.PI * 2f;
-            return Mathf.Cos(a) * dx + Mathf.Sin(a) * dy;
+            int i = (int)((Hash(ix, iy, seed) & 0xFFFFFF) >> 16);
+            return gradX[i] * dx + gradY[i] * dy;
         }
 
         /// <summary>Gradient (Perlin-style) noise 0..1, smoother and less blocky than value noise.</summary>
@@ -244,10 +259,10 @@ namespace Nullbound.Art
             return result;
         }
 
-        public static Color PackNormal(Vector3 n) => new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, n.x * 0.5f + 0.5f);
+        public static Color PackNormal(Vector3 n) => new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f);
 
         /// <summary>A flat normal map (for surfaces that only need colour).</summary>
-        public static Color FlatNormal => new Color(0.5f, 0.5f, 1f, 0.5f);
+        public static Color FlatNormal => new Color(0.5f, 0.5f, 1f, 1f);
 
         /// <summary>Colour helpers: hex to colour, and a random-but-repeatable tint variation.</summary>
         public static Color Hex(string hex)
