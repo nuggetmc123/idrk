@@ -47,7 +47,7 @@ namespace Nullbound
         [Networked] public NetworkString<_16> DeviceHash { get; set; }
         /// <summary>An invisible moderator (only obeyed for a proven moderator, see <see cref="Ghost"/>).</summary>
         [Networked] public NetworkBool Hidden { get; set; }
-        /// <summary>Status effects everyone sees: 1 frozen, 2 burning, 4 barrier, 8 armour, 16 invincible mod.</summary>
+        /// <summary>Status effects everyone sees: 1 frozen, 2 burning, 4 barrier, 8 armour, 16 invincible mod, 32 tumbling.</summary>
         [Networked] public byte Status { get; set; }
         [Networked] public Vector3 NetBody { get; set; }
         [Networked] public Vector3 NetHead { get; set; }
@@ -58,7 +58,9 @@ namespace Nullbound
         [Networked] public Quaternion NetRightRot { get; set; }
 
         public FighterStats Stats => FighterInfo.Get(Kind);
-        public const byte Frozen = 1, Burning = 2, Shielded = 4, Armored = 8, Immune = 16;
+        public const byte Frozen = 1, Burning = 2, Shielded = 4, Armored = 8, Immune = 16, Tumbling = 32;
+        /// <summary>How long a super hit sends you rolling (ragdoll), and how much harder supers hit.</summary>
+        public const float TumbleTime = 1.3f, SuperDamage = 1.25f, SuperKnock = 1.4f;
         public bool HasStatus(byte bit) => (Status & bit) != 0;
 
         /// <summary>True once this fighter's game proved it owns its Player ID (a signed hello).</summary>
@@ -102,6 +104,7 @@ namespace Nullbound
 
         CharacterController cc;
         Vector3 velocity, knock;
+        float tumbleUntil;
         bool grounded, wasGrounded;
         float dashUntil = -1f, dodgeUntil = -1f, nextDash, nextSpecial, stunUntil, invulnerableUntil, respawnAt, empoweredUntil;
         Vector3 dashDir;
@@ -370,12 +373,22 @@ namespace Nullbound
 
             Gravity(dt);
             MoveBody((velocity + knock) * dt);
-            knock *= Mathf.Exp(-(grounded ? 6f : 1.2f) * dt);
+            // Tumbling: you keep sliding and rolling along the ground for a while instead of stopping dead.
+            bool tumbling = now < tumbleUntil;
+            knock *= Mathf.Exp(-(grounded ? (tumbling ? 1.6f : 6f) : 1.2f) * dt);
             if (knock.sqrMagnitude < 0.01f) knock = Vector3.zero;
 
             // Landing.
             if (grounded && !wasGrounded)
             {
+                // Tumbling bodies bounce when they hit the ground hard.
+                if (tumbling && now < tumbleUntil - 0.3f && knock.magnitude > 4f)
+                {
+                    velocity.y = Mathf.Min(3.2f, knock.magnitude * 0.3f);
+                    grounded = false;
+                    knock *= 0.8f;
+                    AudioManager.PlayAt(AudioManager.Sfx.Land, transform.position);
+                }
                 if (slamPending) { slamPending = false; GroundSlam(); }
                 else if (fallStartY - transform.position.y > 2f) AudioManager.PlayAt(AudioManager.Sfx.Land, transform.position);
             }
@@ -562,6 +575,18 @@ namespace Nullbound
                 }
             }
 
+            // A super (special) that lands clean hits extra hard and sends you flying, rolling like a ragdoll.
+            bool super = (flags & HitFlags.Special) != 0 && (flags & HitFlags.Blocked) == 0 && (flags & (HitFlags.Launch | HitFlags.Heavy)) != 0
+                         && (flags & HitFlags.Freeze) == 0 && Time.time >= armorUntil;
+            if (super)
+            {
+                damage = Mathf.Min(damage * SuperDamage, 50f);
+                knockback *= SuperKnock;
+                if (knockback.y >= 0f) knockback.y = Mathf.Max(knockback.y, 4.5f);
+                tumbleUntil = Time.time + TumbleTime;
+                stunUntil = Mathf.Max(stunUntil, tumbleUntil - 0.25f);
+                Blocking = false;
+            }
             if (Time.time < armorUntil) damage *= 0.5f;
             if ((flags & HitFlags.Freeze) != 0 && (flags & HitFlags.Blocked) == 0) { frozenUntil = Time.time + 1.1f; stunUntil = Mathf.Max(stunUntil, frozenUntil); }
             if ((flags & HitFlags.Burn) != 0 && (flags & HitFlags.Blocked) == 0) { burnUntil = Time.time + 3f; burnBy = attacker; }
@@ -581,7 +606,7 @@ namespace Nullbound
                 FightInput.Buzz(true, 0.7f, 0.08f);
                 FightInput.Buzz(false, 0.7f, 0.08f);
                 ScreenFx.Hit((flags & HitFlags.Blocked) != 0);
-                if ((flags & HitFlags.Launch) != 0) ComfortVignette.Kick(1f);
+                if ((flags & HitFlags.Launch) != 0 || super) ComfortVignette.Kick(super ? 1.4f : 1f);
             }
 
             RPC_Fx((byte)((flags & HitFlags.GuardBreak) != 0 ? FxKind.GuardBreak : (flags & HitFlags.Blocked) != 0 ? FxKind.Block : FxKind.Hit), point, damage, from);
@@ -679,6 +704,7 @@ namespace Nullbound
             Empowered = false;
             MoveTo(SpawnPoint.Pick(transform.position));
             invulnerableUntil = Time.time + 1.5f;
+            tumbleUntil = 0f;
             RPC_Fx((byte)FxKind.Respawn, transform.position, 0f, PlayerRef.None);
         }
 

@@ -53,8 +53,20 @@ and **Mod Menu** in Settings for moderators.
 
 ## Fighters
 
-Each has its own model built from parts (body build, head, hair / horns / crown / halo / ears, cape / wings / tail /
-jetpack / blades / orbiting orbs, glove style, colours) and one of 16 specials:
+Each has its own full-body model on a real skeleton (hips, chest, neck, head, upper arms, forearms, hands, thighs,
+shins, feet): elbows and knees bend with IK, feet step as you walk, and the head and gloves follow the player's real
+head and hands. A model is built from a design (`Scripts/Fighters/FighterRecipe.cs`):
+- **Build**: normal, slim, bulky, giant, tiny, robot, beast or spirit (floats on a wisp).
+- **Face**: eyes with pupils, brows, nose, ears and mouth, or a helmet visor, hood with glowing eyes, skull, robot
+  screen or mask.
+- **Hair and headwear**: spikes, mohawk, ponytail, horns, crown, halo, antennae, beast ears or flames.
+- **Outfit**: suit, gi, armour, robe, tech, primal, ninja wrap or tank top, plus belts, bracers, boots,
+  shoulder pads and scarves.
+- **Back gear**: a feathered cape or wings, a segmented tail, a jetpack, blades, orbiting orbs or spines.
+- **Gloves**: normal, big, claws, glowing or metal.
+- **Colours**: skin, hair, main, secondary and accent.
+
+Change a fighter's look in `FighterInfo.cs` (the `Look(...)` on its line). Each fighter also has one of 16 specials:
 Ground Slam, Flash Step, Fireball (burns), Ice Shard (freezes), Lightning, Shockwave, Telekinesis, Shadow Strike,
 Clones, Titan Quake, Uppercut, Whirlwind, Beam, Meteor, Heal, Barrier.
 
@@ -124,6 +136,14 @@ Brawler and Speedster are free; the rest come from crates. Change names, colours
 | Menu | Menu button (three lines, left controller) | Tab / Esc |
 | Talk (push-to-talk mode) | Hold the left stick in | Hold V |
 | Recenter | Click the right stick | C |
+
+**Supers hit hard and send you rolling**: a clean special that launches or hits heavy does 25% more damage and 40%
+more knockback, and the target goes into a **ragdoll tumble** for 1.3 s: it flies back, bounces, slides along the
+ground and rolls over with its arms and legs flailing (you can't act until you stop rolling). Your own view doesn't
+spin (comfort); you get a vignette instead.
+
+**Your health and power are on your right forearm**: raise your right arm and look at the gold-framed screen behind
+your hand for health, guard, special (ready or seconds left) and dash. The menu is still on the left wrist.
 
 Combos (4th hit launches), heavy hits, blocking with a guard meter (guard break stuns you), dodging (can't be hit
 mid-dash), K.O. and respawn, streaks. Pillars, crates, walls, buildings, the car and the dojo's paper walls break.

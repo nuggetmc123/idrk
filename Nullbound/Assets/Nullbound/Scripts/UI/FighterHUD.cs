@@ -4,8 +4,9 @@ using UnityEngine;
 namespace Nullbound
 {
     /// <summary>
-    /// A small display on your left wrist (glance at it like a watch): health, guard, special and dash. On the
-    /// desktop it sits at the bottom of your view instead.
+    /// A display strapped to the side of your RIGHT forearm (raise your arm and glance at it): health, guard, special
+    /// and dash, always in the same spot so you know where to look. On the desktop it sits at the bottom of your view
+    /// instead. (The menu stays on the left wrist.)
     /// </summary>
     public class FighterHUD : MonoBehaviour
     {
@@ -19,10 +20,12 @@ namespace Nullbound
         {
             var rig = VRRig.Instance;
             panel = new GameObject("WristHUD").transform;
-            panel.SetParent(transform, false);
-            // On the inside of the left wrist, tilted toward your eyes.
-            panel.localPosition = new Vector3(0.02f, 0.035f, -0.07f);
-            panel.localRotation = Quaternion.Euler(50f, 0f, 0f);
+            // On the forearm behind the right hand, on the inner side, tilted up toward your eyes.
+            Transform anchor = rig != null && rig.rightHand != null ? rig.rightHand : transform;
+            panel.SetParent(anchor, false);
+            panel.localPosition = new Vector3(-0.03f, 0.04f, -0.14f);
+            panel.localRotation = Quaternion.Euler(45f, 0f, 20f);
+            NBUI.Box(panel, "Frame", new Vector3(0f, 0f, 0.006f), new Vector3(0.138f, 0.083f, 0.003f), new Color(1f, 0.75f, 0.2f));
             NBUI.Box(panel, "Back", new Vector3(0f, 0f, 0.004f), new Vector3(0.13f, 0.075f, 0.004f), new Color(0.06f, 0.06f, 0.09f));
             hpGood = NBUI.Glow(new Color(0.3f, 1f, 0.45f));
             hpLow = NBUI.Glow(new Color(1f, 0.25f, 0.2f));
@@ -52,6 +55,11 @@ namespace Nullbound
             var s = pivot.localScale;
             s.x = 0.12f * Mathf.Clamp(t, 0.001f, 1f);
             pivot.localScale = s;
+        }
+
+        void OnDestroy()
+        {
+            if (panel != null) Destroy(panel.gameObject);
         }
 
         void LateUpdate()

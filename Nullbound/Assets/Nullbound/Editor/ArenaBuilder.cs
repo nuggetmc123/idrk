@@ -439,7 +439,7 @@ namespace Nullbound.EditorTools
             vr.leftHand = BuildHand(rig.transform, "LeftHand", "{LeftHand}", XRNode.LeftHand, new Vector3(-0.2f, 1.2f, 0.3f)).transform;
             vr.rightHand = BuildHand(rig.transform, "RightHand", "{RightHand}", XRNode.RightHand, new Vector3(0.2f, 1.2f, 0.3f)).transform;
             vr.leftHand.gameObject.AddComponent<WristMenu>();
-            vr.leftHand.gameObject.AddComponent<FighterHUD>();
+            vr.rightHand.gameObject.AddComponent<FighterHUD>();
         }
 
         static GameObject BuildHand(Transform rig, string name, string usage, XRNode node, Vector3 pos)

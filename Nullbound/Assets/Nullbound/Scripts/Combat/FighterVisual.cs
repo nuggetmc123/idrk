@@ -16,7 +16,9 @@ namespace Nullbound
         FighterModel model;
         Transform plate, hpFill;
         TextMeshPro nameText;
-        Vector3 lastPos;
+        Vector3 lastPos, smoothVel, rollAxis = Vector3.right;
+        float tumbleBlend;
+        Quaternion tumbleRot = Quaternion.identity;
 
         public void Init(Fighter f)
         {
@@ -80,7 +82,7 @@ namespace Nullbound
 
             bool empowered = fighter.Empowered;
             float pulse = empowered ? 1f + 0.15f * Mathf.Sin(Time.time * 25f) : 1f;
-            foreach (var r in model.gloveRenderers) if (r != null) r.sharedMaterial = empowered ? model.gloveGlow : (fighter.Stats.glove == GloveType.Glow ? model.gloveGlow : model.main);
+            foreach (var r in model.gloveRenderers) if (r != null) r.sharedMaterial = empowered ? model.gloveGlow : model.glove;
 
             if (firstPerson)
             {
@@ -98,12 +100,32 @@ namespace Nullbound
             Vector3 feet = transform.position;
             Vector3 vel = (feet - lastPos) / Mathf.Max(Time.deltaTime, 0.001f);
             lastPos = feet;
-            float speed = new Vector3(vel.x, 0f, vel.z).magnitude;
-            bool air = Mathf.Abs(vel.y) > 0.5f;
-            model.Pose(feet, fighter.HeadPos, fighter.HeadRot, fighter.LeftPos, fighter.LeftRot, fighter.RightPos, fighter.RightRot,
-                fighter.FacingFlat, speed, fighter.Down, fighter.Blocking, air, Time.deltaTime);
-            float gloveScale = 1.3f * pulse * (fighter.Stats.glove == GloveType.Big ? 1.15f : 1f);
-            model.leftGlove.localScale = model.rightGlove.localScale = Vector3.one * gloveScale;
+            smoothVel = Vector3.Lerp(smoothVel, vel, Mathf.Clamp01(Time.deltaTime * 12f));
+            float speed = new Vector3(smoothVel.x, 0f, smoothVel.z).magnitude;
+            bool air = Mathf.Abs(smoothVel.y) > 0.5f;
+
+            // Ragdoll tumble after a super hit: the body rolls over the way it's flying, limbs flailing.
+            bool tumbling = fighter.HasStatus(Fighter.Tumbling) && !fighter.Down;
+            tumbleBlend = Mathf.MoveTowards(tumbleBlend, tumbling ? 1f : 0f, Time.deltaTime * (tumbling ? 8f : 3f));
+            if (tumbleBlend > 0f)
+            {
+                Vector3 flatVel = new Vector3(smoothVel.x, 0f, smoothVel.z);
+                if (flatVel.sqrMagnitude > 0.25f) rollAxis = Vector3.Cross(Vector3.up, flatVel.normalized);
+                // Roll like a ball of about 0.45 m, never slower than a lazy spin.
+                float rollSpeed = Mathf.Max(flatVel.magnitude / 0.45f, 4f) * Mathf.Rad2Deg;
+                if (tumbling) tumbleRot = Quaternion.AngleAxis(rollSpeed * Time.deltaTime, rollAxis) * tumbleRot;
+                else tumbleRot = Quaternion.Slerp(tumbleRot, Quaternion.identity, Time.deltaTime * 6f);
+            }
+            else tumbleRot = Quaternion.identity;
+
+            model.handPulse = pulse;
+            model.Pose(new PoseInput
+            {
+                feet = feet, headPos = fighter.HeadPos, headRot = fighter.HeadRot,
+                leftPos = fighter.LeftPos, leftRot = fighter.LeftRot, rightPos = fighter.RightPos, rightRot = fighter.RightRot,
+                fwd = fighter.FacingFlat, velocity = smoothVel, speed = speed, down = fighter.Down, airborne = air, blocking = fighter.Blocking,
+                tumble = tumbleBlend, tumbleRot = tumbleRot,
+            }, Time.deltaTime);
 
             plate.position = fighter.HeadPos + Vector3.up * 0.45f;
             var st = fighter.Stats;

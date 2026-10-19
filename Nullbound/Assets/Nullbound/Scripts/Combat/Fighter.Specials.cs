@@ -34,6 +34,7 @@ namespace Nullbound
             if (now < burnUntil) st |= Burning;
             if (now < barrierUntil) st |= Shielded;
             if (now < armorUntil) st |= Armored;
+            if (now < tumbleUntil) st |= Tumbling;
             if (!IsBot && ModPowers.InvincibleNow) st |= Immune;
             Status = st;
 
