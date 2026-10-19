@@ -5,8 +5,8 @@ namespace Nullbound
 {
     /// <summary>
     /// A display strapped to the side of your RIGHT forearm (raise your arm and glance at it): health, guard, special
-    /// and dash, always in the same spot so you know where to look. On the desktop it sits at the bottom of your view
-    /// (The menu stays on the left wrist.) Without a headset it sits at the lower right of your view.
+    /// and dash, always in the same spot so you know where to look. Without a headset it sits at the lower right of
+    /// your view. (The menu stays on the left wrist.)
     /// </summary>
     public class FighterHUD : MonoBehaviour
     {
