@@ -6,7 +6,7 @@ namespace Nullbound
     /// <summary>
     /// A display strapped to the side of your RIGHT forearm (raise your arm and glance at it): health, guard, special
     /// and dash, always in the same spot so you know where to look. On the desktop it sits at the bottom of your view
-    /// instead. (The menu stays on the left wrist.)
+    /// (The menu stays on the left wrist.) Without a headset it sits at the lower right of your view.
     /// </summary>
     public class FighterHUD : MonoBehaviour
     {
@@ -71,10 +71,11 @@ namespace Nullbound
 
             if (!VRRig.IsXR && VRRig.Instance != null && VRRig.Instance.head != null)
             {
-                // Desktop: bottom-centre of the screen.
+                // Desktop: lower right of the view (where your right arm is), not in the middle.
                 var head = VRRig.Instance.head;
-                panel.position = head.position + head.forward * 0.3f - head.up * 0.12f;
-                panel.rotation = Quaternion.LookRotation(head.forward, head.up);
+                panel.position = head.position + head.forward * 0.35f + head.right * 0.17f - head.up * 0.13f;
+                panel.rotation = Quaternion.LookRotation(panel.position - head.position, head.up);
+                panel.localScale = Vector3.one * 0.8f;
             }
 
             SetFill(hpFill, me.HealthFraction);

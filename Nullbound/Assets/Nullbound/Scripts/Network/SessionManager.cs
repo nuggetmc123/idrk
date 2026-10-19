@@ -357,7 +357,6 @@ namespace Nullbound
                 IsSolo = becauseOffline && result.Ok;
                 IsTraining = !becauseOffline && result.Ok;
                 if (!result.Ok) SetStatus("Couldn't start the game: " + result.ShutdownReason + " " + result.ErrorMessage, 30f);
-                else ScreenFx.Message("TRAINING GROUNDS", "Punch the bot and the dummies! Menu button > Main Menu to leave", 5f);
             }
             catch (Exception e)
             {

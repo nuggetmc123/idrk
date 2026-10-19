@@ -118,9 +118,11 @@ namespace Nullbound
 
         PlayerRef Me => Runner != null ? Runner.LocalPlayer : PlayerRef.None;
 
+        /// <summary>Specials don't put text on your screen (it got in the way); only "NO TARGET" does, so you know why
+        /// nothing happened.</summary>
         void Announce(string text)
         {
-            if (!IsBot) ScreenFx.Message(text, "", 0.8f);
+            if (!IsBot && text == "NO TARGET") ScreenFx.Message(text, "", 0.8f);
         }
 
         /// <summary>The enemy closest to where you're looking (within range and a cone), or null.</summary>

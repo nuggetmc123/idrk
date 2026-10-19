@@ -751,7 +751,6 @@ namespace Nullbound
             if (grounded) velocity.y = 7.5f;
             else velocity.y = -18f;
             AudioManager.PlayAt(AudioManager.Sfx.Whoosh, transform.position, 1f, 0.7f);
-            if (!IsBot) ScreenFx.Message("GROUND SLAM!", "", 0.8f);
         }
 
         void GroundSlam()
@@ -811,7 +810,7 @@ namespace Nullbound
             Fx.Afterimage(from, from + Vector3.up * 1.6f, Stats.main);
             Fx.Streak(from + Vector3.up, dest + Vector3.up, Stats.accent);
             RPC_Fx((byte)FxKind.Flash, from, 0f, Runner != null ? Runner.LocalPlayer : PlayerRef.None);
-            if (!IsBot) { ScreenFx.Flash(new Color(0.6f, 0.9f, 1f)); ScreenFx.Message("FLASH STEP", "Next punch hits double!", 1f); }
+            if (!IsBot) ScreenFx.Flash(new Color(0.6f, 0.9f, 1f));
         }
 
         bool Clear(Vector3 feet)
