@@ -23,7 +23,8 @@ namespace Nullbound
             // On the forearm behind the right hand, on the inner side, tilted up toward your eyes.
             Transform anchor = rig != null && rig.rightHand != null ? rig.rightHand : transform;
             panel.SetParent(anchor, false);
-            panel.localPosition = new Vector3(-0.03f, 0.04f, -0.14f);
+            // Sits on top of your fighter's forearm (not inside it) now that you can see your own body.
+            panel.localPosition = new Vector3(-0.04f, 0.075f, -0.15f);
             panel.localRotation = Quaternion.Euler(45f, 0f, 20f);
             NBUI.Box(panel, "Frame", new Vector3(0f, 0f, 0.006f), new Vector3(0.138f, 0.083f, 0.003f), new Color(1f, 0.75f, 0.2f));
             NBUI.Box(panel, "Back", new Vector3(0f, 0f, 0.004f), new Vector3(0.13f, 0.075f, 0.004f), new Color(0.06f, 0.06f, 0.09f));

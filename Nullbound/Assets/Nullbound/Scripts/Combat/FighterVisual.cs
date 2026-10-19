@@ -6,7 +6,8 @@ namespace Nullbound
     /// <summary>
     /// How a fighter looks in the arena (the body itself comes from <see cref="FighterModel"/>). Other players and
     /// bots get the full model with their name over it, and a screen on their RIGHT FOREARM showing health and super
-    /// charge (the same place your own display is, so everyone knows where to look). You only see your own gloves, on your real hands.
+    /// charge (the same place your own display is, so everyone knows where to look). Your own fighter shows your full
+    /// body without the head (Settings > Body), with the gloves exactly on your real hands. You only see your own gloves, on your real hands.
     /// Rebuilds if they switch fighter. Invisible moderators aren't drawn for anyone else.
     /// </summary>
     public class FighterVisual : MonoBehaviour
@@ -44,9 +45,12 @@ namespace Nullbound
             model = FighterModel.Build(transform, fighter.Stats);
             if (firstPerson)
             {
-                // Just your gloves, riding on your real hands (no lag at all).
+                // Your gloves ride your real hands (no lag at all). The rest of your body hangs under your head so you
+                // see your arms, chest and legs when you look down; your own head is hidden so it can't block the view.
                 Attach(model.leftGlove, fighter.poseLeft);
                 Attach(model.rightGlove, fighter.poseRight);
+                model.BoneOf(Bone.Head).gameObject.SetActive(false);
+                model.BoneOf(Bone.Neck).gameObject.SetActive(false);
                 model.root.gameObject.SetActive(false);
                 return;
             }
@@ -142,6 +146,27 @@ namespace Nullbound
                 bool show = !fighter.Down;
                 if (model.leftGlove != null) { model.leftGlove.gameObject.SetActive(show); model.leftGlove.localScale = Vector3.one * pulse; }
                 if (model.rightGlove != null) { model.rightGlove.gameObject.SetActive(show); model.rightGlove.localScale = Vector3.one * pulse; }
+                bool body = show && GameSettings.FullBody && fighter.poseHead != null && fighter.poseLeft != null && fighter.poseRight != null;
+                model.root.gameObject.SetActive(body);
+                if (body)
+                {
+                    Vector3 at = transform.position;
+                    Vector3 v = (at - lastPos) / Mathf.Max(Time.deltaTime, 0.001f);
+                    lastPos = at;
+                    smoothVel = Vector3.Lerp(smoothVel, v, Mathf.Clamp01(Time.deltaTime * 12f));
+                    Vector3 facing = fighter.FacingFlat;
+                    var head = fighter.poseHead;
+                    model.Pose(new PoseInput
+                    {
+                        // Body a little behind your eyes (where your real neck is), so looking down doesn't put you inside your chest.
+                        feet = at, headPos = head.position - facing * 0.14f, headRot = head.rotation,
+                        leftPos = fighter.poseLeft.position, leftRot = fighter.poseLeft.rotation,
+                        rightPos = fighter.poseRight.position, rightRot = fighter.poseRight.rotation,
+                        fwd = facing, velocity = smoothVel, speed = new Vector3(smoothVel.x, 0f, smoothVel.z).magnitude,
+                        airborne = Mathf.Abs(smoothVel.y) > 0.5f, blocking = false,
+                    }, Time.deltaTime);
+                }
+                else lastPos = transform.position;
                 return;
             }
 

@@ -28,7 +28,7 @@ namespace Nullbound
         float nextRefresh;
 
         TextMeshPro status, fighterInfo, keypadText, idLabel;
-        PokeButton lobbyButton, addBotButton, removeBotsButton, difficultyButton, turnButton, vignetteButton, roomScaleButton, micButton, modButton;
+        PokeButton lobbyButton, addBotButton, removeBotsButton, difficultyButton, turnButton, vignetteButton, roomScaleButton, micButton, modButton, bodyButton;
         int browse = -1;
         TextMeshPro sfxBar, musicBar;
         string typed = "";
@@ -132,7 +132,9 @@ namespace Nullbound
         void BuildSettings(Transform root)
         {
             var wide = new Vector3(0.24f, 0.022f, 0.02f);
-            turnButton = PokeButton.Create(root, "Turn", "", new Vector3(0f, 0.052f, 0f), wide, new Color(0.7f, 0.75f, 1f), () => { GameSettings.Turn = (TurnStyle)(((int)GameSettings.Turn + 1) % 3); nextRefresh = 0f; }, 0.07f);
+            var half = new Vector3(0.117f, 0.022f, 0.02f);
+            bodyButton = PokeButton.Create(root, "Body", "", new Vector3(0.0615f, 0.052f, 0f), half, new Color(1f, 0.8f, 0.6f), () => { GameSettings.FullBody = !GameSettings.FullBody; nextRefresh = 0f; }, 0.06f);
+            turnButton = PokeButton.Create(root, "Turn", "", new Vector3(-0.0615f, 0.052f, 0f), half, new Color(0.7f, 0.75f, 1f), () => { GameSettings.Turn = (TurnStyle)(((int)GameSettings.Turn + 1) % 3); nextRefresh = 0f; }, 0.07f);
             vignetteButton = PokeButton.Create(root, "Vignette", "", new Vector3(0f, 0.027f, 0f), wide, new Color(0.7f, 0.9f, 0.8f), () => { GameSettings.Vignette = !GameSettings.Vignette; nextRefresh = 0f; }, 0.06f);
             roomScaleButton = PokeButton.Create(root, "RoomScale", "", new Vector3(0f, 0.002f, 0f), wide, new Color(0.8f, 0.8f, 1f), () => { GameSettings.RoomScale = !GameSettings.RoomScale; nextRefresh = 0f; }, 0.06f);
             micButton = PokeButton.Create(root, "Mic", "", new Vector3(0f, -0.023f, 0f), wide, new Color(0.5f, 1f, 0.6f), () => { GameSettings.Mic = (MicMode)(((int)GameSettings.Mic + 1) % 3); nextRefresh = 0f; }, 0.06f);
@@ -248,8 +250,9 @@ namespace Nullbound
                                        "\n<size=80%>Health " + st.maxHealth + "   You own " + Collection.UnlockedCount + "/" + FighterInfo.Count + " (crates in the main menu)</size>";
                     break;
                 case Page.Settings:
-                    turnButton.SetLabel("Turning: " + GameSettings.TurnName(GameSettings.Turn));
+                    turnButton.SetLabel("Turn: " + GameSettings.TurnName(GameSettings.Turn));
                     vignetteButton.SetLabel("Comfort vignette: " + (GameSettings.Vignette ? "ON" : "off"));
+                    bodyButton.SetLabel("Body: " + (GameSettings.FullBody ? "ON" : "off"));
                     roomScaleButton.SetLabel("Room scale walking: " + (GameSettings.RoomScale ? "ON" : "off"));
                     var mic = GameSettings.Mic;
                     micButton.SetLabel(Moderation.Muted ? "Voice: muted by a moderator" : mic == MicMode.Open ? "Voice: open mic" : mic == MicMode.PushToTalk ? "Voice: push-to-talk (hold L stick)" : "Voice: muted");

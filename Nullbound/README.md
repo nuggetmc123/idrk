@@ -142,6 +142,10 @@ more knockback, and the target goes into a **ragdoll tumble** for 1.3 s: it flie
 ground and rolls over with its arms and legs flailing (you can't act until you stop rolling). Your own view doesn't
 spin (comfort); you get a vignette instead.
 
+**Full body in VR**: look down and you see your own fighter's body (arms, chest, belt, legs and feet walking), with
+your gloves exactly on your real hands. Your own head is hidden so it never blocks your view. Turn it off with wrist
+menu > Settings > Body.
+
 **Everyone's health and super are on their right forearm**: every other fighter and bot carries a gold-framed screen
 on the outside of their right forearm with a green health bar and a gold super bar (flashing when the super is ready),
 so you can read how hurt someone is and whether their super is coming. Their name still floats above their head.

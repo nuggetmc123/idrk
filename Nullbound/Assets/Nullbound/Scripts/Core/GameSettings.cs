@@ -59,6 +59,13 @@ namespace Nullbound
             set { PlayerPrefs.SetInt(RoomScaleKey, value ? 1 : 0); PlayerPrefs.Save(); }
         }
 
+        /// <summary>See your own full body (arms, chest, legs) when you look down. Off = just your gloves.</summary>
+        public static bool FullBody
+        {
+            get => PlayerPrefs.GetInt("nb.fullBody", 1) == 1;
+            set { PlayerPrefs.SetInt("nb.fullBody", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
         /// <summary>The fighter you picked last time.</summary>
         public static FighterKind Fighter
         {
