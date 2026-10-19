@@ -1,6 +1,11 @@
 {
-  "version": 1,
-  "mods": [],
+  "version": 2,
+  "mods": [
+    {
+      "name": "idrk",
+      "id": "6A2AC-AEE3D"
+    }
+  ],
   "bans": [],
   "blockedNames": [],
   "pardons": []
