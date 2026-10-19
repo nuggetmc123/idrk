@@ -7,6 +7,13 @@
 The whole game is a single self-contained file, `index.html`, served at the site root.
 Open the URL and you're in the game — there is no menu or landing page in front of it.
 
+## NULLBOUND VR (Meta Quest)
+
+`nullbound-vr/` is a separate **Unity VR fighting game for Meta Quest**: real punches, combos,
+4 moves + an ultimate per fighter, bots, and online/LAN multiplayer. It has its own README
+with Quest install steps, and `.github/workflows/nullbound-apk.yml` builds its APK.
+See [nullbound-vr/README.md](nullbound-vr/README.md).
+
 ## Making changes
 
 Edit `index.html`, commit, and push to `main`. The workflow in
