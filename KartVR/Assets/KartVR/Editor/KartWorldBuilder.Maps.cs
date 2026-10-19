@@ -14,7 +14,7 @@ namespace KartVR.EditorTools
 
         /// <summary>
         /// The hub is one big indoor garage: 6 garage bays (3 down each side, one per player on a server),
-        /// a big map board on the north wall, and the server board, lobby-code kiosk and boards on the south wall.
+        /// a big map board and the daily challenges board on the north wall, and the server board, lobby-code kiosk and boards on the south wall.
         /// Interior: x -23..23, z -24..22, 9 m high.
         /// </summary>
         static Transform BuildHub()
@@ -64,11 +64,11 @@ namespace KartVR.EditorTools
             picker.transform.SetParent(hub, false);
             picker.transform.localPosition = new Vector3(0f, 1.8f, north - 0.15f);
             picker.AddComponent<MapPicker>();
-            // Today's challenges, between the map board and the big sign.
-            var daily = Text(hub, "DailyBoard", "", new Vector3(0f, 4.6f, north - 0.12f), Quaternion.identity, 3f, Color.white, new Vector2(30f, 1.6f));
-            var dailyInfo = daily.gameObject.AddComponent<InfoBoard>();
-            dailyInfo.kind = InfoBoard.Kind.Daily;
-            dailyInfo.text = daily;
+            // The daily challenges board, on the empty wall to the right of the map board.
+            var challenges = new GameObject("ChallengeBoard");
+            challenges.transform.SetParent(hub, false);
+            challenges.transform.localPosition = new Vector3(14.5f, 2.4f, north - 0.15f);
+            challenges.AddComponent<ChallengeBoard>();
             Text(hub, "KartVRSign", "KART VR GARAGE", new Vector3(0f, 6.9f, north - 0.1f), Quaternion.identity, 14f, Color.white, new Vector2(24f, 1.6f));
 
             // Spawn in the south end, facing the map board.

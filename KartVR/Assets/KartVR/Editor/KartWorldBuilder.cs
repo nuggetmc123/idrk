@@ -46,7 +46,7 @@ namespace KartVR.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 12; // 12 = fewer graveyard pumpkins
+        public const int WorldVersion = 13; // 13 = daily challenges board on the garage wall
         const string WorldVersionFile = "ProjectSettings/KartVRWorldVersion.txt";
         public static bool WorldUpToDate =>
             File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
@@ -517,7 +517,7 @@ namespace KartVR.EditorTools
             // Skip anything that moves, changes, or holds live text.
             if (root.GetComponent<Rotator>() || root.name == "Turntable" || root.GetComponent<TextMeshPro>() ||
                 root.GetComponent<GarageEditor>() || root.GetComponent<KeypadTerminal>() || root.GetComponent<StartLights>() ||
-                root.GetComponent<InfoBoard>())
+                root.GetComponent<InfoBoard>() || root.GetComponent<ChallengeBoard>())
                 return;
             GameObjectUtility.SetStaticEditorFlags(root.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic);
             foreach (Transform child in root) MarkStatic(child);

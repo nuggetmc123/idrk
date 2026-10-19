@@ -19,12 +19,13 @@ namespace KartVR
         static readonly Vector3 PanelOffset = new Vector3(0f, 0.21f, 0.04f);
         static readonly Vector3 PanelTilt = new Vector3(35f, 0f, 0f);
 
-        enum Page { Main, Sound, Controls, Voice, Profile }
+        enum Page { Main, Sound, Controls, Voice, Profile, Challenges }
+        const int PageCount = 6;
 
         Transform panel;
-        readonly Transform[] pages = new Transform[5];
-        readonly PokeButton[] tabs = new PokeButton[5];
-        TextMeshPro profileText;
+        readonly Transform[] pages = new Transform[PageCount];
+        readonly PokeButton[] tabs = new PokeButton[PageCount];
+        TextMeshPro profileText, challengesText;
         Page page;
         TextMeshPro info, sfxBar, musicBar, engineBar;
         TextMeshPro idLabel;
@@ -43,12 +44,13 @@ namespace KartVR
             panel.localRotation = Quaternion.Euler(PanelTilt);
 
             KartUI.Box(panel, "Backing", new Vector3(0f, -0.03f, 0.012f), new Vector3(0.25f, 0.25f, 0.01f), new Color(0.1f, 0.1f, 0.15f));
-            var tabSize = new Vector3(0.047f, 0.028f, 0.02f);
-            string[] names = { "Menu", "Sound", "Controls", "Voice", "Profile" };
-            for (int i = 0; i < 5; i++)
+            var tabSize = new Vector3(0.039f, 0.028f, 0.02f);
+            string[] names = { "Menu", "Sound", "Controls", "Voice", "Profile", "Challenges" };
+            for (int i = 0; i < PageCount; i++)
             {
                 var p = (Page)i;
-                tabs[i] = PokeButton.Create(panel, "Tab" + names[i], names[i], new Vector3((i - 2f) * 0.049f, 0.075f, 0f), tabSize, TabOff, () => Show(p), 0.07f);
+                tabs[i] = PokeButton.Create(panel, "Tab" + names[i], names[i], new Vector3((i - (PageCount - 1) * 0.5f) * 0.041f, 0.075f, 0f), tabSize,
+                    i == (int)Page.Challenges ? new Color(0.75f, 0.62f, 0.2f) : TabOff, () => Show(p), names[i].Length > 7 ? 0.05f : 0.06f);
                 pages[i] = new GameObject(names[i] + "Page").transform;
                 pages[i].SetParent(panel, false);
             }
@@ -58,6 +60,7 @@ namespace KartVR
             BuildControls(pages[2]);
             BuildVoice(pages[3]);
             profileText = KartUI.Label(pages[4], "", new Vector3(0f, -0.02f, 0f), 0.075f, Color.white, new Vector2(0.235f, 0.18f), TextAlignmentOptions.Top);
+            challengesText = KartUI.Label(pages[5], "", new Vector3(0f, -0.02f, 0f), 0.08f, Color.white, new Vector2(0.235f, 0.18f), TextAlignmentOptions.Top);
             Show(Page.Main);
             panel.gameObject.SetActive(false); // closed until you press the menu button
         }
@@ -65,10 +68,10 @@ namespace KartVR
         void Show(Page p)
         {
             page = p;
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < PageCount; i++)
             {
                 pages[i].gameObject.SetActive(i == (int)p);
-                tabs[i].SetColor(i == (int)p ? TabOn : TabOff);
+                tabs[i].SetColor(i == (int)p ? TabOn : i == (int)Page.Challenges ? new Color(0.75f, 0.62f, 0.2f) : TabOff);
             }
             nextRefresh = 0f;
         }
@@ -152,7 +155,31 @@ namespace KartVR
             RefreshVoice();
         }
 
-        /// <summary>Profile: level and XP bar, daily streak, today's challenges and your best laps.</summary>
+        /// <summary>Challenges: today's three, each with a progress bar, and when new ones come.</summary>
+        void RefreshChallenges()
+        {
+            if (challengesText == null || Time.time < nextRefresh) return;
+            nextRefresh = Time.time + 0.5f;
+            var sb = new System.Text.StringBuilder("<b><color=#ffd54a>DAILY CHALLENGES</color></b>\n");
+            int doneCount = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                string text = Progress.ChallengeText(i, out float p, out float target, out bool done, out int xp);
+                float t = done ? 1f : target > 0f ? Mathf.Clamp01(p / target) : 0f;
+                int bars = Mathf.RoundToInt(t * 14f);
+                if (done) doneCount++;
+                sb.Append('\n').Append(done ? "<color=#7CFF8A>DONE  " : "<color=#ffffff>").Append(text).Append("</color>\n<size=85%>")
+                  .Append(done ? "<color=#7CFF8A>" : "<color=#4fc3ff>").Append(new string('|', bars)).Append("</color><color=#444444>")
+                  .Append(new string('|', 14 - bars)).Append("</color>  ").Append(done ? "" : Mathf.FloorToInt(Mathf.Min(p, target)) + "/" + target + "  ")
+                  .Append("<color=#ffd54a>+").Append(xp).Append(" XP</color></size>\n");
+            }
+            var left = System.DateTime.Today.AddDays(1) - System.DateTime.Now;
+            sb.Append("\n<size=80%>").Append(doneCount).Append("/3 done   New ones in ").Append((int)left.TotalHours).Append("h ")
+              .Append(left.Minutes.ToString("00")).Append("m</size>");
+            challengesText.text = sb.ToString();
+        }
+
+        /// <summary>Profile: level and XP bar, daily streak and your best laps.</summary>
         void RefreshProfile()
         {
             if (profileText == null || Time.time < nextRefresh) return;
@@ -163,13 +190,7 @@ namespace KartVR
             sb.Append("<b><color=#ffd54a>LEVEL ").Append(lv).Append("</color></b>  <color=#7CFF8A>").Append(new string('|', bars)).Append("</color><color=#444444>")
               .Append(new string('|', 12 - bars)).Append("</color>  <size=80%>").Append(Progress.TotalXp - Progress.XpForLevel(lv)).Append('/')
               .Append(Progress.XpForLevel(lv + 1) - Progress.XpForLevel(lv)).Append(" XP</size>\n");
-            sb.Append("<size=85%>Daily streak: <color=#ffb347>").Append(Mathf.Max(1, Progress.Streak)).Append(" day(s)</color></size>\n\n<b>TODAY'S CHALLENGES</b>\n");
-            for (int i = 0; i < 3; i++)
-            {
-                string text = Progress.ChallengeText(i, out float p, out float target, out bool done, out int xp);
-                sb.Append(done ? "<color=#7CFF8A>DONE  " : "<color=#ffffff>").Append(text).Append("</color>  <size=80%>")
-                  .Append(done ? "" : Mathf.FloorToInt(Mathf.Min(p, target)) + "/" + target + "  ").Append("+").Append(xp).Append(" XP</size>\n");
-            }
+            sb.Append("<size=85%>Daily streak: <color=#ffb347>").Append(Mathf.Max(1, Progress.Streak)).Append(" day(s)</color></size>\n<size=80%>Today's challenges: see the Challenges tab</size>\n");
             float race = Progress.BestLap(KartMode.Race), canyon = Progress.BestLap(KartMode.CanyonRace), city = Progress.BestLap(KartMode.CityRace);
             sb.Append("\n<size=85%>Best laps:  Race ").Append(race > 0f ? KartUI.FormatTime(race) : "-").Append("   Canyon ")
               .Append(canyon > 0f ? KartUI.FormatTime(canyon) : "-").Append("   City ").Append(city > 0f ? KartUI.FormatTime(city) : "-").Append("</size>");
@@ -277,6 +298,7 @@ namespace KartVR
             if (!panel.gameObject.activeSelf) return;
             if (page == Page.Voice) { RefreshVoice(); return; } // live mic meter
             if (page == Page.Profile) { RefreshProfile(); return; }
+            if (page == Page.Challenges) { RefreshChallenges(); return; }
             if (Time.time < nextRefresh) return;
             if (page != Page.Main) return;
             nextRefresh = Time.time + 0.25f;

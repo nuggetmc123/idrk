@@ -57,7 +57,8 @@ Your choices are saved on your device and everyone else sees them, in your garag
   confetti, and your **level shows over your head** for everyone.
 - **Daily login streak:** a bonus every day you play (50 XP x your streak, up to 7 days).
 - **Daily challenges:** 3 new ones every day (finish races, win one, drift 30 s, drive 5 km, bump 10 karts, tag 3
-  people, hit 10 boost pads, 5 big jumps), on the board in the hub and in **Menu > Profile**.
+  people, hit 10 boost pads, 5 big jumps), on the **DAILY CHALLENGES board** on the garage wall (right of the map board: a progress bar for each, the XP
+  it's worth, your streak and when new ones come) and on their own **Challenges** tab in the menu.
 - **Unlocks:** **underglow** (Cyan Lv 2, Pink Lv 4, Gold Lv 6, Lime Lv 9, Rainbow Lv 15) and **trails** (White Lv 3,
   Fire Lv 5, Ice Lv 8, Neon Lv 12, Rainbow Lv 20), picked in your garage. Everyone sees them.
 - **Best laps** on each track, with a NEW LAP RECORD banner when you beat yours.
