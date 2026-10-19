@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "mods": [
     {
       "name": "idrk",
@@ -12,10 +12,6 @@
     {
       "name": "idrkvr",
       "id": "0D7E3-EB0B4"
-    },
-    {
-      "name": "",
-      "id": "56846-D3F78"
     },
     {
       "name": "",
