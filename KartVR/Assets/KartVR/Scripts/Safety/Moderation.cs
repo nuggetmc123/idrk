@@ -245,6 +245,7 @@ namespace KartVR
             gameObject.AddComponent<ProgressFx>();
             gameObject.AddComponent<MapAtmosphere>();
             gameObject.AddComponent<HalloweenDecor>();
+            gameObject.AddComponent<HalloweenWatcher>();
             Moderation.Updated += () =>
             {
                 if (Moderation.IsBanned(out string why)) SessionManager.Instance?.Removed(why);
