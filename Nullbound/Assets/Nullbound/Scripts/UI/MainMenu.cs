@@ -274,7 +274,7 @@ namespace Nullbound
             string rarity = "<color=#" + ColorUtility.ToHtmlStringRGB(FighterInfo.RarityColor(p.rarity)) + ">" + FighterInfo.RarityName(p.rarity) + "</color>";
             fighterText.text = unlocked
                 ? "<b>" + p.name + "</b>  " + rarity + (previewId == chosen ? "  <color=#7CFF8A>(playing as)</color>" : "") + "\n" + p.style +
-                  "\n<color=#ffcf4a>" + p.special + "</color>: " + FighterInfo.SpecialHow(p.specialType) + "\n<size=85%>HP " + p.maxHealth + "   + " + p.strengths + "   - " + p.weakness + "</size>"
+                  "\n<color=#ffcf4a>" + p.special + "</color>: " + FighterInfo.SpecialHow(p.specialType) + "\n<size=85%>HP " + p.maxHealth + "   " + FighterInfo.PowerText(p) + "   + " + p.strengths + "   - " + p.weakness + "</size>"
                 : "<b>???</b>  " + rarity + "\nLocked. Open crates to unlock it.";
             coinsText.text = "COINS: " + Collection.Coins + "    FIGHTERS: " + Collection.UnlockedCount + "/" + FighterInfo.Count;
         }

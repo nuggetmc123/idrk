@@ -37,6 +37,8 @@ namespace Nullbound
         public float dashSpeed, dashTime, dashCooldown, specialCooldown, knockbackTaken;
         /// <summary>How big the body is drawn (giants and tiny fighters).</summary>
         public float scale;
+        /// <summary>How hard this fighter's special (super) hits, on top of power. 1 = normal.</summary>
+        public float superPower;
         // Model look (see FighterRecipe): pants / lining colour, skin, hair, outfit style and extras.
         public Color secondary, skin, hair;
         public Outfit outfit;
@@ -114,7 +116,7 @@ namespace Nullbound
                 main = C(main), accent = C(accent), eyes = eyes != null ? C(eyes) : C(accent),
                 specialType = special, special = specialName, specialHow = "Click the right stick: " + SpecialHow(special), style = style,
                 strengths = BodyStrength(body), weakness = BodyWeakness(body), specialCooldown = SpecialCooldown(special),
-                jumpSpeed = 6f, dashSpeed = 18f, dashTime = 0.17f, scale = 1f,
+                jumpSpeed = 6f, dashSpeed = 18f, dashTime = 0.17f, scale = 1f, superPower = 1f,
             };
             // Default looks, picked from the name so they stay the same everywhere.
             int h = 0;
@@ -161,9 +163,9 @@ namespace Nullbound
 
         /// <summary>
         /// The whole roster. 0 and 1 are the starters everyone has; the rest come out of crates. Change looks, names
-        /// and specials freely; stats come from the body type.
+        /// and specials freely; stats start from the body type, then <see cref="Unbalance"/> makes every fighter different.
         /// </summary>
-        static readonly FighterStats[] Roster =
+        static readonly FighterStats[] Roster = Unbalance(new[]
         {
             Look(Tuned(F("BRAWLER", Rarity.Common, BodyType.Bulky, HeadType.Round, TopType.Spikes, BackType.None, GloveType.Big, "f2522e", "ffc740", SpecialType.GroundSlam, "GROUND SLAM",
                 "Heavy punches, ground slams, big knockback"), 130, 1.3f, 0.38f, 3.6f, 5.6f, 15f, 1.4f, 0.75f), Outfit.Tank, skin: "d9a77c", hair: "2a1a12", secondary: "34343e"),
@@ -214,6 +216,41 @@ namespace Nullbound
             Look(F("JUGGERNAUT", Rarity.Epic, BodyType.Giant, HeadType.Helmet, TopType.None, BackType.Jetpack, GloveType.Metal, "2a2a30", "ff8a1a", SpecialType.Barrier, "UNSTOPPABLE", "Armoured from head to toe"), secondary: "1a1a1e", pads: true),
             Look(F("ZEPHYR", Rarity.Rare, BodyType.Tiny, HeadType.Round, TopType.Ponytail, BackType.Wings, GloveType.Normal, "9ff09a", "ffffff", SpecialType.Whirlwind, "CYCLONE", "Light as the wind"), Outfit.Gi, skin: "f6dcc8", hair: "e8fff0", secondary: "3a8a5a", scarf: true),
             Look(F("OMEGA", Rarity.Mythic, BodyType.Robot, HeadType.Helmet, TopType.Crown, BackType.Blades, GloveType.Glow, "111114", "ff1a3a", SpecialType.Meteor, "OMEGA STRIKE", "The final machine", "ff1a3a"), secondary: "0a0a0c", pads: true),
-        };
+        });
+
+        /// <summary>
+        /// NOT balanced on purpose: rarer fighters punch harder, have stronger supers, more health and shorter
+        /// special cooldowns, and every fighter also gets its own random-but-fixed twist (picked from its name, so
+        /// it's the same on every headset) to punch damage, super damage, health and speed. The two starters keep
+        /// their hand-tuned stats.
+        /// </summary>
+        static FighterStats[] Unbalance(FighterStats[] roster)
+        {
+            // (Local, not static fields: static fields below the roster would still be null when it's built.)
+            // Rarity:               Common  Rare   Epic   Legendary  Mythic
+            float[] rarityPunch =    { 1f,   1.08f, 1.18f, 1.3f,  1.45f };
+            float[] raritySuper =    { 1f,   1.12f, 1.25f, 1.4f,  1.65f };
+            float[] rarityHealth =   { 0f,   5f,    10f,   18f,   28f };
+            float[] raritySpeed =    { 1f,   1.02f, 1.04f, 1.06f, 1.1f };
+            float[] rarityCooldown = { 1f,   0.95f, 0.9f,  0.85f, 0.78f };
+            for (int i = 2; i < roster.Length; i++)
+            {
+                var s = roster[i];
+                uint h = 2166136261u;
+                foreach (char ch in s.name) h = (h ^ ch) * 16777619u;
+                float Roll(float min, float max) { h = h * 1664525u + 1013904223u; return min + (h >> 8) / 16777216f * (max - min); }
+                int r = (int)s.rarity;
+                s.power = Mathf.Round(s.power * rarityPunch[r] * Roll(0.85f, 1.15f) * 100f) / 100f;
+                s.superPower = Mathf.Round(raritySuper[r] * Roll(0.8f, 1.25f) * 100f) / 100f;
+                s.maxHealth = Mathf.Round(s.maxHealth * Roll(0.9f, 1.1f) + rarityHealth[r]);
+                s.moveSpeed *= raritySpeed[r] * Roll(0.92f, 1.08f);
+                s.specialCooldown = Mathf.Round(s.specialCooldown * rarityCooldown[r] * Roll(0.85f, 1.15f) * 10f) / 10f;
+                roster[i] = s;
+            }
+            return roster;
+        }
+
+        /// <summary>"Punch x1.30  Super x1.65" for menus.</summary>
+        public static string PowerText(FighterStats s) => "Punch x" + s.power.ToString("0.00") + "   Super x" + (s.power * s.superPower).ToString("0.00");
     }
 }

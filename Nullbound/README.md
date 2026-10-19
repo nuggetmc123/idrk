@@ -123,6 +123,63 @@ Clones, Titan Quake, Uppercut, Whirlwind, Beam, Meteor, Heal, Barrier.
 Brawler and Speedster are free; the rest come from crates. Change names, colours, looks and specials in
 `Scripts/Fighters/FighterInfo.cs`.
 
+## Fighter stats (not balanced!)
+
+Fighters are deliberately NOT balanced: rarer fighters punch harder, have stronger supers, more health and shorter
+super cooldowns, and every fighter has its own twist on top (the same on every headset). "Punch" multiplies punch,
+dash and fly damage; "Super" multiplies special damage. Both show in the fighter menus. (One hit is still capped at 45,
+or 50 for a super, so nobody gets one-shot from full health by a single punch.) Tune them in `FighterInfo.Unbalance`.
+
+| # | Fighter | Rarity | Health | Punch | Super | Super cooldown | Speed |
+|---|---|---|---|---|---|---|---|
+| 1 | BRAWLER | Common | 130 | x1.30 | x1.30 | 9.0s | 3.6 |
+| 2 | SPEEDSTER | Common | 90 | x0.85 | x0.85 | 6.0s | 5.2 |
+| 3 | ELEMENTALIST | Epic | 113 | x1.05 | x1.61 | 3.2s | 4.4 |
+| 4 | PSYCHIC | Epic | 104 | x1.21 | x1.44 | 7.8s | 4.9 |
+| 5 | SHADOW FIGHTER | Legendary | 112 | x1.24 | x1.87 | 5.5s | 5.2 |
+| 6 | TITAN | Legendary | 159 | x1.77 | x3.04 | 11.4s | 3.5 |
+| 7 | FROSTBITE | Rare | 106 | x1.24 | x1.56 | 4.5s | 4.5 |
+| 8 | VOLTAGE | Rare | 98 | x1.01 | x1.14 | 6.0s | 5.4 |
+| 9 | INFERNO | Epic | 131 | x1.24 | x1.34 | 12.0s | 3.7 |
+| 10 | MECHA-7 | Rare | 135 | x1.17 | x1.12 | 8.4s | 3.9 |
+| 11 | WILDCLAW | Common | 124 | x1.13 | x0.95 | 9.9s | 4.9 |
+| 12 | MONK | Common | 106 | x1.04 | x0.84 | 15.5s | 4.4 |
+| 13 | BULWARK | Rare | 135 | x1.21 | x1.39 | 11.6s | 3.6 |
+| 14 | ROCKET | Common | 99 | x1.08 | x0.96 | 7.9s | 4.2 |
+| 15 | PHANTOM | Epic | 120 | x1.11 | x1.73 | 9.2s | 4.9 |
+| 16 | SANDSTORM | Rare | 114 | x1.04 | x1.16 | 8.0s | 4.5 |
+| 17 | STORMCALLER | Epic | 103 | x0.91 | x1.22 | 6.2s | 5.0 |
+| 18 | GEARHEAD | Common | 129 | x1.01 | x1.15 | 8.7s | 4.2 |
+| 19 | VIPER | Rare | 95 | x1.12 | x1.12 | 7.5s | 5.3 |
+| 20 | COLOSSUS | Epic | 151 | x1.48 | x2.12 | 13.0s | 3.4 |
+| 21 | NOVA | Legendary | 119 | x1.17 | x1.65 | 6.1s | 4.6 |
+| 22 | GLACIER | Epic | 127 | x1.37 | x1.97 | 5.1s | 3.9 |
+| 23 | KITSUNE | Legendary | 141 | x1.26 | x2.02 | 3.9s | 5.0 |
+| 24 | GOLEM | Rare | 155 | x1.57 | x1.99 | 8.2s | 3.6 |
+| 25 | PIXIE | Common | 89 | x0.93 | x0.87 | 6.2s | 5.7 |
+| 26 | SAMURAI | Rare | 116 | x1.23 | x1.13 | 9.7s | 4.7 |
+| 27 | NINJA | Common | 96 | x0.94 | x1.06 | 6.0s | 4.8 |
+| 28 | PALADIN | Epic | 131 | x1.51 | x2.13 | 15.5s | 4.3 |
+| 29 | GRAVITY | Legendary | 135 | x1.43 | x2.00 | 8.5s | 5.0 |
+| 30 | BRUTE | Common | 115 | x1.09 | x1.30 | 8.5s | 3.9 |
+| 31 | BLITZ | Common | 96 | x0.84 | x0.88 | 6.2s | 5.1 |
+| 32 | REAPER | Mythic | 137 | x1.32 | x2.35 | 5.6s | 5.7 |
+| 33 | DRAGONHEART | Mythic | 163 | x1.68 | x2.76 | 10.0s | 4.0 |
+| 34 | CYBER RONIN | Legendary | 131 | x1.35 | x2.28 | 5.0s | 3.9 |
+| 35 | TIDECALLER | Epic | 114 | x1.04 | x1.29 | 7.2s | 4.7 |
+| 36 | BONECRUSHER | Rare | 145 | x1.38 | x1.60 | 5.9s | 3.4 |
+| 37 | SPARK | Common | 92 | x0.80 | x0.85 | 7.3s | 5.6 |
+| 38 | ECHO | Rare | 96 | x0.98 | x0.89 | 10.6s | 5.4 |
+| 39 | THUNDER OX | Rare | 131 | x1.31 | x1.38 | 8.3s | 5.1 |
+| 40 | MIRAGE | Epic | 101 | x1.18 | x1.33 | 9.6s | 5.1 |
+| 41 | IRON FIST | Rare | 120 | x0.97 | x1.04 | 6.1s | 4.5 |
+| 42 | SOLAR | Legendary | 131 | x1.38 | x1.61 | 5.9s | 4.6 |
+| 43 | LUNAR | Legendary | 110 | x1.11 | x1.34 | 10.7s | 5.5 |
+| 44 | VENOM | Epic | 118 | x1.40 | x2.17 | 8.1s | 5.2 |
+| 45 | JUGGERNAUT | Epic | 167 | x1.63 | x2.51 | 9.5s | 3.3 |
+| 46 | ZEPHYR | Rare | 97 | x0.93 | x1.19 | 8.1s | 5.7 |
+| 47 | OMEGA | Mythic | 157 | x1.54 | x2.06 | 10.5s | 4.2 |
+
 ## How to fight
 
 | Action | VR | Keyboard (no headset) |

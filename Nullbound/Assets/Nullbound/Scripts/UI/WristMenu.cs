@@ -247,7 +247,7 @@ namespace Nullbound
                                        ((int)current == browse ? "  <color=#7CFF8A>(you)</color>" : "") + "\n" + st.style +
                                        "\n<color=#ffcf4a>" + st.special + "</color>: " + FighterInfo.SpecialHow(st.specialType) +
                                        "\n<color=#7CFF8A>+ " + st.strengths + "</color>  <color=#ff8a7a>- " + st.weakness + "</color>" +
-                                       "\n<size=80%>Health " + st.maxHealth + "   You own " + Collection.UnlockedCount + "/" + FighterInfo.Count + " (crates in the main menu)</size>";
+                                       "\n<size=80%>Health " + st.maxHealth + "   " + FighterInfo.PowerText(st) + "   You own " + Collection.UnlockedCount + "/" + FighterInfo.Count + " (crates in the main menu)</size>";
                     break;
                 case Page.Settings:
                     turnButton.SetLabel("Turn: " + GameSettings.TurnName(GameSettings.Turn));

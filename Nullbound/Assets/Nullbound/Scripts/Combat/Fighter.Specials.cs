@@ -72,10 +72,10 @@ namespace Nullbound
                 case SpecialType.FlashStep: FlashStep(); break;
                 case SpecialType.ShadowStrike: ShadowStrike(); break;
                 case SpecialType.Fireball:
-                    Launch(SpecialType.Fireball, 22f, new HitData { damage = 14f * s.power, flags = HitFlags.Special | HitFlags.Burn | HitFlags.Heavy }, 2f);
+                    Launch(SpecialType.Fireball, 22f, new HitData { damage = 14f * SuperMul, flags = HitFlags.Special | HitFlags.Burn | HitFlags.Heavy }, 2f);
                     break;
                 case SpecialType.IceShard:
-                    Launch(SpecialType.IceShard, 30f, new HitData { damage = 10f * s.power, flags = HitFlags.Special | HitFlags.Freeze }, 0f);
+                    Launch(SpecialType.IceShard, 30f, new HitData { damage = 10f * SuperMul, flags = HitFlags.Special | HitFlags.Freeze }, 0f);
                     break;
                 case SpecialType.Lightning: StartCoroutine(Strike(SpecialType.Lightning, 0.35f, 2.4f, 18f)); break;
                 case SpecialType.Meteor: StartCoroutine(Strike(SpecialType.Meteor, 1f, 4f, 24f)); break;
@@ -121,6 +121,9 @@ namespace Nullbound
 
         /// <summary>Specials don't put text on your screen (it got in the way); only "NO TARGET" does, so you know why
         /// nothing happened.</summary>
+        /// <summary>Special damage: the fighter's power times its own super strength.</summary>
+        public float SuperMul => Stats.power * Stats.superPower;
+
         void Announce(string text)
         {
             if (!IsBot && text == "NO TARGET") ScreenFx.Message(text, "", 0.8f);
@@ -161,7 +164,7 @@ namespace Nullbound
                 float falloff = 1f - Mathf.Clamp01(d / radius) * 0.5f;
                 Vector3 dir = Flat(to);
                 if (dir == Vector3.zero) dir = FacingFlat;
-                target.TakeHit(this, new HitData { damage = damage * Stats.power * falloff, knockback = (dir * outward + Vector3.up * up) * falloff, flags = flags, point = target.Center });
+                target.TakeHit(this, new HitData { damage = damage * SuperMul * falloff, knockback = (dir * outward + Vector3.up * up) * falloff, flags = flags, point = target.Center });
             }
         }
 
@@ -181,7 +184,7 @@ namespace Nullbound
             MoveTo((Clear(behind) ? behind : target.transform.position + target.FacingFlat * 1.1f) + Vector3.up * 0.05f);
             if (poseRoot != null && poseHead != null)
                 poseRoot.RotateAround(poseHead.position, Vector3.up, Vector3.SignedAngle(FacingFlat, Flat(target.transform.position - transform.position), Vector3.up));
-            target.TakeHit(this, new HitData { damage = 16f * Stats.power, knockback = Flat(target.transform.position - transform.position) * 8f + Vector3.up * 3f, flags = HitFlags.Special | HitFlags.Heavy, point = target.Center });
+            target.TakeHit(this, new HitData { damage = 16f * SuperMul, knockback = Flat(target.transform.position - transform.position) * 8f + Vector3.up * 3f, flags = HitFlags.Special | HitFlags.Heavy, point = target.Center });
             Fx.Afterimage(from, from + Vector3.up * 1.6f, new Color(0.15f, 0.05f, 0.25f));
             SpecialFxLocal(SpecialType.ShadowStrike, from, transform.position);
             RPC_SpecialFx((byte)SpecialType.ShadowStrike, from, transform.position, Me);
@@ -220,7 +223,7 @@ namespace Nullbound
             {
                 Vector3 to = target.Center - transform.position;
                 if (Vector3.Angle(fwd, Flat(to)) > 60f) continue;
-                target.TakeHit(this, new HitData { damage = 12f * Stats.power, knockback = Flat(to) * 14f + Vector3.up * 4f, flags = HitFlags.Special | HitFlags.Launch, point = target.Center });
+                target.TakeHit(this, new HitData { damage = 12f * SuperMul, knockback = Flat(to) * 14f + Vector3.up * 4f, flags = HitFlags.Special | HitFlags.Launch, point = target.Center });
             }
             SpecialFxLocal(SpecialType.Shockwave, transform.position + Vector3.up, fwd);
             RPC_SpecialFx((byte)SpecialType.Shockwave, transform.position + Vector3.up, fwd, Me);
@@ -232,12 +235,12 @@ namespace Nullbound
             var target = AimTarget(15f, 30f);
             if (target == null) { Announce("NO TARGET"); nextSpecial = Time.time + 1f; yield break; }
             Announce("TELEKINESIS!");
-            target.TakeHit(this, new HitData { damage = 6f * Stats.power, knockback = Vector3.up * 13f, flags = HitFlags.Special | HitFlags.Launch, point = target.Center });
+            target.TakeHit(this, new HitData { damage = 6f * SuperMul, knockback = Vector3.up * 13f, flags = HitFlags.Special | HitFlags.Launch, point = target.Center });
             SpecialFxLocal(SpecialType.Telekinesis, HeadPos, target.Center);
             RPC_SpecialFx((byte)SpecialType.Telekinesis, HeadPos, target.Center, Me);
             yield return new WaitForSeconds(0.75f);
             if (!IsReady || target == null || !target.IsReady) yield break;
-            target.TakeHit(this, new HitData { damage = 14f * Stats.power, knockback = Vector3.down * 22f + Flat(target.transform.position - transform.position) * 3f, flags = HitFlags.Special | HitFlags.Heavy, point = target.Center });
+            target.TakeHit(this, new HitData { damage = 14f * SuperMul, knockback = Vector3.down * 22f + Flat(target.transform.position - transform.position) * 3f, flags = HitFlags.Special | HitFlags.Heavy, point = target.Center });
         }
 
         void Clones()
@@ -271,7 +274,7 @@ namespace Nullbound
                 var hb = h.collider.GetComponent<Hurtbox>();
                 var t = hb != null ? hb.Target : null;
                 if (t == null || ReferenceEquals(t, this) || !t.CanBeHitBy(this) || !done.Add(t)) continue;
-                t.TakeHit(this, new HitData { damage = 20f * Stats.power, knockback = dir * 10f + Vector3.up * 3f, flags = HitFlags.Special | HitFlags.Heavy | HitFlags.Launch, point = t.Center });
+                t.TakeHit(this, new HitData { damage = 20f * SuperMul, knockback = dir * 10f + Vector3.up * 3f, flags = HitFlags.Special | HitFlags.Heavy | HitFlags.Launch, point = t.Center });
             }
             SpecialFxLocal(SpecialType.Beam, start, start + dir * length);
             RPC_SpecialFx((byte)SpecialType.Beam, start, start + dir * length, Me);
@@ -474,7 +477,7 @@ namespace Nullbound
                     if (t == null || ReferenceEquals(t, owner) || !t.CanBeHitBy(owner)) continue;
                     Vector3 away = t.Center - c;
                     away.y = 0f;
-                    t.TakeHit(owner, new HitData { damage = 11f * owner.Stats.power, knockback = away.normalized * 8f + Vector3.up * 6f, flags = HitFlags.Special | HitFlags.Launch, point = t.Center });
+                    t.TakeHit(owner, new HitData { damage = 11f * owner.SuperMul, knockback = away.normalized * 8f + Vector3.up * 6f, flags = HitFlags.Special | HitFlags.Launch, point = t.Center });
                 }
             Destroy(gameObject);
         }
