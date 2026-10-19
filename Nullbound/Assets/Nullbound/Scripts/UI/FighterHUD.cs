@@ -45,7 +45,8 @@ namespace Nullbound
             Transform hand = rig != null && rig.rightHand != null ? rig.rightHand : transform;
             if (panel.parent != hand) panel.SetParent(hand, false);
             panel.localPosition = new Vector3(0.065f, 0.005f, -0.06f);
-            panel.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            // Facing out of the back of the hand, turned the right way up for when you twist your wrist to look at it.
+            panel.localRotation = Quaternion.Euler(0f, -90f, 0f) * Quaternion.Euler(0f, 0f, 180f);
             panel.localScale = Vector3.one * 0.85f;
         }
 
