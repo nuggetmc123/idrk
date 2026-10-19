@@ -152,6 +152,111 @@ namespace Nullbound
             }
         }
 
+        /// <summary>A glowing ring on the ground showing where something is about to land.</summary>
+        public static void Telegraph(Vector3 pos, float radius, Color color, float seconds)
+        {
+            var glow = NBUI.Glow(color);
+            var ring = Spawn(PrimitiveType.Cylinder, pos + Vector3.up * 0.05f, Quaternion.identity, new Vector3(radius * 2f, 0.01f, radius * 2f), new Vector3(radius * 2f, 0.01f, radius * 2f), glow, seconds);
+            ring.shrinkAtEnd = false;
+            Spawn(PrimitiveType.Cylinder, pos + Vector3.up * 0.06f, Quaternion.identity, new Vector3(0.1f, 0.012f, 0.1f), new Vector3(radius * 2f, 0.012f, radius * 2f), NBUI.Glow(color * 0.5f), seconds);
+        }
+
+        /// <summary>Run something after a delay (for effects that land a moment later).</summary>
+        public static void Delayed(float seconds, System.Action action) => FxHost.Get().Run(seconds, action);
+
+        /// <summary>A glowing rock falling from the sky onto a point, then the action.</summary>
+        public static void Falling(Vector3 from, Vector3 to, float seconds, Color color, System.Action landed)
+        {
+            var rock = Spawn(PrimitiveType.Sphere, from, Quaternion.identity, Vector3.one * 1.4f, Vector3.one * 1.4f, NBUI.Glow(color), seconds);
+            rock.velocity = (to - from) / seconds;
+            NBUI.Part(rock.transform, PrimitiveType.Sphere, Vector3.zero, Vector3.one * 1.5f, NBUI.Glow(new Color(1f, 0.3f, 0.05f) * 0.5f));
+            Delayed(seconds, landed);
+        }
+
+        /// <summary>A fan of force rolling forward (Shockwave special).</summary>
+        public static void Cone(Vector3 pos, Vector3 dir, float range, Color color)
+        {
+            var glow = NBUI.Glow(color);
+            for (int i = -3; i <= 3; i++)
+            {
+                Vector3 d = Quaternion.Euler(0f, i * 18f, 0f) * dir;
+                var wave = Spawn(PrimitiveType.Cube, pos, Quaternion.LookRotation(d), new Vector3(0.6f, 0.6f, 0.15f), new Vector3(1.6f, 1.2f, 0.05f), glow, 0.35f);
+                wave.velocity = d * range / 0.35f;
+            }
+        }
+
+        /// <summary>A spinning ring of wind round a fighter (Whirlwind).</summary>
+        public static void Spin(Transform around, float seconds, Color color)
+        {
+            var go = new GameObject("Spin").transform;
+            go.SetParent(around, false);
+            go.localPosition = Vector3.up * 1f;
+            var glow = NBUI.Glow(color);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * 90f;
+                NBUI.Part(go, PrimitiveType.Cube, Quaternion.Euler(0f, a, 0f) * new Vector3(0f, 0f, 1.6f), new Vector3(0.9f, 1.4f, 0.04f), glow, new Vector3(0f, a + 30f, 0f));
+            }
+            var life = go.gameObject.AddComponent<FxLife>();
+            life.life = seconds;
+            life.startScale = life.endScale = Vector3.one;
+            life.spin = new Vector3(0f, 900f, 0f);
+            life.shrinkAtEnd = true;
+            life.velocity = Vector3.zero;
+            life.followParent = true;
+        }
+
+        /// <summary>An energy beam between two points.</summary>
+        public static void Beam(Vector3 from, Vector3 to, Color color)
+        {
+            var root = new GameObject("Beam").transform;
+            var core = NBUI.Part(root, PrimitiveType.Cylinder, Vector3.zero, Vector3.one, NBUI.Glow(Color.white));
+            var outer = NBUI.Part(root, PrimitiveType.Cylinder, Vector3.zero, Vector3.one, NBUI.Glow(color));
+            NBUI.Span(core, from, to, 0.18f, false);
+            NBUI.Span(outer, from, to, 0.45f, false);
+            var life = root.gameObject.AddComponent<FxLife>();
+            life.life = 0.35f;
+            life.startScale = life.endScale = Vector3.one;
+            life.shrinkAtEnd = true;
+            Impact(to, from - to, color, true, false);
+        }
+
+        /// <summary>Rings rising up round a fighter (healing).</summary>
+        public static void Rings(Transform around, Color color, float seconds)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                var go = new GameObject("HealRing").transform;
+                go.SetParent(around, false);
+                go.localPosition = Vector3.up * (0.2f + i * 0.4f);
+                NBUI.Part(go, PrimitiveType.Cylinder, Vector3.zero, new Vector3(1.1f, 0.01f, 1.1f), NBUI.Glow(color));
+                var life = go.gameObject.AddComponent<FxLife>();
+                life.life = seconds;
+                life.startScale = Vector3.one * 0.6f;
+                life.endScale = Vector3.one * 1.3f;
+                life.velocity = Vector3.up * 0.8f;
+                life.followParent = true;
+            }
+        }
+
+        /// <summary>A see-through-looking glowing bubble round a fighter (Barrier).</summary>
+        public static void Bubble(Transform around, Color color, float seconds)
+        {
+            var go = new GameObject("Bubble").transform;
+            go.SetParent(around, false);
+            go.localPosition = Vector3.up * 1f;
+            // A cage of glowing rings reads as a shield without needing a transparent shader.
+            for (int i = 0; i < 3; i++)
+                NBUI.Part(go, PrimitiveType.Cylinder, Vector3.zero, new Vector3(2.1f, 0.01f, 2.1f), NBUI.Glow(color), new Vector3(i * 60f, 0f, 90f));
+            NBUI.Part(go, PrimitiveType.Cylinder, Vector3.zero, new Vector3(2.1f, 0.01f, 2.1f), NBUI.Glow(color));
+            var life = go.gameObject.AddComponent<FxLife>();
+            life.life = seconds;
+            life.startScale = life.endScale = Vector3.one;
+            life.spin = new Vector3(0f, 90f, 0f);
+            life.shrinkAtEnd = true;
+            life.followParent = true;
+        }
+
         static FxLife Spawn(PrimitiveType type, Vector3 pos, Quaternion rot, Vector3 from, Vector3 to, Material mat, float life)
         {
             var root = new GameObject("Fx").transform;
@@ -173,7 +278,7 @@ namespace Nullbound
         public float life = 0.3f;
         public Vector3 startScale = Vector3.one, endScale = Vector3.one;
         public Vector3 velocity, spin;
-        public bool gravity, shrinkAtEnd, punch, useTransformMotion = true;
+        public bool gravity, shrinkAtEnd, punch, useTransformMotion = true, followParent;
         float age;
 
         void Update()
@@ -183,7 +288,7 @@ namespace Nullbound
             if (useTransformMotion)
             {
                 if (gravity) velocity += Physics.gravity * Time.deltaTime;
-                transform.position += velocity * Time.deltaTime;
+                if (followParent) transform.localPosition += velocity * Time.deltaTime; else transform.position += velocity * Time.deltaTime;
                 if (spin != Vector3.zero) transform.Rotate(spin * Time.deltaTime);
                 float k = punch ? 1f - Mathf.Pow(1f - Mathf.Min(1f, t * 4f), 3f) : 1f - (1f - t) * (1f - t);
                 Vector3 s = Vector3.Lerp(startScale, endScale, k);
@@ -192,6 +297,28 @@ namespace Nullbound
             }
             else if (shrinkAtEnd && t > 0.75f) transform.localScale = startScale * (1f - (t - 0.75f) / 0.25f);
             if (age >= life) Destroy(gameObject);
+        }
+    }
+
+    /// <summary>Runs delayed effects (one object for the whole game).</summary>
+    public class FxHost : MonoBehaviour
+    {
+        static FxHost instance;
+
+        public static FxHost Get()
+        {
+            if (instance != null) return instance;
+            instance = new GameObject("FxHost").AddComponent<FxHost>();
+            DontDestroyOnLoad(instance.gameObject);
+            return instance;
+        }
+
+        public void Run(float seconds, System.Action action) => StartCoroutine(After(seconds, action));
+
+        static System.Collections.IEnumerator After(float seconds, System.Action action)
+        {
+            yield return new WaitForSeconds(seconds);
+            action?.Invoke();
         }
     }
 

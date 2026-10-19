@@ -16,7 +16,8 @@ namespace Nullbound
     /// has space; a new room (with a random 6-digit code) is only made when they're all full.
     /// PRIVATE LOBBY: a room only people with its code can join (no host: it lives as long as anyone's in it).
     /// Friends type your code (public or private) in Menu > Play > Join a Code.
-    /// TRAINING: just you and AI bots on this headset. No internet needed, and it's where you start.
+    /// TRAINING: just you and AI bots on this headset (the Training Grounds). No internet needed.
+    /// MAIN MENU: where the game starts and where you go back to (no session at all).
     ///
     /// Public codes start with 1-4, private codes with 5-9.
     /// </summary>
@@ -44,6 +45,8 @@ namespace Nullbound
         public bool IsTraining { get; private set; }
         /// <summary>Playing on your own because going online failed (training rules).</summary>
         public bool IsSolo { get; private set; }
+        /// <summary>In the main menu room (not in any match).</summary>
+        public bool InMenu { get; private set; } = true;
         public bool Busy { get; private set; }
         public string OnlineError { get; private set; } = "";
         /// <summary>The code friends type to join you.</summary>
@@ -80,11 +83,54 @@ namespace Nullbound
             Time.fixedDeltaTime = 1f / 72f;
         }
 
-        void Start()
+        System.Collections.IEnumerator Start()
         {
-            if (Instance != this) return;
-            // Start in training (works with no internet); Quick Match is one button away in the menu.
-            StartTraining();
+            if (Instance != this) yield break;
+            // Ask for the microphone before going anywhere (the popup pauses the game). Never wait more than 15 s.
+            MicPermission.Request();
+            float until = Time.realtimeSinceStartup + 15f;
+            while (MicPermission.Waiting && Time.realtimeSinceStartup < until) yield return null;
+            InMenu = true;
+            SetStatus("Welcome to Nullbound!", 3f);
+        }
+
+        /// <summary>Leave the match (or training) and go back to the main menu.</summary>
+        public void GoToMainMenu() => _ = RunMainMenu();
+
+        async Task RunMainMenu()
+        {
+            if (Busy) return;
+            Busy = true;
+            try
+            {
+                await ShutdownRunner();
+                VRRig.Instance?.Detach();
+                var op = SceneManager.LoadSceneAsync(worldSceneIndex, LoadSceneMode.Single);
+                while (op != null && !op.isDone) await Task.Yield();
+                hasConnectedOnce = false; // the next session doesn't need another reload
+                IsPrivate = IsTraining = IsSolo = false;
+                RoomCode = SessionName = "";
+                InMenu = true;
+            }
+            catch (Exception e) { Debug.LogException(e); }
+            Busy = false;
+        }
+
+        /// <summary>Kicked or banned by a moderator: back to the main menu, with the reason.</summary>
+        public void Removed(string why)
+        {
+            SetStatus(why, 20f);
+            ScreenFx.Message("REMOVED", why, 8f);
+            if (IsConnected && !IsTraining) GoToMainMenu();
+        }
+
+        /// <summary>Banned (or kicked a few minutes ago): no online play. Training still works.</summary>
+        bool OnlineBlocked()
+        {
+            if (!Moderation.IsBanned(out string why)) return false;
+            SetStatus(why + ". Training still works.", 8f);
+            AudioManager.Play(AudioManager.Sfx.Error);
+            return true;
         }
 
         void Update()
@@ -99,12 +145,14 @@ namespace Nullbound
         public void JoinPublic()
         {
             if (!MultiplayerAvailable) { SetStatus(OfflineMessage, 6f); return; }
+            if (OnlineBlocked()) return;
             _ = RunConnect(ConnectPublic);
         }
 
         public void CreatePrivateLobby()
         {
             if (!MultiplayerAvailable) { SetStatus(OfflineMessage, 6f); return; }
+            if (OnlineBlocked()) return;
             _ = RunConnect(CreatePrivate);
         }
 
@@ -113,6 +161,7 @@ namespace Nullbound
             if (!MultiplayerAvailable) { SetStatus(OfflineMessage, 6f); return; }
             code = (code ?? "").Trim();
             if (code.Length != 6 || !code.All(char.IsDigit) || code[0] == '0') { SetStatus("Codes are 6 digits", 3f); return; }
+            if (OnlineBlocked()) return;
             if (IsConnected && code == RoomCode) { SetStatus("You're already in " + NBUI.FormatCode(code), 3f); return; }
             _ = RunConnect(() => ConnectCode(code));
         }
@@ -140,7 +189,7 @@ namespace Nullbound
         public string DescribeRoom()
         {
             if (Busy) return string.IsNullOrEmpty(Status) ? "Connecting..." : Status;
-            if (!IsConnected) return "Offline";
+            if (!IsConnected) return InMenu ? "MAIN MENU" : "Offline";
             int bots = Fighter.All.Count(f => f.IsBot);
             string botText = bots > 0 ? "  +" + bots + " bot" + (bots > 1 ? "s" : "") : "";
             if (IsTraining) return "TRAINING (just you)" + botText;
@@ -189,7 +238,8 @@ namespace Nullbound
                 if (r != null && r.Ok) return;
             }
             OnlineError = Status.Replace("Couldn't connect: ", "");
-            await RunTraining(true);
+            await RunMainMenu();
+            SetStatus("Couldn't go online: " + OnlineError + ". Training works offline.", 10f);
         }
 
         StartGameArgs Args(string name, bool isPrivate)
@@ -279,7 +329,7 @@ namespace Nullbound
                 IsSolo = becauseOffline && result.Ok;
                 IsTraining = !becauseOffline && result.Ok;
                 if (!result.Ok) SetStatus("Couldn't start the game: " + result.ShutdownReason + " " + result.ErrorMessage, 30f);
-                else ScreenFx.Message("TRAINING", "Punch the bot! Menu button: Quick Match, fighters, settings", 5f);
+                else ScreenFx.Message("TRAINING GROUNDS", "Punch the bot and the dummies! Menu button > Main Menu to leave", 5f);
             }
             catch (Exception e)
             {
@@ -305,6 +355,7 @@ namespace Nullbound
             }
             hasConnectedOnce = true;
 
+            InMenu = false;
             IsPrivate = isPrivate;
             IsTraining = false;
             IsSolo = false;
@@ -403,13 +454,13 @@ namespace Nullbound
             if (Runner != null && runner != Runner) return;
             Runner = null;
             VRRig.Instance?.Detach();
-            SetStatus("Disconnected (" + shutdownReason + "), going back to training...", 5f);
-            Invoke(nameof(AfterDrop), 2f);
+            SetStatus("Disconnected (" + shutdownReason + ")", 8f);
+            Invoke(nameof(AfterDrop), 1f);
         }
 
         void AfterDrop()
         {
-            if (!IsConnected && !Busy) StartTraining();
+            if (!IsConnected && !Busy) GoToMainMenu();
         }
 
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }

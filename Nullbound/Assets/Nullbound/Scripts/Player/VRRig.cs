@@ -133,7 +133,7 @@ namespace Nullbound
             transform.position += offset;
         }
 
-        bool floorTracking, warnedNoVR;
+        bool floorTracking, warnedNoVR, placedInMenu;
         float missingSince = -1f;
 
         void RequestFloorTracking()
@@ -176,6 +176,13 @@ namespace Nullbound
 #endif
             var mine = Fighter.Local;
             if (mine != null && attached != mine) AttachTo(mine);
+            // In the main menu: stand at the menu's spot (once per scene load).
+            if (attached == null && !placedInMenu && MainMenu.Instance != null && SessionManager.Instance != null && SessionManager.Instance.InMenu)
+            {
+                placedInMenu = true;
+                transform.SetPositionAndRotation(MainMenu.Instance.StandPoint, MainMenu.Instance.StandRotation);
+                if (!IsXR) { head.localPosition = new Vector3(0f, standingEyeHeight, 0f); yaw = transform.eulerAngles.y; }
+            }
 
             if (recenterAt > 0f && Time.time >= recenterAt) { recenterAt = -1f; Recenter(); }
             if (recenterAgainAt > 0f && Time.time >= recenterAgainAt) { recenterAgainAt = -1f; Recenter(); }
@@ -212,7 +219,14 @@ namespace Nullbound
                 yaw += d.x;
                 pitch = Mathf.Clamp(pitch - d.y, -80f, 80f);
             }
-            head.localRotation = Quaternion.Euler(pitch, yaw, 0f);
+            head.localRotation = Quaternion.Euler(pitch, yaw - transform.eulerAngles.y, 0f);
+            // Not in a fighter (main menu): walk around with W/A/S/D.
+            if (attached == null)
+            {
+                Vector2 stick = FightInput.Move;
+                Vector3 fwd = Vector3.ProjectOnPlane(head.forward, Vector3.up).normalized, right = Vector3.Cross(Vector3.up, fwd);
+                transform.position += (fwd * stick.y + right * stick.x) * 3f * Time.deltaTime;
+            }
 
             // Clicking a menu button wins over punching.
             bool clickedButton = false;
@@ -236,7 +250,7 @@ namespace Nullbound
 
             // Hands in front of you, turning with your view. A punch shoots the hand out and back (fast enough to count),
             // H raises both into a guard in front of your face.
-            Quaternion look = Quaternion.Euler(pitch * 0.5f, yaw, 0f);
+            Quaternion look = Quaternion.Euler(pitch * 0.5f, yaw - transform.eulerAngles.y, 0f);
             bool guard = FightInput.KeyBlockHeld;
             Vector3 l = guard ? new Vector3(-0.1f, -0.05f, 0.25f) : desktopLeftHand, r = guard ? new Vector3(0.1f, -0.05f, 0.25f) : desktopRightHand;
             l += Vector3.forward * PunchReach(punchLeftAt);

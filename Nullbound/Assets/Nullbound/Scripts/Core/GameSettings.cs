@@ -10,6 +10,20 @@ namespace Nullbound
         const string SfxKey = "nb.sfxVolume", MusicKey = "nb.musicVolume", TurnKey = "nb.turnStyle",
             VignetteKey = "nb.vignette", RoomScaleKey = "nb.roomScale", FighterKey = "nb.fighter";
 
+        /// <summary>Voice chat: open mic (talks when you speak), push-to-talk (hold the left stick in) or muted.</summary>
+        public static MicMode Mic
+        {
+            get => (MicMode)Mathf.Clamp(PlayerPrefs.GetInt("nb.micMode", 0), 0, 2);
+            set { PlayerPrefs.SetInt("nb.micMode", (int)value); PlayerPrefs.Save(); }
+        }
+
+        /// <summary>How loud other players' voices are, 0..1.</summary>
+        public static float VoiceVolume
+        {
+            get => PlayerPrefs.GetFloat("nb.voiceVolume", 1f);
+            set { PlayerPrefs.SetFloat("nb.voiceVolume", Mathf.Clamp01(value)); PlayerPrefs.Save(); }
+        }
+
         /// <summary>Sound effects volume, 0..1.</summary>
         public static float SfxVolume
         {

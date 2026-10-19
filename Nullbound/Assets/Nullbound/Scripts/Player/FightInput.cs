@@ -117,6 +117,9 @@ namespace Nullbound
         public static bool KeyPunchLeft { get { Init(); return punchLeftKey.WasPressedThisFrame(); } }
         public static bool KeyBlockHeld { get { Init(); return blockKey.IsPressed(); } }
 
+        /// <summary>Push-to-talk: hold the left stick in, or V on the keyboard.</summary>
+        public static bool TalkHeld { get { Init(); return XRBtn(XRNode.LeftHand, XRUsages.primary2DAxisClick) || Keyboard.current != null && Keyboard.current.vKey.isPressed; } }
+
         /// <summary>A short buzz on one controller (hits, blocks, abilities).</summary>
         public static void Buzz(bool left, float strength, float seconds)
         {

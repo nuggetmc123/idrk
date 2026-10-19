@@ -168,8 +168,18 @@ namespace Nullbound
             // Special.
             if (me.SpecialReady >= 1f && !blocking)
             {
-                if (me.Kind == FighterKind.Brawler && dist < 3f) cmd.special = true;
-                else if (me.Kind == FighterKind.Speedster && dist > 3.5f && dist < 12f) cmd.special = true;
+                switch (me.Stats.specialType)
+                {
+                    case SpecialType.GroundSlam: case SpecialType.TitanQuake: case SpecialType.Whirlwind:
+                    case SpecialType.Uppercut: case SpecialType.Shockwave: case SpecialType.Clones:
+                        cmd.special = dist < 3f; break;                                    // up close
+                    case SpecialType.Heal:
+                        cmd.special = me.HealthFraction < 0.45f; break;
+                    case SpecialType.Barrier:
+                        cmd.special = threat && me.HealthFraction < 0.7f; break;
+                    default:
+                        cmd.special = dist > 3.5f && dist < 12f; break;                    // from range
+                }
             }
 
             // Attack strings.
@@ -190,7 +200,7 @@ namespace Nullbound
             float bestD = 40f;
             foreach (var f in Fighter.All)
             {
-                if (f == me || !f.IsReady || f.Down) continue;
+                if (f == me || !f.IsReady || f.Down || f.Hidden && f.IsVerifiedMod || f.HasStatus(Fighter.Immune)) continue;
                 if (f.IsBot && SessionManager.Instance != null && !SessionManager.Instance.BotsFightEachOther) continue;
                 float d = Vector3.Distance(f.transform.position, transform.position);
                 if (d < bestD) { bestD = d; best = f; }

@@ -12,6 +12,8 @@ namespace Nullbound
         Blocked = 8,     // set by the one who got hit
         GuardBreak = 16, // their block broke
         Empowered = 32,  // Speedster's Flash Step punch
+        Freeze = 64,     // ice: frozen in place for a moment
+        Burn = 128,      // fire: a little damage over a few seconds
     }
 
     public struct HitData

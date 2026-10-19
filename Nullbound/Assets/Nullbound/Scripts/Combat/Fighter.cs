@@ -21,7 +21,7 @@ namespace Nullbound
     /// damage, abilities a half; too many blocked hits break your guard). DODGE: B dashes the way the stick points,
     /// and you can't be hit while dashing. SPECIAL: X (see <see cref="FighterInfo"/>).
     /// </summary>
-    public class Fighter : NetworkBehaviour, IHittable
+    public partial class Fighter : NetworkBehaviour, IHittable
     {
         public static Fighter Local { get; private set; }
         public static readonly List<Fighter> All = new List<Fighter>();
@@ -42,6 +42,13 @@ namespace Nullbound
         [Networked] public int Streak { get; set; }
         /// <summary>Goes up every time this fighter uses its special (bots watch it to learn to dodge).</summary>
         [Networked] public int SpecialCount { get; set; }
+        /// <summary>Who's playing it (see <see cref="PlayerIdentity"/>); empty for bots.</summary>
+        [Networked] public NetworkString<_16> PlayerId { get; set; }
+        [Networked] public NetworkString<_16> DeviceHash { get; set; }
+        /// <summary>An invisible moderator (only obeyed for a proven moderator, see <see cref="Ghost"/>).</summary>
+        [Networked] public NetworkBool Hidden { get; set; }
+        /// <summary>Status effects everyone sees: 1 frozen, 2 burning, 4 barrier, 8 armour, 16 invincible mod.</summary>
+        [Networked] public byte Status { get; set; }
         [Networked] public Vector3 NetBody { get; set; }
         [Networked] public Vector3 NetHead { get; set; }
         [Networked] public Quaternion NetHeadRot { get; set; }
@@ -51,6 +58,14 @@ namespace Nullbound
         [Networked] public Quaternion NetRightRot { get; set; }
 
         public FighterStats Stats => FighterInfo.Get(Kind);
+        public const byte Frozen = 1, Burning = 2, Shielded = 4, Armored = 8, Immune = 16;
+        public bool HasStatus(byte bit) => (Status & bit) != 0;
+
+        /// <summary>True once this fighter's game proved it owns its Player ID (a signed hello).</summary>
+        public bool Verified { get; private set; }
+        public bool IsVerifiedMod => !IsBot && Verified && Moderation.IsMod(PlayerId.ToString());
+        /// <summary>An invisible moderator: not drawn or hittable for anyone else.</summary>
+        public bool Ghost => !IsMine && Hidden && IsVerifiedMod;
         public bool IsReady => Object != null && Object.IsValid;
         public bool IsMine => IsReady && HasStateAuthority;
         public string DisplayName => FighterName.ToString();
@@ -128,9 +143,13 @@ namespace Nullbound
                 }
                 else
                 {
-                    Kind = GameSettings.Fighter;
-                    FighterName = PlayerName.Get();
+                    Kind = Collection.IsUnlocked((int)GameSettings.Fighter) ? GameSettings.Fighter : FighterKind.Brawler;
+                    FighterName = PlayerProfile.Nickname;
+                    PlayerId = PlayerIdentity.PlayerId;
+                    DeviceHash = PlayerIdentity.DeviceHash;
+                    Verified = true;
                     Local = this;
+                    SendHello();
                 }
                 Health = Stats.maxHealth;
                 MoveTo(SpawnPoint.Pick(transform.position));
@@ -147,6 +166,7 @@ namespace Nullbound
                 solid.height = 1.8f;
                 solid.radius = 0.28f;
                 transform.position = NetBody;
+                if (!IsBot) RPC_RequestHello();
             }
             BuildHurtboxes();
             gameObject.AddComponent<FighterVisual>().Init(this);
@@ -199,6 +219,8 @@ namespace Nullbound
             if (HasStateAuthority)
             {
                 if (!IsBot && poseHead == null && VRRig.Instance != null) UseRig(VRRig.Instance);
+                if (!IsBot) Hidden = ModPowers.InvisibleNow;
+                UpdateStatus();
                 ReadPose();
                 if (!IsBot) command = PlayerCommand();
                 Simulate(Time.deltaTime);
@@ -249,7 +271,7 @@ namespace Nullbound
             bodyBox.position = new Vector3(chest.x, Mathf.Max(transform.position.y + 0.55f, chest.y), chest.z);
             bodyBox.rotation = Quaternion.identity;
             headBox.position = HeadPos;
-            bool hittable = !Down;
+            bool hittable = !Down && !(Hidden && (IsMine ? ModPowers.InvisibleNow : IsVerifiedMod));
             bodyBox.gameObject.SetActive(hittable);
             headBox.gameObject.SetActive(hittable);
         }
@@ -417,7 +439,7 @@ namespace Nullbound
             LeftHandSpeed = vl.magnitude;
             RightHandSpeed = vr.magnitude;
             if (vl.magnitude > 25f || vr.magnitude > 25f) return; // tracking jump, not a punch
-            if (Time.time < stunUntil) return;
+            if (Time.time < stunUntil || HasStatus(Frozen)) return;
             TryPunch(true, poseLeft.position, vl, ref nextPunchLeft);
             TryPunch(false, poseRight.position, vr, ref nextPunchRight);
         }
@@ -474,6 +496,7 @@ namespace Nullbound
             }
 
             target.TakeHit(this, new HitData { damage = damage, knockback = kb, flags = flags, point = fist });
+            EarnForHit(target, damage);
 
             // Instant feedback on your side (the hit is confirmed by their game a moment later).
             bool blockedGuess = target is Fighter f && f.Blocking;
@@ -499,6 +522,17 @@ namespace Nullbound
         {
             if (Down || Time.time < invulnerableUntil) return;
             var flags = (HitFlags)flagBits;
+            PlayerRef src = info.Source == PlayerRef.None && Runner != null ? Runner.LocalPlayer : info.Source;
+            // Moderator power: nothing hurts you.
+            if (!IsBot && ModPowers.InvincibleNow) { RPC_Fx((byte)FxKind.Immune, Center, 0f, PlayerRef.None); return; }
+            // Barrier: nothing gets through, and the hit bounces back (not barrier hits, so two barriers can't ping-pong).
+            if (Time.time < barrierUntil)
+            {
+                RPC_Fx((byte)FxKind.Block, point, 0f, PlayerRef.None);
+                if (attacker != null && attacker != this && (flags & HitFlags.Special) == 0)
+                    attacker.TakeHit(this, new HitData { damage = damage * 0.3f, knockback = Flat(attacker.transform.position - transform.position) * 7f + Vector3.up * 2f, flags = HitFlags.Special, point = attacker.Center });
+                return;
+            }
             // Sanity limits: a hacked client can't one-shot anyone.
             damage = Mathf.Clamp(damage, 0f, 45f);
             knockback = Vector3.ClampMagnitude(knockback, 22f);
@@ -529,11 +563,15 @@ namespace Nullbound
                 }
             }
 
+            if (Time.time < armorUntil) damage *= 0.5f;
+            if ((flags & HitFlags.Freeze) != 0 && (flags & HitFlags.Blocked) == 0) { frozenUntil = Time.time + 1.1f; stunUntil = Mathf.Max(stunUntil, frozenUntil); }
+            if ((flags & HitFlags.Burn) != 0 && (flags & HitFlags.Blocked) == 0) { burnUntil = Time.time + 3f; burnBy = attacker; }
             Health -= damage;
             if (attacker != null && attacker != this) { lastAttacker = attacker; lastAttackedAt = Time.time; }
             // Sideways push decays; the upward part becomes a real jump so launches arc and fall back down.
             Vector3 k = knockback * Stats.knockbackTaken;
             if (k.y > 0.5f) { velocity.y = Mathf.Max(velocity.y, k.y); grounded = false; }
+            else if (k.y < -0.5f) velocity.y = Mathf.Min(velocity.y, k.y); // slammed down
             k.y = 0f;
             knock += k;
             if ((flags & HitFlags.Blocked) == 0)
@@ -551,7 +589,7 @@ namespace Nullbound
             if (Health <= 0f) KnockOut(attacker);
         }
 
-        public enum FxKind : byte { Hit, Block, GuardBreak, Miss, KO, Slam, Flash, Respawn }
+        public enum FxKind : byte { Hit, Block, GuardBreak, Miss, KO, Slam, Flash, Respawn, Immune }
 
         /// <summary>Everyone shows the result of a hit (except the attacker, who already did).</summary>
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
@@ -591,6 +629,9 @@ namespace Nullbound
                 case FxKind.Respawn:
                     AudioManager.PlayAt(AudioManager.Sfx.Respawn, pos);
                     break;
+                case FxKind.Immune:
+                    Fx.Popup(pos + Vector3.up * 0.3f, "INVINCIBLE", new Color(1f, 0.85f, 0.3f), 0.9f);
+                    break;
             }
         }
 
@@ -608,17 +649,21 @@ namespace Nullbound
             Streak = 0;
             respawnAt = Time.time + 4f;
             RPC_Fx((byte)FxKind.KO, Center, 0f, PlayerRef.None);
-            if (by != null && by != this) by.RPC_ScoreKO();
+            if (by != null && by != this) by.RPC_ScoreKO(IsBot);
             if (!IsBot) ScreenFx.Message("K.O.!", "Back in the fight in a moment...", 3.5f);
         }
 
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-        public void RPC_ScoreKO()
+        public void RPC_ScoreKO(NetworkBool victimWasBot)
         {
             KOs++;
             Streak++;
             if (!IsBot)
             {
+                int coins = victimWasBot ? 10 : 30;
+                if (Streak >= 3) coins += 20;
+                Collection.Earn(coins);
+                Fx.Popup(HeadPos + transform.forward * 0.6f, "+" + coins + " coins", new Color(1f, 0.85f, 0.3f), 1f);
                 ScreenFx.Message(Streak >= 3 ? Streak + " KO STREAK!" : "K.O.!", Streak >= 3 ? "You're on fire" : "Nice hit", 2f);
                 Health = Mathf.Min(Stats.maxHealth, Health + 15f); // a little health back for a KO
             }
@@ -640,6 +685,7 @@ namespace Nullbound
         public void SwitchKind(FighterKind kind)
         {
             if (!IsMine || kind == Kind) return;
+            if (!Collection.IsUnlocked((int)kind)) { ScreenFx.Message("LOCKED", "Open crates in the main menu to unlock " + FighterInfo.Get(kind).name, 2.5f); return; }
             if (Time.time - lastAttackedAt < 6f && !Down)
             {
                 // No healing by switching mid-fight.
@@ -665,18 +711,12 @@ namespace Nullbound
 
         // ================================================================== specials (owner)
 
-        void UseSpecial()
-        {
-            nextSpecial = Time.time + Stats.specialCooldown;
-            SpecialCount++;
-            if (Kind == FighterKind.Brawler) StartSlam();
-            else FlashStep();
-        }
-
         /// <summary>Brawler: leap, then come down hard. The landing shockwave launches everyone near you.</summary>
-        void StartSlam()
+        void StartSlam(float radius = 5.5f, float damage = 18f)
         {
             slamPending = true;
+            slamRadius = radius;
+            slamDamage = damage;
             if (grounded) velocity.y = 7.5f;
             else velocity.y = -18f;
             AudioManager.PlayAt(AudioManager.Sfx.Whoosh, transform.position, 1f, 0.7f);
@@ -686,23 +726,11 @@ namespace Nullbound
         void GroundSlam()
         {
             Vector3 c = transform.position;
-            SlamFx(c);
-            RPC_Fx((byte)FxKind.Slam, c, 0f, Runner != null ? Runner.LocalPlayer : PlayerRef.None);
-            const float radius = 5.5f;
-            foreach (var target in Hittables(c, radius))
-            {
-                Vector3 to = target.Center - c;
-                float falloff = 1f - Mathf.Clamp01(Flat(to).magnitude > 0f ? new Vector3(to.x, 0f, to.z).magnitude / radius : 0f) * 0.5f;
-                Vector3 dir = Flat(to);
-                if (dir == Vector3.zero) dir = FacingFlat;
-                target.TakeHit(this, new HitData
-                {
-                    damage = 18f * Stats.power * falloff,
-                    knockback = (dir * 10f + Vector3.up * 8f) * falloff,
-                    flags = HitFlags.Special | HitFlags.Launch | HitFlags.Heavy,
-                    point = target.Center,
-                });
-            }
+            float radius = slamRadius;
+            if (radius > 6f) QuakeFx(c, radius); else SlamFx(c);
+            RPC_SpecialFx((byte)(radius > 6f ? SpecialType.TitanQuake : SpecialType.GroundSlam), c, Vector3.zero, Runner != null ? Runner.LocalPlayer : PlayerRef.None);
+            AreaHit(c, radius, slamDamage, 10f, 8f, HitFlags.Special | HitFlags.Launch | HitFlags.Heavy);
+            foreach (var b in Breakable.All) if (!b.Broken && Vector3.Distance(b.Center, c) < radius * 0.8f) b.Smash(b.Center - c);
             if (!IsBot) { FightInput.Buzz(true, 1f, 0.25f); FightInput.Buzz(false, 1f, 0.25f); ComfortVignette.Kick(0.6f); }
         }
 

@@ -1,0 +1,12 @@
+name = "nullbound-names"
+main = "index.js"
+compatibility_date = "2024-09-23"
+
+# One instance holds every name, so two people can never claim the same one at once.
+[[durable_objects.bindings]]
+name = "NAMES"
+class_name = "NameBook"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["NameBook"]

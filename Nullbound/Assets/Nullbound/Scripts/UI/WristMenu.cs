@@ -6,8 +6,9 @@ namespace Nullbound
     /// <summary>
     /// The menu: a panel floating above your left controller. Press the MENU button (three lines, left controller)
     /// to open or close it. Poke it with your right hand, or point at it and pull the trigger.
-    /// Pages: PLAY (quick match, training vs bots, private lobbies, join a code, bots), FIGHTER (pick who you
-    /// fight as) and SETTINGS (turning, comfort, room scale, volume).
+    /// Your name and Player ID are always shown at the top.
+    /// Pages: PLAY (quick match, training, private lobbies, join a code, bots, main menu), FIGHTER (switch between
+    /// the fighters you own) and SETTINGS (turning, comfort, room scale, voice, volume, and the Mod Menu for mods).
     /// Keyboard: Tab or Esc opens it, left click presses buttons.
     /// </summary>
     public class WristMenu : MonoBehaviour
@@ -26,9 +27,9 @@ namespace Nullbound
         Page page;
         float nextRefresh;
 
-        TextMeshPro status, fighterInfo, keypadText, nameLabel;
-        PokeButton lobbyButton, addBotButton, removeBotsButton, difficultyButton, turnButton, vignetteButton, roomScaleButton;
-        PokeButton[] fighterButtons;
+        TextMeshPro status, fighterInfo, keypadText, idLabel;
+        PokeButton lobbyButton, addBotButton, removeBotsButton, difficultyButton, turnButton, vignetteButton, roomScaleButton, micButton, modButton;
+        int browse = -1;
         TextMeshPro sfxBar, musicBar;
         string typed = "";
 
@@ -44,6 +45,9 @@ namespace Nullbound
 
             NBUI.Box(panel, "Backing", new Vector3(0f, -0.03f, 0.012f), new Vector3(0.26f, 0.25f, 0.01f), new Color(0.07f, 0.07f, 0.1f));
             NBUI.Part(panel, PrimitiveType.Cube, new Vector3(0f, 0.095f, 0.01f), new Vector3(0.26f, 0.003f, 0.012f), NBUI.Glow(new Color(1f, 0.35f, 0.2f)));
+            // Who you are: give your Player ID to the game's owner to become a moderator.
+            NBUI.Box(panel, "IdStrip", new Vector3(0f, 0.109f, 0.008f), new Vector3(0.26f, 0.022f, 0.004f), new Color(0.25f, 0.2f, 0.04f));
+            idLabel = NBUI.Label(panel, "", new Vector3(0f, 0.109f, 0f), 0.085f, new Color(1f, 0.86f, 0.25f), new Vector2(0.255f, 0.02f));
             string[] names = { "Play", "Fighter", "Settings" };
             var tabSize = new Vector3(0.08f, 0.026f, 0.02f);
             for (int i = 0; i < 3; i++)
@@ -96,7 +100,9 @@ namespace Nullbound
             addBotButton = PokeButton.Create(root, "AddBot", "+ Add Bot", new Vector3(-0.081f, -0.06f, 0f), third, new Color(1f, 0.85f, 0.4f), () => S?.AddBot(), 0.07f);
             removeBotsButton = PokeButton.Create(root, "RemoveBots", "Remove Bots", new Vector3(0f, -0.06f, 0f), third, new Color(0.85f, 0.7f, 0.5f), () => S?.RemoveBots(), 0.06f);
             difficultyButton = PokeButton.Create(root, "Difficulty", "", new Vector3(0.081f, -0.06f, 0f), third, new Color(0.9f, 0.6f, 0.4f), CycleDifficulty, 0.06f);
-            PokeButton.Create(root, "Recenter", "Recenter view", new Vector3(0f, -0.093f, 0f), new Vector3(0.24f, 0.024f, 0.02f), new Color(0.6f, 0.8f, 1f),
+            PokeButton.Create(root, "MainMenu", "<b>Main Menu</b>", new Vector3(-0.061f, -0.093f, 0f), new Vector3(0.118f, 0.024f, 0.02f), new Color(1f, 0.45f, 0.35f),
+                () => S?.GoToMainMenu(), 0.075f).cooldown = 2f;
+            PokeButton.Create(root, "Recenter", "Recenter view", new Vector3(0.061f, -0.093f, 0f), new Vector3(0.118f, 0.024f, 0.02f), new Color(0.6f, 0.8f, 1f),
                 () => VRRig.Instance?.Recenter(), 0.07f);
             NBUI.Label(root, "Punch = swing your fist   Block = fists up   A jump   B dash   X special", new Vector3(0f, -0.12f, 0f), 0.05f,
                 new Color(1f, 1f, 1f, 0.7f), new Vector2(0.25f, 0.015f));
@@ -104,33 +110,41 @@ namespace Nullbound
 
         void BuildFighter(Transform root)
         {
-            fighterButtons = new PokeButton[FighterInfo.Count];
-            for (int i = 0; i < FighterInfo.Count; i++)
+            var half = new Vector3(0.075f, 0.028f, 0.02f);
+            PokeButton.Create(root, "Prev", "< Prev", new Vector3(-0.082f, 0.045f, 0f), half, new Color(0.6f, 0.7f, 0.85f), () => Browse(-1), 0.075f);
+            PokeButton.Create(root, "Choose", "<b>Choose</b>", new Vector3(0f, 0.045f, 0f), half, new Color(0.5f, 1f, 0.6f), () => Pick((FighterKind)Mathf.Max(0, browse)), 0.08f);
+            PokeButton.Create(root, "Next", "Next >", new Vector3(0.082f, 0.045f, 0f), half, new Color(0.6f, 0.7f, 0.85f), () => Browse(1), 0.075f);
+            fighterInfo = NBUI.Label(root, "", new Vector3(0f, -0.035f, 0f), 0.058f, Color.white, new Vector2(0.24f, 0.12f), TextAlignmentOptions.Top);
+        }
+
+        /// <summary>Step through the fighters you own.</summary>
+        void Browse(int dir)
+        {
+            if (browse < 0) browse = (int)(Fighter.Local != null ? Fighter.Local.Kind : GameSettings.Fighter);
+            for (int n = 0; n < FighterInfo.Count; n++)
             {
-                var kind = (FighterKind)i;
-                var st = FighterInfo.Get(kind);
-                fighterButtons[i] = PokeButton.Create(root, st.name, "<b>" + st.name + "</b>", new Vector3((i - (FighterInfo.Count - 1) * 0.5f) * 0.122f, 0.04f, 0f),
-                    new Vector3(0.118f, 0.036f, 0.02f), st.main, () => Pick(kind), 0.09f);
+                browse = (browse + dir + FighterInfo.Count) % FighterInfo.Count;
+                if (Collection.IsUnlocked(browse)) break;
             }
-            fighterInfo = NBUI.Label(root, "", new Vector3(0f, -0.03f, 0f), 0.06f, Color.white, new Vector2(0.24f, 0.09f), TextAlignmentOptions.Top);
-            nameLabel = NBUI.Label(root, "", new Vector3(-0.04f, -0.11f, 0f), 0.065f, new Color(1f, 0.85f, 0.3f), new Vector2(0.16f, 0.02f));
-            PokeButton.Create(root, "Rename", "New name", new Vector3(0.085f, -0.11f, 0f), new Vector3(0.07f, 0.022f, 0.02f), new Color(0.7f, 0.7f, 0.8f),
-                () => { PlayerName.Reroll(); if (Fighter.Local != null) Fighter.Local.FighterName = PlayerName.Get(); nextRefresh = 0f; }, 0.06f);
+            nextRefresh = 0f;
         }
 
         void BuildSettings(Transform root)
         {
-            var wide = new Vector3(0.24f, 0.026f, 0.02f);
-            turnButton = PokeButton.Create(root, "Turn", "", new Vector3(0f, 0.045f, 0f), wide, new Color(0.7f, 0.75f, 1f), () => { GameSettings.Turn = (TurnStyle)(((int)GameSettings.Turn + 1) % 3); nextRefresh = 0f; }, 0.075f);
-            vignetteButton = PokeButton.Create(root, "Vignette", "", new Vector3(0f, 0.015f, 0f), wide, new Color(0.7f, 0.9f, 0.8f), () => { GameSettings.Vignette = !GameSettings.Vignette; nextRefresh = 0f; }, 0.065f);
-            roomScaleButton = PokeButton.Create(root, "RoomScale", "", new Vector3(0f, -0.015f, 0f), wide, new Color(0.8f, 0.8f, 1f), () => { GameSettings.RoomScale = !GameSettings.RoomScale; nextRefresh = 0f; }, 0.065f);
-            sfxBar = VolumeRow(root, "Sound", -0.05f, d => { GameSettings.SfxVolume = Mathf.Round((GameSettings.SfxVolume + d) * 10f) / 10f; AudioManager.RefreshVolumes(); nextRefresh = 0f; });
-            musicBar = VolumeRow(root, "Music", -0.085f, d => { GameSettings.MusicVolume = Mathf.Round((GameSettings.MusicVolume + d) * 10f) / 10f; AudioManager.RefreshVolumes(); nextRefresh = 0f; });
+            var wide = new Vector3(0.24f, 0.022f, 0.02f);
+            turnButton = PokeButton.Create(root, "Turn", "", new Vector3(0f, 0.052f, 0f), wide, new Color(0.7f, 0.75f, 1f), () => { GameSettings.Turn = (TurnStyle)(((int)GameSettings.Turn + 1) % 3); nextRefresh = 0f; }, 0.07f);
+            vignetteButton = PokeButton.Create(root, "Vignette", "", new Vector3(0f, 0.027f, 0f), wide, new Color(0.7f, 0.9f, 0.8f), () => { GameSettings.Vignette = !GameSettings.Vignette; nextRefresh = 0f; }, 0.06f);
+            roomScaleButton = PokeButton.Create(root, "RoomScale", "", new Vector3(0f, 0.002f, 0f), wide, new Color(0.8f, 0.8f, 1f), () => { GameSettings.RoomScale = !GameSettings.RoomScale; nextRefresh = 0f; }, 0.06f);
+            micButton = PokeButton.Create(root, "Mic", "", new Vector3(0f, -0.023f, 0f), wide, new Color(0.5f, 1f, 0.6f), () => { GameSettings.Mic = (MicMode)(((int)GameSettings.Mic + 1) % 3); nextRefresh = 0f; }, 0.06f);
+            sfxBar = VolumeRow(root, "Sound", -0.052f, d => { GameSettings.SfxVolume = Mathf.Round((GameSettings.SfxVolume + d) * 10f) / 10f; AudioManager.RefreshVolumes(); nextRefresh = 0f; });
+            musicBar = VolumeRow(root, "Music", -0.08f, d => { GameSettings.MusicVolume = Mathf.Round((GameSettings.MusicVolume + d) * 10f) / 10f; AudioManager.RefreshVolumes(); nextRefresh = 0f; });
+            modButton = PokeButton.Create(root, "ModMenu", "<b>MOD MENU</b>", new Vector3(0f, -0.11f, 0f), wide, new Color(1f, 0.4f, 0.35f), ModMenu.Toggle, 0.075f);
+            modButton.cooldown = 0.8f;
         }
 
         static TextMeshPro VolumeRow(Transform root, string title, float y, System.Action<float> change)
         {
-            var small = new Vector3(0.035f, 0.026f, 0.02f);
+            var small = new Vector3(0.035f, 0.022f, 0.02f);
             NBUI.Label(root, title, new Vector3(-0.09f, y, 0f), 0.075f, Color.white, new Vector2(0.06f, 0.02f));
             PokeButton.Create(root, title + "Down", "-", new Vector3(-0.04f, y, 0f), small, new Color(1f, 0.6f, 0.5f), () => change(-0.1f), 0.15f);
             var bar = NBUI.Label(root, "", new Vector3(0.035f, y, 0f), 0.07f, new Color(0.6f, 1f, 0.7f), new Vector2(0.1f, 0.02f));
@@ -207,6 +221,7 @@ namespace Nullbound
             if (!panel.gameObject.activeSelf || Time.time < nextRefresh) return;
             nextRefresh = Time.time + 0.25f;
             var s = S;
+            idLabel.text = "<b>" + PlayerProfile.Nickname + "</b>   ID: " + PlayerIdentity.PlayerId + (Moderation.IAmMod ? "  <color=#ff6a5a>MOD</color>" : "");
 
             switch (page)
             {
@@ -222,19 +237,23 @@ namespace Nullbound
                     difficultyButton.SetLabel("Bots: " + new[] { "Easy", "Normal", "Hard" }[BotBrain.Difficulty]);
                     break;
                 case Page.Fighter:
+                    if (browse < 0) browse = (int)(Fighter.Local != null ? Fighter.Local.Kind : GameSettings.Fighter);
                     var current = Fighter.Local != null ? Fighter.Local.Kind : GameSettings.Fighter;
-                    for (int i = 0; i < fighterButtons.Length; i++)
-                        fighterButtons[i].SetLabel(((int)current == i ? "> " : "") + "<b>" + FighterInfo.Get((FighterKind)i).name + "</b>");
-                    var st = FighterInfo.Get(current);
-                    fighterInfo.text = "<b>" + st.name + "</b>: " + st.style + "\n<color=#ffcf4a>" + st.special + "</color>: " + st.specialHow +
-                                       "\n<color=#7CFF8A>+ " + st.strengths + "</color>\n<color=#ff8a7a>- " + st.weakness + "</color>" +
-                                       "\n<size=80%>Health " + st.maxHealth + "   more fighters coming soon</size>";
-                    nameLabel.text = "You: " + PlayerName.Get();
+                    var st = FighterInfo.Get(browse);
+                    string rc = ColorUtility.ToHtmlStringRGB(FighterInfo.RarityColor(st.rarity));
+                    fighterInfo.text = "<b>" + st.name + "</b>  <color=#" + rc + ">" + FighterInfo.RarityName(st.rarity) + "</color>" +
+                                       ((int)current == browse ? "  <color=#7CFF8A>(you)</color>" : "") + "\n" + st.style +
+                                       "\n<color=#ffcf4a>" + st.special + "</color>: " + FighterInfo.SpecialHow(st.specialType) +
+                                       "\n<color=#7CFF8A>+ " + st.strengths + "</color>  <color=#ff8a7a>- " + st.weakness + "</color>" +
+                                       "\n<size=80%>Health " + st.maxHealth + "   You own " + Collection.UnlockedCount + "/" + FighterInfo.Count + " (crates in the main menu)</size>";
                     break;
                 case Page.Settings:
                     turnButton.SetLabel("Turning: " + GameSettings.TurnName(GameSettings.Turn));
                     vignetteButton.SetLabel("Comfort vignette: " + (GameSettings.Vignette ? "ON" : "off"));
                     roomScaleButton.SetLabel("Room scale walking: " + (GameSettings.RoomScale ? "ON" : "off"));
+                    var mic = GameSettings.Mic;
+                    micButton.SetLabel(Moderation.Muted ? "Voice: muted by a moderator" : mic == MicMode.Open ? "Voice: open mic" : mic == MicMode.PushToTalk ? "Voice: push-to-talk (hold L stick)" : "Voice: muted");
+                    modButton.gameObject.SetActive(Moderation.IAmMod);
                     sfxBar.text = Bar(GameSettings.SfxVolume);
                     musicBar.text = Bar(GameSettings.MusicVolume);
                     break;
