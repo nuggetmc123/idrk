@@ -196,7 +196,8 @@ namespace KartVR
                 Debug.LogWarning("[KartVR] Ignored a mod command with a bad signature.");
                 return;
             }
-            string modName = List.mods.FirstOrDefault(m => Same(m.id, modId))?.name ?? "a moderator";
+            string modName = List.mods.FirstOrDefault(m => Same(m.id, modId))?.name;
+            if (string.IsNullOrWhiteSpace(modName)) modName = "a moderator";
             Apply((Action)action, arg, modName);
         }
 

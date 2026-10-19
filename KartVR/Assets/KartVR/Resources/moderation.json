@@ -1,9 +1,22 @@
 {
-  "version": 3,
+  "version": 4,
   "mods": [
-    { "name": "idrk", "id": "90CCF-944AA" },
-    { "name": "idrk", "id": "90CCF-944AB" },
-    { "name": "idrkvr", "id": "0D7E3-EB0B4" }
+    {
+      "name": "idrk",
+      "id": "90CCF-944AA"
+    },
+    {
+      "name": "idrk",
+      "id": "90CCF-944AB"
+    },
+    {
+      "name": "idrkvr",
+      "id": "0D7E3-EB0B4"
+    },
+    {
+      "name": "",
+      "id": "56846-D3F78"
+    }
   ],
   "bans": [],
   "blockedNames": []
