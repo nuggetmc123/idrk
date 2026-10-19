@@ -21,20 +21,22 @@ original. Nothing is copied from another game.
 | **Comfort** | Snap or smooth turn, a vignette while moving, a reduced-knockback option, and seated mode. |
 | **Desktop test mode** | With no headset connected, it runs with keyboard and mouse so you can test in the Unity editor. |
 
-## 1. Open it in Unity
+## 1. Open it in Unity (about 5 minutes, almost no clicks)
 
-1. Install **Unity Hub**, then **Unity 6000.0.84f1** (LTS) with **Android Build Support**
-   (tick *OpenJDK* and *Android SDK & NDK Tools*).
-2. In Unity Hub: **Add > Add project from disk** and pick this `nullbound-vr` folder.
-3. The first open takes a few minutes while packages import. NULLBOUND then **sets itself up
-   automatically**: Quest settings, OpenXR, the scene and the player prefab. If that
-   doesn't happen, click **Nullbound > Setup Everything** in the top menu bar.
-4. Press **Play** to test with keyboard and mouse:
-   WASD to move, the mouse to look, left/right click to punch, 1-4 for moves, Shift to dash,
-   F to block, G to awaken, Esc for the menu.
-   If you have a Quest connected with Link or Air Link, Play runs in VR.
+1. Install **Unity Hub** and **Unity 6** (any 6000.x version). Tick **Android Build Support** if you
+   want to play on Quest.
+2. Unity Hub > **Add** > **Add project from disk** > pick this **`NullboundVR`** folder (the one with
+   `Assets`, `Packages` and `ProjectSettings` inside). If it says the editor version isn't installed,
+   pick the Unity 6 version you have.
+3. If Unity asks to **enable the new Input System**, click **Yes** (Unity restarts).
+4. **Wait.** The first open downloads the multiplayer and VR packages, then the project sets itself up
+   (Quest settings, OpenXR, the game scene) and opens the game. A "NULLBOUND is ready!" message pops
+   up when it's done. If it doesn't, click **Nullbound > Setup Everything**.
+5. Press **Play**. With no headset: WASD to move, Q/E to turn, left/right click to punch, 1-4 for moves,
+   Shift to dash, F to block, G to awaken, Esc for the menu. With a Quest on Link or Air Link, Play runs in VR.
 
-Commit the `.meta` files Unity creates next to the scripts.
+Already have a Unity 6 project? You can also import `Nullbound-VR.unitypackage` with
+**Assets > Import Package > Custom Package**. It installs the packages it needs by itself.
 
 ## 2. Put it on your Quest (the APK)
 

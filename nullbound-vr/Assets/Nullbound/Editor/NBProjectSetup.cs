@@ -290,20 +290,58 @@ namespace Nullbound.EditorTools
         }
     }
 
-    /// First time the project is opened, set everything up automatically.
+    /// First time the project is opened: wait for Unity to finish importing, set everything up,
+    /// open the game and say so. On later opens, open the game scene instead of an empty one.
     [InitializeOnLoad]
     static class NBAutoSetup
     {
+        const string ScenePath = "Assets/Nullbound/Scenes/Nullbound.unity";
+        static double s_Since;
+
         static NBAutoSetup()
         {
             if (Application.isBatchMode) return;
-            EditorApplication.delayCall += () =>
+            EditorApplication.delayCall += Begin;
+        }
+
+        static void Begin()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+            if (File.Exists(ScenePath))
             {
-                if (File.Exists("Assets/Nullbound/Scenes/Nullbound.unity")) return;
-                if (EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+                var active = EditorSceneManager.GetActiveScene();
+                if (string.IsNullOrEmpty(active.path) && !active.isDirty) EditorSceneManager.OpenScene(ScenePath);
+                return;
+            }
+            s_Since = EditorApplication.timeSinceStartup;
+            EditorApplication.update -= Tick;
+            EditorApplication.update += Tick;
+        }
+
+        static void Tick()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode) return;
+            if (EditorApplication.timeSinceStartup - s_Since < 2) return;
+            EditorApplication.update -= Tick;
+            try
+            {
+                EditorUtility.DisplayProgressBar("NULLBOUND", "Setting up VR, Quest and the game scene...", 0.6f);
                 NBProjectSetup.SetupEverything();
                 NBProjectSetup.OpenScene();
-            };
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                EditorUtility.ClearProgressBar();
+                EditorUtility.DisplayDialog("NULLBOUND", "Setup didn't finish automatically. Click Nullbound > Setup Everything, and if it still fails send the red error from the Console.", "OK");
+                return;
+            }
+            EditorUtility.ClearProgressBar();
+            EditorUtility.DisplayDialog("NULLBOUND",
+                "NULLBOUND is ready! Press the Play button at the top.\n\n" +
+                "No headset? WASD to move, Q/E to turn, left/right click to punch, 1-4 moves, Shift dash, F block, G awaken, Esc menu.\n\n" +
+                "With a Quest on Link/Air Link, Play runs in VR. Make the headset file with Nullbound > Build Quest APK.",
+                "Let's fight");
         }
     }
 }
