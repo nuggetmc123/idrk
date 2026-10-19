@@ -51,6 +51,8 @@ namespace Nullbound
         [Networked] public byte Status { get; set; }
         /// <summary>Special (super) charge 0..100, so everyone can see it on the fighter's right arm.</summary>
         [Networked] public byte SuperCharge { get; set; }
+        /// <summary>How closed each hand is (left in the high 4 bits, right in the low 4), so others see your fingers move.</summary>
+        [Networked] public byte Fingers { get; set; }
         [Networked] public Vector3 NetBody { get; set; }
         [Networked] public Vector3 NetHead { get; set; }
         [Networked] public Quaternion NetHeadRot { get; set; }
@@ -94,6 +96,10 @@ namespace Nullbound
         }
 
         /// <summary>Hand speeds (m/s, relative to the body): bots read these to see a punch coming.</summary>
+        /// <summary>This player's hand from their controller grip and trigger; a fast swing always makes a fist.</summary>
+        public float HandCurl(bool left) => (left ? LeftHandSpeed : RightHandSpeed) > 2.5f ? 1f : FightInput.HandCurl(left);
+        /// <summary>How closed a hand looks on everyone's screen (bots always make fists).</summary>
+        public float ShownCurl(bool left) => IsBot ? 1f : ((left ? Fingers >> 4 : Fingers & 15) / 15f);
         public float LeftHandSpeed { get; private set; }
         public float RightHandSpeed { get; private set; }
 
@@ -325,6 +331,11 @@ namespace Nullbound
             float now = Time.time;
             byte charge = (byte)Mathf.RoundToInt(SpecialReady * 100f);
             if (charge != SuperCharge) SuperCharge = charge;
+            if (!IsBot)
+            {
+                byte fingers = (byte)((Mathf.RoundToInt(HandCurl(true) * 15f) << 4) | Mathf.RoundToInt(HandCurl(false) * 15f));
+                if (fingers != Fingers) Fingers = fingers;
+            }
 
             if (Down)
             {

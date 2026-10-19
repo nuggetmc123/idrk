@@ -146,6 +146,7 @@ namespace Nullbound
                 bool show = !fighter.Down;
                 if (model.leftGlove != null) { model.leftGlove.gameObject.SetActive(show); model.leftGlove.localScale = Vector3.one * pulse; }
                 if (model.rightGlove != null) { model.rightGlove.gameObject.SetActive(show); model.rightGlove.localScale = Vector3.one * pulse; }
+                model.SetCurl(fighter.HandCurl(true), fighter.HandCurl(false));
                 bool body = show && GameSettings.FullBody && fighter.poseHead != null && fighter.poseLeft != null && fighter.poseRight != null;
                 model.root.gameObject.SetActive(body);
                 if (body)
@@ -197,6 +198,7 @@ namespace Nullbound
             else tumbleRot = Quaternion.identity;
 
             model.handPulse = pulse;
+            model.SetCurl(fighter.ShownCurl(true), fighter.ShownCurl(false));
             model.Pose(new PoseInput
             {
                 feet = feet, headPos = fighter.HeadPos, headRot = fighter.HeadRot,

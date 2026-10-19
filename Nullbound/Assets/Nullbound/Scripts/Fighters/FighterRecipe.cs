@@ -24,6 +24,9 @@ namespace Nullbound
         public Bone bone;
         public Shape shape;
         public Vector3 pos, euler, scale;
+        /// <summary>When set, rotation is used instead of euler (finger segments).</summary>
+        public Quaternion rotation;
+        public bool useRotation;
         public Slot slot;
         public Anim anim;
         public float phase;
@@ -275,7 +278,7 @@ namespace Nullbound
                 P("Bracer", fore, Shape.Cylinder, new Vector3(0f, b.forearm * 0.78f, 0f), new Vector3(b.armThick * 1.2f, b.forearm * 0.2f, b.armThick * 1.2f),
                     outfit == Outfit.Gi || outfit == Outfit.Tank ? Slot.Cloth : outfit == Outfit.Tech || outfit == Outfit.Armor ? Slot.Metal : Slot.Secondary);
                 P("BracerGlow", fore, Shape.Cylinder, new Vector3(0f, b.forearm * 0.7f, 0f), new Vector3(b.armThick * 1.25f, 0.008f, b.armThick * 1.25f), Slot.Accent);
-                Glove(list, hand, s, b);
+                Glove(list, hand, x, s, b);
             }
 
             // ---------------- head
@@ -286,24 +289,87 @@ namespace Nullbound
             return list;
         }
 
-        static void Glove(List<PartSpec> list, Bone hand, FighterStats s, BodySpec b)
+        /// <summary>
+        /// A gloved hand with five fingers. Hand space: the palm centre is where the controller's grip is, +Z is where
+        /// your knuckles point, +Y is the thumb side (up when you hold the controller), and the palm faces the body
+        /// (-X on the right hand, +X on the left).
+        /// </summary>
+        static void Glove(List<PartSpec> list, Bone hand, float side, FighterStats s, BodySpec b)
         {
+            float k = 1.15f * b.handScale;
             void P(string name, Shape shape, Vector3 pos, Vector3 scale, Slot slot, Vector3 euler = default)
-                => list.Add(new PartSpec { name = name, bone = hand, shape = shape, pos = pos * 1.15f * b.handScale, scale = scale * 1.15f * b.handScale, euler = euler, slot = slot });
+                => list.Add(new PartSpec { name = name, bone = hand, shape = shape, pos = pos * k, scale = scale * k, euler = euler, slot = slot });
             bool metal = s.glove == GloveType.Metal;
-            float big = s.glove == GloveType.Big ? 1.25f : 1f;
-            Slot g = Slot.Glove;
-            if (metal) P("Fist", Shape.Cube, new Vector3(0f, 0f, 0.02f), new Vector3(0.11f, 0.1f, 0.13f), g);
-            else P("Fist", Shape.Sphere, new Vector3(0f, 0f, 0.02f), new Vector3(0.12f, 0.11f, 0.14f) * big, g);
-            if (metal) P("Knuckles", Shape.Cube, new Vector3(0f, 0.012f, 0.08f), new Vector3(0.11f, 0.035f, 0.035f), Slot.Accent);
-            else P("Knuckles", Shape.Sphere, new Vector3(0f, 0.018f, 0.068f * big), new Vector3(0.1f * big, 0.05f, 0.05f), Slot.Accent);
-            P("Thumb", Shape.Capsule, new Vector3(-0.045f, -0.025f, 0.05f), new Vector3(0.035f, 0.045f, 0.035f) * big, g, new Vector3(60f, 0f, 30f));
-            P("Cuff", Shape.Cylinder, new Vector3(0f, 0f, -0.065f), new Vector3(0.105f, 0.035f, 0.105f) * big, Slot.Dark, new Vector3(90f, 0f, 0f));
-            P("CuffTrim", Shape.Cylinder, new Vector3(0f, 0f, -0.045f), new Vector3(0.11f, 0.006f, 0.11f) * big, Slot.Accent, new Vector3(90f, 0f, 0f));
-            if (s.glove == GloveType.Claws)
-                for (int i = -1; i <= 1; i++)
-                    P("Claw", Shape.Cube, new Vector3(i * 0.032f, 0.02f, 0.14f), new Vector3(0.012f, 0.012f, 0.12f), Slot.Ivory, new Vector3(-8f, 0f, 0f));
-            if (metal) P("Spikes", Shape.Cube, new Vector3(0f, 0.04f, 0.06f), new Vector3(0.1f, 0.02f, 0.02f), Slot.Accent);
+            float big = s.glove == GloveType.Big ? 1.2f : 1f;
+            // Palm and the back of the hand.
+            P("Palm", metal ? Shape.Cube : Shape.Sphere, new Vector3(side * 0.02f, 0f, -0.005f), new Vector3(0.04f, 0.085f, 0.095f) * big, Slot.Glove);
+            P("HandBack", Shape.Cube, new Vector3(side * 0.033f, 0f, 0f), new Vector3(0.014f, 0.07f, 0.07f) * big, metal ? Slot.Metal : Slot.Glove);
+            P("KnuckleGuard", metal ? Shape.Cube : Shape.Capsule, new Vector3(side * 0.03f, 0f, 0.035f * big), metal ? new Vector3(0.022f, 0.085f, 0.026f) * big : new Vector3(0.024f, 0.045f, 0.024f) * big, Slot.Accent);
+            P("Cuff", Shape.Cylinder, new Vector3(side * 0.012f, 0f, -0.065f), new Vector3(0.075f, 0.03f, 0.09f) * big, Slot.Dark, new Vector3(90f, 0f, 0f));
+            P("CuffTrim", Shape.Cylinder, new Vector3(side * 0.012f, 0f, -0.048f), new Vector3(0.08f, 0.005f, 0.095f) * big, Slot.Accent, new Vector3(90f, 0f, 0f));
+            if (metal) P("Spikes", Shape.Cube, new Vector3(side * 0.045f, 0f, 0.035f), new Vector3(0.02f, 0.07f, 0.012f), Slot.Accent);
+            Fingers(list, hand, side, s, b, 0.9f);
+        }
+
+        struct FingerDef { public Vector3 root, dir, axis; public float[] len, bend; public float thick; }
+
+        static FingerDef[] FingerDefs(float side, float big)
+        {
+            var defs = new FingerDef[5];
+            float[] ys = { 0.03f, 0.01f, -0.01f, -0.029f };
+            float[][] lens = { new[] { 0.045f, 0.028f, 0.022f }, new[] { 0.05f, 0.03f, 0.024f }, new[] { 0.046f, 0.028f, 0.022f }, new[] { 0.036f, 0.022f, 0.018f } };
+            for (int f = 0; f < 4; f++)
+                defs[f] = new FingerDef
+                {
+                    root = new Vector3(side * 0.012f, ys[f] * big, 0.04f * big), dir = new Vector3(0f, ys[f] * 0.5f, 1f).normalized,
+                    axis = new Vector3(0f, -side, 0f), len = lens[f], bend = new[] { 85f, 95f, 70f }, thick = (f == 3 ? 0.018f : 0.021f) * big,
+                };
+            // Thumb: from the base of the palm on the thumb side, forward and across; it folds over the fingers.
+            Vector3 tdir = new Vector3(-side * 0.45f, 0.45f, 0.77f).normalized;
+            defs[4] = new FingerDef
+            {
+                root = new Vector3(side * 0.0f, 0.032f * big, -0.02f * big), dir = tdir, axis = Vector3.Cross(tdir, new Vector3(-side, 0f, 0f)).normalized,
+                len = new[] { 0.035f, 0.03f, 0.024f }, bend = new[] { 25f, 45f, 35f }, thick = 0.023f * big,
+            };
+            return defs;
+        }
+
+        /// <summary>
+        /// The finger segments of one hand, closed by curl (0 = open hand, 1 = fist). Called again every frame with the
+        /// player's grip to move the same parts, in the same order.
+        /// </summary>
+        public static void Fingers(List<PartSpec> list, Bone hand, float side, FighterStats s, BodySpec b, float curl)
+        {
+            float k = 1.15f * b.handScale;
+            bool metal = s.glove == GloveType.Metal, claws = s.glove == GloveType.Claws;
+            float big = s.glove == GloveType.Big ? 1.2f : 1f;
+            var defs = FingerDefs(side, big);
+            for (int f = 0; f < defs.Length; f++)
+            {
+                var d = defs[f];
+                Vector3 p = d.root, dir = d.dir;
+                float thick = d.thick;
+                for (int i = 0; i < 3; i++)
+                {
+                    dir = Quaternion.AngleAxis(d.bend[i] * Mathf.Clamp01(curl) + (f == 4 ? 0f : 4f), d.axis) * dir;
+                    float len = d.len[i] * big;
+                    Vector3 mid = p + dir * (len * 0.5f);
+                    Quaternion rot = FighterPose.Frame(dir, Vector3.up);
+                    list.Add(new PartSpec
+                    {
+                        name = "Finger", bone = hand, shape = metal ? Shape.Cube : Shape.Capsule, pos = mid * k, rotation = rot, useRotation = true,
+                        scale = (metal ? new Vector3(thick, len, thick) : new Vector3(thick, (len + thick) * 0.5f, thick)) * k, slot = Slot.Glove,
+                    });
+                    p += dir * len;
+                    thick *= 0.92f;
+                }
+                if (claws && f < 4)
+                    list.Add(new PartSpec
+                    {
+                        name = "Finger", bone = hand, shape = Shape.Cube, pos = (p + dir * 0.015f) * k, rotation = FighterPose.Frame(dir, Vector3.up), useRotation = true,
+                        scale = new Vector3(0.008f, 0.035f, 0.008f) * k, slot = Slot.Ivory,
+                    });
+            }
         }
 
         static void Head(List<PartSpec> list, FighterStats s, BodySpec b)

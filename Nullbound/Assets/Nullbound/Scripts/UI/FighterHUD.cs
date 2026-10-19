@@ -4,8 +4,8 @@ using UnityEngine;
 namespace Nullbound
 {
     /// <summary>
-    /// A display strapped to the side of your RIGHT forearm (raise your arm and glance at it): health, guard, special
-    /// and dash, always in the same spot so you know where to look. Without a headset it sits at the lower right of
+    /// A display on the back of your RIGHT hand, like a watch (turn the back of your hand toward you): health, guard,
+    /// special and dash. It's fixed to the hand, so it goes wherever your hand goes. Without a headset it sits at the lower right of
     /// your view. (The menu stays on the left wrist.)
     /// </summary>
     public class FighterHUD : MonoBehaviour
@@ -20,12 +20,7 @@ namespace Nullbound
         {
             var rig = VRRig.Instance;
             panel = new GameObject("WristHUD").transform;
-            // On the forearm behind the right hand, on the inner side, tilted up toward your eyes.
-            Transform anchor = rig != null && rig.rightHand != null ? rig.rightHand : transform;
-            panel.SetParent(anchor, false);
-            // Sits on top of your fighter's forearm (not inside it) now that you can see your own body.
-            panel.localPosition = new Vector3(-0.04f, 0.075f, -0.15f);
-            panel.localRotation = Quaternion.Euler(45f, 0f, 20f);
+            StickToHand();
             NBUI.Box(panel, "Frame", new Vector3(0f, 0f, 0.006f), new Vector3(0.138f, 0.083f, 0.003f), new Color(1f, 0.75f, 0.2f));
             NBUI.Box(panel, "Back", new Vector3(0f, 0f, 0.004f), new Vector3(0.13f, 0.075f, 0.004f), new Color(0.06f, 0.06f, 0.09f));
             hpGood = NBUI.Glow(new Color(0.3f, 1f, 0.45f));
@@ -37,6 +32,21 @@ namespace Nullbound
             hpText = NBUI.Label(panel, "", new Vector3(0f, 0.022f, -0.003f), 0.09f, Color.black, new Vector2(0.12f, 0.016f));
             specialText = NBUI.Label(panel, "", new Vector3(0f, -0.008f, -0.003f), 0.07f, Color.black, new Vector2(0.12f, 0.012f));
             info = NBUI.Label(panel, "", new Vector3(0f, 0.032f + 0.012f, -0.002f), 0.06f, Color.white, new Vector2(0.13f, 0.012f));
+        }
+
+        /// <summary>
+        /// In VR the display is fixed to the back of your right hand, just behind the knuckles over the wrist, like a
+        /// watch: it moves with your hand wherever it goes. Turn the back of your hand toward you to read it. Set every
+        /// frame, so nothing (like the desktop layout before the headset woke up) can leave it out of place.
+        /// </summary>
+        void StickToHand()
+        {
+            var rig = VRRig.Instance;
+            Transform hand = rig != null && rig.rightHand != null ? rig.rightHand : transform;
+            if (panel.parent != hand) panel.SetParent(hand, false);
+            panel.localPosition = new Vector3(0.065f, 0.005f, -0.06f);
+            panel.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            panel.localScale = Vector3.one * 0.85f;
         }
 
         Transform Bar(float y, float height, Material fill, out Renderer r)
@@ -69,7 +79,8 @@ namespace Nullbound
             panel.gameObject.SetActive(me != null && me.IsReady);
             if (me == null || !me.IsReady) return;
 
-            if (!VRRig.IsXR && VRRig.Instance != null && VRRig.Instance.head != null)
+            if (VRRig.IsXR) StickToHand();
+            else if (VRRig.Instance != null && VRRig.Instance.head != null)
             {
                 // Desktop: lower right of the view (where your right arm is), not in the middle.
                 var head = VRRig.Instance.head;

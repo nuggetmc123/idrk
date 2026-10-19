@@ -150,8 +150,14 @@ menu > Settings > Body.
 on the outside of their right forearm with a green health bar and a gold super bar (flashing when the super is ready),
 so you can read how hurt someone is and whether their super is coming. Their name still floats above their head.
 
-**Your own health and power are on your right forearm**: raise your right arm and look at the gold-framed screen behind
-your hand for health, guard, special (ready or seconds left) and dash. The menu is still on the left wrist.
+**Your own health and power are on the back of your right hand**, like a watch: turn the back of your right hand
+toward you to see health, guard, special (ready or seconds left) and dash. It's fixed to your hand, so it goes
+wherever your hand goes. Without a headset it's at the lower right of the screen. The menu is still on the left wrist.
+
+**Hands with five fingers**: every fighter's gloves have a thumb and four fingers. Squeeze the grip (and trigger) to
+make a fist, let go to open your hand; everyone else sees your fingers move too. A fast punch always closes the fist.
+Bots always make fists. The gloves follow the controller's pointing direction, so your knuckles point where your real
+knuckles do.
 
 Combos (4th hit launches), heavy hits, blocking with a guard meter (guard break stuns you), dodging (can't be hit
 mid-dash), K.O. and respawn, streaks. Pillars, crates, walls, buildings, the car and the dojo's paper walls break.

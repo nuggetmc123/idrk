@@ -61,9 +61,31 @@ namespace Nullbound
         {
             if (!IsXR) return;
             ApplyPose(head, XRNode.CenterEye, UnityEngine.XR.CommonUsages.centerEyePosition, UnityEngine.XR.CommonUsages.centerEyeRotation);
-            ApplyPose(leftHand, XRNode.LeftHand, UnityEngine.XR.CommonUsages.devicePosition, UnityEngine.XR.CommonUsages.deviceRotation);
-            ApplyPose(rightHand, XRNode.RightHand, UnityEngine.XR.CommonUsages.devicePosition, UnityEngine.XR.CommonUsages.deviceRotation);
+            ApplyHandPose(leftHand, XRNode.LeftHand);
+            ApplyHandPose(rightHand, XRNode.RightHand);
         }
+
+        static readonly InputFeatureUsage<Quaternion> PointerRotation = new InputFeatureUsage<Quaternion>("PointerRotation");
+
+        /// <summary>
+        /// Hands: the position is the grip (the middle of your palm, where your real hand is), and the direction is the
+        /// controller's pointing direction, which is where your knuckles point when you punch. (The grip's own rotation
+        /// follows the angled handle, which made the gloves look tilted against your real hands.)
+        /// </summary>
+        static void ApplyHandPose(Transform t, XRNode node)
+        {
+            if (t == null) return;
+            var device = InputDevices.GetDeviceAtXRNode(node);
+            if (!device.isValid) return;
+            if (device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.devicePosition, out Vector3 pos)) t.localPosition = pos;
+            bool Ok(Quaternion q) => q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z > 0.5f;
+            if (device.TryGetFeatureValue(PointerRotation, out Quaternion aim) && Ok(aim)) t.localRotation = aim;
+            else if (device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceRotation, out Quaternion rot) && Ok(rot))
+                t.localRotation = rot * Quaternion.Euler(GripToAimDegrees, 0f, 0f);
+        }
+
+        /// <summary>Only used if the controller doesn't report a pointing direction: tilt the grip to match it.</summary>
+        const float GripToAimDegrees = -35f;
 
         static void ApplyPose(Transform t, XRNode node, InputFeatureUsage<Vector3> posUsage, InputFeatureUsage<Quaternion> rotUsage)
         {

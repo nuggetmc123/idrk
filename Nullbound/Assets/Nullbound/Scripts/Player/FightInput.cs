@@ -102,6 +102,13 @@ namespace Nullbound
         /// <summary>Trigger pulls (used to click menu buttons with the laser pointer).</summary>
         public static float LeftTrigger => XRVal(XRNode.LeftHand, XRUsages.trigger);
         public static float RightTrigger => XRVal(XRNode.RightHand, XRUsages.trigger);
+        /// <summary>How closed a hand is, 0 (open) to 1 (fist): the grip and trigger under your fingers. A fist without a headset.</summary>
+        public static float HandCurl(bool left)
+        {
+            if (!UnityEngine.XR.XRSettings.isDeviceActive) return 1f;
+            var node = left ? XRNode.LeftHand : XRNode.RightHand;
+            return Mathf.Clamp01(Mathf.Max(XRVal(node, XRUsages.grip), XRVal(node, XRUsages.trigger) * 0.9f, XRGrip(node) ? 1f : 0f));
+        }
         public static bool LeftGripHeld { get { Init(); return gripLeft.IsPressed() || XRGrip(XRNode.LeftHand); } }
         public static bool RightGripHeld { get { Init(); return gripRight.IsPressed() || XRGrip(XRNode.RightHand); } }
 

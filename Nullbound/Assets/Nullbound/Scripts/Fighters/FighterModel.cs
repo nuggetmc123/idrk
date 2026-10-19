@@ -90,7 +90,9 @@ namespace Nullbound
                     pos -= pivot;
                 }
                 var t = NBUI.Part(parentT, Prim(p.shape), pos, p.scale, SlotMaterial(p.slot, s, silhouette, mats), p.euler, p.name);
+                if (p.useRotation) t.localRotation = p.rotation;
                 if (p.slot == Slot.Glove) m.gloveRenderers.Add(t.GetComponent<Renderer>());
+                if (p.name == "Finger") (p.bone == Bone.HandL ? m.fingersL : m.fingersR).Add(t);
                 if (p.anim == Anim.Orbit || p.anim == Anim.Flicker || p.anim == Anim.Thrust) m.AddExtra(t, p.anim, p.phase);
             }
 
@@ -105,6 +107,29 @@ namespace Nullbound
         }
 
         public Transform BoneOf(Bone b) => bones[(int)b];
+
+        readonly List<Transform> fingersL = new List<Transform>(), fingersR = new List<Transform>();
+        float curlL = 0.9f, curlR = 0.9f;
+        static readonly List<PartSpec> fingerScratch = new List<PartSpec>();
+
+        /// <summary>Open or close the hands (0 = open, 1 = fist), e.g. from the controller grips.</summary>
+        public void SetCurl(float left, float right)
+        {
+            if (Mathf.Abs(left - curlL) > 0.02f) { curlL = left; ApplyCurl(fingersL, Bone.HandL, -1f, left); }
+            if (Mathf.Abs(right - curlR) > 0.02f) { curlR = right; ApplyCurl(fingersR, Bone.HandR, 1f, right); }
+        }
+
+        void ApplyCurl(List<Transform> fingers, Bone hand, float side, float curl)
+        {
+            fingerScratch.Clear();
+            FighterRecipe.Fingers(fingerScratch, hand, side, stats, body, curl);
+            for (int i = 0; i < fingers.Count && i < fingerScratch.Count; i++)
+            {
+                if (fingers[i] == null) continue;
+                fingers[i].localPosition = fingerScratch[i].pos;
+                fingers[i].localRotation = fingerScratch[i].rotation;
+            }
+        }
         public float Scale => stats.scale;
 
         /// <summary>Show or hide the whole model (invisible moderators, K.O.).</summary>
