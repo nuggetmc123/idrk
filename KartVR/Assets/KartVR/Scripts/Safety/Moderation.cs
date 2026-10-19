@@ -24,6 +24,14 @@ namespace KartVR
         public string until = "";   // "" = forever, or a date like 2026-12-31
     }
 
+    /// <summary>Lifts in-game kicks/bans (and mutes) given to this Player ID before the time.</summary>
+    [Serializable]
+    public class PardonEntry
+    {
+        public string id = "";      // Player ID
+        public string before = "";  // UTC, e.g. 2026-10-19 02:30: anything given before this is lifted
+    }
+
     [Serializable]
     public class ModerationList
     {
@@ -31,6 +39,7 @@ namespace KartVR
         public ModEntry[] mods = new ModEntry[0];
         public BanEntry[] bans = new BanEntry[0];
         public string[] blockedNames = new string[0];
+        public PardonEntry[] pardons = new PardonEntry[0];
     }
 
     /// <summary>
@@ -51,7 +60,7 @@ namespace KartVR
             "https://raw.githubusercontent.com/" + Repo + "/main/KartVR/Assets/KartVR/Resources/moderation.json",
             "https://raw.githubusercontent.com/" + Repo + "/claude/optimistic-thompson-p39nuz/KartVR/Assets/KartVR/Resources/moderation.json",
         };
-        const string CacheKey = "kartvr.modList", LocalBanKey = "kartvr.localBan", MuteKey = "kartvr.mutedUntil";
+        const string CacheKey = "kartvr.modList", LocalBanKey = "kartvr.localBan", MuteKey = "kartvr.mutedUntil", MuteGivenKey = "kartvr.mutedAt";
 
         public enum Action : byte { Kick = 1, Ban = 2, Rename = 3, Mute = 4 }
 
@@ -137,6 +146,7 @@ namespace KartVR
         public static bool IsBanned(out string why)
         {
             why = null;
+            ApplyPardons();
             // A ban a mod gave us in game.
             string local = PlayerPrefs.GetString(LocalBanKey, "");
             if (local.Length > 0)
@@ -220,15 +230,43 @@ namespace KartVR
                     break;
                 case Action.Mute:
                     PlayerPrefs.SetString(MuteKey, (Now + Mathf.Max(1, arg) * 60L).ToString());
+                    PlayerPrefs.SetString(MuteGivenKey, Now.ToString());
                     PlayerPrefs.Save();
                     sessions?.SetStatus("You were muted for " + Mathf.Max(1, arg) + " minutes by " + modName, 8f);
                     break;
             }
         }
 
+        /// <summary>
+        /// The owner can undo an in-game kick or ban (or mute) from moderation.json: a pardon for your ID lifts
+        /// anything a mod gave you before its time, so you can still be kicked again afterwards.
+        /// </summary>
+        static void ApplyPardons()
+        {
+            if (List.pardons == null) return;
+            foreach (var p in List.pardons)
+            {
+                if (p == null || !Same(p.id, PlayerIdentity.PlayerId)) continue;
+                if (!DateTime.TryParse(p.before, System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var when)) continue;
+                long cutoff = new DateTimeOffset(when, TimeSpan.Zero).ToUnixTimeSeconds();
+                string local = PlayerPrefs.GetString(LocalBanKey, "");
+                if (local.Length > 0)
+                {
+                    // Bans saved by older versions have no time: treat them as old.
+                    var parts = local.Split('|');
+                    long given = parts.Length > 2 && long.TryParse(parts[2], out long g) ? g : 0;
+                    if (given <= cutoff) { PlayerPrefs.DeleteKey(LocalBanKey); Debug.Log("[KartVR] A moderator ban/kick was lifted."); }
+                }
+                string mute = PlayerPrefs.GetString(MuteGivenKey, "0");
+                if (long.TryParse(mute, out long mutedAt) && mutedAt <= cutoff) { PlayerPrefs.DeleteKey(MuteKey); PlayerPrefs.DeleteKey(MuteGivenKey); }
+                PlayerPrefs.Save();
+            }
+        }
+
         static void SaveLocalBan(long until, string reason)
         {
-            PlayerPrefs.SetString(LocalBanKey, until + "|" + reason.Replace("|", "/"));
+            PlayerPrefs.SetString(LocalBanKey, until + "|" + reason.Replace("|", "/") + "|" + Now);
             PlayerPrefs.Save();
         }
     }
@@ -249,7 +287,11 @@ namespace KartVR
             gameObject.AddComponent<HalloweenWatcher>();
             Moderation.Updated += () =>
             {
-                if (Moderation.IsBanned(out string why)) SessionManager.Instance?.Removed(why);
+                var sessions = SessionManager.Instance;
+                if (Moderation.IsBanned(out string why)) sessions?.Removed(why);
+                else if (sessions != null && sessions.IsSolo && !sessions.Busy &&
+                         (sessions.OnlineError.Contains("anned") || sessions.OnlineError.Contains("kicked")))
+                    sessions.JoinPublic(KartMode.Hub); // a pardon just lifted the kick/ban: back online
             };
         }
     }

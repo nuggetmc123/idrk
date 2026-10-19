@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "mods": [
     {
       "name": "idrk",
@@ -19,5 +19,11 @@
     }
   ],
   "bans": [],
-  "blockedNames": []
+  "blockedNames": [],
+  "pardons": [
+    {
+      "id": "86846-D3F78",
+      "before": "2026-10-19 03:00"
+    }
+  ]
 }

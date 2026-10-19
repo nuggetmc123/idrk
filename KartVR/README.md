@@ -82,6 +82,11 @@ names are refused. If a bad one gets through, a moderator can **force a rename**
 **Your Player ID.** Menu > Menu shows your name and a Player ID like `3F9A2-C01B7`. It comes from a secret key made
 on your headset, so nobody can copy it to pretend to be you.
 
+**Undoing an in-game kick, ban or mute.** Those are saved on the player's own headset, so add a pardon to
+`moderation.json` (and raise `version`): `"pardons": [{ "id": "86846-D3F78", "before": "2026-10-19 03:00" }]`
+(UTC). Anything a mod gave that Player ID before that time is lifted the next time their game starts; later kicks
+still count. (Needs a build from Oct 19 2026 or newer on their headset.)
+
 **Making someone a moderator / banning for good.** Edit `Assets/KartVR/Resources/moderation.json`, **raise
 `"version"` by 1**, and push it to GitHub (`nuggetmc123/idrk`). Every headset downloads the newest list when the game
 starts, so no new APK is needed (the list built into the APK is the fallback).
