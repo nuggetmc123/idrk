@@ -28,7 +28,7 @@ namespace Nullbound
         float nextRefresh;
 
         TextMeshPro status, fighterInfo, keypadText, idLabel;
-        PokeButton lobbyButton, addBotButton, removeBotsButton, difficultyButton, turnButton, vignetteButton, roomScaleButton, micButton, modButton, bodyButton;
+        PokeButton lobbyButton, addBotButton, removeBotsButton, difficultyButton, turnButton, vignetteButton, roomScaleButton, micButton, modButton, bodyButton, playModButton;
         int browse = -1;
         TextMeshPro sfxBar, musicBar;
         string typed = "";
@@ -43,11 +43,11 @@ namespace Nullbound
             panel.localPosition = PanelOffset;
             panel.localRotation = Quaternion.Euler(PanelTilt);
 
-            NBUI.Box(panel, "Backing", new Vector3(0f, -0.03f, 0.012f), new Vector3(0.26f, 0.25f, 0.01f), new Color(0.07f, 0.07f, 0.1f));
+            NBUI.Box(panel, "Backing", new Vector3(0f, -0.045f, 0.012f), new Vector3(0.26f, 0.28f, 0.01f), new Color(0.07f, 0.07f, 0.1f));
             NBUI.Part(panel, PrimitiveType.Cube, new Vector3(0f, 0.095f, 0.01f), new Vector3(0.26f, 0.003f, 0.012f), NBUI.Glow(new Color(1f, 0.35f, 0.2f)));
             // Who you are: give your Player ID to the game's owner to become a moderator.
-            NBUI.Box(panel, "IdStrip", new Vector3(0f, 0.109f, 0.008f), new Vector3(0.26f, 0.022f, 0.004f), new Color(0.25f, 0.2f, 0.04f));
-            idLabel = NBUI.Label(panel, "", new Vector3(0f, 0.109f, 0f), 0.085f, new Color(1f, 0.86f, 0.25f), new Vector2(0.255f, 0.02f));
+            NBUI.Box(panel, "IdStrip", new Vector3(0f, 0.112f, 0.008f), new Vector3(0.26f, 0.028f, 0.004f), new Color(0.25f, 0.2f, 0.04f));
+            idLabel = NBUI.Fit(NBUI.Label(panel, "", new Vector3(0f, 0.112f, -0.002f), 0.11f, new Color(1f, 0.86f, 0.25f), new Vector2(0.25f, 0.026f)), 0.05f);
             string[] names = { "Play", "Fighter", "Settings" };
             var tabSize = new Vector3(0.08f, 0.026f, 0.02f);
             for (int i = 0; i < 3; i++)
@@ -104,7 +104,10 @@ namespace Nullbound
                 () => S?.GoToMainMenu(), 0.075f).cooldown = 2f;
             PokeButton.Create(root, "Recenter", "Recenter view", new Vector3(0.061f, -0.093f, 0f), new Vector3(0.118f, 0.024f, 0.02f), new Color(0.6f, 0.8f, 1f),
                 () => VRRig.Instance?.Recenter(), 0.07f);
-            NBUI.Label(root, "Punch = swing your fist   Block = fists up   A jump   B dash   X special", new Vector3(0f, -0.12f, 0f), 0.05f,
+            // Moderators: the mod menu right here on the first page (it's also under Settings).
+            playModButton = PokeButton.Create(root, "ModMenuPlay", "<b>MOD MENU</b>", new Vector3(0f, -0.124f, 0f), new Vector3(0.24f, 0.024f, 0.02f), new Color(1f, 0.4f, 0.35f), ModMenu.Toggle, 0.075f);
+            playModButton.cooldown = 0.8f;
+            NBUI.Label(root, "Punch = swing   Block = fists up   A jump   B dash   X fly   R-stick super", new Vector3(0f, -0.15f, 0f), 0.05f,
                 new Color(1f, 1f, 1f, 0.7f), new Vector2(0.25f, 0.015f));
         }
 
@@ -223,7 +226,8 @@ namespace Nullbound
             if (!panel.gameObject.activeSelf || Time.time < nextRefresh) return;
             nextRefresh = Time.time + 0.25f;
             var s = S;
-            idLabel.text = "<b>" + PlayerProfile.Nickname + "</b>   ID: " + PlayerIdentity.PlayerId + (Moderation.IAmMod ? "  <color=#ff6a5a>MOD</color>" : "");
+            idLabel.text = "<b>" + PlayerProfile.Nickname + "</b>    PLAYER ID: <b>" + PlayerIdentity.PlayerId + "</b>" + (Moderation.IAmMod ? "   <color=#ff6a5a>MOD</color>" : "");
+            playModButton.gameObject.SetActive(Moderation.IAmMod);
 
             switch (page)
             {

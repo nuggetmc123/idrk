@@ -176,6 +176,17 @@ namespace Nullbound
             return tmp;
         }
 
+        /// <summary>Keep a label on one line, shrinking it to fit its box instead of wrapping (titles, IDs).</summary>
+        public static TextMeshPro Fit(TextMeshPro t, float minSize)
+        {
+            t.enableWordWrapping = false;
+            t.enableAutoSizing = true;
+            t.fontSizeMax = t.fontSize;
+            t.fontSizeMin = minSize;
+            t.overflowMode = TextOverflowModes.Overflow;
+            return t;
+        }
+
         /// <summary>A visual box (no collider) with a shared material.</summary>
         public static GameObject Box(Transform parent, string name, Vector3 localPos, Vector3 scale, Color color)
         {

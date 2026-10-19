@@ -579,13 +579,17 @@ namespace Nullbound.EditorTools
                 "<b>PUNCH:</b> really punch! Faster swings hit harder. 4 hits in a row = LAUNCH\n" +
                 "<b>BLOCK:</b> both fists up in front of your face\n" +
                 "<b>A</b> jump   <b>B</b> dodge dash (you can't be hit mid-dash)\n" +
-                "<b>X</b> special   <b>Menu button</b>: Quick Match, Training, fighters, settings\n" +
+                "<b>X</b> fly into your target   <b>Click right stick</b> super   <b>Menu button</b>: Quick Match, Training, fighters, settings\n" +
                 "Left stick move, right stick turn. Smash walls, crates and pillars!", neonCyan);
             Posts(scenery, new Vector3(-Half + 0.2f, 0f, 0f), true);
             var title = Group("Title", scenery, new Vector3(0f, 9f, Half + 1.5f));
             Prim(PrimitiveType.Cube, "TitleBack", title, new Vector3(0f, 0f, 0.3f), new Vector3(22f, 4f, 0.4f), sign);
             Prim(PrimitiveType.Cube, "TitleGlow", title, new Vector3(0f, -2.05f, 0.1f), new Vector3(22.2f, 0.12f, 0.12f), neonRed, false);
-            Text(title, "TitleText", "<b>NULLBOUND</b>", new Vector3(0f, 0.35f, 0f), Quaternion.identity, 24f, new Color(1f, 0.45f, 0.3f), new Vector2(21f, 2.6f));
+            var titleText = Text(title, "TitleText", "<b>NULLBOUND</b>", new Vector3(0f, 0.35f, 0f), Quaternion.identity, 22f, new Color(1f, 0.45f, 0.3f), new Vector2(21f, 2.6f));
+            titleText.enableWordWrapping = false;
+            titleText.enableAutoSizing = true;
+            titleText.fontSizeMax = 22f;
+            titleText.fontSizeMin = 8f;
             Text(title, "Subtitle", "TRAINING GROUNDS", new Vector3(0f, -1.3f, 0f), Quaternion.identity, 8f, Color.white, new Vector2(21f, 1f));
             for (int i = -1; i <= 1; i += 2) Prim(PrimitiveType.Cube, "TitlePost", title, new Vector3(i * 9f, -5f, 0.4f), new Vector3(0.5f, 6f, 0.5f), metal);
 

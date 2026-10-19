@@ -73,7 +73,11 @@ namespace Nullbound
         void BuildCenter()
         {
             var p = Panel("PlayPanel", new Vector3(0f, 1.55f, 2.6f), 0f, new Vector2(1.7f, 1.45f), new Color(1f, 0.35f, 0.2f));
-            NBUI.Label(p, "<b>NULLBOUND</b>", new Vector3(0f, 0.6f, 0f), 2.6f, new Color(1f, 0.45f, 0.3f), new Vector2(1.6f, 0.22f));
+            // The title: one line (it used to be too wide for its box and wrapped into "NULLBOUN / D").
+            var title = NBUI.Fit(NBUI.Label(p, "<b>NULLBOUND</b>", new Vector3(0f, 0.6f, -0.01f), 2.4f, new Color(1f, 0.45f, 0.3f), new Vector2(1.6f, 0.24f)), 1f);
+            title.characterSpacing = 6f;
+            title.outlineWidth = 0.15f;
+            title.outlineColor = new Color32(40, 8, 0, 255);
             who = NBUI.Label(p, "", new Vector3(0f, 0.43f, 0f), 0.75f, Color.white, new Vector2(1.6f, 0.12f));
             coinsText = NBUI.Label(p, "", new Vector3(0f, 0.33f, 0f), 0.75f, new Color(1f, 0.85f, 0.3f), new Vector2(1.6f, 0.1f));
 
