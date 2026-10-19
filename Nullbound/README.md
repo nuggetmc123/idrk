@@ -22,6 +22,17 @@ Menu (top bar) **Nullbound**:
 
 Without Photon Fusion the game still runs (main menu and Training Grounds vs bots).
 
+## Putting it on the Meta store
+
+**Nullbound > Build for Quest (APK)** makes a store-ready APK:
+- The first time, it makes your own **release key** in `Documents/Nullbound Keystore/` (the password is saved next to
+  it) and signs every build with it, from any copy of the project. **Back that folder up.** The store only accepts
+  updates signed with the same key.
+- It builds one plain 64-bit APK (no app bundle, no debug build), and it marks the app as a VR app for Quest 2, Pro,
+  3 and 3S, so the store copy opens in VR.
+- If you ever put a debug-signed copy on your headset by hand, **uninstall it first** (headset > Library > ... >
+  Uninstall). Otherwise the store version can't install over it.
+
 ## Main menu
 
 You stand in a round room with three big panels (point with a controller and pull the trigger, or poke):

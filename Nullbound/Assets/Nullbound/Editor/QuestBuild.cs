@@ -53,6 +53,8 @@ namespace Nullbound.EditorTools
                 ArenaBuilder.BuildWorld();
 
             ApplySettings();
+            QuestStoreReady.PlainApk();
+            if (!QuestStoreReady.EnsureSigning()) return;
 
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
             {
@@ -87,11 +89,9 @@ namespace Nullbound.EditorTools
             EditorUtility.DisplayDialog("Nullbound - Build for Quest",
                 "Built " + path + " (version " + PlayerSettings.bundleVersion + ", code " + PlayerSettings.Android.bundleVersionCode + ").\n\n" +
                 "Put it on YOUR headset: Meta Quest Developer Hub > Device Manager > drag the APK in.\n\n" +
-                "Share it with friends: upload it to your app in the Meta Horizon developer dashboard and invite them to a release channel." +
-                (PlayerSettings.Android.useCustomKeystore ? "" :
-                    "\n\nNOTE: this APK is signed with Unity's debug key. That's fine on your own headset, but the store needs your own key: " +
-                    "Edit > Project Settings > Player > Android > Publishing Settings > Keystore Manager > Create New. Keep the keystore and passwords safe; " +
-                    "you need the same ones for every update."),
+                "Share it with friends: upload THIS file to your app in the Meta Horizon developer dashboard (a release channel), and " +
+                "invite them. It's signed with your store key (" + PlayerSettings.Android.keystoreName + "): back that up, every update needs it.\n\n" +
+                "If you put an earlier debug-signed copy on your headset by hand, uninstall it first, or the store version can't install over it.",
                 "OK");
         }
 
