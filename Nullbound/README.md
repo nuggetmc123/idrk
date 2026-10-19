@@ -167,10 +167,13 @@ The real battle map, **300 m across**:
 Everything that breaks rebuilds itself from the ground up after about a minute.
 
 **Edges:** a solid wall of cliffs runs all the way round the map (the rocks overlap, so there are no gaps), with big
-mountains behind it. **Sky barrier:** an invisible ceiling 70 m up stops anyone being launched out of the map. It's
-drawn as a faint glowing grid across the sky and up the edges, so you can see where the map ends. **Houses** have
+mountains behind it (invisible walls stop you at the edge). **Houses** have
 proper peaked roofs with closed gable ends, a ridge beam, a chimney and a door step. Smash the walls and the roof
 falls in.
+
+**Bots:** Quick Match fills up with bots so there's always someone to fight: up to 8 fighters in total, and a bot
+leaves each time a real player joins. Bots don't pay coins (only real players do). In private lobbies you still add
+bots yourself from the wrist menu.
 
 ## Training Grounds (Training only, 90 m across)
 

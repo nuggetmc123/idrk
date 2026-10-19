@@ -66,7 +66,6 @@ namespace Nullbound.EditorTools
                 Object.DestroyImmediate(barrier.GetComponent<Renderer>());
                 Object.DestroyImmediate(barrier.GetComponent<MeshFilter>());
             }
-            SkyBarrier(scenery);
             RockBoundary(scenery, rockMat, rng);
 
             // The castle plaza in the middle.
@@ -269,28 +268,7 @@ namespace Nullbound.EditorTools
             br.regrowSeconds = 50f;
         }
 
-        /// <summary>The sky barrier: an invisible ceiling over the whole map (nobody gets launched out), drawn as a faint
-        /// glowing grid in the sky and up the edges so you can see where it is.</summary>
-        const float SkyHeight = 70f;
-        static void SkyBarrier(Transform scenery)
-        {
-            var grid = Tex("SkyGrid", 128, (u, v, r) =>
-            {
-                float lu = Mathf.Min(u, 1f - u), lv = Mathf.Min(v, 1f - v);
-                float line = Mathf.Clamp01(1f - Mathf.Min(lu, lv) * 40f);
-                return new Color(0.45f, 0.9f, 1f, line * 0.55f);
-            });
-            float span = BattleHalf * 2f + 4f;
-            var top = Fade(Mat("SkyBarrier", Color.white, 0f, 0f, grid, new Vector2(span / 10f, span / 10f), new Color(0.2f, 0.5f, 0.6f)));
-            var sides = Fade(Mat("SkyBarrierSide", Color.white, 0f, 0f, grid, new Vector2(span / 10f, (SkyHeight - 3f) / 10f), new Color(0.2f, 0.5f, 0.6f)));
-            var ceiling = Prim(PrimitiveType.Cube, "SkyCeiling", scenery, new Vector3(0f, SkyHeight + 1f, 0f), new Vector3(span, 2f, span), wall);
-            Object.DestroyImmediate(ceiling.GetComponent<Renderer>());
-            Object.DestroyImmediate(ceiling.GetComponent<MeshFilter>());
-            Prim(PrimitiveType.Quad, "SkyGrid", scenery, new Vector3(0f, SkyHeight, 0f), new Vector3(span, span, 1f), top, false, Quaternion.Euler(-90f, 0f, 0f));
-            float y = 3f + (SkyHeight - 3f) * 0.5f, e = BattleHalf + 2f;
-            foreach (var (p, yaw) in new[] { (new Vector3(0f, y, e), 0f), (new Vector3(0f, y, -e), 180f), (new Vector3(e, y, 0f), 90f), (new Vector3(-e, y, 0f), -90f) })
-                Prim(PrimitiveType.Quad, "SkyWall", scenery, p, new Vector3(span, SkyHeight - 3f, 1f), sides, false, Quaternion.Euler(0f, yaw, 0f));
-        }
+        const float SkyHeight = 40f; // height of the invisible walls at the edge
 
         /// <summary>A solid ring of cliffs all the way round the map (rocks overlap so there are no gaps), with big
         /// mountains behind them.</summary>

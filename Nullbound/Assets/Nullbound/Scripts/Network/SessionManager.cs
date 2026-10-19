@@ -140,6 +140,32 @@ namespace Nullbound
             int others = 0;
             foreach (var f in Fighter.All) if (f.IsReady && f != Fighter.Local && !f.Down) others++;
             AudioManager.InBattle = others > 0;
+            FillWithBots();
+        }
+
+        /// <summary>Quick Match keeps the Battleground busy: bots fill up to this many fighters, and leave as people join.</summary>
+        public const int BattlegroundFighters = 8;
+        float nextBotCheck;
+
+        /// <summary>
+        /// One game (the room's master client) tops Quick Match up with bots so there's always someone to fight, and takes
+        /// them out again as real players join. Bots don't pay coins. (Private lobbies and Training add bots by hand.)
+        /// </summary>
+        void FillWithBots()
+        {
+            if (!IsConnected || IsTraining || IsSolo || IsPrivate || InMenu || CurrentMap != ArenaMap.Battleground) return;
+            if (Time.time < nextBotCheck) return;
+            nextBotCheck = Time.time + 2.5f;
+            if (!Runner.IsSharedModeMasterClient || Fighter.Local == null) return;
+            int people = Runner.ActivePlayers.Count();
+            int bots = Fighter.All.Count(f => f.IsBot);
+            int want = Mathf.Max(0, BattlegroundFighters - people);
+            if (bots < want) SpawnBot();
+            else if (bots > want)
+            {
+                var mine = Fighter.All.FirstOrDefault(f => f.IsBot && f.IsMine);
+                if (mine != null) Runner.Despawn(mine.Object);
+            }
         }
 
         // ---------------- public API (menu)

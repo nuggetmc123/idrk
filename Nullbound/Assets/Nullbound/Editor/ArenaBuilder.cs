@@ -26,7 +26,7 @@ namespace Nullbound.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 4; // 4 = Battleground: fixed house roofs, sky barrier, rock wall
+        public const int WorldVersion = 5; // 5 = real colliders on flat cylinders / squashed spheres, no sky barrier
         const string WorldVersionFile = "ProjectSettings/NullboundWorldVersion.txt";
         public static bool WorldUpToDate => File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
         public static bool TextResourcesReady => Resources.Load<TMP_Settings>("TMP Settings") != null;
@@ -312,6 +312,16 @@ namespace Nullbound.EditorTools
             go.transform.localRotation = rot ?? Quaternion.identity;
             go.transform.localScale = scale;
             if (!collider) Object.DestroyImmediate(go.GetComponent<Collider>());
+            else if (type == PrimitiveType.Cylinder || (type != PrimitiveType.Cube && type != PrimitiveType.Quad && type != PrimitiveType.Plane &&
+                     (Mathf.Abs(scale.x - scale.y) > 0.01f || Mathf.Abs(scale.y - scale.z) > 0.01f)))
+            {
+                // Unity gives cylinders a capsule collider, and squashed spheres a round one sized by their biggest
+                // side: a flat 36 m plaza became an invisible 18 m ball you couldn't walk onto. Use the real shape.
+                Object.DestroyImmediate(go.GetComponent<Collider>());
+                var mc = go.AddComponent<MeshCollider>();
+                mc.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
+                mc.convex = true;
+            }
             go.GetComponent<Renderer>().sharedMaterial = mat;
             return go;
         }
