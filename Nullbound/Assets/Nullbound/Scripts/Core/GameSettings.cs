@@ -59,6 +59,13 @@ namespace Nullbound
             set { PlayerPrefs.SetInt(RoomScaleKey, value ? 1 : 0); PlayerPrefs.Save(); }
         }
 
+        /// <summary>Gore: blood when people get hit. Off (the default) = confetti instead.</summary>
+        public static bool Gore
+        {
+            get => PlayerPrefs.GetInt("nb.gore", 0) == 1;
+            set { PlayerPrefs.SetInt("nb.gore", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
         /// <summary>See your own full body (arms, chest, legs) when you look down. Off = just your gloves.</summary>
         public static bool FullBody
         {

@@ -28,7 +28,7 @@ namespace Nullbound
         float nextRefresh;
 
         TextMeshPro status, fighterInfo, keypadText, idLabel;
-        PokeButton lobbyButton, addBotButton, removeBotsButton, difficultyButton, turnButton, vignetteButton, roomScaleButton, micButton, modButton, bodyButton, playModButton;
+        PokeButton lobbyButton, addBotButton, removeBotsButton, difficultyButton, turnButton, vignetteButton, roomScaleButton, micButton, modButton, bodyButton, playModButton, goreButton;
         int browse = -1;
         TextMeshPro sfxBar, musicBar;
         string typed = "";
@@ -138,7 +138,8 @@ namespace Nullbound
             var half = new Vector3(0.117f, 0.022f, 0.02f);
             bodyButton = PokeButton.Create(root, "Body", "", new Vector3(0.0615f, 0.052f, 0f), half, new Color(1f, 0.8f, 0.6f), () => { GameSettings.FullBody = !GameSettings.FullBody; nextRefresh = 0f; }, 0.06f);
             turnButton = PokeButton.Create(root, "Turn", "", new Vector3(-0.0615f, 0.052f, 0f), half, new Color(0.7f, 0.75f, 1f), () => { GameSettings.Turn = (TurnStyle)(((int)GameSettings.Turn + 1) % 3); nextRefresh = 0f; }, 0.07f);
-            vignetteButton = PokeButton.Create(root, "Vignette", "", new Vector3(0f, 0.027f, 0f), wide, new Color(0.7f, 0.9f, 0.8f), () => { GameSettings.Vignette = !GameSettings.Vignette; nextRefresh = 0f; }, 0.06f);
+            goreButton = PokeButton.Create(root, "Gore", "", new Vector3(0.0615f, 0.027f, 0f), half, new Color(1f, 0.45f, 0.5f), () => { GameSettings.Gore = !GameSettings.Gore; nextRefresh = 0f; }, 0.06f);
+            vignetteButton = PokeButton.Create(root, "Vignette", "", new Vector3(-0.0615f, 0.027f, 0f), half, new Color(0.7f, 0.9f, 0.8f), () => { GameSettings.Vignette = !GameSettings.Vignette; nextRefresh = 0f; }, 0.06f);
             roomScaleButton = PokeButton.Create(root, "RoomScale", "", new Vector3(0f, 0.002f, 0f), wide, new Color(0.8f, 0.8f, 1f), () => { GameSettings.RoomScale = !GameSettings.RoomScale; nextRefresh = 0f; }, 0.06f);
             micButton = PokeButton.Create(root, "Mic", "", new Vector3(0f, -0.023f, 0f), wide, new Color(0.5f, 1f, 0.6f), () => { GameSettings.Mic = (MicMode)(((int)GameSettings.Mic + 1) % 3); nextRefresh = 0f; }, 0.06f);
             sfxBar = VolumeRow(root, "Sound", -0.052f, d => { GameSettings.SfxVolume = Mathf.Round((GameSettings.SfxVolume + d) * 10f) / 10f; AudioManager.RefreshVolumes(); nextRefresh = 0f; });
@@ -255,7 +256,8 @@ namespace Nullbound
                     break;
                 case Page.Settings:
                     turnButton.SetLabel("Turn: " + GameSettings.TurnName(GameSettings.Turn));
-                    vignetteButton.SetLabel("Comfort vignette: " + (GameSettings.Vignette ? "ON" : "off"));
+                    vignetteButton.SetLabel("Vignette: " + (GameSettings.Vignette ? "ON" : "off"));
+                    goreButton.SetLabel(GameSettings.Gore ? "Gore: <b>ON</b>" : "Gore: off (confetti)");
                     bodyButton.SetLabel("Body: " + (GameSettings.FullBody ? "ON" : "off"));
                     roomScaleButton.SetLabel("Room scale walking: " + (GameSettings.RoomScale ? "ON" : "off"));
                     var mic = GameSettings.Mic;

@@ -646,6 +646,7 @@ namespace Nullbound
                 case FxKind.Hit:
                     if (!attackerHere) { Fx.Impact(pos, Vector3.up, new Color(1f, 0.8f, 0.4f), amount > 12f, false); AudioManager.PlayAt(amount > 12f ? AudioManager.Sfx.HeavyPunch : AudioManager.Sfx.Punch, pos); }
                     Fx.Popup(pos + Vector3.up * 0.2f, Mathf.RoundToInt(amount).ToString(), amount > 12f ? new Color(1f, 0.45f, 0.2f) : Color.white, amount > 12f ? 1.3f : 1f);
+                    Gore.Hit(pos, (pos - Center) + Vector3.up * 0.2f, amount);
                     break;
                 case FxKind.Block:
                     if (!attackerHere) { Fx.Impact(pos, Vector3.up, Color.cyan, false, true); AudioManager.PlayAt(AudioManager.Sfx.Block, pos); }
@@ -662,6 +663,7 @@ namespace Nullbound
                     AudioManager.PlayAt(AudioManager.Sfx.KO, pos);
                     Fx.Shockwave(transform.position, 2.5f, s.main);
                     Fx.Popup(pos + Vector3.up * 0.6f, "K.O.!", new Color(1f, 0.25f, 0.2f), 2.2f);
+                    Gore.KnockOut(Center, transform.position);
                     break;
                 case FxKind.Slam:
                     if (!attackerHere) SlamFx(pos);

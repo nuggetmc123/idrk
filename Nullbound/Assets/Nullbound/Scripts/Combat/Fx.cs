@@ -279,6 +279,8 @@ namespace Nullbound
         public Vector3 startScale = Vector3.one, endScale = Vector3.one;
         public Vector3 velocity, spin;
         public bool gravity, shrinkAtEnd, punch, useTransformMotion = true, followParent;
+        /// <summary>Air drag (confetti flutters down slowly).</summary>
+        public float drag;
         float age;
 
         void Update()
@@ -288,6 +290,7 @@ namespace Nullbound
             if (useTransformMotion)
             {
                 if (gravity) velocity += Physics.gravity * Time.deltaTime;
+                if (drag > 0f) velocity *= Mathf.Exp(-drag * Time.deltaTime);
                 if (followParent) transform.localPosition += velocity * Time.deltaTime; else transform.position += velocity * Time.deltaTime;
                 if (spin != Vector3.zero) transform.Rotate(spin * Time.deltaTime);
                 float k = punch ? 1f - Mathf.Pow(1f - Mathf.Min(1f, t * 4f), 3f) : 1f - (1f - t) * (1f - t);

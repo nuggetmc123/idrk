@@ -201,6 +201,11 @@ or 50 for a super, so nobody gets one-shot from full health by a single punch.) 
 damage). With nobody in your sights you fly a short way where you're looking. 4 s cooldown; getting hit knocks you out
 of the air. Giants are too heavy to fly, so they charge along the ground instead. Bots fly at you too.
 
+**Gore (wrist menu > Settings > Gore)**: OFF by default, and every hit and K.O. bursts into colourful confetti
+(streamers too on a K.O.). Turn it ON for blood: hits spray droplets that arc and fall, wet splats land on the ground
+around you, and a knocked-out fighter leaves a pool that spreads out under them. Realistic-ish but no wounds or body
+parts; stains fade after 18-25 s (only the newest 40 are kept). It's a per-headset setting, so each player chooses.
+
 **Supers hit hard and send you rolling**: a clean special that launches or hits heavy does 25% more damage and 40%
 more knockback, and the target goes into a **ragdoll tumble** for 1.3 s: it flies back, bounces, slides along the
 ground and rolls over with its arms and legs flailing (you can't act until you stop rolling). Your own view doesn't
