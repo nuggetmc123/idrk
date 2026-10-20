@@ -144,6 +144,7 @@ namespace Nullbound.EditorTools
             PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.Vulkan });
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
             EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC;
+            RenderSetup.Apply(); // Linear colour, 4x MSAA, shadows, the Android quality level and graphics tiers
 
             // The Meta store rejects any APK whose install location isn't "auto".
             PlayerSettings.Android.preferredInstallLocation = AndroidPreferredInstallLocation.Auto;

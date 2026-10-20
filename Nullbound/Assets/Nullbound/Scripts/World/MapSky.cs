@@ -3,25 +3,23 @@ using UnityEngine;
 namespace Nullbound
 {
     /// <summary>
-    /// Each place has its own sky and fog: the main menu a starry night, the Training Grounds a clear blue day, the
-    /// Battleground a warm sunset. Switched whenever you move between them (Unity has one sky at a time).
+    /// Each place has its own lighting (LightingPresets): the main menu and the Training Grounds are indoor test-lab
+    /// looks, the Battleground a warm late afternoon. Switched whenever you move between them (Unity has one sky, one
+    /// sun and one fog at a time): sky, sun direction and colour, ambient, fog and the fallback reflections.
     /// </summary>
     public static class MapSky
     {
         enum Place { None, Menu, Training, Battleground }
         static Place current;
         static Material menuSky, trainingSky, battleSky;
+        static Cubemap menuReflect, trainingReflect, battleReflect;
 
-        static Material Make(Color sky, Color ground, float thickness, float exposure, float sunSize)
+        static Material Make(LightingPreset p)
         {
-            var shader = Shader.Find("Skybox/Procedural");
+            var shader = Shader.Find("Skybox/Procedural"); // kept in builds by the scene's Sky material
             if (shader == null) return null;
-            var m = new Material(shader);
-            m.SetColor("_SkyTint", sky);
-            m.SetColor("_GroundColor", ground);
-            m.SetFloat("_AtmosphereThickness", thickness);
-            m.SetFloat("_Exposure", exposure);
-            m.SetFloat("_SunSize", sunSize);
+            var m = new Material(shader) { name = "Sky_" + p.name };
+            LightingPresets.SetUpSky(m, p);
             return m;
         }
 
@@ -31,34 +29,28 @@ namespace Nullbound
             var want = inMenu ? Place.Menu : map == ArenaMap.Battleground ? Place.Battleground : Place.Training;
             if (want == current) return;
             current = want;
-            if (menuSky == null)
+            if (menuSky == null && trainingSky == null && battleSky == null)
             {
-                menuSky = Make(new Color(0.25f, 0.2f, 0.45f), new Color(0.05f, 0.04f, 0.08f), 0.4f, 0.35f, 0.02f);
-                trainingSky = Make(new Color(0.45f, 0.6f, 0.9f), new Color(0.35f, 0.38f, 0.4f), 0.9f, 1.25f, 0.05f);
-                battleSky = Make(new Color(0.9f, 0.5f, 0.35f), new Color(0.3f, 0.22f, 0.2f), 1.8f, 1.1f, 0.07f);
+                menuSky = Make(LightingPresets.Menu);
+                trainingSky = Make(LightingPresets.Training);
+                battleSky = Make(LightingPresets.Battleground);
+            }
+            if (menuReflect == null)
+            {
+                menuReflect = LightingPresets.MakeReflectionCubemap(LightingPresets.Menu);
+                trainingReflect = LightingPresets.MakeReflectionCubemap(LightingPresets.Training);
+                battleReflect = LightingPresets.MakeReflectionCubemap(LightingPresets.Battleground);
             }
             switch (want)
             {
-                case Place.Menu:
-                    Apply(menuSky, new Color(0.12f, 0.08f, 0.2f), 45f, 200f, new Color(0.35f, 0.3f, 0.55f));
-                    break;
-                case Place.Training:
-                    Apply(trainingSky, new Color(0.62f, 0.72f, 0.88f), 90f, 380f, new Color(0.6f, 0.62f, 0.7f));
-                    break;
-                default:
-                    Apply(battleSky, new Color(0.75f, 0.52f, 0.45f), 90f, 380f, new Color(0.65f, 0.5f, 0.5f));
-                    break;
+                case Place.Menu: LightingPresets.Apply(LightingPresets.Menu, menuSky, menuReflect); break;
+                case Place.Training: LightingPresets.Apply(LightingPresets.Training, trainingSky, trainingReflect); break;
+                default: LightingPresets.Apply(LightingPresets.Battleground, battleSky, battleReflect); break;
             }
-        }
-
-        static void Apply(Material sky, Color fog, float fogStart, float fogEnd, Color ambient)
-        {
-            if (sky != null) RenderSettings.skybox = sky;
-            RenderSettings.fogColor = fog;
-            RenderSettings.fogStartDistance = fogStart;
-            RenderSettings.fogEndDistance = fogEnd;
-            RenderSettings.ambientSkyColor = ambient;
             DynamicGI.UpdateEnvironment();
         }
+
+        /// <summary>Forget the current place so the next Update applies its preset again (e.g. after a scene reload).</summary>
+        public static void Reset() => current = Place.None;
     }
 }

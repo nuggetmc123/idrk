@@ -20,7 +20,7 @@ namespace Nullbound.EditorTools
         /// <summary>The room you stand in for the main menu, far from the arena (fog hides it).</summary>
         static void BuildMainMenuRoom()
         {
-            var room = Group("MainMenuRoom", null, new Vector3(0f, 0f, -420f));
+            var room = Group("MainMenuRoom", null, new Vector3(0f, 0f, -1500f));
             var floorMat = Mat("MenuFloor", new Color(0.08f, 0.08f, 0.11f), 0.6f);
             Prim(PrimitiveType.Cylinder, "Floor", room, new Vector3(0f, -0.1f, 0f), new Vector3(16f, 0.1f, 16f), floorMat);
             Prim(PrimitiveType.Cylinder, "FloorRing", room, new Vector3(0f, 0.005f, 0f), new Vector3(15f, 0.01f, 15f), neonRed, false);
@@ -77,6 +77,8 @@ namespace Nullbound.EditorTools
             menu.transform.SetParent(room, false);
             menu.AddComponent<MainMenu>();
             MarkStatic(room);
+            Probe("MenuProbe", room, new Vector3(0f, 3f, 0f), new Vector3(18f, 8f, 18f));
+            ArtPass(room);
         }
 
     }

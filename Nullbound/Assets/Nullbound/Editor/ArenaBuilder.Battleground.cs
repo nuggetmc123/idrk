@@ -45,11 +45,11 @@ namespace Nullbound.EditorTools
             var grass = Mat("BattleGrass", Color.white, 0.1f, 0f, grassTex, new Vector2(60f, 60f));
             var hillMat = Mat("Hill", Color.white, 0.1f, 0f, grassTex, new Vector2(6f, 6f));
             var dirt = Mat("Dirt", new Color(0.45f, 0.35f, 0.24f), 0.1f);
-            var rockMat = Mat("BattleRock", new Color(0.5f, 0.47f, 0.44f), 0.15f, 0f, AssetDatabase.LoadAssetAtPath<Texture2D>(Root + "/Textures/Concrete.png"));
+            var rockMat = ArenaBuilder.rockMat;
             var plaster = new[] { Mat("Plaster1", new Color(0.92f, 0.86f, 0.74f), 0.1f), Mat("Plaster2", new Color(0.8f, 0.72f, 0.6f), 0.1f), Mat("Plaster3", new Color(0.7f, 0.78f, 0.82f), 0.1f) };
             var roofs = new[] { Mat("RoofRed", new Color(0.65f, 0.2f, 0.15f), 0.2f), Mat("RoofBlue", new Color(0.2f, 0.3f, 0.5f), 0.2f), Mat("RoofBrown", new Color(0.4f, 0.26f, 0.16f), 0.2f) };
             var timber = Mat("Timber", new Color(0.35f, 0.22f, 0.12f), 0.2f);
-            var towerStone = Mat("TowerStone", new Color(0.62f, 0.6f, 0.56f), 0.15f, 0f, AssetDatabase.LoadAssetAtPath<Texture2D>(Root + "/Textures/Concrete.png"));
+            var towerStone = stoneBlocksMat;
             var leafMat = Mat("Pine", new Color(0.12f, 0.35f, 0.18f), 0.1f);
             var bark = Mat("Bark", new Color(0.3f, 0.2f, 0.12f), 0.1f);
 
@@ -70,7 +70,7 @@ namespace Nullbound.EditorTools
 
             // The castle plaza in the middle.
             Take(Vector3.zero, 22f);
-            Prim(PrimitiveType.Cylinder, "Plaza", scenery, new Vector3(0f, 0.05f, 0f), new Vector3(36f, 0.05f, 36f), Mat("PlazaStone", new Color(0.55f, 0.53f, 0.5f), 0.2f, 0f, AssetDatabase.LoadAssetAtPath<Texture2D>(Root + "/Textures/ArenaTiles.png"), new Vector2(8f, 8f)));
+            Prim(PrimitiveType.Cylinder, "Plaza", scenery, new Vector3(0f, 0.05f, 0f), new Vector3(36f, 0.05f, 36f), Pbr("PlazaStone", "StoneBlocks", new Color(0.9f, 0.88f, 0.85f)));
             Prim(PrimitiveType.Cylinder, "FountainBase", scenery, new Vector3(0f, 0.4f, 0f), new Vector3(6f, 0.4f, 6f), towerStone);
             Prim(PrimitiveType.Cylinder, "FountainWater", scenery, new Vector3(0f, 0.75f, 0f), new Vector3(5.2f, 0.05f, 5.2f), Mat("Water", new Color(0.2f, 0.5f, 0.8f), 0.95f, 0f, null, null, new Color(0.05f, 0.15f, 0.3f)), false);
             Prim(PrimitiveType.Cylinder, "FountainSpire", scenery, new Vector3(0f, 2f, 0f), new Vector3(0.7f, 1.6f, 0.7f), towerStone);
@@ -96,6 +96,7 @@ namespace Nullbound.EditorTools
                 Road(scenery, Vector3.zero, c, dirt);
                 Prim(PrimitiveType.Cylinder, "VillageSquare", scenery, c + Vector3.up * 0.03f, new Vector3(26f, 0.03f, 26f), dirt, false);
                 Take(c, 6f);
+                Probe("VillageProbe", b, c + Vector3.up * 6f, new Vector3(64f, 16f, 64f));
                 for (int h = 0; h < 8; h++)
                 {
                     float ha = h * Mathf.PI * 2f / 8f + (float)rng.NextDouble() * 0.3f;
@@ -182,6 +183,8 @@ namespace Nullbound.EditorTools
             }
 
             MarkStatic(scenery);
+            Probe("PlazaProbe", b, new Vector3(0f, 6f, 0f), new Vector3(40f, 14f, 40f));
+            ArtPass(b);
         }
 
         static void Road(Transform parent, Vector3 from, Vector3 to, Material mat)

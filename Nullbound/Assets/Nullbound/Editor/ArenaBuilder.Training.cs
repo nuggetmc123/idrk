@@ -147,6 +147,8 @@ namespace Nullbound.EditorTools
             }
 
             MarkStatic(scenery);
+            Probe("HallProbe", a, new Vector3(0f, 6f, 0f), new Vector3(Half * 2f + 2f, 14f, Half * 2f + 2f));
+            ArtPass(a);
         }
 
         // ---------------- extra zones of the bigger arena

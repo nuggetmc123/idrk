@@ -28,6 +28,7 @@ namespace Nullbound.EditorTools
         static void Begin()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+            RenderSetup.Apply(); // Linear colour, MSAA, shadows and Quest tiers (a fresh project starts with Unity's defaults)
 
             // Photon Fusion was just imported: finish multiplayer setup once Unity is idle.
             if (SessionManager.MultiplayerAvailable && EditorPrefs.GetBool(PendingKey, false) && ArenaBuilder.TextResourcesReady)

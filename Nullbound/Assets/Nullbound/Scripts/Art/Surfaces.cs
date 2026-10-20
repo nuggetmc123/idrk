@@ -12,7 +12,7 @@ namespace Nullbound.Art
     public static class Surfaces
     {
         /// <summary>Bump when a recipe changes (lets tools tell an old texture from a new one).</summary>
-        public const int Version = 1;
+        public const int Version = 2;
 
         /// <summary>Every id Get() understands.</summary>
         public static readonly string[] Ids =
@@ -83,44 +83,73 @@ namespace Nullbound.Art
             ((int)(c.r * 255f + 0.5f)).ToString("X2") + ((int)(c.g * 255f + 0.5f)).ToString("X2") + ((int)(c.b * 255f + 0.5f)).ToString("X2");
 
         /// <summary>
-        /// Chipped-paint mask 0..1 (1 = bare) from warped noise: mostly intact, with clusters of small chips.
-        /// amount 0..1 = how worn.
+        /// Chipped paint, worked out once for two depths: outer = where the top coat is gone (primer shows), inner =
+        /// where it's worn through to bare metal. Warped noise, so chips come in small irregular clusters.
+        /// amount 0..1 = how worn (0.2 = a few chips, 0.6 = well used).
         /// </summary>
-        static float Chips(float u, float v, int cells, float amount, int seed)
+        static void Chips(float u, float v, int cells, float amount, int seed, out float outer, out float inner)
         {
+            // Chips only happen in a few worn areas (where knocks land), not evenly all over.
+            float cluster = ProcTex.Smooth(0.5f, 0.7f, ProcTex.Fbm(u, v, 3, 3, seed + 1));
+            outer = inner = 0f;
+            if (cluster <= 0f) return;
             float wu = u, wv = v;
             ProcTex.Warp(ref wu, ref wv, cells, 0.6f / cells, seed);
-            float cluster = ProcTex.Fbm(u, v, Mathf.Max(1, cells / 4), 3, seed + 1);
             float n = ProcTex.Fbm(wu, wv, cells, 3, seed + 2);
-            float t = 0.78f - amount * 0.22f - (cluster - 0.5f) * 0.25f;
-            return ProcTex.Smooth(t, t + 0.025f, n);
+            float t = 0.8f - amount * 0.2f + (1f - cluster) * 0.25f;
+            outer = ProcTex.Smooth(t, t + 0.02f, n);
+            inner = ProcTex.Smooth(t + 0.035f, t + 0.05f, n);
         }
 
         /// <summary>
-        /// Scratch coverage 0..1: short straight scratches scattered over the texture (cellsPerTex cells, perCell each).
+        /// Scratch coverage 0..1: short straight scratches scattered over the texture (cells across, perCell in each).
+        /// Lengths and widths are in cells; px = soft edge in cells. Each pattern's scratches are worked out once.
         /// </summary>
         static float Scratches(float u, float v, int cells, int perCell, float lengthCells, float widthCells, float px, int seed)
         {
+            var key = (cells, perCell, lengthCells, seed);
+            if (!scratchCache.TryGetValue(key, out var seg))
+            {
+                seg = new float[cells * cells * perCell * 5];
+                for (int cy = 0; cy < cells; cy++)
+                    for (int cx = 0; cx < cells; cx++)
+                        for (int k = 0; k < perCell; k++)
+                        {
+                            int s = seed + k * 31, i = ((cy * cells + cx) * perCell + k) * 5;
+                            float a = ProcTex.Hash01(cx, cy, s + 2) * Mathf.PI * 2f, len = lengthCells * (0.4f + ProcTex.Hash01(cx, cy, s + 3));
+                            seg[i] = ProcTex.Hash01(cx, cy, s);
+                            seg[i + 1] = ProcTex.Hash01(cx, cy, s + 1);
+                            seg[i + 2] = Mathf.Cos(a) * len;
+                            seg[i + 3] = Mathf.Sin(a) * len;
+                            seg[i + 4] = ProcTex.Hash01(cx, cy, s + 4);
+                        }
+                scratchCache[key] = seg;
+            }
             float x = u * cells, y = v * cells;
-            int cx = Mathf.FloorToInt(x), cy = Mathf.FloorToInt(y);
+            int gx0 = Mathf.FloorToInt(x), gy0 = Mathf.FloorToInt(y);
             float best = 0f;
             for (int oy = -1; oy <= 1; oy++)
                 for (int ox = -1; ox <= 1; ox++)
                 {
-                    int gx = cx + ox, gy = cy + oy, wx = ProcTex.Wrap(gx, cells), wy = ProcTex.Wrap(gy, cells);
+                    int gx = gx0 + ox, gy = gy0 + oy, cell = ProcTex.Wrap(gy, cells) * cells + ProcTex.Wrap(gx, cells);
                     for (int k = 0; k < perCell; k++)
                     {
-                        int s = seed + k * 31;
-                        float ax = gx + ProcTex.Hash01(wx, wy, s), ay = gy + ProcTex.Hash01(wx, wy, s + 1);
-                        float a = ProcTex.Hash01(wx, wy, s + 2) * Mathf.PI * 2f, len = lengthCells * (0.4f + ProcTex.Hash01(wx, wy, s + 3));
-                        float d = ProcTex.Segment(x, y, ax, ay, ax + Mathf.Cos(a) * len, ay + Mathf.Sin(a) * len, out float t);
+                        int i = (cell * perCell + k) * 5;
+                        float ax = gx + seg[i], ay = gy + seg[i + 1];
+                        float bx = ax + seg[i + 2], by = ay + seg[i + 3];
+                        // Quick reject: the point is nowhere near this scratch.
+                        if (x < Mathf.Min(ax, bx) - 0.1f || x > Mathf.Max(ax, bx) + 0.1f || y < Mathf.Min(ay, by) - 0.1f || y > Mathf.Max(ay, by) + 0.1f) continue;
+                        float d = ProcTex.Segment(x, y, ax, ay, bx, by, out float t);
                         float w = widthCells * (1f - Mathf.Abs(t - 0.5f) * 1.2f);
-                        float cov = ProcTex.Fill(d - w, px) * ProcTex.Hash01(wx, wy, s + 4);
+                        float cov = ProcTex.Fill(d - w, px) * seg[i + 4];
                         if (cov > best) best = cov;
                     }
                 }
             return best;
         }
+
+        static readonly System.Collections.Generic.Dictionary<(int, int, float, int), float[]> scratchCache =
+            new System.Collections.Generic.Dictionary<(int, int, float, int), float[]>();
 
         // ================================================================== lab
 
@@ -178,7 +207,12 @@ namespace Nullbound.Art
                 {
                     // Paint worn through to steel along the panel edges and round the bolts.
                     float edgeWear = (1f - ProcTex.Smooth(0.004f, 0.035f, d)) + sink * 0.8f;
-                    float wear = Chips(u, v, 40, ProcTex.Saturate(edgeWear), seed + 9) * ProcTex.Saturate(edgeWear * 1.6f);
+                    float wear = 0f;
+                    if (edgeWear > 0.01f)
+                    {
+                        Chips(u, v, 40, ProcTex.Saturate(edgeWear), seed + 9, out float worn, out _);
+                        wear = worn * ProcTex.Saturate(edgeWear * 1.6f);
+                    }
                     col = Color.Lerp(col, C(0.46f, 0.47f, 0.49f), wear);
                     m = Mathf.Max(m, wear);
                     s = Mathf.Lerp(s, 0.55f, wear);
@@ -228,7 +262,7 @@ namespace Nullbound.Art
                 // Painted lines (worn in places).
                 float dThin = Mathf.Min(ProcTex.LineDistance(x, 1f), ProcTex.LineDistance(y, 1f));
                 float dBold = Mathf.Min(ProcTex.LineDistance(x, 4f), ProcTex.LineDistance(y, 4f));
-                float paintWear = ProcTex.Smooth(0.56f, 0.72f, ProcTex.Fbm(u, v, 40, 3, seed + 6));
+                float paintWear = dThin < 0.03f || dBold < 0.04f ? ProcTex.Smooth(0.56f, 0.72f, ProcTex.Fbm(u, v, 40, 3, seed + 6)) : 0f;
                 float thin = ProcTex.Fill(dThin - 0.0065f, px * 0.6f) * (1f - paintWear * 0.75f);
                 float bold = ProcTex.Fill(dBold - 0.02f, px * 0.6f) * (1f - paintWear * 0.6f);
                 col = Color.Lerp(col, lineGrey, thin * 0.9f);
@@ -239,17 +273,21 @@ namespace Nullbound.Art
                 float joint = ProcTex.Fill(dJoint - 0.0016f, px * 0.5f);
 
                 // Hairline cracks, only here and there.
-                float cu = u, cv = v;
-                ProcTex.Warp(ref cu, ref cv, 6, 0.06f, seed + 7);
-                ProcTex.Worley(cu, cv, 5, seed + 8, out float cedge, out _);
-                float crackMask = ProcTex.Smooth(0.55f, 0.7f, ProcTex.Fbm(u, v, 3, 2, seed + 9));
-                float crack = ProcTex.Fill(cedge * (M / 5f) * 0.5f - 0.0009f, px * 0.5f) * crackMask;
+                float crackMask = ProcTex.Smooth(0.64f, 0.76f, ProcTex.Fbm(u, v, 3, 2, seed + 9));
+                float crack = 0f;
+                if (crackMask > 0f)
+                {
+                    float cu = u, cv = v;
+                    ProcTex.Warp(ref cu, ref cv, 6, 0.06f, seed + 7);
+                    ProcTex.Worley(cu, cv, 5, seed + 8, out float cedge, out _);
+                    crack = ProcTex.Fill(cedge * (M / 5f) * 0.5f - 0.0007f, px * 0.5f) * crackMask;
+                }
 
                 // Black rubber scuffs from boots.
                 float scuff = Scuffs(x, y, M, px, seed + 10);
 
-                col = Color.Lerp(col, col * 0.4f, crack * 0.7f);
-                col = Color.Lerp(col, C(0.16f, 0.15f, 0.15f), scuff * 0.45f);
+                col = Color.Lerp(col, col * 0.62f, crack * 0.6f);
+                col = Color.Lerp(col, C(0.18f, 0.17f, 0.17f), scuff * 0.35f);
                 col = Color.Lerp(col, C(0.08f, 0.08f, 0.08f), joint);
                 c = col;
                 h = (cloud - 0.5f) * 0.0008f + (grain - 0.5f) * 0.0002f + stone * 0.00015f + (thin + bold) * 0.00012f - joint * 0.003f - crack * 0.0008f;
@@ -282,32 +320,33 @@ namespace Nullbound.Art
             return best;
         }
 
-        /// <summary>Polished mid-grey concrete with exposed aggregate and pores (no markings).</summary>
+        /// <summary>Polished mid-grey concrete: cloudy trowelled tone, faint exposed aggregate, the odd pore (no markings).</summary>
         public static TexSet ConcretePolished(int size = 512)
         {
             const float M = 2f;
             float px = M / size;
             const int seed = 5207;
-            return Make("ConcretePolished", size, M, 1.4f, (float u, float v, out Color c, out float h, out float m, out float s, out float ao) =>
+            return Make("ConcretePolished", size, M, 1.3f, (float u, float v, out Color c, out float h, out float m, out float s, out float ao) =>
             {
                 float cloud = ProcTex.Fbm(u, v, 3, 5, seed);
                 float wu = u, wv = v;
                 ProcTex.Warp(ref wu, ref wv, 3, 0.12f, seed + 1);
                 float swirl = ProcTex.Fbm(wu, wv, 8, 3, seed + 2);
-                float f1 = ProcTex.Worley(u, v, 56, seed + 3, out _, out float id);
-                float stone = ProcTex.Fill(f1 - (0.22f + id * 0.16f), 0.1f);
-                float fine = ProcTex.Fbm(u, v, 128, 2, seed + 4);
-                float pf = ProcTex.Worley(u, v, 150, seed + 5, out _, out float pid);
-                float pore = pid < 0.18f ? ProcTex.Fill(pf * (M / 150f) - 0.0028f, px * 0.6f) : 0f;
-                Color baseC = ProcTex.Mul(ConcreteGrey, 1.02f + (cloud - 0.5f) * 0.16f + (swirl - 0.5f) * 0.07f + (fine - 0.5f) * 0.06f);
-                Color stoneC = id < 0.33f ? C(0.78f, 0.77f, 0.74f) : id < 0.66f ? C(0.42f, 0.4f, 0.38f) : C(0.62f, 0.55f, 0.47f);
-                Color col = Color.Lerp(baseC, Color.Lerp(baseC, stoneC, 0.45f), stone);
-                col = Color.Lerp(col, col * 0.45f, pore);
+                // Aggregate ground flat by polishing: soft-edged stones about 1-2 cm, only slightly different in tone.
+                float f1 = ProcTex.Worley(u, v, 64, seed + 3, out _, out float id);
+                float stone = ProcTex.Fill(f1 - (0.18f + id * 0.12f), 0.16f) * (id < 0.7f ? 1f : 0f);
+                float fine = ProcTex.Fbm(u, v, 96, 2, seed + 4);
+                float pf = ProcTex.Worley(u, v, 90, seed + 5, out _, out float pid);
+                float pore = pid < 0.025f ? ProcTex.Fill(pf * (M / 90f) - 0.0022f, px * 0.7f) : 0f;
+                Color baseC = ProcTex.Mul(ConcreteGrey, 1.04f + (cloud - 0.5f) * 0.16f + (swirl - 0.5f) * 0.06f + (fine - 0.5f) * 0.035f);
+                Color stoneC = id < 0.3f ? C(0.7f, 0.69f, 0.66f) : id < 0.55f ? C(0.47f, 0.45f, 0.43f) : C(0.62f, 0.57f, 0.5f);
+                Color col = Color.Lerp(baseC, Color.Lerp(baseC, stoneC, 0.22f), stone);
+                col = Color.Lerp(col, col * 0.55f, pore);
                 c = col;
-                h = (cloud - 0.5f) * 0.001f + stone * 0.0002f - pore * 0.002f + (fine - 0.5f) * 0.0002f;
+                h = (cloud - 0.5f) * 0.0008f - pore * 0.0015f + (fine - 0.5f) * 0.00015f;
                 m = 0f;
-                s = 0.56f + (cloud - 0.5f) * 0.18f + (swirl - 0.5f) * 0.1f - pore * 0.3f;
-                ao = 1f - pore * 0.5f;
+                s = 0.58f + (cloud - 0.5f) * 0.16f + (swirl - 0.5f) * 0.1f - pore * 0.3f;
+                ao = 1f - pore * 0.4f;
             });
         }
 
@@ -384,32 +423,35 @@ namespace Nullbound.Art
             const float M = 1f;
             float px = M / size;
             int seed = ProcTex.Seed(name);
-            Color primer = C(0.24f, 0.24f, 0.25f), steel = C(0.56f, 0.57f, 0.59f);
+            Color primer = C(0.25f, 0.25f, 0.26f), steel = C(0.6f, 0.61f, 0.63f);
             return Make(name, size, M, 1.2f, (float u, float v, out Color c, out float h, out float m, out float s, out float ao) =>
             {
                 float var = ProcTex.Fbm(u, v, 3, 4, seed);
-                float peel = ProcTex.Fbm(u, v, 64, 2, seed + 1);
-                float dirt = ProcTex.Fbm(u, v, 5, 4, seed + 2);
-                Color col = ProcTex.Mul(paint, 1f + (var - 0.5f) * 0.1f + (peel - 0.5f) * 0.03f);
-                col = Color.Lerp(col, col * C(0.8f, 0.77f, 0.72f), ProcTex.Smooth(0.5f, 0.8f, dirt) * 0.35f);
+                float peel = ProcTex.Fbm(u, v, 48, 2, seed + 1); // orange-peel texture of sprayed paint
+                float dirt = ProcTex.Fbm(u, v, 5, 3, seed + 2);
+                float handling = ProcTex.Fbm(u, v, 9, 3, seed + 5); // duller and shinier patches from use
+                float grime = ProcTex.Smooth(0.55f, 0.85f, dirt);
+                Color col = ProcTex.Mul(paint, 1f + (var - 0.5f) * 0.08f + (peel - 0.5f) * 0.025f);
+                col = Color.Lerp(col, col * C(0.8f, 0.77f, 0.72f), grime * 0.3f);
 
-                float chipOuter = Chips(u, v, 14, wear * 0.9f, seed + 3);
-                float chipInner = Chips(u, v, 14, wear * 0.55f, seed + 3);
-                float scratch = Scratches(u, v, 8, 2, 0.9f, 0.006f * 8f, px * 8f * 0.6f, seed + 4) * wear;
-                float bare = Mathf.Max(chipInner, scratch);
+                Chips(u, v, 26, wear * 0.55f, seed + 3, out float chipOuter, out float chipInner);
+                // Fine scratches (about a millimetre wide): faint lines that mostly show in the shine.
+                float scratch = Scratches(u, v, 10, 2, 0.9f, 0.0006f * 10f, px * 10f * 0.7f, seed + 4) * Mathf.Min(1f, wear * 1.4f);
                 col = Color.Lerp(col, primer, chipOuter);
-                col = Color.Lerp(col, ProcTex.Mul(steel, 0.9f + (peel - 0.5f) * 0.2f), bare);
+                col = Color.Lerp(col, ProcTex.Mul(steel, 0.92f + (peel - 0.5f) * 0.2f), chipInner);
+                col = Color.Lerp(col, Color.Lerp(col, steel, 0.45f), scratch * 0.35f);
                 c = col;
-                m = bare;
-                s = gloss + (var - 0.5f) * 0.08f - ProcTex.Smooth(0.5f, 0.8f, dirt) * 0.1f;
+                m = Mathf.Max(chipInner, scratch * 0.25f);
+                s = gloss + (var - 0.5f) * 0.06f + (handling - 0.5f) * 0.2f - grime * 0.1f;
                 s = Mathf.Lerp(s, 0.3f, chipOuter - chipInner);
-                s = Mathf.Lerp(s, 0.55f, bare);
-                h = (peel - 0.5f) * 0.00012f - chipOuter * 0.0002f - chipInner * 0.0001f - scratch * 0.0001f;
-                ao = 1f - (chipOuter - chipInner) * 0.1f;
+                s = Mathf.Lerp(s, 0.62f, chipInner);
+                s += scratch * 0.12f;
+                h = (peel - 0.5f) * 0.00008f - chipOuter * 0.00016f - chipInner * 0.00008f - scratch * 0.00002f;
+                ao = 1f - (chipOuter - chipInner) * 0.12f;
             });
         }
 
-        /// <summary>Brushed stainless steel: fine directional streaks along u, fingerprints, a few scratches. Metallic.</summary>
+        /// <summary>Brushed stainless steel: fine directional streaks along u, faint smudges, a few scratches. Metallic.</summary>
         public static TexSet BrushedSteel(int size = 512)
         {
             const float M = 0.5f;
@@ -417,21 +459,21 @@ namespace Nullbound.Art
             const int seed = 7103;
             return Make("BrushedSteel", size, M, 1f, (float u, float v, out Color c, out float h, out float m, out float s, out float ao) =>
             {
-                float streak = ProcTex.Fbm(u, v, 2, 96, 3, seed);
-                float fine = ProcTex.Perlin(u, v, 4, 384, seed + 1);
-                float smudge = ProcTex.Fbm(u, v, 4, 4, seed + 2);
-                float scratch = Scratches(u, v, 6, 2, 1.1f, 0.0007f * 6f / M, px * 6f / M * 0.6f, seed + 3);
-                Color col = ProcTex.Mul(C(0.74f, 0.75f, 0.76f), 1f + (streak - 0.5f) * 0.14f + (fine - 0.5f) * 0.08f);
-                col = Color.Lerp(col, C(0.86f, 0.87f, 0.88f), scratch * 0.5f);
+                float streak = ProcTex.Fbm(u, v, 1, 64, 3, seed);
+                float fine = ProcTex.Perlin(u, v, 2, 320, seed + 1);
+                float smudge = ProcTex.Fbm(u, v, 4, 3, seed + 2);
+                float scratch = Scratches(u, v, 5, 2, 1.1f, 0.0004f * 5f / M, px * 5f / M * 0.7f, seed + 3);
+                Color col = ProcTex.Mul(C(0.73f, 0.74f, 0.75f), 1f + (streak - 0.5f) * 0.12f + (fine - 0.5f) * 0.08f);
+                col = Color.Lerp(col, C(0.84f, 0.85f, 0.86f), scratch * 0.35f);
                 c = col;
                 m = 1f;
-                s = 0.66f + (streak - 0.5f) * 0.18f + (fine - 0.5f) * 0.1f - ProcTex.Smooth(0.55f, 0.8f, smudge) * 0.16f - scratch * 0.15f;
-                h = (streak - 0.5f) * 0.00004f + (fine - 0.5f) * 0.00002f - scratch * 0.00003f;
+                s = 0.62f + (streak - 0.5f) * 0.2f + (fine - 0.5f) * 0.12f - ProcTex.Smooth(0.55f, 0.85f, smudge) * 0.07f - scratch * 0.1f;
+                h = (streak - 0.5f) * 0.00004f + (fine - 0.5f) * 0.00003f - scratch * 0.00002f;
                 ao = 1f;
             });
         }
 
-        /// <summary>Hazard stripes: yellow and black at 45 degrees (about 9 cm bands), chipped and a bit grimy.</summary>
+        /// <summary>Hazard stripes: yellow and black at 45 degrees (about 9 cm bands), a few chips and scuffs, a little grime.</summary>
         public static TexSet HazardStripe(int size = 512)
         {
             const float M = 1f;
@@ -439,27 +481,28 @@ namespace Nullbound.Art
             const int seed = 8209;
             const int stripes = 4; // stripe pairs along u + v (keeps it tileable)
             float period = M / (stripes * Mathf.Sqrt(2f)); // distance between stripe pairs, measured across them
-            Color black = C(0.055f, 0.055f, 0.06f), primer = C(0.3f, 0.3f, 0.31f), steel = C(0.55f, 0.56f, 0.58f);
+            Color black = C(0.07f, 0.07f, 0.075f), primer = C(0.3f, 0.3f, 0.31f), steel = C(0.58f, 0.59f, 0.61f);
             return Make("HazardStripe", size, M, 1.2f, (float u, float v, out Color c, out float h, out float m, out float s, out float ao) =>
             {
                 float t = ProcTex.Frac((u + v) * stripes);
-                float dEdge = (Mathf.Min(Mathf.Abs(t - 0.25f), Mathf.Abs(t - 0.75f)) - 0.25f) * period; // < 0 inside the yellow band
+                float fromMid = ProcTex.Frac(t + 0.25f) - 0.5f; // -0.5..0.5 from the middle of the yellow band (t = 0.25)
+                float dEdge = (Mathf.Abs(fromMid) - 0.25f) * period; // < 0 inside the yellow band
                 float yellow = ProcTex.Fill(dEdge, px * 0.6f);
-                float var = ProcTex.Fbm(u, v, 4, 4, seed);
-                float dirt = ProcTex.Fbm(u, v, 6, 4, seed + 1);
-                Color col = Color.Lerp(black, ProcTex.Mul(HazardYellow, 1f + (var - 0.5f) * 0.12f), yellow);
-                col = Color.Lerp(col, col * C(0.72f, 0.68f, 0.6f), ProcTex.Smooth(0.45f, 0.8f, dirt) * 0.5f);
-                float chipOuter = Chips(u, v, 16, 0.7f, seed + 2);
-                float chipInner = Chips(u, v, 16, 0.4f, seed + 2);
-                float scuff = Scratches(u, v, 6, 3, 0.8f, 0.004f * 6f, px * 6f * 0.6f, seed + 3);
+                float var = ProcTex.Fbm(u, v, 4, 3, seed);
+                float dirt = ProcTex.Fbm(u, v, 6, 3, seed + 1);
+                float grime = ProcTex.Smooth(0.5f, 0.85f, dirt);
+                Color col = Color.Lerp(black, ProcTex.Mul(HazardYellow, 1f + (var - 0.5f) * 0.1f), yellow);
+                col = Color.Lerp(col, col * C(0.75f, 0.71f, 0.64f), grime * 0.45f);
+                Chips(u, v, 24, 0.4f, seed + 2, out float chipOuter, out float chipInner);
+                float scuff = Scratches(u, v, 8, 2, 0.8f, 0.0012f * 8f, px * 8f * 0.7f, seed + 3);
                 col = Color.Lerp(col, primer, chipOuter);
                 col = Color.Lerp(col, steel, chipInner);
-                col = Color.Lerp(col, C(0.2f, 0.19f, 0.18f), scuff * 0.5f);
+                col = Color.Lerp(col, Color.Lerp(col, C(0.22f, 0.21f, 0.2f), yellow), scuff * 0.4f);
                 c = col;
                 m = chipInner;
-                s = 0.42f + (var - 0.5f) * 0.08f - ProcTex.Smooth(0.45f, 0.8f, dirt) * 0.12f;
-                s = Mathf.Lerp(s, 0.5f, chipInner);
-                h = -chipOuter * 0.0002f - chipInner * 0.0001f + (yellow - 0.5f) * 0.00005f;
+                s = 0.45f + (var - 0.5f) * 0.08f - grime * 0.14f - scuff * 0.08f;
+                s = Mathf.Lerp(s, 0.55f, chipInner);
+                h = -chipOuter * 0.00018f - chipInner * 0.0001f + (yellow - 0.5f) * 0.00004f;
                 ao = 1f - (chipOuter - chipInner) * 0.1f;
             });
         }
@@ -606,53 +649,72 @@ namespace Nullbound.Art
 
         // ================================================================== outdoors
 
-        /// <summary>Lawn grass: overlapping blades in several greens with dry tips, clover patches and soil showing through.</summary>
+        /// <summary>
+        /// Lawn grass: a dense mat of overlapping blades in several greens (darker deeper down), drier patches, clover
+        /// patches and the odd bare spot. Low contrast between blades, so it reads as a lawn rather than noise.
+        /// </summary>
         public static TexSet Grass(int size = 512)
         {
             const float M = 2f;
-            const int N = 48; // blade cells across the texture (about 4 cm)
+            const int N = 64, K = 4; // blade cells across the texture (about 3 cm), blades per cell
             const int seed = 11003;
-            float aa = N / (float)size * 0.6f;
-            Color soil = C(0.17f, 0.14f, 0.08f), thatch = C(0.33f, 0.29f, 0.16f);
-            Color g1 = C(0.16f, 0.28f, 0.08f), g2 = C(0.27f, 0.42f, 0.12f), g3 = C(0.4f, 0.5f, 0.18f), dry = C(0.56f, 0.52f, 0.3f);
-            return Make("Grass", size, M, 1.2f, (float u, float v, out Color c, out float h, out float m, out float s, out float ao) =>
+            float aa = N / (float)size * 0.7f;
+            Color deep = C(0.12f, 0.19f, 0.065f), soil = C(0.24f, 0.19f, 0.11f);
+            Color g1 = C(0.19f, 0.3f, 0.09f), g2 = C(0.25f, 0.38f, 0.11f), g3 = C(0.33f, 0.44f, 0.15f), dry = C(0.48f, 0.46f, 0.26f);
+            // Blade parameters per cell, worked out once (start, direction x length, half width, depth, colour pick).
+            int count = N * N * K;
+            var bx = new float[count]; var by = new float[count]; var dx = new float[count]; var dy = new float[count];
+            var bw = new float[count]; var bz = new float[count]; var hue = new float[count];
+            for (int cy = 0; cy < N; cy++)
+                for (int cx = 0; cx < N; cx++)
+                    for (int k = 0; k < K; k++)
+                    {
+                        int i = (cy * N + cx) * K + k, sd = seed + 10 + k * 17;
+                        bx[i] = ProcTex.Hash01(cx, cy, sd);
+                        by[i] = ProcTex.Hash01(cx, cy, sd + 1);
+                        float ang = ProcTex.Hash01(cx, cy, sd + 2) * Mathf.PI * 2f, len = 0.5f + ProcTex.Hash01(cx, cy, sd + 3) * 0.6f;
+                        dx[i] = Mathf.Cos(ang) * len;
+                        dy[i] = Mathf.Sin(ang) * len;
+                        bw[i] = 0.1f + ProcTex.Hash01(cx, cy, sd + 4) * 0.06f;
+                        bz[i] = ProcTex.Hash01(cx, cy, sd + 5);
+                        hue[i] = ProcTex.Hash01(cx, cy, sd + 6);
+                    }
+            return Make("Grass", size, M, 1.1f, (float u, float v, out Color c, out float h, out float m, out float s, out float ao) =>
             {
                 float big = ProcTex.Fbm(u, v, 2, 3, seed);
                 float patch = ProcTex.Fbm(u, v, 5, 3, seed + 1);
                 float x = u * N, y = v * N;
                 int cx = Mathf.FloorToInt(x), cy = Mathf.FloorToInt(y);
-                float bestZ = -1f, bestCov = 0f;
-                Color bestC = soil;
+                float bestZ = -1f, bestCov = 0f, bestT = 0f, bestHue = 0f;
                 for (int oy = -1; oy <= 1; oy++)
                     for (int ox = -1; ox <= 1; ox++)
                     {
-                        int gx = cx + ox, gy = cy + oy, wx = ProcTex.Wrap(gx, N), wy = ProcTex.Wrap(gy, N);
-                        for (int k = 0; k < 4; k++)
+                        int gx = cx + ox, gy = cy + oy, cell = (ProcTex.Wrap(gy, N) * N + ProcTex.Wrap(gx, N)) * K;
+                        for (int k = 0; k < K; k++)
                         {
-                            int sd = seed + 10 + k * 17;
-                            float bx = gx + ProcTex.Hash01(wx, wy, sd), by = gy + ProcTex.Hash01(wx, wy, sd + 1);
-                            float ang = ProcTex.Hash01(wx, wy, sd + 2) * Mathf.PI * 2f;
-                            float len = 0.7f + ProcTex.Hash01(wx, wy, sd + 3) * 1.1f;
-                            float wdt = 0.09f + ProcTex.Hash01(wx, wy, sd + 4) * 0.06f;
-                            float d = ProcTex.Segment(x, y, bx, by, bx + Mathf.Cos(ang) * len, by + Mathf.Sin(ang) * len, out float t);
-                            float cov = ProcTex.Fill(d - wdt * (1f - t * 0.8f), aa);
+                            int i = cell + k;
+                            float sx = gx + bx[i], sy = gy + by[i];
+                            float d = ProcTex.Segment(x, y, sx, sy, sx + dx[i], sy + dy[i], out float t);
+                            float cov = ProcTex.Fill(d - bw[i] * (1f - t * 0.8f), aa);
                             if (cov <= 0.02f) continue;
-                            float z = ProcTex.Hash01(wx, wy, sd + 5) + t * 0.35f;
+                            float z = bz[i] + t * 0.35f;
                             if (z <= bestZ) continue;
-                            float hue = ProcTex.Hash01(wx, wy, sd + 6);
-                            Color bc = hue < 0.4f ? Color.Lerp(g1, g2, hue / 0.4f) : Color.Lerp(g2, g3, (hue - 0.4f) / 0.6f);
-                            bc = Color.Lerp(bc, dry, ProcTex.Smooth(0.62f, 0.85f, big) * 0.5f + (hue > 0.93f ? 0.6f : 0f));
-                            bc = Color.Lerp(bc, g1, ProcTex.Smooth(0.6f, 0.2f, big) * 0.3f);
-                            bc = ProcTex.Mul(bc, 0.62f + t * 0.5f);
                             bestZ = z;
                             bestCov = cov;
-                            bestC = bc;
+                            bestT = t;
+                            bestHue = hue[i];
                         }
                     }
+                Color bc = bestHue < 0.4f ? Color.Lerp(g1, g2, bestHue / 0.4f) : Color.Lerp(g2, g3, (bestHue - 0.4f) / 0.6f);
+                bc = Color.Lerp(bc, dry, ProcTex.Smooth(0.6f, 0.85f, big) * 0.4f + (bestHue > 0.96f ? 0.45f : 0f));
+                bc = ProcTex.Mul(bc, 0.86f + bestT * 0.2f + Mathf.Min(1f, bestZ) * 0.08f);
+                // Tufts: each clump a little lighter in the middle.
+                ProcTex.Worley(u, v, 22, seed + 4, out float tuftEdge, out float tuftId);
+                bc = ProcTex.Mul(bc, 0.9f + ProcTex.Smooth(0f, 0.5f, tuftEdge) * 0.12f + (tuftId - 0.5f) * 0.08f);
 
                 // Clover in patches, sitting low among the grass.
                 float clover = 0f;
-                float cloverMask = ProcTex.Smooth(0.57f, 0.66f, patch);
+                float cloverMask = ProcTex.Smooth(0.6f, 0.68f, patch);
                 if (cloverMask > 0f)
                 {
                     const int CN = 30;
@@ -669,26 +731,26 @@ namespace Nullbound.Art
                                 float a = rot + leaf * 2.094f;
                                 float lx = px0 + Mathf.Cos(a) * 0.16f, ly = py0 + Mathf.Sin(a) * 0.16f;
                                 float dd = Mathf.Sqrt((qx - lx) * (qx - lx) + (qy - ly) * (qy - ly));
-                                clover = Mathf.Max(clover, ProcTex.Fill(dd - 0.15f, CN / (float)size * 0.6f));
+                                clover = Mathf.Max(clover, ProcTex.Fill(dd - 0.15f, CN / (float)size * 0.7f));
                             }
                         }
                     clover *= cloverMask;
                 }
 
-                Color under = Color.Lerp(soil, thatch, ProcTex.Fbm(u, v, 24, 2, seed + 2) * 0.8f);
-                Color col = Color.Lerp(under, bestC, bestCov);
-                float cz = 0.55f;
+                // Between the blades: deep green shade, with earth showing in a few bare spots.
+                float bare = ProcTex.Smooth(0.7f, 0.8f, ProcTex.Fbm(u, v, 7, 3, seed + 3));
+                Color under = Color.Lerp(deep, soil, bare * 0.6f);
+                float cover = bestCov * (1f - bare * 0.5f);
+                Color col = Color.Lerp(under, bc, cover);
                 if (clover > 0f && (bestZ < 0.9f || bestCov < 0.5f))
-                {
-                    col = Color.Lerp(col, C(0.2f, 0.36f, 0.13f), clover * 0.92f);
-                    cz = Mathf.Lerp(0.55f, 0.75f, clover);
-                }
+                    col = Color.Lerp(col, C(0.21f, 0.37f, 0.13f), clover * 0.9f);
+                // Broad light and dark drifts across the lawn so repeats don't show.
+                col = ProcTex.Mul(col, 0.9f + big * 0.16f + (patch - 0.5f) * 0.08f);
                 c = col;
-                float bladeH = Mathf.Max(0f, bestZ) * bestCov;
-                h = bladeH * 0.006f + clover * cz * 0.004f;
+                h = Mathf.Max(0f, bestZ) * cover * 0.0035f + clover * 0.003f;
                 m = 0f;
-                s = 0.08f + bestCov * 0.18f + clover * 0.1f;
-                ao = 0.55f + 0.45f * Mathf.Max(bestCov * (0.6f + 0.4f * Mathf.Min(1f, bestZ)), clover);
+                s = 0.1f + cover * 0.14f + clover * 0.08f;
+                ao = 0.62f + 0.38f * Mathf.Max(cover * (0.6f + 0.4f * Mathf.Min(1f, bestZ)), clover);
             });
         }
 
@@ -708,18 +770,21 @@ namespace Nullbound.Art
                 col = ProcTex.Mul(col, 1f + (clod - 0.5f) * 0.25f + (fine - 0.5f) * 0.1f);
                 h = (clod - 0.5f) * 0.006f + (fine - 0.5f) * 0.001f;
 
-                float f1 = ProcTex.Worley(u, v, 44, seed + 3, out float pe, out float id);
-                float pr = (0.12f + id * id * 0.22f);
-                float pebble = id < 0.55f ? ProcTex.Fill(f1 - pr, 0.08f) : 0f;
-                Color stone = ProcTex.Mul(id < 0.2f ? C(0.55f, 0.52f, 0.47f) : id < 0.4f ? C(0.46f, 0.4f, 0.33f) : C(0.62f, 0.58f, 0.52f), 0.85f + clod * 0.3f);
-                col = Color.Lerp(col, stone, pebble);
-                h += pebble * Mathf.Sqrt(Mathf.Max(0f, 1f - ProcTex.Pow2(f1 / pr))) * 0.006f;
+                float pu = u, pv = v;
+                ProcTex.Warp(ref pu, ref pv, 28, 0.25f / 28f, seed + 6); // irregular, not round
+                float f1 = ProcTex.Worley(pu, pv, 28, seed + 3, out float pe, out float id);
+                float pr = 0.14f + id * 1.1f;
+                float pebble = id < 0.2f ? ProcTex.Fill(f1 - pr, 0.1f) : 0f;
+                // Pebbles are only a little paler than the earth, and half buried in it.
+                Color stone = ProcTex.Mul(id < 0.12f ? C(0.47f, 0.44f, 0.4f) : id < 0.22f ? C(0.42f, 0.36f, 0.29f) : C(0.52f, 0.47f, 0.41f), 0.85f + clod * 0.25f);
+                col = Color.Lerp(col, Color.Lerp(col, stone, 0.75f), pebble);
+                h += pebble * Mathf.Sqrt(Mathf.Max(0f, 1f - ProcTex.Pow2(f1 / pr))) * 0.0022f;
 
                 // Dry mud cracks.
                 ProcTex.Worley(u, v, 7, seed + 4, out float ce, out _);
                 float dryness = ProcTex.Smooth(0.45f, 0.25f, wet);
-                float crack = ProcTex.Fill(ce * (M / 7f) * 0.5f - 0.0012f, px * 0.6f) * dryness * ProcTex.Smooth(0.4f, 0.6f, ProcTex.Fbm(u, v, 8, 2, seed + 5));
-                col = Color.Lerp(col, col * 0.45f, crack);
+                float crack = ProcTex.Fill(ce * (M / 7f) * 0.5f - 0.001f, px * 0.6f) * dryness * ProcTex.Smooth(0.5f, 0.65f, ProcTex.Fbm(u, v, 8, 2, seed + 5));
+                col = Color.Lerp(col, col * 0.6f, crack);
                 h -= crack * 0.003f;
                 c = col;
                 m = 0f;
@@ -745,8 +810,8 @@ namespace Nullbound.Art
                 float n = ProcTex.Fbm(u, v, 64, 2, seed + 2);
                 Color stone = id < 0.25f ? C(0.56f, 0.55f, 0.53f) : id < 0.5f ? C(0.64f, 0.59f, 0.51f) : id < 0.75f ? C(0.4f, 0.39f, 0.38f) : C(0.52f, 0.45f, 0.38f);
                 stone = ProcTex.Mul(stone, 0.8f + dome * 0.3f + (n - 0.5f) * 0.15f);
-                float gap = 1f - ProcTex.Smooth(0f, 0.12f, Mathf.Max(top ? e1 : e2, 0f)) ;
-                Color col = Color.Lerp(stone, C(0.12f, 0.11f, 0.1f), gap * 0.85f);
+                float gap = 1f - ProcTex.Smooth(0.01f, 0.16f, Mathf.Max(top ? e1 : e2, 0f));
+                Color col = Color.Lerp(stone, C(0.17f, 0.15f, 0.13f), gap * 0.65f);
                 c = col;
                 h = Mathf.Max(h1, h2) + (n - 0.5f) * 0.0006f;
                 m = 0f;
@@ -787,34 +852,39 @@ namespace Nullbound.Art
             });
         }
 
-        /// <summary>Cliff face: layered sedimentary strata with ledges, vertical fissures and erosion.</summary>
+        /// <summary>Cliff face: layered sedimentary strata (soft transitions), weathered rock texture, ledges and vertical fissures.</summary>
         public static TexSet Cliff(int size = 512)
         {
             const float M = 6f;
             float px = M / size;
             const int seed = 13501;
             const int layers = 9;
-            Color[] pal = { C(0.6f, 0.51f, 0.39f), C(0.5f, 0.48f, 0.45f), C(0.55f, 0.42f, 0.33f), C(0.38f, 0.35f, 0.32f), C(0.66f, 0.6f, 0.5f) };
+            Color[] pal = { C(0.58f, 0.51f, 0.42f), C(0.53f, 0.5f, 0.46f), C(0.56f, 0.47f, 0.38f), C(0.49f, 0.46f, 0.41f), C(0.61f, 0.56f, 0.48f) };
             return Make("Cliff", size, M, 1f, (float u, float v, out Color c, out float h, out float m, out float s, out float ao) =>
             {
                 float warp = ProcTex.Fbm(u, v, 3, 4, seed) - 0.5f;
-                float b = v * layers + warp * 1.6f + (ProcTex.Fbm(u, v, 8, 2, seed + 1) - 0.5f) * 0.3f;
-                int band = ProcTex.Wrap(Mathf.FloorToInt(b), layers);
-                float fb = b - Mathf.Floor(b);
-                float sub = ProcTex.Frac(b * 3f);
-                Color col = pal[(int)(ProcTex.Hash01(band, 0, seed + 2) * pal.Length) % pal.Length];
-                col = ProcTex.Mul(col, 0.9f + ProcTex.Hash01(band, 1, seed + 2) * 0.2f + (sub - 0.5f) * 0.06f);
-                float erosion = ProcTex.Fbm(u, v, 12, 4, seed + 3);
+                float b = v * layers + warp * 1.4f + (ProcTex.Fbm(u, v, 8, 2, seed + 1) - 0.5f) * 0.35f;
+                int band = Mathf.FloorToInt(b);
+                float fb = b - band;
+                Color lo = pal[(int)(ProcTex.Hash01(ProcTex.Wrap(band, layers), 0, seed + 2) * pal.Length) % pal.Length];
+                Color hi = pal[(int)(ProcTex.Hash01(ProcTex.Wrap(band + 1, layers), 0, seed + 2) * pal.Length) % pal.Length];
+                Color col = Color.Lerp(lo, hi, ProcTex.Smooth(0.82f, 1f, fb)); // strata blend into each other
+                col = ProcTex.Mul(col, 0.92f + ProcTex.Hash01(ProcTex.Wrap(band, layers), 1, seed + 2) * 0.14f);
+
+                float detail = ProcTex.Fbm(u, v, 24, 4, seed + 3);
+                float ridged = ProcTex.Ridged(u, v, 10, 4, seed + 6);
+                float erosion = ProcTex.Fbm(u, v, 6, 3, seed + 7);
                 float fis = ProcTex.Perlin(u, v, 14, 2, seed + 4);
-                float fissure = ProcTex.Fill(Mathf.Abs(fis - 0.5f) * (M / 14f) - 0.004f, px * 0.8f) * ProcTex.Smooth(0.4f, 0.6f, ProcTex.Perlin(u, v, 3, 6, seed + 5));
-                float ledge = ProcTex.Smooth(0f, 0.08f, fb) * (1f - fb * 0.6f);
-                col = ProcTex.Mul(col, 0.75f + ledge * 0.25f + (erosion - 0.5f) * 0.3f);
-                col = Color.Lerp(col, col * 0.35f, fissure);
+                float fissure = ProcTex.Fill(Mathf.Abs(fis - 0.5f) * (M / 14f) - 0.003f, px) * ProcTex.Smooth(0.45f, 0.62f, ProcTex.Perlin(u, v, 3, 6, seed + 5));
+                float underLedge = 1f - ProcTex.Smooth(0f, 0.12f, fb); // shade just under each layer's lip
+                col = ProcTex.Mul(col, 0.8f + detail * 0.22f + ridged * 0.1f + (erosion - 0.5f) * 0.16f - underLedge * 0.12f);
+                col = Color.Lerp(col, col * 0.65f, fissure);
                 c = col;
-                h = ledge * 0.12f + (erosion - 0.5f) * 0.05f - fissure * 0.05f + ProcTex.Ridged(u, v, 6, 3, seed + 6) * 0.03f;
+                float slope = fb * (1f - ProcTex.Smooth(0.86f, 1f, fb)); // each layer leans back, rounded off at its lip
+                h = slope * 0.035f + (detail - 0.5f) * 0.02f + ridged * 0.025f + (erosion - 0.5f) * 0.03f - fissure * 0.025f;
                 m = 0f;
-                s = 0.18f + (erosion - 0.5f) * 0.08f;
-                ao = 0.7f + ledge * 0.3f - fissure * 0.4f;
+                s = 0.16f + (detail - 0.5f) * 0.08f;
+                ao = 0.72f + ridged * 0.15f + (1f - underLedge) * 0.13f - fissure * 0.35f;
             });
         }
 
@@ -838,8 +908,8 @@ namespace Nullbound.Art
                 ProcTex.Worley(wu, wv, 4, seed + 5, out float ce, out _);
                 float crack = ProcTex.Fill(ce * (M / 4f) * 0.5f - 0.0008f, px * 0.6f) * ProcTex.Smooth(0.6f, 0.72f, ProcTex.Fbm(u, v, 4, 2, seed + 6));
                 // A few spots where the render has come off.
-                float spall = ProcTex.Smooth(0.74f, 0.77f, ProcTex.Fbm(wu, wv, 6, 4, seed + 7));
-                col = Color.Lerp(col, col * 0.5f, crack);
+                float spall = ProcTex.Smooth(0.765f, 0.79f, ProcTex.Fbm(wu, wv, 6, 4, seed + 7));
+                col = Color.Lerp(col, col * 0.72f, crack);
                 col = Color.Lerp(col, ProcTex.Mul(C(0.55f, 0.5f, 0.45f), 0.9f + sand * 0.2f), spall);
                 c = col;
                 h = (trowel - 0.5f) * 0.0025f + (sand - 0.5f) * 0.0007f - crack * 0.001f - spall * 0.004f;
@@ -1022,75 +1092,102 @@ namespace Nullbound.Art
             return Make("Bark", size, M, 1f, (float u, float v, out Color c, out float h, out float m, out float s, out float ao) =>
             {
                 float wu = u, wv = v;
-                ProcTex.Warp(ref wu, ref wv, 4, 0.05f, seed);
-                ProcTex.Worley(wu, wv, 9, 3, seed + 1, out float edge, out float id);
-                float plate = ProcTex.Smooth(0.02f, 0.3f, edge);
-                float flake = ProcTex.Fbm(u, v, 16, 6, 3, seed + 2);
+                ProcTex.Warp(ref wu, ref wv, 6, 0.08f, seed);
+                ProcTex.Worley(wu, wv, 16, 5, seed + 1, out float edge, out float id);
+                float gapW = 0.12f + ProcTex.Fbm(u, v, 12, 2, seed + 5) * 0.2f; // crevices vary in width
+                float plate = ProcTex.Smooth(0.01f, gapW, edge);
+                float flake = ProcTex.Fbm(u, v, 24, 8, 3, seed + 2);
                 float fine = ProcTex.Fbm(u, v, 64, 2, seed + 3);
-                Color pc = Color.Lerp(C(0.42f, 0.27f, 0.17f), C(0.52f, 0.36f, 0.24f), id);
-                pc = ProcTex.Mul(pc, 0.85f + flake * 0.3f);
-                pc = Color.Lerp(pc, C(0.5f, 0.46f, 0.42f), ProcTex.Smooth(0.3f, 0.08f, edge) * 0.5f); // grey weathered plate edges
-                Color col = Color.Lerp(C(0.11f, 0.09f, 0.07f), pc, plate);
+                float streak = ProcTex.Fbm(u, v, 32, 2, 2, seed + 4); // vertical fibres
+                float layers = ProcTex.Frac(flake * 4f + id * 3f); // flaky layers on each plate
+                Color pc = Color.Lerp(C(0.34f, 0.23f, 0.15f), C(0.46f, 0.32f, 0.21f), id);
+                pc = ProcTex.Mul(pc, 0.8f + flake * 0.3f + (streak - 0.5f) * 0.14f - ProcTex.Smooth(0.7f, 0.95f, layers) * 0.12f);
+                pc = Color.Lerp(pc, C(0.44f, 0.41f, 0.38f), ProcTex.Smooth(0.2f, 0.05f, edge) * 0.35f); // grey weathered plate edges
+                Color col = Color.Lerp(C(0.17f, 0.12f, 0.085f), pc, plate);
                 c = ProcTex.Mul(col, 0.92f + fine * 0.16f);
-                h = plate * 0.018f + (flake - 0.5f) * 0.004f * plate + (fine - 0.5f) * 0.001f;
+                h = Mathf.Sqrt(plate) * 0.01f + (flake - 0.5f) * 0.003f * plate - ProcTex.Smooth(0.7f, 0.95f, layers) * 0.001f + (fine - 0.5f) * 0.001f + (streak - 0.5f) * 0.002f;
                 m = 0f;
                 s = 0.14f + plate * 0.04f;
-                ao = 0.45f + plate * 0.55f;
+                ao = 0.5f + plate * 0.5f;
             });
         }
 
-        /// <summary>Pine foliage: dense needles in dark greens with lighter tips and a few twigs, over deep shadow.</summary>
+        /// <summary>Pine foliage: dense needle sprigs in dark greens with lighter tips and a few twigs, over deep shadow.</summary>
         public static TexSet PineNeedles(int size = 512)
         {
             const float M = 1f;
-            const int N = 30;
+            const int N = 30, K = 8; // sprig cells across, needles per sprig
             const int seed = 16501;
-            float aa = N / (float)size * 0.6f;
-            Color n1 = C(0.07f, 0.17f, 0.07f), n2 = C(0.13f, 0.27f, 0.11f), n3 = C(0.2f, 0.33f, 0.14f);
+            float aa = N / (float)size * 0.7f;
+            Color n1 = C(0.07f, 0.16f, 0.07f), n2 = C(0.12f, 0.25f, 0.1f), n3 = C(0.2f, 0.32f, 0.13f);
+            // Each cell is a little sprig: a twig with needles fanning out along it. Worked out once per cell.
+            int cells = N * N;
+            var sx = new float[cells]; var sy = new float[cells]; var tdx = new float[cells]; var tdy = new float[cells]; var sz = new float[cells];
+            var nx0 = new float[cells * K]; var ny0 = new float[cells * K]; var ndx = new float[cells * K]; var ndy = new float[cells * K]; var nh = new float[cells * K];
+            for (int cy = 0; cy < N; cy++)
+                for (int cx = 0; cx < N; cx++)
+                {
+                    int c0 = cy * N + cx;
+                    sx[c0] = ProcTex.Hash01(cx, cy, seed + 1);
+                    sy[c0] = ProcTex.Hash01(cx, cy, seed + 2);
+                    float dir = ProcTex.Hash01(cx, cy, seed + 3) * Mathf.PI * 2f;
+                    tdx[c0] = Mathf.Cos(dir) * 1.2f;
+                    tdy[c0] = Mathf.Sin(dir) * 1.2f;
+                    sz[c0] = ProcTex.Hash01(cx, cy, seed + 4);
+                    for (int k = 0; k < K; k++)
+                    {
+                        int i = c0 * K + k, sd = seed + 10 + k * 13;
+                        float along = (k / (K - 1f)) * 1.1f;
+                        nx0[i] = Mathf.Cos(dir) * along;
+                        ny0[i] = Mathf.Sin(dir) * along;
+                        float side = (k & 1) == 0 ? 1f : -1f;
+                        float a = dir + side * (0.6f + ProcTex.Hash01(cx, cy, sd) * 0.4f);
+                        float len = 0.55f + ProcTex.Hash01(cx, cy, sd + 1) * 0.35f;
+                        ndx[i] = Mathf.Cos(a) * len;
+                        ndy[i] = Mathf.Sin(a) * len;
+                        nh[i] = ProcTex.Hash01(cx, cy, sd + 2);
+                    }
+                }
             return Make("PineNeedles", size, M, 1f, (float u, float v, out Color c, out float h, out float m, out float s, out float ao) =>
             {
                 float x = u * N, y = v * N;
                 int cx = Mathf.FloorToInt(x), cy = Mathf.FloorToInt(y);
-                float bestZ = -1f, bestCov = 0f;
-                Color bestC = n1;
+                float bestZ = -1f, bestCov = 0f, bestT = 0f, bestHue = 0f;
+                bool twig = false;
                 float tone = ProcTex.Fbm(u, v, 3, 3, seed);
                 for (int oy = -1; oy <= 1; oy++)
                     for (int ox = -1; ox <= 1; ox++)
                     {
-                        int gx = cx + ox, gy = cy + oy, wx = ProcTex.Wrap(gx, N), wy = ProcTex.Wrap(gy, N);
-                        // Each cell is a little sprig: needles fanning out from a point along a direction.
-                        float sx = gx + ProcTex.Hash01(wx, wy, seed + 1), sy = gy + ProcTex.Hash01(wx, wy, seed + 2);
-                        float dir = ProcTex.Hash01(wx, wy, seed + 3) * Mathf.PI * 2f;
-                        for (int k = 0; k < 7; k++)
+                        int gx = cx + ox, gy = cy + oy, c0 = ProcTex.Wrap(gy, N) * N + ProcTex.Wrap(gx, N);
+                        float ox0 = gx + sx[c0], oy0 = gy + sy[c0];
+                        // Quick reject: nothing of this sprig reaches further than ~2 cells from its start.
+                        if (Mathf.Abs(x - ox0) > 2.1f || Mathf.Abs(y - oy0) > 2.1f) continue;
+                        for (int k = 0; k < K; k++)
                         {
-                            int sd = seed + 10 + k * 13;
-                            float along = (k / 6f) * 1.1f;
-                            float bx = sx + Mathf.Cos(dir) * along, by = sy + Mathf.Sin(dir) * along;
-                            float side = (k & 1) == 0 ? 1f : -1f;
-                            float a = dir + side * (0.6f + ProcTex.Hash01(wx, wy, sd) * 0.4f);
-                            float len = 0.45f + ProcTex.Hash01(wx, wy, sd + 1) * 0.3f;
-                            float d = ProcTex.Segment(x, y, bx, by, bx + Mathf.Cos(a) * len, by + Mathf.Sin(a) * len, out float t);
+                            int i = c0 * K + k;
+                            float bx = ox0 + nx0[i], by = oy0 + ny0[i];
+                            float d = ProcTex.Segment(x, y, bx, by, bx + ndx[i], by + ndy[i], out float t);
                             float cov = ProcTex.Fill(d - 0.06f * (1f - t * 0.6f), aa);
                             if (cov <= 0.02f) continue;
-                            float z = ProcTex.Hash01(wx, wy, seed + 4) + along * 0.2f + t * 0.1f;
+                            float z = sz[c0] + k * 0.04f + t * 0.1f;
                             if (z <= bestZ) continue;
-                            float hue = ProcTex.Hash01(wx, wy, sd + 2);
-                            Color nc = ProcTex.Lerp3(n1, n2, n3, hue * 0.7f + tone * 0.3f);
                             bestZ = z;
                             bestCov = cov;
-                            bestC = ProcTex.Mul(nc, 0.7f + t * 0.45f);
+                            bestT = t;
+                            bestHue = nh[i];
+                            twig = false;
                         }
-                        // The twig itself.
-                        float td = ProcTex.Segment(x, y, sx, sy, sx + Mathf.Cos(dir) * 1.2f, sy + Mathf.Sin(dir) * 1.2f, out _);
+                        float td = ProcTex.Segment(x, y, ox0, oy0, ox0 + tdx[c0], oy0 + tdy[c0], out _);
                         float tc = ProcTex.Fill(td - 0.035f, aa);
-                        float tz = ProcTex.Hash01(wx, wy, seed + 4) - 0.05f;
-                        if (tc > 0.3f && tz > bestZ) { bestZ = tz; bestCov = tc; bestC = C(0.24f, 0.17f, 0.1f); }
+                        float tz = sz[c0] - 0.05f;
+                        if (tc > 0.3f && tz > bestZ) { bestZ = tz; bestCov = tc; twig = true; }
                     }
-                c = Color.Lerp(C(0.025f, 0.05f, 0.025f), bestC, bestCov);
-                h = Mathf.Max(0f, bestZ) * bestCov * 0.012f;
+                Color nc = twig ? C(0.24f, 0.17f, 0.1f) : ProcTex.Mul(ProcTex.Lerp3(n1, n2, n3, bestHue * 0.7f + tone * 0.3f), 0.72f + bestT * 0.42f);
+                c = Color.Lerp(C(0.045f, 0.08f, 0.04f), nc, bestCov);
+                h = Mathf.Max(0f, bestZ) * bestCov * 0.01f;
                 m = 0f;
                 s = 0.18f + bestCov * 0.14f;
-                ao = 0.4f + 0.6f * bestCov * Mathf.Min(1f, 0.5f + bestZ * 0.5f);
+                ao = 0.45f + 0.55f * bestCov * Mathf.Min(1f, 0.5f + bestZ * 0.5f);
             });
         }
 
@@ -1108,11 +1205,12 @@ namespace Nullbound.Art
                 float wear = ProcTex.Fbm(u, v, 2, 8, 3, seed + 1);
                 int cells = Mathf.RoundToInt(M / 0.018f);
                 float f1 = ProcTex.Worley(u, v, cells, seed + 2, out _, out float id);
-                float stone = id < 0.55f ? ProcTex.Fill(f1 - 0.26f, 0.12f) : 0f;
+                float stone = id < 0.5f ? ProcTex.Fill(f1 - 0.28f, 0.16f) : 0f;
                 float fine = ProcTex.Fbm(u, v, Mathf.RoundToInt(M * 40f), 2, seed + 3);
-                Color col = ProcTex.Mul(C(0.17f, 0.17f, 0.18f), 1f + (tone - 0.5f) * 0.25f + (fine - 0.5f) * 0.15f);
-                col = Color.Lerp(col, C(0.3f, 0.3f, 0.3f), ProcTex.Smooth(0.5f, 0.8f, wear) * 0.5f);
-                col = Color.Lerp(col, ProcTex.Mul(C(0.46f, 0.45f, 0.43f), 0.8f + id * 0.4f), stone * 0.75f);
+                Color col = ProcTex.Mul(C(0.17f, 0.17f, 0.18f), 1f + (tone - 0.5f) * 0.3f + (fine - 0.5f) * 0.1f);
+                col = Color.Lerp(col, C(0.28f, 0.28f, 0.28f), ProcTex.Smooth(0.5f, 0.8f, wear) * 0.45f);
+                // Worn-through aggregate: only a little lighter than the binder, so it reads as texture, not speckle.
+                col = Color.Lerp(col, ProcTex.Mul(C(0.3f, 0.3f, 0.29f), 0.85f + id * 0.3f), stone * 0.5f);
                 // Cracks and a darker repair patch.
                 float wu = u, wv = v;
                 ProcTex.Warp(ref wu, ref wv, 5, 0.05f, seed + 4);

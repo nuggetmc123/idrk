@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 using Fusion;
+using Nullbound.Art;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -60,6 +61,7 @@ namespace Nullbound.EditorTools
         /// <summary>Builds everything with no questions asked (used by the menu and by first-time auto setup).</summary>
         public static void BuildWorld()
         {
+            RenderSetup.Apply(); // Linear colour, MSAA, shadows (before any texture is made)
             EnsureFolder(Root + "/Textures");
             EnsureFolder(Root + "/Materials");
             EnsureFolder(Root + "/Prefabs");
@@ -77,6 +79,9 @@ namespace Nullbound.EditorTools
             BuildTrainingGrounds();
             BuildMainMenuRoom();
             BuildBattleground();
+            BuildVariantKeeper();
+            BakeProbes();
+            CleanUnusedMeshes();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             FusionBake.BakeAndSave(scene); // networked scene objects (ArenaState) must be baked or they won't start in builds
@@ -119,15 +124,15 @@ namespace Nullbound.EditorTools
             return s;
         }
 
+        /// <summary>
+        /// A plain Standard material (colour, smoothness, metallic, optional texture with 0..1-UV tiling, optional
+        /// emission). Rebuilding resets everything else (shader, keywords, maps), so old settings never linger.
+        /// For textured world surfaces use Pbr() (ArenaBuilder.Art.cs) instead.
+        /// </summary>
         static Material Mat(string name, Color c, float smoothness = 0.2f, float metallic = 0f, Texture2D tex = null, Vector2? tiling = null, Color? emission = null)
         {
-            string path = Root + "/Materials/" + name + ".mat";
-            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (m == null)
-            {
-                m = new Material(LitShader());
-                AssetDatabase.CreateAsset(m, path);
-            }
+            var m = LoadOrCreateMat(name);
+            ResetStandard(m);
             m.color = c;
             if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", smoothness);
             if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", metallic);
@@ -137,10 +142,8 @@ namespace Nullbound.EditorTools
             {
                 m.EnableKeyword("_EMISSION");
                 m.SetColor("_EmissionColor", emission.Value);
-                m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
             }
-            else m.DisableKeyword("_EMISSION");
-            m.enableInstancing = true;
             EditorUtility.SetDirty(m);
             return m;
         }
@@ -193,25 +196,7 @@ namespace Nullbound.EditorTools
 
         static void CreateMaterials()
         {
-            var tiles = Tex("ArenaTiles", 256, (u, v, r) =>
-            {
-                float n = Noise(u, v, 12f, 4f);
-                bool line = u % 0.25f < 0.012f || v % 0.25f < 0.012f;
-                float g = line ? 0.18f : 0.34f + n * 0.12f;
-                return new Color(g, g, g * 1.08f);
-            });
-            var concreteTex = Tex("Concrete", 256, (u, v, r) =>
-            {
-                float n = Noise(u, v, 9f, 7f);
-                float g = 0.5f + n * 0.25f + (r.NextDouble() < 0.03 ? -0.1f : 0f);
-                return new Color(g, g * 0.98f, g * 0.95f);
-            });
-            var crateTex = Tex("Crate", 128, (u, v, r) =>
-            {
-                bool edge = u < 0.08f || u > 0.92f || v < 0.08f || v > 0.92f || Mathf.Abs(u - v) < 0.05f;
-                float grain = Mathf.PerlinNoise(u * 3f, v * 40f) * 0.15f;
-                return edge ? new Color(0.42f, 0.28f, 0.15f) : new Color(0.62f + grain, 0.45f + grain, 0.26f);
-            });
+            InitArt(); // the generated PBR palette (ArenaBuilder.Art.cs)
             var glowTex = Tex("SoftGlow", 64, (u, v, r) =>
             {
                 float d = Mathf.Clamp01(1f - Vector2.Distance(new Vector2(u, v), new Vector2(0.5f, 0.5f)) * 2f);
@@ -225,22 +210,24 @@ namespace Nullbound.EditorTools
                 return new Color(0f, 0f, 0f, a);
             }, false);
 
-            floor = Mat("ArenaFloor", Color.white, 0.25f, 0f, tiles, new Vector2(14f, 14f));
-            ringMat = Mat("RingFloor", new Color(0.2f, 0.22f, 0.35f), 0.45f, 0f, tiles, new Vector2(5f, 5f));
-            wall = Mat("ArenaWall", new Color(0.26f, 0.27f, 0.32f), 0.3f, 0f, concreteTex, new Vector2(4f, 1f));
-            concrete = Mat("Concrete", Color.white, 0.15f, 0f, concreteTex);
-            stone = Mat("Stone", new Color(0.75f, 0.72f, 0.68f), 0.15f, 0f, concreteTex);
-            metal = Mat("Metal", new Color(0.6f, 0.62f, 0.66f), 0.7f, 0.8f);
-            dark = Mat("Dark", new Color(0.1f, 0.1f, 0.12f), 0.4f);
-            sign = Mat("Sign", new Color(0.07f, 0.07f, 0.1f), 0.6f);
-            rope = Mat("Rope", new Color(0.9f, 0.2f, 0.15f), 0.3f, 0f, null, null, new Color(0.6f, 0.08f, 0.05f));
-            crate = Mat("Crate", Color.white, 0.1f, 0f, crateTex);
+            // The original material slots, now pointing at the lab palette (so everything built with them looks right).
+            floor = labFloor;
+            ringMat = rubber;
+            wall = labPanel;
+            concrete = concreteRaw;
+            stone = Pbr("Stone", "ConcreteRaw", new Color(0.95f, 0.92f, 0.88f));
+            metal = gunmetal;
+            dark = Pbr("Dark", "Gunmetal", new Color(0.62f, 0.62f, 0.64f));
+            sign = Pbr("Sign", "LabPanelDark", new Color(0.62f, 0.63f, 0.66f));
+            rope = Mat("Rope", Surfaces.SafetyOrange, 0.35f);
+            crate = Pbr("Crate", "Crate", Color.white);
             bagMat = Mat("PunchBag", new Color(0.65f, 0.15f, 0.12f), 0.35f);
-            neonRed = Mat("NeonRed", new Color(1f, 0.3f, 0.2f), 0.5f, 0f, null, null, new Color(1f, 0.25f, 0.15f) * 2f);
-            neonCyan = Mat("NeonCyan", new Color(0.3f, 0.9f, 1f), 0.5f, 0f, null, null, new Color(0.2f, 0.8f, 1f) * 2f);
-            neonGold = Mat("NeonGold", new Color(1f, 0.8f, 0.3f), 0.5f, 0f, null, null, new Color(1f, 0.7f, 0.2f) * 2f);
-            padBlue = Mat("PadBlue", new Color(0.2f, 0.45f, 1f), 0.4f, 0f, null, null, new Color(0.1f, 0.25f, 0.7f));
-            padRed = Mat("PadRed", new Color(1f, 0.3f, 0.25f), 0.4f, 0f, null, null, new Color(0.7f, 0.12f, 0.08f));
+            // Glowing trims: saturated colour, modest emission (there's no bloom; strong emission just clips to white).
+            neonRed = Mat("NeonRed", Surfaces.SafetyOrange, 0.5f, 0f, null, null, new Color(1f, 0.36f, 0.08f) * 1.4f);
+            neonCyan = Mat("NeonCyan", Surfaces.Teal, 0.5f, 0f, null, null, new Color(0.2f, 0.82f, 0.78f) * 1.3f);
+            neonGold = Mat("NeonGold", new Color(1f, 0.86f, 0.55f), 0.5f, 0f, null, null, new Color(1f, 0.82f, 0.5f) * 1.4f);
+            padBlue = Pbr("PadBlue", "PaintBlue", s => Surfaces.PaintedMetal(new Color(0.16f, 0.34f, 0.62f), 0.5f, s), 512, Color.white);
+            padRed = orangePaint;
             baseLit = Mat("BaseLit", Color.white, 0.3f);
             vignetteRing = Fade(Mat("VignetteRing", new Color(0f, 0f, 0f, 1f), 0f, 0f, ringTex));
             vignetteSolid = Fade(Mat("ScreenFlash", new Color(1f, 0f, 0f, 0f), 0f));
@@ -259,48 +246,18 @@ namespace Nullbound.EditorTools
             EditorUtility.SetDirty(particle);
         }
 
+        /// <summary>The scene's sun and the Training Grounds lighting preset (MapSky switches presets at runtime).</summary>
         static void SetUpLighting()
         {
             var sunGo = GameObject.Find("Directional Light");
             if (sunGo != null)
             {
                 var sun = sunGo.GetComponent<Light>();
-                sunGo.transform.rotation = Quaternion.Euler(38f, -50f, 0f);
-                sun.color = new Color(1f, 0.85f, 0.7f);
-                sun.intensity = 1.15f;
                 sun.shadows = LightShadows.Soft;
-                sun.shadowStrength = 0.75f;
                 RenderSettings.sun = sun;
             }
-            var skyShader = Shader.Find("Skybox/Procedural");
-            if (skyShader != null)
-            {
-                string path = Root + "/Materials/Sky.mat";
-                var sky = AssetDatabase.LoadAssetAtPath<Material>(path);
-                if (sky == null)
-                {
-                    sky = new Material(skyShader);
-                    AssetDatabase.CreateAsset(sky, path);
-                }
-                // Dramatic dusk.
-                sky.SetFloat("_SunSize", 0.06f);
-                sky.SetFloat("_AtmosphereThickness", 1.6f);
-                sky.SetColor("_SkyTint", new Color(0.55f, 0.4f, 0.75f));
-                sky.SetColor("_GroundColor", new Color(0.25f, 0.2f, 0.25f));
-                sky.SetFloat("_Exposure", 1.1f);
-                EditorUtility.SetDirty(sky);
-                RenderSettings.skybox = sky;
-            }
-            RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.55f, 0.5f, 0.7f);
-            RenderSettings.ambientEquatorColor = new Color(0.5f, 0.42f, 0.45f);
-            RenderSettings.ambientGroundColor = new Color(0.2f, 0.18f, 0.2f);
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = 90f;
-            RenderSettings.fogEndDistance = 380f;
-            RenderSettings.fogColor = new Color(0.6f, 0.45f, 0.55f);
-            QualitySettings.shadowDistance = 40f;
+            RenderSettings.defaultReflectionResolution = 64;
+            ApplyPreset(LightingPresets.Training);
         }
 
         static GameObject Prim(PrimitiveType type, string name, Transform parent, Vector3 localPos, Vector3 scale, Material mat, bool collider = true, Quaternion? rot = null)
@@ -363,7 +320,8 @@ namespace Nullbound.EditorTools
         static void MarkStatic(Transform root)
         {
             if (root.GetComponent<TextMeshPro>() || root.GetComponent<Breakable>() || root.GetComponent<TrainingDummy>() || root.GetComponent<ScoreBoard>() || root.GetComponent<MainMenu>()) return;
-            GameObjectUtility.SetStaticEditorFlags(root.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic);
+            GameObjectUtility.SetStaticEditorFlags(root.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic |
+                StaticEditorFlags.ReflectionProbeStatic);
             foreach (Transform child in root) MarkStatic(child);
         }
 
@@ -435,6 +393,8 @@ namespace Nullbound.EditorTools
             var cam = head.AddComponent<Camera>();
             cam.nearClipPlane = 0.03f;
             cam.farClipPlane = 400f;
+            cam.allowHDR = false; // no post-processing to use it; float eye buffers just cost bandwidth on Quest
+            cam.allowMSAA = true;
             head.AddComponent<AudioListener>();
             var tpd = head.AddComponent<TrackedPoseDriver>();
             tpd.trackingType = TrackedPoseDriver.TrackingType.RotationAndPosition;
