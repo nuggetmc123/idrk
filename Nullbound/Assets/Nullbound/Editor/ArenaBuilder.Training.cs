@@ -29,28 +29,22 @@ namespace Nullbound.EditorTools
             Prim(PrimitiveType.Cube, "Floor", scenery, new Vector3(0f, -0.5f, 0f), new Vector3(Half * 2f + 2f, 1f, Half * 2f + 2f), floor);
             Prim(PrimitiveType.Cube, "Outside", scenery, new Vector3(0f, -1.2f, 0f), new Vector3(240f, 1f, 240f), Mat("Outside", new Color(0.28f, 0.24f, 0.26f), 0.1f));
 
-            // Walls round the edge (short enough to see over, plus a tall invisible barrier).
+            // Knee-high walls round the fighting floor (with a tall invisible barrier), inside the test hall's walls.
             foreach (var (pos, size) in new[]
             {
                 (new Vector3(0f, 1.25f, Half + 0.5f), new Vector3(Half * 2f + 2f, 2.5f, 1f)), (new Vector3(0f, 1.25f, -Half - 0.5f), new Vector3(Half * 2f + 2f, 2.5f, 1f)),
                 (new Vector3(Half + 0.5f, 1.25f, 0f), new Vector3(1f, 2.5f, Half * 2f + 2f)), (new Vector3(-Half - 0.5f, 1.25f, 0f), new Vector3(1f, 2.5f, Half * 2f + 2f)),
             })
             {
-                Prim(PrimitiveType.Cube, "Wall", scenery, pos, size, wall);
-                Prim(PrimitiveType.Cube, "WallGlow", scenery, pos + Vector3.up * 1.27f, new Vector3(size.x + 0.02f, 0.06f, size.z + 0.02f), neonRed, false);
+                Prim(PrimitiveType.Cube, "Wall", scenery, pos, size, labPanelDark);
+                Prim(PrimitiveType.Cube, "WallCap", scenery, pos + Vector3.up * 1.3f, new Vector3(size.x + 0.04f, 0.1f, size.z + 0.04f), hazard, false);
                 var barrier = Prim(PrimitiveType.Cube, "Barrier", scenery, pos + Vector3.up * 14f, new Vector3(size.x, 26f, size.z), wall);
                 Object.DestroyImmediate(barrier.GetComponent<Renderer>());
                 Object.DestroyImmediate(barrier.GetComponent<MeshFilter>());
             }
 
-            // Tall light towers in the corners.
-            foreach (var c in new[] { new Vector3(-1f, 0f, -1f), new Vector3(1f, 0f, -1f), new Vector3(-1f, 0f, 1f), new Vector3(1f, 0f, 1f) })
-            {
-                Vector3 p = c * (Half + 3f);
-                Prim(PrimitiveType.Cube, "Tower", scenery, p + Vector3.up * 7f, new Vector3(0.8f, 14f, 0.8f), metal);
-                Prim(PrimitiveType.Cube, "TowerLamp", scenery, p + Vector3.up * 14.3f - c.normalized * 0.4f, new Vector3(2.4f, 1.2f, 0.4f), neonGold, false,
-                    Quaternion.LookRotation(-new Vector3(c.x, 0f, c.z)));
-            }
+            // The test hall round it all: walls, roof, lights and floor paint (ArenaBuilder.Hangar.cs).
+            BuildHall(scenery);
 
             // The sparring ring in the middle: a low stage (you can step up on it), corner posts and glowing ropes.
             var ring = Group("SparringRing", scenery, Vector3.zero);
@@ -125,7 +119,7 @@ namespace Nullbound.EditorTools
                 "<b>X</b> fly into your target   <b>Click right stick</b> super   <b>Menu button</b>: Quick Match, Training, fighters, settings\n" +
                 "Left stick move, right stick turn. Smash walls, crates and pillars!", neonCyan);
             Posts(scenery, new Vector3(-Half + 0.2f, 0f, 0f), true);
-            var title = Group("Title", scenery, new Vector3(0f, 9f, Half + 1.5f));
+            var title = Group("Title", scenery, new Vector3(0f, 8.6f, Half - 0.3f));
             Prim(PrimitiveType.Cube, "TitleBack", title, new Vector3(0f, 0f, 0.3f), new Vector3(22f, 4f, 0.4f), sign);
             Prim(PrimitiveType.Cube, "TitleGlow", title, new Vector3(0f, -2.05f, 0.1f), new Vector3(22.2f, 0.12f, 0.12f), neonRed, false);
             var titleText = Text(title, "TitleText", "<b>NULLBOUND</b>", new Vector3(0f, 0.35f, 0f), Quaternion.identity, 22f, new Color(1f, 0.45f, 0.3f), new Vector2(21f, 2.6f));
@@ -134,7 +128,7 @@ namespace Nullbound.EditorTools
             titleText.fontSizeMax = 22f;
             titleText.fontSizeMin = 8f;
             Text(title, "Subtitle", "TRAINING GROUNDS", new Vector3(0f, -1.3f, 0f), Quaternion.identity, 8f, Color.white, new Vector2(21f, 1f));
-            for (int i = -1; i <= 1; i += 2) Prim(PrimitiveType.Cube, "TitlePost", title, new Vector3(i * 9f, -5f, 0.4f), new Vector3(0.5f, 6f, 0.5f), metal);
+            for (int i = -1; i <= 1; i += 2) Prim(PrimitiveType.Cube, "TitleBracket", title, new Vector3(i * 8f, 0f, 0.65f), new Vector3(0.4f, 3f, 0.4f), metal, false);
 
             // Spawn points: round the ring and in the open.
             var spawns = Group("SpawnPoints", a, Vector3.zero);
@@ -157,11 +151,12 @@ namespace Nullbound.EditorTools
         static void BuildDowntown(Transform a, Transform breakables, ref int nextId)
         {
             var town = Group("Downtown", a, new Vector3(28f, 0f, 22f));
-            var road = Mat("Road", new Color(0.18f, 0.18f, 0.2f), 0.3f);
-            var brick = Mat("Brick", new Color(0.62f, 0.3f, 0.22f), 0.15f);
+            var road = asphaltMat;
+            var brick = brickMat;
             var glassMat = Mat("Window", new Color(0.4f, 0.6f, 0.8f), 0.9f, 0f, null, null, new Color(0.15f, 0.25f, 0.35f));
             Prim(PrimitiveType.Cube, "Road", town, new Vector3(0f, 0.01f, 0f), new Vector3(30f, 0.02f, 6f), road, false);
-            for (int i = -2; i <= 2; i++) Prim(PrimitiveType.Cube, "RoadLine", town, new Vector3(i * 6f, 0.025f, 0f), new Vector3(2.5f, 0.01f, 0.2f), Mat("Line", Color.white, 0.3f), false);
+            for (int i = -2; i <= 2; i++) Prim(PrimitiveType.Cube, "RoadLine", town, new Vector3(i * 6f, 0.025f, 0f), new Vector3(2.5f, 0.01f, 0.2f), Mat("Line", new Color(0.85f, 0.84f, 0.8f), 0.3f), false);
+            foreach (float z in new[] { -3.4f, 3.4f }) Prim(PrimitiveType.Cube, "Kerb", town, new Vector3(0f, 0.08f, z), new Vector3(30f, 0.16f, 0.8f), concretePolished, false);
             // Three buildings made of breakable blocks (smash a hole and walk through).
             for (int b = 0; b < 3; b++)
             {
@@ -188,30 +183,40 @@ namespace Nullbound.EditorTools
             {
                 Vector3 lp = new Vector3(-12f + i * 8f, 0f, -3.6f);
                 Prim(PrimitiveType.Cylinder, "LampPost", town, lp + Vector3.up * 2f, new Vector3(0.12f, 2f, 0.12f), metal);
-                Prim(PrimitiveType.Sphere, "Lamp", town, lp + Vector3.up * 4.1f, Vector3.one * 0.4f, neonGold, false);
+                Prim(PrimitiveType.Cube, "LampArm", town, lp + new Vector3(0f, 4.05f, 0.35f), new Vector3(0.1f, 0.1f, 0.8f), metal, false);
+                Prim(PrimitiveType.Cube, "Lamp", town, lp + new Vector3(0f, 3.98f, 0.7f), new Vector3(0.32f, 0.08f, 0.5f), lightPanel, false);
             }
         }
 
         /// <summary>South-west: raised rock platforms with ramps up (fight on high ground, knock people off).</summary>
         static void BuildPlateau(Transform scenery)
         {
-            var rockMat = Mat("Rock", new Color(0.45f, 0.38f, 0.34f), 0.1f);
+            var platMat = concreteRaw;
             var plat = Group("Plateau", scenery, new Vector3(-27f, 0f, -24f));
-            Prim(PrimitiveType.Cube, "Platform", plat, new Vector3(0f, 1f, 0f), new Vector3(12f, 2f, 12f), rockMat);
+            Prim(PrimitiveType.Cube, "Platform", plat, new Vector3(0f, 1f, 0f), new Vector3(12f, 2f, 12f), platMat);
             Prim(PrimitiveType.Cube, "PlatformTop", plat, new Vector3(0f, 2.02f, 0f), new Vector3(11.6f, 0.04f, 11.6f), ringMat, false);
-            Ramp(plat, new Vector3(0f, 0f, 14f), new Vector3(0f, 2f, 6f), 4f, rockMat);
-            Ramp(plat, new Vector3(14f, 0f, 0f), new Vector3(6f, 2f, 0f), 4f, rockMat);
-            Prim(PrimitiveType.Cube, "Peak", plat, new Vector3(-3f, 3f, -3f), new Vector3(5f, 2f, 5f), rockMat);
-            Ramp(plat, new Vector3(-3f, 2f, 4.5f), new Vector3(-3f, 4f, -0.5f), 2.5f, rockMat);
+            Ramp(plat, new Vector3(0f, 0f, 14f), new Vector3(0f, 2f, 6f), 4f, platMat);
+            Ramp(plat, new Vector3(14f, 0f, 0f), new Vector3(6f, 2f, 0f), 4f, platMat);
+            Prim(PrimitiveType.Cube, "Peak", plat, new Vector3(-3f, 3f, -3f), new Vector3(5f, 2f, 5f), platMat);
+            Ramp(plat, new Vector3(-3f, 2f, 4.5f), new Vector3(-3f, 4f, -0.5f), 2.5f, platMat);
+            int seed = 31;
             foreach (var r in new[] { new Vector3(8f, 0f, 9f), new Vector3(-8f, 0f, 9f), new Vector3(9f, 0f, -8f) })
-                Prim(PrimitiveType.Sphere, "Boulder", plat, r + Vector3.up * 0.8f, new Vector3(2.2f, 1.6f, 2f), rockMat);
+            {
+                // A boulder to hide behind: chunky rock mesh, the same round collider as before.
+                var b = Prim(PrimitiveType.Sphere, "Boulder", plat, r + Vector3.up * 0.8f, new Vector3(2.2f, 1.6f, 2f), rockMat);
+                b.GetComponent<MeshFilter>().sharedMesh = RockMesh(seed++, new Vector3(2.2f, 1.6f, 2f));
+            }
+            // Hazard edging round the top, so the drop reads from a distance.
+            foreach (var (p, s) in new[] { (new Vector3(0f, 2.06f, 5.95f), new Vector3(12f, 0.12f, 0.1f)), (new Vector3(0f, 2.06f, -5.95f), new Vector3(12f, 0.12f, 0.1f)),
+                (new Vector3(5.95f, 2.06f, 0f), new Vector3(0.1f, 0.12f, 12f)), (new Vector3(-5.95f, 2.06f, 0f), new Vector3(0.1f, 0.12f, 12f)) })
+                Prim(PrimitiveType.Cube, "Edge", plat, p, s, hazard, false);
         }
 
         /// <summary>North-west: a dojo with breakable paper-screen walls.</summary>
         static void BuildDojo(Transform a, Transform breakables, ref int nextId)
         {
             var dojo = Group("Dojo", a, new Vector3(-28f, 0f, 22f));
-            var woodMat = Mat("DojoWood", new Color(0.45f, 0.28f, 0.16f), 0.3f);
+            var woodMat = woodPlanksMat;
             var paper = Mat("Paper", new Color(0.95f, 0.92f, 0.82f), 0.1f, 0f, null, null, new Color(0.25f, 0.22f, 0.15f));
             Prim(PrimitiveType.Cube, "DojoFloor", dojo, new Vector3(0f, 0.15f, 0f), new Vector3(14f, 0.3f, 12f), woodMat);
             foreach (var c in new[] { new Vector3(-7f, 0f, -6f), new Vector3(7f, 0f, -6f), new Vector3(-7f, 0f, 6f), new Vector3(7f, 0f, 6f) })

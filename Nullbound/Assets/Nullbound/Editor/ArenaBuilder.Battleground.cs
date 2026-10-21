@@ -36,22 +36,20 @@ namespace Nullbound.EditorTools
             var scenery = Group("Scenery", b, Vector3.zero);
             var smash = Group("Smashables", b, Vector3.zero);
 
-            var grassTex = Tex("Grass", 256, (u, v, r) =>
-            {
-                float n = Noise(u, v, 10f, 2f);
-                float blade = r.NextDouble() < 0.08 ? 0.06f : 0f;
-                return new Color(0.26f + n * 0.12f + blade, 0.45f + n * 0.16f + blade, 0.2f + n * 0.06f);
-            });
-            var grass = Mat("BattleGrass", Color.white, 0.1f, 0f, grassTex, new Vector2(60f, 60f));
-            var hillMat = Mat("Hill", Color.white, 0.1f, 0f, grassTex, new Vector2(6f, 6f));
-            var dirt = Mat("Dirt", new Color(0.45f, 0.35f, 0.24f), 0.1f);
+            // The field test site's palette (ArenaBuilder.Art.cs). Hills are spheres (Unity's 0..1 UVs), so their grass
+            // gets its own tiling.
+            var grass = grassMat;
+            var hillMat = Pbr("HillGrass", "Grass", Color.white);
+            hillMat.mainTextureScale = new Vector2(30f, 12f);
+            EditorUtility.SetDirty(hillMat);
+            var dirt = dirtMat;
             var rockMat = ArenaBuilder.rockMat;
-            var plaster = new[] { Mat("Plaster1", new Color(0.92f, 0.86f, 0.74f), 0.1f), Mat("Plaster2", new Color(0.8f, 0.72f, 0.6f), 0.1f), Mat("Plaster3", new Color(0.7f, 0.78f, 0.82f), 0.1f) };
-            var roofs = new[] { Mat("RoofRed", new Color(0.65f, 0.2f, 0.15f), 0.2f), Mat("RoofBlue", new Color(0.2f, 0.3f, 0.5f), 0.2f), Mat("RoofBrown", new Color(0.4f, 0.26f, 0.16f), 0.2f) };
-            var timber = Mat("Timber", new Color(0.35f, 0.22f, 0.12f), 0.2f);
+            var plaster = plasterMats;
+            var roofs = roofMats;
+            var timber = timberMat;
             var towerStone = stoneBlocksMat;
-            var leafMat = Mat("Pine", new Color(0.12f, 0.35f, 0.18f), 0.1f);
-            var bark = Mat("Bark", new Color(0.3f, 0.2f, 0.12f), 0.1f);
+            var leafMat = pineMat;
+            var bark = barkMat;
 
             // Ground and the edge wall.
             Prim(PrimitiveType.Cube, "Ground", scenery, new Vector3(0f, -0.5f, 0f), new Vector3(BattleHalf * 2f + 120f, 1f, BattleHalf * 2f + 120f), grass);
@@ -152,6 +150,8 @@ namespace Nullbound.EditorTools
                 var rock = Prim(i % 2 == 0 ? PrimitiveType.Sphere : PrimitiveType.Cube, "Rock", size < 5.5f ? smash : scenery, p + Vector3.up * size * 0.3f,
                     new Vector3(size, size * (0.6f + (float)rng.NextDouble() * 0.4f), size * (0.7f + (float)rng.NextDouble() * 0.5f)), rockMat, true,
                     Quaternion.Euler((float)rng.NextDouble() * 30f, (float)rng.NextDouble() * 360f, (float)rng.NextDouble() * 30f));
+                // A chunky rock mesh in place of the ball or box (the collider stays as it was).
+                rock.GetComponent<MeshFilter>().sharedMesh = RockMesh(100 + i % 8, WorldSize(rock.transform));
                 if (size < 5.5f) MakeBreakable(rock, nextBreakable++, 60f, rockMat);
             }
 
@@ -165,8 +165,17 @@ namespace Nullbound.EditorTools
                 float s = 0.8f + (float)rng.NextDouble() * 0.7f;
                 var tree = Group("Pine", scenery, p);
                 Prim(PrimitiveType.Cylinder, "Trunk", tree, Vector3.up * 1.5f * s, new Vector3(0.45f, 1.5f, 0.45f) * s, bark);
-                for (int k = 0; k < 3; k++)
-                    Prim(PrimitiveType.Sphere, "Needles", tree, Vector3.up * (3.2f + k * 1.5f) * s, new Vector3(3.4f - k * 0.9f, 2f, 3.4f - k * 0.9f) * s, leafMat, false);
+                // Four tiers of needles, each a cone (one shared mesh), turned a little so they don't line up.
+                for (int k = 0; k < 4; k++)
+                {
+                    var cone = new GameObject("Needles");
+                    cone.transform.SetParent(tree, false);
+                    cone.transform.localPosition = Vector3.up * (3.1f + k * 1.35f) * s;
+                    cone.transform.localRotation = Quaternion.Euler(0f, k * 37f + i * 11f, 0f);
+                    cone.transform.localScale = new Vector3(3.9f - k * 0.8f, 2.6f - k * 0.2f, 3.9f - k * 0.8f) * s;
+                    cone.AddComponent<MeshFilter>().sharedMesh = ConeMesh();
+                    cone.AddComponent<MeshRenderer>().sharedMaterial = leafMat;
+                }
             }
 
             // Spawn points all over (in the open).
@@ -293,8 +302,11 @@ namespace Nullbound.EditorTools
                         p += new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * spacing * 0.3f;
                         float wdt = minW + (float)rng.NextDouble() * (maxW - minW);
                         float hgt = minH + (float)rng.NextDouble() * (maxH - minH);
-                        Prim(PrimitiveType.Sphere, name, scenery, new Vector3(p.x, hgt * 0.15f, p.z), new Vector3(wdt, hgt, wdt * (0.8f + (float)rng.NextDouble() * 0.4f)), rockMat, false,
+                        var boulder = Prim(PrimitiveType.Sphere, name, scenery, new Vector3(p.x, hgt * 0.15f, p.z), new Vector3(wdt, hgt, wdt * (0.8f + (float)rng.NextDouble() * 0.4f)), rockMat, false,
                             Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f));
+                        // Faceted rock instead of a ball; sizes rounded to the metre so the cliff shares a few meshes.
+                        Vector3 sz = boulder.transform.localScale;
+                        boulder.GetComponent<MeshFilter>().sharedMesh = RockMesh(200 + (edge * 7 + i) % 6, new Vector3(Mathf.Round(sz.x), Mathf.Round(sz.y), Mathf.Round(sz.z)));
                     }
             }
             Ring(BattleHalf + 9f, 9f, 16f, 22f, 12f, 24f, "Cliff");       // right behind the wall, touching each other
@@ -335,6 +347,37 @@ namespace Nullbound.EditorTools
             // (Inside the cap, so it disappears with it; scaled back from the cap's size.)
             var spire = Prim(PrimitiveType.Cube, "Spire", roof.transform, new Vector3(0f, 1.6f / 1.2f, 0f), new Vector3(0.45f / (s + 0.8f), 2.5f / 1.2f, 0.45f / (s + 0.8f)), cap, false, Quaternion.Euler(0f, 45f, 0f));
             spire.GetComponent<Renderer>().sharedMaterial = neonRed;
+        }
+    
+        /// <summary>
+        /// A cone like a unit cylinder (diameter 1, from y -0.5 to 0.5, point at the top) with a bottom cap, for pine
+        /// tiers. UVs in metres for a typical 3 x 2.6 m tier (the trees are scaled a little either side of that).
+        /// </summary>
+        static Mesh ConeMesh()
+        {
+            return CachedMesh("Cone_14", () =>
+            {
+                const int seg = 14;
+                const float refR = 1.5f, refH = 2.6f;
+                var d = new Nullbound.Art.MeshData();
+                float slant = Mathf.Sqrt(refR * refR + refH * refH);
+                for (int i = 0; i < seg; i++)
+                {
+                    float a0 = i * Mathf.PI * 2f / seg, a1 = (i + 1) * Mathf.PI * 2f / seg, am = (a0 + a1) * 0.5f;
+                    // Normals for the unit shape (radius 0.5, height 1); the object's scale corrects them like any mesh.
+                    Vector3 N(float a) => new Vector3(Mathf.Cos(a), 0.5f, Mathf.Sin(a)).normalized;
+                    Vector4 T(float a) => new Vector4(-Mathf.Sin(a), 0f, Mathf.Cos(a), 1f);
+                    int b0 = d.Add(new Vector3(Mathf.Cos(a0) * 0.5f, -0.5f, Mathf.Sin(a0) * 0.5f), N(a0), T(a0), new Vector2(a0 * refR, 0f));
+                    int b1 = d.Add(new Vector3(Mathf.Cos(a1) * 0.5f, -0.5f, Mathf.Sin(a1) * 0.5f), N(a1), T(a1), new Vector2(a1 * refR, 0f));
+                    int top = d.Add(new Vector3(0f, 0.5f, 0f), N(am), T(am), new Vector2(am * refR, slant));
+                    d.Tri(b0, top, b1);
+                    int c = d.Add(new Vector3(0f, -0.5f, 0f), Vector3.down, new Vector4(1f, 0f, 0f, 1f), Vector2.zero);
+                    int r0 = d.Add(new Vector3(Mathf.Cos(a0) * 0.5f, -0.5f, Mathf.Sin(a0) * 0.5f), Vector3.down, new Vector4(1f, 0f, 0f, 1f), new Vector2(Mathf.Cos(a0), Mathf.Sin(a0)) * refR);
+                    int r1 = d.Add(new Vector3(Mathf.Cos(a1) * 0.5f, -0.5f, Mathf.Sin(a1) * 0.5f), Vector3.down, new Vector4(1f, 0f, 0f, 1f), new Vector2(Mathf.Cos(a1), Mathf.Sin(a1)) * refR);
+                    d.Tri(c, r0, r1);
+                }
+                return d;
+            });
         }
     }
 }

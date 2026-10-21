@@ -554,6 +554,7 @@ namespace Nullbound.EditorTools
         {
             foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
             {
+                if (!r.gameObject.activeInHierarchy) continue; // inactive renderers have empty bounds
                 var s = r.bounds.size;
                 float across = Mathf.Max(s.x, s.z);
                 if (s.y < 0.03f || (across >= 16f && s.y <= Mathf.Max(0.6f, 0.05f * across)))

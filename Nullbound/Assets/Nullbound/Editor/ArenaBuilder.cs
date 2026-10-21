@@ -157,6 +157,7 @@ namespace Nullbound.EditorTools
                 m.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
                 m.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
                 m.SetInt("_ZWrite", 0);
+                m.SetOverrideTag("RenderType", "Transparent"); // ResetStandard clears it, and Standard defaults to Opaque
                 m.DisableKeyword("_ALPHATEST_ON");
                 m.EnableKeyword("_ALPHABLEND_ON");
                 m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
