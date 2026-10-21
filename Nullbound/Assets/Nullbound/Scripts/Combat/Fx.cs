@@ -29,6 +29,15 @@ namespace Nullbound
                 var spark = Spawn(PrimitiveType.Cube, pos, Quaternion.LookRotation(d), new Vector3(0.02f, 0.02f, 0.25f) * s, new Vector3(0.005f, 0.005f, 0.05f), glow, 0.22f);
                 spark.velocity = d * Random.Range(4f, 9f) * s;
             }
+            // Hot metal-grinder sparks that arc down under gravity (the physical touch).
+            var hot = NBUI.Glow(blocked ? new Color(0.75f, 0.9f, 1f) : new Color(1f, 0.72f, 0.35f));
+            for (int i = 0; i < (heavy ? 10 : 6); i++)
+            {
+                Vector3 d = (dir.normalized * 0.6f + Random.insideUnitSphere + Vector3.up * 0.5f).normalized;
+                var ember = Spawn(PrimitiveType.Cube, pos, Quaternion.LookRotation(d), new Vector3(0.012f, 0.012f, 0.07f), new Vector3(0.006f, 0.006f, 0.03f), hot, Random.Range(0.35f, 0.6f));
+                ember.velocity = d * Random.Range(2.5f, 5.5f);
+                ember.gravity = true;
+            }
         }
 
         /// <summary>A ring of force rolling out across the ground, plus a dome flash.</summary>
@@ -76,6 +85,7 @@ namespace Nullbound
             var go = new GameObject("Popup");
             go.transform.position = pos;
             var tmp = go.AddComponent<TextMeshPro>();
+            NBUI.UseFont(tmp, true);
             tmp.text = text;
             tmp.fontSize = 2.2f * size;
             tmp.color = color;

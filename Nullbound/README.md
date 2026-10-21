@@ -285,6 +285,11 @@ bots yourself from the wrist menu.
 
 ## Training Grounds (Training only, 90 m across)
 
+The Training Grounds sit inside an enclosed **test hall**, 28 m tall: white panelled walls with steel pilasters and
+light strips, an orange stripe, pipes and vents, stencilled sector names (SECTOR 01-04), a big bay door, observation
+windows with monitors behind the glass, and a roof on steel trusses with long hanging light panels. The floor has
+hazard bands along the walls, orange zone lines and painted zone numbers (A1-A4).
+
 - **Middle:** the sparring ring, with 8 breakable pillars round it.
 - **North:** 7 training dummies (damage, hits, DPS).
 - **North-east, Downtown:** three buildings made of breakable walls, a road, street lights and a car to throw
@@ -292,6 +297,25 @@ bots yourself from the wrist menu.
 - **North-west, Dojo:** a wooden dojo with paper walls you can smash through.
 - **South-west, Plateau:** raised rock platforms with ramps (high ground!).
 - **South:** a breakable wall; crate stacks around the floor; the KO board (east) and How to Fight board (west).
+
+## Look
+
+The game is styled after a clean, high-end **combat test lab** (original art, nothing copied):
+
+- **Every texture is generated in code** (`Scripts/Art/ProcTex.cs` and the recipes in `Surfaces.cs`): lab panels,
+  polished concrete, gunmetal, hazard stripes, rubber mats, grass, dirt, rock, brick, plaster, roof tiles, wood...
+  each with a colour map, a normal map and a metal/smoothness/occlusion map. Generated textures are written to
+  `Textures/Gen` and only remade when a recipe changes.
+- **Meshes** (`Scripts/Art/MeshKit.cs`): boxes with rounded, light-catching edges, smooth cylinders, faceted
+  boulders and pine-tree cones, all with real-size texture coordinates so materials tile at the right scale.
+- **Lighting:** linear colour space, 4x MSAA, a lighting preset per place (`LightingPresets.cs`), baked reflection
+  probes per area.
+- **Main menu:** a lab briefing room with a window out to the stars, lockers, a workbench and a bay door. Menu
+  panels are lab consoles (steel frame, dark glass, coloured trims and corner brackets).
+- **Fighters:** cloth, leather, brushed metal, skin and hair get fine surface detail (`FighterSurface.cs`).
+- **Fonts:** Barlow (menus) and Rajdhani (signs), both under the SIL Open Font License (files in `Resources/Fonts`).
+- **Battleground:** grass, dirt roads, paved plaza, plaster houses with tiled roofs, stone towers, rock cliffs and
+  cone pine trees.
 
 ## Moderators
 

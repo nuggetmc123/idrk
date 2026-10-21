@@ -33,7 +33,11 @@ namespace Nullbound
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
-        static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => SetUpCameras();
+        static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            SetUpCameras();
+            NBUI.ApplySceneFonts();
+        }
 
         /// <summary>HDR off and MSAA on for every camera in the loaded scenes (also call this after making a camera).</summary>
         public static void SetUpCameras()

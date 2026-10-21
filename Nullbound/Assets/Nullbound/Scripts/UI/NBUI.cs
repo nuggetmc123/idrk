@@ -160,6 +160,67 @@ namespace Nullbound
 
         // ---------------- Text ----------------
 
+        static TMP_FontAsset uiFont, signFont;
+        static bool fontsLoaded;
+
+        /// <summary>Barlow SemiBold, for menus, panels and popups (null = TMP's default font).</summary>
+        public static TMP_FontAsset UIFont { get { LoadFonts(); return uiFont; } }
+
+        /// <summary>Rajdhani Bold, for signs and boards in the world (null = TMP's default font).</summary>
+        public static TMP_FontAsset SignFont { get { LoadFonts(); return signFont; } }
+
+        /// <summary>
+        /// The fonts in Resources/Fonts (both SIL Open Font License, see the OFL files there) become dynamic TMP font
+        /// assets the first time they're needed. They use the default font's shader (always in the build) and fall
+        /// back to the default font for any character they lack. If anything fails, text keeps the default font.
+        /// </summary>
+        static void LoadFonts()
+        {
+            if (fontsLoaded) return;
+            fontsLoaded = true;
+            uiFont = MakeFont("Fonts/Barlow-SemiBold");
+            signFont = MakeFont("Fonts/Rajdhani-Bold") ?? uiFont;
+        }
+
+        static TMP_FontAsset MakeFont(string path)
+        {
+            var source = Resources.Load<Font>(path);
+            if (source == null) return null;
+            try
+            {
+                var fa = TMP_FontAsset.CreateFontAsset(source);
+                var fallback = TMP_Settings.defaultFontAsset;
+                if (fa == null || fa.material == null) return null;
+                if (fallback != null)
+                {
+                    if (fallback.material != null) fa.material.shader = fallback.material.shader;
+                    if (fa.fallbackFontAssetTable == null) fa.fallbackFontAssetTable = new List<TMP_FontAsset>();
+                    fa.fallbackFontAssetTable.Add(fallback);
+                }
+                return fa;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("Nullbound: couldn't make a font from " + path + ", using the default font. " + e.Message);
+                return null;
+            }
+        }
+
+        /// <summary>Give a text the UI font (or the sign font).</summary>
+        public static void UseFont(TMP_Text t, bool sign = false)
+        {
+            var f = sign ? SignFont : UIFont;
+            if (f != null && t != null) t.font = f;
+        }
+
+        /// <summary>Signs, boards and labels built into the scene get the sign font (called when a scene loads).</summary>
+        public static void ApplySceneFonts()
+        {
+            if (SignFont == null) return;
+            foreach (var t in Object.FindObjectsByType<TextMeshPro>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                t.font = signFont;
+        }
+
         /// <param name="fontSize">Roughly: 10 = one metre tall text.</param>
         public static TextMeshPro Label(Transform parent, string text, Vector3 localPos, float fontSize,
             Color color, Vector2 size, TextAlignmentOptions align = TextAlignmentOptions.Center)
@@ -168,6 +229,7 @@ namespace Nullbound
             go.transform.SetParent(parent, false);
             go.transform.localPosition = localPos;
             var tmp = go.AddComponent<TextMeshPro>();
+            UseFont(tmp);
             tmp.text = text;
             tmp.fontSize = fontSize;
             tmp.color = color;

@@ -32,6 +32,7 @@ namespace Nullbound
             {
                 Color c = FighterRecipe.SlotColor(slot, s, out float smooth, out float metal, out float glowAmount);
                 m = glowAmount > 0f ? NBUI.Mat(c, smooth, metal, c * glowAmount) : NBUI.Mat(c, smooth, metal);
+                m = FighterSurface.Apply(m, slot, s); // cloth, leather, metal and skin detail
             }
             cache[slot] = m;
             return m;

@@ -27,7 +27,7 @@ namespace Nullbound.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 6; // 6 = menu has its own starry sky box
+        public const int WorldVersion = 7; // 7 = visual overhaul: test hall, briefing room, PBR materials
         const string WorldVersionFile = "ProjectSettings/NullboundWorldVersion.txt";
         public static bool WorldUpToDate => File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
         public static bool TextResourcesReady => Resources.Load<TMP_Settings>("TMP Settings") != null;

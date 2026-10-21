@@ -54,9 +54,22 @@ namespace Nullbound
             p.SetParent(transform, false);
             p.localPosition = pos;
             p.localRotation = Quaternion.Euler(0f, yaw, 0f);
-            NBUI.Box(p, "Backing", new Vector3(0f, 0f, 0.06f), new Vector3(size.x, size.y, 0.08f), new Color(0.06f, 0.06f, 0.09f));
-            NBUI.Part(p, PrimitiveType.Cube, new Vector3(0f, size.y * 0.5f, 0.02f), new Vector3(size.x + 0.04f, 0.03f, 0.03f), NBUI.Glow(trim));
-            NBUI.Part(p, PrimitiveType.Cube, new Vector3(0f, -size.y * 0.5f, 0.02f), new Vector3(size.x + 0.04f, 0.03f, 0.03f), NBUI.Glow(trim));
+            // A lab console: gunmetal frame, a dark glassy screen, a tinted header band behind the title, glowing top
+            // and bottom trims and corner brackets in the panel's colour.
+            var screen = new Color(0.035f, 0.04f, 0.05f);
+            NBUI.Part(p, PrimitiveType.Cube, new Vector3(0f, 0f, 0.1f), new Vector3(size.x + 0.1f, size.y + 0.1f, 0.06f), NBUI.Mat(new Color(0.17f, 0.18f, 0.2f), 0.45f, 0.6f), default, "Frame");
+            NBUI.Part(p, PrimitiveType.Cube, new Vector3(0f, 0f, 0.06f), new Vector3(size.x, size.y, 0.06f), NBUI.Mat(screen, 0.85f), default, "Backing");
+            NBUI.Part(p, PrimitiveType.Cube, new Vector3(0f, size.y * 0.5f - 0.1f, 0.025f), new Vector3(size.x - 0.06f, 0.16f, 0.01f), NBUI.Mat(Color.Lerp(screen, trim, 0.16f), 0.6f), default, "Header");
+            NBUI.Part(p, PrimitiveType.Cube, new Vector3(0f, size.y * 0.5f, 0.02f), new Vector3(size.x + 0.04f, 0.025f, 0.03f), NBUI.Glow(trim));
+            NBUI.Part(p, PrimitiveType.Cube, new Vector3(0f, -size.y * 0.5f, 0.02f), new Vector3(size.x + 0.04f, 0.025f, 0.03f), NBUI.Glow(trim));
+            var bracket = NBUI.Glow(Color.Lerp(trim, Color.white, 0.25f));
+            for (int sx = -1; sx <= 1; sx += 2)
+                for (int sy = -1; sy <= 1; sy += 2)
+                {
+                    Vector3 c = new Vector3(sx * (size.x * 0.5f + 0.035f), sy * (size.y * 0.5f + 0.035f), 0.05f);
+                    NBUI.Part(p, PrimitiveType.Cube, c - new Vector3(sx * 0.06f, 0f, 0f), new Vector3(0.14f, 0.02f, 0.02f), bracket);
+                    NBUI.Part(p, PrimitiveType.Cube, c - new Vector3(0f, sy * 0.06f, 0f), new Vector3(0.02f, 0.14f, 0.02f), bracket);
+                }
             return p;
         }
 
