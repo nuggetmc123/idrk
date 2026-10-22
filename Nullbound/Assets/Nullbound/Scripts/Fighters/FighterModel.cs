@@ -91,26 +91,31 @@ namespace Nullbound
                     pos -= pivot;
                 }
                 var t = NBUI.Part(parentT, Prim(p.shape), pos, p.scale, SlotMaterial(p.slot, s, silhouette, mats), p.euler, p.name);
-                if (p.shape == Shape.Limb || p.shape == Shape.Torso) t.GetComponent<MeshFilter>().sharedMesh = ShapeMesh(p.shape);
+                if (p.shape >= Shape.Limb) t.GetComponent<MeshFilter>().sharedMesh = ShapeMesh(p.shape);
                 if (p.useRotation) t.localRotation = p.rotation;
                 if (p.slot == Slot.Glove) m.gloveRenderers.Add(t.GetComponent<Renderer>());
                 if (p.name == "Finger") (p.bone == Bone.HandL ? m.fingersL : m.fingersR).Add(t);
                 if (p.anim == Anim.Orbit || p.anim == Anim.Flicker || p.anim == Anim.Thrust) m.AddExtra(t, p.anim, p.phase);
             }
 
+            if (FighterSkin.Uses(m.body)) m.BuildSkin(silhouette, mats);
+
             m.shield = NBUI.Part(m.root, PrimitiveType.Cylinder, Vector3.zero, new Vector3(0.55f, 0.01f, 0.55f), NBUI.Glow(new Color(0.4f, 0.75f, 1f)), default, "Shield");
             m.shield.gameObject.SetActive(false);
             return m;
         }
 
-        static Mesh limbMesh, torsoMesh;
+        static readonly Dictionary<Shape, Mesh> shapeMeshes = new Dictionary<Shape, Mesh>();
 
-        /// <summary>The shared tapered-limb / V-torso meshes (FighterShapes), made once.</summary>
+        /// <summary>The shared sculpted meshes (limb, torso, head, boot, armour plate: FighterShapes), made once.</summary>
         static Mesh ShapeMesh(Shape shape)
         {
-            ref Mesh m = ref shape == Shape.Torso ? ref torsoMesh : ref limbMesh;
-            if (m != null) return m;
-            var d = shape == Shape.Torso ? FighterShapes.Torso() : FighterShapes.Limb();
+            if (shapeMeshes.TryGetValue(shape, out var m) && m != null) return m;
+            var d = shape switch
+            {
+                Shape.Torso => FighterShapes.Torso(), Shape.Head => FighterShapes.HumanHead(), Shape.Boot => FighterShapes.Boot(),
+                Shape.Plate => FighterShapes.Plate(), _ => FighterShapes.Limb(),
+            };
             m = new Mesh { name = shape.ToString() };
             m.SetVertices(d.vertices);
             m.SetNormals(d.normals);
@@ -119,8 +124,61 @@ namespace Nullbound
             m.SetTriangles(d.triangles, 0);
             m.RecalculateBounds();
             m.UploadMeshData(true);
+            shapeMeshes[shape] = m;
             return m;
         }
+
+        // ---------------- the skinned body
+
+        static readonly Dictionary<string, (Mesh mesh, Slot[] slots)> skinMeshes = new Dictionary<string, (Mesh, Slot[])>();
+
+        /// <summary>
+        /// The fighter's body as one smooth skinned mesh (FighterSkin) driven by the bones, shared by every copy of
+        /// this fighter. Each clothing region is its own sub-mesh with that slot's material.
+        /// </summary>
+        void BuildSkin(bool silhouette, Dictionary<Slot, Material> mats)
+        {
+            string key = stats.name + "|" + stats.scale.ToString("F3");
+            if (!skinMeshes.TryGetValue(key, out var entry) || entry.mesh == null)
+            {
+                var d = FighterSkin.Build(stats, body);
+                var mesh = new Mesh { name = "Skin " + stats.name };
+                if (d.vertices.Count > 65000) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+                mesh.SetVertices(d.vertices);
+                mesh.SetNormals(d.normals);
+                mesh.SetTangents(d.tangents);
+                mesh.SetUVs(0, d.uvs);
+                mesh.subMeshCount = d.triangles.Count;
+                for (int i = 0; i < d.triangles.Count; i++) mesh.SetTriangles(d.triangles[i], i);
+                var weights = new BoneWeight[d.vertices.Count];
+                for (int i = 0; i < weights.Length; i++)
+                    weights[i] = new BoneWeight { boneIndex0 = d.bone0[i], weight0 = 1f - d.weight1[i], boneIndex1 = d.bone1[i], weight1 = d.weight1[i] };
+                mesh.boneWeights = weights;
+                var binds = new Matrix4x4[FighterPose.BoneCount];
+                for (int i = 0; i < binds.Length; i++) binds[i] = Matrix4x4.TRS(d.bind[i].pos, d.bind[i].rot, d.bind[i].scale).inverse;
+                mesh.bindposes = binds;
+                mesh.RecalculateBounds(); // stays readable: CPU skinning (when GPU skinning is off) needs the data
+                entry = (mesh, d.slots.ToArray());
+                skinMeshes[key] = entry;
+            }
+            var go = new GameObject("Skin");
+            go.transform.SetParent(root, false);
+            var smr = go.AddComponent<SkinnedMeshRenderer>();
+            smr.sharedMesh = entry.mesh;
+            smr.bones = bones;
+            smr.rootBone = bones[(int)Bone.Hips];
+            smr.quality = SkinQuality.Bone2;
+            smr.updateWhenOffscreen = false;
+            // Bounds round the hips, big enough for any pose (they move with the hips, ragdoll included).
+            smr.localBounds = new Bounds(Vector3.zero, Vector3.one * 2.6f * Mathf.Max(1f, stats.scale));
+            var materials = new Material[entry.slots.Length];
+            for (int i = 0; i < materials.Length; i++) materials[i] = SlotMaterial(entry.slots[i], stats, silhouette, mats);
+            smr.sharedMaterials = materials;
+            skin = smr;
+        }
+
+        /// <summary>The skinned body (null for part-built robots).</summary>
+        public SkinnedMeshRenderer skin;
 
         void AddExtra(Transform t, Anim anim, float phase)
         {

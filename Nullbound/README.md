@@ -247,8 +247,18 @@ ragdolls itself, with the body held to where the fighter really is, so everyone 
 **Bodies react to hits**: every punch that lands snaps the target's head and guard back from where it was hit, then
 they spring back, harder for bigger hits (blocked hits a little).
 
-**Fighter models**: arms and legs are tapered and muscular (thick at the shoulder and hip, slimmer at the wrist and
-ankle), and torsos are V-shaped with broad shoulders and a narrower waist (`FighterShapes.cs`).
+**Fighter models** (everything generated in code, no model files):
+- **One smooth skinned body** per fighter (`FighterSkin.cs`): a sculpted torso (pelvis, waist, ribcage, chest
+  muscles, shoulders, trapezius into the neck) and arms and legs with real muscle shapes (deltoid, bicep, forearm,
+  thigh, calf). It bends smoothly at the shoulders, elbows, hips, knees, waist and neck like a proper game
+  character (a SkinnedMeshRenderer on the fighter's skeleton), so there are no gaps or ball joints. Clothing is
+  painted on by region (shirt, sleeves, trousers, bare arms) with crisp edges, and the belt is part of the body.
+- **Sculpted heads** for human fighters: a skull that's fuller at the back, brow ridge, eye sockets the eyes sit
+  in, nose, lips, cheekbones, jaw and chin.
+- **Boots** with a heel, ankle collar, instep and rounded toe on a rubber sole; **armour plates** (shoulder pads,
+  knee guards) made of overlapping bands with a flared rim.
+- Robots keep their mechanical, part-built bodies on purpose. Outfit pieces (armour, gloves, helmets, capes, hair,
+  gear) sit on top of the skin. Shapes are in `FighterShapes.cs`.
 
 **Full body in VR**: look down and you see your own fighter's body (arms, chest, belt, legs and feet walking), with
 your gloves exactly on your real hands. Your own head is hidden so it never blocks your view. Turn it off with wrist

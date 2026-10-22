@@ -13,7 +13,7 @@ namespace Nullbound
 
     /// <summary>Which of the fighter's colours a part uses.</summary>
     public enum Slot : byte { Main, Secondary, Accent, Dark, Skin, Eye, EyeWhite, Metal, Ivory, Hair, Gold, Cloth, Glove }
-    public enum Shape : byte { Cube, Sphere, Capsule, Cylinder, Limb, Torso } // Limb / Torso: FighterShapes (capsule-sized)
+    public enum Shape : byte { Cube, Sphere, Capsule, Cylinder, Limb, Torso, Head, Boot, Plate } // Limb / Torso: FighterShapes (capsule-sized); Head: sculpted, in metres
     public enum Anim : byte { None, Sway, Flap, Swing, Orbit, Flicker, Thrust }
     public enum Outfit : byte { Suit, Gi, Armor, Robe, Tech, Primal, Ninja, Tank }
 
@@ -76,6 +76,20 @@ namespace Nullbound
             }
         }
 
+        /// <summary>What the skinned body (FighterSkin) is dressed in, region by region (same rules as the parts).</summary>
+        public static void SkinSlots(FighterStats s, out Slot torso, out Slot pants, out Slot sleeve, out Slot fore, out Slot neck)
+        {
+            var outfit = OutfitOf(s);
+            bool bareArms = outfit == Outfit.Gi || outfit == Outfit.Primal || outfit == Outfit.Tank;
+            torso = outfit == Outfit.Gi ? Slot.Cloth : Slot.Main;
+            pants = outfit == Outfit.Gi ? Slot.Cloth : outfit == Outfit.Armor ? Slot.Metal : outfit == Outfit.Tech ? Slot.Metal : Slot.Secondary;
+            sleeve = bareArms ? Slot.Skin : outfit == Outfit.Armor ? Slot.Metal : torso;
+            fore = bareArms ? Slot.Skin : outfit == Outfit.Suit || outfit == Outfit.Ninja ? torso : outfit == Outfit.Armor ? Slot.Metal : torso;
+            // Gi jackets have short sleeves over bare forearms.
+            if (outfit == Outfit.Gi) { sleeve = Slot.Cloth; fore = Slot.Skin; }
+            neck = outfit == Outfit.Ninja ? Slot.Main : Slot.Skin;
+        }
+
         public static BodySpec Body(FighterStats s)
         {
             var b = new BodySpec
@@ -136,8 +150,13 @@ namespace Nullbound
             var list = new List<PartSpec>();
             var b = Body(s);
             var outfit = OutfitOf(s);
+            // Fighters with a skinned body (FighterSkin) don't need the shapes that used to make up the body itself.
+            bool skinned = FighterSkin.Uses(b);
             void P(string name, Bone bone, Shape shape, Vector3 pos, Vector3 scale, Slot slot, Vector3 euler = default, Anim anim = Anim.None, float phase = 0f)
-                => list.Add(new PartSpec { name = name, bone = bone, shape = shape, pos = pos, scale = scale, euler = euler, slot = slot, anim = anim, phase = phase });
+            {
+                if (skinned && SkinReplaces(name)) return;
+                list.Add(new PartSpec { name = name, bone = bone, shape = shape, pos = pos, scale = scale, euler = euler, slot = slot, anim = anim, phase = phase });
+            }
 
             bool bareArms = outfit == Outfit.Gi || outfit == Outfit.Primal || outfit == Outfit.Tank;
             Slot torsoSlot = outfit == Outfit.Gi ? Slot.Cloth : Slot.Main;
@@ -173,7 +192,9 @@ namespace Nullbound
                     P("Thigh", thigh, limb, new Vector3(0f, b.thigh * 0.5f, 0f), new Vector3(b.legThick * 1.15f, L(b.thigh), b.legThick * 1.15f), pants);
                     P("Shin", shin, limb, new Vector3(0f, b.shin * 0.5f, 0f), new Vector3(b.legThick, L(b.shin), b.legThick), pants);
                     if (outfit == Outfit.Armor || outfit == Outfit.Tech || s.body == BodyType.Giant)
-                        P("KneePad", shin, Shape.Sphere, new Vector3(0f, 0.02f, b.legThick * 0.35f), new Vector3(b.legThick * 1.1f, b.legThick * 1f, b.legThick * 0.8f), Slot.Metal);
+                        if (b.boxy) P("KneePad", shin, Shape.Sphere, new Vector3(0f, 0.02f, b.legThick * 0.35f), new Vector3(b.legThick * 1.1f, b.legThick * 1f, b.legThick * 0.8f), Slot.Metal);
+                        // A knee guard: an armour plate turned to face forward (its height becomes how far it stands out).
+                        else P("KneePad", shin, Shape.Plate, new Vector3(0f, 0.03f, b.legThick * 0.3f), new Vector3(b.legThick * 1.05f, b.legThick * 0.55f, b.legThick * 1.25f), Slot.Metal, new Vector3(80f, 0f, 0f));
                     // Boots: from mid-shin down, then the foot.
                     Slot boot = outfit == Outfit.Gi || outfit == Outfit.Primal ? Slot.Skin : outfit == Outfit.Armor ? Slot.Metal : Slot.Dark;
                     if (outfit != Outfit.Gi && outfit != Outfit.Primal)
@@ -186,9 +207,19 @@ namespace Nullbound
                     else
                     {
                         if (b.boxy) P("Foot", foot, Shape.Cube, new Vector3(0f, -0.04f, 0.05f), new Vector3(b.legThick * 0.95f, 0.085f, 0.26f), boot);
-                        else P("Foot", foot, Shape.Capsule, new Vector3(0f, -0.04f, 0.05f), new Vector3(b.legThick * 0.9f, 0.125f, 0.085f), boot, new Vector3(90f, 0f, 0f));
-                        P("Sole", foot, Shape.Cube, new Vector3(0f, -0.078f, 0.05f), new Vector3(b.legThick * 0.95f, 0.02f, 0.25f), Slot.Dark);
-                        P("ToeCap", foot, Shape.Sphere, new Vector3(0f, -0.045f, 0.15f), new Vector3(b.legThick * 0.85f, 0.06f, 0.07f), outfit == Outfit.Gi || outfit == Outfit.Primal ? Slot.Skin : Slot.Accent);
+                        else P("Foot", foot, Shape.Boot, Vector3.zero, new Vector3(b.legThick / 0.14f, 1f, 1f), boot);
+                        bool bare = outfit == Outfit.Gi || outfit == Outfit.Primal;
+                        if (b.boxy)
+                        {
+                            P("Sole", foot, Shape.Cube, new Vector3(0f, -0.078f, 0.05f), new Vector3(b.legThick * 0.95f, 0.02f, 0.25f), Slot.Dark);
+                            P("ToeCap", foot, Shape.Sphere, new Vector3(0f, -0.045f, 0.15f), new Vector3(b.legThick * 0.85f, 0.06f, 0.07f), bare ? Slot.Skin : Slot.Accent);
+                        }
+                        else if (!bare)
+                        {
+                            // A rubber sole (the boot shape squashed flat) and a coloured toe cap and heel.
+                            P("Sole", foot, Shape.Boot, new Vector3(0f, -0.07f, 0f), new Vector3(b.legThick / 0.14f * 1.05f, 0.24f, 1.04f), Slot.Dark);
+                            P("ToeCap", foot, Shape.Sphere, new Vector3(0f, -0.058f, 0.158f), new Vector3(b.legThick * 0.8f, 0.05f, 0.09f), Slot.Accent);
+                        }
                     }
                 }
             }
@@ -255,7 +286,8 @@ namespace Nullbound
                 P("Deltoid", Bone.Chest, b.boxy ? Shape.Cube : Shape.Sphere, sp, Vector3.one * b.armThick * 1.45f, bareArms ? Slot.Skin : torsoSlot);
                 if (pads)
                 {
-                    P("ShoulderPad", Bone.Chest, b.boxy ? Shape.Cube : Shape.Sphere, sp + new Vector3(x * 0.02f, 0.045f, 0f), new Vector3(b.armThick * 2.3f, b.armThick * 1.2f, b.armThick * 2.1f), Slot.Metal, new Vector3(0f, 0f, -x * 18f));
+                    if (b.boxy) P("ShoulderPad", Bone.Chest, Shape.Cube, sp + new Vector3(x * 0.02f, 0.045f, 0f), new Vector3(b.armThick * 2.3f, b.armThick * 1.2f, b.armThick * 2.1f), Slot.Metal, new Vector3(0f, 0f, -x * 18f));
+                    else P("ShoulderPad", Bone.Chest, Shape.Plate, sp + new Vector3(x * 0.03f, 0.01f, 0f), new Vector3(b.armThick * 2.4f, b.armThick * 2f, b.armThick * 2.2f), Slot.Metal, new Vector3(0f, 0f, -x * 24f));
                     P("PadTrim", Bone.Chest, Shape.Cube, sp + new Vector3(x * b.armThick * 1.05f, 0.03f, 0f), new Vector3(0.02f, b.armThick * 0.8f, b.armThick * 2f), Slot.Accent, new Vector3(0f, 0f, -x * 18f));
                 }
             }
@@ -290,6 +322,14 @@ namespace Nullbound
             BackGear(list, s, b);
             return list;
         }
+
+        static readonly HashSet<string> skinParts = new HashSet<string>
+        {
+            "Pelvis", "Thigh", "Shin", "Torso", "Waist", "Pec", "SkinV", "Tank", "Deltoid", "UpperArm", "Bicep", "Forearm", "Elbow", "Neck", "Belt",
+        };
+
+        /// <summary>True for the body shapes the skinned body replaces (clothing and gear on top stay).</summary>
+        public static bool SkinReplaces(string partName) => skinParts.Contains(partName);
 
         /// <summary>
         /// A gloved hand with five fingers. Hand space: the palm centre is where the controller's grip is, +Z is where
@@ -390,10 +430,9 @@ namespace Nullbound
                     P("Pupil", Shape.Sphere, new Vector3(x, 0.014f, 0.111f), new Vector3(0.012f, 0.014f, 0.006f), Slot.Dark);
                     P("Brow", Shape.Cube, new Vector3(x, 0.05f, 0.1f), new Vector3(0.05f, 0.012f, 0.012f), Slot.Hair, new Vector3(0f, 0f, x > 0 ? 14f : -14f));
                 }
-                P("Nose", Shape.Sphere, new Vector3(0f, -0.012f, 0.112f), new Vector3(0.025f, 0.035f, 0.025f), Slot.Skin);
-                if (mouth) P("Mouth", Shape.Cube, new Vector3(0f, -0.052f, 0.106f), new Vector3(0.05f, 0.008f, 0.01f), Slot.Dark);
+                if (mouth) P("Mouth", Shape.Cube, new Vector3(0f, -0.054f, 0.108f), new Vector3(0.042f, 0.007f, 0.01f), Slot.Dark);
                 foreach (float x in new[] { -1f, 1f })
-                    P("Ear", Shape.Sphere, new Vector3(x * 0.112f, 0f, 0f), new Vector3(0.025f, 0.05f, 0.035f), Slot.Skin);
+                    P("Ear", Shape.Sphere, new Vector3(x * 0.106f, -0.005f, -0.005f), new Vector3(0.022f, 0.052f, 0.034f), Slot.Skin, new Vector3(0f, x * 15f, 0f));
             }
             void GlowEyes(float z, float size)
             {
@@ -433,15 +472,15 @@ namespace Nullbound
                     P("NoseHole", Shape.Cube, new Vector3(0f, -0.022f, 0.118f), new Vector3(0.025f, 0.03f, 0.01f), Slot.Dark, new Vector3(0f, 0f, 45f));
                     break;
                 case HeadType.Mask:
-                    P("Face", Shape.Sphere, Vector3.zero, new Vector3(0.22f, 0.25f, 0.23f), Slot.Skin);
+                    P("Face", Shape.Head, Vector3.zero, Vector3.one, Slot.Skin);
                     Face(false);
                     P("Mask", Shape.Sphere, new Vector3(0f, -0.055f, 0.025f), new Vector3(0.235f, 0.14f, 0.23f), Slot.Main);
                     P("Headband", Shape.Cylinder, new Vector3(0f, 0.065f, 0f), new Vector3(0.235f, 0.025f, 0.24f), Slot.Accent);
                     P("BandTail", Shape.Cube, new Vector3(0.03f, 0.04f, -0.14f), new Vector3(0.03f, 0.16f, 0.01f), Slot.Accent, new Vector3(30f, 0f, 15f), Anim.Sway);
                     break;
                 default:
-                    P("Face", Shape.Sphere, Vector3.zero, new Vector3(0.22f, 0.25f, 0.23f), Slot.Skin);
-                    P("Chin", Shape.Sphere, new Vector3(0f, -0.07f, 0.03f), new Vector3(0.14f, 0.1f, 0.14f), Slot.Skin);
+                    // A sculpted head (jaw, chin, cheekbones, brow, nose and eye sockets in one shape).
+                    P("Face", Shape.Head, Vector3.zero, Vector3.one, Slot.Skin);
                     Face(true);
                     break;
             }

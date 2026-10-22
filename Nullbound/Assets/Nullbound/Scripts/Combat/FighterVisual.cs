@@ -227,6 +227,9 @@ namespace Nullbound
                         fwd = facing, velocity = smoothVel, speed = new Vector3(smoothVel.x, 0f, smoothVel.z).magnitude,
                         airborne = Mathf.Abs(smoothVel.y) > 0.5f, blocking = false,
                     }, Time.deltaTime);
+                    // Your own neck and head are shrunk to nothing so the skin can't show up in front of your eyes.
+                    model.BoneOf(Bone.Neck).localScale = Vector3.one * 0.001f;
+                    model.BoneOf(Bone.Head).localScale = Vector3.one * 0.001f;
                 }
                 else lastPos = transform.position;
                 return;
