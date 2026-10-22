@@ -27,7 +27,7 @@ namespace Nullbound.EditorTools
         public const string WorldScenePath = ScenePath;
 
         /// <summary>Bump this whenever the generated world changes, so existing projects rebuild it once automatically.</summary>
-        public const int WorldVersion = 7; // 7 = visual overhaul: test hall, briefing room, PBR materials
+        public const int WorldVersion = 8; // 8 = scene saved before building (Fusion bake fix)
         const string WorldVersionFile = "ProjectSettings/NullboundWorldVersion.txt";
         public static bool WorldUpToDate => File.Exists(WorldVersionFile) && File.ReadAllText(WorldVersionFile).Trim() == WorldVersion.ToString();
         public static bool TextResourcesReady => Resources.Load<TMP_Settings>("TMP Settings") != null;
@@ -71,6 +71,10 @@ namespace Nullbound.EditorTools
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
             var defaultCam = GameObject.Find("Main Camera");
             if (defaultCam) Object.DestroyImmediate(defaultCam);
+            // Give the scene its file now, while it's empty. Fusion bakes networked objects on every save and gives
+            // each one an ID from the scene file; a scene that has never been saved has none, so the first save of a
+            // full new scene fails with "Failed to bake scene ... hash != 0". (Saving over the old file keeps its GUID.)
+            EditorSceneManager.SaveScene(scene, ScenePath);
             SetUpLighting();
 
             var fighterPrefab = BuildFighterPrefab();

@@ -25,6 +25,12 @@ namespace Nullbound.EditorTools
             }
             var bake = post?.GetMethod("BakeScene", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(Scene) }, null);
             if (bake == null) return false;
+            if (string.IsNullOrEmpty(scene.path))
+            {
+                // Networked objects get their IDs from the scene file, so a never-saved scene can't be baked.
+                Debug.LogError("[Nullbound] Save the scene to a file before baking its network objects (it has never been saved).");
+                return false;
+            }
             try
             {
                 bake.Invoke(null, new object[] { scene });
