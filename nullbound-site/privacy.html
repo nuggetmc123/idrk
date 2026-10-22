@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy: Nullbound</title>
+<meta name="description" content="How the Nullbound VR game handles your information.">
+<meta name="theme-color" content="#0e1014">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/icon.png" alt="">NULLBOUND</a>
+    <nav>
+      <a class="keep" href="./">Home</a>
+      <a class="keep" href="https://discord.gg/dwxVkHAGH" target="_blank" rel="noopener">Discord</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap">
+    <h1>Privacy <span class="accent">Policy</span></h1>
+    <p class="meta">Effective date: October 22, 2026</p>
+
+    <p>This policy explains what information the Nullbound virtual reality game (the "Game") uses, why, and who it is shared with.
+      Nullbound is made by an independent developer ("we", "us"). If you have a question, see <a href="#contact">Contact us</a>.</p>
+
+    <div class="summary">
+      <strong>The short version</strong>
+      <ul>
+        <li>We don't ask for your real name, email, address, phone number, location or payment details.</li>
+        <li>There are no ads, no analytics, no tracking, and we don't sell or rent anyone's information.</li>
+        <li>Your settings, coins and unlocked fighters are saved on your headset.</li>
+        <li>When you play online, other players in your room see your in-game name, your Player ID and your fighter. They hear your voice if voice chat is on.
+          This goes through Photon, the multiplayer service the Game uses.</li>
+        <li>Voice chat is live. We don't record or store it. You can switch to push-to-talk or mute your mic at any time.</li>
+      </ul>
+    </div>
+
+    <ol class="toc">
+      <li><a href="#collect">Information the Game uses</a></li>
+      <li><a href="#share">Who it is shared with</a></li>
+      <li><a href="#voice">Microphone and voice chat</a></li>
+      <li><a href="#moderation">Moderation</a></li>
+      <li><a href="#use">How we use information</a></li>
+      <li><a href="#keep">How long it is kept</a></li>
+      <li><a href="#children">Children</a></li>
+      <li><a href="#choices">Your choices and rights</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#changes">Changes to this policy</a></li>
+      <li><a href="#contact">Contact us</a></li>
+    </ol>
+
+    <h2 id="collect">1. Information the Game uses</h2>
+
+    <h3>Saved only on your headset</h3>
+    <table>
+      <thead><tr><th>What</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Your in-game name</td><td>The name you pick when you first play, shown to other players.</td></tr>
+        <tr><td>Settings</td><td>Volume, mic mode, turning style, comfort and camera options and similar choices.</td></tr>
+        <tr><td>Progress</td><td>Your coins, the fighters you have unlocked and the fighter you picked.</td></tr>
+        <tr><td>Player ID key</td><td>On first launch the Game makes a cryptographic key pair on your headset. Your Player ID (for example <code>3F9A2-C01B7</code>) is worked out from its public half.
+          The secret half never leaves your headset. It proves you are you, so nobody can copy your name or pretend to be a moderator.</td></tr>
+        <tr><td>Moderation status</td><td>A copy of the moderation list, and any kick, ban or mute given to you, so they keep working offline.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Sent to other players when you play online</h3>
+    <p>When you join an online room, the Game shares the following with the other players in that room so the match can work:</p>
+    <ul>
+      <li>your in-game name and Player ID;</li>
+      <li>a short headset code. This is a one-way scrambled code made from your device's identifier, so the original identifier can't be read back from it. It is used only so that a moderator's ban still works if someone changes their name;</li>
+      <li>the fighter you are using, and the position and movement of your head, hands and body;</li>
+      <li>your in-game actions, such as punches, blocks, specials, hits and knockouts;</li>
+      <li>your voice, while voice chat is on and you are talking (see <a href="#voice">section 3</a>).</li>
+    </ul>
+    <p>Single-player training doesn't send any of this.</p>
+
+    <h3>What we don't collect</h3>
+    <p>The Game doesn't ask for or collect your real name, email address, phone number, home address, precise location, contacts, photos, payment information or your Meta account details.
+      It doesn't contain advertising, analytics or tracking tools. There are no purchases in the Game; coins are earned by playing.</p>
+
+    <h2 id="share">2. Who it is shared with</h2>
+    <ul>
+      <li><strong>Other players</strong> in the same online room see and hear what is listed above.</li>
+      <li><strong>Photon (Exit Games).</strong> Online play and voice chat run through Photon Fusion, a multiplayer service. Photon relays game and voice data between players and handles your device's IP address and connection details to connect you to a server and room.
+        See <a href="https://www.photonengine.com/terms/privacyandcookiepolicy" target="_blank" rel="noopener">Photon's Privacy &amp; Cookie Policy</a>.</li>
+      <li><strong>GitHub.</strong> When the Game starts, it downloads the latest moderation list (moderators, bans and blocked names) from GitHub. Like any web download, GitHub receives your IP address. No information about you is sent with that request.
+        See <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub's Privacy Statement</a>.</li>
+      <li><strong>Name server (Cloudflare), when enabled.</strong> To stop two players using the same name, the Game can register your name with a small server we run on Cloudflare Workers.
+        It stores your in-game name, your Player ID and the public half of your key, and Cloudflare handles your IP address to deliver the request.
+        See <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare's Privacy Policy</a>.</li>
+      <li><strong>Meta.</strong> The Game runs on Meta Quest and is distributed through Meta's store. Meta handles your Meta account and device information under its own policies.
+        See <a href="https://www.meta.com/legal/privacy-policy/" target="_blank" rel="noopener">Meta's Privacy Policy</a>. We don't receive your Meta account information.</li>
+      <li><strong>Discord.</strong> The "Discord" button in the main menu opens our community invite in your browser. What happens on Discord is covered by <a href="https://discord.com/privacy" target="_blank" rel="noopener">Discord's Privacy Policy</a>.</li>
+      <li><strong>When required by law.</strong> We may share information if the law requires it, or to protect the safety of players.</li>
+    </ul>
+    <p>We don't sell, rent or trade anyone's information.</p>
+
+    <h2 id="voice">3. Microphone and voice chat</h2>
+    <p>The Game asks to use your headset's microphone only for voice chat with other players in your online room.
+      Your voice is compressed and sent live through Photon to those players, and only while you are talking (or holding the push-to-talk button).
+      We don't record, store or listen to voice chat, and it isn't saved on our servers.</p>
+    <p>In <em>Settings</em> you can choose open mic, push-to-talk or muted, and set the voice volume. You can also deny the microphone permission in your headset settings. The Game still works, just without voice chat.
+      Other players could record what they hear using their own tools, so be careful about what you say.</p>
+
+    <h2 id="moderation">4. Moderation</h2>
+    <p>To keep lobbies safe, moderators can kick, ban, mute or rename players who break the rules.
+      In the game, a moderator can see a player's in-game name, Player ID and headset code.
+      Moderator actions are signed with the moderator's key and checked by the Game.</p>
+    <p>Long-term bans are added to the moderation list, which every copy of the Game downloads.
+      A ban entry can include an in-game name, Player ID, headset code, a reason and an end date.
+      That list is kept in our public GitHub repository, so anyone who looks it up can see it.</p>
+
+    <h2 id="use">5. How we use information</h2>
+    <ul>
+      <li>to run online matches, show your name and fighter, and carry voice chat;</li>
+      <li>to save your settings and progress on your headset;</li>
+      <li>to keep names unique and stop people pretending to be someone else;</li>
+      <li>to enforce the rules and protect players, including kicks, bans and mutes;</li>
+      <li>to answer you when you contact us.</li>
+    </ul>
+
+    <h2 id="keep">6. How long it is kept</h2>
+    <ul>
+      <li><strong>Data on your headset</strong> stays until you uninstall the Game or clear its data.</li>
+      <li><strong>Online match data and voice</strong> are only passed between players while you play and are not kept by us.</li>
+      <li><strong>Name server records</strong> (name, Player ID, public key) are kept while you use that name, or until you ask us to remove them.</li>
+      <li><strong>Ban entries</strong> are kept until the ban ends or is lifted.</li>
+      <li>Photon, GitHub, Cloudflare and Meta keep their own technical logs under their own policies.</li>
+    </ul>
+
+    <h2 id="children">7. Children</h2>
+    <p>Nullbound is not directed at children under 13, and we don't knowingly collect personal information from children under 13.
+      Meta Quest's own age requirements and parental tools also apply.
+      If you are a parent or guardian and think your child has shared information through the Game, contact us and we will help remove it.
+      Parents can turn off voice chat in the Game's settings or deny the microphone permission on the headset.</p>
+
+    <h2 id="choices">8. Your choices and rights</h2>
+    <ul>
+      <li><strong>Delete your data</strong> by uninstalling the Game or clearing its storage on your headset. This removes your name, settings, progress and Player ID key.</li>
+      <li><strong>Turn off voice chat</strong> in Settings, or deny the microphone permission.</li>
+      <li><strong>Ask us</strong> to delete your name server record or a ban entry, or ask what we hold about you. Give us your Player ID (shown in the Game's menu) so we can find it.</li>
+    </ul>
+    <p>Depending on where you live, for example in the EU, UK or California, you may have extra legal rights over your personal information, such as access, correction, deletion and objection.
+      Contact us to use them. You also have the right to complain to your local data protection authority.</p>
+
+    <h2 id="security">9. Security</h2>
+    <p>Player IDs and moderator actions use cryptographic signatures, and your secret key never leaves your headset.
+      Online data travels through Photon's network. No system is perfectly secure, but we try to collect as little as possible so there is little to protect.</p>
+
+    <h2 id="changes">10. Changes to this policy</h2>
+    <p>If the Game changes how it handles information, we will update this page and its effective date. Big changes will also be announced in our Discord.</p>
+
+    <h2 id="contact">11. Contact us</h2>
+    <p>Questions, deletion requests or safety reports: message us in the official
+      <a href="https://discord.gg/dwxVkHAGH" target="_blank" rel="noopener">Nullbound Discord server</a>.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>&copy; 2026 Nullbound</span>
+    <div class="links">
+      <a href="./">Home</a>
+      <a href="https://discord.gg/dwxVkHAGH" target="_blank" rel="noopener">Discord</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
