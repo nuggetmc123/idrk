@@ -15,7 +15,8 @@ namespace Nullbound.EditorTools
     ///    never update the app on the store.
     /// 2. MANIFEST: makes sure the launcher activity is marked as a VR app (com.oculus.intent.category.VR, otherwise
     ///    the store copy opens as a flat window or not at all), that head tracking is declared, that the supported
-    ///    headsets are listed, and that the install location is "auto".
+    ///    headsets are listed (in the app manifest, overriding the OpenXR plugin's list so the two can't collide),
+    ///    and that the install location is "auto".
     /// </summary>
     public static class QuestStoreReady
     {
@@ -141,13 +142,49 @@ namespace Nullbound.EditorTools
     public class QuestManifestFix : IPostGenerateGradleAndroidProject
     {
         const string AndroidNs = "http://schemas.android.com/apk/res/android";
+        const string ToolsNs = "http://schemas.android.com/tools";
+        const string SupportedDevices = "com.oculus.supportedDevices", Headsets = "quest2|questpro|quest3|quest3s";
         public int callbackOrder => 9999; // after OpenXR's own manifest changes
 
         public void OnPostGenerateGradleAndroidProject(string path)
         {
-            // path is the unityLibrary module; the launcher module sits beside it.
+            // path is the unityLibrary module; the launcher (app) module sits beside it.
             Fix(Path.Combine(path, "src", "main", "AndroidManifest.xml"));
             Fix(Path.Combine(path, "..", "launcher", "src", "main", "AndroidManifest.xml"));
+            SetHeadsets(Path.Combine(path, "..", "launcher", "src", "main", "AndroidManifest.xml"));
+        }
+
+        /// <summary>
+        /// The supported headsets go in the APP (launcher) manifest marked tools:replace, never in a library: Meta's
+        /// OpenXR plugin also lists headsets (in xrmanifest.androidlib, from its own settings), and two libraries with
+        /// different lists make Gradle fail with "Colliding Attributes". The app manifest wins over every library.
+        /// </summary>
+        static void SetHeadsets(string file)
+        {
+            if (!File.Exists(file)) return;
+            try
+            {
+                var doc = new XmlDocument();
+                doc.Load(file);
+                var manifest = doc.DocumentElement;
+                if (manifest == null) return;
+                if (!manifest.HasAttribute("xmlns:tools")) manifest.SetAttribute("xmlns:tools", ToolsNs);
+                var app = manifest["application"];
+                if (app == null) { app = doc.CreateElement("application"); manifest.AppendChild(app); }
+                XmlElement md = null;
+                foreach (XmlNode n in app.ChildNodes)
+                    if (n.Name == "meta-data" && (n as XmlElement)?.GetAttribute("name", AndroidNs) == SupportedDevices) md = (XmlElement)n;
+                if (md == null)
+                {
+                    md = doc.CreateElement("meta-data");
+                    md.SetAttribute("name", AndroidNs, SupportedDevices);
+                    app.AppendChild(md);
+                }
+                md.SetAttribute("value", AndroidNs, Headsets);
+                md.SetAttribute("replace", ToolsNs, "android:value");
+                doc.Save(file);
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Nullbound] Couldn't set the supported headsets in " + file + ": " + e.Message); }
         }
 
         static void Fix(string file)
@@ -186,14 +223,6 @@ namespace Nullbound.EditorTools
                                 changed = true;
                             }
                         }
-                    if (hasLauncher && !HasChild(app, "meta-data", "com.oculus.supportedDevices"))
-                    {
-                        var md = doc.CreateElement("meta-data");
-                        md.SetAttribute("name", AndroidNs, "com.oculus.supportedDevices");
-                        md.SetAttribute("value", AndroidNs, "quest2|questpro|quest3|quest3s");
-                        app.AppendChild(md);
-                        changed = true;
-                    }
                     if (app.HasAttribute("debuggable", AndroidNs)) { app.RemoveAttribute("debuggable", AndroidNs); changed = true; }
                 }
                 if (hasLauncher && !HasChild(manifest, "uses-feature", "android.hardware.vr.headtracking"))
