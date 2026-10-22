@@ -34,7 +34,50 @@ namespace Nullbound
             return best != null ? best.transform.position : fallback;
         }
 
-        /// <summary>The middle of the current map (bots wander back here when nobody's around).</summary>
+        /// <summary>
+        /// Where a bot appears: the spawn point farthest from every real player (and not right on top of another bot),
+        /// so bots start out across the map instead of next to you.
+        /// </summary>
+        public static Vector3 PickForBot(Vector3 fallback)
+        {
+            SpawnPoint best = null;
+            float bestScore = float.MinValue;
+            var map = Current;
+            foreach (var p in Points)
+            {
+                if (p.map != map) continue;
+                float nearestPlayer = 999f, nearestBot = 999f;
+                foreach (var f in Fighter.All)
+                {
+                    if (!f.IsReady) continue;
+                    float d = Vector3.Distance(f.transform.position, p.transform.position);
+                    if (f.IsBot) nearestBot = Mathf.Min(nearestBot, d);
+                    else nearestPlayer = Mathf.Min(nearestPlayer, d);
+                }
+                float score = Mathf.Min(nearestPlayer, 200f) + Mathf.Min(nearestBot, 25f) * 0.6f + Random.value * 6f;
+                if (score > bestScore) { bestScore = score; best = p; }
+            }
+            return best != null ? best.transform.position : fallback;
+        }
+
+        /// <summary>Somewhere for a roaming bot to walk to: a random spawn point of this map, not too close.</summary>
+        public static Vector3 RoamSpot(Vector3 from)
+        {
+            var map = Current;
+            SpawnPoint pick = null;
+            int seen = 0;
+            foreach (var p in Points)
+            {
+                if (p.map != map || Vector3.Distance(p.transform.position, from) < 8f) continue;
+                // Reservoir sampling: each candidate equally likely, without building a list.
+                if (Random.Range(0, ++seen) == 0) pick = p;
+            }
+            if (pick == null) return from + Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward * 10f;
+            Vector2 jitter = Random.insideUnitCircle * 4f;
+            return pick.transform.position + new Vector3(jitter.x, 0f, jitter.y);
+        }
+
+        /// <summary>The middle of the current map.</summary>
         public static Vector3 MapCenter()
         {
             var map = Current;

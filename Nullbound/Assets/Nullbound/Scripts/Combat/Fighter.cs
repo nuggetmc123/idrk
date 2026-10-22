@@ -65,6 +65,8 @@ namespace Nullbound
         public const byte Frozen = 1, Burning = 2, Shielded = 4, Armored = 8, Immune = 16, Tumbling = 32, Flying = 64; // (Dazed = 128 in Fighter.Grab)
         /// <summary>How long a super hit sends you rolling (ragdoll), and how much harder supers hit.</summary>
         public const float TumbleTime = 1.3f, SuperDamage = 1.25f, SuperKnock = 1.4f;
+        /// <summary>How long a special that doesn't launch leaves you ragdolled.</summary>
+        public const float SpecialRagdollTime = 1f;
         public bool HasStatus(byte bit) => (Status & bit) != 0;
 
         /// <summary>True once this fighter's game proved it owns its Player ID (a signed hello).</summary>
@@ -113,6 +115,7 @@ namespace Nullbound
         CharacterController cc;
         Vector3 velocity, knock;
         float tumbleUntil;
+        FighterVisual visual;
         bool grounded, wasGrounded;
         float dashUntil = -1f, dodgeUntil = -1f, nextDash, nextSpecial, stunUntil, invulnerableUntil, respawnAt, empoweredUntil;
         Vector3 dashDir;
@@ -121,6 +124,8 @@ namespace Nullbound
         Vector3 prevLeftLocal, prevRightLocal;
         bool havePrevHands;
         Fighter lastAttacker;
+        /// <summary>Who hit this fighter in the last few seconds (null if nobody). Bots chase them further.</summary>
+        public Fighter LastAttacker => Time.time - lastAttackedAt < 6f ? lastAttacker : null;
         float lastAttackedAt = -100f;
         IHittable comboTarget;
         int combo;
@@ -180,7 +185,8 @@ namespace Nullbound
                 if (!IsBot) RPC_RequestHello();
             }
             BuildHurtboxes();
-            gameObject.AddComponent<FighterVisual>().Init(this);
+            visual = gameObject.AddComponent<FighterVisual>();
+            visual.Init(this);
             HeadPos = transform.position + Vector3.up * 1.6f;
         }
 
@@ -619,6 +625,13 @@ namespace Nullbound
                 stunUntil = Mathf.Max(stunUntil, tumbleUntil - 0.25f);
                 Blocking = false;
             }
+            // Any special that lands clean ragdolls you, even the ones that don't launch: you go limp, drop and get up.
+            else if ((flags & HitFlags.Special) != 0 && (flags & (HitFlags.Blocked | HitFlags.Freeze)) == 0 && Time.time >= armorUntil && damage >= 4f)
+            {
+                tumbleUntil = Mathf.Max(tumbleUntil, Time.time + SpecialRagdollTime);
+                stunUntil = Mathf.Max(stunUntil, tumbleUntil - 0.2f);
+                Blocking = false;
+            }
             if (Time.time < armorUntil) damage *= 0.5f;
             if ((flags & HitFlags.Freeze) != 0 && (flags & HitFlags.Blocked) == 0) { frozenUntil = Time.time + 1.1f; stunUntil = Mathf.Max(stunUntil, frozenUntil); }
             if ((flags & HitFlags.Burn) != 0 && (flags & HitFlags.Blocked) == 0) { burnUntil = Time.time + 3f; burnBy = attacker; }
@@ -664,10 +677,12 @@ namespace Nullbound
                     if (!attackerHere) { Fx.Impact(pos, Vector3.up, new Color(1f, 0.8f, 0.4f), amount > 12f, false); AudioManager.PlayAt(amount > 12f ? AudioManager.Sfx.HeavyPunch : AudioManager.Sfx.Punch, pos); }
                     Fx.Popup(pos + Vector3.up * 0.2f, Mathf.RoundToInt(amount).ToString(), amount > 12f ? new Color(1f, 0.45f, 0.2f) : Color.white, amount > 12f ? 1.3f : 1f);
                     Gore.Hit(pos, (pos - Center) + Vector3.up * 0.2f, amount);
+                    visual?.ShowHit(pos, amount, false);
                     break;
                 case FxKind.Block:
                     if (!attackerHere) { Fx.Impact(pos, Vector3.up, Color.cyan, false, true); AudioManager.PlayAt(AudioManager.Sfx.Block, pos); }
                     Fx.Popup(pos + Vector3.up * 0.2f, "BLOCK", new Color(0.5f, 0.85f, 1f), 0.8f);
+                    visual?.ShowHit(pos, amount, true);
                     break;
                 case FxKind.GuardBreak:
                     AudioManager.PlayAt(AudioManager.Sfx.GuardBreak, pos);
@@ -745,7 +760,7 @@ namespace Nullbound
             guard = 100f;
             knock = velocity = Vector3.zero;
             Empowered = false;
-            MoveTo(SpawnPoint.Pick(transform.position));
+            MoveTo(IsBot ? SpawnPoint.PickForBot(transform.position) : SpawnPoint.Pick(transform.position));
             invulnerableUntil = Time.time + 1.5f;
             tumbleUntil = 0f;
             flyUntil = 0f;

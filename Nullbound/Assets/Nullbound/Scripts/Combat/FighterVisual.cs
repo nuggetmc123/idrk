@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
@@ -38,6 +39,7 @@ namespace Nullbound
             firstPerson = fighter.IsMine && !fighter.IsBot;
             if (model != null)
             {
+                model.Dispose();
                 if (model.leftGlove != null) Destroy(model.leftGlove.gameObject);
                 if (model.rightGlove != null) Destroy(model.rightGlove.gameObject);
                 if (model.root != null) Destroy(model.root.gameObject);
@@ -129,6 +131,31 @@ namespace Nullbound
             return t;
         }
 
+        /// <summary>Every fighter's solid colliders (their character controllers), which ragdolls must not push against.</summary>
+        static readonly List<Collider> characterColliders = new List<Collider>();
+        static List<Collider> CharacterColliders()
+        {
+            characterColliders.Clear();
+            foreach (var f in Fighter.All)
+                if (f != null)
+                    foreach (var c in f.GetComponentsInChildren<Collider>())
+                        if (!c.isTrigger) characterColliders.Add(c);
+            return characterColliders;
+        }
+
+        /// <summary>
+        /// A hit shown on this fighter (everyone sees it): the body reacts physically, snapping back from the point
+        /// of impact, harder for bigger hits (or the nearest limb of a ragdoll gets knocked).
+        /// </summary>
+        public void ShowHit(Vector3 point, float damage, bool blocked)
+        {
+            if (model == null || firstPerson) return;
+            Vector3 dir = fighter.Center - point;
+            dir.y *= 0.3f;
+            if (dir.sqrMagnitude < 0.0001f) dir = -fighter.FacingFlat;
+            model.Flinch(point, dir, (blocked ? 0.4f : 0.9f) + damage * (blocked ? 0.02f : 0.07f));
+        }
+
         /// <summary>A copy of their head flies off, tumbling, and rolls away.</summary>
         static void ThrowHead(Transform headBone)
         {
@@ -156,6 +183,7 @@ namespace Nullbound
 
         void OnDestroy()
         {
+            model?.Dispose();
             // First-person gloves live on the rig's hands, not under this object.
             if (model != null && firstPerson)
             {
@@ -210,14 +238,27 @@ namespace Nullbound
             if (ghost) return;
 
             Vector3 feet = transform.position;
+            // A teleport (respawn, switching map): stand straight up there, no ragdoll sliding across the map.
+            bool teleported = (feet - lastPos).sqrMagnitude > 9f;
+            if (teleported) { model.StopRagdoll(true); smoothVel = Vector3.zero; lastPos = feet; }
             Vector3 vel = (feet - lastPos) / Mathf.Max(Time.deltaTime, 0.001f);
             lastPos = feet;
             smoothVel = Vector3.Lerp(smoothVel, vel, Mathf.Clamp01(Time.deltaTime * 12f));
             float speed = new Vector3(smoothVel.x, 0f, smoothVel.z).magnitude;
             bool air = Mathf.Abs(smoothVel.y) > 0.5f;
 
-            // Ragdoll tumble after a super hit: the body rolls over the way it's flying, limbs flailing.
-            bool tumbling = fighter.HasStatus(Fighter.Tumbling) && !fighter.Down;
+            // Physics ragdoll: knocked flying by a special, thrown, or knocked out. Gets back up when it's over.
+            bool limp = fighter.HasStatus(Fighter.Tumbling) || fighter.Down;
+            if (limp && !model.Ragdolled && !teleported)
+            {
+                Vector3 flat = new Vector3(smoothVel.x, 0f, smoothVel.z);
+                Vector3 push = (flat.sqrMagnitude > 0.25f ? flat.normalized : -fighter.FacingFlat) * 2.5f + Vector3.up * 1.2f;
+                model.StartRagdoll(smoothVel, push, CharacterColliders());
+            }
+            else if (!limp && model.Ragdolled) model.StopRagdoll(false);
+
+            // Fallback roll (only shows if the ragdoll couldn't be made).
+            bool tumbling = fighter.HasStatus(Fighter.Tumbling) && !fighter.Down && !model.Ragdolled;
             tumbleBlend = Mathf.MoveTowards(tumbleBlend, tumbling ? 1f : 0f, Time.deltaTime * (tumbling ? 8f : 3f));
             if (tumbleBlend > 0f)
             {
@@ -266,7 +307,7 @@ namespace Nullbound
                 feet = feet, headPos = fighter.HeadPos, headRot = fighter.HeadRot,
                 leftPos = leftHand, leftRot = leftRot, rightPos = rightHand, rightRot = rightRot,
                 fwd = fighter.FacingFlat, velocity = smoothVel, speed = speed, down = fighter.Down, airborne = air, blocking = fighter.Blocking,
-                tumble = tumbleBlend, tumbleRot = tumbleRot,
+                tumble = model.Ragdolled ? 0f : tumbleBlend, tumbleRot = tumbleRot,
             }, Time.deltaTime);
 
             var st = fighter.Stats;

@@ -236,9 +236,19 @@ around you, and a knocked-out fighter leaves a pool that spreads out under them.
 parts; stains fade after 18-25 s (only the newest 40 are kept). It's a per-headset setting, so each player chooses.
 
 **Supers hit hard and send you rolling**: a clean special that launches or hits heavy does 25% more damage and 40%
-more knockback, and the target goes into a **ragdoll tumble** for 1.3 s: it flies back, bounces, slides along the
-ground and rolls over with its arms and legs flailing (you can't act until you stop rolling). Your own view doesn't
-spin (comfort); you get a vignette instead.
+more knockback, and the target is **ragdolled** for 1.3 s. **Every other special that lands clean ragdolls you too**
+(for 1 s), and so do throws and knock-outs. Your own view doesn't spin (comfort); you get a vignette instead.
+
+**Physics ragdolls** (`FighterRagdoll.cs`): a ragdolled fighter's body is a real physics ragdoll, with jointed
+hips, chest, head, arms and legs. It flies off, hits the floor and walls, and its limbs flop. Then it blends back up
+onto its feet when the effect ends. Punch a ragdoll and the limb you hit gets knocked. Each headset simulates the
+ragdolls itself, with the body held to where the fighter really is, so everyone sees them land in the same place.
+
+**Bodies react to hits**: every punch that lands snaps the target's head and guard back from where it was hit, then
+they spring back, harder for bigger hits (blocked hits a little).
+
+**Fighter models**: arms and legs are tapered and muscular (thick at the shoulder and hip, slimmer at the wrist and
+ankle), and torsos are V-shaped with broad shoulders and a narrower waist (`FighterShapes.cs`).
 
 **Full body in VR**: look down and you see your own fighter's body (arms, chest, belt, legs and feet walking), with
 your gloves exactly on your real hands. Your own head is hidden so it never blocks your view. Turn it off with wrist
@@ -279,9 +289,12 @@ mountains behind it (invisible walls stop you at the edge). **Houses** have
 proper peaked roofs with closed gable ends, a ridge beam, a chimney and a door step. Smash the walls and the roof
 falls in.
 
-**Bots:** Quick Match fills up with bots so there's always someone to fight: up to 8 fighters in total, and a bot
-leaves each time a real player joins. Bots don't pay coins (only real players do). In private lobbies you still add
-bots yourself from the wrist menu.
+**Bots:** Quick Match fills up with bots so there's always someone to fight: **up to 5 bots** roaming the map
+(never more than 8 fighters in all), and a bot leaves each time a real player joins. Bots appear at the spawn
+point farthest from every player, and respawn there too. With nobody near, they **roam the whole map**: they
+walk from place to place, stop to look around, then head off somewhere new. They notice you within about 22 m and
+chase whoever is fighting them up to about 34 m. Bots don't pay coins (only real players do). In private lobbies
+you still add bots yourself from the wrist menu.
 
 ## Training Grounds (Training only, 90 m across)
 

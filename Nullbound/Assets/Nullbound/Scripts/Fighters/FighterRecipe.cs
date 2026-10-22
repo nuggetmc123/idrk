@@ -13,7 +13,7 @@ namespace Nullbound
 
     /// <summary>Which of the fighter's colours a part uses.</summary>
     public enum Slot : byte { Main, Secondary, Accent, Dark, Skin, Eye, EyeWhite, Metal, Ivory, Hair, Gold, Cloth, Glove }
-    public enum Shape : byte { Cube, Sphere, Capsule, Cylinder }
+    public enum Shape : byte { Cube, Sphere, Capsule, Cylinder, Limb, Torso } // Limb / Torso: FighterShapes (capsule-sized)
     public enum Anim : byte { None, Sway, Flap, Swing, Orbit, Flicker, Thrust }
     public enum Outfit : byte { Suit, Gi, Armor, Robe, Tech, Primal, Ninja, Tank }
 
@@ -143,6 +143,8 @@ namespace Nullbound
             Slot torsoSlot = outfit == Outfit.Gi ? Slot.Cloth : Slot.Main;
             Slot pants = outfit == Outfit.Gi ? Slot.Cloth : outfit == Outfit.Armor ? Slot.Metal : outfit == Outfit.Tech ? Slot.Metal : Slot.Secondary;
             Shape round = b.boxy ? Shape.Cube : Shape.Capsule;
+            // Arms and legs taper like muscle (thick at the shoulder / hip); the torso is V-shaped (FighterShapes).
+            Shape limb = b.boxy ? Shape.Cube : Shape.Limb;
             // A capsule of scale y is 2y tall; a cube is y tall.
             float L(float len) => b.boxy ? len * 1.02f : len * 0.55f;
 
@@ -168,8 +170,8 @@ namespace Nullbound
             {
                 foreach (var (thigh, shin, foot) in new[] { (Bone.ThighL, Bone.ShinL, Bone.FootL), (Bone.ThighR, Bone.ShinR, Bone.FootR) })
                 {
-                    P("Thigh", thigh, round, new Vector3(0f, b.thigh * 0.5f, 0f), new Vector3(b.legThick * 1.15f, L(b.thigh), b.legThick * 1.15f), pants);
-                    P("Shin", shin, round, new Vector3(0f, b.shin * 0.5f, 0f), new Vector3(b.legThick, L(b.shin), b.legThick), pants);
+                    P("Thigh", thigh, limb, new Vector3(0f, b.thigh * 0.5f, 0f), new Vector3(b.legThick * 1.15f, L(b.thigh), b.legThick * 1.15f), pants);
+                    P("Shin", shin, limb, new Vector3(0f, b.shin * 0.5f, 0f), new Vector3(b.legThick, L(b.shin), b.legThick), pants);
                     if (outfit == Outfit.Armor || outfit == Outfit.Tech || s.body == BodyType.Giant)
                         P("KneePad", shin, Shape.Sphere, new Vector3(0f, 0.02f, b.legThick * 0.35f), new Vector3(b.legThick * 1.1f, b.legThick * 1f, b.legThick * 0.8f), Slot.Metal);
                     // Boots: from mid-shin down, then the foot.
@@ -199,11 +201,11 @@ namespace Nullbound
 
             // ---------------- chest
             float cw = b.chestW, cd = b.chestD, ch = b.chestH;
-            P("Torso", Bone.Chest, round, new Vector3(0f, 0f, 0f), new Vector3(cw, L(ch * 1.13f), cd), torsoSlot);
+            P("Torso", Bone.Chest, b.boxy ? Shape.Cube : Shape.Torso, new Vector3(0f, 0f, 0f), new Vector3(cw, L(ch * 1.13f), cd), torsoSlot);
             P("Waist", Bone.Chest, round, new Vector3(0f, -ch * 0.42f, -0.01f), new Vector3(b.waistW, L(ch * 0.58f), cd * 0.85f), outfit == Outfit.Tank ? Slot.Main : torsoSlot);
             if (s.body == BodyType.Bulky || s.body == BodyType.Giant || s.body == BodyType.Beast)
                 foreach (float x in new[] { -1f, 1f })
-                    P("Pec", Bone.Chest, Shape.Sphere, new Vector3(x * cw * 0.22f, ch * 0.12f, cd * 0.36f), new Vector3(cw * 0.45f, ch * 0.4f, cd * 0.4f), outfit == Outfit.Tank || outfit == Outfit.Primal ? Slot.Skin : torsoSlot);
+                    P("Pec", Bone.Chest, Shape.Sphere, new Vector3(x * cw * 0.21f, ch * 0.13f, cd * 0.3f), new Vector3(cw * 0.44f, ch * 0.36f, cd * 0.32f), outfit == Outfit.Tank || outfit == Outfit.Primal ? Slot.Skin : torsoSlot);
             switch (outfit)
             {
                 case Outfit.Gi:
@@ -268,11 +270,11 @@ namespace Nullbound
             foreach (var (upper, fore, hand, x) in new[] { (Bone.UpperArmL, Bone.ForearmL, Bone.HandL, -1f), (Bone.UpperArmR, Bone.ForearmR, Bone.HandR, 1f) })
             {
                 Slot sleeve = bareArms ? Slot.Skin : outfit == Outfit.Armor ? Slot.Metal : torsoSlot;
-                P("UpperArm", upper, round, new Vector3(0f, b.upperArm * 0.5f, 0f), new Vector3(b.armThick * 1.1f, L(b.upperArm), b.armThick * 1.1f), sleeve);
+                P("UpperArm", upper, limb, new Vector3(0f, b.upperArm * 0.5f, 0f), new Vector3(b.armThick * 1.1f, L(b.upperArm), b.armThick * 1.1f), sleeve);
                 if (s.body == BodyType.Bulky || s.body == BodyType.Giant)
                     P("Bicep", upper, Shape.Sphere, new Vector3(0f, b.upperArm * 0.45f, b.armThick * 0.2f), new Vector3(b.armThick * 1.3f, b.upperArm * 0.5f, b.armThick * 1.3f), sleeve);
                 Slot fore_ = bareArms || outfit == Outfit.Suit || outfit == Outfit.Ninja ? (outfit == Outfit.Suit || outfit == Outfit.Ninja ? torsoSlot : Slot.Skin) : outfit == Outfit.Armor ? Slot.Metal : torsoSlot;
-                P("Forearm", fore, round, new Vector3(0f, b.forearm * 0.5f, 0f), new Vector3(b.armThick, L(b.forearm), b.armThick), fore_);
+                P("Forearm", fore, limb, new Vector3(0f, b.forearm * 0.5f, 0f), new Vector3(b.armThick, L(b.forearm), b.armThick), fore_);
                 P("Elbow", fore, Shape.Sphere, Vector3.zero, Vector3.one * b.armThick * 1.05f, fore_);
                 // Bracer / wrist wraps.
                 P("Bracer", fore, Shape.Cylinder, new Vector3(0f, b.forearm * 0.78f, 0f), new Vector3(b.armThick * 1.2f, b.forearm * 0.2f, b.armThick * 1.2f),

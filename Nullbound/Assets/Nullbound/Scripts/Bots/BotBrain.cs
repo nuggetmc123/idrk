@@ -108,11 +108,7 @@ namespace Nullbound
 
             if (target == null)
             {
-                // Nobody to fight: wander back to the middle.
-                Vector3 home = SpawnPoint.MapCenter() - transform.position;
-                home.y = 0f;
-                if (home.magnitude > 3f) cmd.move = home.normalized * 0.5f;
-                Face(transform.position + (home.sqrMagnitude > 0.01f ? home : Vector3.forward));
+                Roam(ref cmd);
                 AnimateHands();
                 me.command = cmd;
                 return;
@@ -197,18 +193,67 @@ namespace Nullbound
             me.command = cmd;
         }
 
+        /// <summary>How far a bot notices someone, and how far it keeps chasing once it's fighting them.</summary>
+        const float SightRange = 22f, ChaseRange = 34f;
+
         Fighter FindTarget()
         {
             Fighter best = null;
-            float bestD = 40f;
+            float bestD = SightRange;
             foreach (var f in Fighter.All)
             {
                 if (f == me || !f.IsReady || f.Down || f.Hidden && f.IsVerifiedMod || f.HasStatus(Fighter.Immune)) continue;
                 if (f.IsBot && SessionManager.Instance != null && !SessionManager.Instance.BotsFightEachOther) continue;
                 float d = Vector3.Distance(f.transform.position, transform.position);
-                if (d < bestD) { bestD = d; best = f; }
+                // Someone it's already fighting (or who just hit it) is followed further.
+                float range = f == target || f == me.LastAttacker ? ChaseRange : SightRange;
+                if (d < range && d < bestD + (f == target ? 4f : 0f)) { bestD = d; best = f; }
             }
             return best;
+        }
+
+        // ---------------- roaming
+
+        Vector3 roamGoal;
+        bool hasRoamGoal;
+        float roamPauseUntil, roamGiveUpAt, roamSpeed = 0.55f;
+
+        /// <summary>
+        /// Nobody around: walk somewhere else on the map (a random spot among the map's spawn points), look about when
+        /// it gets there, then pick a new place. Never just stands still or heads for the middle.
+        /// </summary>
+        void Roam(ref FighterCommand cmd)
+        {
+            if (Time.time < roamPauseUntil)
+            {
+                // A short look around.
+                Face(transform.position + Quaternion.Euler(0f, Mathf.Sin(Time.time * 0.8f) * 70f, 0f) * root.forward);
+                return;
+            }
+            Vector3 to = roamGoal - transform.position;
+            to.y = 0f;
+            if (!hasRoamGoal || to.magnitude < 2.5f || Time.time > roamGiveUpAt)
+            {
+                if (hasRoamGoal && to.magnitude < 2.5f) roamPauseUntil = Time.time + Random.Range(0.8f, 3f);
+                roamGoal = SpawnPoint.RoamSpot(transform.position);
+                hasRoamGoal = true;
+                roamSpeed = Random.Range(0.45f, 0.75f);
+                roamGiveUpAt = Time.time + 25f;
+                return;
+            }
+            Vector3 dir = to.normalized;
+            // Weave a little so it doesn't walk like it's on rails.
+            dir = Quaternion.Euler(0f, Mathf.Sin(Time.time * 0.5f + GetInstanceID()) * 18f, 0f) * dir;
+            cmd.move = dir * roamSpeed;
+            Face(transform.position + dir);
+
+            // Stuck on something while roaming: hop, and if that doesn't help, go somewhere else.
+            float moved = (transform.position - lastPos).magnitude;
+            lastPos = transform.position;
+            if (moved < 0.002f) { if (stuckSince < 0f) stuckSince = Time.time; }
+            else stuckSince = -1f;
+            if (stuckSince > 0f && Time.time - stuckSince > 0.6f) { cmd.jump = true; }
+            if (stuckSince > 0f && Time.time - stuckSince > 2.5f) { hasRoamGoal = false; stuckSince = -1f; }
         }
 
         void Face(Vector3 point)

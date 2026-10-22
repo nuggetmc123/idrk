@@ -91,6 +91,7 @@ namespace Nullbound
                     pos -= pivot;
                 }
                 var t = NBUI.Part(parentT, Prim(p.shape), pos, p.scale, SlotMaterial(p.slot, s, silhouette, mats), p.euler, p.name);
+                if (p.shape == Shape.Limb || p.shape == Shape.Torso) t.GetComponent<MeshFilter>().sharedMesh = ShapeMesh(p.shape);
                 if (p.useRotation) t.localRotation = p.rotation;
                 if (p.slot == Slot.Glove) m.gloveRenderers.Add(t.GetComponent<Renderer>());
                 if (p.name == "Finger") (p.bone == Bone.HandL ? m.fingersL : m.fingersR).Add(t);
@@ -99,6 +100,25 @@ namespace Nullbound
 
             m.shield = NBUI.Part(m.root, PrimitiveType.Cylinder, Vector3.zero, new Vector3(0.55f, 0.01f, 0.55f), NBUI.Glow(new Color(0.4f, 0.75f, 1f)), default, "Shield");
             m.shield.gameObject.SetActive(false);
+            return m;
+        }
+
+        static Mesh limbMesh, torsoMesh;
+
+        /// <summary>The shared tapered-limb / V-torso meshes (FighterShapes), made once.</summary>
+        static Mesh ShapeMesh(Shape shape)
+        {
+            ref Mesh m = ref shape == Shape.Torso ? ref torsoMesh : ref limbMesh;
+            if (m != null) return m;
+            var d = shape == Shape.Torso ? FighterShapes.Torso() : FighterShapes.Limb();
+            m = new Mesh { name = shape.ToString() };
+            m.SetVertices(d.vertices);
+            m.SetNormals(d.normals);
+            m.SetTangents(d.tangents);
+            m.SetUVs(0, d.uvs);
+            m.SetTriangles(d.triangles, 0);
+            m.RecalculateBounds();
+            m.UploadMeshData(true);
             return m;
         }
 
@@ -134,7 +154,56 @@ namespace Nullbound
         public float Scale => stats.scale;
 
         /// <summary>Show or hide the whole model (invisible moderators, K.O.).</summary>
-        public void SetVisible(bool visible) { if (root != null) root.gameObject.SetActive(visible); }
+        public void SetVisible(bool visible)
+        {
+            if (!visible) ragdoll.End();
+            if (root != null) root.gameObject.SetActive(visible);
+        }
+
+        /// <summary>Remove the ragdoll's bodies (call when the model goes away).</summary>
+        public void Dispose() => ragdoll.End();
+
+        // ---------------- physics: ragdoll and hit flinches
+
+        readonly FighterRagdoll ragdoll = new FighterRagdoll();
+        readonly Vector3[] blendPos = new Vector3[FighterPose.BoneCount];
+        readonly Quaternion[] blendRot = new Quaternion[FighterPose.BoneCount];
+        float blendLeft;
+        const float GetUpTime = 0.4f;
+        Vector3 flinch, flinchVel;
+
+        public bool Ragdolled => ragdoll.Active;
+
+        /// <summary>Go limp: the body becomes a physics ragdoll thrown with `velocity`, the chest shoved by `push`.</summary>
+        public void StartRagdoll(Vector3 velocity, Vector3 push, IEnumerable<Collider> ignore)
+        {
+            if (root == null || !root.gameObject.activeInHierarchy) return;
+            ragdoll.Begin(bones, body, stats.scale, velocity, push, ignore);
+            blendLeft = 0f;
+            flinch = flinchVel = Vector3.zero;
+        }
+
+        /// <summary>Get up: the posed body takes over again, blending from where the ragdoll lay (unless instant).</summary>
+        public void StopRagdoll(bool instant)
+        {
+            if (!ragdoll.Active) return;
+            ragdoll.Apply(bones);
+            for (int i = 0; i < bones.Length; i++) { blendPos[i] = bones[i].position; blendRot[i] = bones[i].rotation; }
+            blendLeft = instant ? 0f : GetUpTime;
+            ragdoll.End();
+        }
+
+        /// <summary>
+        /// A hit landing: the head and guard snap back along `dir` and spring back (the spine follows the head), or,
+        /// on a ragdoll, the nearest body part gets knocked. strength ~ metres per second of snap.
+        /// </summary>
+        public void Flinch(Vector3 point, Vector3 dir, float strength)
+        {
+            if (dir.sqrMagnitude < 0.0001f) return;
+            dir.Normalize();
+            if (ragdoll.Active) { ragdoll.Push(point, dir * strength * 2f); return; }
+            flinchVel += dir * Mathf.Min(strength, 3f);
+        }
 
         /// <summary>Pose the whole body for this frame (see <see cref="PoseInput"/>).</summary>
         public void Pose(PoseInput p, float dt)
@@ -142,14 +211,42 @@ namespace Nullbound
             walkPhase += p.speed * dt * 3.2f / Mathf.Max(0.6f, stats.scale);
             p.walkPhase = walkPhase;
             p.time = Time.time;
+
+            if (ragdoll.Active)
+            {
+                ragdoll.Follow(p.feet, p.velocity, p.down);
+                ragdoll.Apply(bones);
+                shield.gameObject.SetActive(false);
+                AnimateExtras(p.speed, true);
+                return;
+            }
+
+            // Hit flinch: a bouncy spring on the head (and the guard with it).
+            if (flinch.sqrMagnitude > 1e-6f || flinchVel.sqrMagnitude > 1e-6f)
+            {
+                flinchVel += (-flinch * 140f - flinchVel * 11f) * dt;
+                flinch = Vector3.ClampMagnitude(flinch + flinchVel * dt, 0.3f * stats.scale);
+                if (!p.down && !p.idle)
+                {
+                    p.headPos += flinch;
+                    Vector3 tiltAxis = Vector3.Cross(Vector3.up, flinch);
+                    if (tiltAxis.sqrMagnitude > 1e-8f) p.headRot = Quaternion.AngleAxis(flinch.magnitude / stats.scale * 160f, tiltAxis.normalized) * p.headRot;
+                    p.leftPos += flinch * 0.6f;
+                    p.rightPos += flinch * 0.6f;
+                }
+            }
+
             FighterPose.Solve(body, stats.scale, p, solved);
+            float blend = blendLeft > 0f ? Mathf.SmoothStep(0f, 1f, 1f - blendLeft / GetUpTime) : 1f;
+            blendLeft = Mathf.Max(0f, blendLeft - dt);
             for (int i = 0; i < bones.Length; i++)
             {
                 var b = bones[i];
                 if (b == null) continue;
                 // First-person gloves ride your real hands, so they're not posed here.
                 if ((i == (int)Bone.HandL || i == (int)Bone.HandR) && b.parent != root) continue;
-                b.SetPositionAndRotation(solved[i].pos, solved[i].rot);
+                if (blend < 1f) b.SetPositionAndRotation(Vector3.Lerp(blendPos[i], solved[i].pos, blend), Quaternion.Slerp(blendRot[i], solved[i].rot, blend));
+                else b.SetPositionAndRotation(solved[i].pos, solved[i].rot);
                 b.localScale = solved[i].scale * (i == (int)Bone.HandL || i == (int)Bone.HandR ? handPulse : 1f);
             }
 

@@ -146,6 +146,8 @@ namespace Nullbound
 
         /// <summary>Quick Match keeps the Battleground busy: bots fill up to this many fighters, and leave as people join.</summary>
         public const int BattlegroundFighters = 8;
+        /// <summary>At most this many bots roam the Battleground at once.</summary>
+        public const int BattlegroundBots = 5;
         float nextBotCheck;
 
         /// <summary>
@@ -160,7 +162,7 @@ namespace Nullbound
             if (!Runner.IsSharedModeMasterClient || Fighter.Local == null) return;
             int people = Runner.ActivePlayers.Count();
             int bots = Fighter.All.Count(f => f.IsBot);
-            int want = Mathf.Max(0, BattlegroundFighters - people);
+            int want = Mathf.Clamp(BattlegroundFighters - people, 0, BattlegroundBots);
             if (bots < want) SpawnBot();
             else if (bots > want)
             {
@@ -450,7 +452,7 @@ namespace Nullbound
             if (!IsConnected || fighterPrefab == null) return;
             Fighter.SpawningBot = true;
             Fighter.SpawningBotKind = (FighterKind)UnityEngine.Random.Range(0, FighterInfo.Count);
-            try { Runner.Spawn(fighterPrefab, SpawnPoint.Pick(Vector3.zero), Quaternion.identity, Runner.LocalPlayer); }
+            try { Runner.Spawn(fighterPrefab, SpawnPoint.PickForBot(Vector3.zero), Quaternion.identity, Runner.LocalPlayer); }
             catch (Exception e) { Debug.LogError("[Nullbound] Couldn't spawn a bot: " + e.Message); }
             finally { Fighter.SpawningBot = false; }
         }
