@@ -38,6 +38,10 @@ Without Photon Fusion the game still runs (main menu and Training Grounds vs bot
 
 **Signing** ("The APK is signed with a different certificate"): Meta ties your app to the key its **first** upload
 was signed with, and every update must use that same key.
+- **Nullbound > Signing > Find My First Upload's Key** works it out for you: it finds the signing keys on this computer
+  and every APK you've built (Downloads, Desktop, Documents, OneDrive, old project copies), reads which key signed
+  each APK, and offers to sign builds with the key of your oldest APK. Or pick the exact APK you first uploaded. The
+  full list goes to the Console and `Documents/Nullbound Keystore/signing-report.txt`.
 - First upload made before the Nullbound key existed? It was signed with this computer's **Android debug key**. Use
   **Nullbound > Signing > Sign With My First Upload's Key**, then Build for Quest and upload. A backup of that key is
   put in `Documents/Nullbound Keystore/`.

@@ -23,7 +23,7 @@ namespace Nullbound.EditorTools
     {
         // In your Documents folder, NOT in the project: every new copy of the project (each zip I send) then reuses the
         // same key. A different key would stop the store from updating the app.
-        static string KeystoreFolder => Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments), "Nullbound Keystore");
+        internal static string KeystoreFolder => Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments), "Nullbound Keystore");
         static string KeystoreFile => Path.Combine(KeystoreFolder, "nullbound.keystore");
         static string PasswordFile => Path.Combine(KeystoreFolder, "KEYSTORE-PASSWORD-keep-this-safe.txt");
         const string Alias = "nullbound";
@@ -44,6 +44,30 @@ namespace Nullbound.EditorTools
                 PlayerSettings.Android.keystorePass = DebugPassword;
                 PlayerSettings.Android.keyaliasPass = DebugPassword;
                 return true;
+            }
+
+            // A key picked with Nullbound > Signing > Find My First Upload's Key: a debug-key backup, or a Nullbound key in
+            // another folder (its password file sits next to it). Fill the passwords in again (Unity forgets them).
+            if (PlayerSettings.Android.useCustomKeystore && File.Exists(PlayerSettings.Android.keystoreName))
+            {
+                string picked = PlayerSettings.Android.keystoreName;
+                if (Path.GetFileName(picked).Equals("android-debug-key-BACKUP.keystore", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    PlayerSettings.Android.keyaliasName = DebugAlias;
+                    PlayerSettings.Android.keystorePass = PlayerSettings.Android.keyaliasPass = DebugPassword;
+                    return true;
+                }
+                string nextTo = Path.Combine(Path.GetDirectoryName(picked) ?? "", "KEYSTORE-PASSWORD-keep-this-safe.txt");
+                if (Path.GetFileName(picked).Equals("nullbound.keystore", System.StringComparison.OrdinalIgnoreCase) && File.Exists(nextTo))
+                {
+                    foreach (var line in File.ReadAllLines(nextTo))
+                        if (line.StartsWith("password"))
+                        {
+                            PlayerSettings.Android.keyaliasName = Alias;
+                            PlayerSettings.Android.keystorePass = PlayerSettings.Android.keyaliasPass = line.Substring(line.IndexOf(':') + 1).Trim();
+                            return true;
+                        }
+                }
             }
 
             string ours = Path.GetFullPath(KeystoreFile);
@@ -173,7 +197,7 @@ namespace Nullbound.EditorTools
             return null;
         }
 
-        static string FindKeytool()
+        internal static string FindKeytool()
         {
             string exe = System.Environment.OSVersion.Platform == System.PlatformID.Win32NT ? "keytool.exe" : "keytool";
             var candidates = new System.Collections.Generic.List<string>();
