@@ -9,6 +9,9 @@ crates, a big arena, AI bots that learn, voice chat and moderators.
 1. Unzip, then **Unity Hub > Add > Add project from disk** and pick the `Nullbound` folder (Unity 6000.0.40f1).
 2. Wait for it to import. It adds the text resources and **builds the world by itself**, then says it's ready.
 3. Press **Play**. You start in the **main menu**.
+   The first time, you pick your name on the keyboard in front of you; the rest of the menu is hidden until you
+   have. The **JOIN OUR DISCORD** button (under the play buttons) opens the community server
+   (https://discord.gg/dwxVkHAGH) in the browser; change the link in `MainMenu.DiscordInvite`.
 
 Menu (top bar) **Nullbound**:
 

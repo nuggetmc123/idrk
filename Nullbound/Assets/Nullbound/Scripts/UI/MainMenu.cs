@@ -8,12 +8,16 @@ namespace Nullbound
     /// Middle: PLAY (Quick Match, private lobby, join a code, Training Grounds), your name, Player ID and coins.
     /// Left: every fighter (pick one you own; locked ones show as a dark shape) with a 3D preview.
     /// Right: crates you open with coins to unlock more fighters.
-    /// The first time, you have to pick your name before anything else.
+    /// The first time, you have to pick your name before anything else: while the name keyboard is up, the rest of
+    /// the menu is hidden. A Discord button opens the community server in the headset's browser.
     /// Built at runtime; the player stands at this object's position facing +Z.
     /// </summary>
     public class MainMenu : MonoBehaviour
     {
         public static MainMenu Instance { get; private set; }
+
+        /// <summary>The community Discord server (opened in the browser by the Discord button).</summary>
+        public const string DiscordInvite = "https://discord.gg/dwxVkHAGH";
 
         TextMeshPro status, who, coinsText, fighterText, crateText, codeText;
         Transform playPage, codePage, previewSpot, crateSpot, crateBox, revealSpot;
@@ -73,6 +77,37 @@ namespace Nullbound
             return p;
         }
 
+        /// <summary>Opens the Discord invite in the browser (on Quest: the Meta Quest Browser; the game keeps running).</summary>
+        void OpenDiscord()
+        {
+            Status("Opening Discord in your browser...");
+            Application.OpenURL(DiscordInvite);
+        }
+
+        // ---------------- hidden while you pick your name
+
+        readonly System.Collections.Generic.List<GameObject> hiddenForName = new System.Collections.Generic.List<GameObject>();
+
+        /// <summary>
+        /// While the name keyboard is up, every part of the menu (panels, previews, crates) goes away so the keyboard is
+        /// the only thing to look at; it all comes back once you've picked a name.
+        /// </summary>
+        void HideWhileNaming()
+        {
+            bool naming = NameEntry.Showing;
+            if (naming && hiddenForName.Count == 0)
+            {
+                foreach (Transform child in transform)
+                    if (child.gameObject.activeSelf) { hiddenForName.Add(child.gameObject); child.gameObject.SetActive(false); }
+            }
+            else if (!naming && hiddenForName.Count > 0)
+            {
+                foreach (var go in hiddenForName) if (go != null) go.SetActive(true);
+                hiddenForName.Clear();
+                nextRefresh = 0f;
+            }
+        }
+
         bool Ready()
         {
             if (PlayerProfile.NameLocked) return true;
@@ -103,6 +138,7 @@ namespace Nullbound
             Btn(playPage, "JoinCode", "<b>JOIN A CODE</b>\n<size=60%>a friend's room or lobby</size>", new Vector3(0.41f, -0.05f, 0f), big, new Color(0.55f, 0.75f, 1f), () => { if (Ready()) { typed = ""; ShowCode(true); } });
             modButton = Btn(playPage, "ModMenu", "<b>MOD MENU</b>", new Vector3(0f, -0.23f, 0f), new Vector3(0.5f, 0.1f, 0.04f), new Color(1f, 0.4f, 0.35f), ModMenu.Toggle);
             status = NBUI.Label(p, "", new Vector3(0f, -0.38f, 0f), 0.55f, new Color(0.85f, 0.92f, 1f), new Vector2(1.6f, 0.1f));
+            Btn(p, "Discord", "<b>JOIN OUR DISCORD</b>", new Vector3(0f, -0.49f, 0f), new Vector3(0.62f, 0.09f, 0.04f), new Color(0.35f, 0.4f, 0.95f), OpenDiscord, 0.55f);
             NBUI.Label(p, "Settings: press the MENU button (three lines) on your left controller", new Vector3(0f, -0.6f, 0f), 0.42f, new Color(1f, 1f, 1f, 0.6f), new Vector2(1.6f, 0.08f));
 
             codePage = new GameObject("Code").transform;
@@ -298,6 +334,7 @@ namespace Nullbound
 
         void Update()
         {
+            HideWhileNaming();
             // Preview model (rebuilt when the shown fighter changes).
             int show = previewId < 0 ? (int)GameSettings.Fighter : previewId;
             bool locked = !Collection.IsUnlocked(show);
