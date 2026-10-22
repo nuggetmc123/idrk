@@ -2,6 +2,9 @@ using UnityEngine;
 
 namespace Nullbound
 {
+    /// <summary>Your view while you're ragdolled (see GameSettings.RagdollCam).</summary>
+    public enum RagdollCamera { Inside = 0, Level = 1, Off = 2 }
+
     public enum TurnStyle { Snap30 = 0, Snap45 = 1, Smooth = 2 }
 
     /// <summary>Settings from the wrist menu, saved on this device.</summary>
@@ -65,6 +68,18 @@ namespace Nullbound
             get => PlayerPrefs.GetInt("nb.gore", 0) == 1;
             set { PlayerPrefs.SetInt("nb.gore", value ? 1 : 0); PlayerPrefs.Save(); }
         }
+
+        /// <summary>
+        /// Where your view goes when you get ragdolled: Inside your ragdoll's head (you tumble with it, the default), Level
+        /// (you ride along with your body but the horizon stays level, easier on your stomach) or Off (your view stays put).
+        /// </summary>
+        public static RagdollCamera RagdollCam
+        {
+            get => (RagdollCamera)Mathf.Clamp(PlayerPrefs.GetInt("nb.ragdollCam", 0), 0, 2);
+            set { PlayerPrefs.SetInt("nb.ragdollCam", (int)value); PlayerPrefs.Save(); }
+        }
+
+        public static string RagdollCamName(RagdollCamera c) => c == RagdollCamera.Inside ? "inside" : c == RagdollCamera.Level ? "level" : "off";
 
         /// <summary>See your own full body (arms, chest, legs) when you look down. Off = just your gloves.</summary>
         public static bool FullBody

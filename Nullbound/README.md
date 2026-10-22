@@ -242,10 +242,18 @@ parts; stains fade after 18-25 s (only the newest 40 are kept). It's a per-heads
 more knockback, and the target is **ragdolled** for 1.3 s. **Every other special that lands clean ragdolls you too**
 (for 1 s), and so do throws and knock-outs. Your own view doesn't spin (comfort); you get a vignette instead.
 
-**Physics ragdolls** (`FighterRagdoll.cs`): a ragdolled fighter's body is a real physics ragdoll, with jointed
-hips, chest, head, arms and legs. It flies off, hits the floor and walls, and its limbs flop. Then it blends back up
-onto its feet when the effect ends. Punch a ragdoll and the limb you hit gets knocked. Each headset simulates the
-ragdolls itself, with the body held to where the fighter really is, so everyone sees them land in the same place.
+**Physics ragdolls** (`FighterRagdoll.cs`): a ragdolled fighter's body is a real physics ragdoll with jointed hips,
+chest, head, arms and legs. **Nothing is animated**: every part starts moving with the hit's launch, the spot that was
+hit gets knocked, and then gravity, the joints and collisions do the rest (it flies, hits the floor and walls,
+flops and slides). The fighter's own game runs the ragdoll freely and **the fighter follows the body** (its hurtbox,
+network position and your view go wherever the body ends up). Every other headset runs its own copy, pulled
+towards that position by a spring, so everyone sees it land in the same place. When it's over, the body blends
+back onto its feet. Punch a ragdoll and the limb you hit gets knocked.
+
+**Ragdoll camera**: when YOU get ragdolled, your whole body (gloves included) goes limp and your view rides inside
+your ragdoll's head, so you see yourself fly and tumble. Wrist menu > Settings > **Ragdoll cam**: **inside** (the
+default; your view spins with your head), **level** (you ride along with your body but the horizon stays level,
+much easier on your stomach) or **off**.
 
 **Bodies react to hits**: every punch that lands snaps the target's head and guard back from where it was hit, then
 they spring back, harder for bigger hits (blocked hits a little).

@@ -21,11 +21,13 @@ namespace Nullbound
         Renderer hpRenderer, superRenderer;
         Material hpGood, hpLow, superMat, superReadyMat;
         TextMeshPro nameText;
-        Vector3 lastPos, smoothVel, rollAxis = Vector3.right;
-        float tumbleBlend, nextTrail;
+        Vector3 lastPos, smoothVel;
+        float nextTrail;
         Transform stars;
         bool headWasOff;
-        Quaternion tumbleRot = Quaternion.identity;
+        // The last hit shown on this fighter: a ragdoll that starts just after gets knocked at that spot.
+        Vector3 lastHitPoint, lastHitDir;
+        float lastHitStrength, lastHitAt = -10f;
 
         public void Init(Fighter f)
         {
@@ -149,11 +151,95 @@ namespace Nullbound
         /// </summary>
         public void ShowHit(Vector3 point, float damage, bool blocked)
         {
-            if (model == null || firstPerson) return;
+            if (model == null) return;
             Vector3 dir = fighter.Center - point;
             dir.y *= 0.3f;
             if (dir.sqrMagnitude < 0.0001f) dir = -fighter.FacingFlat;
-            model.Flinch(point, dir, (blocked ? 0.4f : 0.9f) + damage * (blocked ? 0.02f : 0.07f));
+            float strength = (blocked ? 0.4f : 0.9f) + damage * (blocked ? 0.02f : 0.07f);
+            lastHitPoint = point; lastHitDir = dir; lastHitStrength = strength; lastHitAt = Time.time;
+            // Your own body only reacts once it's a ragdoll (otherwise it's your real head and hands).
+            if (!firstPerson || model.Ragdolled) model.Flinch(point, dir, strength);
+        }
+
+        /// <summary>
+        /// Go limp. Every part starts moving with the hit's launch (on the fighter's own game the exact knockback, on others
+        /// the speed it's seen moving at), and the spot that was just hit gets knocked, so it falls the way the hit
+        /// sends it. Nothing is animated. free = the fighter's own game: no spring, the fighter follows this body.
+        /// </summary>
+        void GoLimp(bool free)
+        {
+            Vector3 v = fighter.IsMine && Time.time - fighter.LaunchAt < 0.5f ? fighter.LaunchVelocity : smoothVel;
+            model.StartRagdoll(v, CharacterColliders(), free);
+            if (model.Ragdolled && Time.time - lastHitAt < 0.6f) model.Flinch(lastHitPoint, lastHitDir, lastHitStrength);
+        }
+
+        /// <summary>The ragdoll's feet (under its hips): where the fighter's own game puts the fighter while ragdolled.</summary>
+        public bool TryGetRagdollFeet(out Vector3 feet)
+        {
+            feet = default;
+            if (model == null || !model.TryGetRagdollHips(out var hips, out _)) return false;
+            feet = hips - Vector3.up * 0.25f * model.Scale;
+            return true;
+        }
+
+        /// <summary>Your own first-person gloves: on your real hands normally, on your ragdoll while you're limp.</summary>
+        void GlovesOnBody(bool onBody)
+        {
+            foreach (var (glove, hand) in new[] { (model.leftGlove, fighter.poseLeft), (model.rightGlove, fighter.poseRight) })
+            {
+                if (glove == null) continue;
+                if (onBody) { glove.SetParent(model.root, true); glove.gameObject.SetActive(true); }
+                else Attach(glove, hand);
+            }
+        }
+
+        /// <summary>
+        /// You got ragdolled: your whole body (gloves included) goes limp and your view rides in its head, so you see
+        /// yourself fly and tumble (Settings > Ragdoll cam: inside / level / off). Returns false when you're not limp.
+        /// </summary>
+        bool FirstPersonRagdoll(bool limp)
+        {
+            if (limp && !model.Ragdolled && fighter.poseHead != null && fighter.poseLeft != null && fighter.poseRight != null)
+            {
+                model.root.gameObject.SetActive(true);
+                PoseFirstPerson(); // start from where your body really is right now
+                GlovesOnBody(true);
+                GoLimp(true);
+                if (!model.Ragdolled) GlovesOnBody(false);
+            }
+            if (!model.Ragdolled) return false;
+            if (!limp)
+            {
+                model.StopRagdoll(true);
+                GlovesOnBody(false);
+                return false;
+            }
+            model.Pose(new PoseInput { feet = transform.position, velocity = smoothVel, down = fighter.Down }, Time.deltaTime);
+            if (GameSettings.RagdollCam != RagdollCamera.Off && VRRig.Instance != null)
+            {
+                model.EyePose(out var eye, out var rot);
+                VRRig.Instance.SetRagdollView(eye, rot, GameSettings.RagdollCam == RagdollCamera.Inside);
+            }
+            return true;
+        }
+
+        /// <summary>Your first-person body under your real head and hands.</summary>
+        void PoseFirstPerson()
+        {
+            Vector3 facing = fighter.FacingFlat;
+            var head = fighter.poseHead;
+            model.Pose(new PoseInput
+            {
+                // Body a little behind your eyes (where your real neck is), so looking down doesn't put you inside your chest.
+                feet = transform.position, headPos = head.position - facing * 0.14f, headRot = head.rotation,
+                leftPos = fighter.poseLeft.position, leftRot = fighter.poseLeft.rotation,
+                rightPos = fighter.poseRight.position, rightRot = fighter.poseRight.rotation,
+                fwd = facing, velocity = smoothVel, speed = new Vector3(smoothVel.x, 0f, smoothVel.z).magnitude,
+                airborne = Mathf.Abs(smoothVel.y) > 0.5f, blocking = false,
+            }, Time.deltaTime);
+            // Your own neck and head are shrunk to nothing so the skin can't show up in front of your eyes.
+            model.BoneOf(Bone.Neck).localScale = Vector3.one * 0.001f;
+            model.BoneOf(Bone.Head).localScale = Vector3.one * 0.001f;
         }
 
         /// <summary>A copy of their head flies off, tumbling, and rolls away.</summary>
@@ -204,34 +290,18 @@ namespace Nullbound
 
             if (firstPerson)
             {
+                Vector3 at = transform.position;
+                Vector3 v = (at - lastPos) / Mathf.Max(Time.deltaTime, 0.001f);
+                lastPos = at;
+                smoothVel = Vector3.Lerp(smoothVel, v, Mathf.Clamp01(Time.deltaTime * 12f));
+                if (FirstPersonRagdoll(fighter.HasStatus(Fighter.Tumbling) || fighter.Down)) return;
                 bool show = !fighter.Down;
                 if (model.leftGlove != null) { model.leftGlove.gameObject.SetActive(show); model.leftGlove.localScale = Vector3.one * pulse; }
                 if (model.rightGlove != null) { model.rightGlove.gameObject.SetActive(show); model.rightGlove.localScale = Vector3.one * pulse; }
                 model.SetCurl(fighter.HandCurl(true), fighter.HandCurl(false));
                 bool body = show && GameSettings.FullBody && fighter.poseHead != null && fighter.poseLeft != null && fighter.poseRight != null;
                 model.root.gameObject.SetActive(body);
-                if (body)
-                {
-                    Vector3 at = transform.position;
-                    Vector3 v = (at - lastPos) / Mathf.Max(Time.deltaTime, 0.001f);
-                    lastPos = at;
-                    smoothVel = Vector3.Lerp(smoothVel, v, Mathf.Clamp01(Time.deltaTime * 12f));
-                    Vector3 facing = fighter.FacingFlat;
-                    var head = fighter.poseHead;
-                    model.Pose(new PoseInput
-                    {
-                        // Body a little behind your eyes (where your real neck is), so looking down doesn't put you inside your chest.
-                        feet = at, headPos = head.position - facing * 0.14f, headRot = head.rotation,
-                        leftPos = fighter.poseLeft.position, leftRot = fighter.poseLeft.rotation,
-                        rightPos = fighter.poseRight.position, rightRot = fighter.poseRight.rotation,
-                        fwd = facing, velocity = smoothVel, speed = new Vector3(smoothVel.x, 0f, smoothVel.z).magnitude,
-                        airborne = Mathf.Abs(smoothVel.y) > 0.5f, blocking = false,
-                    }, Time.deltaTime);
-                    // Your own neck and head are shrunk to nothing so the skin can't show up in front of your eyes.
-                    model.BoneOf(Bone.Neck).localScale = Vector3.one * 0.001f;
-                    model.BoneOf(Bone.Head).localScale = Vector3.one * 0.001f;
-                }
-                else lastPos = transform.position;
+                if (body) PoseFirstPerson();
                 return;
             }
 
@@ -250,29 +320,11 @@ namespace Nullbound
             float speed = new Vector3(smoothVel.x, 0f, smoothVel.z).magnitude;
             bool air = Mathf.Abs(smoothVel.y) > 0.5f;
 
-            // Physics ragdoll: knocked flying by a special, thrown, or knocked out. Gets back up when it's over.
+            // Physics ragdoll: knocked flying by a special, thrown, or knocked out. Gets back up when it's over. On the
+            // fighter's own game (bots) the ragdoll runs free and the fighter follows it; elsewhere it follows the fighter.
             bool limp = fighter.HasStatus(Fighter.Tumbling) || fighter.Down;
-            if (limp && !model.Ragdolled && !teleported)
-            {
-                Vector3 flat = new Vector3(smoothVel.x, 0f, smoothVel.z);
-                Vector3 push = (flat.sqrMagnitude > 0.25f ? flat.normalized : -fighter.FacingFlat) * 2.5f + Vector3.up * 1.2f;
-                model.StartRagdoll(smoothVel, push, CharacterColliders());
-            }
+            if (limp && !model.Ragdolled && !teleported) GoLimp(fighter.IsMine);
             else if (!limp && model.Ragdolled) model.StopRagdoll(false);
-
-            // Fallback roll (only shows if the ragdoll couldn't be made).
-            bool tumbling = fighter.HasStatus(Fighter.Tumbling) && !fighter.Down && !model.Ragdolled;
-            tumbleBlend = Mathf.MoveTowards(tumbleBlend, tumbling ? 1f : 0f, Time.deltaTime * (tumbling ? 8f : 3f));
-            if (tumbleBlend > 0f)
-            {
-                Vector3 flatVel = new Vector3(smoothVel.x, 0f, smoothVel.z);
-                if (flatVel.sqrMagnitude > 0.25f) rollAxis = Vector3.Cross(Vector3.up, flatVel.normalized);
-                // Roll like a ball of about 0.45 m, never slower than a lazy spin.
-                float rollSpeed = Mathf.Max(flatVel.magnitude / 0.45f, 4f) * Mathf.Rad2Deg;
-                if (tumbling) tumbleRot = Quaternion.AngleAxis(rollSpeed * Time.deltaTime, rollAxis) * tumbleRot;
-                else tumbleRot = Quaternion.Slerp(tumbleRot, Quaternion.identity, Time.deltaTime * 6f);
-            }
-            else tumbleRot = Quaternion.identity;
 
             // Flying: a trail of after-images behind them.
             if (fighter.HasStatus(Fighter.Flying) && Time.time >= nextTrail)
@@ -310,7 +362,7 @@ namespace Nullbound
                 feet = feet, headPos = fighter.HeadPos, headRot = fighter.HeadRot,
                 leftPos = leftHand, leftRot = leftRot, rightPos = rightHand, rightRot = rightRot,
                 fwd = fighter.FacingFlat, velocity = smoothVel, speed = speed, down = fighter.Down, airborne = air, blocking = fighter.Blocking,
-                tumble = model.Ragdolled ? 0f : tumbleBlend, tumbleRot = tumbleRot,
+                // No canned tumble animation: a limp fighter is always the physics ragdoll.
             }, Time.deltaTime);
 
             var st = fighter.Stats;

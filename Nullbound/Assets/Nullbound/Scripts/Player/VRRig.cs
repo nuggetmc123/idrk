@@ -53,7 +53,54 @@ namespace Nullbound
         void BeforeRender()
         {
             ApplyXRPoses();
+            ApplyRagdollView();
             AfterPoses?.Invoke();
+        }
+
+        // ---------------- your view inside your own ragdoll
+
+        Vector3 ragdollEye, savedLocalPos;
+        Quaternion ragdollRot, savedLocalRot;
+        bool ragdollSpin, viewOverridden;
+        int ragdollViewFrame = -10;
+
+        /// <summary>
+        /// Put your view at your ragdoll's eyes for this frame (call every frame while ragdolled; it lets go by itself
+        /// when the calls stop). spin = turn and tumble with the head; otherwise the horizon stays level and you can
+        /// still look around.
+        /// </summary>
+        public void SetRagdollView(Vector3 eye, Quaternion headRotation, bool spin)
+        {
+            ragdollEye = eye;
+            ragdollRot = headRotation;
+            ragdollSpin = spin;
+            ragdollViewFrame = Time.frameCount;
+        }
+
+        /// <summary>Moves the whole rig so the camera sits at the ragdoll's eyes (right before drawing, after tracking).</summary>
+        void ApplyRagdollView()
+        {
+            bool want = Time.frameCount - ragdollViewFrame <= 1 && head != null;
+            if (!want)
+            {
+                if (viewOverridden)
+                {
+                    viewOverridden = false;
+                    transform.localPosition = savedLocalPos;
+                    transform.localRotation = savedLocalRot;
+                }
+                return;
+            }
+            if (!viewOverridden)
+            {
+                viewOverridden = true;
+                savedLocalPos = transform.localPosition;
+                savedLocalRot = transform.localRotation;
+            }
+            // Spin: the rig turns so your tracked head lines up with the ragdoll's head. Level: keep the rig upright.
+            Quaternion rig = ragdollSpin ? ragdollRot * Quaternion.Inverse(head.localRotation) : (transform.parent != null ? transform.parent.rotation * savedLocalRot : transform.rotation);
+            transform.rotation = rig;
+            transform.position = ragdollEye - rig * head.localPosition;
         }
 
         /// <summary>Read the headset and controller poses straight from Unity's XR system (works without the Input System).</summary>
@@ -110,6 +157,8 @@ namespace Nullbound
 
         public void Detach()
         {
+            if (viewOverridden) { viewOverridden = false; transform.localPosition = savedLocalPos; transform.localRotation = savedLocalRot; }
+            ragdollViewFrame = -10;
             attached = null;
             if (transform.parent == null) return;
             looseFloorY = transform.parent.position.y; // the fighter's feet

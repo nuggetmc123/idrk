@@ -116,6 +116,10 @@ namespace Nullbound
         Vector3 velocity, knock;
         float tumbleUntil;
         FighterVisual visual;
+
+        /// <summary>The last hit's full knockback (owner only) and when it landed: a ragdoll starts moving with it.</summary>
+        public Vector3 LaunchVelocity { get; private set; }
+        public float LaunchAt { get; private set; } = -10f;
         bool grounded, wasGrounded;
         float dashUntil = -1f, dodgeUntil = -1f, nextDash, nextSpecial, stunUntil, invulnerableUntil, respawnAt, empoweredUntil;
         Vector3 dashDir;
@@ -348,9 +352,12 @@ namespace Nullbound
             {
                 if (now >= respawnAt) Respawn();
                 Blocking = false;
-                Gravity(dt);
-                MoveBody(velocity * dt + knock * dt);
-                knock *= Mathf.Exp(-2f * dt);
+                if (!RagdollFollow())
+                {
+                    Gravity(dt);
+                    MoveBody(velocity * dt + knock * dt);
+                    knock *= Mathf.Exp(-2f * dt);
+                }
                 return;
             }
 
@@ -358,6 +365,15 @@ namespace Nullbound
             if (HeldStep(dt))
             {
                 DetectPunches(dt);
+                command.jump = command.dash = command.special = command.fly = false;
+                return;
+            }
+
+            // Ragdolled by a special or a throw: you go wherever your physics body goes.
+            if (now < tumbleUntil && RagdollFollow())
+            {
+                Blocking = false;
+                if (transform.position.y < KillY) KnockOut(Time.time - lastAttackedAt < 8f ? lastAttacker : null);
                 command.jump = command.dash = command.special = command.fly = false;
                 return;
             }
@@ -433,6 +449,18 @@ namespace Nullbound
             DetectPunches(dt);
             DetectGrabs();
             command.jump = command.dash = command.special = command.fly = false;
+        }
+
+        /// <summary>
+        /// While ragdolled, the fighter (its hurtbox, its network position, your view) goes wherever its physics body
+        /// is: the body is in charge, not an animation. False if there's no ragdoll (yet).
+        /// </summary>
+        bool RagdollFollow()
+        {
+            if (visual == null || !visual.TryGetRagdollFeet(out var feet)) return false;
+            MoveBody(feet - transform.position);
+            velocity = knock = Vector3.zero;
+            return true;
         }
 
         void Gravity(float dt)
@@ -640,6 +668,8 @@ namespace Nullbound
             if (attacker != null && attacker != this) { lastAttacker = attacker; lastAttackedAt = Time.time; }
             // Sideways push decays; the upward part becomes a real jump so launches arc and fall back down.
             Vector3 k = knockback * Stats.knockbackTaken;
+            LaunchVelocity = k;
+            LaunchAt = Time.time;
             if (k.y > 0.5f) { velocity.y = Mathf.Max(velocity.y, k.y); grounded = false; }
             else if (k.y < -0.5f) velocity.y = Mathf.Min(velocity.y, k.y); // slammed down
             k.y = 0f;

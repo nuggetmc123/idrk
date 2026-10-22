@@ -232,11 +232,25 @@ namespace Nullbound
 
         public bool Ragdolled => ragdoll.Active;
 
-        /// <summary>Go limp: the body becomes a physics ragdoll thrown with `velocity`, the chest shoved by `push`.</summary>
-        public void StartRagdoll(Vector3 velocity, Vector3 push, IEnumerable<Collider> ignore)
+        /// <summary>The ragdoll's hips (false when not ragdolled).</summary>
+        public bool TryGetRagdollHips(out Vector3 position, out Vector3 velocity) => ragdoll.TryGetHips(out position, out velocity);
+
+        /// <summary>Where this fighter's eyes are and which way the head faces (for the camera inside your own ragdoll).</summary>
+        public void EyePose(out Vector3 eye, out Quaternion rotation)
+        {
+            var h = bones[(int)Bone.Head];
+            rotation = h.rotation;
+            eye = h.position + rotation * new Vector3(0f, 0.02f, 0.07f) * body.headScale * stats.scale;
+        }
+
+        /// <summary>
+        /// Go limp: the body becomes a physics ragdoll, every part moving at `velocity` (the hit's knock is added with
+        /// Flinch / PushRagdoll). free = runs on its own, with no spring pulling it to the networked position.
+        /// </summary>
+        public void StartRagdoll(Vector3 velocity, IEnumerable<Collider> ignore, bool free)
         {
             if (root == null || !root.gameObject.activeInHierarchy) return;
-            ragdoll.Begin(bones, body, stats.scale, velocity, push, ignore);
+            ragdoll.Begin(bones, body, stats.scale, velocity, ignore, free);
             blendLeft = 0f;
             flinch = flinchVel = Vector3.zero;
         }

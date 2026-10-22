@@ -9,9 +9,12 @@ namespace Nullbound
     /// character controller. Made when a fighter is knocked flying by a special, thrown, or knocked out, and removed
     /// when they get up. The bodies live apart from the model; every frame their poses are copied onto its bones.
     ///
-    /// It's a local effect (each game simulates its own), kept in step with the networked fighter by a spring that
-    /// pulls the hips and chest towards where the fighter really is and how fast it's moving, so the body flies and
-    /// rolls where the fighter goes while the arms, legs and head flop freely.
+    /// Pure physics, no animation: the body is thrown by the hit itself (everything moving with the launch, plus a
+    /// knock at the point that was hit), then gravity, joints and collisions do the rest.
+    ///
+    /// The game that owns the fighter runs its ragdoll freely and the fighter follows the ragdoll (so where you land is
+    /// where you are). Every other game runs its own copy, gently pulled towards that networked position by a spring
+    /// on the hips and chest, so everyone sees the body land in the same place while the limbs flop freely.
     /// </summary>
     public class FighterRagdoll
     {
@@ -25,8 +28,11 @@ namespace Nullbound
 
         public bool Active => root != null;
 
-        /// <summary>Build the ragdoll from the model's current pose and throw it with `velocity` (+ `push` on the chest).</summary>
-        public void Begin(Transform[] bones, BodySpec b, float w, Vector3 velocity, Vector3 push, IEnumerable<Collider> ignore)
+        /// <summary>
+        /// Build the ragdoll from the model's current pose, every part moving at `velocity`. free = no follow spring (the
+        /// fighter's own game: the fighter follows this body instead).
+        /// </summary>
+        public void Begin(Transform[] bones, BodySpec b, float w, Vector3 velocity, IEnumerable<Collider> ignore, bool free)
         {
             End();
             root = new GameObject("Ragdoll");
@@ -138,11 +144,7 @@ namespace Nullbound
                 foreach (var c in ignore) if (c != null && !c.isTrigger) Physics.IgnoreCollision(mine[i], c);
             }
 
-            // The hit: an extra shove on the chest and a spin, so it goes over like it was really struck.
-            chest.AddForce(push, ForceMode.VelocityChange);
-            Vector3 spinAxis = Vector3.Cross(Vector3.up, push.sqrMagnitude > 0.01f ? push.normalized : Vector3.forward);
-            chest.AddTorque(spinAxis * Mathf.Clamp(push.magnitude * 1.5f, 2f, 12f), ForceMode.VelocityChange);
-
+            driver.free = free;
             driver.hips = hips;
             driver.chest = chest;
             driver.all = parts.ConvertAll(p => p.rb);
@@ -170,6 +172,16 @@ namespace Nullbound
                 if (d < bestD) { bestD = d; best = p.rb; }
             }
             if (best != null) best.AddForceAtPosition(impulse, point, ForceMode.VelocityChange);
+        }
+
+        /// <summary>Where the hips are and how fast they're moving (false when there's no ragdoll).</summary>
+        public bool TryGetHips(out Vector3 position, out Vector3 velocity)
+        {
+            position = velocity = Vector3.zero;
+            if (driver == null || driver.hips == null) return false;
+            position = driver.hips.position;
+            velocity = driver.hips.linearVelocity;
+            return true;
         }
 
         /// <summary>Copy the simulated pose onto the model's bones.</summary>
@@ -200,12 +212,12 @@ namespace Nullbound
             public List<Rigidbody> all;
             public Vector3 target, targetVelocity;
             public float hipLift;
-            public bool lying;
+            public bool lying, free;
             bool hasTarget;
 
             void FixedUpdate()
             {
-                if (hips == null) return;
+                if (hips == null || free) return;
                 if (!hasTarget) { hasTarget = target != Vector3.zero; if (!hasTarget) return; }
                 Vector3 goal = target + Vector3.up * hipLift;
                 Vector3 err = goal - hips.position;
