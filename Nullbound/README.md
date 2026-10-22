@@ -36,6 +36,17 @@ Without Photon Fusion the game still runs (main menu and Training Grounds vs bot
 - If you ever put a debug-signed copy on your headset by hand, **uninstall it first** (headset > Library > ... >
   Uninstall). Otherwise the store version can't install over it.
 
+**Signing** ("The APK is signed with a different certificate"): Meta ties your app to the key its **first** upload
+was signed with, and every update must use that same key.
+- First upload made before the Nullbound key existed? It was signed with this computer's **Android debug key**. Use
+  **Nullbound > Signing > Sign With My First Upload's Key**, then Build for Quest and upload. A backup of that key is
+  put in `Documents/Nullbound Keystore/`.
+- **Nullbound > Signing > Sign With The Nullbound Store Key** switches back to the Nullbound key (only for an app whose
+  uploads have always used it).
+- If neither key is accepted and you can't find the original key, Meta won't let you change an app's key. Make a
+  **new app** on the developer dashboard, give the project a new package name (Player > Android > Other Settings >
+  Package Name), and upload with the Nullbound key from then on. Back up the keystore folder.
+
 ## Main menu
 
 You stand in a round room with three big panels (point with a controller and pull the trigger, or poke):

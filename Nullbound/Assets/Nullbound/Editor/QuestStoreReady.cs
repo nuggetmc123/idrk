@@ -9,10 +9,11 @@ namespace Nullbound.EditorTools
 {
     /// <summary>
     /// Makes Build for Quest (APK) produce an APK the Meta Horizon Store accepts AND that runs after downloading it:
-    /// 1. SIGNING: the store refuses Unity's debug key, and every update must be signed with the same key. The first
-    ///    build makes your own release key (Documents/Nullbound Keystore/nullbound.keystore, password saved next to it)
-    ///    and every build after that, from any copy of the project, uses it. BACK UP THAT FOLDER: without it you can
-    ///    never update the app on the store.
+    /// 1. SIGNING: Meta ties an app to the key its first upload was signed with, and every update must use that key.
+    ///    The first build makes your own release key (Documents/Nullbound Keystore/nullbound.keystore, password saved
+    ///    next to it) and every build after that, from any copy of the project, uses it. An app whose first upload was
+    ///    signed with the Android debug key (older builds) keeps using that one: Nullbound > Signing. BACK UP THAT
+    ///    FOLDER: without the key you can never update the app on the store.
     /// 2. MANIFEST: makes sure the launcher activity is marked as a VR app (com.oculus.intent.category.VR, otherwise
     ///    the store copy opens as a flat window or not at all), that head tracking is declared, that the supported
     ///    headsets are listed (in the app manifest, overriding the OpenXR plugin's list so the two can't collide),
@@ -27,9 +28,24 @@ namespace Nullbound.EditorTools
         static string PasswordFile => Path.Combine(KeystoreFolder, "KEYSTORE-PASSWORD-keep-this-safe.txt");
         const string Alias = "nullbound";
 
+        // The Android debug key on this computer: what builds were signed with before the Nullbound key existed. If your
+        // first Meta upload used it, every later upload must too (Meta ties an app to the key of its first upload).
+        static string DebugKeystore => Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile), ".android", "debug.keystore");
+        const string DebugAlias = "androiddebugkey", DebugPassword = "android"; // Android's standard debug key passwords
+
         /// <summary>Sets up release signing. Returns false (after telling you why) if the build should stop.</summary>
         public static bool EnsureSigning()
         {
+            // Signing with the Android debug key on purpose (Nullbound > Signing): its passwords are always the same,
+            // so fill them in (Unity forgets keystore passwords whenever it restarts).
+            if (PlayerSettings.Android.useCustomKeystore && File.Exists(DebugKeystore) && SamePath(PlayerSettings.Android.keystoreName, Path.GetFullPath(DebugKeystore)))
+            {
+                PlayerSettings.Android.keyaliasName = DebugAlias;
+                PlayerSettings.Android.keystorePass = DebugPassword;
+                PlayerSettings.Android.keyaliasPass = DebugPassword;
+                return true;
+            }
+
             string ours = Path.GetFullPath(KeystoreFile);
             bool usingOurs = PlayerSettings.Android.useCustomKeystore && SamePath(PlayerSettings.Android.keystoreName, ours);
 
@@ -88,6 +104,55 @@ namespace Nullbound.EditorTools
             PlayerSettings.Android.keyaliasName = Alias;
             PlayerSettings.Android.keyaliasPass = saved;
             return true;
+        }
+
+        // ---------------- choosing the signing key (Meta: "The APK is signed with a different certificate")
+
+        [MenuItem("Nullbound/Signing/Sign With My First Upload's Key (Android debug key)", priority = 40)]
+        static void UseDebugKey()
+        {
+            string key = Path.GetFullPath(DebugKeystore);
+            if (!File.Exists(key))
+            {
+                EditorUtility.DisplayDialog("Nullbound - Signing",
+                    "There's no Android debug key on this computer (" + key + "), so your first upload can't have been signed with it here.\n\n" +
+                    "If your first upload came from another computer, copy that computer's .android\\debug.keystore to the same place on this one and try again. " +
+                    "Otherwise see the README (Signing) for making a new app on the Meta dashboard.", "OK");
+                return;
+            }
+            // Keep a copy next to the Nullbound key: if this key is lost, the app can never be updated again.
+            Directory.CreateDirectory(KeystoreFolder);
+            string backup = Path.Combine(KeystoreFolder, "android-debug-key-BACKUP.keystore");
+            if (!File.Exists(backup)) File.Copy(key, backup);
+            PlayerSettings.Android.useCustomKeystore = true;
+            PlayerSettings.Android.keystoreName = key;
+            PlayerSettings.Android.keyaliasName = DebugAlias;
+            PlayerSettings.Android.keystorePass = DebugPassword;
+            PlayerSettings.Android.keyaliasPass = DebugPassword;
+            AssetDatabase.SaveAssets();
+            EditorUtility.DisplayDialog("Nullbound - Signing",
+                "Builds are now signed with this computer's Android debug key:\n" + key + "\n\n" +
+                "Builds made before the Nullbound key existed were signed with it, so it's most likely the key of your first Meta upload.\n\n" +
+                "Now do Nullbound > Build for Quest and upload the new APK. If Meta STILL says \"signed with a different certificate\", your first " +
+                "upload used yet another key: see the README (Signing).\n\n" +
+                "A backup copy is in " + KeystoreFolder + ". Keep that folder backed up: every update has to use the same key.", "OK");
+        }
+
+        [MenuItem("Nullbound/Signing/Sign With The Nullbound Store Key", priority = 41)]
+        static void UseNullboundKey()
+        {
+            PlayerSettings.Android.useCustomKeystore = false; // EnsureSigning picks (or makes) the Nullbound key on the next build
+            AssetDatabase.SaveAssets();
+            EditorUtility.DisplayDialog("Nullbound - Signing",
+                "The next Build for Quest signs with the Nullbound key in " + KeystoreFolder + " (made on the first build if it isn't there).\n\n" +
+                "Only use this for an app on the Meta dashboard that has never had an upload signed with a different key.", "OK");
+        }
+
+        [MenuItem("Nullbound/Signing/Show Keystore Folder", priority = 42)]
+        static void ShowKeystoreFolder()
+        {
+            Directory.CreateDirectory(KeystoreFolder);
+            EditorUtility.RevealInFinder(KeystoreFolder);
         }
 
         /// <summary>APK (not an app bundle), one APK (not one per CPU), not an exported Android Studio project.</summary>
