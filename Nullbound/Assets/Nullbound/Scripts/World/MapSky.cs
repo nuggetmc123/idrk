@@ -4,8 +4,9 @@ namespace Nullbound
 {
     /// <summary>
     /// Each place has its own lighting (LightingPresets): the main menu and the Training Grounds are indoor test-lab
-    /// looks, the Battleground a warm late afternoon. Switched whenever you move between them (Unity has one sky, one
-    /// sun and one fog at a time): sky, sun direction and colour, ambient, fog and the fallback reflections.
+    /// looks, the Battleground a warm late afternoon (dusk in spooky season). Switched whenever you move between them
+    /// (Unity has one sky, one sun and one fog at a time): sky, sun direction and colour, ambient, fog and the
+    /// fallback reflections.
     /// </summary>
     public static class MapSky
     {
@@ -33,19 +34,19 @@ namespace Nullbound
             {
                 menuSky = Make(LightingPresets.Menu);
                 trainingSky = Make(LightingPresets.Training);
-                battleSky = Make(LightingPresets.Battleground);
+                battleSky = Make(LightingPresets.BattlegroundNow);
             }
             if (menuReflect == null)
             {
                 menuReflect = LightingPresets.MakeReflectionCubemap(LightingPresets.Menu);
                 trainingReflect = LightingPresets.MakeReflectionCubemap(LightingPresets.Training);
-                battleReflect = LightingPresets.MakeReflectionCubemap(LightingPresets.Battleground);
+                battleReflect = LightingPresets.MakeReflectionCubemap(LightingPresets.BattlegroundNow);
             }
             switch (want)
             {
                 case Place.Menu: LightingPresets.Apply(LightingPresets.Menu, menuSky, menuReflect); break;
                 case Place.Training: LightingPresets.Apply(LightingPresets.Training, trainingSky, trainingReflect); break;
-                default: LightingPresets.Apply(LightingPresets.Battleground, battleSky, battleReflect); break;
+                default: LightingPresets.Apply(LightingPresets.BattlegroundNow, battleSky, battleReflect); break;
             }
             DynamicGI.UpdateEnvironment();
         }

@@ -403,6 +403,26 @@ Put the address it prints (like `https://nullbound-names.<you>.workers.dev`) in 
 stolen. **Until the server is set up, names are still checked for rude words and mods' names, but two people could
 pick the same name.**
 
+## Halloween (October 1 to November 1)
+
+Spooky season switches itself on by the headset's date (`World/HalloweenDecor.cs`, layout in `World/HalloweenPlan.cs`,
+models in `World/HalloweenShapes.cs`):
+
+- **Briefing room (main menu):** pumpkin piles in the corners and by the door, jack-o'-lanterns on the lockers,
+  workbench and crates, candles, cobwebs in the top corners, orange and purple string lights round the walls, a
+  "HAPPY HALLOWEEN" banner with bunting over the window, bats under the ceiling and a ghost drifting past outside.
+- **Training hall:** jack-o'-lanterns on the ring's corner posts with lights strung between them, pumpkins round the
+  ring and at every stone pillar, a small graveyard with a dead tree by the punching bags, a banner under the
+  NULLBOUND sign, bats under the roof and ghosts floating round the floor.
+- **Battleground:** at dusk (`LightingPresets.BattlegroundDusk`: low orange sun, purple sky). Lanterns round the
+  fountain and the plaza, along the roads and round every village square, a cauldron and two scarecrows in each
+  village, three fenced graveyards with dead trees, ghosts, bats round the towers and pumpkins out in the fields.
+
+The carved faces flicker like candles; ghosts and bats move. It's all looks only: no colliders, nothing networked,
+nothing placed on spawn spots, inside houses or under trees (it checks with physics as it places things). Everything
+still is merged into a few meshes per area, so it's cheap on Quest. To see it outside the season set
+`HalloweenDecor.Force = true` or PlayerPrefs `nb.halloween` to 1 (2 turns it off).
+
 ## Stability and Meta's review (VRC.Quest.Functional.1)
 
 - **Out of focus = paused.** Pressing the Meta button, taking the headset off or switching apps pauses all sound,

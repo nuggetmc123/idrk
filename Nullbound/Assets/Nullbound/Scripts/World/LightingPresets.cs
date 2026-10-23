@@ -87,6 +87,31 @@ namespace Nullbound
             reflectionIntensity = 1f,
         };
 
+        /// <summary>
+        /// The Battleground at dusk, for spooky season (HalloweenDecor.IsSeason): a low orange sun, a purple sky and a
+        /// little more fog. Still bright enough to fight in.
+        /// </summary>
+        public static readonly LightingPreset BattlegroundDusk = new LightingPreset
+        {
+            name = "BattlegroundDusk",
+            sunEuler = new Vector3(13f, -64f, 0f),
+            sunColor = new Color(1f, 0.56f, 0.28f),
+            sunIntensity = 1.15f,
+            shadowStrength = 0.75f,
+            ambientSky = new Color(0.47f, 0.39f, 0.67f),
+            ambientEquator = new Color(0.67f, 0.48f, 0.49f),
+            ambientGround = new Color(0.25f, 0.2f, 0.22f),
+            fogColor = new Color(0.56f, 0.37f, 0.43f),
+            fogStart = 45f, fogEnd = 300f,
+            skyTint = new Color(0.62f, 0.36f, 0.7f), skyGround = new Color(0.24f, 0.16f, 0.2f),
+            skyThickness = 1.9f, skyExposure = 0.95f, sunSize = 0.06f,
+            reflectTop = new Color(0.36f, 0.3f, 0.56f), reflectHorizon = new Color(0.86f, 0.5f, 0.4f), reflectBottom = new Color(0.2f, 0.15f, 0.17f),
+            reflectionIntensity = 1f,
+        };
+
+        /// <summary>The Battleground's look right now: dusk in spooky season, a warm afternoon the rest of the year.</summary>
+        public static LightingPreset BattlegroundNow => HalloweenDecor.IsSeason ? BattlegroundDusk : Battleground;
+
         public static LightingPreset For(bool inMenu, ArenaMap map) => inMenu ? Menu : map == ArenaMap.Battleground ? Battleground : Training;
 
         /// <summary>Sets up a Skybox/Procedural material for the preset (the material can be an asset or made at runtime).</summary>
