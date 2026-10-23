@@ -111,6 +111,13 @@ namespace Nullbound
         void Capture()
         {
             var mode = GameSettings.Mic;
+            if (AppFocus.Paused)
+            {
+                StopMic(); // the system menu or headset-off: nothing is sent, and the mic is free for other apps
+                MicLevel = 0f;
+                Sending = false;
+                return;
+            }
             if (mode == MicMode.Muted || Moderation.Muted)
             {
                 StopMic();

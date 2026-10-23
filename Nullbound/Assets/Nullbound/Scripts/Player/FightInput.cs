@@ -99,11 +99,12 @@ namespace Nullbound
             get
             {
                 Init();
+                if (AppFocus.Paused) return Vector2.zero;
                 Vector2 a = move.ReadValue<Vector2>(), b = XRAxis(XRNode.LeftHand, XRUsages.primary2DAxis);
                 return Vector2.ClampMagnitude(a.sqrMagnitude >= b.sqrMagnitude ? a : b, 1f);
             }
         }
-        public static float Turn { get { Init(); return Mathf.Clamp(Strongest(turn.ReadValue<float>(), XRAxis(XRNode.RightHand, XRUsages.primary2DAxis).x), -1f, 1f); } }
+        public static float Turn { get { Init(); if (AppFocus.Paused) return 0f; return Mathf.Clamp(Strongest(turn.ReadValue<float>(), XRAxis(XRNode.RightHand, XRUsages.primary2DAxis).x), -1f, 1f); } }
         /// <summary>Trigger pulls (used to click menu buttons with the laser pointer).</summary>
         public static float LeftTrigger => XRVal(XRNode.LeftHand, XRUsages.trigger);
         public static float RightTrigger => XRVal(XRNode.RightHand, XRUsages.trigger);
@@ -118,10 +119,10 @@ namespace Nullbound
         public static bool RightGripHeld { get { Init(); return gripRight.IsPressed() || XRGrip(XRNode.RightHand); } }
 
         // "Pressed this frame" checks only work reliably from Update, not FixedUpdate.
-        public static bool JumpPressed { get { Init(); return Pressed(0, jump, XRNode.RightHand, XRUsages.primaryButton); } }
-        public static bool DashPressed { get { Init(); return Pressed(1, dash, XRNode.RightHand, XRUsages.secondaryButton); } }
-        public static bool SpecialPressed { get { Init(); return Pressed(3, special, XRNode.RightHand, XRUsages.primary2DAxisClick); } }
-        public static bool FlyPressed { get { Init(); return Pressed(5, fly, XRNode.LeftHand, XRUsages.primaryButton); } }
+        public static bool JumpPressed { get { Init(); return !AppFocus.Paused && Pressed(0, jump, XRNode.RightHand, XRUsages.primaryButton); } }
+        public static bool DashPressed { get { Init(); return !AppFocus.Paused && Pressed(1, dash, XRNode.RightHand, XRUsages.secondaryButton); } }
+        public static bool SpecialPressed { get { Init(); return !AppFocus.Paused && Pressed(3, special, XRNode.RightHand, XRUsages.primary2DAxisClick); } }
+        public static bool FlyPressed { get { Init(); return !AppFocus.Paused && Pressed(5, fly, XRNode.LeftHand, XRUsages.primaryButton); } }
         public static bool MenuPressed { get { Init(); return Pressed(2, menu, XRNode.LeftHand, XRUsages.menuButton); } }
         /// <summary>Keyboard / gamepad only now (the right stick click is the super); in VR use the wrist menu's Recenter.</summary>
         public static bool RecenterPressed { get { Init(); return recenter.WasPressedThisFrame(); } }
@@ -132,7 +133,7 @@ namespace Nullbound
         public static bool KeyBlockHeld { get { Init(); return blockKey.IsPressed(); } }
 
         /// <summary>Push-to-talk: hold the left stick in, or V on the keyboard.</summary>
-        public static bool TalkHeld { get { Init(); return XRBtn(XRNode.LeftHand, XRUsages.primary2DAxisClick) || Keyboard.current != null && Keyboard.current.vKey.isPressed; } }
+        public static bool TalkHeld { get { Init(); return !AppFocus.Paused && (XRBtn(XRNode.LeftHand, XRUsages.primary2DAxisClick) || Keyboard.current != null && Keyboard.current.vKey.isPressed); } }
 
         /// <summary>A short buzz on one controller (hits, blocks, abilities).</summary>
         public static void Buzz(bool left, float strength, float seconds)

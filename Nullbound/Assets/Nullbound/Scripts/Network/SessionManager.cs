@@ -88,9 +88,9 @@ namespace Nullbound
         System.Collections.IEnumerator Start()
         {
             if (Instance != this) yield break;
-            // Ask for the microphone before going anywhere (the popup pauses the game). Never wait more than 15 s.
+            // Ask for the microphone before going anywhere (the popup pauses the game). Never wait more than 10 s.
             MicPermission.Request();
-            float until = Time.realtimeSinceStartup + 15f;
+            float until = Time.realtimeSinceStartup + 10f;
             while (MicPermission.Waiting && Time.realtimeSinceStartup < until) yield return null;
             InMenu = true;
             SetStatus("Welcome to Nullbound!", 3f);
@@ -234,6 +234,7 @@ namespace Nullbound
             Status = text;
             statusUntil = Time.time + seconds;
             Debug.Log("[Nullbound] " + text);
+            ErrorLog.Note(text);
         }
 
         // ---------------- connecting
@@ -247,7 +248,7 @@ namespace Nullbound
             catch (Exception e)
             {
                 Debug.LogException(e);
-                SetStatus("Connection error: " + e.Message);
+                SetStatus(e is TimeoutException ? "Couldn't connect: " + e.Message : "Connection error: " + e.Message);
                 ok = false;
             }
             Busy = false;
@@ -404,7 +405,19 @@ namespace Nullbound
             args.Scene = sceneInfo;
             args.SceneManager = sceneManager;
 
-            var result = await Runner.StartGame(args);
+            var runner = Runner;
+            var start = runner.StartGame(args);
+            // Never sit on "Connecting..." forever: a network that drops Photon's traffic can leave StartGame hanging.
+            if (await Task.WhenAny(start, Task.Delay(StartTimeoutMs)) != start)
+            {
+                Runner = null;
+                shuttingDownOnPurpose = true;
+                try { await Task.WhenAny(runner.Shutdown(), Task.Delay(ShutdownTimeoutMs)); }
+                catch (Exception e) { Debug.LogException(e); }
+                finally { shuttingDownOnPurpose = false; if (runner != null) Destroy(runner.gameObject); }
+                throw new TimeoutException("the game servers didn't answer (check the headset's Wi-Fi)");
+            }
+            var result = await start;
             if (!result.Ok) { Runner = null; return result; }
             NoteRoomName();
             return result;
@@ -418,6 +431,8 @@ namespace Nullbound
             else if (SessionName.StartsWith(PrivatePrefix)) RoomCode = SessionName.Substring(PrivatePrefix.Length);
         }
 
+        const int StartTimeoutMs = 30000, ShutdownTimeoutMs = 8000;
+
         async Task ShutdownRunner()
         {
             if (Runner == null) return;
@@ -425,9 +440,13 @@ namespace Nullbound
             shuttingDownOnPurpose = true;
             var runner = Runner;
             Runner = null;
-            if (runner.IsRunning) await runner.Shutdown();
-            else if (runner != null) Destroy(runner.gameObject);
-            shuttingDownOnPurpose = false;
+            try
+            {
+                // A shutdown that never finishes (no network) must not leave every button "busy" forever.
+                if (runner.IsRunning) await Task.WhenAny(runner.Shutdown(), Task.Delay(ShutdownTimeoutMs));
+                if (runner != null) Destroy(runner.gameObject); // still here: it never got going, or the shutdown timed out
+            }
+            finally { shuttingDownOnPurpose = false; }
         }
 
         static string Explain(StartGameResult result)

@@ -24,9 +24,15 @@ namespace Nullbound
         readonly List<Extra> extras = new List<Extra>();
         float walkPhase;
 
+        // Every copy of a fighter shares its materials (nothing changes them per copy), so spawning and respawning
+        // fighters all match long doesn't keep making new ones.
+        static readonly Dictionary<string, Material> sharedMaterials = new Dictionary<string, Material>();
+
         public static Material SlotMaterial(Slot slot, FighterStats s, bool silhouette, Dictionary<Slot, Material> cache)
         {
             if (cache.TryGetValue(slot, out var m)) return m;
+            string key = s.name + "|" + slot + "|" + (silhouette ? "s" : "c");
+            if (sharedMaterials.TryGetValue(key, out m) && m != null) { cache[slot] = m; return m; }
             if (silhouette) m = NBUI.Mat(new Color(0.05f, 0.05f, 0.07f), 0.2f);
             else
             {
@@ -35,6 +41,7 @@ namespace Nullbound
                 m = FighterSurface.Apply(m, slot, s); // cloth, leather, metal and skin detail
             }
             cache[slot] = m;
+            sharedMaterials[key] = m;
             return m;
         }
 
@@ -52,7 +59,13 @@ namespace Nullbound
             m.accent = SlotMaterial(Slot.Accent, s, silhouette, mats);
             m.glow = SlotMaterial(Slot.Eye, s, silhouette, mats);
             m.glove = SlotMaterial(Slot.Glove, s, silhouette, mats);
-            m.gloveGlow = silhouette ? m.main : NBUI.Glow(Color.Lerp(s.main, Color.white, 0.4f));
+            if (silhouette) m.gloveGlow = m.main;
+            else
+            {
+                string glowKey = s.name + "|gloveGlow";
+                if (!sharedMaterials.TryGetValue(glowKey, out m.gloveGlow) || m.gloveGlow == null)
+                    sharedMaterials[glowKey] = m.gloveGlow = NBUI.Glow(Color.Lerp(s.main, Color.white, 0.4f));
+            }
 
             m.root = new GameObject("Model").transform;
             m.root.SetParent(parent, false);

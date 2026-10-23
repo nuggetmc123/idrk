@@ -403,6 +403,26 @@ Put the address it prints (like `https://nullbound-names.<you>.workers.dev`) in 
 stolen. **Until the server is set up, names are still checked for rude words and mods' names, but two people could
 pick the same name.**
 
+## Stability and Meta's review (VRC.Quest.Functional.1)
+
+- **Out of focus = paused.** Pressing the Meta button, taking the headset off or switching apps pauses all sound,
+  stops the mic, ignores the controls and makes your own bots wait (`Core/AppFocus.cs`). Online matches keep going
+  for everyone else; your fighter just stands still. If the connection drops while you're away, you're taken back
+  to the main menu.
+- **No endless waiting.** Connecting gives up after 30 seconds and leaving a match after 8 seconds, so a network
+  that blocks Photon can't leave you stuck on "Connecting...". The microphone popup at startup counts as answered
+  once it closes, even if Android never replies.
+- **Memory.** Every copy of a fighter shares its materials, so long sessions with bots coming and going don't keep
+  adding new ones. On a low-memory warning the game frees unused assets.
+- **Log file on the headset.** The game writes `nullbound-log.txt` (errors with stack traces, scene loads, focus
+  changes, connection status) and keeps the previous run as `nullbound-log-previous.txt`, so after a crash the log
+  survives. Get it from Meta Quest Developer Hub > Device Manager > Files > Android/data/(package)/files/, or
+  `adb pull /sdcard/Android/data/(package)/files/nullbound-log-previous.txt`.
+
+Before resubmitting, test what reviewers do: first launch (answer the mic popup both ways), name entry, every menu
+button, Training, Quick Match with Wi-Fi on and off, press the Meta button mid-fight and come back, take the
+headset off for a minute, and play for 20+ minutes.
+
 ## Playing with people
 
 - **Quick Match:** free-for-all rooms of up to 8; you join the fullest room with space.

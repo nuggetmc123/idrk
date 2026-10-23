@@ -93,7 +93,7 @@ namespace Nullbound
         {
             if (me == null || !me.IsMine) return;
             var cmd = new FighterCommand();
-            if (me.Down)
+            if (me.Down || AppFocus.Paused)
             {
                 phase = PunchPhase.None;
                 me.command = cmd;
