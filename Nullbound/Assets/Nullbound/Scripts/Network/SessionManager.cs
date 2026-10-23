@@ -406,6 +406,7 @@ namespace Nullbound
             args.SceneManager = sceneManager;
 
             var runner = Runner;
+            ErrorLog.Note("Starting " + args.GameMode + " session " + (args.SessionName ?? "(any room)") + " (" + ErrorLog.Memory + ")");
             var start = runner.StartGame(args);
             // Never sit on "Connecting..." forever: a network that drops Photon's traffic can leave StartGame hanging.
             if (await Task.WhenAny(start, Task.Delay(StartTimeoutMs)) != start)
@@ -492,6 +493,7 @@ namespace Nullbound
                 Debug.LogError("[Nullbound] SessionManager is missing the Fighter prefab. Run Nullbound > Build Prototype World.");
                 return;
             }
+            ErrorLog.Note("Joined: spawning your fighter (" + ErrorLog.Memory + ")");
             try { runner.Spawn(fighterPrefab, SpawnPoint.Pick(Vector3.up), Quaternion.identity, player); }
             catch (Exception e) { Debug.LogError("[Nullbound] Couldn't spawn your fighter: " + e.Message); }
             for (int i = 0; i < botsToSpawn; i++) SpawnBot();

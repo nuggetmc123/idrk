@@ -35,6 +35,7 @@ namespace Nullbound
 
         static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            ErrorLog.Note("Scene loaded: " + scene.name + " (" + mode + ", " + ErrorLog.Memory + ")");
             SetUpCameras();
             NBUI.ApplySceneFonts();
         }

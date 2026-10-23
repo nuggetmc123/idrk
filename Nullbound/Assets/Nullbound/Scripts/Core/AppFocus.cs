@@ -33,6 +33,7 @@ namespace Nullbound
         {
             void OnApplicationFocus(bool focus) => Set(!focus);
             void OnApplicationPause(bool pause) => Set(pause || !Application.isFocused);
+            void OnApplicationQuit() => ErrorLog.State(false, true);
         }
 
         static void Set(bool paused)
@@ -44,6 +45,7 @@ namespace Nullbound
             ChangedAt = Time.realtimeSinceStartup;
             AudioListener.pause = paused;
             ErrorLog.Note(paused ? "Lost focus (system menu / headset off)" : "Focus back");
+            ErrorLog.State(!paused);
             try { Changed?.Invoke(paused); }
             catch (Exception e) { Debug.LogException(e); }
         }
