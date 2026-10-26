@@ -595,6 +595,59 @@ namespace Veylix
             OffTrackAmount = Mathf.Clamp01(off);
             DominantSurface = surfaceVotes > 0 ? dominant : SurfaceType.Asphalt;
             AligningTorque = align;
+            TripRollover(dt);
+        }
+
+        // ------------------------------------------------------------------ rolling over
+
+        float tripCooldown;
+        public float LastTripTime { get; private set; } = -100f;
+
+        /// <summary>
+        /// Carrying far too much speed into a corner. A single-seater normally just slides, but once it's going
+        /// properly sideways the leading tyres can dig in, most of all on a kerb, gravel or grass, and the car trips
+        /// over them and rolls. The chance grows with how fast it's sliding and what the tyres hit. A violent roll can
+        /// split the fuel cell (see CarDamage.Rolled), which may start a fire and, sometimes, an explosion.
+        /// </summary>
+        void TripRollover(float dt)
+        {
+            tripCooldown -= dt;
+            if (Airborne || tripCooldown > 0f || SpeedMs < 12f) return;
+            Vector3 v = Body.linearVelocity;
+            float lat = Vector3.Dot(v, transform.right);
+            float latAbs = Mathf.Abs(lat);
+            if (latAbs < 9f || Upright < 0.6f) return;
+            float dig = 0f;
+            for (int i = 0; i < 4; i++)
+            {
+                var w = wheels[i];
+                if (!w.grounded || w.detached || Mathf.Sign(w.anchor.x) != Mathf.Sign(lat)) continue; // leading side only
+                float f;
+                switch (w.surface)
+                {
+                    case SurfaceType.SausageKerb: f = 1.6f; break;
+                    case SurfaceType.Gravel: case SurfaceType.Sand: f = 1.25f; break;
+                    case SurfaceType.Kerb: f = 1f; break;
+                    case SurfaceType.Grass: case SurfaceType.Dirt: case SurfaceType.Snow: f = 0.8f; break;
+                    case SurfaceType.Ice: f = 0.05f; break;
+                    default: f = 0.22f; break; // grippy tarmac: it'll mostly just spin
+                }
+                dig += f * 0.5f;
+            }
+            if (dig <= 0f) return;
+            float severity = Mathf.InverseLerp(9f, 30f, latAbs) * dig;
+            // Probability per second: rare on tarmac, likely when sliding sideways into a sausage kerb at speed.
+            float chancePerSecond = Mathf.Clamp01(severity * severity * 1.4f);
+            if (Random.value > chancePerSecond * dt) return;
+
+            float s = Mathf.Sign(lat);
+            float spin = Mathf.Lerp(3.5f, 9f, Mathf.InverseLerp(9f, 32f, latAbs));
+            // Pivot over the leading tyres: roll towards the slide, a hop, and part of the sideways speed goes into it.
+            Body.AddTorque(-transform.forward * s * spin, ForceMode.VelocityChange);
+            Body.AddForce(Vector3.up * Mathf.Lerp(1.5f, 4.5f, severity) - transform.right * lat * 0.25f, ForceMode.VelocityChange);
+            tripCooldown = 4f;
+            LastTripTime = Time.time;
+            if (damage != null) damage.Rolled(Mathf.Clamp01(Mathf.InverseLerp(9f, 35f, latAbs) * (0.6f + 0.4f * Mathf.Min(1f, dig))));
         }
 
         static float Smooth01(float t) { t = Mathf.Clamp01(t); return t * t * (3f - 2f * t); }

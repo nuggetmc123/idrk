@@ -214,6 +214,26 @@ namespace Veylix
             if (Smoking && !Exploded) Fx.AttachSmoke(transform, car.parts != null ? car.parts.enginePoint : Vector3.up * 0.6f, 1f - health[(int)Part.Engine]);
         }
 
+        /// <summary>
+        /// The car tripped and is rolling (from Car.TripRollover). Roll-hoops and the body take it; a violent roll can
+        /// split the fuel cell, and a split cell may catch fire, which can grow until the car explodes.
+        /// </summary>
+        public void Rolled(float severity)
+        {
+            CrashAudio.Impact(transform.position, Mathf.Clamp01(0.4f + severity), false);
+            if (!Enabled) return;
+            Damage(Part.Body, severity * 0.5f);
+            Damage(Part.FuelCell, severity * 0.9f);
+            Damage(Part.RearWing, severity * 0.6f);
+            Damage(severity > 0.5f ? Part.FrontWingL : Part.FrontWingR, severity * 0.5f);
+            if (severity > 0.35f && Random.value < severity * 0.65f)
+            {
+                fuelLeak = Mathf.Max(fuelLeak, Mathf.Lerp(0.3f, 1f, severity));
+                if (Fire <= 0f) Fire = 0.05f;
+            }
+            UpdateHandling();
+        }
+
         /// <summary>The fuel cell lets go: a fireball, a pressure wave, parts everywhere, and the car is done.</summary>
         public void Explode()
         {
