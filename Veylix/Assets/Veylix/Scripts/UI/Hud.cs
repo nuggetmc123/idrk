@@ -90,9 +90,10 @@ namespace Veylix
             var p = s.player;
             // Messages and start lights update every frame; the rest at 15 Hz.
             bool msg = Time.time < s.bigMessageUntil && !string.IsNullOrEmpty(s.bigMessage);
-            msgT.text = msg ? s.bigMessage : s.PlayerYellow ? "YELLOW FLAG - NO OVERTAKING" : "";
-            VUI.SetColor(flagBg, s.PlayerYellow && !msg ? new Color(0.95f, 0.8f, 0.1f, 0.85f) : msg ? new Color(0.04f, 0.045f, 0.05f, 0.75f) : new Color(0f, 0f, 0f, 0f));
-            if (s.PlayerYellow && !msg) msgT.color = Color.black; else msgT.color = VUI.Text;
+            bool yellow = s.PlayerYellow && !msg, blue = !yellow && s.PlayerBlue && !msg;
+            msgT.text = msg ? s.bigMessage : yellow ? "YELLOW FLAG - NO OVERTAKING" : blue ? "BLUE FLAG - LET THE FASTER CAR BY" : s.PitRequested ? "BOX THIS LAP" : "";
+            VUI.SetColor(flagBg, yellow ? new Color(0.95f, 0.8f, 0.1f, 0.85f) : blue ? new Color(0.1f, 0.35f, 0.9f, 0.85f) : msg || s.PitRequested ? new Color(0.04f, 0.045f, 0.05f, 0.75f) : new Color(0f, 0f, 0f, 0f));
+            msgT.color = yellow ? Color.black : VUI.Text;
             lightsT.text = s.phase == RaceSession.Phase.Countdown ? new string('O', s.lightsLit).Replace("O", "<color=#FF2A12>●</color> ") + new string('O', 5 - s.lightsLit).Replace("O", "<color=#331010>●</color> ") : "";
             refresh -= Time.deltaTime;
             if (refresh > 0f) return;

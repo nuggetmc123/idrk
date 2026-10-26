@@ -131,6 +131,7 @@ namespace Veylix
             rig.walkArea = showroom.WalkArea;
             showroom.ShowFigure(SaveData.Profile);
             Music.Play(Music.Theme.Garage);
+            if (Online.I != null) Online.I.ReturnToParty();
             // First time: make your driver before anything else.
             if (!SaveData.Profile.created) menus.ShowDriverProfile(true);
             else menus.ShowMain();
@@ -327,6 +328,11 @@ namespace Veylix
                 else if (InputHub.MenuPressed && state == State.Menu) { if (menus.Showing) menus.Hide(); else menus.ShowMain(); }
             }
             if (state != State.Session || playerCar == null) return;
+            // P: pit this lap on the same tyres (the watch / pause menu lets you pick another compound).
+            if (InputHub.KeyDown(UnityEngine.InputSystem.Key.P) && session != null)
+            {
+                if (session.PitRequested) session.CancelPit(); else session.RequestPit(playerCar.setup.compound);
+            }
 
             // Hold B (or R) for a second to put the car back on track.
             bool hold = InputHub.Right.secondary || InputHub.Key(UnityEngine.InputSystem.Key.R) || (InputHub.Pad != null && InputHub.Pad.selectButton.isPressed);

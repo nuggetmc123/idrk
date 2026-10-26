@@ -164,6 +164,14 @@ namespace Fusion
         public int PlayerCount { get; set; }
         public int MaxPlayers { get; set; }
         public IReadOnlyDictionary<string, SessionProperty> Properties { get; set; } = new Dictionary<string, SessionProperty>();
+        public bool UpdateCustomProperties(Dictionary<string, SessionProperty> custom)
+        {
+            var d = new Dictionary<string, SessionProperty>();
+            foreach (var kv in Properties) d[kv.Key] = kv.Value;
+            foreach (var kv in custom) d[kv.Key] = kv.Value;
+            Properties = d;
+            return true;
+        }
     }
     public class HostMigrationToken { }
 

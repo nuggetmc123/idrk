@@ -339,7 +339,22 @@ namespace Veylix
             Lbl("Damage: " + Settings.Damage + "   Assists: " + (Settings.Abs ? "ABS " : "") + (Settings.TractionControl ? "TC " : "") + (Settings.AutoGears ? "Auto gears" : "Manual gears"), 0.18f, -0.06f, 0.2f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.4f);
             Lbl("Change assists and damage in Settings.", 0.18f, -0.09f, 0.18f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.4f);
             Back(() => ShowMaps(false));
-            Btn("START", W * 0.5f - 0.15f, -H * 0.5f + 0.05f, 0.26f, 0.065f, () => { G.config = pending.Clone(); G.StartSession(pending); }, true);
+            var online = Online.I;
+            if (online != null && online.InParty)
+            {
+                // In a party the leader's pick takes everyone; the others wait for it.
+                if (online.IsPartyLeader)
+                {
+                    Btn("PARTY ONLY", W * 0.5f - 0.43f, -H * 0.5f + 0.05f, 0.26f, 0.065f, () => { G.config = pending.Clone(); _ = online.PartyGo(pending, false); ShowOnline(); }, true);
+                    Btn("PARTY VS OTHERS", W * 0.5f - 0.15f, -H * 0.5f + 0.05f, 0.26f, 0.065f, () => { G.config = pending.Clone(); _ = online.PartyGo(pending, true); ShowOnline(); }, true);
+                }
+                else Lbl("Your party leader picks the race.", W * 0.5f - 0.5f, -H * 0.5f + 0.05f, 0.22f, VUI.Warn, TextAlignmentOptions.MidlineLeft, false, 0.48f);
+            }
+            else
+            {
+                if (race && Online.Available) Btn("FIND PLAYERS", W * 0.5f - 0.43f, -H * 0.5f + 0.05f, 0.26f, 0.065f, () => { G.config = pending.Clone(); online?.FindPlayers(); ShowOnline(); }, false);
+                Btn("START", W * 0.5f - 0.15f, -H * 0.5f + 0.05f, 0.26f, 0.065f, () => { G.config = pending.Clone(); G.StartSession(pending); }, true);
+            }
         }
 
         void ShowChampionshipSetup()
@@ -937,7 +952,16 @@ namespace Veylix
             Row("ENGINES"); VSlider.Make(panel, new Vector2(cx, y), 0.42f, 0f, 1f, Settings.EngineVolume, v => Settings.EngineVolume = v, Pct, 0.05f); y -= dy;
             Row("EFFECTS"); VSlider.Make(panel, new Vector2(cx, y), 0.42f, 0f, 1f, Settings.EffectsVolume, v => Settings.EffectsVolume = v, Pct, 0.05f); y -= dy;
             Row("CROWD & WIND"); VSlider.Make(panel, new Vector2(cx, y), 0.42f, 0f, 1f, Settings.AmbienceVolume, v => Settings.AmbienceVolume = v, Pct, 0.05f); y -= dy;
-            Row("MUSIC WHILE RACING"); VToggle.Make(panel, new Vector2(cx - 0.17f, y), Settings.RaceMusic, v => Settings.RaceMusic = v); y -= dy * 1.2f;
+            Row("MUSIC WHILE RACING"); VToggle.Make(panel, new Vector2(cx - 0.17f, y), Settings.RaceMusic, v => Settings.RaceMusic = v); y -= dy;
+            if (s != null && (s.IsRace || s.config.mode == GameMode.Practice))
+            {
+                // Pit stop: pick the tyres, you come in at the end of the lap.
+                Row(s.PitRequested ? "BOXING THIS LAP" : "PIT STOP");
+                VSelector.Make(panel, new Vector2(cx - 0.05f, y), 0.3f, CarCatalog.CompoundNames, (int)s.PitCompound, v => s.PitCompound = (TireCompound)v);
+                Btn(s.PitRequested ? "CANCEL" : "BOX THIS LAP", cx + 0.27f, y, 0.2f, 0.055f, () => { if (s.PitRequested) s.CancelPit(); else s.RequestPit(s.PitCompound); ShowWatch(); }, !s.PitRequested);
+                y -= dy * 1.2f;
+            }
+            else y -= dy * 0.2f;
             float bw = 0.32f, bh = 0.07f, bx0 = -WW * 0.5f + 0.06f + bw * 0.5f;
             Btn("RESUME", bx0, y, bw, bh, () => G.Pause(false), true);
             Btn("RESET CAR", bx0 + bw + 0.02f, y, bw, bh, () => { G.Pause(false); G.ResetCar(); });
@@ -982,6 +1006,8 @@ namespace Veylix
             Btn("RESET CAR TO TRACK", x, y, 0.34f, 0.058f, () => { G.Pause(false); G.ResetCar(); }); y -= dy;
             Btn("RECENTER VIEW", x, y, 0.34f, 0.058f, () => Rig.I?.Recenter()); y -= dy;
             Btn(Rig.I != null && Rig.I.view == Rig.View.Chase ? "COCKPIT VIEW" : "CHASE VIEW", x, y, 0.34f, 0.058f, () => { Rig.I?.ToggleChase(); ShowPause(); }); y -= dy;
+            if (s != null && (s.IsRace || s.config.mode == GameMode.Practice))
+            { Btn(s.PitRequested ? "CANCEL PIT STOP" : "BOX THIS LAP (P)", x, y, 0.34f, 0.058f, () => { if (s.PitRequested) s.CancelPit(); else s.RequestPit(G.playerCar != null ? G.playerCar.setup.compound : TireCompound.Medium); ShowPause(); }); y -= dy; }
             Btn("SETTINGS", x, y, 0.34f, 0.058f, ShowSettings); y -= dy;
             Btn("EXIT TO MENU", x, y, 0.34f, 0.058f, () => { if (Online.I != null) Online.I.Leave(); G.EnterMenu(); });
             // Right: free-roam controls for time and weather, or race status.

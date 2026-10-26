@@ -281,6 +281,7 @@ namespace Veylix
                 Message("LAP " + e.lap + "   " + SaveData.FormatTime(lapTime) + tag, !valid ? VUI.Accent : lapTime <= e.bestLap ? VUI.Purple : VUI.Text, 3.5f);
                 CrashAudio.Play(!valid ? CrashAudio.Stinger.Warning : lapTime <= fastestLap ? CrashAudio.Stinger.FastestLap : CrashAudio.Stinger.Lap);
                 if (valid) PlayerLapRecorded(lapTime);
+                if (PitRequested && phase == Phase.Racing && !InPit) StartCoroutine(PitStop(e));
                 SaveData.D.distanceKm += track.Length / 1000f;
             }
             e.lapInvalid = false;
@@ -414,6 +415,7 @@ namespace Veylix
 
         void Flags()
         {
+            BlueFlag();
             yellowZones.Clear();
             foreach (var e in entrants)
             {
@@ -434,6 +436,89 @@ namespace Veylix
         }
 
         public bool PlayerYellow => player != null && IsYellow(player.along);
+
+        /// A car a lap (or more) ahead is close behind you: let it by.
+        public bool PlayerBlue { get; private set; }
+
+        void BlueFlag()
+        {
+            PlayerBlue = false;
+            if (player == null || !IsRace || phase != Phase.Racing || player.finished) return;
+            int mine = player.lap * checkpoints + player.nextCheckpoint;
+            foreach (var e in entrants)
+            {
+                if (e == player || e.car == null || e.finished || e.eliminated) continue;
+                if (e.lap * checkpoints + e.nextCheckpoint < mine + checkpoints - 1) continue; // not lapping you
+                float behind = track.Ahead(e.along, player.along); // how far it is behind you
+                if (behind > 0f && behind < 70f) { PlayerBlue = true; return; }
+            }
+        }
+
+        // ------------------------------------------------------------------ pit stops
+
+        public bool PitRequested { get; private set; }
+        public bool InPit { get; private set; }
+        public TireCompound PitCompound = TireCompound.Medium;
+        public float PitTimeLeft { get; private set; }
+
+        /// Ask the crew for a stop: you're taken in when you next cross the line.
+        public void RequestPit(TireCompound compound)
+        {
+            if (!IsRace && config.mode != GameMode.Practice) { Message("NO PIT STOPS IN THIS MODE", VUI.Accent, 2f); return; }
+            PitCompound = compound;
+            PitRequested = true;
+            Message("BOX THIS LAP  -  " + compound.ToString().ToUpperInvariant() + " TYRES", VUI.Good, 3f);
+            CrashAudio.Play(CrashAudio.Stinger.Pit);
+        }
+
+        public void CancelPit() { if (PitRequested) { PitRequested = false; Message("PIT STOP CANCELLED", VUI.Text, 2f); } }
+
+        /// <summary>
+        /// The stop: fade, the car waits beside the track at pit exit for the time the pit lane costs plus the crew's
+        /// work (2.4 s for tyres, longer with repairs) while the race goes on, then it's released on fresh tyres,
+        /// repaired, with a countdown.
+        /// </summary>
+        System.Collections.IEnumerator PitStop(Entrant e)
+        {
+            PitRequested = false;
+            InPit = true;
+            var c = e.car;
+            var rig = Rig.I;
+            Message("BOX BOX", VUI.Good, 2f);
+            if (rig != null) rig.FadeTo(1f);
+            float t = 0f;
+            while (rig != null && !rig.Faded && t < 1.2f) { t += Time.deltaTime; yield return null; }
+            // Wait at pit exit: beside the track just past the grid, on the pit side.
+            int side = World.Current != null ? World.Current.pitSide : -1;
+            float exitS = Mathf.Repeat((World.Current != null ? World.Current.startS : 0f) + 140f, track.Length);
+            int i = track.IndexAt(exitS);
+            Vector3 pos = track.pos[i] + track.right[i] * side * Mathf.Max(0f, track.halfWidth[i] - 2.2f) + Vector3.up * 0.3f;
+            c.Teleport(pos, Quaternion.LookRotation(track.fwd[i]));
+            c.Freeze(true);
+            float repair = c.damage != null ? c.damage.TotalDamage * 12f : 0f;
+            float total = 11f + 2.4f + repair; // pit lane time loss + stationary time
+            if (rig != null) rig.FadeTo(0f);
+            float left = total;
+            while (left > 0f)
+            {
+                left -= Time.deltaTime;
+                PitTimeLeft = left;
+                if (Time.frameCount % 10 == 0) Message("PIT STOP  " + left.ToString("0.0") + "s  -  " + PitCompound.ToString().ToUpperInvariant() + (repair > 0.5f ? " + REPAIRS" : ""), VUI.Good, 0.5f);
+                yield return null;
+            }
+            // Fresh tyres, repairs.
+            c.setup.compound = PitCompound;
+            if (c.damage != null) c.damage.Repair();
+            foreach (var w in c.wheels) if (w != null) w.wear = 0f;
+            c.ResetState();
+            foreach (var w in c.wheels) if (w != null) { w.surfaceTemp += 10f; w.coreTemp += 10f; } // out of the blankets
+            c.Freeze(false);
+            e.lapInvalid = false;
+            InPit = false;
+            PitTimeLeft = 0f;
+            Message("GO GO GO", VUI.Good, 1.5f);
+            CrashAudio.Beep(true);
+        }
 
         void Eliminate()
         {

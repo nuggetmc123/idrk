@@ -10,18 +10,22 @@ using UnityEngine;
 namespace Veylix
 {
     /// <summary>
-    /// Online races with Photon Fusion 2 (Shared Mode, up to 8 players a room). QUICK RACE ONLINE puts you in the
-    /// fullest open room (or makes one on your current map); CREATE PRIVATE ROOM gives you a 6-digit code to share;
-    /// JOIN WITH CODE joins a friend. Each player simulates their own car; the room's race state starts everyone
-    /// together. Public codes start with 1-4, private with 5-9. Without Photon Fusion installed this is a stand-in
-    /// and the menu says how to switch it on.
+    /// Online races with Photon Fusion 2 (Shared Mode, up to 8 players a room).
+    /// FIND A RACE: matchmaking on the track you've picked (joins a race filling up there, or opens one and waits).
+    /// ANY TRACK: joins whichever race is filling up. CREATE PRIVATE ROOM / JOIN WITH CODE: race friends by code.
+    /// PARTY: a lobby you sit in from the garage with friends (code starts with 0). The leader picks the track and the
+    /// whole party goes: PARTY ONLY (a private race) or PARTY VS OTHERS (a public race strangers matchmake into).
+    /// After the race everyone drops back into the party. Codes: party 0, public 1-4, private 5-9.
+    /// Each player simulates their own car; the room's race state starts everyone together. Without Photon Fusion
+    /// installed this is a stand-in and the menu says how to switch it on.
     /// </summary>
     public class Online : MonoBehaviour, INetworkRunnerCallbacks
     {
         public static Online I { get; private set; }
         public static readonly List<NetCar> Cars = new List<NetCar>();
         public const int MaxPlayers = 8;
-        const string PublicPrefix = "VX_PUB_", PrivatePrefix = "VX_PRIV_", MapProperty = "map", LapsProperty = "laps";
+        const string PublicPrefix = "VX_PUB_", PrivatePrefix = "VX_PRIV_", PartyPrefix = "VX_PARTY_", MapProperty = "map", LapsProperty = "laps";
+        const string GoProperty = "go", GoMapProperty = "gmap", GoLapsProperty = "glaps";
 
         [Tooltip("NetCar prefab (NetworkObject + NetCar). The world builder fills this in.")]
         public NetworkObject netCarPrefab;
@@ -47,18 +51,45 @@ namespace Veylix
 
         public void BuildMenu(Transform panel, Menus menus)
         {
-            float x = -0.3f, y = 0.17f;
-            VButton.Make(panel, "QUICK RACE ONLINE", new Vector2(x, y), new Vector2(0.44f, 0.08f), () => _ = QuickRace(), true, "Join the busiest room, or open one on your current map");
-            VButton.Make(panel, "CREATE PRIVATE ROOM", new Vector2(x, y - 0.1f), new Vector2(0.44f, 0.08f), () => _ = CreatePrivate(), false, "Get a code to give your friends");
-            VUI.Label(panel, "JOIN WITH CODE", new Vector2(0.06f, y + 0.02f), 0.26f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.4f);
-            var codeLbl = VUI.Label(panel, Format(typedCode), new Vector2(0.06f, y - 0.03f), 0.5f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.4f);
-            // Number pad.
+            var cfg = Game.I.config;
+            var map = MapCatalog.Get(cfg.map);
+            float x = -0.38f, y = 0.19f;
+            VUI.Label(panel, "RACE ONLINE", new Vector2(x - 0.17f, y + 0.055f), 0.24f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.4f).characterSpacing = 4f;
+            VButton.Make(panel, "FIND A RACE", new Vector2(x, y), new Vector2(0.34f, 0.075f), () => _ = FindRace(true), true, map.name + ": join drivers there, or wait for them");
+            VButton.Make(panel, "ANY TRACK", new Vector2(x, y - 0.085f), new Vector2(0.34f, 0.075f), () => _ = FindRace(false), false, "Join whichever race is filling up");
+            VButton.Make(panel, "PRIVATE ROOM", new Vector2(x, y - 0.17f), new Vector2(0.34f, 0.075f), () => _ = CreatePrivate(), false, "A code for friends, no strangers");
+
+            // Party.
+            float px = 0.0f;
+            VUI.Label(panel, "PARTY", new Vector2(px - 0.17f, y + 0.055f), 0.24f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.4f).characterSpacing = 4f;
+            if (!InParty)
+            {
+                VButton.Make(panel, "CREATE PARTY", new Vector2(px, y), new Vector2(0.34f, 0.075f), () => _ = CreateParty(), true, "Friends join with your code");
+                VUI.Label(panel, "In a party the leader picks the track and everyone goes together: just the party, or the party against other players.", new Vector2(px - 0.17f, y - 0.09f), 0.18f, VUI.TextDim, TextAlignmentOptions.TopLeft, false, 0.34f);
+            }
+            else
+            {
+                VUI.Label(panel, "CODE  " + Format(PartyCode), new Vector2(px - 0.17f, y + 0.01f), 0.36f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.36f);
+                VUI.Label(panel, PartySize + (PartySize == 1 ? " driver" : " drivers") + "  -  " + (IsPartyLeader ? "you lead" : "following the leader"), new Vector2(px - 0.17f, y - 0.035f), 0.2f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.36f);
+                if (IsPartyLeader)
+                {
+                    VButton.Make(panel, "PARTY ONLY", new Vector2(px, y - 0.09f), new Vector2(0.34f, 0.07f), () => _ = PartyGo(cfg, false), true, map.name + ", just your party");
+                    VButton.Make(panel, "PARTY VS OTHERS", new Vector2(px, y - 0.17f), new Vector2(0.34f, 0.07f), () => _ = PartyGo(cfg, true), false, map.name + ", open to other players");
+                }
+                else VUI.Label(panel, "Waiting for the leader to pick a race...", new Vector2(px - 0.17f, y - 0.1f), 0.2f, VUI.Warn, TextAlignmentOptions.MidlineLeft, false, 0.36f);
+                VButton.Make(panel, "LEAVE PARTY", new Vector2(px, y - 0.25f), new Vector2(0.34f, 0.05f), () => { PartyCode = ""; _ = Shutdown(); SetStatus("Left the party."); });
+            }
+
+            // Join with a code (rooms and parties).
+            float cx = 0.27f;
+            VUI.Label(panel, "JOIN WITH CODE", new Vector2(cx, y + 0.055f), 0.24f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.3f).characterSpacing = 4f;
+            var codeLbl = VUI.Label(panel, Format(typedCode), new Vector2(cx, y + 0.005f), 0.42f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.3f);
             for (int k = 0; k < 12; k++)
             {
                 int col = k % 3, row = k / 3;
                 string label = k < 9 ? (k + 1).ToString() : k == 9 ? "DEL" : k == 10 ? "0" : "JOIN";
                 int kk = k;
-                VButton.Make(panel, label, new Vector2(0.1f + col * 0.09f, y - 0.1f - row * 0.06f), new Vector2(0.08f, 0.05f), () =>
+                VButton.Make(panel, label, new Vector2(cx + 0.04f + col * 0.085f, y - 0.065f - row * 0.058f), new Vector2(0.078f, 0.05f), () =>
                 {
                     if (kk < 9 && typedCode.Length < 6) typedCode += (kk + 1).ToString();
                     else if (kk == 10 && typedCode.Length < 6) typedCode += "0";
@@ -68,8 +99,8 @@ namespace Veylix
                 }, kk == 11);
             }
             string status = !Available ? "Photon Fusion 2 isn't installed in this build, so online play is off. Every other mode works offline." :
-                Connected ? "In room " + Format(RoomCode) + "  -  " + Cars.Count + " / " + MaxPlayers + " drivers" : Status;
-            VUI.Label(panel, status, new Vector2(-0.53f, -0.2f), 0.22f, Available ? VUI.Text : VUI.Warn, TextAlignmentOptions.MidlineLeft, false, 1.0f);
+                Connected && !InParty ? "In room " + Format(RoomCode) + "  -  " + Cars.Count + " / " + MaxPlayers + " drivers" : Status;
+            VUI.Label(panel, status, new Vector2(-0.53f, -0.24f), 0.2f, Available ? VUI.Text : VUI.Warn, TextAlignmentOptions.MidlineLeft, false, 1.0f);
         }
 
         public static string Format(string code) => string.IsNullOrEmpty(code) ? "------" : code.Length > 3 ? code.Substring(0, 3) + " " + code.Substring(3) : code;
@@ -82,6 +113,8 @@ namespace Veylix
         }
 
         // ------------------------------------------------------------------ connecting
+
+        static string NewPartyCode() => "0" + UnityEngine.Random.Range(0, 100000).ToString("00000");
 
         static string NewCode(bool isPrivate)
         {
@@ -103,13 +136,116 @@ namespace Veylix
             };
         }
 
-        async Task QuickRace()
+        /// Matchmaking: on your track (session property filter) or any race that's filling up.
+        async Task FindRace(bool onMyTrack)
         {
             if (!Available) { SetStatus("Online play is off: Photon Fusion 2 isn't installed."); return; }
             if (Busy) return;
-            SetStatus("Finding a race...");
-            var r = await Start(Args(null, false));
+            PartyCode = "";
+            SetStatus(onMyTrack ? "Searching for drivers on " + MapCatalog.Get(Game.I.config.map).name + "..." : "Searching for a race...");
+            var args = Args(null, false);
+            if (!onMyTrack) args.SessionProperties = null; // no filter: any open race (we create one on our track if there's none)
+            var r = await Start(args);
             if (r != null && r.Ok) AfterJoin();
+        }
+
+        /// From the race setup screen: matchmaking on the track you just set up.
+        public void FindPlayers() => _ = FindRace(true);
+
+        // ------------------------------------------------------------------ party
+
+        public string PartyCode { get; private set; } = "";
+        public bool InParty => Connected && !string.IsNullOrEmpty(PartyCode) && RoomCode == PartyCode;
+        public bool IsPartyLeader => InParty && Runner.IsSharedModeMasterClient;
+        public int PartySize => InParty ? Runner.ActivePlayers.Count() : 0;
+        string handledGo = "";
+
+        async Task CreateParty()
+        {
+            if (!Available) { SetStatus("Online play is off: Photon Fusion 2 isn't installed."); return; }
+            if (Busy) return;
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                string code = NewPartyCode();
+                SetStatus("Creating a party...");
+                var r = await Start(PartyArgs(code));
+                if (r == null || !r.Ok) return;
+                if (Runner.ActivePlayers.Count() <= 1) { PartyCode = code; handledGo = ""; SetStatus("Party " + Format(code) + " is open. Give friends the code."); return; }
+                await Shutdown();
+            }
+            SetStatus("Couldn't find a free party code. Try again.");
+        }
+
+        StartGameArgs PartyArgs(string code) => new StartGameArgs
+        {
+            GameMode = Fusion.GameMode.Shared,
+            SessionName = PartyPrefix + code,
+            SessionProperties = new Dictionary<string, SessionProperty> { [GoProperty] = "" },
+            IsVisible = false,
+            PlayerCount = MaxPlayers,
+        };
+
+        async Task JoinParty(string code)
+        {
+            SetStatus("Joining party " + Format(code) + "...");
+            var r = await Start(PartyArgs(code));
+            if (r == null || !r.Ok) return;
+            PartyCode = code;
+            // Don't follow a race the party already left for.
+            handledGo = CurrentGo();
+            SetStatus(Runner.ActivePlayers.Count() <= 1 ? "Party " + Format(code) + " is empty: you're the leader now." : "Joined party " + Format(code) + ".");
+        }
+
+        string CurrentGo()
+        {
+            var info = Runner != null ? Runner.SessionInfo : null;
+            if (info == null || info.Properties == null || !info.Properties.TryGetValue(GoProperty, out var p) || p == null) return "";
+            return p.PropertyValue as string ?? "";
+        }
+
+        /// <summary>
+        /// Leader: send the party to a race on this config's track. Party only = a fresh private room; party vs others
+        /// = a fresh public room on that track, which strangers' matchmaking fills. Everyone follows the "go" property.
+        /// </summary>
+        public async Task PartyGo(SessionConfig cfg, bool vsOthers)
+        {
+            if (!IsPartyLeader || Busy) return;
+            string name = (vsOthers ? PublicPrefix + NewCode(false) : PrivatePrefix + NewCode(true));
+            Game.I.config = cfg.Clone();
+            Runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty>
+            {
+                [GoProperty] = name + "|" + (vsOthers ? 1 : 0), [GoMapProperty] = cfg.map, [GoLapsProperty] = Mathf.Clamp(cfg.laps, 1, 30),
+            });
+            handledGo = name + "|" + (vsOthers ? 1 : 0);
+            SetStatus("Taking the party to " + MapCatalog.Get(cfg.map).name + "...");
+            await Task.Delay(1500); // let the others see it
+            await GoTo(name, vsOthers, cfg.map, cfg.laps);
+        }
+
+        async Task GoTo(string sessionName, bool visible, int map, int laps)
+        {
+            string party = PartyCode;
+            await Shutdown();
+            PartyCode = party; // remembered: back to the party after the race
+            Game.I.config.map = map;
+            Game.I.config.laps = laps;
+            var r = await Start(Args(sessionName, !visible));
+            if (r != null && r.Ok) AfterJoin();
+        }
+
+        /// Back in the garage after an online race: rejoin your party.
+        public void ReturnToParty()
+        {
+            if (!Available || string.IsNullOrEmpty(PartyCode) || Busy) return;
+            if (Connected && RoomCode == PartyCode) return;
+            string code = PartyCode;
+            _ = ReturnAsync(code);
+        }
+
+        async Task ReturnAsync(string code)
+        {
+            await Shutdown();
+            await JoinParty(code);
         }
 
         async Task CreatePrivate()
@@ -132,6 +268,8 @@ namespace Veylix
         {
             if (!Available) { SetStatus("Online play is off: Photon Fusion 2 isn't installed."); return; }
             if (Busy) return;
+            if (code[0] == '0') { await JoinParty(code); return; }
+            PartyCode = "";
             bool isPrivate = code[0] >= '5';
             SetStatus("Joining " + Format(code) + "...");
             var r = await Start(Args((isPrivate ? PrivatePrefix : PublicPrefix) + code, isPrivate));
@@ -169,7 +307,7 @@ namespace Veylix
                 if (!result.Ok) { Runner = null; SetStatus("Couldn't connect: " + Explain(result)); return result; }
                 var info = Runner.SessionInfo;
                 string name = info != null && info.IsValid ? info.Name : args.SessionName ?? "";
-                RoomCode = name.StartsWith(PublicPrefix) ? name.Substring(PublicPrefix.Length) : name.StartsWith(PrivatePrefix) ? name.Substring(PrivatePrefix.Length) : "";
+                RoomCode = name.StartsWith(PublicPrefix) ? name.Substring(PublicPrefix.Length) : name.StartsWith(PrivatePrefix) ? name.Substring(PrivatePrefix.Length) : name.StartsWith(PartyPrefix) ? name.Substring(PartyPrefix.Length) : "";
                 roomMap = Game.I.config.map;
                 roomLaps = Mathf.Clamp(Game.I.config.laps, 1, 30);
                 if (info != null && info.Properties != null)
@@ -254,6 +392,23 @@ namespace Veylix
 
         void Update()
         {
+            // Party members follow the leader to the race they picked.
+            if (InParty && !IsPartyLeader && !Busy && Time.frameCount % 15 == 0)
+            {
+                string go = CurrentGo();
+                if (!string.IsNullOrEmpty(go) && go != handledGo)
+                {
+                    handledGo = go;
+                    var parts = go.Split('|');
+                    int map = Game.I.config.map, laps = Game.I.config.laps;
+                    var props = Runner.SessionInfo.Properties;
+                    if (props.TryGetValue(GoMapProperty, out var m)) map = (int)m;
+                    if (props.TryGetValue(GoLapsProperty, out var l)) laps = Mathf.Max(1, (int)l);
+                    SetStatus("The party is off to " + MapCatalog.Get(map).name + "!");
+                    _ = GoTo(parts[0], parts.Length > 1 && parts[1] == "1", map, laps);
+                }
+            }
+
             // Host: A starts the race from the grid. Everyone: see the lobby countdown.
             var nr = NetRace.I;
             var s = RaceSession.I;

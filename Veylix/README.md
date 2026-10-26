@@ -52,16 +52,48 @@ Use `Veylix.unitypackage` instead:
 - Hold **R** to reset, press **C** for the chase camera and **Esc** to pause.
 - Gamepads work too.
 
+## Your driver
+The first time you play you create your driver: a name (on-screen keyboard), a race number, and your kit (suit and
+stripe colours, helmet colour, design and visor, gloves). Your driver stands next to your car in the garage, sits in
+your car in the same kit, your number goes on your cars, and online everyone sees your driver in your car.
+**DRIVER** in the main menu changes it later.
+
+## The watch (in a race, VR)
+Press the menu button (three lines, left controller) and a screen rises from the watch on your left wrist: music,
+engine, effects and crowd volume, music while racing, pit stop (pick tyres, box this lap), resume, reset car, cockpit
+or chase view, restart, recenter, exit. Press the button again to put it away. Offline the race pauses; online it
+keeps going. On a monitor the same button (Esc) opens the pause menu.
+
+## Music and sound
+The music is synthesised live (no audio files): a relaxed theme in the garage, an ambient bed while loading and an
+optional driving track while racing. Race moments have their own sounds: laps, fastest lap, personal best, positions
+gained and lost, track-limit warnings, penalties, the pit call, finishing and winning.
+
+## Racing rules
+Track limits (three warnings, then a 5-second penalty), yellow flags around stopped cars (the AI respects them),
+blue flags when a faster car is about to lap you, and pit stops: request one from the watch (or P on a keyboard),
+you come in at the end of the lap, the crew fits the tyres you picked and repairs damage (longer the more there is),
+and you rejoin at pit exit.
+
 ## Your garage (the hub)
 When you're not driving you're in your own garage: your car on a turntable under spotlights, a workbench and tool
 wall, a tyre rack, a wall with all 25 tracks, your trophies and career stats, and the roller door out to the track.
 Walk around (left stick or WASD; right stick or Q/E turns) and point at the stations:
 **CUSTOMISE** (by the car: paint, livery, number, wheels, wings, tyres, brakes, suspension, changes show live on the
-car), **CHOOSE A TRACK**, **DRIVE** (every mode) and **MENU**. The menu button hides or brings back the menu.
+car), **CHOOSE A TRACK**, **DRIVE** (every mode). The menu button hides or brings back the menu.
 
 ## Loading screens
 A splash screen while your garage is built at start-up, and before every session a loading screen with the track
 drawn as a live outline, the session details (mode, car, laps, time, weather), progress and tips.
+
+## Online (needs Photon Fusion: Veylix > Import Multiplayer)
+- **FIND A RACE**: matchmaking on the track you picked: join drivers already there or open a race and wait for them.
+  **FIND PLAYERS** on the race setup screen does the same for the race you just set up.
+- **ANY TRACK**: join whichever race is filling up.
+- **PRIVATE ROOM** / **JOIN WITH CODE**: race friends only.
+- **PARTY**: create a party (its code starts with 0) and friends join from their garage. The leader picks the track
+  (CHOOSE A TRACK or the Online menu) and chooses **PARTY ONLY** (a private race) or **PARTY VS OTHERS** (a public race
+  other players matchmake into). Everyone in the party goes, and comes back to the party after the race.
 
 ## Seeing the tracks in the editor
 The game builds each map from code when you pick it, so tracks aren't separate scene files. Use
