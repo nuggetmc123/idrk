@@ -93,6 +93,7 @@ namespace Veylix
                 if (!first) return;
             }
             if (dv < 1.2f) return;
+            if (first) CarToCar(c, contact, dv);
 
             float g = dv / Time.fixedDeltaTime / Car.Gravity * 0.02f; // rough peak g with a ~20 ms crush time
             LastImpactTime = Time.time;
@@ -215,6 +216,56 @@ namespace Veylix
         }
 
         /// <summary>
+        /// Contact with another car. Interlocking tyres launch the car that runs into the other one's wheel (it climbs
+        /// it and takes off, often rolling); a hard hit in the side can tip the struck car over. Bits come off.
+        /// </summary>
+        void CarToCar(Collision c, ContactPoint contact, float dv)
+        {
+            var other = c.rigidbody != null ? c.rigidbody.GetComponent<Car>() : null;
+            if (other == null || other == car || other.Body == null) return;
+            Vector3 rel = car.Body.linearVelocity - other.Body.linearVelocity;
+            float closing = rel.magnitude;
+            Vector3 toOther = other.transform.position - car.transform.position;
+            toOther.y = 0f;
+            if (toOther.sqrMagnitude < 1e-4f) return;
+            toOther.Normalize();
+            bool wheels = c.collider.gameObject.layer == Layers.CarWheel || (contact.thisCollider != null && contact.thisCollider.gameObject.layer == Layers.CarWheel);
+            bool weHit = Vector3.Dot(rel, toOther) > 0f;
+
+            if (wheels && weHit && closing > 5f && Random.value < Mathf.InverseLerp(5f, 22f, closing))
+            {
+                // Climbing the other car's spinning tyre: up into the air, nose or tail first, rolling away from it.
+                float t = Mathf.InverseLerp(5f, 30f, closing);
+                car.Body.AddForce(Vector3.up * Mathf.Lerp(2.5f, 8f, t), ForceMode.VelocityChange);
+                Vector3 rollAxis = Vector3.Cross(Vector3.up, toOther); // tips away from the other car
+                car.Body.AddTorque((rollAxis * Mathf.Lerp(2f, 7f, t) + car.transform.right * Random.Range(-2f, 2f)), ForceMode.VelocityChange);
+                Shed(t);
+            }
+            else if (!weHit && closing > 16f)
+            {
+                // T-boned: hit hard from the side, the car can be knocked over.
+                float side = Mathf.Abs(Vector3.Dot(-toOther, car.transform.right));
+                if (side > 0.6f && Random.value < Mathf.InverseLerp(16f, 35f, closing) * side)
+                {
+                    Vector3 axis = Vector3.Cross(Vector3.up, -toOther);
+                    car.Body.AddTorque(-axis * Mathf.Lerp(3f, 8f, Mathf.InverseLerp(16f, 35f, closing)), ForceMode.VelocityChange);
+                    car.Body.AddForce(Vector3.up * 2f, ForceMode.VelocityChange);
+                }
+            }
+            if (dv > 7f) Shed(Mathf.InverseLerp(7f, 25f, dv));
+        }
+
+        /// <summary>A violent moment knocks bits off: mirrors and bodywork first, wings and wheels the harder it is.</summary>
+        void Shed(float strength)
+        {
+            if (parts == null || !Enabled) return;
+            parts.FlingBits(car, strength);
+            if (Random.value < strength * 0.8f) Damage(Random.value < 0.5f ? Part.FrontWingL : Part.FrontWingR, 0.5f + strength * 0.5f);
+            if (Random.value < strength * 0.5f) Damage(Part.RearWing, 0.4f + strength * 0.6f);
+            if (Random.value < strength * strength * 0.6f) Damage(Part.SuspFL + Random.Range(0, 4), 0.9f + strength * 0.3f);
+        }
+
+        /// <summary>
         /// The car tripped and is rolling (from Car.TripRollover). Roll-hoops and the body take it; a violent roll can
         /// split the fuel cell, and a split cell may catch fire, which can grow until the car explodes.
         /// </summary>
@@ -226,6 +277,7 @@ namespace Veylix
             Damage(Part.FuelCell, severity * 0.9f);
             Damage(Part.RearWing, severity * 0.6f);
             Damage(severity > 0.5f ? Part.FrontWingL : Part.FrontWingR, severity * 0.5f);
+            Shed(severity);
             if (severity > 0.35f && Random.value < severity * 0.65f)
             {
                 fuelLeak = Mathf.Max(fuelLeak, Mathf.Lerp(0.3f, 1f, severity));

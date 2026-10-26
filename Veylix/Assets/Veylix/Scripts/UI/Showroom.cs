@@ -372,6 +372,9 @@ namespace Veylix
             var src = display.GetComponentInChildren<AudioSource>();
             if (src != null) src.enabled = false;
             if (display.parts != null && display.parts.headSpot != null) display.parts.headSpot.enabled = false;
+            // In the garage the car's parked: nobody in it.
+            if (display.parts != null && display.parts.helmet != null) display.parts.helmet.SetActive(false);
+            if (display.parts != null && display.parts.driver != null) display.parts.driver.gameObject.SetActive(false);
             CarFactory.All.Remove(display);
         }
 

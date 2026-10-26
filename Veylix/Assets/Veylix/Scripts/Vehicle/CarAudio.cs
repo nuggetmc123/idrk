@@ -93,6 +93,14 @@ namespace Veylix
             if (car.damage != null && car.damage.EngineDead) vol *= 0f;
             pVolume = vol;
 
+            // Cars out of earshot stop synthesising their engine (saves a lot of audio CPU with a full grid).
+            if (!cockpit && AudioListenerRef.Listener != null && src != null)
+            {
+                float far = (AudioListenerRef.Listener.position - transform.position).sqrMagnitude;
+                if (far > 460f * 460f) { if (src.isPlaying) src.Stop(); return; }
+                if (!src.isPlaying && enabled) src.Play();
+            }
+
             // Doppler for cars passing the listener.
             if (!cockpit && AudioListenerRef.Listener != null)
             {

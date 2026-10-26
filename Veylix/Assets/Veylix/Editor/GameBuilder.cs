@@ -127,7 +127,9 @@ namespace Veylix.EditorTools
             car.driverName = "You";
             car.carIndex = 0;
             car.Init(CarCatalog.Get(0), new CarSetup());
-            CarModel.Build(car, false);
+            var builtParts = CarModel.Build(car, false);
+            if (builtParts.helmet != null) Object.DestroyImmediate(builtParts.helmet); // parked: nobody in it
+            if (builtParts.driver != null) Object.DestroyImmediate(builtParts.driver.gameObject);
             foreach (var st in carGo.GetComponentsInChildren<Strut>(true)) st.Apply();
             carGo.transform.SetPositionAndRotation(turntable.position + Vector3.up * 0.07f, turntable.rotation * Quaternion.Euler(0f, 210f, 0f));
             carGo.transform.SetParent(turntable, true);

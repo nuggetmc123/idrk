@@ -197,6 +197,31 @@ namespace Veylix
             structure.Box(frontCentre + back * depth * 0.5f + Vector3.up * roofH, new Vector3(length + 2f, 0.3f, depth + 3f), rot, 0.2f);
             for (float x = -length * 0.5f; x <= length * 0.5f + 0.1f; x += 12f)
                 structure.Box(frontCentre + back * (depth + 0.1f) + right * x + Vector3.up * roofH * 0.5f, new Vector3(0.35f, roofH, 0.35f), rot, 0.3f);
+            // Aisles with steps every ~15 m, a front handrail and a sponsor fascia along the roof edge.
+            var steel = new MeshAcc();
+            for (float x = -length * 0.5f + 7.5f; x < length * 0.5f - 3f; x += 15f)
+                for (int r = 0; r < rows; r++)
+                {
+                    Vector3 c = frontCentre + right * x + back * (r * rowDepth + rowDepth * 0.5f) + Vector3.up * (1.5f + r * rowRise);
+                    structure.Box(c - Vector3.up * 0.2f + Vector3.up * 0.03f, new Vector3(1.3f, 0.5f, rowDepth + 0.02f), rot, 0.5f);
+                    structure.Box(c + Vector3.up * 0.06f + towardTrack * (rowDepth * 0.25f), new Vector3(1.3f, 0.22f, rowDepth * 0.5f), rot, 0.5f);
+                    steel.Box(c + right * 0.62f + Vector3.up * 0.95f, new Vector3(0.05f, 0.05f, rowDepth), rot * Quaternion.Euler(-Mathf.Atan2(rowRise, rowDepth) * Mathf.Rad2Deg, 0f, 0f), 0.5f);
+                }
+            steel.Box(frontCentre + Vector3.up * 2.4f + back * 0.1f, new Vector3(length, 0.06f, 0.06f), rot, 0.5f);
+            for (float x = -length * 0.5f; x <= length * 0.5f + 0.1f; x += 2.5f)
+                steel.Box(frontCentre + right * x + Vector3.up * 1.9f + back * 0.1f, new Vector3(0.04f, 1f, 0.04f), rot, 0.5f);
+            // Roof trusses under the canopy.
+            for (float x = -length * 0.5f; x <= length * 0.5f + 0.1f; x += 12f)
+                steel.Box(frontCentre + right * x + back * depth * 0.5f + Vector3.up * (roofH - 0.45f), new Vector3(0.18f, 0.6f, depth + 3f), rot, 0.5f);
+            steel.Emit(parent, "Steelwork", M(a => a.metal, "Steel", new Color(0.55f, 0.56f, 0.58f), 0.5f), Layers.Scenery, false);
+            var fascia = new MeshAcc();
+            Vector3 fc = frontCentre + towardTrack * 1.55f + Vector3.up * (roofH - 0.35f);
+            int f0 = fascia.Add(fc - right * (length * 0.5f + 1f) - Vector3.up * 0.55f, towardTrack, new Vector2(0f, 0.5f));
+            int f1 = fascia.Add(fc + right * (length * 0.5f + 1f) - Vector3.up * 0.55f, towardTrack, new Vector2(Mathf.Max(1f, length / 14f), 0.5f));
+            int f2 = fascia.Add(fc + right * (length * 0.5f + 1f) + Vector3.up * 0.55f, towardTrack, new Vector2(Mathf.Max(1f, length / 14f), 0.75f));
+            int f3 = fascia.Add(fc - right * (length * 0.5f + 1f) + Vector3.up * 0.55f, towardTrack, new Vector2(0f, 0.75f));
+            fascia.Quad(f0, f1, f2, f3, towardTrack);
+            fascia.Emit(parent, "Fascia", M(a => a.ads, "Fascia", Color.white, 0.4f), Layers.Scenery, false);
             structure.Emit(parent, "Stand", M(a => a.grandstand, "Stand", new Color(0.7f, 0.72f, 0.75f), 0.3f), Layers.Barrier, true);
             seats.Emit(parent, "Seats", M(a => a.grandstand, "Seats", new Color(0.2f, 0.3f, 0.5f), 0.3f), Layers.Scenery, false);
             crowd.Emit(parent, "Crowd", M(a => a.crowd, "Crowd", new Color(0.5f, 0.45f, 0.4f), 0.1f), Layers.Scenery, false, null, false);

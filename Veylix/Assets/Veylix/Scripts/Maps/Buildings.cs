@@ -153,12 +153,19 @@ namespace Veylix
                     roofs.Box(up + Vector3.up * size.y * 0.5f, size, rot, 0.5f);
                 }
             }
+            Details(pos, rot, right, fwd, width, depth, height, floor, bay, style, pitched, cellKey, top);
+
             // Balconies on stucco apartments (thin slabs per floor on the front).
             if (style == BuildingStyle.Stucco && height > 8f)
             {
                 var slab = Acc(cellKey + "b", VXAssets.Or(A?.concrete, "Concrete", new Color(0.8f, 0.78f, 0.74f), 0.2f));
                 for (float y = floor; y < height - 1f; y += floor)
+                {
                     slab.Box(pos + Vector3.up * y + fwd * (depth * 0.5f + 0.6f), new Vector3(width * 0.8f, 0.15f, 1.2f), rot, 0.5f);
+                    // Railing: top rail and a thin front panel.
+                    slab.Box(pos + Vector3.up * (y + 1.0f) + fwd * (depth * 0.5f + 1.17f), new Vector3(width * 0.8f, 0.06f, 0.06f), rot, 0.5f);
+                    slab.Box(pos + Vector3.up * (y + 0.55f) + fwd * (depth * 0.5f + 1.18f), new Vector3(width * 0.8f, 0.7f, 0.03f), rot, 0.5f);
+                }
             }
             if (collider)
             {
@@ -173,6 +180,108 @@ namespace Veylix
         }
 
         static float v1Of(float h, float floor) => h / floor;
+
+        static readonly Color[] AwningColours = { new Color(0.55f, 0.1f, 0.08f), new Color(0.1f, 0.25f, 0.18f), new Color(0.12f, 0.18f, 0.35f), new Color(0.75f, 0.6f, 0.35f), new Color(0.2f, 0.2f, 0.22f) };
+
+        Material Tinted(string key, Material baseMat, Color c, float smooth)
+        {
+            if (tinted.TryGetValue(key, out var m) && m != null) return m;
+            m = baseMat != null ? new Material(baseMat) : VXAssets.Fallback(key, c, smooth);
+            m.color = c;
+            m.name = key;
+            tinted[key] = m;
+            return m;
+        }
+
+        /// <summary>
+        /// What makes a block read as a real building rather than a box: a ground floor with shopfronts and awnings,
+        /// a string course and corner pilasters, a cornice at the roofline, setbacks on towers, roller doors on
+        /// industrial units and clutter on the roof (water tanks, aerials, stair houses).
+        /// </summary>
+        void Details(Vector3 pos, Quaternion rot, Vector3 right, Vector3 fwd, float width, float depth, float height, float floor, float bay, BuildingStyle style, bool pitched, string cellKey, Vector3 top)
+        {
+            var A = VXAssets.I;
+            var stone = Acc(cellKey + "s", VXAssets.Or(A?.concrete, "Stone", new Color(0.78f, 0.76f, 0.72f), 0.2f));
+            var metal = Acc(cellKey + "m", VXAssets.Or(A?.metal, "Metal", new Color(0.55f, 0.56f, 0.58f), 0.6f));
+            bool town = style == BuildingStyle.Stucco || style == BuildingStyle.Brick || style == BuildingStyle.Office || style == BuildingStyle.Village;
+            bool industrial = style == BuildingStyle.Industrial || style == BuildingStyle.Warehouse;
+
+            if (town && height >= floor * 2f)
+            {
+                // Ground floor plinth, slightly proud of the wall, with shop windows and the odd awning on the front.
+                float gf = Mathf.Min(floor, 4f);
+                stone.Box(pos + Vector3.up * (gf * 0.5f - 0.5f), new Vector3(width + 0.3f, gf + 1f, depth + 0.3f), rot, 0.5f);
+                var glass = Acc(cellKey + "g", VXAssets.Or(A?.glass, "ShopGlass", new Color(0.12f, 0.14f, 0.16f), 0.9f));
+                int bays = Mathf.Max(1, Mathf.RoundToInt(width / bay));
+                float bw = width / bays;
+                int awningTint = rng.Range(0, AwningColours.Length);
+                var awnings = Acc(cellKey + "a" + awningTint, Tinted("Awning" + awningTint, A?.tent, AwningColours[awningTint], 0.15f));
+                for (int i = 0; i < bays; i++)
+                {
+                    Vector3 c = pos + right * (-width * 0.5f + bw * (i + 0.5f)) + fwd * (depth * 0.5f + 0.17f);
+                    glass.Box(c + Vector3.up * (gf * 0.45f), new Vector3(bw * 0.78f, gf * 0.62f, 0.04f), rot, 0.5f);
+                    if (rng.Chance(0.35f))
+                    {
+                        // Sloped canvas awning on two thin arms.
+                        var tilt = rot * Quaternion.Euler(-22f, 0f, 0f);
+                        awnings.Box(c + Vector3.up * (gf * 0.85f) + fwd * 0.65f, new Vector3(bw * 0.86f, 0.05f, 1.4f), tilt, 0.5f);
+                        awnings.Box(c + Vector3.up * (gf * 0.85f - 0.25f) + fwd * 1.32f, new Vector3(bw * 0.86f, 0.32f, 0.03f), rot, 0.5f);
+                    }
+                }
+                // String course between the shops and the floors above.
+                stone.Box(pos + Vector3.up * (gf + 0.1f), new Vector3(width + 0.4f, 0.2f, depth + 0.4f), rot, 0.5f);
+            }
+
+            if ((style == BuildingStyle.Stucco || style == BuildingStyle.Brick) && height > floor)
+            {
+                // Corner pilasters.
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int sz = -1; sz <= 1; sz += 2)
+                        stone.Box(pos + right * (sx * (width * 0.5f - 0.15f)) + fwd * (sz * (depth * 0.5f - 0.15f)) + Vector3.up * (height * 0.5f), new Vector3(0.5f, height, 0.5f), rot, 0.5f);
+            }
+
+            if (!pitched && !industrial)
+            {
+                // Cornice: a projecting band at the roofline.
+                stone.Box(top + Vector3.down * 0.25f, new Vector3(width + 0.7f, 0.45f, depth + 0.7f), rot, 0.5f);
+            }
+
+            if ((style == BuildingStyle.Office || style == BuildingStyle.Tower) && height > 30f && !pitched)
+            {
+                // Setback: the top floors step in, with their own roof.
+                float upH = Mathf.Round(height * 0.25f / floor) * floor;
+                var wallMat = StyleMat(style, rng.Range(0, 5));
+                var walls = Acc(cellKey + "w" + wallMat.name, wallMat);
+                walls.Box(top + Vector3.up * (upH * 0.5f), new Vector3(width * 0.72f, upH, depth * 0.72f), rot, 1f / 3.4f);
+                stone.Box(top + Vector3.up * (upH + 0.2f), new Vector3(width * 0.74f, 0.4f, depth * 0.74f), rot, 0.5f);
+                metal.Box(top + Vector3.up * (upH + 4f), new Vector3(0.12f, 8f, 0.12f), rot, 0.5f); // mast
+            }
+
+            if (industrial)
+            {
+                // Roller doors along the front and a row of roof vents.
+                int doors = Mathf.Max(1, Mathf.RoundToInt(width / 9f));
+                for (int i = 0; i < doors; i++)
+                {
+                    Vector3 c = pos + right * (-width * 0.5f + width / doors * (i + 0.5f)) + fwd * (depth * 0.5f + 0.08f);
+                    metal.Box(c + Vector3.up * 2.4f, new Vector3(Mathf.Min(5f, width / doors * 0.7f), 4.8f, 0.1f), rot, 0.5f);
+                }
+                for (float x = -width * 0.35f; x <= width * 0.35f; x += 6f)
+                    metal.Box(top + right * x + Vector3.up * 0.6f, new Vector3(1.2f, 1.2f, 1.2f), rot, 0.5f);
+            }
+            else if (!pitched && height > 10f)
+            {
+                // Roof clutter: a water tank on legs, an aerial and a stair house.
+                Vector3 t = top + right * rng.Range(-width * 0.3f, width * 0.3f) + fwd * rng.Range(-depth * 0.3f, depth * 0.3f);
+                if (style == BuildingStyle.Brick || style == BuildingStyle.Stucco)
+                {
+                    metal.Box(t + Vector3.up * 1.2f, new Vector3(0.15f, 2.4f, 0.15f), rot, 0.5f);
+                    stone.Box(t + Vector3.up * 3.2f, new Vector3(2.4f, 2.2f, 2.4f), rot * Quaternion.Euler(0f, 45f, 0f), 0.5f);
+                }
+                metal.Box(top + right * (width * 0.3f) + Vector3.up * 2.5f, new Vector3(0.06f, 5f, 0.06f), rot, 0.5f);
+                stone.Box(top - right * (width * 0.25f) + Vector3.up * 1.3f, new Vector3(3f, 2.6f, 3.4f), rot, 0.5f);
+            }
+        }
 
         public void Finish()
         {

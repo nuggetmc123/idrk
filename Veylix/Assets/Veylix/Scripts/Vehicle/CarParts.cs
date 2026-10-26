@@ -11,6 +11,7 @@ namespace Veylix
     {
         public Material paint, rim, helmetPaint;
         public Texture2D livery;
+        public DriverBody driver;
         public Renderer[] bodyRenderers;
         public GameObject frontWingL, frontWingR, rearWing, helmet;
         public Transform steeringWheel, steeringWheelGrip, handbrakeLever, cockpitAnchor, eyePoint, chaseAnchor;
@@ -55,14 +56,36 @@ namespace Veylix
                 else if (w.visual != null) go = w.visual.gameObject;
             }
             if (go == null || !go.activeInHierarchy || go.transform.parent == null || go.transform.parent.GetComponentInParent<Car>() == null) return;
-            if (!saved.ContainsKey(go)) saved[go] = new Saved { parent = go.transform.parent, pos = go.transform.localPosition, rot = go.transform.localRotation };
+            Fling(go, car, p >= CarDamage.Part.SuspFL ? 22f : 9f);
+        }
 
+        /// Loose bits that can be knocked off in a crash (mirrors, bargeboards, small bodywork). Added by the model.
+        public readonly List<GameObject> looseBits = new List<GameObject>();
+
+        /// <summary>Knock some loose bits off; more, the harder the hit (0..1).</summary>
+        public void FlingBits(Car car, float strength)
+        {
+            int n = Mathf.RoundToInt(strength * 3f + Random.value);
+            for (int i = 0; i < n; i++)
+            {
+                GameObject pick = null;
+                foreach (var b in looseBits) if (b != null && b.activeInHierarchy && b.transform.parent != null && b.transform.parent.GetComponentInParent<Car>() != null && Random.value < 0.5f) { pick = b; break; }
+                if (pick == null) break;
+                Fling(pick, car, 2f);
+            }
+            if (strength > 0.3f) Fx.DebrisBurst(car.transform.position + Vector3.up * 0.4f, Vector3.up, strength, paint);
+        }
+
+        /// <summary>Detach a piece into a tumbling physics object (put back by RestoreAll).</summary>
+        void Fling(GameObject go, Car car, float mass)
+        {
+            if (!saved.ContainsKey(go)) saved[go] = new Saved { parent = go.transform.parent, pos = go.transform.localPosition, rot = go.transform.localRotation };
             Vector3 v = car.Body.GetPointVelocity(go.transform.position);
             go.transform.SetParent(null, true);
             Layers.SetRecursive(go, Layers.Debris);
             var rb = Obj.Need<Rigidbody>(go);
             rb.isKinematic = false;
-            rb.mass = p >= CarDamage.Part.SuspFL ? 22f : 9f;
+            rb.mass = mass;
             rb.linearVelocity = v + Random.insideUnitSphere * 3f + Vector3.up * 2f;
             rb.angularVelocity = Random.insideUnitSphere * 8f;
             rb.interpolation = RigidbodyInterpolation.Interpolate;

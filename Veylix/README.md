@@ -68,8 +68,14 @@ The game builds each map from code when you pick it, so tracks aren't separate s
 **Veylix > Preview a Track** to build any of the 25 maps in the Scene view, then go back to the game scene to drive.
 
 ## Crashes
-Damage changes handling. Big hits, and carrying too much speed into a corner (sliding sideways over kerbs, gravel or
-grass trips the car into a roll) can split the fuel cell, start a fire and sometimes end in an explosion.
+Damage changes handling. Carrying too much speed into a corner (sliding sideways over kerbs, gravel or grass) can trip
+the car into a roll. Touching wheels with another car can launch you into the air, and a hard hit in the side can
+knock a car over. Wings, wheels and mirrors break off and tumble away, and a violent crash can split the fuel cell,
+start a fire and sometimes end in an explosion. The AI cars crash the same way.
+
+## The driver
+Every car has a driver in a race suit in its team colours, with a six-point harness, legs out to the pedals and arms on
+the wheel. In your own cockpit the arms follow your hands, so looking down you see yourself driving.
 
 ## Content
 - **Circuits (15):**

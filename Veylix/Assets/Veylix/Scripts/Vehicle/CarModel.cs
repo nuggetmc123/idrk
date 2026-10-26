@@ -85,6 +85,9 @@ namespace Veylix
             parts.helmet = BuildHelmet(root, sh, car, parts);
             BuildMirrors(root, sh, parts, carbon);
             BuildSteeringWheel(root, sh, spec, parts, carbon, satin, metal);
+            // The driver after the wheel, so the hands start on the rim.
+            float recline = sh.modern ? 1f : sh.midera ? 0.65f : sh.classic ? 0f : spec.body == BodyStyle.Junior ? 0.7f : 0.2f;
+            parts.driver = DriverBody.Build(car, parts, root, sh.eyeY, sh.headZ, recline, setup.Primary(spec), setup.Secondary(spec));
             if (spec.hasHandbrake) BuildHandbrake(root, sh, parts, metal, satin);
 
             parts.eyePoint = new GameObject("EyePoint").transform;
@@ -751,7 +754,8 @@ namespace Veylix
                 k.Loft(0, new[] { new S(c.z + 0.07f, c.y, 0.07f, 0.03f, 3f, c.x), new S(c.z + 0.02f, c.y, 0.095f, 0.04f, 3.5f, c.x), new S(c.z - 0.02f, c.y, 0.1f, 0.042f, 4f, c.x) }, 20, 6, null, 0, 0);
                 // Stalk.
                 k.Tube(0, new[] { new Vector3(c.x - s * 0.02f, c.y - 0.03f, c.z + 0.02f), new Vector3(s * sh.tubHW * 0.95f, sh.rimY - 0.05f, c.z + 0.12f) }, 0.012f, 6);
-                MakeObject(root, "Mirror", k.Build("mirror"), new[] { carbon });
+                var mirrorGo = MakeObject(root, "Mirror", k.Build("mirror"), new[] { carbon });
+                parts.looseBits.Add(mirrorGo); // can be knocked off in a crash
                 // Glass faces backwards (shows the mirror camera).
                 var g = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 if (Application.isPlaying) Object.Destroy(g.GetComponent<Collider>()); else Object.DestroyImmediate(g.GetComponent<Collider>());
@@ -764,6 +768,7 @@ namespace Veylix
                 mr.sharedMaterial = glassMat;
                 mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 parts.mirrorGlass[i] = g.transform;
+                g.transform.SetParent(mirrorGo.transform, true); // the glass goes with the mirror if it's knocked off
             }
         }
 

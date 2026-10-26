@@ -17,6 +17,9 @@ namespace Veylix
         Vector3 pinPos;
         Quaternion pinRot;
 
+        /// Where the forearm meets the glove (the driver body's arms reach to here).
+        public Vector3 WristPosition => model != null ? model.TransformPoint(new Vector3(0f, 0f, -0.09f)) : transform.position;
+
         public static Glove Create(Transform hand, bool left)
         {
             var g = hand.gameObject.AddComponent<Glove>();

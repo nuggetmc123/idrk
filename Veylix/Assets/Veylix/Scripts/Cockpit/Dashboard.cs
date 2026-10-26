@@ -175,7 +175,14 @@ namespace Veylix
         {
             if (rear == null) return;
             frame++;
-            if (frame % 2 == 0) rear.Render();
+            // Every other frame (every third on Quest settings), and without redrawing shadow maps: a mirror doesn't need them.
+            if (frame % (Settings.Quality == 0 ? 3 : 2) == 0)
+            {
+                float sd = QualitySettings.shadowDistance;
+                QualitySettings.shadowDistance = 0f;
+                rear.Render();
+                QualitySettings.shadowDistance = sd;
+            }
         }
 
         void OnDestroy()

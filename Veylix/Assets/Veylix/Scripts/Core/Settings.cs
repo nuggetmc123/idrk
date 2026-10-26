@@ -43,7 +43,7 @@ namespace Veylix
         public static bool ShowTimingTower { get => I("tower", 1) == 1; set => SI("tower", value ? 1 : 0); }
 
         // Graphics: 0 Quest (standalone), 1 Balanced, 2 PC VR High
-        public static int Quality { get => I("quality", Application.isMobilePlatform ? 0 : 2); set { SI("quality", Mathf.Clamp(value, 0, 2)); } }
+        public static int Quality { get => I("quality", Application.isMobilePlatform ? 0 : 1); set { SI("quality", Mathf.Clamp(value, 0, 2)); } }
         public static int Mirrors { get => I("mirrors", Application.isMobilePlatform ? 1 : 2); set => SI("mirrors", Mathf.Clamp(value, 0, 2)); }
         public static float RenderScale { get => F("renderScale", 1f); set => SF("renderScale", Mathf.Clamp(value, 0.7f, 1.4f)); }
 

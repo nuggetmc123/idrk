@@ -34,8 +34,10 @@ namespace Veylix
         void Awake()
         {
             I = this;
-            Application.targetFrameRate = -1;
-            QualitySettings.vSyncCount = 0;
+            // VR: the headset sets the pace. Desktop: lock to the monitor so the GPU isn't drawing frames nobody sees.
+            bool xr = UnityEngine.XR.XRSettings.isDeviceActive;
+            Application.targetFrameRate = xr ? -1 : 90;
+            QualitySettings.vSyncCount = xr ? 0 : 1;
             Time.fixedDeltaTime = 1f / 120f;   // stiff F1 suspension needs a fine physics step
             Physics.defaultSolverIterations = 8;
             Physics.defaultSolverVelocityIterations = 2;
@@ -93,6 +95,19 @@ namespace Veylix
             QualitySettings.shadowDistance = Settings.Quality == 0 ? 60f : Settings.Quality == 1 ? 90f : 140f;
             QualitySettings.shadowCascades = Settings.Quality == 2 ? 2 : 1;
             QualitySettings.lodBias = Settings.Quality == 0 ? 0.8f : 1.2f;
+            // The project has no quality preset of its own, so set everything that costs frames explicitly
+            // (Unity's default "Ultra" level would use 4 shadow cascades, very high shadow maps and 4 pixel lights).
+            int q = Settings.Quality;
+            QualitySettings.pixelLightCount = q == 0 ? 1 : q == 1 ? 2 : 4;
+            QualitySettings.shadowResolution = q == 0 ? ShadowResolution.Low : q == 1 ? ShadowResolution.Medium : ShadowResolution.High;
+            QualitySettings.shadowProjection = ShadowProjection.StableFit;
+            QualitySettings.shadows = ShadowQuality.All;
+            QualitySettings.antiAliasing = q == 0 ? 2 : 4;
+            QualitySettings.softParticles = false;
+            QualitySettings.realtimeReflectionProbes = true;
+            QualitySettings.anisotropicFiltering = q == 0 ? AnisotropicFiltering.Disable : AnisotropicFiltering.Enable;
+            QualitySettings.skinWeights = SkinWeights.TwoBones;
+            QualitySettings.maxQueuedFrames = 2;
         }
 
         // ------------------------------------------------------------------ menu
