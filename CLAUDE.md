@@ -19,3 +19,7 @@
   `Veylix/Tools/make_project_zip.sh <scratchpad>/Veylix.zip` (project files at the zip root), plus `Veylix/Tools/make_unitypackage.py <scratchpad>/Veylix.unitypackage` as the fallback.
 - Type-check before pushing (Roslyn + Unity refs) and say it wasn't tested in Unity.
 - Its top menu is **Veylix** (Import Quest, Make APK, Import Multiplayer, Build Game World). Keep it separate from KartVR/Nullbound.
+
+## Unity project zips (all projects)
+- Unity Hub rejects a folder with only `ProjectSettings/ProjectVersion.txt` ("Please add a valid project").
+  Ship the full ProjectSettings set (see `Veylix/ProjectSettings`) and put Assets/Packages/ProjectSettings at the zip root.
