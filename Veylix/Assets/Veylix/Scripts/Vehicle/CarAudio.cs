@@ -157,11 +157,16 @@ namespace Veylix
             return (rnd & 0xFFFF) / 32768f - 1f;
         }
 
+        static bool Ok(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
+        static double Wrap(double ph) => double.IsNaN(ph) || double.IsInfinity(ph) ? 0.0 : ph - System.Math.Floor(ph);
+
         static float Sin(double ph)
         {
+            if (double.IsNaN(ph) || double.IsInfinity(ph)) return 0f;
             double f = ph - System.Math.Floor(ph);
             float x = (float)(f * Table);
             int i = (int)x;
+            if (i < 0) i = 0; else if (i >= Table) i = Table - 1; // f can round up to exactly 1
             float t = x - i;
             return sine[i] + (sine[i + 1] - sine[i]) * t;
         }
@@ -175,6 +180,18 @@ namespace Veylix
             float speed = pSpeed;
             float vol = pVolume;
             float doppler = pDoppler;
+            // Never let a bad value (a NaN from a wrecked car, a teleport) poison the synth state.
+            if (!Ok(targetRpm)) targetRpm = 1000f;
+            if (!Ok(targetLoad)) targetLoad = 0f;
+            if (!Ok(speed)) speed = 0f;
+            if (!Ok(vol)) vol = 0f;
+            if (!Ok(doppler)) doppler = 1f;
+            if (!Ok(smoothRpm)) smoothRpm = 3000f;
+            if (!Ok(smoothLoad)) smoothLoad = 0f;
+            if (!Ok(smoothVol)) smoothVol = 0f;
+            phase = Wrap(phase); turboPhase = Wrap(turboPhase); kerbPhase = Wrap(kerbPhase);
+            if (!Ok(lp1) || !Ok(lp2) || !Ok(bp1) || !Ok(bp2) || !Ok(windLp) || !Ok(rumbleLp) || !Ok(hp) || !Ok(squealPhase) || !Ok(crackle) || !Ok(gearThump))
+                lp1 = lp2 = bp1 = bp2 = windLp = rumbleLp = hp = squealPhase = crackle = gearThump = 0f;
             int n = data.Length / channels;
             for (int s = 0; s < n; s++)
             {

@@ -24,6 +24,8 @@ namespace Veylix
 
         Light sun, moon;
         Material skyMat;
+        bool ownSky;
+        MapDef skyMap;
         ReflectionProbe probe;
         ParticleSystem rain;
         Transform rainFollow;
@@ -51,7 +53,15 @@ namespace Veylix
             RenderSettings.sun = sun;
 
             var A = VXAssets.I;
-            skyMat = A != null && A.skybox != null ? new Material(A.skybox) : new Material(Shader.Find("Skybox/Procedural"));
+            // Our own sky (gradient, sun, moon, stars, moving clouds); Unity's procedural sky if it isn't available.
+            var veylixSky = A != null && A.skybox != null && A.skybox.shader != null && A.skybox.shader.name == "Veylix/Sky" ? A.skybox.shader : Shader.Find("Veylix/Sky");
+            if (veylixSky != null && veylixSky.isSupported)
+            {
+                skyMat = new Material(veylixSky) { name = "Sky" };
+                skyMat.SetTexture("_CloudTex", CloudNoise());
+                ownSky = true;
+            }
+            else skyMat = A != null && A.skybox != null ? new Material(A.skybox) : new Material(Shader.Find("Skybox/Procedural"));
             RenderSettings.skybox = skyMat;
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.fog = true;
@@ -94,6 +104,16 @@ namespace Veylix
             dynamicWeather = dynamicWx;
             latitudeTilt = map.biome == Biome.Tropical || map.biome == Biome.Gulf || map.biome == Biome.Desert ? 18f : map.biome == Biome.Snow ? 55f : 38f;
             sunAzimuth = 90f + map.seed % 60;
+            skyMap = map;
+            if (ownSky)
+            {
+                // Each map gets its own cloudscape and wind.
+                var rng = new System.Random(map.seed);
+                skyMat.SetVector("_CloudOffset", new Vector4((float)rng.NextDouble() * 10f, (float)rng.NextDouble() * 10f, 0f, 0f));
+                float a = (float)rng.NextDouble() * Mathf.PI * 2f;
+                skyMat.SetVector("_CloudSpeed", new Vector4(Mathf.Cos(a) * 0.0035f, Mathf.Sin(a) * 0.0035f, 0f, 0f));
+                skyMat.SetFloat("_CloudScale", 0.28f + (float)rng.NextDouble() * 0.14f);
+            }
             ApplyWeatherTargets(true);
             Env.Wetness = rainTarget > 0.1f ? Mathf.Clamp01(rainTarget * 1.2f) : 0f;
             Env.Rain = rainTarget;
@@ -209,8 +229,9 @@ namespace Veylix
             moon.intensity = (1f - day) * 0.16f * Mathf.Lerp(1f, 0.4f, overcast);
             moon.enabled = moon.intensity > 0.005f;
 
+            if (ownSky) PaintSky(day, golden, overcast);
             // Procedural sky: thicker atmosphere at sunset, grey under cloud.
-            if (skyMat != null)
+            else if (skyMat != null)
             {
                 if (skyMat.HasProperty("_AtmosphereThickness")) skyMat.SetFloat("_AtmosphereThickness", Mathf.Lerp(0.85f, 1.45f, golden) + overcast * 0.6f);
                 if (skyMat.HasProperty("_SkyTint")) skyMat.SetColor("_SkyTint", Color.Lerp(new Color(0.48f, 0.53f, 0.6f), new Color(0.55f, 0.56f, 0.58f), overcast));
@@ -247,6 +268,88 @@ namespace Veylix
             }
             float exposure = Mathf.Lerp(0.25f, 1f, day);
             RenderSettings.reflectionIntensity = Mathf.Lerp(0.35f, 1f, day);
+        }
+
+        /// <summary>Colours of our sky for this moment: day, golden hour and night blended, greyed by cloud.</summary>
+        void PaintSky(float day, float golden, float overcast)
+        {
+            var biome = skyMap != null ? skyMap.biome : Biome.Parkland;
+            bool desert = biome == Biome.Desert || biome == Biome.Gulf;
+            bool neon = biome == Biome.Neon || biome == Biome.CityNight;
+            Color zenDay = desert ? new Color(0.22f, 0.42f, 0.74f) : new Color(0.16f, 0.34f, 0.7f);
+            Color horDay = desert ? new Color(0.82f, 0.8f, 0.72f) : new Color(0.62f, 0.75f, 0.9f);
+            Color zenNight = neon ? new Color(0.03f, 0.015f, 0.06f) : new Color(0.004f, 0.008f, 0.022f);
+            Color horNight = neon ? new Color(0.16f, 0.06f, 0.2f) : new Color(0.025f, 0.035f, 0.07f);
+            Color zen = Color.Lerp(zenNight, zenDay, day);
+            Color hor = Color.Lerp(horNight, horDay, day);
+            // Sunrise and sunset: a warm horizon under a deepening blue.
+            zen = Color.Lerp(zen, new Color(0.22f, 0.27f, 0.5f), golden * 0.6f);
+            hor = Color.Lerp(hor, new Color(1f, 0.56f, 0.32f), golden * 0.85f);
+            Color grey = new Color(0.56f, 0.59f, 0.63f) * Mathf.Lerp(0.07f, 1f, day);
+            float g = overcast * 0.85f;
+            zen = Color.Lerp(zen, grey * 0.9f, g);
+            hor = Color.Lerp(hor, grey, g);
+            skyMat.SetColor("_Zenith", zen);
+            skyMat.SetColor("_Horizon", hor);
+            skyMat.SetColor("_Ground", Color.Lerp(hor * 0.55f, new Color(0.3f, 0.3f, 0.3f) * day, 0.5f));
+            skyMat.SetVector("_SunDir", -sun.transform.forward);
+            skyMat.SetVector("_MoonDir", -moon.transform.forward);
+            skyMat.SetColor("_SunColor", Color.Lerp(new Color(1f, 0.95f, 0.88f), new Color(1f, 0.55f, 0.28f), golden));
+            skyMat.SetFloat("_SunGlow", Mathf.Clamp01(day * 1.5f) * Mathf.Lerp(1f, 0.25f, overcast));
+            skyMat.SetFloat("_Night", Mathf.Clamp01(1f - day * 1.6f) * (1f - overcast * 0.85f));
+            // Clouds: a few fair-weather clouds on a clear day up to a closed grey sheet in heavy rain.
+            skyMat.SetFloat("_CloudCover", Mathf.Lerp(0.36f, 0.97f, overcast));
+            Color lit = Color.Lerp(new Color(0.07f, 0.08f, 0.1f), Color.white, day);
+            lit = Color.Lerp(lit, new Color(1f, 0.72f, 0.52f), golden * 0.7f);
+            Color shade = Color.Lerp(new Color(0.03f, 0.035f, 0.045f), new Color(0.6f, 0.64f, 0.7f), day);
+            shade = Color.Lerp(shade, shade * 0.75f, overcast);
+            lit = Color.Lerp(lit, grey * 1.1f, overcast * 0.6f);
+            if (neon) { lit = Color.Lerp(lit, new Color(0.35f, 0.18f, 0.4f), 1f - day); shade = Color.Lerp(shade, new Color(0.12f, 0.05f, 0.15f), 1f - day); }
+            skyMat.SetColor("_CloudLit", lit);
+            skyMat.SetColor("_CloudShade", shade);
+            skyMat.SetFloat("_Haze", Mathf.Lerp(0.35f, 0.9f, Mathf.Max(Env.Fog, desert ? 0.5f : 0f)));
+        }
+
+        static Texture2D cloudNoise;
+
+        /// A tiling cloud texture: several octaves of smooth value noise, wrapped so it repeats seamlessly.
+        static Texture2D CloudNoise()
+        {
+            if (cloudNoise != null) return cloudNoise;
+            const int N = 256;
+            var px = new Color32[N * N];
+            var rng = new System.Random(1234);
+            int[] cells = { 4, 8, 16, 32, 64 };
+            float[] amp = { 0.5f, 0.25f, 0.13f, 0.07f, 0.05f };
+            var grids = new float[cells.Length][];
+            for (int o = 0; o < cells.Length; o++)
+            {
+                grids[o] = new float[cells[o] * cells[o]];
+                for (int i = 0; i < grids[o].Length; i++) grids[o][i] = (float)rng.NextDouble();
+            }
+            for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    float v = 0f;
+                    for (int o = 0; o < cells.Length; o++)
+                    {
+                        int c = cells[o];
+                        float fx = x / (float)N * c, fy = y / (float)N * c;
+                        int x0 = (int)fx, y0 = (int)fy;
+                        float tx = fx - x0, ty = fy - y0;
+                        tx = tx * tx * (3f - 2f * tx); ty = ty * ty * (3f - 2f * ty);
+                        var g = grids[o];
+                        float a = g[(y0 % c) * c + x0 % c], b = g[(y0 % c) * c + (x0 + 1) % c];
+                        float d = g[((y0 + 1) % c) * c + x0 % c], e = g[((y0 + 1) % c) * c + (x0 + 1) % c];
+                        v += Mathf.Lerp(Mathf.Lerp(a, b, tx), Mathf.Lerp(d, e, tx), ty) * amp[o];
+                    }
+                    byte b8 = (byte)Mathf.Clamp(Mathf.RoundToInt(v * 255f), 0, 255);
+                    px[y * N + x] = new Color32(b8, b8, b8, 255);
+                }
+            cloudNoise = new Texture2D(N, N, TextureFormat.RGBA32, true) { name = "Cloud noise", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear, anisoLevel = 2 };
+            cloudNoise.SetPixels32(px);
+            cloudNoise.Apply(true);
+            return cloudNoise;
         }
 
         void UpdateRain()

@@ -147,7 +147,7 @@ namespace Veylix
             SetStatus(onMyTrack ? "Searching for drivers on " + MapCatalog.Get(Game.I.config.map).name + "..." : "Searching for a race...");
             var args = Args(null, false);
             if (!onMyTrack) args.SessionProperties = null; // no filter: any open race (we create one on our track if there's none)
-            var r = await Start(args);
+            var r = await Connect(args);
             if (r != null && r.Ok) AfterJoin();
         }
 
@@ -163,7 +163,7 @@ namespace Veylix
         {
             if (!Available || Busy) return;
             PartyCode = "";
-            var r = await Start(new StartGameArgs
+            var r = await Connect(new StartGameArgs
             {
                 GameMode = Fusion.GameMode.Shared,
                 SessionNameGenerator = () => LobbyPrefix + NewCode(false),
@@ -214,7 +214,7 @@ namespace Veylix
             {
                 string code = NewPartyCode();
                 SetStatus("Creating a party...");
-                var r = await Start(PartyArgs(code));
+                var r = await Connect(PartyArgs(code));
                 if (r == null || !r.Ok) return;
                 if (Runner.ActivePlayers.Count() <= 1) { PartyCode = code; handledGo = ""; SetStatus("Party " + Format(code) + " is open. Give friends the code."); return; }
                 await Shutdown();
@@ -234,7 +234,7 @@ namespace Veylix
         async Task JoinParty(string code)
         {
             SetStatus("Joining party " + Format(code) + "...");
-            var r = await Start(PartyArgs(code));
+            var r = await Connect(PartyArgs(code));
             if (r == null || !r.Ok) return;
             PartyCode = code;
             // Don't follow a race the party already left for.
@@ -275,7 +275,7 @@ namespace Veylix
             PartyCode = party; // remembered: back to the party after the race
             Game.I.config.map = map;
             Game.I.config.laps = laps;
-            var r = await Start(Args(sessionName, !visible));
+            var r = await Connect(Args(sessionName, !visible));
             if (r != null && r.Ok) AfterJoin();
         }
 
@@ -302,7 +302,7 @@ namespace Veylix
             {
                 string code = NewCode(true);
                 SetStatus("Creating a private room...");
-                var r = await Start(Args(PrivatePrefix + code, true));
+                var r = await Connect(Args(PrivatePrefix + code, true));
                 if (r == null || !r.Ok) return;
                 if (Runner.ActivePlayers.Count() <= 1) { AfterJoin(); return; }
                 await Shutdown(); // code already in use
@@ -318,7 +318,7 @@ namespace Veylix
             PartyCode = "";
             bool isPrivate = code[0] >= '5';
             SetStatus("Joining " + Format(code) + "...");
-            var r = await Start(Args((isPrivate ? PrivatePrefix : PublicPrefix) + code, isPrivate));
+            var r = await Connect(Args((isPrivate ? PrivatePrefix : PublicPrefix) + code, isPrivate));
             if (r == null || !r.Ok) return;
             if (Runner.ActivePlayers.Count() <= 1)
             {
@@ -329,7 +329,7 @@ namespace Veylix
             AfterJoin();
         }
 
-        async Task<StartGameResult> Start(StartGameArgs args)
+        async Task<StartGameResult> Connect(StartGameArgs args) // not "Start": Unity would treat that as its Start message
         {
             Busy = true;
             try

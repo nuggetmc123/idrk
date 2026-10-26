@@ -435,8 +435,7 @@ namespace Veylix
             if (fence != null)
             {
                 // Double-sided look comes from the material (cull off); add a simple collider so a flying car is caught.
-                var mc = fence.AddComponent<MeshCollider>();
-                mc.sharedMesh = fence.GetComponent<MeshFilter>().sharedMesh;
+                Obj.SafeMeshCollider(fence, fence.GetComponent<MeshFilter>().sharedMesh);
             }
         }
     }

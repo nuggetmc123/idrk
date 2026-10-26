@@ -88,11 +88,7 @@ namespace Veylix
             var r = go.AddComponent<MeshRenderer>();
             r.sharedMaterial = mat;
             r.shadowCastingMode = shadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
-            if (collider)
-            {
-                var mc = go.AddComponent<MeshCollider>();
-                mc.sharedMesh = mesh;
-            }
+            if (collider) Obj.SafeMeshCollider(go, mesh);
             if (surface.HasValue) go.AddComponent<Surface>().type = surface.Value;
             go.isStatic = true;
             Clear();

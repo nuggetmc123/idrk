@@ -19,7 +19,7 @@ namespace Veylix.EditorTools
         public const string Root = "Assets/Veylix";
         public const string Gen = Root + "/Generated";
         public const string ScenePath = Root + "/Scenes/Veylix.unity";
-        public const int WorldVersion = 6;
+        public const int WorldVersion = 7;
         const string VersionFile = "ProjectSettings/VeylixWorldVersion.txt";
 
         public static bool WorldUpToDate => File.Exists(VersionFile) && File.ReadAllText(VersionFile).Trim() == WorldVersion.ToString() && File.Exists(ScenePath);
@@ -494,7 +494,9 @@ namespace Veylix.EditorTools
             a.stars = a.lightWhite;
 
             // ---- sky
-            var sky = Load("Sky", Shader.Find("Skybox/Procedural"));
+            // Our sky shader (referenced here so it's always in builds); Unity's procedural sky if it can't be found.
+            var skyShader = Shader.Find("Veylix/Sky");
+            var sky = Load("Sky", skyShader != null && skyShader.isSupported ? skyShader : Shader.Find("Skybox/Procedural"));
             sky.SetFloat("_SunDisk", 2f);
             sky.SetFloat("_SunSize", 0.035f);
             sky.SetFloat("_SunSizeConvergence", 6f);
