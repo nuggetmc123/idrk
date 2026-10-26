@@ -33,6 +33,7 @@ Use `Veylix.unitypackage` instead:
 | **Make APK (Quest)** | Builds `Builds/Veylix.apk`, ready to sideload or upload. |
 | **Import Multiplayer (Photon Fusion)** | Imports Photon Fusion 2 and asks for your App ID. Until Fusion is imported, an offline stand-in keeps everything compiling. |
 | **Build Game World** | Regenerates every texture, material, prefab and the main scene. |
+| **Preview a Track** | Builds any of the 25 maps in the editor so you can look around it. |
 | **Check Multiplayer** | Shows whether real Fusion or the offline stand-in is active, and repairs the setup. |
 | **Signing ›** | Choose the keystore used for store uploads. |
 
@@ -50,6 +51,25 @@ Use `Veylix.unitypackage` instead:
 - **E/Shift** shifts up and **Q/Ctrl** shifts down, and **Space** is the handbrake.
 - Hold **R** to reset, press **C** for the chase camera and **Esc** to pause.
 - Gamepads work too.
+
+## Your garage (the hub)
+When you're not driving you're in your own garage: your car on a turntable under spotlights, a workbench and tool
+wall, a tyre rack, a wall with all 25 tracks, your trophies and career stats, and the roller door out to the track.
+Walk around (left stick or WASD; right stick or Q/E turns) and point at the stations:
+**CUSTOMISE** (by the car: paint, livery, number, wheels, wings, tyres, brakes, suspension, changes show live on the
+car), **CHOOSE A TRACK**, **DRIVE** (every mode) and **MENU**. The menu button hides or brings back the menu.
+
+## Loading screens
+A splash screen while your garage is built at start-up, and before every session a loading screen with the track
+drawn as a live outline, the session details (mode, car, laps, time, weather), progress and tips.
+
+## Seeing the tracks in the editor
+The game builds each map from code when you pick it, so tracks aren't separate scene files. Use
+**Veylix > Preview a Track** to build any of the 25 maps in the Scene view, then go back to the game scene to drive.
+
+## Crashes
+Damage changes handling. Big hits, and carrying too much speed into a corner (sliding sideways over kerbs, gravel or
+grass trips the car into a roll) can split the fuel cell, start a fire and sometimes end in an explosion.
 
 ## Content
 - **Circuits (15):**

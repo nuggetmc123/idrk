@@ -52,9 +52,39 @@ namespace Veylix
             world = new GameObject("World").AddComponent<World>();
             menus = new GameObject("Menus").AddComponent<Menus>();
             hud = new GameObject("Hud").AddComponent<Hud>();
-            yield return null;
+            yield return Boot();
             EnterMenu();
             if (Online.I != null) Online.I.Boot();
+        }
+
+        /// Splash screen in the dark while your garage and car are built, then a fade into the garage.
+        IEnumerator Boot()
+        {
+            state = State.Loading;
+            rig.FadeInstant(1f);
+            rig.SetVoid(true);
+            rig.StandAt(new Vector3(0f, 5000f, 0f), Quaternion.identity);
+            yield return null;
+            menus.ShowSplash();
+            rig.FadeTo(0f);
+            float t0 = Time.realtimeSinceStartup;
+            menus.SetSplashProgress(0.1f, "Starting up");
+            yield return new WaitForSecondsRealtime(0.6f);
+            menus.SetSplashProgress(0.35f, "Building your garage");
+            yield return null;
+            if (showroom == null) showroom = new GameObject("Showroom").AddComponent<Showroom>();
+            showroom.gameObject.SetActive(false);
+            menus.SetSplashProgress(0.7f, "Rolling your car out");
+            yield return null;
+            menus.SetSplashProgress(0.9f, "Warming the tyres");
+            while (Time.realtimeSinceStartup - t0 < 2.8f) yield return null;
+            menus.SetSplashProgress(1f, "Ready");
+            yield return new WaitForSecondsRealtime(0.3f);
+            rig.FadeTo(1f);
+            float t = 0f;
+            while (!rig.Faded && t < 1.5f) { t += Time.unscaledDeltaTime; yield return null; }
+            menus.Hide();
+            rig.SetVoid(false);
         }
 
         public static void ApplyRenderScale()
@@ -79,7 +109,9 @@ namespace Veylix
             showroom.Show(config.car);
             sky.Configure(MapCatalog.Get(0), 16.5f, WeatherKind.Clear, false, false);
             RenderSettings.fogDensity = 0f;
-            rig.StandAt(showroom.standPoint, Quaternion.identity);
+            var entrance = showroom.SpotPose(Showroom.Spot.Entrance);
+            rig.StandAt(entrance.position, entrance.rotation);
+            rig.walkArea = showroom.WalkArea;
             menus.ShowMain();
             hud.Hide();
             rig.FadeTo(0f);
@@ -99,6 +131,7 @@ namespace Veylix
         IEnumerator Load(SessionConfig cfg)
         {
             state = State.Loading;
+            rig.walkArea = null;
             rig.FadeTo(1f);
             float t = 0f;
             while (!rig.Faded && t < 1.5f) { t += Time.unscaledDeltaTime; yield return null; }
@@ -109,13 +142,16 @@ namespace Veylix
             var map = MapCatalog.Get(cfg.map);
             // Loading room: a dark space with the progress panel in front of you.
             rig.StandAt(new Vector3(0f, 5000f, 0f), Quaternion.identity);
+            rig.SetVoid(true);
             menus.ShowLoading(map);
             rig.FadeTo(0f);
             yield return world.Build(map);
-            menus.Hide();
+            yield return new WaitForSecondsRealtime(0.4f); // let 100% show for a moment
             rig.FadeTo(1f);
             t = 0f;
             while (!rig.Faded && t < 1.5f) { t += Time.unscaledDeltaTime; yield return null; }
+            menus.Hide();
+            rig.SetVoid(false);
             SpawnSession(cfg, map);
             rig.FadeTo(0f);
         }
@@ -260,6 +296,8 @@ namespace Veylix
             else if (state == State.Results || state == State.Menu)
             {
                 if (InputHub.MenuPressed && state == State.Results) menus.ShowResults(session);
+                // In the garage the menu button puts the menu away (to walk around) or brings it back in front of you.
+                else if (InputHub.MenuPressed && state == State.Menu) { if (menus.Showing) menus.Hide(); else menus.ShowMain(); }
             }
             if (state != State.Session || playerCar == null) return;
 

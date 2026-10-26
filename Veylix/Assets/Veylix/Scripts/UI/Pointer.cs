@@ -63,7 +63,8 @@ namespace Veylix
                 ray = rig.cam.ScreenPointToRay(InputHub.Ms.position.ReadValue());
                 down = InputHub.Ms.leftButton.wasPressedThisFrame; held = InputHub.Ms.leftButton.isPressed; up = InputHub.Ms.leftButton.wasReleasedThisFrame;
             }
-            if (!MenuActive) { Hide(); return; }
+            bool inHub = Game.I != null && Game.I.state == Game.State.Menu;
+            if (!MenuActive && !inHub) { Hide(); return; }
 
             VElement hit = null;
             Vector3 point = ray.origin + ray.direction * Range;

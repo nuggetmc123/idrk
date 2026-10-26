@@ -44,8 +44,8 @@ namespace Veylix.EditorTools
 
         public static string ReadyMessage() =>
             "Veylix is ready. Press Play.\n\n" +
-            "In VR (Quest Link / SteamVR): squeeze the grip on the steering wheel rim to hold it, right trigger = throttle, left trigger = brake, A/B shift up, X/Y shift down, menu button = pause, hold both sticks = recenter.\n\n" +
-            "No headset? W/A/S/D or arrows drive, E/Q shift, Space handbrake, C chase camera, hold right mouse to look, Esc pause, R (hold) reset car. A gamepad works too.\n\n" +
+            "In VR (Quest Link / SteamVR): squeeze the grip on the steering wheel rim to hold it, right trigger = throttle, left trigger = brake, A shifts up, X/Y shift down, hold B = reset car, menu button = pause, hold both sticks = recenter. In your garage: left stick walks, right stick turns, point and pull the trigger on the stations.\n\n" +
+            "No headset? In the garage WASD walks, Q/E turn, click the stations. Driving: W/A/S/D or arrows, E/Q shift, Space handbrake, C chase camera, hold right mouse to look, Esc pause, R (hold) reset car. A gamepad works too.\n\n" +
             (Online.Available ? "Online play is ON (set your Photon App ID with Veylix > Import Multiplayer)." : "Online play is off until you import Photon Fusion 2 (Veylix > Import Multiplayer). Everything else works offline.");
 
         public static void BuildWorld()

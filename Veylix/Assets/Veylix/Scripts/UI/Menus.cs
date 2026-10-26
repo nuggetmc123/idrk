@@ -56,11 +56,14 @@ namespace Veylix
             fwd.Normalize();
             if (!inSession && G != null && G.state == Game.State.Menu)
             {
-                // In the garage: a fixed spot in front of where you stand, at a comfortable height.
-                Vector3 basePos = rig.transform.position;
-                float eye = rig.IsXR ? Mathf.Max(1.1f, rig.head.position.y - basePos.y) : 1.6f;
-                panel.position = basePos + rig.transform.forward * 1.0f + Vector3.up * (eye - 0.18f);
-                panel.rotation = Quaternion.LookRotation(rig.transform.forward, Vector3.up);
+                // In your garage: in front of where you're looking, off to the left so the car stays in view.
+                Vector3 basePos = new Vector3(headPos.x, rig.transform.position.y, headPos.z);
+                float eye = rig.IsXR ? Mathf.Max(1.1f, rig.head.position.y - rig.transform.position.y) : 1.6f;
+                Vector3 right = Vector3.Cross(Vector3.up, fwd);
+                Vector3 pos = basePos + fwd * 0.95f - right * hubSideOffset + Vector3.up * (eye - 0.18f);
+                Vector3 face = pos - new Vector3(headPos.x, pos.y, headPos.z);
+                panel.position = pos;
+                panel.rotation = Quaternion.LookRotation(face.sqrMagnitude > 0.01f ? face.normalized : fwd, Vector3.up);
             }
             else
             {
@@ -77,8 +80,29 @@ namespace Veylix
             Layers.SetRecursive(panel.gameObject, Layers.UI);
         }
 
+        float hubSideOffset = 0.42f;
+        public bool Showing => Pointer.MenuActive;
+
+        // ------------------------------------------------------------------ garage hub stations
+
+        /// CUSTOMISE station: step up beside the car and open the Garage.
+        public void OpenGarage()
+        {
+            if (G.showroom != null) G.showroom.GoTo(Showroom.Spot.Customise);
+            hubSideOffset = 0.55f;
+            ShowGarage();
+            hubSideOffset = 0.42f;
+        }
+
+        /// CHOOSE A TRACK station: straight to the map grid (then session setup and Start).
+        public void OpenMapSelection() => PickMap(GameMode.QuickRace);
+
+        /// DRIVE station by the roller door: every mode.
+        public void OpenDrive() => ShowModes(true);
+
         public void Hide()
         {
+            loadingBar = null; loadingDot = null; loadingTip = null; splash = false;
             VUI.Clear(panel);
             Pointer.MenuActive = false;
         }
@@ -622,39 +646,178 @@ namespace Veylix
 
         // ------------------------------------------------------------------ loading
 
-        TextMeshPro loadingStage;
+        TextMeshPro loadingStage, loadingTip, loadingPct;
         MeshRenderer loadingBar;
+        Transform loadingDot;
+        Vector3[] loadingPath;
+        float loadingStart, tipAt;
+        int tipIndex;
+        float loadingBarW, loadingBarX;
+        bool splash;
 
+        static readonly string[] Tips =
+        {
+            "Squeeze the grip on the rim to hold the steering wheel. Use both hands for precise inputs.",
+            "Brake in a straight line, then ease off the brake as you turn in.",
+            "Cold tyres and brakes grip less. Build heat over the first lap.",
+            "Hold B (or R) for a second to put the car back on track.",
+            "Wet track? Inters or full wets in the Garage, and brake much earlier.",
+            "A shifts up, X or Y shifts down. Or turn on automatic gears in Settings.",
+            "Too fast into a corner and sideways over a kerb? The car can trip and roll.",
+            "Gravel and grass grab the tyres. Run wide there and you can flip.",
+            "A split fuel cell can catch fire. Get the car stopped and off the racing line.",
+            "Low wing for the straights, high wing for the corners. Set it in CUSTOMISE.",
+            "Watch your mirrors. The AI gives you room when you're alongside.",
+            "Yellow flags mean slow down, no overtaking. The AI respects them too.",
+            "Your garage: walk with the left stick, snap-turn with the right.",
+        };
+
+        /// <summary>Boot splash in a dark void while the garage is built.</summary>
+        public void ShowSplash()
+        {
+            Begin(null, null, true, 1.0f, 0.5f);
+            Pointer.MenuActive = false;
+            splash = true;
+            VUI.Clear(panel); // no panel card: just the logotype floating in the dark
+            Place(true);
+            var t = Lbl("VEYLIX", 0f, 0.07f, 2.2f, VUI.Text, TextAlignmentOptions.Midline, true, 1.0f);
+            t.characterSpacing = 30f;
+            Lbl("FORMULA RACING  -  VR", 0f, -0.03f, 0.3f, VUI.Accent, TextAlignmentOptions.Midline, true, 1.0f).characterSpacing = 10f;
+            loadingBarW = 0.5f; loadingBarX = 0f;
+            VUI.Quad(panel, "track", new Vector2(0f, -0.1f), new Vector2(loadingBarW, 0.004f), new Color(1f, 1f, 1f, 0.1f), -0.001f, 0.002f);
+            loadingBar = VUI.Quad(panel, "bar", new Vector2(0f, -0.1f), new Vector2(loadingBarW, 0.004f), VUI.Accent, -0.002f, 0.002f);
+            loadingStage = Lbl("", 0f, -0.13f, 0.2f, VUI.TextDim, TextAlignmentOptions.Midline, false, 1.0f);
+            loadingPct = null; loadingTip = null; loadingDot = null; loadingPath = null;
+            loadingStart = Time.unscaledTime;
+        }
+
+        public void SetSplashProgress(float p, string stage)
+        {
+            if (!splash || loadingBar == null) return;
+            SetBar(p);
+            if (loadingStage != null) loadingStage.text = stage.ToUpperInvariant();
+        }
+
+        void SetBar(float p)
+        {
+            p = Mathf.Clamp01(p);
+            loadingBar.transform.localScale = new Vector3(Mathf.Max(0.01f, p), 1f, 1f);
+            var lp = loadingBar.transform.localPosition;
+            loadingBar.transform.localPosition = new Vector3(loadingBarX - loadingBarW * 0.5f * (1f - p), lp.y, lp.z);
+        }
+
+        /// <summary>
+        /// Loading a map: the track drawn as a live outline with a marker lapping it, the session you're about to
+        /// drive, a progress bar with what's being built, and a new tip every few seconds.
+        /// </summary>
         public void ShowLoading(MapDef m)
         {
-            Begin(m.name.ToUpperInvariant(), m.location + "   |   " + m.KindLabel, true, 0.9f, 0.42f);
+            splash = false;
+            const float w = 1.2f, h = 0.62f;
+            Begin(null, null, true, w, h);
             Pointer.MenuActive = false;
-            var tex = Preview(m.index);
-            if (tex != null) VUI.Quad(panel, "img", new Vector2(-0.22f, -0.01f), new Vector2(0.36f, 0.22f), Color.white, 0f, 0.008f, tex);
-            Lbl(m.blurb, 0.0f, 0.07f, 0.22f, VUI.TextDim, TextAlignmentOptions.TopLeft, false, 0.4f);
-            VUI.Quad(panel, "track", new Vector2(0f, -0.17f), new Vector2(0.82f, 0.008f), new Color(1f, 1f, 1f, 0.1f), -0.001f, 0.004f);
-            loadingBar = VUI.Quad(panel, "bar", new Vector2(0f, -0.17f), new Vector2(0.82f, 0.008f), VUI.Accent, -0.002f, 0.004f);
-            loadingStage = Lbl("", -0.41f, -0.145f, 0.2f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.6f);
-            string[] tips =
+            // Left: the track outline.
+            VUI.Quad(panel, "mapbg", new Vector2(-0.3f, 0.04f), new Vector2(0.54f, 0.44f), VUI.PanelLight, 0.001f, 0.012f);
+            loadingPath = OutlinePath(m, new Vector2(-0.3f, 0.04f), new Vector2(0.46f, 0.36f));
+            var lineGo = new GameObject("outline");
+            lineGo.layer = Layers.UI;
+            lineGo.transform.SetParent(panel, false);
+            var lr = lineGo.AddComponent<LineRenderer>();
+            lr.useWorldSpace = false;
+            lr.loop = !m.freeRoam;
+            lr.positionCount = loadingPath.Length;
+            lr.SetPositions(loadingPath);
+            lr.startWidth = lr.endWidth = 0.006f;
+            lr.numCornerVertices = 2;
+            lr.sharedMaterial = new Material(Shader.Find("Veylix/UI") ?? Shader.Find("Sprites/Default"));
+            lr.startColor = lr.endColor = new Color(0.95f, 0.95f, 0.94f, 0.9f);
+            lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            loadingDot = VUI.Quad(panel, "dot", Vector2.zero, new Vector2(0.018f, 0.018f), VUI.Accent, -0.006f, 0.009f).transform;
+            if (loadingPath.Length > 0) { var s0 = loadingPath[0]; VUI.Quad(panel, "start", new Vector2(s0.x, s0.y), new Vector2(0.008f, 0.03f), VUI.Text, -0.005f, 0.002f); }
+            Lbl(m.KindLabel + "   |   " + EstimateKm(m).ToString("0.0") + " KM", -0.55f, -0.215f, 0.2f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.5f).characterSpacing = 3f;
+
+            // Right: what you're about to drive.
+            float x = 0.02f;
+            var cfg = G != null ? G.config : new SessionConfig();
+            Lbl("LOADING", x, 0.26f, 0.22f, VUI.Accent, TextAlignmentOptions.MidlineLeft, true, 0.5f).characterSpacing = 8f;
+            Lbl(m.name.ToUpperInvariant(), x, 0.2f, 0.6f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.56f);
+            Lbl(m.location, x, 0.145f, 0.26f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.56f);
+            Lbl(m.blurb, x, 0.1f, 0.2f, VUI.TextDim, TextAlignmentOptions.TopLeft, false, 0.55f);
+            float hour = cfg.Hour(m);
+            string rows =
+                "MODE        " + ModeName(cfg.mode).ToUpperInvariant() + "\n" +
+                "CAR         " + CarCatalog.Get(cfg.car).name.ToUpperInvariant() + "\n" +
+                (m.freeRoam || cfg.mode == GameMode.TimeTrial || cfg.mode == GameMode.Practice ? "" : "LAPS        " + (cfg.laps > 0 ? cfg.laps : m.laps) + "\n") +
+                "TIME        " + Mathf.FloorToInt(hour).ToString("00") + ":" + Mathf.RoundToInt(Mathf.Repeat(hour, 1f) * 60f).ToString("00") + "\n" +
+                "WEATHER     " + Sky.WeatherName(cfg.Weather(m)).ToUpperInvariant();
+            Lbl(rows, x, -0.03f, 0.22f, VUI.Text, TextAlignmentOptions.TopLeft, true, 0.56f);
+
+            // Bottom: progress and tips.
+            loadingBarW = w - 0.1f; loadingBarX = 0f;
+            VUI.Quad(panel, "track", new Vector2(0f, -0.255f), new Vector2(loadingBarW, 0.006f), new Color(1f, 1f, 1f, 0.1f), -0.001f, 0.003f);
+            loadingBar = VUI.Quad(panel, "bar", new Vector2(0f, -0.255f), new Vector2(loadingBarW, 0.006f), VUI.Accent, -0.002f, 0.003f);
+            loadingStage = Lbl("", -w * 0.5f + 0.05f, -0.233f, 0.19f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.6f);
+            loadingPct = Lbl("0%", w * 0.5f - 0.05f, -0.233f, 0.19f, VUI.Text, TextAlignmentOptions.MidlineRight, true, 0.2f);
+            loadingTip = Lbl("", -w * 0.5f + 0.05f, -0.285f, 0.18f, VUI.Text, TextAlignmentOptions.MidlineLeft, false, w - 0.1f);
+            tipIndex = Random.Range(0, Tips.Length);
+            tipAt = 0f;
+            loadingStart = Time.unscaledTime;
+            SetBar(0f);
+        }
+
+        static float EstimateKm(MapDef m) => EstimateLength(m) / 1000f;
+
+        /// The map's control points squeezed into a box on the panel (panel-local coordinates).
+        static Vector3[] OutlinePath(MapDef m, Vector2 centre, Vector2 box)
+        {
+            int n = m.points.Length / 3;
+            if (n < 2) return new Vector3[0];
+            var cps = new System.Collections.Generic.List<Vector3>();
+            for (int i = 0; i < n; i++) cps.Add(new Vector3(m.points[i * 3], 0f, m.points[i * 3 + 1]));
+            var spline = TrackSpline.FromControlPoints(cps, !m.freeRoam, 1f);
+            int count = Mathf.Clamp(spline.Count, 2, 400);
+            var pts = new Vector3[count];
+            Vector2 min = new Vector2(float.MaxValue, float.MaxValue), max = -min;
+            for (int i = 0; i < count; i++)
             {
-                "Squeeze the grip on the rim to hold the steering wheel. Use both hands for precise inputs.",
-                "Brake in a straight line, then ease off the brake as you turn in.",
-                "Cold tyres and brakes grip less. Build heat over the first lap.",
-                "Hold B (or R) for a second to put the car back on track.",
-                "Wet track? Inters or full wets in the Garage, and brake much earlier.",
-                "A/B on the right controller shift up, X/Y on the left shift down.",
-            };
-            Lbl("TIP:  " + tips[Random.Range(0, tips.Length)], -0.41f, -0.19f, 0.19f, VUI.Text, TextAlignmentOptions.TopLeft, false, 0.82f);
+                var p = spline.pos[i * spline.Count / count];
+                min = Vector2.Min(min, new Vector2(p.x, p.z)); max = Vector2.Max(max, new Vector2(p.x, p.z));
+            }
+            Vector2 size = max - min;
+            float k = Mathf.Min(box.x / Mathf.Max(1e-3f, size.x), box.y / Mathf.Max(1e-3f, size.y));
+            Vector2 mid = (min + max) * 0.5f;
+            for (int i = 0; i < count; i++)
+            {
+                var p = spline.pos[i * spline.Count / count];
+                pts[i] = new Vector3(centre.x + (p.x - mid.x) * k, centre.y + (p.z - mid.y) * k, -0.004f);
+            }
+            return pts;
         }
 
         void Update()
         {
-            if (loadingBar != null && World.Current != null && G != null && G.state == Game.State.Loading)
+            if (loadingBar == null) return;
+            if (!splash && World.Current != null && G != null && G.state == Game.State.Loading)
             {
                 float p = World.Current.Progress;
-                loadingBar.transform.localScale = new Vector3(Mathf.Max(0.01f, p), 1f, 1f);
-                loadingBar.transform.localPosition = new Vector3(-0.41f * (1f - p), -0.17f, -0.002f);
-                if (loadingStage != null) loadingStage.text = World.Current.Stage.ToUpperInvariant() + "  " + Mathf.RoundToInt(p * 100f) + "%";
+                SetBar(p);
+                if (loadingStage != null) loadingStage.text = World.Current.Stage.ToUpperInvariant();
+                if (loadingPct != null) loadingPct.text = Mathf.RoundToInt(p * 100f) + "%";
+            }
+            if (loadingDot != null && loadingPath != null && loadingPath.Length > 1)
+            {
+                // A marker lapping the outline, about eight seconds a lap.
+                float f = Mathf.Repeat((Time.unscaledTime - loadingStart) / 8f, 1f) * (loadingPath.Length - 1);
+                int i = Mathf.FloorToInt(f);
+                var a = loadingPath[i]; var b = loadingPath[Mathf.Min(i + 1, loadingPath.Length - 1)];
+                var q = Vector3.Lerp(a, b, f - i);
+                loadingDot.localPosition = new Vector3(q.x, q.y, -0.006f);
+            }
+            if (loadingTip != null && Time.unscaledTime >= tipAt)
+            {
+                loadingTip.text = "TIP:  " + Tips[tipIndex % Tips.Length];
+                tipIndex++;
+                tipAt = Time.unscaledTime + 6f;
             }
         }
 

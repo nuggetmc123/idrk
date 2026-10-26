@@ -142,7 +142,7 @@ namespace Veylix
             transform.rotation = Quaternion.Euler(0f, standYaw, 0f);
             recenterOffset = Vector3.zero;
             recenterYaw = 0f;
-            if (!IsXR) { head.localPosition = new Vector3(0f, 1.6f, 0f); head.localRotation = Quaternion.identity; }
+            if (!IsXR) { head.localPosition = new Vector3(0f, 1.6f, 0f); head.localRotation = Quaternion.identity; mouseYaw = mousePitch = 0f; }
             recenterAt = Time.time + 0.15f;
         }
 
@@ -216,6 +216,7 @@ namespace Veylix
             // Hold both thumbsticks in to recenter (seated players do this a lot).
             if (InputHub.Left.stickClick && InputHub.Right.stickClick && (InputHub.Left.stickClickDown || InputHub.Right.stickClickDown)) Recenter();
             if (!IsXR) DesktopUpdate();
+            Walk();
             if (InputHub.KeyDown(UnityEngine.InputSystem.Key.C) || (InputHub.Pad != null && InputHub.Pad.buttonNorth.wasPressedThisFrame)) ToggleChase();
             UpdateFade();
         }
@@ -303,6 +304,54 @@ namespace Veylix
             // Desktop gloves rest on the steering wheel (the cockpit code places them).
         }
 
+        // ------------------------------------------------------------------ walking around the garage
+
+        /// Set while you're in the garage hub: the floor area you can walk around (null in a car).
+        public Bounds? walkArea;
+        bool snapReady = true;
+
+        /// Left stick walks (where you look), right stick snap-turns 30 degrees. Desktop: WASD / arrows walk, Q/E turn,
+        /// hold the right mouse button to look around. A gamepad's left stick walks too.
+        void Walk()
+        {
+            if (car != null || walkArea == null) return;
+            float dt = Time.deltaTime;
+            Vector2 move = Vector2.zero;
+            float turn = 0f;
+            if (IsXR)
+            {
+                move = InputHub.Left.stick;
+                float tx = InputHub.Right.stick.x;
+                if (Mathf.Abs(tx) < 0.35f) snapReady = true;
+                else if (snapReady && Mathf.Abs(tx) > 0.75f) { turn = 30f * Mathf.Sign(tx); snapReady = false; }
+            }
+            else
+            {
+                var kb = InputHub.Kb;
+                if (kb != null)
+                {
+                    move.y += (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1f : 0f);
+                    move.x += (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1f : 0f);
+                    mouseYaw += ((kb.eKey.isPressed ? 1f : 0f) - (kb.qKey.isPressed ? 1f : 0f)) * 90f * dt;
+                }
+                if (InputHub.Pad != null) { move += InputHub.Pad.leftStick.ReadValue(); mouseYaw += InputHub.Pad.rightStick.ReadValue().x * 120f * dt; }
+            }
+            if (move.sqrMagnitude < 0.02f && turn == 0f) return;
+            move = Vector2.ClampMagnitude(move, 1f);
+            Vector3 f = head.forward; f.y = 0f;
+            if (f.sqrMagnitude < 0.01f) f = transform.forward;
+            f.Normalize();
+            Vector3 r = Vector3.Cross(Vector3.up, f);
+            Vector3 p = standPos + (f * move.y + r * move.x) * 1.7f * dt;
+            var b = walkArea.Value;
+            p.x = Mathf.Clamp(p.x, b.min.x, b.max.x);
+            p.z = Mathf.Clamp(p.z, b.min.z, b.max.z);
+            standPos = p;
+            standYaw += turn;
+            if (IsXR) ApplyRigOffset();
+            else { transform.position = standPos; transform.rotation = Quaternion.Euler(0f, standYaw, 0f); }
+        }
+
         // ------------------------------------------------------------------ comfort
 
         void Comfort()
@@ -324,6 +373,14 @@ namespace Veylix
                 mpb.SetColor("_Color", new Color(0f, 0f, 0f, vignetteAlpha));
                 vignette.SetPropertyBlock(mpb);
             }
+        }
+
+        /// Loading screens float in a dark void instead of the sky.
+        public void SetVoid(bool on)
+        {
+            if (cam == null) return;
+            cam.clearFlags = on ? CameraClearFlags.SolidColor : CameraClearFlags.Skybox;
+            cam.backgroundColor = new Color(0.015f, 0.016f, 0.02f, 1f);
         }
 
         public void FadeTo(float alpha) { fadeTarget = alpha; }
