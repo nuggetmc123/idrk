@@ -29,7 +29,7 @@ namespace Veylix
             var spec = car.spec;
             var setup = car.setup;
             var root = car.transform;
-            var parts = root.gameObject.GetComponent<CarParts>() ?? root.gameObject.AddComponent<CarParts>();
+            var parts = Obj.Need<CarParts>(root.gameObject);
             var A = VXAssets.I;
 
             Shape sh = ShapeFor(spec);

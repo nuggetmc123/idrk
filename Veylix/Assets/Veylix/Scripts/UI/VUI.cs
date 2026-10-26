@@ -184,7 +184,7 @@ namespace Veylix
         public virtual void Refresh() { }
         protected BoxCollider AddCollider(Vector2 size)
         {
-            var bc = gameObject.GetComponent<BoxCollider>() ?? gameObject.AddComponent<BoxCollider>();
+            var bc = Obj.Need<BoxCollider>(gameObject);
             bc.size = new Vector3(size.x, size.y, 0.01f);
             bc.isTrigger = true;
             return bc;

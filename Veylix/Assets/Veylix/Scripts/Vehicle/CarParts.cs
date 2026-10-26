@@ -60,7 +60,7 @@ namespace Veylix
             Vector3 v = car.Body.GetPointVelocity(go.transform.position);
             go.transform.SetParent(null, true);
             Layers.SetRecursive(go, Layers.Debris);
-            var rb = go.GetComponent<Rigidbody>() ?? go.AddComponent<Rigidbody>();
+            var rb = Obj.Need<Rigidbody>(go);
             rb.isKinematic = false;
             rb.mass = p >= CarDamage.Part.SuspFL ? 22f : 9f;
             rb.linearVelocity = v + Random.insideUnitSphere * 3f + Vector3.up * 2f;
