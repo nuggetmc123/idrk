@@ -9,7 +9,8 @@ and online multiplayer through Photon Fusion.
 > or tested in the Unity editor yet**. Expect a few first-run fixes.
 
 ## Opening the project
-1. Unzip the archive, then in Unity Hub click **Add > Add project from disk** and pick the `Veylix` folder.
+1. Right-click `Veylix.zip` > **Extract All…** In Unity Hub click **Add > Add project from disk** and pick the
+   extracted `Veylix` folder: the one that directly contains `Assets`, `Packages` and `ProjectSettings`.
    Use **Unity 6 (6000.0.40f1)** or newer.
 2. On first open Veylix offers to switch *Active Input Handling* to **Both**. Accept it, and Unity restarts.
 3. Run **Veylix > Build Game World**. This generates textures, materials, prefabs and `Assets/Veylix/Scenes/Veylix.unity`.
