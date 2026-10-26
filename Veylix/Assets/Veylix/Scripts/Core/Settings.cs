@@ -21,6 +21,8 @@ namespace Veylix
         public static float SteeringSensitivity { get => F("steerSens", 1f); set => SF("steerSens", Mathf.Clamp(value, 0.5f, 1.6f)); }
         /// <summary>Lock-to-centre wheel rotation in degrees; 0 = the car's real lock.</summary>
         public static int WheelRotation { get => I("wheelRot", 0); set => SI("wheelRot", value); }
+        /// How heavy the VR steering wheel feels: 0 = light (follows your hands exactly), 1 = heavy (real racing-car weight).
+        public static float SteeringWeight { get => F("steerWeight", 0.6f); set => SF("steerWeight", Mathf.Clamp01(value)); }
         public static float SteeringLinearity { get => F("steerLin", 0.2f); set => SF("steerLin", Mathf.Clamp01(value)); }
         public static float Haptics { get => F("haptics", 0.8f); set => SF("haptics", Mathf.Clamp01(value)); }
         public static bool Abs { get => I("abs", 0) == 1; set => SI("abs", value ? 1 : 0); }

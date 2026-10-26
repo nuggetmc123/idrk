@@ -645,6 +645,7 @@ namespace Veylix
                 case 0:
                     Row("STEERING SENSITIVITY"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, 0.5f, 1.6f, Settings.SteeringSensitivity, v => Settings.SteeringSensitivity = v, v => v.ToString("0.00"), 0.05f); y -= dy;
                     Row("STEERING LOCK (WHEEL ROTATION)"); VSelector.Make(panel, new Vector2(cx + 0.03f, y), 0.4f, new[] { "Car default", "270 degrees", "360 degrees", "540 degrees", "720 degrees", "900 degrees" }, LockIndex(), v => Settings.WheelRotation = new[] { 0, 270, 360, 540, 720, 900 }[v]); y -= dy;
+                    Row("STEERING WHEEL WEIGHT"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, 0f, 1f, Settings.SteeringWeight, v => Settings.SteeringWeight = v, v => v < 0.05f ? "Light" : (v * 100f).ToString("0") + "%", 0.05f); y -= dy;
                     Row("STEERING CENTRE SOFTNESS"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, 0f, 1f, Settings.SteeringLinearity, v => Settings.SteeringLinearity = v, v => (v * 100f).ToString("0") + "%", 0.05f); y -= dy;
                     Row("FORCE FEEDBACK (VIBRATION)"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, 0f, 1f, Settings.Haptics, v => Settings.Haptics = v, v => (v * 100f).ToString("0") + "%", 0.05f); y -= dy;
                     Row("PEDALS"); VSelector.Make(panel, new Vector2(cx + 0.03f, y), 0.4f, new[] { "Triggers (R throttle, L brake)", "Right thumbstick" }, (int)Settings.Pedals, v => Settings.Pedals = (PedalMode)v); y -= dy;

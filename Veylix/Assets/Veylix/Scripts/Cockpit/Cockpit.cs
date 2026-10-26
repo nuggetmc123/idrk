@@ -21,6 +21,7 @@ namespace Veylix
         public float WheelAngle { get; private set; }
         float wheelVel;
         float lockDeg;
+        float handTarget; // where your hands are turning the wheel to (smoothed)
 
         struct Grab
         {
@@ -159,12 +160,42 @@ namespace Veylix
                 float sum = 0f; int n = 0;
                 if (gl.holding) { sum += gl.startWheelAngle + gl.unwrapped; n++; }
                 if (gr.holding) { sum += gr.startWheelAngle + gr.unwrapped; n++; }
-                float target = sum / n;
-                float prev = WheelAngle;
-                WheelAngle = Mathf.Clamp(target, -lockDeg, lockDeg);
-                wheelVel = (WheelAngle - prev) / Mathf.Max(1e-4f, dt);
+                float target = Mathf.Clamp(sum / n, -lockDeg, lockDeg);
+                // Filter out the tiny shakes of a hand held in the air.
+                handTarget = Mathf.Lerp(handTarget, target, 1f - Mathf.Exp(-dt * 30f));
+                WeightedWheel(handTarget, n, dt);
             }
-            else SelfCentre(dt);
+            else { handTarget = WheelAngle; SelfCentre(dt); }
+        }
+
+        /// <summary>
+        /// The wheel has weight: it follows your hands through a spring (it trails them a little when you move fast),
+        /// it can only turn so quickly, and the tyres pull it back towards straight, more the faster you go, so holding
+        /// a corner takes effort. One hand on the wheel feels heavier than two. Settings > Steering wheel weight.
+        /// </summary>
+        void WeightedWheel(float target, int hands, float dt)
+        {
+            float w = Settings.SteeringWeight;
+            if (w < 0.02f)
+            {
+                float prev = WheelAngle;
+                WheelAngle = target;
+                wheelVel = (WheelAngle - prev) / Mathf.Max(1e-4f, dt);
+                return;
+            }
+            float speedF = Mathf.Clamp01(car.SpeedMs / 55f);
+            // Spring stiffness (how hard your hands pull the wheel round): softer = heavier.
+            float k = Mathf.Lerp(1400f, 260f, w) * Mathf.Lerp(1f, 0.7f, speedF) * (hands == 2 ? 1f : 0.7f);
+            float c = 2f * Mathf.Sqrt(k) * 1.05f; // just over critical: no wobble
+            // The tyres' self-centring (caster and aligning torque): stronger at speed and with grip.
+            float centre = w * Mathf.Lerp(6f, 35f, speedF);
+            float align = car.AligningTorque * 0.0004f * w * speedF;
+            float acc = (target - WheelAngle) * k - wheelVel * c - WheelAngle * centre + align;
+            wheelVel += acc * dt;
+            float maxRate = Mathf.Lerp(900f, 420f, w); // degrees per second
+            wheelVel = Mathf.Clamp(wheelVel, -maxRate, maxRate);
+            WheelAngle = Mathf.Clamp(WheelAngle + wheelVel * dt, -lockDeg, lockDeg);
+            if (Mathf.Abs(WheelAngle) >= lockDeg) wheelVel = 0f;
         }
 
         void UpdateGrab(ref Grab g, InputHub.Hand h, Transform hand, Glove glove, Transform pivot, CarParts parts, bool left)
@@ -172,7 +203,7 @@ namespace Veylix
             if (!h.valid) { if (g.holding) Release(ref g, glove); return; }
             float ang = HandAngle(pivot, hand.position, out float radial, out float axial);
             float r = parts.wheelRadius;
-            bool near = Mathf.Abs(radial - r) < 0.085f + (radial < r ? 0.03f : 0f) && Mathf.Abs(axial) < 0.12f;
+            bool near = Mathf.Abs(radial - r) < 0.06f + (radial < r ? 0.02f : 0f) && Mathf.Abs(axial) < 0.09f;
             // Don't grab the wheel if this hand is on the handbrake.
             bool onHandbrake = left ? lHandbrake : rHandbrake;
             if (!g.holding && h.gripDown && near && !onHandbrake)
@@ -197,13 +228,30 @@ namespace Veylix
                 if (Mathf.Abs(radial - r) > 0.25f || Mathf.Abs(axial) > 0.3f) { Release(ref g, glove); return; }
                 // Pin the glove onto the rim where it was grabbed (rotates with the wheel).
                 var grip = parts.steeringWheelGrip != null ? parts.steeringWheelGrip : pivot;
-                float onRim = g.startHandAngle - g.startWheelAngle;
-                Vector3 local = new Vector3(Mathf.Sin(onRim * Mathf.Deg2Rad) * r, Mathf.Cos(onRim * Mathf.Deg2Rad) * r, 0f);
-                // grip child is rotated 180 about Y to face the driver: mirror x.
-                Vector3 world = pivot.TransformPoint(Quaternion.Euler(0f, 0f, -WheelAngle) * local);
-                Quaternion rot = pivot.rotation * Quaternion.Euler(0f, 0f, -WheelAngle) * Quaternion.Euler(0f, 0f, -onRim) * Quaternion.Euler(90f, 0f, left ? 90f : -90f);
+                RimPose(pivot, r, g.startHandAngle - g.startWheelAngle, out Vector3 world, out Quaternion rot);
                 glove.Pin(grip, world, rot);
             }
+        }
+
+        // Where the rim sits inside a gripping glove (glove model space: back of the hand +Y, fingers +Z, knuckles at 0).
+        static readonly Vector3 RimInGlove = new Vector3(0f, -0.026f, 0.022f);
+
+        /// <summary>
+        /// Pose of a glove holding the rim at 'onRim' degrees (0 = top, + clockwise), turning with the wheel: fingers
+        /// reaching forward past the rim and curled round it, palm towards the hub, back of the hand outwards (thumb
+        /// on top at quarter to three), the wrist on the driver's side.
+        /// </summary>
+        void RimPose(Transform pivot, float r, float onRim, out Vector3 world, out Quaternion rot)
+        {
+            float a = onRim * Mathf.Deg2Rad;
+            var spin = Quaternion.Euler(0f, 0f, -WheelAngle);
+            Vector3 outward = new Vector3(Mathf.Sin(a), Mathf.Cos(a), 0f);  // in the wheel's plane (pivot space)
+            Vector3 rim = outward * r;
+            // Fingers mostly forward (into the wheel's plane), tipped a little outwards; back of the hand outwards and
+            // slightly back towards the driver.
+            var local = Quaternion.LookRotation((Vector3.forward + outward * 0.2f).normalized, (outward - Vector3.forward * 0.25f).normalized);
+            rot = pivot.rotation * spin * local;
+            world = pivot.TransformPoint(spin * rim) - rot * RimInGlove;
         }
 
         void Release(ref Grab g, Glove glove)
@@ -252,10 +300,7 @@ namespace Veylix
             for (int s = 0; s < 2; s++)
             {
                 bool left = s == 0;
-                float onRim = left ? -90f : 90f;
-                Vector3 local = new Vector3(Mathf.Sin(onRim * Mathf.Deg2Rad) * r, Mathf.Cos(onRim * Mathf.Deg2Rad) * r, 0f);
-                Vector3 world = parts.steeringWheel.TransformPoint(Quaternion.Euler(0f, 0f, -WheelAngle) * local);
-                Quaternion rot = parts.steeringWheel.rotation * Quaternion.Euler(0f, 0f, -WheelAngle - onRim) * Quaternion.Euler(90f, 0f, left ? 90f : -90f);
+                RimPose(parts.steeringWheel, r, left ? -90f : 90f, out Vector3 world, out Quaternion rot);
                 (left ? rig.leftGlove : rig.rightGlove).Pin(grip, world, rot);
             }
         }

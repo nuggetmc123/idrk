@@ -214,6 +214,21 @@ namespace Veylix
 
         void LateUpdate() => Pose();
 
+        // The headset and controllers get their final pose just before rendering: pose the arms again then, so your
+        // sleeves don't trail a frame behind your hands.
+        void OnEnable() { Application.onBeforeRender += BeforeRender; }
+        void OnDisable() { Application.onBeforeRender -= BeforeRender; }
+        void BeforeRender() { if (OwnHands) Pose(); }
+
+        bool OwnHands
+        {
+            get
+            {
+                var rig = Rig.I;
+                return car != null && rig != null && rig.Car == car && rig.view == Rig.View.Cockpit && rig.leftGlove != null && rig.rightGlove != null;
+            }
+        }
+
         // Where the rim sits in a gripping hand (hand space: wrist at the origin, palm side -Y, fingers +Z).
         static readonly Vector3 RimInFist = new Vector3(0f, -0.032f, 0.07f);
 
@@ -221,12 +236,21 @@ namespace Veylix
         {
             if (car == null) return;
             var rig = Rig.I;
-            bool ownHands = rig != null && rig.Car == car && rig.view == Rig.View.Cockpit && rig.leftGlove != null && rig.rightGlove != null;
+            bool ownHands = OwnHands;
+            // In your own car the shoulders lean with your head a little, so reaching forward or leaning into a
+            // corner moves your arms with you.
+            Vector3 lean = Vector3.zero;
+            if (ownHands && rig.head != null)
+            {
+                Vector3 headNow = transform.InverseTransformPoint(rig.head.position);
+                Vector3 headRest = parts != null && parts.eyePoint != null ? transform.InverseTransformPoint(parts.eyePoint.position) : (shoulder[0] + shoulder[1]) * 0.5f + new Vector3(0f, 0.27f, 0.05f);
+                lean = Vector3.ClampMagnitude((headNow - headRest) * 0.6f, 0.09f);
+            }
             var grip = parts != null ? parts.steeringWheelGrip : null;
             for (int i = 0; i < 2; i++)
             {
                 float s = i == 0 ? -1f : 1f;
-                Vector3 sh = shoulder[i];
+                Vector3 sh = shoulder[i] + lean;
                 Vector3 target;
                 Quaternion handRot = Quaternion.identity;
                 if (ownHands)
@@ -249,9 +273,14 @@ namespace Veylix
                 }
                 else target = sh + new Vector3(s * 0.1f, -0.15f, 0.4f);
 
-                Vector3 el = SolveJoint(sh, target, BodyKit.UpperArm, BodyKit.Forearm, new Vector3(s * 0.55f, -1f, 0f)); // elbows down and a little out
+                // Arms longer than the model's (or a hand stretched out): stretch the sleeves a little rather than
+                // leave the glove floating free of the arm.
+                float reach = (target - sh).magnitude, full = BodyKit.UpperArm + BodyKit.Forearm;
+                float stretch = ownHands ? Mathf.Clamp(reach / (full * 0.97f), 1f, 1.35f) : 1f;
+                float ua = BodyKit.UpperArm * stretch, fa = BodyKit.Forearm * stretch;
+                Vector3 el = SolveJoint(sh, target, ua, fa, new Vector3(s * 0.55f, -1f, 0f)); // elbows down and a little out
                 Vector3 toHand = target - el;
-                Vector3 wrist = toHand.magnitude > BodyKit.Forearm ? el + toHand.normalized * BodyKit.Forearm : target;
+                Vector3 wrist = toHand.magnitude > fa ? el + toHand.normalized * fa : target;
                 Place(upper[i], sh, el, BodyKit.UpperArm);
                 Place(fore[i], el, wrist, BodyKit.Forearm);
                 elbow[i].localPosition = el;
