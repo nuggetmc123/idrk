@@ -30,10 +30,8 @@ namespace Veylix.EditorTools
         {
             if (!TextResourcesReady)
             {
-                if (ImportTextMeshProEssentials())
-                    EditorUtility.DisplayDialog("Veylix", "Text resources are being added (click Import if Unity asks).\n\nWhen that's done, click Veylix > Build Game World again.", "OK");
-                else
-                    EditorUtility.DisplayDialog("Veylix", "TextMeshPro resources are missing.\n\nGo to Window > TextMeshPro > Import TMP Essential Resources, then run this again.", "OK");
+                // Same path as first-time setup: add the text resources, then it builds by itself.
+                VeylixAutoSetup.StartSetup();
                 return;
             }
             if (!EditorUtility.DisplayDialog("Veylix", "This (re)creates the Veylix textures, materials, prefabs and the game scene.\nAny edits you made to those generated files will be replaced.", "Build it", "Cancel"))

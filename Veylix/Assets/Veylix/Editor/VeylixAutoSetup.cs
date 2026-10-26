@@ -14,7 +14,6 @@ namespace Veylix.EditorTools
     static class VeylixAutoSetup
     {
         static double waitingSince;
-        static bool askedForText;
 
         static VeylixAutoSetup()
         {
@@ -77,38 +76,110 @@ namespace Veylix.EditorTools
             EditorApplication.OpenProject(Directory.GetCurrentDirectory());
         }
 
+        // ------------------------------------------------------------------ first-time build (same as the menu)
+
+        const string ImportAskedKey = "Veylix.Setup.TextImportAsked";
+        const string AttemptsKey = "Veylix.Setup.Attempts";
+        static double lastCheck;
+        static bool building;
+
+        /// <summary>
+        /// Waits until Unity is idle and the text resources are in, then runs exactly what Veylix > Build Game World
+        /// runs. It doesn't give up: it keeps waiting through imports and script reloads (state is kept in SessionState),
+        /// and retries the build once if the first try fails.
+        /// </summary>
+        /// Start (or restart) the automatic build: waits for text resources, then builds.
+        public static void StartSetup()
+        {
+            waitingSince = EditorApplication.timeSinceStartup;
+            EditorApplication.update -= Tick;
+            EditorApplication.update += Tick;
+        }
+
         static void Tick()
         {
-            if (EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode) return;
-            if (!GameBuilder.TextResourcesReady)
+            if (building || EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode) return;
+            if (EditorApplication.timeSinceStartup - lastCheck < 0.5) return;
+            lastCheck = EditorApplication.timeSinceStartup;
+
+            if (!TextReady())
             {
-                if (!askedForText)
+                if (!SessionState.GetBool(ImportAskedKey, false))
                 {
-                    askedForText = true;
+                    SessionState.SetBool(ImportAskedKey, true);
                     waitingSince = EditorApplication.timeSinceStartup;
+                    Debug.Log("[Veylix] First-time setup: adding TextMeshPro resources...");
+                    AssetDatabase.importPackageCompleted -= OnPackageImported;
+                    AssetDatabase.importPackageCompleted += OnPackageImported;
                     if (!GameBuilder.ImportTextMeshProEssentials())
                     {
-                        Stop("Almost ready! Please click Window > TextMeshPro > Import TMP Essential Resources, then Veylix > Build Game World.");
+                        Stop("Almost ready! Please click Window > TextMeshPro > Import TMP Essential Resources. Veylix will then build itself.");
+                        SessionState.SetBool(ImportAskedKey, false);
                         return;
                     }
-                    Debug.Log("[Veylix] First-time setup: adding text resources...");
                 }
-                else if (EditorApplication.timeSinceStartup - waitingSince > 180)
-                    Stop("Almost ready! Please click Veylix > Build Game World (if it asks to import text resources, click Import).");
+                EditorUtility.DisplayProgressBar("Veylix", "First-time setup: adding text resources...", 0.05f);
+                if (EditorApplication.timeSinceStartup - waitingSince > 600)
+                    Stop("The text resources are taking very long. Click Window > TextMeshPro > Import TMP Essential Resources, then Veylix > Build Game World.");
                 return;
             }
 
+            // Ready: build on the next editor tick, outside this update loop (just like clicking the menu).
             EditorApplication.update -= Tick;
-            try { GameBuilder.BuildWorld(); }
+            EditorUtility.ClearProgressBar();
+            building = true;
+            EditorApplication.delayCall += BuildNow;
+        }
+
+        static void OnPackageImported(string name)
+        {
+            AssetDatabase.importPackageCompleted -= OnPackageImported;
+            AssetDatabase.Refresh();
+            lastCheck = 0;
+        }
+
+        static bool TextReady()
+        {
+            if (GameBuilder.TextResourcesReady) return true;
+            // Imported but not loadable yet: refresh once in a while so Resources picks it up.
+            if (AssetDatabase.FindAssets("t:TMP_Settings").Length > 0)
+            {
+                AssetDatabase.Refresh();
+                return GameBuilder.TextResourcesReady;
+            }
+            return false;
+        }
+
+        static void BuildNow()
+        {
+            try
+            {
+                Debug.Log("[Veylix] Building the game world (same as Veylix > Build Game World)...");
+                GameBuilder.BuildWorld();
+                SessionState.EraseInt(AttemptsKey);
+                SessionState.EraseBool(ImportAskedKey);
+                building = false;
+                EditorSceneManager.OpenScene(GameBuilder.ScenePath);
+                EditorUtility.DisplayDialog("Veylix", GameBuilder.ReadyMessage(), "Let's race");
+            }
             catch (System.Exception e)
             {
+                building = false;
                 Debug.LogException(e);
+                int attempts = SessionState.GetInt(AttemptsKey, 0) + 1;
+                SessionState.SetInt(AttemptsKey, attempts);
+                if (attempts < 2)
+                {
+                    Debug.Log("[Veylix] First build attempt failed; trying again in a moment...");
+                    AssetDatabase.Refresh();
+                    waitingSince = EditorApplication.timeSinceStartup;
+                    EditorApplication.update -= Tick;
+                    EditorApplication.update += Tick;
+                    return;
+                }
                 var inner = e is System.Reflection.TargetInvocationException && e.InnerException != null ? e.InnerException : e;
                 Stop("Couldn't finish building the game automatically:\n\n" + inner.GetType().Name + ": " + inner.Message + "\n\nTry Veylix > Build Game World. If it fails again, send a screenshot of this message and the first red line in the Console.");
-                return;
             }
-            EditorSceneManager.OpenScene(GameBuilder.ScenePath);
-            EditorUtility.DisplayDialog("Veylix", GameBuilder.ReadyMessage(), "Let's race");
         }
 
         static void FinishMultiplayer()
