@@ -140,7 +140,10 @@ namespace Veylix
         public Vector3 aOffset, bOffset;
         public float thickness = 0.02f;
 
-        void LateUpdate()
+        void LateUpdate() => Apply();
+
+        /// Stretch the arm between its two mount points (also used when the editor saves the car models).
+        public void Apply()
         {
             if (a == null || b == null) return;
             Vector3 pa = a.TransformPoint(aOffset), pb = b.TransformPoint(bOffset);

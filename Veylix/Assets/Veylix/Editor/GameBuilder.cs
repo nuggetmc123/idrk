@@ -19,7 +19,7 @@ namespace Veylix.EditorTools
         public const string Root = "Assets/Veylix";
         public const string Gen = Root + "/Generated";
         public const string ScenePath = Root + "/Scenes/Veylix.unity";
-        public const int WorldVersion = 1;
+        public const int WorldVersion = 2;
         const string VersionFile = "ProjectSettings/VeylixWorldVersion.txt";
 
         public static bool WorldUpToDate => File.Exists(VersionFile) && File.ReadAllText(VersionFile).Trim() == WorldVersion.ToString() && File.Exists(ScenePath);
@@ -62,6 +62,8 @@ namespace Veylix.EditorTools
                 Step("Painting textures (this takes a minute the first time)...", 0.05f);
                 MakeAssets(assets);
                 go.AddComponent<Game>();
+                Step("Saving the car models...", 0.85f);
+                BakeShowroom(assets);
                 var online = go.AddComponent<Online>();
                 Step("Network prefabs...", 0.9f);
                 online.netCarPrefab = NetPrefab<NetCar>("NetCar");
@@ -83,6 +85,103 @@ namespace Veylix.EditorTools
                 File.WriteAllText(VersionFile, WorldVersion.ToString());
             }
             finally { EditorUtility.ClearProgressBar(); }
+        }
+
+        // ------------------------------------------------------------------ car models you can see without Play
+
+        public const string CarsFolder = Gen + "/Cars";
+
+        /// <summary>
+        /// The game builds every car from code when it runs. This also saves each car as a real prefab (meshes, livery
+        /// and materials) in Generated/Cars, and lines them up in a lit showroom in the scene so there's something to
+        /// look at in the editor. The showroom hides itself in Play mode and is left out of builds (EditorOnly).
+        /// </summary>
+        static void BakeShowroom(VXAssets assets)
+        {
+            EnsureFolder(CarsFolder);
+            VXAssets.UseInEditor(assets);
+            var show = new GameObject("Car Showroom (editor preview)");
+            show.tag = "EditorOnly";
+            show.AddComponent<EditorPreview>();
+
+            int n = CarCatalog.Count;
+            float spacing = 3.4f, width = n * spacing + 4f;
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "Floor";
+            floor.transform.SetParent(show.transform, false);
+            floor.transform.localScale = new Vector3(width / 10f, 1f, 1.4f);
+            Object.DestroyImmediate(floor.GetComponent<Collider>());
+            floor.GetComponent<MeshRenderer>().sharedMaterial = assets.pitLane != null ? assets.pitLane : floor.GetComponent<MeshRenderer>().sharedMaterial;
+
+            var sun = new GameObject("Showroom Light").AddComponent<Light>();
+            sun.transform.SetParent(show.transform, false);
+            sun.type = LightType.Directional;
+            sun.transform.rotation = Quaternion.Euler(38f, -35f, 0f);
+            sun.intensity = 1.15f;
+            sun.color = new Color(1f, 0.96f, 0.9f);
+            sun.shadows = LightShadows.Soft;
+
+            for (int i = 0; i < n; i++)
+            {
+                var spec = CarCatalog.Get(i);
+                int slot = i * 2;
+                var go = new GameObject(spec.name);
+                var rb = go.AddComponent<Rigidbody>();
+                rb.isKinematic = true;
+                var car = go.AddComponent<Car>();
+                car.carIndex = slot;
+                car.driverName = Teams.DriverName(slot);
+                try
+                {
+                    car.Init(spec, Teams.SetupFor(slot));
+                    CarModel.Build(car, false);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogException(e);
+                    Object.DestroyImmediate(go);
+                    continue;
+                }
+                foreach (var s in go.GetComponentsInChildren<Strut>(true)) s.Apply();
+                // Keep only what you see: meshes, renderers and lights.
+                foreach (var mb in go.GetComponentsInChildren<MonoBehaviour>(true)) if (!(mb is Car)) Object.DestroyImmediate(mb);
+                Object.DestroyImmediate(car);
+                Object.DestroyImmediate(rb);
+                foreach (var c in go.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(c);
+
+                string path = CarsFolder + "/" + spec.id + ".prefab";
+                string store = CarsFolder + "/" + spec.id + "_parts.asset";
+                AssetDatabase.DeleteAsset(store);
+                Object main = null;
+                void Keep(Object o)
+                {
+                    if (o == null || EditorUtility.IsPersistent(o)) return;
+                    if (main == null) { main = o; AssetDatabase.CreateAsset(o, store); }
+                    else AssetDatabase.AddObjectToAsset(o, store);
+                }
+                foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+                    foreach (var m in r.sharedMaterials)
+                    {
+                        if (m == null) continue;
+                        Keep(m.mainTexture);
+                        if (m.HasProperty("_BumpMap")) Keep(m.GetTexture("_BumpMap"));
+                        Keep(m);
+                    }
+                foreach (var f in go.GetComponentsInChildren<MeshFilter>(true)) Keep(f.sharedMesh);
+
+                go.transform.SetParent(show.transform, false);
+                go.transform.localPosition = new Vector3((i - (n - 1) * 0.5f) * spacing, 0f, 0f);
+                go.transform.localRotation = Quaternion.Euler(0f, 145f, 0f);
+                PrefabUtility.SaveAsPrefabAssetAndConnect(go, path, InteractionMode.AutomatedAction);
+            }
+            AssetDatabase.SaveAssets();
+
+            var view = SceneView.lastActiveSceneView;
+            if (view != null)
+            {
+                view.LookAt(new Vector3(0f, 0.6f, 0f), Quaternion.Euler(18f, 160f, 0f), width * 0.42f);
+                view.Repaint();
+            }
         }
 
         static void Step(string text, float p) => EditorUtility.DisplayProgressBar("Veylix", text, p);

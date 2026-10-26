@@ -15,6 +15,8 @@ and online multiplayer through Photon Fusion.
 2. On first open Veylix offers to switch *Active Input Handling* to **Both**. Accept it, and Unity restarts.
 3. Wait for the import to finish. Veylix then builds the game world by itself (textures, materials, prefabs and
    `Assets/Veylix/Scenes/Veylix.unity`) and opens the scene. **Veylix > Build Game World** does the same by hand.
+   The scene then shows a showroom with every car, and each car is also saved as a prefab in
+   `Assets/Veylix/Generated/Cars`. The tracks, scenery and menus are built when the game runs.
 4. Press Play. Without a headset you play on keyboard, mouse or gamepad.
 
 ### If Unity Hub says "Please add a valid project"

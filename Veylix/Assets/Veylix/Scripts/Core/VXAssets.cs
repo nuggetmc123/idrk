@@ -11,6 +11,9 @@ namespace Veylix
     {
         public static VXAssets I { get; private set; }
 
+        /// The editor's model baker uses the asset set without entering Play mode.
+        public static void UseInEditor(VXAssets a) => I = a;
+
         [Header("Car")]
         public Material paint, carbon, satinBlack, rimMetal, metal, interior, mirrorGlass, lightRed, lightWhite, visor, brakeDisc, plank, padding, screen, halo;
         public Material[] tyres = new Material[5]; // per compound (sidewall band colour)

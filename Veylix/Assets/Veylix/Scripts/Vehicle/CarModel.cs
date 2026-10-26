@@ -754,7 +754,7 @@ namespace Veylix
                 MakeObject(root, "Mirror", k.Build("mirror"), new[] { carbon });
                 // Glass faces backwards (shows the mirror camera).
                 var g = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                Object.Destroy(g.GetComponent<Collider>());
+                if (Application.isPlaying) Object.Destroy(g.GetComponent<Collider>()); else Object.DestroyImmediate(g.GetComponent<Collider>());
                 g.name = "MirrorGlass";
                 g.transform.SetParent(root, false);
                 g.transform.localPosition = new Vector3(c.x, c.y, c.z - 0.0215f);
