@@ -16,6 +16,13 @@ and online multiplayer through Photon Fusion.
 3. Run **Veylix > Build Game World**. This generates textures, materials, prefabs and `Assets/Veylix/Scenes/Veylix.unity`.
 4. Press Play. Without a headset you play on keyboard, mouse or gamepad.
 
+### If Unity Hub says "Please add a valid project"
+Use `Veylix.unitypackage` instead:
+1. In Unity Hub click **New project**, pick Unity 6 and the **3D (Built-In Render Pipeline)** template, and create it.
+2. In the editor: **Assets > Import Package > Custom Package…**, choose `Veylix.unitypackage` and click **Import**.
+3. Veylix adds the Input System package by itself; accept the restart prompt for *Active Input Handling*.
+4. Run **Veylix > Build Game World** and press Play.
+
 ## The Veylix menu (top bar)
 | Item | What it does |
 |---|---|

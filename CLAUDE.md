@@ -16,6 +16,6 @@
 
 ## Veylix (Unity VR Formula racing game in `Veylix/`)
 - Same rules: **every time Veylix is changed, send the user a fresh project zip** built with
-  `Veylix/Tools/make_project_zip.sh <scratchpad>/Veylix.zip` (project files at the zip root).
+  `Veylix/Tools/make_project_zip.sh <scratchpad>/Veylix.zip` (project files at the zip root), plus `Veylix/Tools/make_unitypackage.py <scratchpad>/Veylix.unitypackage` as the fallback.
 - Type-check before pushing (Roslyn + Unity refs) and say it wasn't tested in Unity.
 - Its top menu is **Veylix** (Import Quest, Make APK, Import Multiplayer, Build Game World). Keep it separate from KartVR/Nullbound.

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!129 &1
+PlayerSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 26
+  productGUID: 229ffab20eb64ed5b282beb05464cccc
+  AndroidProfiler: 0
+  defaultScreenOrientation: 3
+  targetDevice: 2
+  companyName: Veylix
+  productName: Veylix
+  defaultCursor: {fileID: 0}
+  cursorHotspot: {x: 0, y: 0}
+  m_ShowUnitySplashScreen: 1
+  m_ShowUnitySplashLogo: 1
+  defaultScreenWidth: 1920
+  defaultScreenHeight: 1080
+  m_ActiveColorSpace: 1
+  bundleVersion: 1.0
+  applicationIdentifier:
+    Android: com.veylix.racing
+    Standalone: com.veylix.racing
+  buildNumber:
+    Standalone: 0
+  AndroidBundleVersionCode: 1
+  activeInputHandler: 2
