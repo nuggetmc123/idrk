@@ -34,6 +34,7 @@ namespace Veylix
         [Header("UI")]
         public Material uiPanel, uiPanelAdditive, uiIcon;
         public Font displayFont, bodyFont;
+        public TMPro.TMP_FontAsset displayText, bodyText; // saved TextMeshPro versions of the fonts
         public Texture2D[] mapPreviews; // circuit outline drawings, one per map
 
         void Awake()

@@ -103,6 +103,7 @@ namespace Veylix.EditorTools
             AssetDatabase.DeleteAsset(GarageFolder);
             EnsureFolder(GarageFolder);
             VXAssets.UseInEditor(assets);
+            VUI.ResetCache(); // use the saved fonts and a fresh panel material
 
             var go = new GameObject("Your Garage (editor preview)");
             go.tag = "EditorOnly";
@@ -178,18 +179,59 @@ namespace Veylix.EditorTools
 
         static void Step(string text, float p) => EditorUtility.DisplayProgressBar("Veylix", text, p);
 
+        /// <summary>
+        /// TextMeshPro needs its Essential Resources (settings, shaders, default font) before any text can be made.
+        /// Import them straight from the package, without the import dialog. Works for Unity 6 (TextMeshPro lives in
+        /// com.unity.ugui) and older versions (com.unity.textmeshpro).
+        /// </summary>
         public static bool ImportTextMeshProEssentials()
         {
+            foreach (var pkg in new[] { "Packages/com.unity.ugui", "Packages/com.unity.textmeshpro" })
+            {
+                string dir;
+                try { dir = Path.GetFullPath(pkg); } catch { continue; }
+                if (!Directory.Exists(dir)) continue;
+                foreach (var file in Directory.GetFiles(dir, "TMP Essential Resources.unitypackage", SearchOption.AllDirectories))
+                {
+                    AssetDatabase.ImportPackage(file, false);
+                    return true;
+                }
+            }
+            // Fallback: TextMeshPro's own importer (method names differ between versions).
             foreach (var asm in System.AppDomain.CurrentDomain.GetAssemblies())
             {
                 var type = asm.GetType("TMPro.TMP_PackageResourceImporter", false);
                 if (type == null) continue;
                 var method = type.GetMethod("ImportResources", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                if (method == null || method.GetParameters().Length != 3) return false;
+                if (method == null || method.GetParameters().Length != 3) continue;
                 method.Invoke(null, new object[] { true, false, false });
                 return true;
             }
             return false;
+        }
+
+        // ------------------------------------------------------------------ fonts
+
+        public const string FontsFolder = Gen + "/Fonts";
+
+        /// Saves TextMeshPro font assets for the game's fonts (made in memory they'd be lost from saved scenes).
+        static TMP_FontAsset SaveFont(Font font, string name)
+        {
+            if (font == null) return null;
+            EnsureFolder(FontsFolder);
+            string path = FontsFolder + "/" + name + ".asset";
+            var existing = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
+            if (existing != null) return existing;
+            var fa = TMP_FontAsset.CreateFontAsset(font);
+            if (fa == null) return null;
+            fa.name = name;
+            AssetDatabase.CreateAsset(fa, path);
+            if (fa.atlasTextures != null)
+                foreach (var t in fa.atlasTextures) if (t != null && !EditorUtility.IsPersistent(t)) { t.name = name + " Atlas"; AssetDatabase.AddObjectToAsset(t, fa); }
+            if (fa.material != null && !EditorUtility.IsPersistent(fa.material)) { fa.material.name = name + " Material"; AssetDatabase.AddObjectToAsset(fa.material, fa); }
+            EditorUtility.SetDirty(fa);
+            AssetDatabase.SaveAssets();
+            return fa;
         }
 
         static void EnsureFolder(string path)
@@ -463,6 +505,8 @@ namespace Veylix.EditorTools
             a.uiIcon = Shaded("UIOverlay", "Veylix/Overlay", null, Color.white);
             a.displayFont = Resources.Load<Font>("Fonts/BarlowCondensed-SemiBold");
             a.bodyFont = Resources.Load<Font>("Fonts/BarlowCondensed-Medium");
+            a.displayText = SaveFont(a.displayFont, "Veylix Display");
+            a.bodyText = SaveFont(a.bodyFont, "Veylix Body");
             a.mapPreviews = new Texture2D[MapCatalog.Count];
             for (int i = 0; i < MapCatalog.Count; i++) a.mapPreviews[i] = TexGen.MapPreview(MapCatalog.Get(i));
             EditorUtility.SetDirty(a);

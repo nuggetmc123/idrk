@@ -103,7 +103,8 @@ namespace Veylix.EditorTools
             catch (System.Exception e)
             {
                 Debug.LogException(e);
-                Stop("Couldn't finish building the game automatically. Try Veylix > Build Game World, and if it still fails send the red error from the Console.");
+                var inner = e is System.Reflection.TargetInvocationException && e.InnerException != null ? e.InnerException : e;
+                Stop("Couldn't finish building the game automatically:\n\n" + inner.GetType().Name + ": " + inner.Message + "\n\nTry Veylix > Build Game World. If it fails again, send a screenshot of this message and the first red line in the Console.");
                 return;
             }
             EditorSceneManager.OpenScene(GameBuilder.ScenePath);

@@ -31,6 +31,7 @@ namespace Veylix
         {
             get
             {
+                if (display == null && VXAssets.I != null && VXAssets.I.displayText != null) display = VXAssets.I.displayText;
                 if (display == null)
                 {
                     var f = VXAssets.I != null ? VXAssets.I.displayFont : null;
@@ -45,6 +46,7 @@ namespace Veylix
         {
             get
             {
+                if (body == null && VXAssets.I != null && VXAssets.I.bodyText != null) body = VXAssets.I.bodyText;
                 if (body == null)
                 {
                     var f = VXAssets.I != null ? VXAssets.I.bodyFont : null;
@@ -53,6 +55,13 @@ namespace Veylix
                 }
                 return body;
             }
+        }
+
+        /// Forget cached fonts, panel material and shapes (the editor calls this before building things to save).
+        public static void ResetCache()
+        {
+            display = null; body = null; panelMat = null;
+            rects.Clear();
         }
 
         public static Material PanelMaterial
