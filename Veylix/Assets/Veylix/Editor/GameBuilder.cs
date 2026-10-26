@@ -61,7 +61,15 @@ namespace Veylix.EditorTools
                 MakeAssets(assets);
                 go.AddComponent<Game>();
                 Step("Building your garage...", 0.85f);
-                BakeGarage(assets);
+                try { BakeGarage(assets); }
+                catch (System.Exception e)
+                {
+                    // The garage preview is only for looking at in the editor; the game itself doesn't need it.
+                    Debug.LogWarning("[Veylix] Couldn't save the garage preview into the scene (the game still works, press Play): " + e.Message);
+                    Debug.LogException(e);
+                    var leftover = GameObject.Find("Your Garage (editor preview)");
+                    if (leftover != null) Object.DestroyImmediate(leftover);
+                }
                 var online = go.AddComponent<Online>();
                 Step("Network prefabs...", 0.9f);
                 online.netCarPrefab = NetPrefab<NetCar>("NetCar");
@@ -107,6 +115,8 @@ namespace Veylix.EditorTools
             go.tag = "EditorOnly";
             var room = go.AddComponent<Showroom>();
             room.BuildRoom();
+            var entrance = room.SpotPose(Showroom.Spot.Entrance); // read now: the Showroom script is removed below
+            var turntable = room.turntable;
 
             // Your car on the turntable (model only: no physics, effects or sound in the editor).
             var carGo = new GameObject("Your Car");
@@ -119,8 +129,8 @@ namespace Veylix.EditorTools
             car.Init(CarCatalog.Get(0), new CarSetup());
             CarModel.Build(car, false);
             foreach (var st in carGo.GetComponentsInChildren<Strut>(true)) st.Apply();
-            carGo.transform.SetPositionAndRotation(room.turntable.position + Vector3.up * 0.07f, room.turntable.rotation * Quaternion.Euler(0f, 210f, 0f));
-            carGo.transform.SetParent(room.turntable, true);
+            carGo.transform.SetPositionAndRotation(turntable.position + Vector3.up * 0.07f, turntable.rotation * Quaternion.Euler(0f, 210f, 0f));
+            carGo.transform.SetParent(turntable, true);
 
             // Keep only what you see. Game scripts come off (TextMeshPro text stays), colliders too.
             foreach (var mb in go.GetComponentsInChildren<MonoBehaviour>(true))
@@ -150,14 +160,14 @@ namespace Veylix.EditorTools
                     var m = new Material(r.sharedMaterial) { name = r.name };
                     if (m.HasProperty("_Color")) m.color = block.GetColor("_Color");
                     var tex = block.GetTexture("_MainTex");
-                    if (tex != null) m.mainTexture = tex;
+                    if (tex != null && m.HasProperty("_MainTex")) m.mainTexture = tex;
                     r.SetPropertyBlock(null);
                     r.sharedMaterial = m;
                 }
                 foreach (var m in r.sharedMaterials)
                 {
                     if (m == null) continue;
-                    Keep(m.mainTexture);
+                    if (m.HasProperty("_MainTex")) Keep(m.mainTexture);
                     if (m.HasProperty("_BumpMap")) Keep(m.GetTexture("_BumpMap"));
                     Keep(m);
                 }
@@ -169,7 +179,7 @@ namespace Veylix.EditorTools
             var view = SceneView.lastActiveSceneView;
             if (view != null)
             {
-                var spot = room.SpotPose(Showroom.Spot.Entrance);
+                var spot = entrance;
                 view.LookAt(spot.position + Vector3.up * 1.5f + spot.rotation * Vector3.forward * 3f, spot.rotation * Quaternion.Euler(12f, 0f, 0f), 6f);
                 view.Repaint();
             }
