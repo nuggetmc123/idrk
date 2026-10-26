@@ -167,6 +167,44 @@ namespace Veylix
             return pattern == 2 || pattern == 6 ? s : p;
         }
 
+        /// <summary>
+        /// Your own helmet design (from your driver profile), painted into a small texture. The helmet mesh's UVs sit
+        /// in the livery's Helmet rect, so the material remaps them with scale 4 and offset (-2, -1).
+        /// u runs front to back over the helmet, v around it (0 = chin, 0.5 = crown).
+        /// </summary>
+        public static Texture2D HelmetTexture(DriverLook look)
+        {
+            const int N = 256;
+            var tex = new Texture2D(N, N, TextureFormat.RGBA32, true) { name = "Helmet", wrapMode = TextureWrapMode.Clamp, anisoLevel = 4 };
+            var pix = new Color32[N * N];
+            Color b = look.Helmet, a = look.HelmetAccent, dark = new Color(0.08f, 0.08f, 0.09f);
+            Color second = Color.Lerp(a, Color.white, 0.55f);
+            for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    float u = x / (N - 1f), v = y / (N - 1f);
+                    float top = Mathf.Abs(v - 0.5f); // 0 on the crown, 0.5 under the chin
+                    Color c = b;
+                    switch (look.helmetPattern)
+                    {
+                        case 0: if (top < 0.045f) c = a; else if (top < 0.065f) c = second; break;
+                        case 1: c = u > 0.48f ? a : b; if (Mathf.Abs(u - 0.48f) < 0.012f) c = second; break;
+                        case 2: { float band = Mathf.Abs(top - 0.2f); if (band < 0.035f) c = a; else if (band < 0.05f) c = second; break; }
+                        case 3: if (Mathf.Repeat((u + top * 1.3f) * 5f, 1f) < 0.3f) c = a; break;
+                        case 4: c = Color.Lerp(b, a, Mathf.SmoothStep(0.15f, 0.85f, u)); break;
+                        default: { float gu = Mathf.Repeat(u * 9f, 1f) - 0.5f, gv = Mathf.Repeat(v * 12f, 1f) - 0.5f; if (gu * gu + gv * gv < 0.06f && top < 0.32f) c = a; break; }
+                    }
+                    if (top > 0.4f) c = dark; // chin bar and neck seal
+                    // A little clear-coat sheen variation so it doesn't look flat.
+                    float n = Mathf.PerlinNoise(u * 18f, v * 18f) * 0.04f - 0.02f;
+                    c = new Color(Mathf.Clamp01(c.r + n), Mathf.Clamp01(c.g + n), Mathf.Clamp01(c.b + n), 1f);
+                    pix[y * N + x] = c;
+                }
+            tex.SetPixels32(pix);
+            tex.Apply(true);
+            return tex;
+        }
+
         static Color HelmetColor(float u, float v, Color p, Color s, Color a)
         {
             float band = Mathf.Abs(v - 0.55f);

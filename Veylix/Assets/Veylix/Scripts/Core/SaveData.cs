@@ -64,9 +64,39 @@ namespace Veylix
         public List<string> roundWinners = new List<string>();
     }
 
+    /// <summary>
+    /// Who you are: the name and race number you picked the first time you played, and how your driver looks (suit,
+    /// helmet design and colours, visor, gloves). Your driver wears this in your car, in the garage and online.
+    /// </summary>
+    [Serializable]
+    public class DriverLook
+    {
+        public bool created;
+        public string name = "";
+        public int number = 7;
+        public string suit = "1A1C22", suitAccent = "E8531F", helmet = "F2F2F0", helmetAccent = "E8531F", gloves = "15161A";
+        public int helmetPattern;  // see HelmetPatternNames
+        public int visor;          // see VisorNames
+
+        public static readonly string[] HelmetPatternNames = { "Centre stripe", "Two-tone", "Side band", "Chevrons", "Fade", "Dots" };
+        public static readonly string[] VisorNames = { "Dark smoke", "Iridium gold", "Blue mirror", "Clear" };
+
+        public Color Suit => C(suit, new Color(0.1f, 0.11f, 0.13f));
+        public Color SuitAccent => C(suitAccent, new Color(0.91f, 0.33f, 0.12f));
+        public Color Helmet => C(helmet, Color.white);
+        public Color HelmetAccent => C(helmetAccent, new Color(0.91f, 0.33f, 0.12f));
+        public Color Gloves => C(gloves, new Color(0.08f, 0.08f, 0.1f));
+        public Color VisorColor => visor == 1 ? new Color(0.75f, 0.55f, 0.15f) : visor == 2 ? new Color(0.15f, 0.35f, 0.8f) : visor == 3 ? new Color(0.6f, 0.62f, 0.64f) : new Color(0.03f, 0.03f, 0.04f);
+        public string DisplayName => string.IsNullOrWhiteSpace(name) ? "Driver" : name.Trim();
+
+        static Color C(string hex, Color fallback) => !string.IsNullOrEmpty(hex) && ColorUtility.TryParseHtmlString("#" + hex, out var c) ? c : fallback;
+        public DriverLook Clone() => (DriverLook)MemberwiseClone();
+    }
+
     [Serializable]
     public class Save
     {
+        public DriverLook profile = new DriverLook();
         public List<LapRecord> timeTrial = new List<LapRecord>();
         public List<LapRecord> raceLaps = new List<LapRecord>();
         public List<string> setupKeys = new List<string>();
@@ -112,11 +142,20 @@ namespace Veylix
             int i = D.setupKeys.IndexOf(key);
             if (i >= 0)
             {
-                try { return JsonUtility.FromJson<CarSetup>(D.setupJson[i]) ?? new CarSetup(); }
-                catch { return new CarSetup(); }
+                try { return WithNumber(JsonUtility.FromJson<CarSetup>(D.setupJson[i]) ?? new CarSetup()); }
+                catch { return WithNumber(new CarSetup()); }
             }
-            return new CarSetup();
+            return WithNumber(new CarSetup());
         }
+
+        /// Your cars carry your own race number unless you've picked a different one in the Garage.
+        static CarSetup WithNumber(CarSetup s)
+        {
+            if (s.number < 0 && D.profile != null && D.profile.created) s.number = Mathf.Clamp(D.profile.number, 0, 99);
+            return s;
+        }
+
+        public static DriverLook Profile => D.profile ?? (D.profile = new DriverLook());
 
         public static void StoreSetup(int car, CarSetup s)
         {

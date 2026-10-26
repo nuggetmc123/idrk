@@ -17,6 +17,15 @@ namespace Veylix
         [Networked] public int Secondary { get; set; }
         [Networked] public int Accent { get; set; }
         [Networked] public NetworkString<_16> Driver { get; set; }
+        // The driver's own kit (from their profile), so everyone sees them in their suit and helmet.
+        [Networked] public int Suit { get; set; }
+        [Networked] public int SuitAccent { get; set; }
+        [Networked] public int Helmet { get; set; }
+        [Networked] public int HelmetAccent { get; set; }
+        [Networked] public int Gloves { get; set; }
+        [Networked] public int HelmetPattern { get; set; }
+        [Networked] public int Visor { get; set; }
+        [Networked] public int DriverNumber { get; set; }
         [Networked] public Vector3 Pos { get; set; }
         [Networked] public Quaternion Rot { get; set; }
         [Networked] public Vector3 Vel { get; set; }
@@ -49,6 +58,9 @@ namespace Veylix
                     Primary = Pack(st.Primary(local.spec)); Secondary = Pack(st.Secondary(local.spec)); Accent = Pack(st.Accent(local.spec));
                 }
                 Driver = Championship.PlayerName.Length > 16 ? Championship.PlayerName.Substring(0, 16) : Championship.PlayerName;
+                var me = SaveData.Profile;
+                Suit = Pack(me.Suit); SuitAccent = Pack(me.SuitAccent); Helmet = Pack(me.Helmet); HelmetAccent = Pack(me.HelmetAccent); Gloves = Pack(me.Gloves);
+                HelmetPattern = me.helmetPattern; Visor = me.visor; DriverNumber = me.number;
                 Ready = true;
             }
             Online.Cars.Add(this);
@@ -113,7 +125,13 @@ namespace Veylix
             var spec = CarCatalog.Get(CarIndex);
             var setup = new CarSetup { livery = Livery, number = Number, primary = CarSetup.Hex(Unpack(Primary)), secondary = CarSetup.Hex(Unpack(Secondary)), accent = CarSetup.Hex(Unpack(Accent)) };
             var w = World.Current;
-            proxy = CarFactory.Spawn(spec, setup, false, Driver.ToString(), 50 + (Online.Cars.IndexOf(this) % 20), Pos, Rot);
+            var look = new DriverLook
+            {
+                created = true, name = Driver.ToString(), number = DriverNumber,
+                suit = CarSetup.Hex(Unpack(Suit)), suitAccent = CarSetup.Hex(Unpack(SuitAccent)), helmet = CarSetup.Hex(Unpack(Helmet)),
+                helmetAccent = CarSetup.Hex(Unpack(HelmetAccent)), gloves = CarSetup.Hex(Unpack(Gloves)), helmetPattern = HelmetPattern, visor = Visor,
+            };
+            proxy = CarFactory.Spawn(spec, setup, false, Driver.ToString(), 50 + (Online.Cars.IndexOf(this) % 20), Pos, Rot, look);
             proxy.Freeze(true); // kinematic: moved by the network, still solid for collisions
             entrant = new Entrant { car = proxy, remote = true, name = Driver.ToString(), team = "Online", number = Number };
             RaceSession.I.entrants.Add(entrant);

@@ -10,6 +10,10 @@ namespace Veylix
     public class Glove : MonoBehaviour
     {
         public bool left;
+        Material gloveMat;
+
+        /// Re-tint after the driver profile changes.
+        public void SetColour(Color c) { if (gloveMat != null) gloveMat.color = c; }
         Transform model;
         readonly Transform[,] fingers = new Transform[5, 2];
         float curl, curlTarget;
@@ -31,7 +35,9 @@ namespace Veylix
         void BuildModel()
         {
             var A = VXAssets.I;
-            var leather = VXAssets.Or(A != null ? A.interior : null, "Glove", new Color(0.06f, 0.06f, 0.07f), 0.35f);
+            var leather = new Material(VXAssets.Or(A != null ? A.interior : null, "Glove", new Color(0.06f, 0.06f, 0.07f), 0.35f)) { name = "Glove" };
+            leather.color = SaveData.Profile.Gloves; // your glove colour from the driver profile
+            gloveMat = leather;
             var accent = VXAssets.Or(A != null ? A.padding : null, "Glove accent", new Color(0.1f, 0.25f, 0.6f), 0.3f);
             model = new GameObject("Glove").transform;
             model.SetParent(transform, false);

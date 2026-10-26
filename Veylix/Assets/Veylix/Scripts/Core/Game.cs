@@ -127,7 +127,10 @@ namespace Veylix
             var entrance = showroom.SpotPose(Showroom.Spot.Entrance);
             rig.StandAt(entrance.position, entrance.rotation);
             rig.walkArea = showroom.WalkArea;
-            menus.ShowMain();
+            showroom.ShowFigure(SaveData.Profile);
+            // First time: make your driver before anything else.
+            if (!SaveData.Profile.created) menus.ShowDriverProfile(true);
+            else menus.ShowMain();
             hud.Hide();
             rig.FadeTo(0f);
         }

@@ -355,6 +355,32 @@ namespace Veylix
             acc.Quad(a, b, d, e, n);
         }
 
+        // ------------------------------------------------------------------ your driver
+
+        GameObject figure;
+        TextMeshPro figureName;
+
+        /// Your driver stands beside the car (rebuilt whenever you change your look).
+        public void ShowFigure(DriverLook look)
+        {
+            if (figure != null) Destroy(figure);
+            figure = DriverBody.BuildStanding(transform, look);
+            Vector3 p = new Vector3(1.75f, 0f, 0.7f);
+            Vector3 face = SpotPose(Spot.Entrance).position - (O + p);
+            face.y = 0f;
+            figure.transform.position = O + p;
+            figure.transform.rotation = Quaternion.LookRotation(face.normalized, Vector3.up);
+            // Name board at its feet.
+            var board = new GameObject("Nameplate").transform;
+            board.SetParent(figure.transform, false);
+            board.localPosition = new Vector3(0f, 0.05f, 0.45f);
+            board.localRotation = Quaternion.Euler(60f, 180f, 0f);
+            VUI.Quad(board, "bg", Vector2.zero, new Vector2(0.62f, 0.16f), VUI.Panel, 0.002f, 0.01f);
+            VUI.Quad(board, "line", new Vector2(-0.3f, 0f), new Vector2(0.008f, 0.12f), VUI.Accent, 0.001f, 0.002f);
+            figureName = VUI.Fit(VUI.Label(board, look.DisplayName.ToUpperInvariant() + "   #" + look.number, new Vector2(-0.27f, 0f), 0.5f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.55f), 0.55f, 0.1f);
+            Layers.SetRecursive(board.gameObject, Layers.UI);
+        }
+
         // ------------------------------------------------------------------ the car
 
         public void Show(int carIndex, CarSetup setup = null)

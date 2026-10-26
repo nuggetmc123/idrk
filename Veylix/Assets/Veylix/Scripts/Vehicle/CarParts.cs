@@ -150,7 +150,7 @@ namespace Veylix
             foreach (var d in spawnedDebris) if (d != null) Destroy(d);
             if (paint != null) Destroy(paint);
             if (rim != null) Destroy(rim);
-            if (helmetPaint != null) Destroy(helmetPaint);
+            if (helmetPaint != null) { if (helmetPaint.mainTexture != null && helmetPaint.mainTexture != livery) Destroy(helmetPaint.mainTexture); Destroy(helmetPaint); }
             if (livery != null) Destroy(livery);
             if (discMaterial != null) Destroy(discMaterial);
         }

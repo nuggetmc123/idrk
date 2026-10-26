@@ -31,6 +31,7 @@ namespace Veylix
         public CarInput input;
         public bool isPlayer;
         public string driverName = "Driver";
+        public DriverLook driverLook; // a human driver's own suit and helmet (player or online); null = team kit
         public int carIndex;
 
         [Header("Assists")]

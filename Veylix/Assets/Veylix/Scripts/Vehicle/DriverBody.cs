@@ -20,7 +20,7 @@ namespace Veylix
         const float UpperLen = 0.29f, ForeLen = 0.27f;
 
         /// <param name="recline">0 = upright (1970s), 1 = lying back like a modern car.</param>
-        public static DriverBody Build(Car car, CarParts parts, Transform root, float eyeY, float headZ, float recline, Color suit, Color accent)
+        public static DriverBody Build(Car car, CarParts parts, Transform root, float eyeY, float headZ, float recline, Color suit, Color accent, Color gloves)
         {
             var A = VXAssets.I;
             var fabric = new Material(VXAssets.Or(A != null ? A.padding : null, "Suit", suit, 0.2f)) { name = "Suit", color = suit };
@@ -28,6 +28,7 @@ namespace Veylix
             var panel = new Material(fabric) { name = "Suit accent", color = accent };
             var black = VXAssets.Or(A != null ? A.interior : null, "Harness", new Color(0.04f, 0.04f, 0.045f), 0.25f);
             var metal = VXAssets.Or(A != null ? A.metal : null, "Buckle", new Color(0.7f, 0.7f, 0.72f), 0.8f);
+            var gloveMat = new Material(black) { name = "Gloves", color = gloves };
 
             var go = new GameObject("Driver");
             go.transform.SetParent(root, false);
@@ -98,13 +99,79 @@ namespace Veylix
                 d.upper[i] = Part(go.transform, "UpperArm", limb, new[] { fabric });
                 d.fore[i] = Part(go.transform, "Forearm", limb, new[] { panel });
                 d.elbow[i] = Part(go.transform, "Elbow", joint, new[] { fabric });
-                d.hand[i] = Part(go.transform, "Hand", glove, new[] { black });
+                d.hand[i] = Part(go.transform, "Hand", glove, new[] { gloveMat });
                 var sh = Part(go.transform, "Shoulder", joint, new[] { fabric });
                 sh.localPosition = d.shoulder[i];
                 sh.localScale = Vector3.one * 0.14f;
             }
             d.Pose();
             return d;
+        }
+
+        /// <summary>
+        /// Your driver standing up, helmet on, for the garage (it stands by your car and shows your design while you
+        /// customise it). Static pose: weight on both feet, arms relaxed.
+        /// </summary>
+        public static GameObject BuildStanding(Transform parent, DriverLook look)
+        {
+            var A = VXAssets.I;
+            var fabric = new Material(VXAssets.Or(A != null ? A.padding : null, "Suit", look.Suit, 0.2f)) { name = "Suit", color = look.Suit };
+            if (fabric.HasProperty("_Glossiness")) fabric.SetFloat("_Glossiness", 0.22f);
+            var panel = new Material(fabric) { name = "Suit accent", color = look.SuitAccent };
+            var dark = VXAssets.Or(A != null ? A.interior : null, "Boots", new Color(0.04f, 0.04f, 0.045f), 0.3f);
+            var gloveMat = new Material(dark) { name = "Gloves", color = look.Gloves };
+
+            var go = new GameObject("Driver (standing)");
+            go.transform.SetParent(parent, false);
+            var k = new MeshKit();
+            Vector3 pelvis = new Vector3(0f, 0.95f, 0f), neck = new Vector3(0f, 1.5f, -0.01f);
+            Vector3 spine = neck - pelvis;
+            float len = spine.magnitude;
+            var rot = Quaternion.LookRotation(spine / len, Vector3.forward);
+            k.matrix = Matrix4x4.TRS(pelvis, rot, Vector3.one);
+            k.Loft(0, new[]
+            {
+                new S(-0.04f, 0f, 0.165f, 0.115f, 2.6f),
+                new S(len * 0.3f, 0.005f, 0.148f, 0.1f, 2.5f),
+                new S(len * 0.62f, 0.012f, 0.18f, 0.115f, 2.6f),
+                new S(len * 0.86f, 0.004f, 0.2f, 0.1f, 3f),
+                new S(len * 1.0f, 0f, 0.07f, 0.065f, 2.2f),
+            }, 22, 16, null, 0, 0);
+            for (int sd = -1; sd <= 1; sd += 2) k.Box(1, new Vector3(sd * 0.158f, 0f, len * 0.45f), new Vector3(0.02f, 0.12f, len * 0.62f));
+            // Waistband: a slightly fuller ring round the hips in the accent colour.
+            k.Loft(1, new[] { new S(-0.02f, 0f, 0.169f, 0.119f, 2.6f), new S(0.06f, 0.002f, 0.163f, 0.113f, 2.6f) }, 22, 2, null, -1, -1);
+            k.matrix = Matrix4x4.identity;
+            for (int sd = -1; sd <= 1; sd += 2)
+            {
+                Vector3 hip = pelvis + new Vector3(sd * 0.09f, -0.02f, 0f), knee = new Vector3(sd * 0.1f, 0.5f, 0.02f), ankle = new Vector3(sd * 0.11f, 0.1f, -0.01f);
+                k.Tube(0, new[] { hip, knee }, 0.078f, 12, true, 0.062f);
+                k.Tube(0, new[] { knee, ankle }, 0.058f, 12, true, 0.046f);
+                // Stripe down the outside of each leg.
+                k.Box(1, Vector3.Lerp(hip, knee, 0.5f) + new Vector3(sd * 0.072f, 0f, 0f), new Vector3(0.014f, Vector3.Distance(hip, knee) * 0.9f, 0.04f));
+                k.Box(1, Vector3.Lerp(knee, ankle, 0.5f) + new Vector3(sd * 0.053f, 0f, 0f), new Vector3(0.012f, Vector3.Distance(knee, ankle) * 0.9f, 0.034f));
+                k.Tube(2, new[] { ankle + new Vector3(0f, -0.04f, -0.05f), ankle + new Vector3(0f, -0.06f, 0.17f) }, 0.05f, 10, true, 0.042f); // boot
+                Vector3 sh = new Vector3(sd * 0.2f, 1.39f, -0.01f), el = new Vector3(sd * 0.265f, 1.13f, -0.03f), wr = new Vector3(sd * 0.285f, 0.88f, 0.03f);
+                k.Tube(0, new[] { sh, el }, 0.06f, 12, true, 0.052f);
+                k.Tube(1, new[] { el, wr }, 0.05f, 12, true, 0.042f);
+            }
+            var body = new GameObject("Body");
+            body.transform.SetParent(go.transform, false);
+            body.AddComponent<MeshFilter>().sharedMesh = k.Build("standing driver", 3);
+            body.AddComponent<MeshRenderer>().sharedMaterials = new[] { fabric, panel, dark };
+            for (int sd = -1; sd <= 1; sd += 2)
+            {
+                var hand = Part(go.transform, "Hand", GloveMesh(), new[] { gloveMat });
+                hand.localPosition = new Vector3(sd * 0.29f, 0.84f, 0.03f);
+                hand.localRotation = Quaternion.Euler(95f, 0f, sd * -10f);
+                var shoulder = Part(go.transform, "Shoulder", JointMesh(), new[] { fabric });
+                shoulder.localPosition = new Vector3(sd * 0.2f, 1.405f, -0.01f);
+                shoulder.localScale = Vector3.one * 0.165f;
+            }
+            var hm = CarModel.HelmetMaterials(look, null);
+            hm[2] = fabric; // out of the car the collar is the suit's
+            var helmet = Part(go.transform, "Helmet", CarModel.HelmetMesh(), hm);
+            helmet.localPosition = new Vector3(0f, 1.67f, 0.01f);
+            return go;
         }
 
         static Transform Part(Transform parent, string name, Mesh mesh, Material[] mats)

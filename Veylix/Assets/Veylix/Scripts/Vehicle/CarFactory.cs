@@ -8,7 +8,7 @@ namespace Veylix
     {
         public static readonly List<Car> All = new List<Car>();
 
-        public static Car Spawn(CarSpec spec, CarSetup setup, bool isPlayer, string driver, int slot, Vector3 pos, Quaternion rot)
+        public static Car Spawn(CarSpec spec, CarSetup setup, bool isPlayer, string driver, int slot, Vector3 pos, Quaternion rot, DriverLook look = null)
         {
             Layers.Setup();
             var go = new GameObject(isPlayer ? "PlayerCar" : "Car " + driver);
@@ -19,6 +19,7 @@ namespace Veylix
             car.isPlayer = isPlayer;
             car.driverName = driver;
             car.carIndex = slot;
+            car.driverLook = look ?? (isPlayer ? SaveData.Profile : null);
             car.damage = go.AddComponent<CarDamage>();
             car.Init(spec, setup);
             car.damage.car = car;

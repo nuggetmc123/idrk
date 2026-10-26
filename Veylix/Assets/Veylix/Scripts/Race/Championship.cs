@@ -19,7 +19,7 @@ namespace Veylix
             SaveData.Write();
         }
 
-        public static string PlayerName => string.IsNullOrEmpty(Settings.PlayerName) ? "You" : Settings.PlayerName;
+        public static string PlayerName => SaveData.Profile.created ? SaveData.Profile.DisplayName : string.IsNullOrEmpty(Settings.PlayerName) ? "You" : Settings.PlayerName;
 
         public static int CurrentMap => S.active && S.round < S.calendar.Count ? S.calendar[S.round] : 0;
         public static bool Finished => S.active && S.round >= S.calendar.Count;

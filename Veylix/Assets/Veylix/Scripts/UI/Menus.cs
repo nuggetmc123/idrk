@@ -120,16 +120,16 @@ namespace Veylix
             var title = Lbl("VEYLIX", x0, H * 0.5f - 0.075f, 1.35f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.6f);
             title.characterSpacing = 18f;
             Lbl("FORMULA RACING  -  VR", x0 + 0.004f, H * 0.5f - 0.15f, 0.25f, VUI.Accent, TextAlignmentOptions.MidlineLeft, true, 0.5f).characterSpacing = 8f;
-            string[] names = { "DRIVE", "RACE", "FREE ROAM", "TIME TRIAL", "GARAGE", "MAP SELECTION", "SETTINGS", "LEADERBOARDS", "ONLINE", "QUIT" };
+            string[] names = { "DRIVE", "RACE", "FREE ROAM", "TIME TRIAL", "GARAGE", "DRIVER", "MAP SELECTION", "SETTINGS", "LEADERBOARDS", "ONLINE", "QUIT" };
             System.Action[] acts =
             {
                 () => ShowModes(true), () => ShowModes(false), () => PickMap(GameMode.FreeRoam), () => PickMap(GameMode.TimeTrial),
-                ShowGarage, () => PickMap(GameMode.QuickRace, true), ShowSettings, ShowLeaderboards, ShowOnline, () => G.Quit(),
+                ShowGarage, () => ShowDriverProfile(false), () => PickMap(GameMode.QuickRace, true), ShowSettings, ShowLeaderboards, ShowOnline, () => G.Quit(),
             };
             for (int i = 0; i < names.Length; i++)
             {
-                int col = i / 5, row = i % 5;
-                Btn(names[i], x0 + 0.13f + col * 0.27f, H * 0.5f - 0.235f - row * 0.075f, 0.25f, 0.06f, acts[i], false);
+                int col = i / 6, row = i % 6;
+                Btn(names[i], x0 + 0.13f + col * 0.27f, H * 0.5f - 0.225f - row * 0.064f, 0.25f, 0.054f, acts[i], false);
             }
             // Right: what's lined up, and a one-click start.
             var cfg = G.config;
@@ -502,6 +502,95 @@ namespace Veylix
         void Refresh3D()
         {
             if (G.showroom != null) G.showroom.Show(garageCar, garageSetup);
+        }
+
+        // ------------------------------------------------------------------ your driver (first launch, then DRIVER)
+
+        DriverLook lookEdit;
+        int lookTab;
+
+        /// <summary>
+        /// Name, race number and look. Shown before anything else the first time you play; the DRIVER button opens it
+        /// again later. Your driver standing by the car updates live as you change things.
+        /// </summary>
+        public void ShowDriverProfile(bool firstRun)
+        {
+            if (lookEdit == null) lookEdit = SaveData.Profile.Clone();
+            const float w = 1.3f, h = 0.8f;
+            Begin(firstRun ? "WELCOME TO VEYLIX" : "YOUR DRIVER", firstRun ? "Before your first race: pick a name, a race number and how your driver looks." : "Name, race number and kit. Your driver by the car shows the changes.", false, w, h);
+            float lx = -w * 0.5f + 0.04f;
+            // Name and an on-screen keyboard.
+            Lbl("NAME", lx, 0.29f, 0.24f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.2f);
+            VUI.Quad(panel, "namebox", new Vector2(-0.3f, 0.29f), new Vector2(0.46f, 0.055f), VUI.PanelLight, 0.001f, 0.008f);
+            var nameText = VUI.Fit(Lbl(string.IsNullOrEmpty(lookEdit.name) ? "_" : lookEdit.name.ToUpperInvariant() + "_", -0.52f, 0.29f, 0.34f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.44f), 0.44f, 0.05f);
+            string[] rows = { "1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM" };
+            for (int r = 0; r < rows.Length; r++)
+                for (int c = 0; c < rows[r].Length; c++)
+                {
+                    char ch = rows[r][c];
+                    float kx = lx + 0.03f + r * 0.018f + c * 0.054f, ky = 0.215f - r * 0.054f;
+                    Btn(ch.ToString(), kx, ky, 0.048f, 0.046f, () => { if (lookEdit.name.Length < 14) lookEdit.name += ch; Refresh(); }).SetText(ch.ToString());
+                }
+            Btn("SPACE", lx + 0.24f, 0.215f - 4 * 0.054f, 0.22f, 0.046f, () => { if (lookEdit.name.Length > 0 && lookEdit.name.Length < 14 && !lookEdit.name.EndsWith(" ")) lookEdit.name += " "; Refresh(); });
+            Btn("DELETE", lx + 0.47f, 0.215f - 3 * 0.054f, 0.12f, 0.046f, () => { if (lookEdit.name.Length > 0) lookEdit.name = lookEdit.name.Substring(0, lookEdit.name.Length - 1); Refresh(); });
+            void Refresh() => nameText.text = lookEdit.name.ToUpperInvariant() + "_";
+            // Race number.
+            Lbl("RACE NUMBER", lx, -0.09f, 0.24f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.3f);
+            VSlider.Make(panel, new Vector2(-0.23f, -0.09f), 0.3f, 1, 99, Mathf.Clamp(lookEdit.number, 1, 99), v => { lookEdit.number = Mathf.RoundToInt(v); }, v => "#" + Mathf.RoundToInt(v), 1f);
+            Btn("APPLY NUMBER", -0.32f, -0.155f, 0.2f, 0.045f, () => Preview());
+            Lbl("It goes on your car, your helmet and the timing screens.", lx, -0.21f, 0.18f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.6f);
+
+            // Kit: suit, helmet, gloves.
+            float rx = -0.03f;
+            string[] tabs = { "SUIT", "HELMET", "GLOVES" };
+            for (int t = 0; t < tabs.Length; t++)
+            {
+                int ti = t;
+                var b = Btn(tabs[t], rx + 0.09f + t * 0.2f, 0.29f, 0.19f, 0.05f, () => { lookTab = ti; ShowDriverProfile(firstRun); });
+                b.selected = t == lookTab; b.Refresh();
+            }
+            float y = 0.21f;
+            switch (lookTab)
+            {
+                case 0:
+                    Swatches("SUIT", rx, y, lookEdit.Suit, c => { lookEdit.suit = CarSetup.Hex(c); Preview(); ShowDriverProfile(firstRun); });
+                    Swatches("STRIPES AND SLEEVES", rx, y - 0.12f, lookEdit.SuitAccent, c => { lookEdit.suitAccent = CarSetup.Hex(c); Preview(); ShowDriverProfile(firstRun); });
+                    break;
+                case 1:
+                    Swatches("HELMET", rx, y, lookEdit.Helmet, c => { lookEdit.helmet = CarSetup.Hex(c); Preview(); ShowDriverProfile(firstRun); });
+                    Swatches("DESIGN COLOUR", rx, y - 0.12f, lookEdit.HelmetAccent, c => { lookEdit.helmetAccent = CarSetup.Hex(c); Preview(); ShowDriverProfile(firstRun); });
+                    Lbl("DESIGN", rx, y - 0.25f, 0.22f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.2f);
+                    VSelector.Make(panel, new Vector2(rx + 0.4f, y - 0.25f), 0.36f, DriverLook.HelmetPatternNames, lookEdit.helmetPattern, v => { lookEdit.helmetPattern = v; Preview(); });
+                    Lbl("VISOR", rx, y - 0.31f, 0.22f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.2f);
+                    VSelector.Make(panel, new Vector2(rx + 0.4f, y - 0.31f), 0.36f, DriverLook.VisorNames, lookEdit.visor, v => { lookEdit.visor = v; Preview(); });
+                    break;
+                default:
+                    Swatches("GLOVES", rx, y, lookEdit.Gloves, c => { lookEdit.gloves = CarSetup.Hex(c); Preview(); ShowDriverProfile(firstRun); });
+                    Lbl("Your gloves are your hands in VR.", rx, y - 0.12f, 0.2f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.6f);
+                    break;
+            }
+
+            if (!firstRun) Btn("BACK", -w * 0.5f + 0.1f, -h * 0.5f + 0.045f, 0.15f, 0.045f, () => { lookEdit = null; if (G.showroom != null) G.showroom.ShowFigure(SaveData.Profile); ShowMain(); });
+            Btn(firstRun ? "LET'S RACE" : "SAVE", w * 0.5f - 0.17f, -h * 0.5f + 0.05f, 0.3f, 0.065f, () =>
+            {
+                lookEdit.name = lookEdit.DisplayName;
+                lookEdit.number = Mathf.Clamp(lookEdit.number, 1, 99);
+                lookEdit.created = true;
+                SaveData.D.profile = lookEdit;
+                SaveData.Write();
+                Settings.PlayerName = lookEdit.name;
+                lookEdit = null;
+                if (Rig.I != null) { Rig.I.leftGlove?.SetColour(SaveData.Profile.Gloves); Rig.I.rightGlove?.SetColour(SaveData.Profile.Gloves); }
+                if (G.showroom != null) { G.showroom.ShowFigure(SaveData.Profile); G.showroom.Show(G.config.car); }
+                CrashAudio.Chime();
+                ShowMain();
+            }, true);
+        }
+
+        void Preview()
+        {
+            if (G.showroom != null && lookEdit != null) G.showroom.ShowFigure(lookEdit);
+            CrashAudio.Tick();
         }
 
         // ------------------------------------------------------------------ settings

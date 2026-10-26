@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using S = Veylix.MeshKit.Station;
 
@@ -87,7 +88,9 @@ namespace Veylix
             BuildSteeringWheel(root, sh, spec, parts, carbon, satin, metal);
             // The driver after the wheel, so the hands start on the rim.
             float recline = sh.modern ? 1f : sh.midera ? 0.65f : sh.classic ? 0f : spec.body == BodyStyle.Junior ? 0.7f : 0.2f;
-            parts.driver = DriverBody.Build(car, parts, root, sh.eyeY, sh.headZ, recline, setup.Primary(spec), setup.Secondary(spec));
+            var look = car.driverLook;
+            parts.driver = DriverBody.Build(car, parts, root, sh.eyeY, sh.headZ, recline,
+                look != null ? look.Suit : setup.Primary(spec), look != null ? look.SuitAccent : setup.Secondary(spec), look != null ? look.Gloves : new Color(0.04f, 0.04f, 0.045f));
             if (spec.hasHandbrake) BuildHandbrake(root, sh, parts, metal, satin);
 
             parts.eyePoint = new GameObject("EyePoint").transform;
@@ -715,28 +718,123 @@ namespace Veylix
 
         static GameObject BuildHelmet(Transform root, Shape sh, Car car, CarParts parts)
         {
-            var A = VXAssets.I;
-            var k = new MeshKit();
-            var helmet = new[]
-            {
-                new S(0.15f, 0.0f, 0.085f, 0.1f, 2.2f),
-                new S(0.08f, 0.02f, 0.13f, 0.14f, 2.3f),
-                new S(-0.04f, 0.03f, 0.14f, 0.15f, 2.3f),
-                new S(-0.13f, 0.01f, 0.12f, 0.13f, 2.2f),
-                new S(-0.17f, -0.02f, 0.06f, 0.07f, 2f),
-            };
-            k.Loft(0, helmet, 24, 14, LiveryPainter.Helmet, 0, 0);
-            // Visor band.
-            k.matrix = Matrix4x4.TRS(new Vector3(0f, 0.035f, 0.115f), Quaternion.Euler(-8f, 0f, 0f), Vector3.one);
-            k.Loft(1, new[] { new S(0.03f, 0f, 0.12f, 0.035f, 3f), new S(-0.02f, 0f, 0.13f, 0.036f, 3f) }, 20, 2, null, 1, 1);
-            k.matrix = Matrix4x4.identity;
-            // Neck / HANS.
-            k.Box(2, new Vector3(0f, -0.15f, -0.05f), new Vector3(0.24f, 0.08f, 0.2f));
-            var helmetMat = new Material(VXAssets.Or(A != null ? A.paint : null, "Helmet", Color.white, 0.85f)) { mainTexture = parts.livery };
-            parts.helmetPaint = helmetMat;
-            var go = MakeObject(root, "Helmet", k.Build("helmet"), new[] { helmetMat, VXAssets.Or(A != null ? A.visor : null, "Visor", new Color(0.02f, 0.02f, 0.03f), 0.95f), VXAssets.Or(A != null ? A.interior : null, "Suit", new Color(0.05f, 0.05f, 0.06f), 0.2f) });
+            var mats = HelmetMaterials(car.driverLook, parts.livery);
+            parts.helmetPaint = mats[0];
+            var go = MakeObject(root, "Helmet", HelmetMesh(), mats);
             go.transform.localPosition = new Vector3(0f, sh.eyeY - 0.03f, sh.headZ);
             return go;
+        }
+
+        static Mesh helmetMesh;
+
+        /// <summary>
+        /// The helmet, centred on the head and facing +Z: a rounded shell (lower at the back, with a chin bar), a curved
+        /// visor across the front, a dark lining underneath and a collar ring. Sub-meshes: 0 shell, 1 visor, 2 lining /
+        /// collar. Shell UVs: u front to back, v around (0 chin, 0.5 crown), placed in the livery's Helmet rect.
+        /// </summary>
+        public static Mesh HelmetMesh()
+        {
+            if (helmetMesh != null) return helmetMesh;
+            const float rx = 0.132f, ry = 0.148f, rz = 0.158f, lift = 0.02f;
+            const int seg = 40, rings = 22;
+            var verts = new List<Vector3>(); var norms = new List<Vector3>(); var uvs = new List<Vector2>();
+            var shell = new List<int>(); var visor = new List<int>(); var lining = new List<int>();
+            Rect r = LiveryPainter.Helmet;
+            Vector3 P(float th, float ph, float scale) => new Vector3(Mathf.Sin(th) * Mathf.Cos(ph) * rx, Mathf.Sin(ph) * ry + lift, Mathf.Cos(th) * Mathf.Cos(ph) * rz) * scale;
+            Vector3 N(Vector3 p) => new Vector3(p.x / (rx * rx), (p.y - lift) / (ry * ry), p.z / (rz * rz)).normalized;
+            float PhiMin(float th) => Mathf.Lerp(-58f, -80f, (1f - Mathf.Cos(th)) * 0.5f) * Mathf.Deg2Rad; // chin higher than the back
+            Vector2 UV(Vector3 p)
+            {
+                Vector3 d = new Vector3(p.x / rx, (p.y - lift) / ry, p.z / rz).normalized;
+                float u = Mathf.Acos(Mathf.Clamp(d.z, -1f, 1f)) / Mathf.PI;
+                float v = Mathf.Atan2(d.x, d.y) / (Mathf.PI * 2f) + 0.5f;
+                return new Vector2(r.x + u * r.width, r.y + Mathf.Clamp01(v) * r.height);
+            }
+            // Shell: a grid over azimuth (around Y) and elevation, from the cut-off at the bottom up to the crown.
+            int start = verts.Count;
+            for (int i = 0; i <= seg; i++)
+            {
+                float th = i / (float)seg * Mathf.PI * 2f;
+                for (int j = 0; j <= rings; j++)
+                {
+                    float ph = Mathf.Lerp(PhiMin(th), Mathf.PI * 0.5f, j / (float)rings);
+                    var p = P(th, ph, 1f);
+                    verts.Add(p); norms.Add(N(p)); uvs.Add(UV(p));
+                }
+            }
+            for (int i = 0; i < seg; i++)
+                for (int j = 0; j < rings; j++)
+                {
+                    int a0 = start + i * (rings + 1) + j, a1 = a0 + rings + 1;
+                    shell.Add(a0); shell.Add(a0 + 1); shell.Add(a1);
+                    shell.Add(a1); shell.Add(a0 + 1); shell.Add(a1 + 1);
+                }
+            // Visor: a patch just proud of the shell across the front.
+            int vs = 18, vr = 6;
+            int vstart = verts.Count;
+            for (int i = 0; i <= vs; i++)
+            {
+                float th = Mathf.Lerp(-64f, 64f, i / (float)vs) * Mathf.Deg2Rad;
+                for (int j = 0; j <= vr; j++)
+                {
+                    float ph = Mathf.Lerp(-14f, 24f, j / (float)vr) * Mathf.Deg2Rad;
+                    var p = P(th, ph, 1.012f);
+                    verts.Add(p); norms.Add(N(p)); uvs.Add(new Vector2(i / (float)vs, j / (float)vr));
+                }
+            }
+            for (int i = 0; i < vs; i++)
+                for (int j = 0; j < vr; j++)
+                {
+                    int a0 = vstart + i * (vr + 1) + j, a1 = a0 + vr + 1;
+                    visor.Add(a0); visor.Add(a0 + 1); visor.Add(a1);
+                    visor.Add(a1); visor.Add(a0 + 1); visor.Add(a1 + 1);
+                }
+            // Lining: close the opening underneath with a dark disc (seen from below).
+            int centre = verts.Count;
+            verts.Add(new Vector3(0f, P(Mathf.PI, PhiMin(Mathf.PI), 1f).y * 0.85f + P(0f, PhiMin(0f), 1f).y * 0.15f, -0.01f)); norms.Add(Vector3.down); uvs.Add(Vector2.zero);
+            int rim = verts.Count;
+            for (int i = 0; i <= seg; i++)
+            {
+                float th = i / (float)seg * Mathf.PI * 2f;
+                verts.Add(P(th, PhiMin(th), 0.99f)); norms.Add(Vector3.down); uvs.Add(Vector2.zero);
+            }
+            for (int i = 0; i < seg; i++) { lining.Add(centre); lining.Add(rim + i + 1); lining.Add(rim + i); }
+            // Collar / neck brace ring under the helmet.
+            var k = new MeshKit();
+            var ring = new Vector3[25];
+            for (int i = 0; i <= 24; i++) { float a = i / 24f * Mathf.PI * 2f; ring[i] = new Vector3(Mathf.Sin(a) * 0.105f, -0.155f, Mathf.Cos(a) * 0.095f - 0.02f); }
+            k.Tube(0, ring, 0.03f, 10, false);
+            var collar = k.Build("collar");
+            int cbase = verts.Count;
+            verts.AddRange(collar.vertices); norms.AddRange(collar.normals);
+            foreach (var u in collar.uv) uvs.Add(u);
+            foreach (var t in collar.triangles) lining.Add(cbase + t);
+
+            var m = new Mesh { name = "helmet" };
+            m.SetVertices(verts); m.SetNormals(norms); m.SetUVs(0, uvs);
+            m.subMeshCount = 3;
+            m.SetTriangles(shell, 0); m.SetTriangles(visor, 1); m.SetTriangles(lining, 2);
+            m.RecalculateBounds();
+            m.RecalculateTangents();
+            return helmetMesh = m;
+        }
+
+        /// Shell (your design, or the team's from the livery), visor (tinted to your choice) and HANS.
+        public static Material[] HelmetMaterials(DriverLook look, Texture2D livery)
+        {
+            var A = VXAssets.I;
+            var shell = new Material(VXAssets.Or(A != null ? A.paint : null, "Helmet", Color.white, 0.85f)) { name = "Helmet" };
+            if (look != null)
+            {
+                shell.mainTexture = LiveryPainter.HelmetTexture(look);
+                shell.mainTextureScale = new Vector2(4f, 4f);
+                shell.mainTextureOffset = new Vector2(-2f, -1f);
+            }
+            else shell.mainTexture = livery;
+            shell.color = Color.white;
+            var visor = VXAssets.Or(A != null ? A.visor : null, "Visor", new Color(0.02f, 0.02f, 0.03f), 0.95f);
+            if (look != null && look.visor != 0) visor = new Material(visor) { name = "Visor", color = look.VisorColor };
+            return new[] { shell, visor, VXAssets.Or(A != null ? A.interior : null, "Suit", new Color(0.05f, 0.05f, 0.06f), 0.2f) };
         }
 
         // ------------------------------------------------------------------ mirrors
