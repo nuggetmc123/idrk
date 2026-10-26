@@ -30,6 +30,9 @@ namespace Veylix
 
         Vector3 O => transform.position;
 
+        /// Where the garage sits in the game (out of the way of the maps). The editor preview moves it to the origin.
+        public static readonly Vector3 Home = new Vector3(0f, -200f, 0f);
+
         /// Where you can walk (world space, a little inside the walls).
         public Bounds WalkArea => new Bounds(O + new Vector3(0f, 1f, (Z0 + Z1) * 0.5f), new Vector3(X1 - X0 - 0.8f, 4f, Z1 - Z0 - 0.8f));
 
@@ -68,8 +71,9 @@ namespace Veylix
 
         void Build()
         {
-            transform.position = new Vector3(0f, -200f, 0f); // under the world origin, away from any map
-            standPoint = SpotPose(Spot.Entrance).position;
+            // Build at the origin (meshes are made in this object's local space), then move the finished room under
+            // the world, away from any map. Building it already moved put the walls and floor 200 m below the lights.
+            transform.position = Vector3.zero;
             Vector3 o = O;
             float cx = (X0 + X1) * 0.5f, cz = (Z0 + Z1) * 0.5f, w = X1 - X0, d = Z1 - Z0;
 
@@ -118,6 +122,8 @@ namespace Veylix
             TrophyWall(o);
             Lights(o);
             Stations(o);
+            transform.position = Home;
+            standPoint = SpotPose(Spot.Entrance).position;
         }
 
         void Wall(MeshAcc lower, MeshAcc upper, Vector3 baseCentre, Vector3 size, bool alongZ)

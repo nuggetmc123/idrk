@@ -54,6 +54,7 @@ namespace Veylix
             world = new GameObject("World").AddComponent<World>();
             menus = new GameObject("Menus").AddComponent<Menus>();
             hud = new GameObject("Hud").AddComponent<Hud>();
+            if (Music.I == null) new GameObject("Music").AddComponent<Music>();
             yield return Boot();
             EnterMenu();
             if (Online.I != null) Online.I.Boot();
@@ -63,6 +64,7 @@ namespace Veylix
         IEnumerator Boot()
         {
             state = State.Loading;
+            Music.Play(Music.Theme.Loading);
             rig.FadeInstant(1f);
             rig.SetVoid(true);
             rig.StandAt(new Vector3(0f, 5000f, 0f), Quaternion.identity);
@@ -128,6 +130,7 @@ namespace Veylix
             rig.StandAt(entrance.position, entrance.rotation);
             rig.walkArea = showroom.WalkArea;
             showroom.ShowFigure(SaveData.Profile);
+            Music.Play(Music.Theme.Garage);
             // First time: make your driver before anything else.
             if (!SaveData.Profile.created) menus.ShowDriverProfile(true);
             else menus.ShowMain();
@@ -161,6 +164,7 @@ namespace Veylix
             // Loading room: a dark space with the progress panel in front of you.
             rig.StandAt(new Vector3(0f, 5000f, 0f), Quaternion.identity);
             rig.SetVoid(true);
+            Music.Play(Music.Theme.Loading);
             menus.ShowLoading(map);
             rig.FadeTo(0f);
             yield return world.Build(map);
@@ -218,7 +222,7 @@ namespace Veylix
             state = State.Session;
             crashHandled = false;
             sessionStartTime = Time.time;
-            session.OnResults += () => { state = State.Results; menus.ShowResults(session); };
+            session.OnResults += () => { state = State.Results; Music.Play(Music.Theme.Garage); menus.ShowResults(session); };
         }
 
         /// <summary>AI cars race the same class as the player's car, so the field is fair.</summary>
@@ -299,9 +303,13 @@ namespace Veylix
         {
             if (state != State.Session && state != State.Paused) return;
             state = on ? State.Paused : State.Session;
-            Time.timeScale = on ? 0f : 1f;
-            AudioListener.pause = on;
-            if (on) menus.ShowPause(); else menus.Hide();
+            // Online the race can't stop for one player: the watch opens but the world keeps going.
+            bool freeze = on && config.mode != GameMode.Online;
+            Time.timeScale = freeze ? 0f : 1f;
+            AudioListener.pause = freeze;
+            // VR: the settings screen rises from the watch on your left wrist. Desktop: the pause panel.
+            if (on) { if (rig != null && rig.IsXR && rig.watch != null) menus.ShowWatch(); else menus.ShowPause(); }
+            else menus.Hide();
             hud.SetVisible(!on);
         }
 
@@ -309,6 +317,7 @@ namespace Veylix
         {
             if (state == State.Session || state == State.Paused)
             {
+                Music.Play(Settings.RaceMusic ? Music.Theme.Race : Music.Theme.None);
                 if (InputHub.MenuPressed) Pause(state == State.Session);
             }
             else if (state == State.Results || state == State.Menu)

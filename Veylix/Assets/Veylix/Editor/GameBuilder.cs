@@ -19,7 +19,7 @@ namespace Veylix.EditorTools
         public const string Root = "Assets/Veylix";
         public const string Gen = Root + "/Generated";
         public const string ScenePath = Root + "/Scenes/Veylix.unity";
-        public const int WorldVersion = 3;
+        public const int WorldVersion = 4;
         const string VersionFile = "ProjectSettings/VeylixWorldVersion.txt";
 
         public static bool WorldUpToDate => File.Exists(VersionFile) && File.ReadAllText(VersionFile).Trim() == WorldVersion.ToString() && File.Exists(ScenePath);
@@ -40,8 +40,10 @@ namespace Veylix.EditorTools
             EditorUtility.DisplayDialog("Veylix", ReadyMessage(), "Let's race");
         }
 
+        static string buildNote = "";
+
         public static string ReadyMessage() =>
-            "Veylix is ready. Press Play.\n\n" +
+            "Veylix is ready. The scene shows your garage; press Play to drive.\n\n" + buildNote +
             "In VR (Quest Link / SteamVR): squeeze the grip on the steering wheel rim to hold it, right trigger = throttle, left trigger = brake, A shifts up, X/Y shift down, hold B = reset car, menu button = pause, hold both sticks = recenter. In your garage: left stick walks, right stick turns, point and pull the trigger on the stations.\n\n" +
             "No headset? In the garage WASD walks, Q/E turn, click the stations. Driving: W/A/S/D or arrows, E/Q shift, Space handbrake, C chase camera, hold right mouse to look, Esc pause, R (hold) reset car. A gamepad works too.\n\n" +
             (Online.Available ? "Online play is ON (set your Photon App ID with Veylix > Import Multiplayer)." : "Online play is off until you import Photon Fusion 2 (Veylix > Import Multiplayer). Everything else works offline.");
@@ -60,12 +62,14 @@ namespace Veylix.EditorTools
                 Step("Painting textures (this takes a minute the first time)...", 0.05f);
                 MakeAssets(assets);
                 go.AddComponent<Game>();
+                buildNote = "";
                 Step("Building your garage...", 0.85f);
                 try { BakeGarage(assets); }
                 catch (System.Exception e)
                 {
                     // The garage preview is only for looking at in the editor; the game itself doesn't need it.
                     Debug.LogWarning("[Veylix] Couldn't save the garage preview into the scene (the game still works, press Play): " + e.Message);
+                    buildNote = "(The garage preview for the editor couldn't be saved: " + e.GetType().Name + ": " + e.Message + ". The game itself is fine. Please send this line to get it fixed.)\n\n";
                     Debug.LogException(e);
                     var leftover = GameObject.Find("Your Garage (editor preview)");
                     if (leftover != null) Object.DestroyImmediate(leftover);
@@ -115,6 +119,8 @@ namespace Veylix.EditorTools
             go.tag = "EditorOnly";
             var room = go.AddComponent<Showroom>();
             room.BuildRoom();
+            go.transform.position = Vector3.zero; // at the origin, where the Scene view looks when the scene opens
+            room.ShowFigure(SaveData.Profile);
             var entrance = room.SpotPose(Showroom.Spot.Entrance); // read now: the Showroom script is removed below
             var turntable = room.turntable;
 
@@ -178,13 +184,17 @@ namespace Veylix.EditorTools
             }
             AssetDatabase.SaveAssets();
 
+            FrameGarage();
+        }
+
+        /// Point the Scene view at the garage preview (from the doorway, looking at the car).
+        public static void FrameGarage()
+        {
             var view = SceneView.lastActiveSceneView;
-            if (view != null)
-            {
-                var spot = entrance;
-                view.LookAt(spot.position + Vector3.up * 1.5f + spot.rotation * Vector3.forward * 3f, spot.rotation * Quaternion.Euler(12f, 0f, 0f), 6f);
-                view.Repaint();
-            }
+            if (view == null && SceneView.sceneViews.Count > 0) view = SceneView.sceneViews[0] as SceneView;
+            if (view == null) return;
+            view.LookAt(new Vector3(0f, 1.2f, 1.6f), Quaternion.Euler(14f, 0f, 0f), 7f);
+            view.Repaint();
         }
 
         static void Step(string text, float p) => EditorUtility.DisplayProgressBar("Veylix", text, p);

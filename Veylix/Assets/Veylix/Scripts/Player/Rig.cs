@@ -16,6 +16,7 @@ namespace Veylix
         public Transform head, leftHand, rightHand;
         public Camera cam;
         public Glove leftGlove, rightGlove;
+        public WristWatch watch;
         public bool IsXR => XRSettings.isDeviceActive;
 
         public enum View { Cockpit, Chase, Free }
@@ -67,6 +68,7 @@ namespace Veylix
             rightHand = new GameObject("RightHand").transform;
             rightHand.SetParent(transform, false);
             leftGlove = Glove.Create(leftHand, true);
+            watch = WristWatch.Create(leftGlove);
             rightGlove = Glove.Create(rightHand, false);
             leftHand.gameObject.AddComponent<Pointer>().left = true;
             rightHand.gameObject.AddComponent<Pointer>().left = false;

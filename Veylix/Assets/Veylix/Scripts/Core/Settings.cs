@@ -52,6 +52,8 @@ namespace Veylix
         public static float EngineVolume { get => F("volEngine", 0.85f); set => SF("volEngine", Mathf.Clamp01(value)); }
         public static float EffectsVolume { get => F("volFx", 0.9f); set => SF("volFx", Mathf.Clamp01(value)); }
         public static float AmbienceVolume { get => F("volAmb", 0.7f); set => SF("volAmb", Mathf.Clamp01(value)); }
+        public static float MusicVolume { get => F("volMusic", 0.55f); set => SF("volMusic", Mathf.Clamp01(value)); }
+        public static bool RaceMusic { get => I("raceMusic", 0) == 1; set => SI("raceMusic", value ? 1 : 0); }
 
         public static string PlayerName
         {

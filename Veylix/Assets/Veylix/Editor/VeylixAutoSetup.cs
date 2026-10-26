@@ -160,6 +160,7 @@ namespace Veylix.EditorTools
                 SessionState.EraseBool(ImportAskedKey);
                 building = false;
                 EditorSceneManager.OpenScene(GameBuilder.ScenePath);
+                GameBuilder.FrameGarage();
                 EditorUtility.DisplayDialog("Veylix", GameBuilder.ReadyMessage(), "Let's race");
             }
             catch (System.Exception e)

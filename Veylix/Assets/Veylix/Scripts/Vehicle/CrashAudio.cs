@@ -135,6 +135,76 @@ namespace Veylix
             return c;
         }
 
+        // ------------------------------------------------------------------ race stingers
+
+        public enum Stinger { Lap, FastestLap, PersonalBest, Finish, Win, PositionUp, PositionDown, Penalty, Warning, Pit }
+        static AudioClip[] stingers;
+
+        /// Bell-like note: fundamental with a couple of partials and a soft attack.
+        static void Bell(float[] d, int sr, float start, float f, float len, float amp)
+        {
+            int s0 = (int)(start * sr), n = Mathf.Min(d.Length - s0, (int)(len * sr));
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)sr;
+                float env = Mathf.Min(1f, t * 400f) * Mathf.Exp(-t * 4.5f / len);
+                float w = Mathf.Sin(2f * Mathf.PI * f * t) + 0.35f * Mathf.Sin(4f * Mathf.PI * f * t) * Mathf.Exp(-t * 6f) + 0.15f * Mathf.Sin(6.01f * Mathf.PI * f * t) * Mathf.Exp(-t * 9f);
+                d[s0 + i] += w * env * amp;
+            }
+        }
+
+        static AudioClip MakeStinger(int sr, Stinger k)
+        {
+            float N(int midi) => 440f * Mathf.Pow(2f, (midi - 69) / 12f);
+            float len = k == Stinger.Win ? 2.4f : k == Stinger.Finish ? 1.8f : k == Stinger.Penalty ? 0.6f : 1.1f;
+            var d = new float[(int)(sr * len)];
+            switch (k)
+            {
+                case Stinger.Lap: Bell(d, sr, 0f, N(76), 0.5f, 0.3f); Bell(d, sr, 0.11f, N(83), 0.8f, 0.3f); break;
+                case Stinger.FastestLap: Bell(d, sr, 0f, N(79), 0.5f, 0.28f); Bell(d, sr, 0.09f, N(83), 0.5f, 0.28f); Bell(d, sr, 0.18f, N(88), 0.9f, 0.3f); break;
+                case Stinger.PersonalBest: Bell(d, sr, 0f, N(84), 0.4f, 0.26f); Bell(d, sr, 0.08f, N(88), 0.4f, 0.26f); Bell(d, sr, 0.16f, N(91), 0.4f, 0.26f); Bell(d, sr, 0.24f, N(96), 0.9f, 0.3f); break;
+                case Stinger.Finish:
+                    { int[] notes = { 72, 76, 79, 84 }; for (int i = 0; i < 4; i++) Bell(d, sr, i * 0.12f, N(notes[i]), 1.4f - i * 0.1f, 0.22f); }
+                    break;
+                case Stinger.Win:
+                    { int[] notes = { 72, 76, 79, 84, 79, 84 }; float[] at = { 0f, 0.12f, 0.24f, 0.36f, 0.62f, 0.74f };
+                      for (int i = 0; i < notes.Length; i++) Bell(d, sr, at[i], N(notes[i]), i == notes.Length - 1 ? 1.6f : 0.6f, 0.22f);
+                      Bell(d, sr, 0.74f, N(76), 1.6f, 0.12f); Bell(d, sr, 0.74f, N(79), 1.6f, 0.12f); }
+                    break;
+                case Stinger.PositionUp: Bell(d, sr, 0f, N(81), 0.25f, 0.22f); Bell(d, sr, 0.06f, N(88), 0.45f, 0.24f); break;
+                case Stinger.PositionDown: Bell(d, sr, 0f, N(76), 0.25f, 0.2f); Bell(d, sr, 0.07f, N(69), 0.45f, 0.2f); break;
+                case Stinger.Warning: Bell(d, sr, 0f, N(74), 0.3f, 0.25f); Bell(d, sr, 0.16f, N(74), 0.4f, 0.25f); break;
+                case Stinger.Pit: Bell(d, sr, 0f, N(67), 0.35f, 0.25f); Bell(d, sr, 0.12f, N(71), 0.6f, 0.25f); break;
+                default: // penalty: a low two-tone buzz
+                    for (int i = 0; i < d.Length; i++)
+                    {
+                        float t = i / (float)sr;
+                        float f = t < 0.28f ? 155f : 130f;
+                        float sq = Mathf.Sin(2f * Mathf.PI * f * t) > 0f ? 1f : -1f;
+                        d[i] = sq * 0.12f * Mathf.Min(1f, t * 200f) * Mathf.Min(1f, (len - t) * 30f);
+                    }
+                    break;
+            }
+            var c = AudioClip.Create("stinger " + k, d.Length, 1, sr, false);
+            c.SetData(d, 0);
+            return c;
+        }
+
+        /// A race moment for the player: lap, fastest lap, personal best, finish, win, positions, warnings, penalties.
+        public static void Play(Stinger k)
+        {
+            Ensure();
+            if (stingers == null)
+            {
+                int sr = AudioSettings.outputSampleRate;
+                stingers = new AudioClip[System.Enum.GetValues(typeof(Stinger)).Length];
+                for (int i = 0; i < stingers.Length; i++) stingers[i] = MakeStinger(sr, (Stinger)i);
+            }
+            var s = Next(Vector3.zero, false);
+            s.pitch = 1f;
+            s.PlayOneShot(stingers[(int)k], 0.8f * Settings.MasterVolume * Settings.EffectsVolume);
+        }
+
         static AudioSource Next(Vector3 p, bool spatial)
         {
             Ensure();

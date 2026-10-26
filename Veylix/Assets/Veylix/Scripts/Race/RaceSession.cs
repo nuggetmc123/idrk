@@ -279,6 +279,7 @@ namespace Veylix
             {
                 string tag = !valid ? "  (INVALID)" : "";
                 Message("LAP " + e.lap + "   " + SaveData.FormatTime(lapTime) + tag, !valid ? VUI.Accent : lapTime <= e.bestLap ? VUI.Purple : VUI.Text, 3.5f);
+                CrashAudio.Play(!valid ? CrashAudio.Stinger.Warning : lapTime <= fastestLap ? CrashAudio.Stinger.FastestLap : CrashAudio.Stinger.Lap);
                 if (valid) PlayerLapRecorded(lapTime);
                 SaveData.D.distanceKm += track.Length / 1000f;
             }
@@ -301,6 +302,7 @@ namespace Veylix
             e.finishTime = Time.time - raceStartTime;
             if (e.ai != null) e.ai.coolDown = true;
             if (e.isPlayer && phase == Phase.Finished && !(e.position == 1)) Message("FINISHED  P" + e.position, VUI.Text, 4f);
+            if (e.isPlayer) CrashAudio.Play(e.position == 1 ? CrashAudio.Stinger.Win : CrashAudio.Stinger.Finish);
             // Everyone else finishes when they next cross the line (handled in CompleteLap via phase == Finished).
             bool all = true;
             foreach (var o in entrants) if (!o.finished && !o.eliminated && !o.dnf) all = false;
@@ -316,6 +318,7 @@ namespace Veylix
                 {
                     newPersonalBest = true;
                     Message("NEW PERSONAL BEST  " + SaveData.FormatTime(lapTime), VUI.Purple, 4f);
+                    CrashAudio.Play(CrashAudio.Stinger.PersonalBest);
                     if (recording != null) { recording.time = lapTime; SaveData.SaveGhost(map.id, recording); bestGhost = recording; if (ghostCar != null) Destroy(ghostCar.gameObject); ghostCar = GhostCar.Create(bestGhost); }
                 }
             }
@@ -336,6 +339,7 @@ namespace Veylix
                 {
                     e.warnings++;
                     if (e.isPlayer) Message(e.warnings >= 3 ? "TRACK LIMITS - 5 SECOND PENALTY" : "TRACK LIMITS WARNING " + e.warnings + "/3", VUI.Warn, 3f);
+                    if (e.isPlayer) CrashAudio.Play(e.warnings >= 3 ? CrashAudio.Stinger.Penalty : CrashAudio.Stinger.Warning);
                     if (e.warnings >= 3) { e.penalty += 5f; e.warnings = 0; }
                 }
                 else if (e.isPlayer) Message("TRACK LIMITS - LAP INVALID", VUI.Accent, 2.5f);
@@ -373,6 +377,9 @@ namespace Veylix
 
         // ------------------------------------------------------------------ order, gaps, flags
 
+        int lastPlayerPos;
+        float nextPosSound;
+
         void Order()
         {
             float L = track.Length;
@@ -392,6 +399,12 @@ namespace Veylix
             {
                 var e = entrants[i];
                 e.position = i + 1;
+                if (e.isPlayer && IsRace && phase == Phase.Racing && lastPlayerPos > 0 && e.position != lastPlayerPos && Time.time > nextPosSound)
+                {
+                    CrashAudio.Play(e.position < lastPlayerPos ? CrashAudio.Stinger.PositionUp : CrashAudio.Stinger.PositionDown);
+                    nextPosSound = Time.time + 1.5f;
+                }
+                if (e.isPlayer) lastPlayerPos = e.position;
                 if (leader == null || e == leader) { e.gapToLeader = 0f; continue; }
                 int n = Mathf.Min(e.cpTimes.Count, leader.cpTimes.Count);
                 e.gapToLeader = n > 0 ? e.cpTimes[n - 1] - leader.cpTimes[n - 1] : 0f;

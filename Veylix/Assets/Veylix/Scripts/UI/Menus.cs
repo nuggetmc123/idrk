@@ -33,6 +33,8 @@ namespace Veylix
         Transform Begin(string title, string subtitle = null, bool inSession = false, float w = W, float h = H)
         {
             VUI.Clear(panel);
+            OnWatch = false;
+            panel.localScale = Vector3.one;
             Pointer.MenuActive = true;
             Place(inSession);
             var bg = VUI.Quad(panel, "bg", Vector2.zero, new Vector2(w, h), VUI.Panel, 0.002f, 0.016f);
@@ -102,6 +104,8 @@ namespace Veylix
 
         public void Hide()
         {
+            OnWatch = false;
+            panel.localScale = Vector3.one;
             loadingBar = null; loadingDot = null; loadingTip = null; splash = false;
             VUI.Clear(panel);
             Pointer.MenuActive = false;
@@ -644,9 +648,11 @@ namespace Veylix
                     break;
                 default:
                     Row("MASTER"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, 0f, 1f, Settings.MasterVolume, v => Settings.MasterVolume = v, v => (v * 100f).ToString("0") + "%", 0.05f); y -= dy;
+                    Row("MUSIC"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, 0f, 1f, Settings.MusicVolume, v => Settings.MusicVolume = v, v => (v * 100f).ToString("0") + "%", 0.05f); y -= dy;
                     Row("ENGINES"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, 0f, 1f, Settings.EngineVolume, v => Settings.EngineVolume = v, v => (v * 100f).ToString("0") + "%", 0.05f); y -= dy;
                     Row("EFFECTS"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, 0f, 1f, Settings.EffectsVolume, v => Settings.EffectsVolume = v, v => (v * 100f).ToString("0") + "%", 0.05f); y -= dy;
                     Row("AMBIENCE"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, 0f, 1f, Settings.AmbienceVolume, v => Settings.AmbienceVolume = v, v => (v * 100f).ToString("0") + "%", 0.05f); y -= dy;
+                    Row("MUSIC WHILE RACING"); VToggle.Make(panel, new Vector2(cx - 0.12f, y), Settings.RaceMusic, v => Settings.RaceMusic = v); y -= dy;
                     break;
             }
             Back(() => { Settings.Save(); if (G.state == Game.State.Paused) ShowPause(); else ShowMain(); });
@@ -908,6 +914,60 @@ namespace Veylix
                 tipIndex++;
                 tipAt = Time.unscaledTime + 6f;
             }
+        }
+
+        // ------------------------------------------------------------------ the watch (VR, in a session)
+
+        /// True while the settings screen is open above the watch on your left wrist.
+        public bool OnWatch { get; private set; }
+        const float WatchScale = 0.3f, WW = 1.1f, WH = 0.86f;
+
+        /// <summary>
+        /// The watch screen: rises above your left wrist (a third of normal menu size), always turned towards your eyes.
+        /// Volumes up top, race actions below. Point at it with the right hand. The menu button closes it again.
+        /// </summary>
+        public void ShowWatch()
+        {
+            var s = G.session;
+            Begin("SETTINGS", s != null ? ModeName(s.config.mode) + "  |  " + s.map.name + (s.config.mode == GameMode.Online ? "  |  the race keeps going" : "  |  paused") : null, true, WW, WH);
+            float lx = -WW * 0.5f + 0.06f, cx = 0.12f, y = WH * 0.5f - 0.17f, dy = 0.075f;
+            void Row(string l) => Lbl(l, lx, y, 0.27f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.4f);
+            string Pct(float v) => (v * 100f).ToString("0") + "%";
+            Row("MUSIC"); VSlider.Make(panel, new Vector2(cx, y), 0.42f, 0f, 1f, Settings.MusicVolume, v => Settings.MusicVolume = v, Pct, 0.05f); y -= dy;
+            Row("ENGINES"); VSlider.Make(panel, new Vector2(cx, y), 0.42f, 0f, 1f, Settings.EngineVolume, v => Settings.EngineVolume = v, Pct, 0.05f); y -= dy;
+            Row("EFFECTS"); VSlider.Make(panel, new Vector2(cx, y), 0.42f, 0f, 1f, Settings.EffectsVolume, v => Settings.EffectsVolume = v, Pct, 0.05f); y -= dy;
+            Row("CROWD & WIND"); VSlider.Make(panel, new Vector2(cx, y), 0.42f, 0f, 1f, Settings.AmbienceVolume, v => Settings.AmbienceVolume = v, Pct, 0.05f); y -= dy;
+            Row("MUSIC WHILE RACING"); VToggle.Make(panel, new Vector2(cx - 0.17f, y), Settings.RaceMusic, v => Settings.RaceMusic = v); y -= dy * 1.2f;
+            float bw = 0.32f, bh = 0.07f, bx0 = -WW * 0.5f + 0.06f + bw * 0.5f;
+            Btn("RESUME", bx0, y, bw, bh, () => G.Pause(false), true);
+            Btn("RESET CAR", bx0 + bw + 0.02f, y, bw, bh, () => { G.Pause(false); G.ResetCar(); });
+            Btn(Rig.I != null && Rig.I.view == Rig.View.Chase ? "COCKPIT VIEW" : "CHASE VIEW", bx0 + (bw + 0.02f) * 2f, y, bw, bh, () => { Rig.I?.ToggleChase(); ShowWatch(); });
+            y -= bh + 0.02f;
+            if (s == null || s.config.mode != GameMode.Online) Btn("RESTART", bx0, y, bw, bh, () => G.Restart());
+            Btn("RECENTER", bx0 + bw + 0.02f, y, bw, bh, () => Rig.I?.Recenter());
+            Btn(s != null && s.config.mode == GameMode.Online ? "LEAVE RACE" : "EXIT TO GARAGE", bx0 + (bw + 0.02f) * 2f, y, bw, bh, () => { if (Online.I != null) Online.I.Leave(); G.EnterMenu(); });
+            Lbl("Press the menu button again to put the watch away", 0f, -WH * 0.5f + 0.03f, 0.2f, VUI.TextDim, TextAlignmentOptions.Midline, false, WW);
+            OnWatch = true;
+            panel.localScale = Vector3.one * WatchScale;
+            FollowWatch();
+            CrashAudio.Tick();
+        }
+
+        void FollowWatch()
+        {
+            var rig = Rig.I;
+            if (rig == null || rig.watch == null || rig.watch.Face == null) return;
+            Vector3 face = rig.watch.Face.position;
+            Vector3 pos = face + Vector3.up * (WH * WatchScale * 0.5f + 0.05f);
+            Vector3 look = pos - rig.head.position;
+            if (look.sqrMagnitude < 1e-4f) look = rig.head.forward;
+            panel.position = pos;
+            panel.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
+        }
+
+        void LateUpdate()
+        {
+            if (OnWatch) FollowWatch();
         }
 
         // ------------------------------------------------------------------ in session
