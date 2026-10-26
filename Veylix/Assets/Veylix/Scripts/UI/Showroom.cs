@@ -35,6 +35,9 @@ namespace Veylix
 
         void Awake() { Build(); }
 
+        /// The editor builds the same room into the scene so you can see it without pressing Play.
+        public void BuildRoom() => Build();
+
         // ------------------------------------------------------------------ places in the room
 
         public Pose SpotPose(Spot s)

@@ -19,7 +19,7 @@ namespace Veylix.EditorTools
         public const string Root = "Assets/Veylix";
         public const string Gen = Root + "/Generated";
         public const string ScenePath = Root + "/Scenes/Veylix.unity";
-        public const int WorldVersion = 2;
+        public const int WorldVersion = 3;
         const string VersionFile = "ProjectSettings/VeylixWorldVersion.txt";
 
         public static bool WorldUpToDate => File.Exists(VersionFile) && File.ReadAllText(VersionFile).Trim() == WorldVersion.ToString() && File.Exists(ScenePath);
@@ -62,8 +62,8 @@ namespace Veylix.EditorTools
                 Step("Painting textures (this takes a minute the first time)...", 0.05f);
                 MakeAssets(assets);
                 go.AddComponent<Game>();
-                Step("Saving the car models...", 0.85f);
-                BakeShowroom(assets);
+                Step("Building your garage...", 0.85f);
+                BakeGarage(assets);
                 var online = go.AddComponent<Online>();
                 Step("Network prefabs...", 0.9f);
                 online.netCarPrefab = NetPrefab<NetCar>("NetCar");
@@ -87,99 +87,91 @@ namespace Veylix.EditorTools
             finally { EditorUtility.ClearProgressBar(); }
         }
 
-        // ------------------------------------------------------------------ car models you can see without Play
+        // ------------------------------------------------------------------ your garage, visible without Play
 
-        public const string CarsFolder = Gen + "/Cars";
+        public const string GarageFolder = Gen + "/Garage";
 
         /// <summary>
-        /// The game builds every car from code when it runs. This also saves each car as a real prefab (meshes, livery
-        /// and materials) in Generated/Cars, and lines them up in a lit showroom in the scene so there's something to
-        /// look at in the editor. The showroom hides itself in Play mode and is left out of builds (EditorOnly).
+        /// The game builds everything from code when it runs. So the scene isn't empty in the editor, this builds your
+        /// garage hub (room, stations, track wall, trophies and your car on the turntable) exactly as the game does,
+        /// saves its meshes and materials in Generated/Garage, and keeps it in the scene. It's tagged EditorOnly and
+        /// hides itself the moment you press Play, when the game builds the live version.
         /// </summary>
-        static void BakeShowroom(VXAssets assets)
+        static void BakeGarage(VXAssets assets)
         {
-            EnsureFolder(CarsFolder);
+            AssetDatabase.DeleteAsset(Gen + "/Cars"); // the old car line-up
+            AssetDatabase.DeleteAsset(GarageFolder);
+            EnsureFolder(GarageFolder);
             VXAssets.UseInEditor(assets);
-            var show = new GameObject("Car Showroom (editor preview)");
-            show.tag = "EditorOnly";
-            show.AddComponent<EditorPreview>();
 
-            int n = CarCatalog.Count;
-            float spacing = 3.4f, width = n * spacing + 4f;
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "Floor";
-            floor.transform.SetParent(show.transform, false);
-            floor.transform.localScale = new Vector3(width / 10f, 1f, 1.4f);
-            Object.DestroyImmediate(floor.GetComponent<Collider>());
-            floor.GetComponent<MeshRenderer>().sharedMaterial = assets.pitLane != null ? assets.pitLane : floor.GetComponent<MeshRenderer>().sharedMaterial;
+            var go = new GameObject("Your Garage (editor preview)");
+            go.tag = "EditorOnly";
+            var room = go.AddComponent<Showroom>();
+            room.BuildRoom();
 
-            var sun = new GameObject("Showroom Light").AddComponent<Light>();
-            sun.transform.SetParent(show.transform, false);
-            sun.type = LightType.Directional;
-            sun.transform.rotation = Quaternion.Euler(38f, -35f, 0f);
-            sun.intensity = 1.15f;
-            sun.color = new Color(1f, 0.96f, 0.9f);
-            sun.shadows = LightShadows.Soft;
+            // Your car on the turntable (model only: no physics, effects or sound in the editor).
+            var carGo = new GameObject("Your Car");
+            var rb = carGo.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            var car = carGo.AddComponent<Car>();
+            car.isPlayer = true;
+            car.driverName = "You";
+            car.carIndex = 0;
+            car.Init(CarCatalog.Get(0), new CarSetup());
+            CarModel.Build(car, false);
+            foreach (var st in carGo.GetComponentsInChildren<Strut>(true)) st.Apply();
+            carGo.transform.SetPositionAndRotation(room.turntable.position + Vector3.up * 0.07f, room.turntable.rotation * Quaternion.Euler(0f, 210f, 0f));
+            carGo.transform.SetParent(room.turntable, true);
 
-            for (int i = 0; i < n; i++)
+            // Keep only what you see. Game scripts come off (TextMeshPro text stays), colliders too.
+            foreach (var mb in go.GetComponentsInChildren<MonoBehaviour>(true))
+                if (mb != null && !(mb is TMPro.TMP_Text) && !(mb is Car) && mb.GetType().Namespace == "Veylix") Object.DestroyImmediate(mb);
+            Object.DestroyImmediate(car);
+            Object.DestroyImmediate(rb);
+            foreach (var c in go.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(c);
+            go.AddComponent<EditorPreview>();
+
+            // Save what was made in memory so it stays in the scene.
+            string store = GarageFolder + "/garage_parts.asset";
+            Object main = null;
+            void Keep(Object o)
             {
-                var spec = CarCatalog.Get(i);
-                int slot = i * 2;
-                var go = new GameObject(spec.name);
-                var rb = go.AddComponent<Rigidbody>();
-                rb.isKinematic = true;
-                var car = go.AddComponent<Car>();
-                car.carIndex = slot;
-                car.driverName = Teams.DriverName(slot);
-                try
+                if (o == null || EditorUtility.IsPersistent(o)) return;
+                if (main == null) { main = o; AssetDatabase.CreateAsset(o, store); }
+                else AssetDatabase.AddObjectToAsset(o, store);
+            }
+            var block = new MaterialPropertyBlock();
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r.GetComponent<TMPro.TMP_Text>() != null) continue; // TextMeshPro builds its own mesh
+                // Menu panels colour themselves with property blocks, which a scene doesn't keep: bake them into materials.
+                r.GetPropertyBlock(block);
+                if (!block.isEmpty && r.sharedMaterial != null)
                 {
-                    car.Init(spec, Teams.SetupFor(slot));
-                    CarModel.Build(car, false);
+                    var m = new Material(r.sharedMaterial) { name = r.name };
+                    if (m.HasProperty("_Color")) m.color = block.GetColor("_Color");
+                    var tex = block.GetTexture("_MainTex");
+                    if (tex != null) m.mainTexture = tex;
+                    r.SetPropertyBlock(null);
+                    r.sharedMaterial = m;
                 }
-                catch (System.Exception e)
+                foreach (var m in r.sharedMaterials)
                 {
-                    Debug.LogException(e);
-                    Object.DestroyImmediate(go);
-                    continue;
+                    if (m == null) continue;
+                    Keep(m.mainTexture);
+                    if (m.HasProperty("_BumpMap")) Keep(m.GetTexture("_BumpMap"));
+                    Keep(m);
                 }
-                foreach (var s in go.GetComponentsInChildren<Strut>(true)) s.Apply();
-                // Keep only what you see: meshes, renderers and lights.
-                foreach (var mb in go.GetComponentsInChildren<MonoBehaviour>(true)) if (!(mb is Car)) Object.DestroyImmediate(mb);
-                Object.DestroyImmediate(car);
-                Object.DestroyImmediate(rb);
-                foreach (var c in go.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(c);
-
-                string path = CarsFolder + "/" + spec.id + ".prefab";
-                string store = CarsFolder + "/" + spec.id + "_parts.asset";
-                AssetDatabase.DeleteAsset(store);
-                Object main = null;
-                void Keep(Object o)
-                {
-                    if (o == null || EditorUtility.IsPersistent(o)) return;
-                    if (main == null) { main = o; AssetDatabase.CreateAsset(o, store); }
-                    else AssetDatabase.AddObjectToAsset(o, store);
-                }
-                foreach (var r in go.GetComponentsInChildren<Renderer>(true))
-                    foreach (var m in r.sharedMaterials)
-                    {
-                        if (m == null) continue;
-                        Keep(m.mainTexture);
-                        if (m.HasProperty("_BumpMap")) Keep(m.GetTexture("_BumpMap"));
-                        Keep(m);
-                    }
-                foreach (var f in go.GetComponentsInChildren<MeshFilter>(true)) Keep(f.sharedMesh);
-
-                go.transform.SetParent(show.transform, false);
-                go.transform.localPosition = new Vector3((i - (n - 1) * 0.5f) * spacing, 0f, 0f);
-                go.transform.localRotation = Quaternion.Euler(0f, 145f, 0f);
-                PrefabUtility.SaveAsPrefabAssetAndConnect(go, path, InteractionMode.AutomatedAction);
+                var f = r.GetComponent<MeshFilter>();
+                if (f != null) Keep(f.sharedMesh);
             }
             AssetDatabase.SaveAssets();
 
             var view = SceneView.lastActiveSceneView;
             if (view != null)
             {
-                view.LookAt(new Vector3(0f, 0.6f, 0f), Quaternion.Euler(18f, 160f, 0f), width * 0.42f);
+                var spot = room.SpotPose(Showroom.Spot.Entrance);
+                view.LookAt(spot.position + Vector3.up * 1.5f + spot.rotation * Vector3.forward * 3f, spot.rotation * Quaternion.Euler(12f, 0f, 0f), 6f);
                 view.Repaint();
             }
         }
