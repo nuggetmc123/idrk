@@ -90,7 +90,7 @@ namespace Veylix
             float recline = sh.modern ? 1f : sh.midera ? 0.65f : sh.classic ? 0f : spec.body == BodyStyle.Junior ? 0.7f : 0.2f;
             var look = car.driverLook;
             parts.driver = DriverBody.Build(car, parts, root, sh.eyeY, sh.headZ, recline,
-                look != null ? look.Suit : setup.Primary(spec), look != null ? look.SuitAccent : setup.Secondary(spec), look != null ? look.Gloves : new Color(0.04f, 0.04f, 0.045f));
+                look != null ? look.Suit : setup.Primary(spec), look != null ? look.SuitAccent : setup.Secondary(spec), look != null ? look.Gloves : new Color(0.04f, 0.04f, 0.045f), setup.Number(spec), sponsor);
             if (spec.hasHandbrake) BuildHandbrake(root, sh, parts, metal, satin);
 
             parts.eyePoint = new GameObject("EyePoint").transform;
@@ -728,92 +728,181 @@ namespace Veylix
         static Mesh helmetMesh;
 
         /// <summary>
-        /// The helmet, centred on the head and facing +Z: a rounded shell (lower at the back, with a chin bar), a curved
-        /// visor across the front, a dark lining underneath and a collar ring. Sub-meshes: 0 shell, 1 visor, 2 lining /
-        /// collar. Shell UVs: u front to back, v around (0 chin, 0.5 crown), placed in the livery's Helmet rect.
+        /// The helmet, centred on the head and facing +Z: a full-face racing helmet. The shell is lower at the back, with
+        /// a chin bar pushed forward under the face. The eyeport is recessed and edged with a rubber seal. A curved visor
+        /// sits over it on two side pivots, with a tear-off tab. There's a small rear spoiler on top and a vent in the
+        /// chin bar. Sub-meshes: 0 shell, 1 visor, 2 trim (lining, seal, pivots, vent).
+        /// Shell UVs: u front to back, v around (0 chin, 0.5 crown), placed in the livery's Helmet rect.
         /// </summary>
         public static Mesh HelmetMesh()
         {
             if (helmetMesh != null) return helmetMesh;
-            const float rx = 0.132f, ry = 0.148f, rz = 0.158f, lift = 0.02f;
-            const int seg = 40, rings = 22;
+            const float rx = 0.127f, ry = 0.141f, rz = 0.162f, lift = 0.02f;
+            const int half = 28, rings = 30;
+            const float portTh = 64f, portLo = -11f, portHi = 19f; // eyeport, degrees
             var verts = new List<Vector3>(); var norms = new List<Vector3>(); var uvs = new List<Vector2>();
-            var shell = new List<int>(); var visor = new List<int>(); var lining = new List<int>();
+            var shell = new List<int>(); var visor = new List<int>(); var trim = new List<int>();
             Rect r = LiveryPainter.Helmet;
-            Vector3 P(float th, float ph, float scale) => new Vector3(Mathf.Sin(th) * Mathf.Cos(ph) * rx, Mathf.Sin(ph) * ry + lift, Mathf.Cos(th) * Mathf.Cos(ph) * rz) * scale;
-            Vector3 N(Vector3 p) => new Vector3(p.x / (rx * rx), (p.y - lift) / (ry * ry), p.z / (rz * rz)).normalized;
-            float PhiMin(float th) => Mathf.Lerp(-58f, -80f, (1f - Mathf.Cos(th)) * 0.5f) * Mathf.Deg2Rad; // chin higher than the back
-            Vector2 UV(Vector3 p)
+            // Ellipsoid, with the chin bar pushed forward under the face and a little flare at the back of the neck.
+            Vector3 P(float th, float ph, float scale)
+            {
+                float c = Mathf.Cos(th), sp = Mathf.Sin(ph);
+                float chin = Mathf.Max(0f, c) * Mathf.Max(0f, c) * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-0.2f, -0.8f, sp)) * 0.045f;
+                float flare = Mathf.Max(0f, -c) * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-0.3f, -0.9f, sp)) * 0.012f;
+                return new Vector3(Mathf.Sin(th) * Mathf.Cos(ph) * rx, sp * ry + lift, c * Mathf.Cos(ph) * rz + chin - flare) * scale;
+            }
+            float PhiMin(float th) => Mathf.Lerp(-62f, -80f, (1f - Mathf.Cos(th)) * 0.5f) * Mathf.Deg2Rad; // chin higher than the back
+            bool InPort(float thDeg, float phDeg) => Mathf.Abs(thDeg) < portTh && phDeg > portLo && phDeg < portHi;
+            // u front to back, v around (0.5 crown); 'side' picks the branch so each half has its own seam-free v.
+            Vector2 UV(Vector3 p, float side)
             {
                 Vector3 d = new Vector3(p.x / rx, (p.y - lift) / ry, p.z / rz).normalized;
                 float u = Mathf.Acos(Mathf.Clamp(d.z, -1f, 1f)) / Mathf.PI;
-                float v = Mathf.Atan2(d.x, d.y) / (Mathf.PI * 2f) + 0.5f;
+                float v = Mathf.Atan2(side * Mathf.Abs(d.x), d.y) / (Mathf.PI * 2f) + 0.5f;
                 return new Vector2(r.x + u * r.width, r.y + Mathf.Clamp01(v) * r.height);
             }
-            // Shell: a grid over azimuth (around Y) and elevation, from the cut-off at the bottom up to the crown.
-            int start = verts.Count;
-            for (int i = 0; i <= seg; i++)
+            Vector3 Normal(float th, float ph)
             {
-                float th = i / (float)seg * Mathf.PI * 2f;
-                for (int j = 0; j <= rings; j++)
-                {
-                    float ph = Mathf.Lerp(PhiMin(th), Mathf.PI * 0.5f, j / (float)rings);
-                    var p = P(th, ph, 1f);
-                    verts.Add(p); norms.Add(N(p)); uvs.Add(UV(p));
-                }
+                const float e = 0.002f;
+                Vector3 n = Vector3.Cross((P(th, ph + e, 1f) - P(th, ph - e, 1f)) * 1000f, (P(th + e, ph, 1f) - P(th - e, ph, 1f)) * 1000f); // scaled up: Unity's normalize gives zero for tiny vectors
+                if (n.sqrMagnitude < 1e-8f) return ph > 0f ? Vector3.up : Vector3.down;
+                n = n.normalized;
+                return Vector3.Dot(n, P(th, ph, 1f) - new Vector3(0f, lift, 0f)) < 0f ? -n : n;
             }
-            for (int i = 0; i < seg; i++)
-                for (int j = 0; j < rings; j++)
+            // Shell: two half grids (right and left side) over azimuth and elevation, from the cut-off at the bottom up to
+            // the crown. The eyeport is pushed in and lined dark.
+            for (int h = 0; h < 2; h++)
+            {
+                float side = h == 0 ? 1f : -1f;
+                int start = verts.Count;
+                for (int i = 0; i <= half; i++)
                 {
-                    int a0 = start + i * (rings + 1) + j, a1 = a0 + rings + 1;
-                    shell.Add(a0); shell.Add(a0 + 1); shell.Add(a1);
-                    shell.Add(a1); shell.Add(a0 + 1); shell.Add(a1 + 1);
+                    float th = side * i / (float)half * Mathf.PI;
+                    for (int j = 0; j <= rings; j++)
+                    {
+                        float ph = Mathf.Lerp(PhiMin(th), Mathf.PI * 0.5f, j / (float)rings);
+                        bool port = InPort(th * Mathf.Rad2Deg, ph * Mathf.Rad2Deg);
+                        var p = P(th, ph, port ? 0.955f : 1f);
+                        verts.Add(p); norms.Add(Normal(th, ph)); uvs.Add(UV(p, side));
+                    }
                 }
-            // Visor: a patch just proud of the shell across the front.
-            int vs = 18, vr = 6;
+                for (int i = 0; i < half; i++)
+                    for (int j = 0; j < rings; j++)
+                    {
+                        int a0 = start + i * (rings + 1) + j, a1 = a0 + rings + 1;
+                        float th = side * (i + 0.5f) / half * 180f;
+                        float ph = Mathf.Lerp(PhiMin(th * Mathf.Deg2Rad), Mathf.PI * 0.5f, (j + 0.5f) / rings) * Mathf.Rad2Deg;
+                        var list = InPort(th, ph) ? trim : shell;
+                        int t0 = list.Count;
+                        list.Add(a0); list.Add(a0 + 1); list.Add(a1);
+                        list.Add(a1); list.Add(a0 + 1); list.Add(a1 + 1);
+                        // Face outwards (the two halves run in opposite directions).
+                        Vector3 pa = verts[list[t0]], pb = verts[list[t0 + 1]], pc = verts[list[t0 + 2]];
+                        if (Vector3.Dot(Vector3.Cross(pb - pa, pc - pa), norms[list[t0]]) < 0f)
+                        {
+                            int x = list[t0 + 1]; list[t0 + 1] = list[t0 + 2]; list[t0 + 2] = x;
+                            x = list[t0 + 4]; list[t0 + 4] = list[t0 + 5]; list[t0 + 5] = x;
+                        }
+                    }
+            }
+            // Visor: a curved patch standing just proud of the shell, a little bigger than the eyeport.
+            int vs = 24, vr = 8;
             int vstart = verts.Count;
             for (int i = 0; i <= vs; i++)
             {
-                float th = Mathf.Lerp(-64f, 64f, i / (float)vs) * Mathf.Deg2Rad;
+                float th = Mathf.Lerp(-portTh - 16f, portTh + 16f, i / (float)vs) * Mathf.Deg2Rad;
+                float edge = Mathf.Abs(i / (float)vs - 0.5f) * 2f;
+                float taper = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 1f, edge)); // sweeps in to the pivots
                 for (int j = 0; j <= vr; j++)
                 {
-                    float ph = Mathf.Lerp(-14f, 24f, j / (float)vr) * Mathf.Deg2Rad;
-                    var p = P(th, ph, 1.012f);
-                    verts.Add(p); norms.Add(N(p)); uvs.Add(new Vector2(i / (float)vs, j / (float)vr));
+                    float lo = Mathf.Lerp(portLo - 4f + edge * edge * 2f, 0f, taper), hi = Mathf.Lerp(portHi + 7f, 9f, taper);
+                    float ph = Mathf.Lerp(lo, hi, j / (float)vr) * Mathf.Deg2Rad;
+                    var p = P(th, ph, 1.014f);
+                    verts.Add(p); norms.Add((p - new Vector3(0f, lift, 0f)).normalized); uvs.Add(new Vector2(i / (float)vs, j / (float)vr));
                 }
             }
             for (int i = 0; i < vs; i++)
                 for (int j = 0; j < vr; j++)
                 {
                     int a0 = vstart + i * (vr + 1) + j, a1 = a0 + vr + 1;
-                    visor.Add(a0); visor.Add(a0 + 1); visor.Add(a1);
-                    visor.Add(a1); visor.Add(a0 + 1); visor.Add(a1 + 1);
+                    visor.Add(a0); visor.Add(a1); visor.Add(a0 + 1);
+                    visor.Add(a1); visor.Add(a1 + 1); visor.Add(a0 + 1);
                 }
+            {
+                Vector3 a = verts[visor[0]], b = verts[visor[1]], c = verts[visor[2]];
+                if (Vector3.Dot(Vector3.Cross(b - a, c - a), a - new Vector3(0f, lift, 0f)) < 0f)
+                    for (int t = 0; t < visor.Count; t += 3) { int x = visor[t + 1]; visor[t + 1] = visor[t + 2]; visor[t + 2] = x; }
+            }
             // Lining: close the opening underneath with a dark disc (seen from below).
             int centre = verts.Count;
             verts.Add(new Vector3(0f, P(Mathf.PI, PhiMin(Mathf.PI), 1f).y * 0.85f + P(0f, PhiMin(0f), 1f).y * 0.15f, -0.01f)); norms.Add(Vector3.down); uvs.Add(Vector2.zero);
             int rim = verts.Count;
-            for (int i = 0; i <= seg; i++)
+            for (int i = 0; i <= half * 2; i++)
             {
-                float th = i / (float)seg * Mathf.PI * 2f;
+                float th = i / (float)(half * 2) * Mathf.PI * 2f;
                 verts.Add(P(th, PhiMin(th), 0.99f)); norms.Add(Vector3.down); uvs.Add(Vector2.zero);
             }
-            for (int i = 0; i < seg; i++) { lining.Add(centre); lining.Add(rim + i + 1); lining.Add(rim + i); }
-            // Collar / neck brace ring under the helmet.
+            for (int i = 0; i < half * 2; i++)
+            {
+                trim.Add(centre); trim.Add(rim + i + 1); trim.Add(rim + i);
+                int t0 = trim.Count - 3;
+                if (Vector3.Cross(verts[trim[t0 + 1]] - verts[trim[t0]], verts[trim[t0 + 2]] - verts[trim[t0]]).y > 0f) { int x = trim[t0 + 1]; trim[t0 + 1] = trim[t0 + 2]; trim[t0 + 2] = x; }
+            }
+
             var k = new MeshKit();
+            // Rubber seal round the eyeport.
+            var seal = new List<Vector3>();
+            for (int i = 0; i <= 16; i++) seal.Add(P(Mathf.Lerp(-portTh, portTh, i / 16f) * Mathf.Deg2Rad, portHi * Mathf.Deg2Rad, 0.995f));
+            for (int i = 1; i <= 4; i++) seal.Add(P(portTh * Mathf.Deg2Rad, Mathf.Lerp(portHi, portLo, i / 4f) * Mathf.Deg2Rad, 0.995f));
+            for (int i = 1; i <= 16; i++) seal.Add(P(Mathf.Lerp(portTh, -portTh, i / 16f) * Mathf.Deg2Rad, portLo * Mathf.Deg2Rad, 0.995f));
+            for (int i = 1; i <= 4; i++) seal.Add(P(-portTh * Mathf.Deg2Rad, Mathf.Lerp(portLo, portHi, i / 4f) * Mathf.Deg2Rad, 0.995f));
+            k.Tube(0, seal.ToArray(), 0.0055f, 6, false);
+            // Visor pivots: a round plate each side.
+            for (int sd = -1; sd <= 1; sd += 2)
+            {
+                Vector3 at = P(sd * (portTh + 17f) * Mathf.Deg2Rad, 4.5f * Mathf.Deg2Rad, 1.012f);
+                Vector3 nrm = new Vector3(at.x / (rx * rx), (at.y - lift) / (ry * ry), at.z / (rz * rz)).normalized;
+                k.matrix = Matrix4x4.TRS(at, Quaternion.FromToRotation(Vector3.right, nrm), Vector3.one);
+                k.Lathe(0, new[] { new Vector2(0.001f, -0.002f), new Vector2(0.019f, -0.002f), new Vector2(0.019f, 0.003f), new Vector2(0.013f, 0.006f), new Vector2(0.001f, 0.0065f) }, 18);
+            }
+            k.matrix = Matrix4x4.identity;
+            // Tear-off tab at the visor's lower corner, and the chin vent.
+            k.Box(0, P(-(portTh - 2f) * Mathf.Deg2Rad, (portLo - 5.5f) * Mathf.Deg2Rad, 1.022f), new Vector3(0.009f, 0.008f, 0.006f), 1f, 0.0015f);
+            k.matrix = Matrix4x4.TRS(P(0f, -30f * Mathf.Deg2Rad, 0.998f), Quaternion.Euler(-42f, 0f, 0f), Vector3.one);
+            for (int v = -1; v <= 1; v++) k.Box(0, new Vector3(v * 0.016f, 0f, 0f), new Vector3(0.008f, 0.022f, 0.003f), 1f, 0.001f);
+            k.matrix = Matrix4x4.identity;
+            // Neck roll under the helmet.
             var ring = new Vector3[25];
-            for (int i = 0; i <= 24; i++) { float a = i / 24f * Mathf.PI * 2f; ring[i] = new Vector3(Mathf.Sin(a) * 0.105f, -0.155f, Mathf.Cos(a) * 0.095f - 0.02f); }
-            k.Tube(0, ring, 0.03f, 10, false);
-            var collar = k.Build("collar");
-            int cbase = verts.Count;
-            verts.AddRange(collar.vertices); norms.AddRange(collar.normals);
-            foreach (var u in collar.uv) uvs.Add(u);
-            foreach (var t in collar.triangles) lining.Add(cbase + t);
+            for (int i = 0; i <= 24; i++) { float a = i / 24f * Mathf.PI * 2f; ring[i] = new Vector3(Mathf.Sin(a) * 0.094f, -0.14f, Mathf.Cos(a) * 0.088f - 0.025f); }
+            k.Tube(0, ring, 0.016f, 10, false);
+            var parts = k.Build("helmet trim");
+            int tb = verts.Count;
+            verts.AddRange(parts.vertices); norms.AddRange(parts.normals);
+            foreach (var u in parts.vertices) uvs.Add(Vector2.zero);
+            foreach (var t in parts.triangles) trim.Add(tb + t);
+
+            // Rear spoiler: a small wing on top at the back, in the shell's paint (crown colour).
+            var sp = new MeshKit();
+            Vector3 sc = P(Mathf.PI, 34f * Mathf.Deg2Rad, 1.0f);
+            sp.matrix = Matrix4x4.TRS(sc + new Vector3(0f, 0.002f, -0.002f), Quaternion.Euler(-34f, 0f, 0f) * Quaternion.Euler(0f, 90f, 0f), Vector3.one); // span across the helmet
+            sp.Loft(0, new[]
+            {
+                new MeshKit.Station(-0.07f, 0f, 0.004f, 0.003f, 2f),
+                new MeshKit.Station(-0.058f, 0f, 0.018f, 0.0045f, 2.4f),
+                new MeshKit.Station(0.058f, 0f, 0.018f, 0.0045f, 2.4f),
+                new MeshKit.Station(0.07f, 0f, 0.004f, 0.003f, 2f),
+            }, 10, 6, null, 0, 0);
+            var spoiler = sp.Build("spoiler");
+            var swv = spoiler.vertices; var swn = spoiler.normals;
+            Vector2 crownUV = UV(P(0f, 89f * Mathf.Deg2Rad, 1f), 1f);
+            int sb = verts.Count;
+            for (int i = 0; i < swv.Length; i++) { verts.Add(swv[i]); norms.Add(swn[i]); uvs.Add(crownUV); }
+            foreach (var t in spoiler.triangles) shell.Add(sb + t);
 
             var m = new Mesh { name = "helmet" };
             m.SetVertices(verts); m.SetNormals(norms); m.SetUVs(0, uvs);
             m.subMeshCount = 3;
-            m.SetTriangles(shell, 0); m.SetTriangles(visor, 1); m.SetTriangles(lining, 2);
+            m.SetTriangles(shell, 0); m.SetTriangles(visor, 1); m.SetTriangles(trim, 2);
             m.RecalculateBounds();
             m.RecalculateTangents();
             return helmetMesh = m;

@@ -1,14 +1,14 @@
+using System.Collections.Generic;
 using UnityEngine;
-using S = Veylix.MeshKit.Station;
 
 namespace Veylix
 {
     /// <summary>
-    /// The driver: a full body in a race suit, sitting in the car. Torso with the six-point harness, legs reaching to the
-    /// pedals in racing boots, and arms that follow the hands. For the player in the cockpit the arms reach to the VR
-    /// gloves (so looking down you see your own arms on the wheel); for AI drivers, and the player's car seen from
-    /// outside, the gloved hands hold the steering wheel at quarter to three and turn with it. The suit is in the car's
-    /// colours, with the secondary colour on the side panels and sleeves.
+    /// The driver: a racing driver in a painted race suit (side panels, shoulder straps, belt, zip, chest sponsor and
+    /// number, striped sleeves and legs), race boots, gloves, a HANS device and the six-point harness, sitting in the
+    /// car. The arms follow the hands. For the player in the cockpit the arms reach to the VR gloves, so looking down
+    /// you see your own arms on the wheel. For AI drivers, and the player's car seen from outside, the gloved hands
+    /// wrap round the rim at quarter to three and turn with the wheel.
     /// </summary>
     [DefaultExecutionOrder(1000)] // after the gloves and the rig have moved this frame
     public class DriverBody : MonoBehaviour
@@ -17,19 +17,36 @@ namespace Veylix
         CarParts parts;
         readonly Transform[] upper = new Transform[2], fore = new Transform[2], elbow = new Transform[2], hand = new Transform[2];
         readonly Vector3[] shoulder = new Vector3[2]; // car-local
-        const float UpperLen = 0.29f, ForeLen = 0.27f;
 
-        /// <param name="recline">0 = upright (1970s), 1 = lying back like a modern car.</param>
-        public static DriverBody Build(Car car, CarParts parts, Transform root, float eyeY, float headZ, float recline, Color suit, Color accent, Color gloves)
+        // Material slots shared by the seated and standing bodies (Boot and Glove meshes use two slots each).
+        const int Suit = 0, Harness = 1, Buckle = 2, Boot = 3, Hans = 5, Glove = 6, Slots = 8;
+
+        static readonly Dictionary<string, Texture2D> suitTextures = new Dictionary<string, Texture2D>();
+
+        /// suit, harness, buckle metal, boot, sole, HANS carbon, glove, glove cuff
+        static Material[] Materials(Color suit, Color accent, Color gloves, int number, string sponsor)
         {
             var A = VXAssets.I;
-            var fabric = new Material(VXAssets.Or(A != null ? A.padding : null, "Suit", suit, 0.2f)) { name = "Suit", color = suit };
-            if (fabric.HasProperty("_Glossiness")) fabric.SetFloat("_Glossiness", 0.22f);
-            var panel = new Material(fabric) { name = "Suit accent", color = accent };
+            string key = ColorUtility.ToHtmlStringRGB(suit) + ColorUtility.ToHtmlStringRGB(accent) + number + sponsor;
+            if (!suitTextures.TryGetValue(key, out var tex) || tex == null)
+                suitTextures[key] = tex = BodyKit.SuitTexture(suit, accent, number, sponsor);
+            var fabric = new Material(VXAssets.Or(A != null ? A.padding : null, "Suit", Color.white, 0.2f)) { name = "Suit", color = Color.white, mainTexture = tex };
+            if (fabric.HasProperty("_Glossiness")) fabric.SetFloat("_Glossiness", 0.2f);
             var black = VXAssets.Or(A != null ? A.interior : null, "Harness", new Color(0.04f, 0.04f, 0.045f), 0.25f);
             var metal = VXAssets.Or(A != null ? A.metal : null, "Buckle", new Color(0.7f, 0.7f, 0.72f), 0.8f);
-            var gloveMat = new Material(black) { name = "Gloves", color = gloves };
+            var boot = new Material(black) { name = "Boots", color = Color.Lerp(gloves, suit, 0.25f) };
+            if (boot.HasProperty("_Glossiness")) boot.SetFloat("_Glossiness", 0.45f);
+            var carbon = VXAssets.Or(A != null ? A.carbon : null, "HANS", new Color(0.05f, 0.05f, 0.06f), 0.7f);
+            var glove = new Material(black) { name = "Gloves", color = gloves };
+            if (glove.HasProperty("_Glossiness")) glove.SetFloat("_Glossiness", 0.35f);
+            var cuff = new Material(black) { name = "Glove cuff", color = accent };
+            return new[] { fabric, black, metal, boot, black, carbon, glove, cuff };
+        }
 
+        /// <param name="recline">0 = upright (1970s), 1 = lying back like a modern car.</param>
+        public static DriverBody Build(Car car, CarParts parts, Transform root, float eyeY, float headZ, float recline, Color suit, Color accent, Color gloves, int number, string sponsor)
+        {
+            var mats = Materials(suit, accent, gloves, number, sponsor);
             var go = new GameObject("Driver");
             go.transform.SetParent(root, false);
             var d = go.AddComponent<DriverBody>();
@@ -40,34 +57,9 @@ namespace Veylix
             Vector3 eye = new Vector3(0f, eyeY, headZ);
             Vector3 neck = eye + new Vector3(0f, -0.2f, -0.03f);
             Vector3 pelvis = eye + new Vector3(0f, Mathf.Lerp(-0.64f, -0.6f, recline), Mathf.Lerp(0.1f, 0.32f, recline));
-            Vector3 spine = neck - pelvis;
-            float spineLen = spine.magnitude;
-            var spineRot = Quaternion.LookRotation(spine / spineLen, Vector3.forward); // local Y = chest facing forward
-
-            var k = new MeshKit();
-            // Torso: hips, waist, chest, shoulders, neck.
-            k.matrix = Matrix4x4.TRS(pelvis, spineRot, Vector3.one);
-            k.Loft(0, new[]
-            {
-                new S(0f, 0f, 0.17f, 0.12f, 2.6f),
-                new S(spineLen * 0.3f, 0.005f, 0.152f, 0.105f, 2.5f),
-                new S(spineLen * 0.62f, 0.015f, 0.18f, 0.118f, 2.6f),
-                new S(spineLen * 0.86f, 0.005f, 0.2f, 0.1f, 3f),
-                new S(spineLen * 1.0f, 0f, 0.07f, 0.065f, 2.2f),
-            }, 22, 16, null, 0, 0);
-            // Side panels in the accent colour.
-            for (int s = -1; s <= 1; s += 2)
-                k.Box(1, new Vector3(s * 0.165f, 0f, spineLen * 0.45f), new Vector3(0.02f, 0.13f, spineLen * 0.62f));
-            // Six-point harness: shoulder straps, lap belt, buckle.
-            for (int s = -1; s <= 1; s += 2)
-            {
-                k.matrix = Matrix4x4.TRS(pelvis, spineRot, Vector3.one);
-                k.Box(2, new Vector3(s * 0.07f, 0.124f, spineLen * 0.55f), new Vector3(0.05f, 0.008f, spineLen * 0.75f));
-            }
-            k.Box(2, new Vector3(0f, 0.122f, spineLen * 0.12f), new Vector3(0.3f, 0.008f, 0.06f));
-            k.matrix = Matrix4x4.TRS(pelvis + spineRot * new Vector3(0f, 0.13f, spineLen * 0.14f), spineRot * Quaternion.Euler(0f, 0f, 90f), Vector3.one); // lathe axis X -> facing out of the chest
-            k.Lathe(3, new[] { new Vector2(0.001f, 0f), new Vector2(0.045f, 0f), new Vector2(0.045f, 0.012f), new Vector2(0.001f, 0.014f) }, 16);
-            k.matrix = Matrix4x4.identity;
+            var pieces = new List<BodyKit.Piece>();
+            var harness = new MeshKit();
+            Matrix4x4 torso = AddTorso(pieces, harness, pelvis, neck);
 
             // Legs: thigh and shin with a bent knee, boots on the pedals.
             float reach = Mathf.Lerp(0.74f, 0.82f, recline);
@@ -75,102 +67,125 @@ namespace Veylix
             {
                 Vector3 hip = pelvis + new Vector3(s * 0.09f, 0.02f, 0.03f);
                 Vector3 heel = pelvis + new Vector3(s * 0.11f, Mathf.Lerp(0.02f, 0.1f, recline), reach);
-                Vector3 knee = SolveJoint(hip, heel, 0.44f, 0.43f, new Vector3(s * 0.15f, 1f, 0f));
-                k.Tube(0, new[] { hip, knee }, 0.075f, 12, true, 0.06f);
-                k.Tube(0, new[] { knee, heel }, 0.058f, 12, true, 0.045f);
-                k.Tube(1, new[] { Vector3.Lerp(hip, knee, 0.15f), Vector3.Lerp(hip, knee, 0.85f) }, 0.077f, 12, false, 0.062f); // accent stripe band
-                // Boot: heel to toe, pointing up the pedal.
-                Vector3 toe = heel + new Vector3(0f, 0.09f, 0.16f);
-                k.Tube(2, new[] { heel + new Vector3(0f, -0.02f, -0.03f), toe }, 0.045f, 10, true, 0.035f);
+                Vector3 toe = new Vector3(s * 0.08f, 0.5f, 1f).normalized;         // up the pedal, a little splayed
+                Vector3 bootUp = Vector3.Cross(toe, Vector3.left).normalized;       // perpendicular: up and back
+                Vector3 ankle = heel + bootUp * 0.08f;
+                Vector3 knee = SolveJoint(hip, ankle, BodyKit.Thigh, BodyKit.Shin, new Vector3(s * 0.15f, 1f, 0f));
+                AddLeg(pieces, hip, knee, ankle, Matrix4x4.TRS(heel, Quaternion.LookRotation(toe, bootUp), Vector3.one), Vector3.up, new Vector3(0f, 1f, 1f));
             }
 
             var body = new GameObject("Body");
             body.transform.SetParent(go.transform, false);
-            body.AddComponent<MeshFilter>().sharedMesh = k.Build(car.driverName + " driver", 4);
-            body.AddComponent<MeshRenderer>().sharedMaterials = new[] { fabric, panel, black, metal };
+            pieces.Add(new BodyKit.Piece(harness.Build("harness", 2), Matrix4x4.identity, Harness)); // straps, then the buckle
+            body.AddComponent<MeshFilter>().sharedMesh = BodyKit.Combine(car.driverName + " driver", pieces, Slots);
+            body.AddComponent<MeshRenderer>().sharedMaterials = mats;
 
             // ---- arms (posed every frame)
-            Vector3 chest = pelvis + spine * 0.86f;
-            Mesh limb = LimbMesh(), joint = JointMesh(), glove = GloveMesh();
             for (int i = 0; i < 2; i++)
             {
                 float s = i == 0 ? -1f : 1f;
-                d.shoulder[i] = chest + new Vector3(s * 0.2f, 0.01f, 0f);
-                d.upper[i] = Part(go.transform, "UpperArm", limb, new[] { fabric });
-                d.fore[i] = Part(go.transform, "Forearm", limb, new[] { panel });
-                d.elbow[i] = Part(go.transform, "Elbow", joint, new[] { fabric });
-                d.hand[i] = Part(go.transform, "Hand", glove, new[] { gloveMat });
-                var sh = Part(go.transform, "Shoulder", joint, new[] { fabric });
-                sh.localPosition = d.shoulder[i];
-                sh.localScale = Vector3.one * 0.14f;
+                d.shoulder[i] = torso.MultiplyPoint3x4(ShoulderLocal(s));
+                d.upper[i] = Part(go.transform, "UpperArm", BodyKit.UpperArmMesh(), new[] { mats[Suit] });
+                d.fore[i] = Part(go.transform, "Forearm", BodyKit.ForearmMesh(), new[] { mats[Suit] });
+                d.elbow[i] = Part(go.transform, "Elbow", BodyKit.Joint(), new[] { mats[Suit] });
+                d.hand[i] = Part(go.transform, "Hand", BodyKit.Hand(1f), new[] { mats[Glove], mats[Glove + 1] });
             }
             d.Pose();
             return d;
         }
 
+        /// Shoulder joint in torso space for side s (-1 left, +1 right). The torso's local X points to the driver's left
+        /// (it's LookRotation(spine, forward)), hence the minus.
+        static Vector3 ShoulderLocal(float s) => new Vector3(-s * 0.172f, -0.008f, BodyKit.SpineLen * 0.84f);
+
+        /// Torso, shoulders, HANS and (when 'harness' is given) the belts. Returns the torso's matrix (z scaled to the spine).
+        static Matrix4x4 AddTorso(List<BodyKit.Piece> pieces, MeshKit harness, Vector3 pelvis, Vector3 neck)
+        {
+            Vector3 spine = neck - pelvis;
+            float len = spine.magnitude;
+            var rot = Quaternion.LookRotation(spine / len, Vector3.forward); // local Y = chest, facing forward
+            float sc = Mathf.Clamp(len / (BodyKit.SpineLen * 0.97f), 0.8f, 1.15f);
+            var torso = Matrix4x4.TRS(pelvis, rot, new Vector3(1f, 1f, sc));
+            pieces.Add(new BodyKit.Piece(BodyKit.Torso(), torso, Suit));
+            if (harness != null) // in the car: the HANS device on the shoulders
+                pieces.Add(new BodyKit.Piece(BodyKit.Hans(), Matrix4x4.TRS(torso.MultiplyPoint3x4(new Vector3(0f, -0.005f, BodyKit.SpineLen * 0.955f)), rot, Vector3.one), Hans));
+            for (int s = -1; s <= 1; s += 2)
+                pieces.Add(new BodyKit.Piece(BodyKit.Joint(), Matrix4x4.TRS(torso.MultiplyPoint3x4(ShoulderLocal(s)), rot, Vector3.one * 0.125f), Suit));
+            if (harness == null) return torso;
+
+            // Six-point harness lying on the suit: shoulder straps over the HANS, lap belt, crotch straps, buckle.
+            float L = BodyKit.SpineLen;
+            harness.matrix = torso;
+            for (int s = -1; s <= 1; s += 2)
+            {
+                float x = s * 0.072f;
+                var pts = new List<Vector3>();
+                for (float f = 0.16f; f <= 0.9f; f += 0.06f) pts.Add(new Vector3(x, BodyKit.TorsoSurface(f, x) + 0.007f, f * L));
+                pts.Add(new Vector3(x * 1.08f, BodyKit.TorsoSurface(0.93f, x) + 0.02f, 0.94f * L));
+                pts.Add(new Vector3(x * 1.12f, 0.035f, 1.0f * L));
+                pts.Add(new Vector3(x * 1.15f, -0.04f, 1.02f * L));
+                pts.Add(new Vector3(x * 1.2f, -0.11f, 0.97f * L));
+                BodyKit.Strap(harness, 0, pts.ToArray(), Vector3.right, 0.05f);
+                var crotch = new List<Vector3>();
+                for (float f = 0.15f; f >= -0.005f; f -= 0.05f) crotch.Add(new Vector3(s * 0.035f, BodyKit.TorsoSurface(Mathf.Max(0f, f), s * 0.035f) + 0.007f, f * L));
+                BodyKit.Strap(harness, 0, crotch.ToArray(), Vector3.right, 0.04f);
+            }
+            var lap = new List<Vector3>();
+            for (float x = -0.155f; x <= 0.1551f; x += 0.031f) lap.Add(new Vector3(x, BodyKit.TorsoSurface(0.15f, x) + 0.008f, 0.15f * L));
+            BodyKit.Strap(harness, 0, lap.ToArray(), Vector3.forward, 0.06f);
+            harness.matrix = torso * Matrix4x4.TRS(new Vector3(0f, BodyKit.TorsoSurface(0.15f, 0f) + 0.011f, 0.15f * L), Quaternion.Euler(0f, 0f, 90f), Vector3.one); // lathe axis X -> out of the chest
+            harness.Lathe(1, new[] { new Vector2(0.001f, 0f), new Vector2(0.042f, 0f), new Vector2(0.042f, 0.01f), new Vector2(0.034f, 0.014f), new Vector2(0.001f, 0.015f) }, 20);
+            harness.matrix = Matrix4x4.identity;
+            return torso;
+        }
+
+        /// Thigh, knee, shin and boot. 'bootM' places the boot (heel at its origin).
+        static void AddLeg(List<BodyKit.Piece> pieces, Vector3 hip, Vector3 knee, Vector3 ankle, Matrix4x4 bootM, Vector3 thighFront, Vector3 shinFront)
+        {
+            pieces.Add(new BodyKit.Piece(BodyKit.ThighMesh(), BodyKit.Between(hip, knee, BodyKit.Thigh, thighFront), Suit));
+            pieces.Add(new BodyKit.Piece(BodyKit.Joint(), Matrix4x4.TRS(knee, Quaternion.LookRotation(knee - hip, thighFront), Vector3.one * 0.11f), Suit));
+            pieces.Add(new BodyKit.Piece(BodyKit.ShinMesh(), BodyKit.Between(knee, ankle, BodyKit.Shin, shinFront), Suit));
+            pieces.Add(new BodyKit.Piece(BodyKit.Boot(), bootM, Boot));
+        }
+
         /// <summary>
         /// Your driver standing up, helmet on, for the garage (it stands by your car and shows your design while you
-        /// customise it). Static pose: weight on both feet, arms relaxed.
+        /// customise it). Weight on both feet, arms relaxed.
         /// </summary>
         public static GameObject BuildStanding(Transform parent, DriverLook look)
         {
-            var A = VXAssets.I;
-            var fabric = new Material(VXAssets.Or(A != null ? A.padding : null, "Suit", look.Suit, 0.2f)) { name = "Suit", color = look.Suit };
-            if (fabric.HasProperty("_Glossiness")) fabric.SetFloat("_Glossiness", 0.22f);
-            var panel = new Material(fabric) { name = "Suit accent", color = look.SuitAccent };
-            var dark = VXAssets.Or(A != null ? A.interior : null, "Boots", new Color(0.04f, 0.04f, 0.045f), 0.3f);
-            var gloveMat = new Material(dark) { name = "Gloves", color = look.Gloves };
-
+            var mats = Materials(look.Suit, look.SuitAccent, look.Gloves, look.number, "VEYLIX");
             var go = new GameObject("Driver (standing)");
             go.transform.SetParent(parent, false);
-            var k = new MeshKit();
-            Vector3 pelvis = new Vector3(0f, 0.95f, 0f), neck = new Vector3(0f, 1.5f, -0.01f);
-            Vector3 spine = neck - pelvis;
-            float len = spine.magnitude;
-            var rot = Quaternion.LookRotation(spine / len, Vector3.forward);
-            k.matrix = Matrix4x4.TRS(pelvis, rot, Vector3.one);
-            k.Loft(0, new[]
+            var pieces = new List<BodyKit.Piece>();
+            Vector3 pelvis = new Vector3(0f, 0.96f, 0f), neck = new Vector3(0f, 1.49f, -0.012f);
+            var torso = AddTorso(pieces, null, pelvis, neck);
+            for (int s = -1; s <= 1; s += 2)
             {
-                new S(-0.04f, 0f, 0.165f, 0.115f, 2.6f),
-                new S(len * 0.3f, 0.005f, 0.148f, 0.1f, 2.5f),
-                new S(len * 0.62f, 0.012f, 0.18f, 0.115f, 2.6f),
-                new S(len * 0.86f, 0.004f, 0.2f, 0.1f, 3f),
-                new S(len * 1.0f, 0f, 0.07f, 0.065f, 2.2f),
-            }, 22, 16, null, 0, 0);
-            for (int sd = -1; sd <= 1; sd += 2) k.Box(1, new Vector3(sd * 0.158f, 0f, len * 0.45f), new Vector3(0.02f, 0.12f, len * 0.62f));
-            // Waistband: a slightly fuller ring round the hips in the accent colour.
-            k.Loft(1, new[] { new S(-0.02f, 0f, 0.169f, 0.119f, 2.6f), new S(0.06f, 0.002f, 0.163f, 0.113f, 2.6f) }, 22, 2, null, -1, -1);
-            k.matrix = Matrix4x4.identity;
-            for (int sd = -1; sd <= 1; sd += 2)
-            {
-                Vector3 hip = pelvis + new Vector3(sd * 0.09f, -0.02f, 0f), knee = new Vector3(sd * 0.1f, 0.5f, 0.02f), ankle = new Vector3(sd * 0.11f, 0.1f, -0.01f);
-                k.Tube(0, new[] { hip, knee }, 0.078f, 12, true, 0.062f);
-                k.Tube(0, new[] { knee, ankle }, 0.058f, 12, true, 0.046f);
-                // Stripe down the outside of each leg.
-                k.Box(1, Vector3.Lerp(hip, knee, 0.5f) + new Vector3(sd * 0.072f, 0f, 0f), new Vector3(0.014f, Vector3.Distance(hip, knee) * 0.9f, 0.04f));
-                k.Box(1, Vector3.Lerp(knee, ankle, 0.5f) + new Vector3(sd * 0.053f, 0f, 0f), new Vector3(0.012f, Vector3.Distance(knee, ankle) * 0.9f, 0.034f));
-                k.Tube(2, new[] { ankle + new Vector3(0f, -0.04f, -0.05f), ankle + new Vector3(0f, -0.06f, 0.17f) }, 0.05f, 10, true, 0.042f); // boot
-                Vector3 sh = new Vector3(sd * 0.2f, 1.39f, -0.01f), el = new Vector3(sd * 0.265f, 1.13f, -0.03f), wr = new Vector3(sd * 0.285f, 0.88f, 0.03f);
-                k.Tube(0, new[] { sh, el }, 0.06f, 12, true, 0.052f);
-                k.Tube(1, new[] { el, wr }, 0.05f, 12, true, 0.042f);
+                Vector3 hip = new Vector3(s * 0.09f, 0.94f, 0.005f), ankle = new Vector3(s * 0.115f, 0.125f, -0.015f);
+                Vector3 knee = SolveJoint(hip, ankle, BodyKit.Thigh, BodyKit.Shin, new Vector3(0f, 0f, 1f));
+                var bootM = Matrix4x4.TRS(new Vector3(s * 0.115f, 0.043f, -0.01f), Quaternion.Euler(0f, s * 7f, 0f), Vector3.one);
+                AddLeg(pieces, hip, knee, ankle, bootM, Vector3.forward, Vector3.forward);
+
+                // Arms hanging relaxed, elbows slightly bent, hands by the thighs.
+                Vector3 sh = torso.MultiplyPoint3x4(ShoulderLocal(s));
+                Vector3 el = sh + new Vector3(s * 0.05f, -1f, -0.08f).normalized * BodyKit.UpperArm;
+                Vector3 fdir = new Vector3(s * 0.03f, -1f, 0.22f).normalized;
+                Vector3 wr = el + fdir * BodyKit.Forearm;
+                pieces.Add(new BodyKit.Piece(BodyKit.UpperArmMesh(), BodyKit.Between(sh, el, BodyKit.UpperArm, Vector3.forward), Suit));
+                pieces.Add(new BodyKit.Piece(BodyKit.Joint(), Matrix4x4.TRS(el, Quaternion.identity, Vector3.one * 0.088f), Suit));
+                pieces.Add(new BodyKit.Piece(BodyKit.ForearmMesh(), BodyKit.Between(el, wr, BodyKit.Forearm, Vector3.forward), Suit));
+                // Palm towards the thigh, thumb forward. The hand mesh is a left hand; the right is its mirror image.
+                var hrot = Quaternion.LookRotation(fdir, new Vector3(s, 0f, 0f));
+                pieces.Add(new BodyKit.Piece(BodyKit.Hand(0f), Matrix4x4.TRS(wr, hrot, new Vector3(s < 0 ? 1f : -1f, 1f, 1f)), Glove));
             }
             var body = new GameObject("Body");
             body.transform.SetParent(go.transform, false);
-            body.AddComponent<MeshFilter>().sharedMesh = k.Build("standing driver", 3);
-            body.AddComponent<MeshRenderer>().sharedMaterials = new[] { fabric, panel, dark };
-            for (int sd = -1; sd <= 1; sd += 2)
-            {
-                var hand = Part(go.transform, "Hand", GloveMesh(), new[] { gloveMat });
-                hand.localPosition = new Vector3(sd * 0.29f, 0.84f, 0.03f);
-                hand.localRotation = Quaternion.Euler(95f, 0f, sd * -10f);
-                var shoulder = Part(go.transform, "Shoulder", JointMesh(), new[] { fabric });
-                shoulder.localPosition = new Vector3(sd * 0.2f, 1.405f, -0.01f);
-                shoulder.localScale = Vector3.one * 0.165f;
-            }
-            var hm = CarModel.HelmetMaterials(look, null);
-            hm[2] = fabric; // out of the car the collar is the suit's
-            var helmet = Part(go.transform, "Helmet", CarModel.HelmetMesh(), hm);
-            helmet.localPosition = new Vector3(0f, 1.67f, 0.01f);
+            body.AddComponent<MeshFilter>().sharedMesh = BodyKit.Combine("standing driver", pieces, Slots);
+            body.AddComponent<MeshRenderer>().sharedMaterials = mats;
+
+            var helmet = Part(go.transform, "Helmet", CarModel.HelmetMesh(), CarModel.HelmetMaterials(look, null));
+            helmet.localPosition = new Vector3(0f, neck.y + 0.163f, 0.012f);
             return go;
         }
 
@@ -182,42 +197,6 @@ namespace Veylix
             var r = g.AddComponent<MeshRenderer>();
             r.sharedMaterials = mats;
             return g.transform;
-        }
-
-        static Mesh limbMesh, jointMesh, gloveMesh;
-
-        /// Unit-length tapered sleeve along +Z (scaled per arm).
-        static Mesh LimbMesh()
-        {
-            if (limbMesh != null) return limbMesh;
-            var k = new MeshKit();
-            k.Tube(0, new[] { Vector3.zero, new Vector3(0f, 0f, 1f) }, 1f, 12, true, 0.8f);
-            return limbMesh = k.Build("limb");
-        }
-
-        static Mesh JointMesh()
-        {
-            if (jointMesh != null) return jointMesh;
-            var k = new MeshKit();
-            var prof = new Vector2[9];
-            for (int i = 0; i < 9; i++) { float a = -Mathf.PI / 2f + i / 8f * Mathf.PI; prof[i] = new Vector2(Mathf.Max(0.001f, Mathf.Cos(a) * 0.5f), Mathf.Sin(a) * 0.5f); }
-            k.Lathe(0, prof, 12);
-            return jointMesh = k.Build("joint");
-        }
-
-        /// A gloved hand wrapped round a rim (for drivers seen from outside).
-        static Mesh GloveMesh()
-        {
-            if (gloveMesh != null) return gloveMesh;
-            var k = new MeshKit();
-            k.Loft(0, new[]
-            {
-                new S(-0.06f, 0f, 0.03f, 0.028f, 2.2f),
-                new S(0.0f, 0f, 0.045f, 0.03f, 2.6f),
-                new S(0.05f, -0.01f, 0.045f, 0.035f, 2.6f),
-                new S(0.08f, -0.03f, 0.04f, 0.03f, 2.4f),
-            }, 14, 8, null, 0, 0);
-            return gloveMesh = k.Build("glove");
         }
 
         /// Two-bone joint (elbow / knee) between a root and a target, bending towards 'pole'.
@@ -235,56 +214,66 @@ namespace Veylix
 
         void LateUpdate() => Pose();
 
+        // Where the rim sits in a gripping hand (hand space: wrist at the origin, palm side -Y, fingers +Z).
+        static readonly Vector3 RimInFist = new Vector3(0f, -0.032f, 0.07f);
+
         void Pose()
         {
             if (car == null) return;
             var rig = Rig.I;
             bool ownHands = rig != null && rig.Car == car && rig.view == Rig.View.Cockpit && rig.leftGlove != null && rig.rightGlove != null;
+            var grip = parts != null ? parts.steeringWheelGrip : null;
             for (int i = 0; i < 2; i++)
             {
                 float s = i == 0 ? -1f : 1f;
+                Vector3 sh = shoulder[i];
                 Vector3 target;
+                Quaternion handRot = Quaternion.identity;
                 if (ownHands)
                 {
                     var g = i == 0 ? rig.leftGlove : rig.rightGlove;
                     target = transform.InverseTransformPoint(g.WristPosition);
                 }
-                else
+                else if (grip != null)
                 {
-                    // Hands at quarter to three on the rim, turning with the wheel.
-                    var grip = parts != null ? parts.steeringWheelGrip : null;
-                    if (grip != null)
-                    {
-                        float r = parts.wheelRadius > 0f ? parts.wheelRadius : 0.14f;
-                        Vector3 w = grip.TransformPoint(new Vector3(-s * (r + 0.005f), 0.01f, 0f)); // the wheel faces the driver (rotated 180)
-                        target = transform.InverseTransformPoint(w) + new Vector3(0f, 0f, -0.06f);
-                    }
-                    else target = shoulder[i] + new Vector3(s * 0.1f, -0.15f, 0.4f);
+                    // Hands at quarter to three, fingers wrapped round the rim, turning with the wheel.
+                    float r = parts.wheelRadius > 0f ? parts.wheelRadius : 0.14f;
+                    Vector3 rim = transform.InverseTransformPoint(grip.TransformPoint(new Vector3(-s * r, 0f, 0f))); // the wheel faces the driver (rotated 180)
+                    Vector3 centre = transform.InverseTransformPoint(grip.position);
+                    Vector3 axis = transform.InverseTransformDirection(grip.forward);
+                    if (axis.z > 0f) axis = -axis; // towards the driver
+                    Vector3 outward = (rim - centre).normalized;
+                    Vector3 fingers = Vector3.ProjectOnPlane(-axis, outward).normalized; // reaching forward past the rim
+                    handRot = Quaternion.LookRotation(fingers, outward + axis * 0.3f);    // back of the hand out, palm on the rim
+                    target = rim - handRot * RimInFist;
                 }
-                Vector3 sh = shoulder[i];
-                Vector3 el = SolveJoint(sh, target, UpperLen, ForeLen, new Vector3(s * 0.55f, -1f, 0f)); // elbows down and a little out, inside the cockpit
+                else target = sh + new Vector3(s * 0.1f, -0.15f, 0.4f);
+
+                Vector3 el = SolveJoint(sh, target, BodyKit.UpperArm, BodyKit.Forearm, new Vector3(s * 0.55f, -1f, 0f)); // elbows down and a little out
                 Vector3 toHand = target - el;
-                Vector3 wrist = toHand.magnitude > ForeLen ? el + toHand.normalized * ForeLen : target;
-                Place(upper[i], sh, el, 0.058f);
-                Place(fore[i], el, wrist, 0.048f);
+                Vector3 wrist = toHand.magnitude > BodyKit.Forearm ? el + toHand.normalized * BodyKit.Forearm : target;
+                Place(upper[i], sh, el, BodyKit.UpperArm);
+                Place(fore[i], el, wrist, BodyKit.Forearm);
                 elbow[i].localPosition = el;
-                elbow[i].localScale = Vector3.one * 0.105f;
+                elbow[i].localScale = Vector3.one * 0.088f;
                 hand[i].gameObject.SetActive(!ownHands); // the VR gloves are the hands in your own cockpit
                 if (!ownHands)
                 {
+                    if (grip == null) handRot = Quaternion.LookRotation(toHand.sqrMagnitude > 1e-6f ? toHand.normalized : Vector3.forward, new Vector3(s, 1f, 0f));
                     hand[i].localPosition = wrist;
-                    hand[i].localRotation = Quaternion.LookRotation((target - el).sqrMagnitude > 1e-6f ? (target - el).normalized : Vector3.forward, Vector3.up) * Quaternion.Euler(0f, 0f, s * 70f);
+                    hand[i].localRotation = handRot;
+                    hand[i].localScale = new Vector3(s < 0f ? 1f : -1f, 1f, 1f); // left-hand mesh, mirrored for the right
                 }
             }
         }
 
-        static void Place(Transform t, Vector3 a, Vector3 b, float radius)
+        static void Place(Transform t, Vector3 a, Vector3 b, float len0)
         {
             Vector3 d = b - a;
             float len = Mathf.Max(0.01f, d.magnitude);
             t.localPosition = a;
             t.localRotation = Quaternion.LookRotation(d / len, Vector3.up);
-            t.localScale = new Vector3(radius, radius, len);
+            t.localScale = new Vector3(1f, 1f, len / len0);
         }
     }
 }

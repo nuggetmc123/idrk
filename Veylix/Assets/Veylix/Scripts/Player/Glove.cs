@@ -3,9 +3,11 @@ using UnityEngine;
 namespace Veylix
 {
     /// <summary>
-    /// A racing glove that follows a controller: palm, four two-jointed fingers and a thumb that curl with the grip and
-    /// trigger, or wrap around whatever the hand is holding (the steering wheel rim, the handbrake). When holding
-    /// something the glove is pinned to that object so it never floats off the rim.
+    /// A racing glove that follows a controller: a gauntlet cuff with a strap, a padded palm and knuckle pad, four
+    /// three-jointed fingers and a thumb that curl with the grip and trigger, or wrap around whatever the hand is
+    /// holding (the steering wheel rim, the handbrake). When holding something the glove is pinned to that object so it
+    /// never floats off the rim. The driver's arms (DriverBody) reach to the glove's wrist, so in the cockpit your
+    /// sleeves run into your gloves.
     /// </summary>
     public class Glove : MonoBehaviour
     {
@@ -15,11 +17,12 @@ namespace Veylix
         /// Re-tint after the driver profile changes.
         public void SetColour(Color c) { if (gloveMat != null) gloveMat.color = c; }
         Transform model;
-        readonly Transform[,] fingers = new Transform[5, 2];
+        readonly Transform[,] fingers = new Transform[5, 3];
         float curl, curlTarget;
         Transform pinnedTo;
         Vector3 pinPos;
         Quaternion pinRot;
+        float thumbSide;
 
         public Transform Model => model;
 
@@ -39,55 +42,62 @@ namespace Veylix
             var A = VXAssets.I;
             var leather = new Material(VXAssets.Or(A != null ? A.interior : null, "Glove", new Color(0.06f, 0.06f, 0.07f), 0.35f)) { name = "Glove" };
             leather.color = SaveData.Profile.Gloves; // your glove colour from the driver profile
+            if (leather.HasProperty("_Glossiness")) leather.SetFloat("_Glossiness", 0.35f);
             gloveMat = leather;
-            var accent = VXAssets.Or(A != null ? A.padding : null, "Glove accent", new Color(0.1f, 0.25f, 0.6f), 0.3f);
+            var accent = new Material(leather) { name = "Glove accent", color = SaveData.Profile.SuitAccent };
             model = new GameObject("Glove").transform;
             model.SetParent(transform, false);
             // Controller grip pose -> hand: fingers forward, palm facing inwards, slight downward tilt.
             model.localRotation = Quaternion.Euler(-30f, 0f, left ? 90f : -90f);
             model.localPosition = new Vector3(left ? -0.01f : 0.01f, -0.01f, -0.04f);
-            float side = left ? -1f : 1f;
-            var palm = new MeshKit();
-            palm.Loft(0, new[]
-            {
-                new MeshKit.Station(0.045f, 0f, 0.042f, 0.014f, 3f),
-                new MeshKit.Station(0.0f, 0f, 0.045f, 0.018f, 3f),
-                new MeshKit.Station(-0.05f, 0f, 0.035f, 0.02f, 2.6f),
-                new MeshKit.Station(-0.085f, 0f, 0.03f, 0.022f, 2.3f),
-            }, 16, 8, null, 0, 1);
-            palm.Box(1, new Vector3(0f, 0.019f, -0.02f), new Vector3(0.05f, 0.004f, 0.05f));
-            MakePart(model, "Palm", palm.Build("palm"), new[] { leather, accent });
-            float[] xs = { 0.03f, 0.011f, -0.009f, -0.028f };
-            float[] lens = { 0.042f, 0.047f, 0.045f, 0.036f };
+            // Back of the hand is +Y, fingers +Z: the thumb is on +X for a left hand and -X for a right hand.
+            thumbSide = left ? 1f : -1f;
+            const float wristZ = -0.09f;
+            var palm = MakePart(model, "Palm", BodyKit.GlovePalm(), new[] { leather, accent });
+            palm.transform.localPosition = new Vector3(0f, 0f, wristZ);
             var seg = SegmentMesh();
             for (int f = 0; f < 4; f++)
             {
-                var root = new GameObject("F" + f).transform;
-                root.SetParent(model, false);
-                root.localPosition = new Vector3(xs[f] * side * -1f * -1f, 0f, 0.045f);
-                fingers[f, 0] = root;
-                var a = MakePart(root, "a", seg, new[] { leather });
-                a.transform.localScale = new Vector3(0.017f, 0.016f, lens[f] * 0.55f);
-                var mid = new GameObject("b").transform;
-                mid.SetParent(root, false);
-                mid.localPosition = new Vector3(0f, 0f, lens[f] * 0.55f);
-                fingers[f, 1] = mid;
-                var b = MakePart(mid, "b", seg, new[] { leather });
-                b.transform.localScale = new Vector3(0.016f, 0.015f, lens[f] * 0.5f);
+                Transform parent = model;
+                Vector3 at = new Vector3(BodyKit.FingerX[f] * thumbSide, -0.001f, wristZ + BodyKit.FingerZ);
+                float r = f == 3 ? 0.0094f : 0.0105f;
+                for (int j = 0; j < 3; j++)
+                {
+                    var joint = new GameObject("F" + f + "_" + j).transform;
+                    joint.SetParent(parent, false);
+                    joint.localPosition = at;
+                    if (j == 0) joint.localRotation = Quaternion.Euler(0f, (f - 1.5f) * -3f * thumbSide, 0f); // a slight fan
+                    fingers[f, j] = joint;
+                    float len = BodyKit.FingerLen[f] * BodyKit.FingerSeg[j];
+                    float rr = r * (1f - j * 0.08f);
+                    var m = MakePart(joint, "s", seg, new[] { leather });
+                    m.transform.localScale = new Vector3(rr * 2f, rr * 1.9f, len + rr);
+                    m.transform.localPosition = new Vector3(0f, 0f, -rr * 0.5f);
+                    parent = joint;
+                    at = new Vector3(0f, 0f, len);
+                }
             }
+            // Thumb: fleshy base off the side of the palm, then two segments.
             var thumb = new GameObject("Thumb").transform;
             thumb.SetParent(model, false);
-            thumb.localPosition = new Vector3(0.04f * (left ? -1f : 1f) * -1f * -1f, -0.008f, -0.01f);
-            thumb.localRotation = Quaternion.Euler(0f, (left ? -1f : 1f) * 40f, 0f);
+            thumb.localPosition = new Vector3(0.03f * thumbSide, -0.01f, wristZ + 0.018f);
+            thumb.localRotation = Quaternion.LookRotation(new Vector3(0.45f * thumbSide, -0.4f, 0.8f));
             fingers[4, 0] = thumb;
             var t1 = MakePart(thumb, "a", seg, new[] { leather });
-            t1.transform.localScale = new Vector3(0.019f, 0.018f, 0.03f);
+            t1.transform.localScale = new Vector3(0.032f, 0.03f, 0.05f);
+            t1.transform.localPosition = new Vector3(0f, 0f, -0.006f);
             var t2 = new GameObject("b").transform;
             t2.SetParent(thumb, false);
-            t2.localPosition = new Vector3(0f, 0f, 0.03f);
+            t2.localPosition = new Vector3(0f, 0f, 0.042f);
             fingers[4, 1] = t2;
             var t2m = MakePart(t2, "b", seg, new[] { leather });
-            t2m.transform.localScale = new Vector3(0.017f, 0.016f, 0.026f);
+            t2m.transform.localScale = new Vector3(0.023f, 0.022f, 0.034f);
+            var t3 = new GameObject("c").transform;
+            t3.SetParent(t2, false);
+            t3.localPosition = new Vector3(0f, 0f, 0.03f);
+            fingers[4, 2] = t3;
+            var t3m = MakePart(t3, "c", seg, new[] { leather });
+            t3m.transform.localScale = new Vector3(0.02f, 0.019f, 0.028f);
             Layers.SetRecursive(model.gameObject, Layers.Scenery);
         }
 
@@ -138,11 +148,17 @@ namespace Veylix
             for (int f = 0; f < 4; f++)
             {
                 float c = curl * (f == 0 && hasXR && pinnedTo == null ? Mathf.Lerp(0.3f, 1f, h.trigger) : 1f);
-                if (fingers[f, 0] != null) fingers[f, 0].localRotation = Quaternion.Euler(c * 70f, 0f, 0f);
-                if (fingers[f, 1] != null) fingers[f, 1].localRotation = Quaternion.Euler(c * 85f, 0f, 0f);
+                for (int j = 0; j < 3; j++)
+                {
+                    if (fingers[f, j] == null) continue;
+                    var bend = Quaternion.Euler(Mathf.Lerp(8f, j == 0 ? 72f : 82f, c), 0f, 0f);
+                    fingers[f, j].localRotation = j == 0 ? Quaternion.Euler(0f, (f - 1.5f) * -3f * thumbSide, 0f) * bend : bend;
+                }
             }
-            if (fingers[4, 0] != null) fingers[4, 0].localRotation = Quaternion.Euler(curl * 25f, (left ? -1f : 1f) * Mathf.Lerp(40f, 15f, curl), 0f);
-            if (fingers[4, 1] != null) fingers[4, 1].localRotation = Quaternion.Euler(curl * 40f, 0f, 0f);
+            // Thumb: swings across towards the fingers as the hand closes.
+            if (fingers[4, 0] != null) fingers[4, 0].localRotation = Quaternion.LookRotation(Vector3.Slerp(new Vector3(0.45f * thumbSide, -0.4f, 0.8f), new Vector3(0.25f * thumbSide, -0.62f, 0.75f), curl));
+            if (fingers[4, 1] != null) fingers[4, 1].localRotation = Quaternion.Euler(curl * 25f, -thumbSide * Mathf.Lerp(20f, 55f, curl), 0f);
+            if (fingers[4, 2] != null) fingers[4, 2].localRotation = Quaternion.Euler(curl * 30f, -thumbSide * curl * 25f, 0f);
             if (pinnedTo != null)
             {
                 model.position = pinnedTo.TransformPoint(pinPos);

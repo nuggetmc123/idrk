@@ -194,7 +194,7 @@ namespace Veylix
                         case 4: c = Color.Lerp(b, a, Mathf.SmoothStep(0.15f, 0.85f, u)); break;
                         default: { float gu = Mathf.Repeat(u * 9f, 1f) - 0.5f, gv = Mathf.Repeat(v * 12f, 1f) - 0.5f; if (gu * gu + gv * gv < 0.06f && top < 0.32f) c = a; break; }
                     }
-                    if (top > 0.4f) c = dark; // chin bar and neck seal
+                    if (top > 0.42f && u > 0.5f) c = dark; // neck seal under the back
                     // A little clear-coat sheen variation so it doesn't look flat.
                     float n = Mathf.PerlinNoise(u * 18f, v * 18f) * 0.04f - 0.02f;
                     c = new Color(Mathf.Clamp01(c.r + n), Mathf.Clamp01(c.g + n), Mathf.Clamp01(c.b + n), 1f);

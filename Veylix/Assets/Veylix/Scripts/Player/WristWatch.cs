@@ -34,16 +34,16 @@ namespace Veylix
             var strap = VXAssets.Or(A != null ? A.satinBlack : null, "Watch strap", new Color(0.04f, 0.04f, 0.05f), 0.35f);
             var root = new GameObject("Watch").transform;
             root.SetParent(glove.Model != null ? glove.Model : transform, false);
-            root.localPosition = new Vector3(0f, 0f, -0.1f); // just behind the glove's cuff
+            root.localPosition = new Vector3(0f, 0f, -0.118f); // over the glove's cuff
 
             var k = new MeshKit();
             // Strap: an oval band round the wrist.
             var ring = new Vector3[29];
-            for (int i = 0; i <= 28; i++) { float a = i / 28f * Mathf.PI * 2f; ring[i] = new Vector3(Mathf.Cos(a) * 0.04f, Mathf.Sin(a) * 0.029f, 0f); }
+            for (int i = 0; i <= 28; i++) { float a = i / 28f * Mathf.PI * 2f; ring[i] = new Vector3(Mathf.Cos(a) * 0.044f, Mathf.Sin(a) * 0.036f, 0f); }
             k.Tube(1, ring, 0.006f, 8, false);
             // Case on the back of the wrist, with a crown and bezel.
-            k.Box(0, new Vector3(0f, 0.033f, 0f), new Vector3(0.036f, 0.01f, 0.04f), 1f, 0.003f);
-            k.Box(0, new Vector3(0.021f, 0.033f, 0f), new Vector3(0.006f, 0.004f, 0.004f));
+            k.Box(0, new Vector3(0f, 0.04f, 0f), new Vector3(0.036f, 0.01f, 0.04f), 1f, 0.003f);
+            k.Box(0, new Vector3(0.021f, 0.04f, 0f), new Vector3(0.006f, 0.004f, 0.004f));
             var go = new GameObject("Case");
             go.transform.SetParent(root, false);
             go.AddComponent<MeshFilter>().sharedMesh = k.Build("watch", 2);
@@ -51,7 +51,7 @@ namespace Veylix
 
             face = new GameObject("Face").transform;
             face.SetParent(root, false);
-            face.localPosition = new Vector3(0f, 0.0385f, 0f);
+            face.localPosition = new Vector3(0f, 0.0455f, 0f);
             face.localRotation = Quaternion.Euler(90f, 0f, 90f); // screen facing up off the back of the wrist
             screen = VUI.Quad(face, "Screen", Vector2.zero, new Vector2(0.034f, 0.03f), new Color(0.02f, 0.03f, 0.04f, 1f), 0f, 0.004f);
             clock = VUI.Label(face, "", new Vector2(0f, 0.004f), 0.09f, VUI.Text, TextAlignmentOptions.Midline, true, 0.034f, -0.0005f);
