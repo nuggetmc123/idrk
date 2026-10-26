@@ -36,7 +36,7 @@ namespace Veylix.EditorTools
             set { File.WriteAllText(AppIdFile, (value ?? "").Trim()); }
         }
 
-        static bool FusionInstalled => Online.Available;
+        static bool FusionInstalled => GameLink.FusionAvailable;
 
         void OnGUI()
         {
@@ -97,7 +97,7 @@ namespace Veylix.EditorTools
         {
             string id = SavedAppId;
             bool idApplied = !string.IsNullOrEmpty(id) && TryApplyAppId(id);
-            GameBuilder.BuildWorld();
+            GameLink.BuildWorld();
             TryRebuildFusionPrefabTable();
 
             string msg = "Multiplayer is ready!\n\n";

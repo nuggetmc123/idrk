@@ -48,9 +48,9 @@ namespace Veylix.EditorTools
                 return;
             }
             if (!CheckMultiplayer()) return;
-            if (!GameBuilder.WorldUpToDate &&
+            if (!GameLink.WorldUpToDate &&
                 EditorUtility.DisplayDialog("Veylix - Make APK", "The game world is out of date. Rebuild it first? (Recommended)", "Rebuild world", "Build as is"))
-                GameBuilder.BuildWorld();
+                GameLink.BuildWorld();
 
             ApplySettings();
             QuestStoreReady.PlainApk();
@@ -67,7 +67,7 @@ namespace Veylix.EditorTools
             string path = Path.Combine(OutputFolder, ApkName);
             var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
             // Bake Photon's scene objects (the GameState) into the saved scene; without it the game state never starts on the headset.
-            if (Online.Available)
+            if (GameLink.FusionAvailable)
                 foreach (var scenePath in scenes) FusionBake.BakeAndSave(scenePath);
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
@@ -102,7 +102,7 @@ namespace Veylix.EditorTools
         static bool CheckMultiplayer()
         {
             string problem = null;
-            if (!Online.Available)
+            if (!GameLink.FusionAvailable)
                 problem = "Photon Fusion 2 isn't installed in this project, so the APK can't go online.";
             else
             {

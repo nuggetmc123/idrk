@@ -13,7 +13,8 @@ and online multiplayer through Photon Fusion.
    extracted `Veylix` folder: the one that directly contains `Assets`, `Packages` and `ProjectSettings`.
    Use **Unity 6 (6000.0.40f1)** or newer.
 2. On first open Veylix offers to switch *Active Input Handling* to **Both**. Accept it, and Unity restarts.
-3. Run **Veylix > Build Game World**. This generates textures, materials, prefabs and `Assets/Veylix/Scenes/Veylix.unity`.
+3. Wait for the import to finish. Veylix then builds the game world by itself (textures, materials, prefabs and
+   `Assets/Veylix/Scenes/Veylix.unity`) and opens the scene. **Veylix > Build Game World** does the same by hand.
 4. Press Play. Without a headset you play on keyboard, mouse or gamepad.
 
 ### If Unity Hub says "Please add a valid project"
@@ -66,6 +67,7 @@ Use `Veylix.unitypackage` instead:
 
 ## Layout
 - `Assets/Veylix/Scripts`: the game, split into Core, Vehicle, Maps, AI, Race, Env, Player, Cockpit, UI and Network.
-- `Assets/Veylix/Editor`: the asset/world builder and the Quest, APK and multiplayer setup tools.
-- `Assets/Veylix/Setup`: the Fusion switch, which swaps between the offline stand-in and real Fusion.
+- `Assets/Veylix/Editor`: the asset and world builder, plus first-open auto setup.
+- `Assets/Veylix/Setup`: the Veylix menu's setup tools (Import Quest, Make APK, Import Multiplayer, Signing) and the
+  Fusion switch. They sit in their own assembly, so the menu still appears even if game code has an error.
 - `Tools/make_project_zip.sh`: packs this folder as a zip for Unity Hub.

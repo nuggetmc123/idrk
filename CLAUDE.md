@@ -19,7 +19,9 @@
   `Veylix/Tools/make_project_zip.sh <scratchpad>/Veylix.zip` and send **only that zip** (the user confirmed this
   format opens in Unity Hub: project files at the zip root + full ProjectSettings). Don't send the .unitypackage
   unless they ask for it.
-- Type-check before pushing (Roslyn + Unity refs) and say it wasn't tested in Unity.
+- Type-check before pushing with `/tmp/claude-0/check/check2.sh`-style checks: real Input System / uGUI / TMP built from source
+  (stubs hid a `CommonUsages` ambiguity once), Unity 6 API audited against UnityCsReference. Say it wasn't tested in Unity.
+- Setup tools live in the `Veylix.Setup.Editor` assembly so the menu shows even if game code fails to compile.
 - Its top menu is **Veylix** (Import Quest, Make APK, Import Multiplayer, Build Game World). Keep it separate from KartVR/Nullbound.
 
 ## Unity project zips (all projects)
