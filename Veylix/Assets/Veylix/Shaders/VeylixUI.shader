@@ -5,12 +5,13 @@ Shader "Veylix/UI"
     {
         _MainTex ("Texture", 2D) = "white" {}
         _Color ("Color", Color) = (1,1,1,1)
+        [Enum(Off,0,On,1)] _ZWrite ("Depth write", Float) = 0
     }
     SubShader
     {
         Tags { "Queue"="Transparent" "RenderType"="Transparent" "IgnoreProjector"="True" }
         Blend SrcAlpha OneMinusSrcAlpha
-        ZWrite Off
+        ZWrite [_ZWrite]
         Cull Off
         Pass
         {

@@ -99,7 +99,7 @@ namespace Veylix
             Wall(lower, upper, o + new Vector3(3.85f, 0f, Z1), new Vector3(2.3f, 0f, 0.2f), false);
             upper.Box(o + new Vector3(0f, 3.5f, Z1), new Vector3(5.4f, 0.6f, 0.2f), Quaternion.identity, 0.3f);
             lower.Emit(transform, "WallPanels", M(a => a.satinBlack, "Panels", new Color(0.09f, 0.09f, 0.1f), 0.35f), Layers.Default, true);
-            upper.Emit(transform, "Walls", M(a => a.buildingOffice, "Walls", new Color(0.62f, 0.63f, 0.66f), 0.3f), Layers.Default, true);
+            upper.Emit(transform, "Walls", M(a => a.wallConcrete, "Walls", new Color(0.66f, 0.66f, 0.64f), 0.2f), Layers.Default, true);
             var ceil = new MeshAcc();
             AddPlane(ceil, o + new Vector3(cx, Height, cz), new Vector2(w, d), Vector3.down, 0.3f);
             ceil.Emit(transform, "Ceiling", M(a => a.satinBlack, "Ceiling", new Color(0.07f, 0.07f, 0.08f), 0.2f), Layers.Scenery, false);
@@ -229,7 +229,7 @@ namespace Veylix
                 VUI.Quad(wall, "Frame", p, new Vector2(0.58f, 0.34f), new Color(0.05f, 0.05f, 0.055f, 1f), 0.01f, 0.004f);
                 var tex = A != null && A.mapPreviews != null && i < A.mapPreviews.Length ? A.mapPreviews[i] : null;
                 VUI.Quad(wall, "Map", p + new Vector2(0f, 0.025f), new Vector2(0.54f, 0.26f), tex != null ? Color.white : new Color(0.2f, 0.2f, 0.22f, 1f), 0.005f, 0.003f, tex);
-                VUI.Label(wall, MapCatalog.Get(i).name.ToUpperInvariant(), p + new Vector2(-0.26f, -0.135f), 0.42f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.52f);
+                VUI.Fit(VUI.Label(wall, MapCatalog.Get(i).name.ToUpperInvariant(), p + new Vector2(-0.26f, -0.135f), 0.36f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.52f), 0.52f, 0.045f);
             }
         }
 
@@ -309,7 +309,6 @@ namespace Veylix
             Station(o + cust, CarSpot - cust, "CUSTOMISE", "Paint, livery, wheels, aero, brakes, suspension", () => Game.I?.menus.OpenGarage());
             Station(o + new Vector3(3.3f, 0f, 1.0f), Vector3.right, "CHOOSE A TRACK", "All 25 maps", () => Game.I?.menus.OpenMapSelection());
             Station(o + new Vector3(3.2f, 0f, 6.9f), Vector3.forward, "DRIVE", "Pick a mode and go", () => Game.I?.menus.OpenDrive());
-            Station(o + new Vector3(-1.4f, 0f, -1.2f), Vector3.forward, "MENU", "Race, settings, records, online", () => Game.I?.menus.ShowMain());
         }
 
         /// A slim stand with an angled screen, readable by someone standing behind it looking along readerLooks.
@@ -332,7 +331,7 @@ namespace Veylix
             VUI.Quad(screen, "bg", Vector2.zero, new Vector2(0.46f, 0.2f), VUI.Panel, 0.004f, 0.012f);
             VUI.Quad(screen, "line", new Vector2(0f, 0.098f), new Vector2(0.43f, 0.003f), VUI.Accent, 0.002f, 0.0015f);
             VButton.Make(screen, title, new Vector2(0f, 0.022f), new Vector2(0.42f, 0.085f), act, true);
-            VUI.Label(screen, sub, new Vector2(0f, -0.06f), 0.17f, VUI.TextDim, TextAlignmentOptions.Midline, false, 0.42f);
+            VUI.Fit(VUI.Label(screen, sub, new Vector2(0f, -0.06f), 0.17f, VUI.TextDim, TextAlignmentOptions.Midline, false, 0.42f), 0.42f, 0.04f, 2);
             Layers.SetRecursive(screen.gameObject, Layers.UI);
         }
 

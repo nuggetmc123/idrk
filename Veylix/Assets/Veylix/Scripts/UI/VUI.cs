@@ -73,6 +73,8 @@ namespace Veylix
                     var src = VXAssets.I != null ? VXAssets.I.uiPanel : null;
                     panelMat = src != null ? new Material(src) : new Material(Shader.Find("Veylix/UI") ?? Shader.Find("Sprites/Default"));
                     panelMat.renderQueue = 2995;
+                    // Panels write depth, so text and signs behind a menu (the garage walls) can't show through it.
+                    if (panelMat.HasProperty("_ZWrite")) panelMat.SetFloat("_ZWrite", 1f);
                 }
                 return panelMat;
             }
@@ -165,6 +167,23 @@ namespace Veylix
             return t;
         }
 
+        /// <summary>
+        /// Keep a label inside a box: one line (or 'lines'), shrinking the font (down to 45%) instead of wrapping onto
+        /// the next row or running past the edge.
+        /// </summary>
+        public static TextMeshPro Fit(TextMeshPro t, float width, float height, int lines = 1)
+        {
+            if (t == null) return t;
+            t.enableAutoSizing = true;
+            t.fontSizeMax = t.fontSize;
+            t.fontSizeMin = t.fontSize * 0.45f;
+            t.enableWordWrapping = lines > 1;
+            t.overflowMode = lines > 1 ? TextOverflowModes.Ellipsis : TextOverflowModes.Overflow;
+            var rt = t.GetComponent<RectTransform>();
+            if (rt != null) rt.sizeDelta = new Vector2(width, height);
+            return t;
+        }
+
         public static void Clear(Transform t)
         {
             for (int i = t.childCount - 1; i >= 0; i--) UnityEngine.Object.Destroy(t.GetChild(i).gameObject);
@@ -212,13 +231,18 @@ namespace Veylix
             b.primary = primary;
             b.bg = VUI.Quad(go.transform, "bg", Vector2.zero, size, VUI.PanelLight, 0f, 0.006f);
             b.edge = VUI.Quad(go.transform, "edge", new Vector2(-size.x * 0.5f + 0.002f, 0f), new Vector2(0.004f, size.y * 0.7f), VUI.Accent, -0.001f, 0.001f);
-            float fs = fontSize > 0f ? fontSize : Mathf.Clamp(size.y * 9f, 0.2f, 0.6f);
+            float textW = size.x - 0.034f, x0 = -size.x * 0.5f + 0.016f;
             if (subtitle == null)
-                b.label = VUI.Label(go.transform, text, new Vector2(-size.x * 0.5f + 0.016f, 0f), fs, VUI.Text, TextAlignmentOptions.MidlineLeft, true, size.x - 0.03f);
+            {
+                float fs = fontSize > 0f ? fontSize : Mathf.Clamp(size.y * 6.2f, 0.17f, 0.46f);
+                b.label = VUI.Fit(VUI.Label(go.transform, text, new Vector2(x0, 0f), fs, VUI.Text, TextAlignmentOptions.MidlineLeft, true, textW), textW, size.y * 0.8f);
+            }
             else
             {
-                b.label = VUI.Label(go.transform, text, new Vector2(-size.x * 0.5f + 0.016f, size.y * 0.16f), fs, VUI.Text, TextAlignmentOptions.MidlineLeft, true, size.x - 0.03f);
-                b.sub = VUI.Label(go.transform, subtitle, new Vector2(-size.x * 0.5f + 0.016f, -size.y * 0.22f), fs * 0.55f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, size.x - 0.03f);
+                // Title on the top half, description below it, each kept inside its own band.
+                float fs = fontSize > 0f ? fontSize : Mathf.Clamp(size.y * 3.9f, 0.17f, 0.4f);
+                b.label = VUI.Fit(VUI.Label(go.transform, text, new Vector2(x0, size.y * 0.2f), fs, VUI.Text, TextAlignmentOptions.MidlineLeft, true, textW), textW, size.y * 0.42f);
+                b.sub = VUI.Fit(VUI.Label(go.transform, subtitle, new Vector2(x0, -size.y * 0.2f), Mathf.Min(0.2f, fs * 0.55f), VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, textW), textW, size.y * 0.42f, 2);
             }
             b.AddCollider(size);
             b.Refresh();
@@ -267,7 +291,7 @@ namespace Veylix
             VUI.Quad(go.transform, "track", Vector2.zero, new Vector2(width, 0.006f), new Color(1f, 1f, 1f, 0.12f), 0f, 0.003f);
             s.fill = VUI.Quad(go.transform, "fill", Vector2.zero, new Vector2(width, 0.006f), VUI.Accent, -0.001f, 0.003f);
             s.knob = VUI.Quad(go.transform, "knob", Vector2.zero, new Vector2(0.018f, 0.018f), VUI.Text, -0.002f, 0.009f);
-            s.valueText = VUI.Label(go.transform, "", new Vector2(width * 0.5f + 0.06f, 0f), 0.24f, VUI.Text, TextAlignmentOptions.MidlineRight, true, 0.1f);
+            s.valueText = VUI.Fit(VUI.Label(go.transform, "", new Vector2(width * 0.5f + 0.06f, 0f), 0.22f, VUI.Text, TextAlignmentOptions.MidlineRight, true, 0.1f), 0.1f, 0.04f);
             s.AddCollider(new Vector2(width + 0.03f, 0.04f));
             s.Refresh();
             return s;
@@ -320,7 +344,7 @@ namespace Veylix
             s.bg = VUI.Quad(go.transform, "bg", Vector2.zero, new Vector2(width, 0.04f), new Color(1f, 1f, 1f, 0.05f), 0f, 0.005f);
             VUI.Label(go.transform, "<", new Vector2(-width * 0.5f + 0.015f, 0f), 0.3f, VUI.Accent, TextAlignmentOptions.MidlineLeft, true, 0.05f);
             VUI.Label(go.transform, ">", new Vector2(width * 0.5f - 0.015f, 0f), 0.3f, VUI.Accent, TextAlignmentOptions.MidlineRight, true, 0.05f);
-            s.text = VUI.Label(go.transform, "", Vector2.zero, 0.26f, VUI.Text, TextAlignmentOptions.Midline, true, width - 0.08f);
+            s.text = VUI.Fit(VUI.Label(go.transform, "", Vector2.zero, 0.24f, VUI.Text, TextAlignmentOptions.Midline, true, width - 0.08f), width - 0.08f, 0.04f);
             s.AddCollider(new Vector2(width, 0.045f));
             s.Refresh();
             return s;

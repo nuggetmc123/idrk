@@ -232,7 +232,7 @@ namespace Veylix
                 card.Refresh();
                 var tex = Preview(i);
                 if (tex != null) VUI.Quad(card.transform, "img", new Vector2(0f, 0.012f), new Vector2(cw - 0.012f, ch - 0.036f), Color.white, -0.001f, 0.004f, tex);
-                VUI.Label(card.transform, (i + 1) + "  " + m.name.ToUpperInvariant(), new Vector2(-cw * 0.5f + 0.008f, -ch * 0.5f + 0.012f), 0.16f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, cw - 0.01f, -0.002f);
+                VUI.Fit(VUI.Label(card.transform, (i + 1) + "  " + m.name.ToUpperInvariant(), new Vector2(-cw * 0.5f + 0.008f, -ch * 0.5f + 0.012f), 0.16f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, cw - 0.016f, -0.002f), cw - 0.016f, 0.02f);
                 if (m.freeRoam) VUI.Quad(card.transform, "tag", new Vector2(cw * 0.5f - 0.012f, ch * 0.5f - 0.01f), new Vector2(0.01f, 0.01f), VUI.Good, -0.002f, 0.005f);
             }
             Back(ShowMain);
