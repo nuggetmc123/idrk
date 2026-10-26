@@ -65,7 +65,7 @@ namespace Veylix
                 k.Box(2, new Vector3(s * 0.07f, 0.124f, spineLen * 0.55f), new Vector3(0.05f, 0.008f, spineLen * 0.75f));
             }
             k.Box(2, new Vector3(0f, 0.122f, spineLen * 0.12f), new Vector3(0.3f, 0.008f, 0.06f));
-            k.matrix = Matrix4x4.TRS(pelvis + spineRot * new Vector3(0f, 0.13f, spineLen * 0.14f), spineRot * Quaternion.Euler(-90f, 0f, 0f), Vector3.one);
+            k.matrix = Matrix4x4.TRS(pelvis + spineRot * new Vector3(0f, 0.13f, spineLen * 0.14f), spineRot * Quaternion.Euler(0f, 0f, 90f), Vector3.one); // lathe axis X -> facing out of the chest
             k.Lathe(3, new[] { new Vector2(0.001f, 0f), new Vector2(0.045f, 0f), new Vector2(0.045f, 0.012f), new Vector2(0.001f, 0.014f) }, 16);
             k.matrix = Matrix4x4.identity;
 

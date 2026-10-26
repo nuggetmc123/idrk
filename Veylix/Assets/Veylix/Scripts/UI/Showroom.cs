@@ -162,18 +162,18 @@ namespace Veylix
             handles.Emit(transform, "Handles", M(a => a.metal, "Steel", new Color(0.6f, 0.6f, 0.62f), 0.7f), Layers.Scenery, false);
             // Pegboard with spanners, a torque wrench, screwdrivers and a wheel gun.
             var board = new MeshAcc();
-            board.Box(o + new Vector3(X0 + 0.04f, 1.65f, 5.6f), new Vector3(0.03f, 1.1f, 2.5f), Quaternion.identity, 1.2f);
+            board.Box(o + new Vector3(X0 + 0.13f, 1.65f, 5.6f), new Vector3(0.03f, 1.1f, 2.5f), Quaternion.identity, 1.2f); // just proud of the wall (inner face at X0 + 0.1)
             board.Emit(transform, "Pegboard", M(a => a.satinBlack, "Pegboard", new Color(0.12f, 0.12f, 0.13f), 0.2f), Layers.Scenery, false);
             var tools = new MeshAcc();
             var rng = new Rng(11);
             for (int i = 0; i < 9; i++)
             {
                 float len = 0.14f + i * 0.025f;
-                tools.Box(o + new Vector3(X0 + 0.08f, 1.95f - len * 0.5f, 4.6f + i * 0.11f), new Vector3(0.015f, len, 0.025f), Quaternion.Euler(0f, 0f, rng.Range(-3f, 3f)));
+                tools.Box(o + new Vector3(X0 + 0.16f, 1.95f - len * 0.5f, 4.6f + i * 0.11f), new Vector3(0.015f, len, 0.025f), Quaternion.Euler(0f, 0f, rng.Range(-3f, 3f)));
             }
             for (int i = 0; i < 6; i++)
-                tools.Box(o + new Vector3(X0 + 0.08f, 1.45f, 5.75f + i * 0.09f), new Vector3(0.02f, 0.2f, 0.02f), Quaternion.identity);
-            tools.Box(o + new Vector3(X0 + 0.08f, 1.5f, 6.5f), new Vector3(0.02f, 0.55f, 0.03f), Quaternion.Euler(0f, 0f, 0f));
+                tools.Box(o + new Vector3(X0 + 0.16f, 1.45f, 5.75f + i * 0.09f), new Vector3(0.02f, 0.2f, 0.02f), Quaternion.identity);
+            tools.Box(o + new Vector3(X0 + 0.16f, 1.5f, 6.5f), new Vector3(0.02f, 0.55f, 0.03f), Quaternion.Euler(0f, 0f, 0f));
             tools.Emit(transform, "Tools", M(a => a.metal, "Chrome", new Color(0.75f, 0.76f, 0.78f), 0.85f), Layers.Scenery, false);
             var gun = new MeshKit();
             gun.matrix = Matrix4x4.TRS(o + new Vector3(x - 0.05f, 1.0f, 6.3f), Quaternion.Euler(0f, 0f, 90f), Vector3.one);
@@ -267,7 +267,7 @@ namespace Veylix
             var profile = new[] { new Vector2(0.001f, 0f), new Vector2(0.07f, 0f), new Vector2(0.07f, 0.04f), new Vector2(0.02f, 0.06f), new Vector2(0.02f, 0.16f), new Vector2(0.09f, 0.22f), new Vector2(0.1f, 0.34f), new Vector2(0.09f, 0.34f), new Vector2(0.08f, 0.24f), new Vector2(0.001f, 0.2f) };
             for (int i = 0; i < Mathf.Max(1, cups); i++)
             {
-                cup.matrix = Matrix4x4.TRS(o + new Vector3(-1.2f + i * 0.48f, 1.345f, Z0 + 0.25f), Quaternion.identity, Vector3.one * (cups == 0 ? 0.35f : 1f));
+                cup.matrix = Matrix4x4.TRS(o + new Vector3(-1.2f + i * 0.48f, 1.345f, Z0 + 0.25f), Quaternion.Euler(0f, 0f, 90f), Vector3.one * (cups == 0 ? 0.35f : 1f)); // lathe axis X -> up
                 cup.Lathe(0, profile, 20);
             }
             var gold = new Material(M(a => a.metal, "Gold", new Color(0.85f, 0.65f, 0.2f), 0.85f)) { name = "Trophy" };
