@@ -7,7 +7,7 @@ namespace Veylix
     /// The player's own garage: the hub you're in whenever you're not driving. A small private workshop with your car on
     /// a turntable in the middle under spotlights, a workbench and pegboard of tools, a tyre rack, a wall of every track
     /// you can race, your trophies and career numbers, and the roller door out to the track. Walk around it (left stick
-    /// or WASD) and use the stations: CUSTOMISE by the car, CHOOSE A TRACK at the track wall, DRIVE at the door. The car
+    /// or WASD) and use the stations: CUSTOMISE by the car and FIND RACE at the door. The car
     /// is rebuilt live as you change it in the Garage menu.
     /// </summary>
     public class Showroom : MonoBehaviour
@@ -285,10 +285,12 @@ namespace Veylix
             fill.transform.SetParent(transform, false);
             fill.transform.position = o + new Vector3(0f, 3f, 2f);
             fill.type = LightType.Point; fill.range = 13f; fill.intensity = 0.7f; fill.color = new Color(1f, 0.92f, 0.84f);
+            fill.renderMode = LightRenderMode.ForceVertex; // soft fill: per-vertex is plenty and saves a lighting pass
             var bench = new GameObject("BenchLamp").AddComponent<Light>();
             bench.transform.SetParent(transform, false);
             bench.transform.position = o + new Vector3(X0 + 0.7f, 2.3f, 5.6f);
             bench.type = LightType.Point; bench.range = 4f; bench.intensity = 1.1f; bench.color = new Color(1f, 0.82f, 0.6f);
+            bench.renderMode = LightRenderMode.ForceVertex;
         }
 
         void AddSpot(Vector3 p, Vector3 target, float intensity, Color c, float angle, bool shadows)
@@ -302,7 +304,7 @@ namespace Veylix
             l.range = 12f;
             l.intensity = intensity;
             l.color = c;
-            l.shadows = shadows ? LightShadows.Soft : LightShadows.None;
+            l.shadows = shadows ? LightShadows.Hard : LightShadows.None;
         }
 
         // ------------------------------------------------------------------ stations (point and click)
@@ -313,8 +315,7 @@ namespace Veylix
             stations.SetParent(transform, false);
             Vector3 cust = new Vector3(-2.9f, 0f, 1.6f);
             Station(o + cust, CarSpot - cust, "CUSTOMISE", "Paint, livery, wheels, aero, brakes, suspension", () => Game.I?.menus.OpenGarage());
-            Station(o + new Vector3(3.3f, 0f, 1.0f), Vector3.right, "CHOOSE A TRACK", "All 25 maps", () => Game.I?.menus.OpenMapSelection());
-            Station(o + new Vector3(3.2f, 0f, 6.9f), Vector3.forward, "DRIVE", "Pick a mode and go", () => Game.I?.menus.OpenDrive());
+            Station(o + new Vector3(3.2f, 0f, 6.9f), Vector3.forward, "FIND RACE", "Up to 12 drivers. Racing within a minute.", () => Game.I?.menus.OpenFindRace());
         }
 
         /// A slim stand with an angled screen, readable by someone standing behind it looking along readerLooks.

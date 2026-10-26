@@ -10,7 +10,9 @@ using UnityEngine;
 namespace Veylix
 {
     /// <summary>
-    /// Online races with Photon Fusion 2 (Shared Mode, up to 8 players a room).
+    /// Online races with Photon Fusion 2 (Shared Mode, up to 12 players a room).
+    /// FIND RACE (the garage door, see RaceFinder): everyone searching waits in a matchmaking room until its host sends
+    /// the room to a race.
     /// FIND A RACE: matchmaking on the track you've picked (joins a race filling up there, or opens one and waits).
     /// ANY TRACK: joins whichever race is filling up. CREATE PRIVATE ROOM / JOIN WITH CODE: race friends by code.
     /// PARTY: a lobby you sit in from the garage with friends (code starts with 0). The leader picks the track and the
@@ -23,8 +25,8 @@ namespace Veylix
     {
         public static Online I { get; private set; }
         public static readonly List<NetCar> Cars = new List<NetCar>();
-        public const int MaxPlayers = 8;
-        const string PublicPrefix = "VX_PUB_", PrivatePrefix = "VX_PRIV_", PartyPrefix = "VX_PARTY_", MapProperty = "map", LapsProperty = "laps";
+        public const int MaxPlayers = RaceFinder.MaxRacers;
+        const string PublicPrefix = "VX_PUB_", PrivatePrefix = "VX_PRIV_", PartyPrefix = "VX_PARTY_", LobbyPrefix = "VX_MM_", MatchProperty = "mm", MapProperty = "map", LapsProperty = "laps";
         const string GoProperty = "go", GoMapProperty = "gmap", GoLapsProperty = "glaps";
 
         [Tooltip("NetCar prefab (NetworkObject + NetCar). The world builder fills this in.")]
@@ -109,7 +111,7 @@ namespace Veylix
         {
             Status = s;
             Debug.Log("[Veylix] Online: " + s);
-            if (Game.I != null && Game.I.menus != null && Game.I.state == Game.State.Menu) Game.I.menus.ShowOnlineStatus(s);
+            if (Game.I != null && Game.I.menus != null && Game.I.state == Game.State.Menu && !Game.I.menus.FindingRace) Game.I.menus.ShowOnlineStatus(s);
         }
 
         // ------------------------------------------------------------------ connecting
@@ -147,6 +149,50 @@ namespace Veylix
             if (!onMyTrack) args.SessionProperties = null; // no filter: any open race (we create one on our track if there's none)
             var r = await Start(args);
             if (r != null && r.Ok) AfterJoin();
+        }
+
+        // ------------------------------------------------------------------ FIND RACE matchmaking room
+
+        bool lobby;
+        public bool InLobby => Connected && lobby;
+        public int LobbyPlayers => InLobby ? Runner.ActivePlayers.Count() : 1;
+        public bool IsLobbyMaster => InLobby && Runner.IsSharedModeMasterClient;
+
+        /// Join an open matchmaking room (or open one) and wait there; RaceFinder decides when to go.
+        public async Task StartMatchmaking()
+        {
+            if (!Available || Busy) return;
+            PartyCode = "";
+            var r = await Start(new StartGameArgs
+            {
+                GameMode = Fusion.GameMode.Shared,
+                SessionNameGenerator = () => LobbyPrefix + NewCode(false),
+                SessionProperties = new Dictionary<string, SessionProperty> { [MatchProperty] = 1 },
+                IsVisible = true,
+                PlayerCount = MaxPlayers,
+            });
+            if (r == null || !r.Ok) return;
+            if (RaceFinder.I == null || !RaceFinder.I.Searching) { await Shutdown(); return; } // cancelled while connecting
+            lobby = true;
+            handledGo = CurrentGo();
+        }
+
+        public void StopMatchmaking() { if (lobby) { lobby = false; _ = Shutdown(); } } // still connecting: StartMatchmaking leaves once it lands
+
+        /// Host of the matchmaking room: close it to newcomers and send everyone in it to a private race.
+        public async Task LaunchLobbyRace(int map, int laps)
+        {
+            if (!IsLobbyMaster || Busy) return;
+            string name = PrivatePrefix + NewCode(true);
+            Runner.SessionInfo.IsOpen = false;
+            Runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty>
+            {
+                [GoProperty] = name + "|0", [GoMapProperty] = map, [GoLapsProperty] = Mathf.Clamp(laps, 1, 30),
+            });
+            handledGo = name + "|0";
+            await Task.Delay(1500); // let the others see it
+            lobby = false;
+            await GoTo(name, false, map, laps);
         }
 
         /// From the race setup screen: matchmaking on the track you just set up.
@@ -307,7 +353,7 @@ namespace Veylix
                 if (!result.Ok) { Runner = null; SetStatus("Couldn't connect: " + Explain(result)); return result; }
                 var info = Runner.SessionInfo;
                 string name = info != null && info.IsValid ? info.Name : args.SessionName ?? "";
-                RoomCode = name.StartsWith(PublicPrefix) ? name.Substring(PublicPrefix.Length) : name.StartsWith(PrivatePrefix) ? name.Substring(PrivatePrefix.Length) : name.StartsWith(PartyPrefix) ? name.Substring(PartyPrefix.Length) : "";
+                RoomCode = name.StartsWith(PublicPrefix) ? name.Substring(PublicPrefix.Length) : name.StartsWith(PrivatePrefix) ? name.Substring(PrivatePrefix.Length) : name.StartsWith(PartyPrefix) ? name.Substring(PartyPrefix.Length) : name.StartsWith(LobbyPrefix) ? name.Substring(LobbyPrefix.Length) : "";
                 roomMap = Game.I.config.map;
                 roomLaps = Mathf.Clamp(Game.I.config.laps, 1, 30);
                 if (info != null && info.Properties != null)
@@ -370,7 +416,7 @@ namespace Veylix
                 catch (Exception e) { Debug.LogError("[Veylix] Couldn't start the race state: " + e.Message); }
             }
             // Space the grid: each driver takes the slot matching their player number.
-            int slot = Mathf.Max(0, (Runner.LocalPlayer.PlayerId - 1) % 20);
+            int slot = Mathf.Max(0, (Runner.LocalPlayer.PlayerId - 1) % MaxPlayers);
             var pose = World.Current.grid[Mathf.Min(slot, World.Current.grid.Count - 1)];
             Game.I.playerCar.Teleport(pose.position, pose.rotation);
             RaceSession.I.Message("ONLINE  -  ROOM " + Format(RoomCode) + "  -  race starts when the room is ready", VUI.Text, 6f);
@@ -385,7 +431,7 @@ namespace Veylix
             var r = Runner;
             Runner = null;
             try { if (r.IsRunning) await Task.WhenAny(r.Shutdown(), Task.Delay(8000)); if (r != null) Destroy(r.gameObject); }
-            finally { leaving = false; Cars.Clear(); RoomCode = ""; }
+            finally { leaving = false; lobby = false; Cars.Clear(); RoomCode = ""; }
         }
 
         void OnApplicationQuit() { if (Runner != null) { leaving = true; Runner.Shutdown(); } }
@@ -393,7 +439,7 @@ namespace Veylix
         void Update()
         {
             // Party members follow the leader to the race they picked.
-            if (InParty && !IsPartyLeader && !Busy && Time.frameCount % 15 == 0)
+            if (((InParty && !IsPartyLeader) || (InLobby && !IsLobbyMaster)) && !Busy && Time.frameCount % 15 == 0)
             {
                 string go = CurrentGo();
                 if (!string.IsNullOrEmpty(go) && go != handledGo)
@@ -404,7 +450,8 @@ namespace Veylix
                     var props = Runner.SessionInfo.Properties;
                     if (props.TryGetValue(GoMapProperty, out var m)) map = (int)m;
                     if (props.TryGetValue(GoLapsProperty, out var l)) laps = Mathf.Max(1, (int)l);
-                    SetStatus("The party is off to " + MapCatalog.Get(map).name + "!");
+                    if (InLobby) { lobby = false; RaceFinder.I?.Stop("Race found! Heading to " + MapCatalog.Get(map).name + "..."); }
+                    else SetStatus("The party is off to " + MapCatalog.Get(map).name + "!");
                     _ = GoTo(parts[0], parts.Length > 1 && parts[1] == "1", map, laps);
                 }
             }

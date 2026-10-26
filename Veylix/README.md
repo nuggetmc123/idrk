@@ -53,8 +53,9 @@ Use `Veylix.unitypackage` instead:
 - Gamepads work too.
 
 ## Your driver
-The first time you play you create your driver: a name (on-screen keyboard), a race number, and your kit (suit and
-stripe colours, helmet colour, design and visor, gloves). Your driver stands next to your car in the garage, sits in
+The first time you play, before you reach the garage, you create your driver in a dark studio after the start-up
+screen: a name (on-screen keyboard), a race number, and your kit (suit and stripe colours, helmet colour, design and
+visor, gloves). Your driver stands in a pool of light beside the screen and changes as you go. Your driver stands next to your car in the garage, sits in
 your car in the same kit, your number goes on your cars, and online everyone sees your driver in your car.
 **DRIVER** in the main menu changes it later.
 
@@ -80,7 +81,19 @@ When you're not driving you're in your own garage: your car on a turntable under
 wall, a tyre rack, a wall with all 25 tracks, your trophies and career stats, and the roller door out to the track.
 Walk around (left stick or WASD; right stick or Q/E turns) and point at the stations:
 **CUSTOMISE** (by the car: paint, livery, number, wheels, wings, tyres, brakes, suspension, changes show live on the
-car), **CHOOSE A TRACK**, **DRIVE** (every mode). The menu button hides or brings back the menu.
+car) and **FIND RACE** at the roller door. The menu button hides or brings back the menu.
+
+## Find race
+**FIND RACE** (at the door, or in the main menu) searches for other drivers while a timer counts up. Races are up to
+12 drivers on a circuit picked for you. Online, everyone searching waits together. The race starts as soon as 12 are
+found, or at one minute if at least one other driver has turned up. If nobody has come after a minute (or online play
+is off), you race on your own against an AI field, 12 cars in all. **MORE MODES** in the main menu still has every
+mode with your own choice of track (Grand Prix, Quick Race, Championship, Elimination, Time Trial, Practice, Free Roam).
+
+## If something goes wrong
+Every error the game hits is written to **Veylix-errors.txt** next to the project's Assets folder (on a headset, in the
+app's data folder), one copy of each. If a map fails to build you're taken back to the garage with a message instead
+of being left on the loading screen.
 
 ## Loading screens
 A splash screen while your garage is built at start-up, and before every session a loading screen with the track
@@ -92,7 +105,7 @@ drawn as a live outline, the session details (mode, car, laps, time, weather), p
 - **ANY TRACK**: join whichever race is filling up.
 - **PRIVATE ROOM** / **JOIN WITH CODE**: race friends only.
 - **PARTY**: create a party (its code starts with 0) and friends join from their garage. The leader picks the track
-  (CHOOSE A TRACK or the Online menu) and chooses **PARTY ONLY** (a private race) or **PARTY VS OTHERS** (a public race
+  (FIND RACE, MORE MODES or the Online menu) and chooses **PARTY ONLY** (a private race) or **PARTY VS OTHERS** (a public race
   other players matchmake into). Everyone in the party goes, and comes back to the party after the race.
 
 ## Seeing the tracks in the editor

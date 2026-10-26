@@ -55,6 +55,7 @@ namespace Veylix
             menus = new GameObject("Menus").AddComponent<Menus>();
             hud = new GameObject("Hud").AddComponent<Hud>();
             if (Music.I == null) new GameObject("Music").AddComponent<Music>();
+            Obj.Need<RaceFinder>(gameObject);
             yield return Boot();
             EnterMenu();
             if (Online.I != null) Online.I.Boot();
@@ -76,8 +77,12 @@ namespace Veylix
             yield return new WaitForSecondsRealtime(0.6f);
             menus.SetSplashProgress(0.35f, "Building your garage");
             yield return null;
-            if (showroom == null) showroom = new GameObject("Showroom").AddComponent<Showroom>();
-            showroom.gameObject.SetActive(false);
+            try
+            {
+                if (showroom == null) showroom = new GameObject("Showroom").AddComponent<Showroom>();
+                showroom.gameObject.SetActive(false);
+            }
+            catch (System.Exception e) { Debug.LogException(e); }
             menus.SetSplashProgress(0.7f, "Rolling your car out");
             yield return null;
             menus.SetSplashProgress(0.9f, "Warming the tyres");
@@ -88,7 +93,80 @@ namespace Veylix
             float t = 0f;
             while (!rig.Faded && t < 1.5f) { t += Time.unscaledDeltaTime; yield return null; }
             menus.Hide();
+            // First launch: make your driver here in the dark, before the garage.
+            if (!SaveData.Profile.created) yield return FirstRun();
             rig.SetVoid(false);
+        }
+
+        // ------------------------------------------------------------------ first launch: your driver
+
+        Transform studio;
+        GameObject studioFigure;
+
+        /// A pool of light in the dark space with your driver standing in it, and the driver screen beside them.
+        IEnumerator FirstRun()
+        {
+            studio = new GameObject("Driver Studio").transform;
+            studio.position = new Vector3(0f, 5000f, 0f);
+            try { BuildStudio(studio); PreviewDriver(SaveData.Profile); }
+            catch (System.Exception e) { Debug.LogException(e); }
+            rig.StandAt(studio.position, Quaternion.identity);
+            yield return null;
+            bool done = false;
+            menus.ShowFirstRunProfile(() => done = true);
+            Music.Play(Music.Theme.Garage);
+            rig.FadeTo(0f);
+            while (!done) yield return null;
+            rig.FadeTo(1f);
+            float t = 0f;
+            while (!rig.Faded && t < 1.5f) { t += Time.unscaledDeltaTime; yield return null; }
+            Destroy(studio.gameObject);
+            studio = null;
+            studioFigure = null;
+        }
+
+        static readonly Vector3 StudioFigureSpot = new Vector3(0.95f, 0f, 1.6f);
+
+        static void BuildStudio(Transform root)
+        {
+            var A = VXAssets.I;
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            Obj.Kill(floor.GetComponent<Collider>());
+            floor.name = "Floor";
+            floor.transform.SetParent(root, false);
+            floor.transform.localPosition = StudioFigureSpot + new Vector3(0f, -0.005f, 0f);
+            floor.transform.localScale = new Vector3(2.4f, 0.005f, 2.4f);
+            floor.GetComponent<MeshRenderer>().sharedMaterial = VXAssets.Or(A != null ? A.satinBlack : null, "Studio floor", new Color(0.07f, 0.07f, 0.08f), 0.55f);
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            Obj.Kill(ring.GetComponent<Collider>());
+            ring.name = "Ring";
+            ring.transform.SetParent(root, false);
+            ring.transform.localPosition = StudioFigureSpot + new Vector3(0f, -0.007f, 0f);
+            ring.transform.localScale = new Vector3(2.5f, 0.005f, 2.5f);
+            ring.GetComponent<MeshRenderer>().sharedMaterial = new Material(VXAssets.Or(null, "Studio ring", VUI.Accent, 0.3f)) { color = VUI.Accent };
+            var key = new GameObject("Key").AddComponent<Light>();
+            key.transform.SetParent(root, false);
+            key.transform.localPosition = StudioFigureSpot + new Vector3(-0.8f, 3.2f, -1.2f);
+            key.transform.rotation = Quaternion.LookRotation(root.TransformPoint(StudioFigureSpot + Vector3.up * 1f) - key.transform.position);
+            key.type = LightType.Spot; key.spotAngle = 50f; key.range = 8f; key.intensity = 2.6f; key.color = new Color(1f, 0.96f, 0.9f);
+            var fill = new GameObject("Fill").AddComponent<Light>();
+            fill.transform.SetParent(root, false);
+            fill.transform.localPosition = new Vector3(0.2f, 2.2f, 0.4f);
+            fill.type = LightType.Point; fill.range = 6f; fill.intensity = 0.8f; fill.color = new Color(0.85f, 0.9f, 1f);
+        }
+
+        /// Shows a driver look on the figure you're customising: in the first-launch studio, or by your car in the garage.
+        public void PreviewDriver(DriverLook look)
+        {
+            if (studio != null)
+            {
+                if (studioFigure != null) Destroy(studioFigure);
+                studioFigure = DriverBody.BuildStanding(studio, look);
+                studioFigure.transform.localPosition = StudioFigureSpot;
+                Vector3 face = -StudioFigureSpot; face.y = 0f;
+                studioFigure.transform.localRotation = Quaternion.LookRotation(face.normalized, Vector3.up);
+            }
+            else if (showroom != null) showroom.ShowFigure(look);
         }
 
         public static void ApplyRenderScale()
@@ -168,15 +246,60 @@ namespace Veylix
             Music.Play(Music.Theme.Loading);
             menus.ShowLoading(map);
             rig.FadeTo(0f);
-            yield return world.Build(map);
+            System.Exception failed = null;
+            yield return Safe(world.Build(map), e => failed = e);
+            bool usable = world.track != null && world.grid != null && world.grid.Count > 0;
+            if (failed != null && usable)
+            {
+                // Something in the scenery failed after the track and grid were built: race anyway, and log it.
+                Debug.LogException(failed);
+                failed = null;
+            }
+            if (failed == null && !usable) failed = new System.Exception("the track didn't build");
             yield return new WaitForSecondsRealtime(0.4f); // let 100% show for a moment
             rig.FadeTo(1f);
             t = 0f;
             while (!rig.Faded && t < 1.5f) { t += Time.unscaledDeltaTime; yield return null; }
             menus.Hide();
             rig.SetVoid(false);
-            SpawnSession(cfg, map);
+            if (failed == null)
+            {
+                try { SpawnSession(cfg, map); }
+                catch (System.Exception e) { failed = e; }
+            }
+            if (failed != null)
+            {
+                // Never leave you stuck on the loading screen: back to the garage, and say what happened.
+                Debug.LogError("[Veylix] Couldn't load " + map.name + ": " + failed);
+                Debug.LogException(failed);
+                EnterMenu();
+                menus.ShowNotice("COULDN'T LOAD " + map.name.ToUpperInvariant(), "Something went wrong building the track (" + failed.Message + "). The details are in Veylix-errors.txt next to the project's Assets folder.");
+                yield break;
+            }
             rig.FadeTo(0f);
+        }
+
+        /// <summary>
+        /// Runs a builder coroutine, including the coroutines it yields, one step at a time. An exception stops it and
+        /// is handed to onError instead of silently killing the loading screen.
+        /// </summary>
+        static IEnumerator Safe(IEnumerator routine, System.Action<System.Exception> onError)
+        {
+            var stack = new Stack<IEnumerator>();
+            stack.Push(routine);
+            while (stack.Count > 0)
+            {
+                var top = stack.Peek();
+                object current;
+                try
+                {
+                    if (!top.MoveNext()) { stack.Pop(); continue; }
+                    current = top.Current;
+                }
+                catch (System.Exception e) { onError(e); yield break; }
+                if (current is IEnumerator inner) stack.Push(inner);
+                else yield return current;
+            }
         }
 
         void SpawnSession(SessionConfig cfg, MapDef map)
@@ -186,8 +309,7 @@ namespace Veylix
             var go = new GameObject("Session");
             session = go.AddComponent<RaceSession>();
             var entrants = new List<Entrant>();
-            int opponents = session != null && (cfg.mode == GameMode.TimeTrial || cfg.mode == GameMode.Practice || cfg.mode == GameMode.FreeRoam || cfg.mode == GameMode.Online) ? 0 : Mathf.Clamp(cfg.opponents, 0, 19);
-            if (Settings.Quality == 0) opponents = Mathf.Min(opponents, 11);
+            int opponents = session != null && (cfg.mode == GameMode.TimeTrial || cfg.mode == GameMode.Practice || cfg.mode == GameMode.FreeRoam || cfg.mode == GameMode.Online) ? 0 : Mathf.Clamp(cfg.opponents, 0, RaceFinder.MaxRacers - 1); // every race is 12 cars at most
             int total = opponents + 1;
             int playerSlot = cfg.mode == GameMode.TimeTrial || cfg.mode == GameMode.Practice || cfg.mode == GameMode.FreeRoam ? 0 : Mathf.Clamp(cfg.gridPosition - 1, 0, total - 1);
             var grid = w.grid;
@@ -325,7 +447,7 @@ namespace Veylix
             {
                 if (InputHub.MenuPressed && state == State.Results) menus.ShowResults(session);
                 // In the garage the menu button puts the menu away (to walk around) or brings it back in front of you.
-                else if (InputHub.MenuPressed && state == State.Menu) { if (menus.Showing) menus.Hide(); else menus.ShowMain(); }
+                else if (InputHub.MenuPressed && state == State.Menu && studio == null) { if (menus.Showing) menus.Hide(); else if (RaceFinder.I != null && RaceFinder.I.Searching) menus.ShowFindRace(); else menus.ShowMain(); }
             }
             if (state != State.Session || playerCar == null) return;
             // P: pit this lap on the same tyres (the watch / pause menu lets you pick another compound).

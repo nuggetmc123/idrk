@@ -10,6 +10,7 @@ namespace Veylix
 
         public static void Start(List<int> calendar, int laps, int difficulty, int opponents)
         {
+            opponents = Mathf.Min(opponents, RaceFinder.MaxRacers - 1);
             var s = new ChampionshipState { active = true, calendar = new List<int>(calendar), round = 0, laps = laps, difficulty = difficulty, opponents = opponents };
             s.names.Add(PlayerName);
             s.points.Add(0);

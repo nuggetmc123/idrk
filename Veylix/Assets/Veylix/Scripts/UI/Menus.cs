@@ -34,6 +34,7 @@ namespace Veylix
         {
             VUI.Clear(panel);
             OnWatch = false;
+            findClock = null; findStatus = null; findSlots.Clear();
             panel.localScale = Vector3.one;
             Pointer.MenuActive = true;
             Place(inSession);
@@ -96,17 +97,55 @@ namespace Veylix
             hubSideOffset = 0.42f;
         }
 
-        /// CHOOSE A TRACK station: straight to the map grid (then session setup and Start).
-        public void OpenMapSelection() => PickMap(GameMode.QuickRace);
+        /// FIND RACE station by the roller door (and the main menu): start searching and show the timer.
+        public void OpenFindRace()
+        {
+            if (RaceFinder.I != null) RaceFinder.I.Begin();
+            ShowFindRace();
+        }
 
-        /// DRIVE station by the roller door: every mode.
-        public void OpenDrive() => ShowModes(true);
+        TextMeshPro findClock, findStatus;
+        readonly List<MeshRenderer> findSlots = new List<MeshRenderer>();
+
+        /// True while the FIND RACE timer is up (other screens shouldn't pop over it).
+        public bool FindingRace => findClock != null || (RaceFinder.I != null && RaceFinder.I.Searching);
+
+        /// <summary>
+        /// The search: a clock counting up, how many drivers have been found (12 places, yours lit), and CANCEL.
+        /// After a minute you're put in a race with whoever is there, or against the AI.
+        /// </summary>
+        public void ShowFindRace()
+        {
+            const float w = 0.8f, h = 0.46f;
+            Begin("FIND RACE", "Up to " + RaceFinder.MaxRacers + " drivers. If nobody turns up within a minute, you race the AI field.", false, w, h);
+            Lbl("SEARCHING", 0f, 0.1f, 0.24f, VUI.Accent, TextAlignmentOptions.Midline, true, w).characterSpacing = 8f;
+            findClock = Lbl("0:00", 0f, 0.035f, 1.1f, VUI.Text, TextAlignmentOptions.Midline, true, w);
+            findSlots.Clear();
+            for (int i = 0; i < RaceFinder.MaxRacers; i++)
+                findSlots.Add(VUI.Quad(panel, "slot" + i, new Vector2((i - (RaceFinder.MaxRacers - 1) * 0.5f) * 0.05f, -0.055f), new Vector2(0.036f, 0.016f), new Color(1f, 1f, 1f, 0.12f), -0.001f, 0.004f));
+            findStatus = Lbl("", 0f, -0.1f, 0.22f, VUI.TextDim, TextAlignmentOptions.Midline, false, w - 0.08f);
+            Btn("CANCEL", 0f, -h * 0.5f + 0.05f, 0.24f, 0.055f, () => { RaceFinder.I?.Cancel(); ShowMain(); });
+            UpdateFindRace();
+        }
+
+        void UpdateFindRace()
+        {
+            if (findClock == null) return;
+            var f = RaceFinder.I;
+            if (f == null) return;
+            findClock.text = RaceFinder.Clock(f.Elapsed);
+            findStatus.text = f.Status;
+            int lit = 1 + f.OthersFound;
+            for (int i = 0; i < findSlots.Count; i++)
+                if (findSlots[i] != null) VUI.SetColor(findSlots[i], i < lit ? (i == 0 ? VUI.Accent : VUI.Good) : new Color(1f, 1f, 1f, 0.12f));
+        }
 
         public void Hide()
         {
             OnWatch = false;
             panel.localScale = Vector3.one;
             loadingBar = null; loadingDot = null; loadingTip = null; splash = false;
+            findClock = null; findStatus = null; findSlots.Clear();
             VUI.Clear(panel);
             Pointer.MenuActive = false;
         }
@@ -124,31 +163,26 @@ namespace Veylix
             var title = Lbl("VEYLIX", x0, H * 0.5f - 0.075f, 1.35f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.6f);
             title.characterSpacing = 18f;
             Lbl("FORMULA RACING  -  VR", x0 + 0.004f, H * 0.5f - 0.15f, 0.25f, VUI.Accent, TextAlignmentOptions.MidlineLeft, true, 0.5f).characterSpacing = 8f;
-            string[] names = { "DRIVE", "RACE", "FREE ROAM", "TIME TRIAL", "GARAGE", "DRIVER", "MAP SELECTION", "SETTINGS", "LEADERBOARDS", "ONLINE", "QUIT" };
-            System.Action[] acts =
-            {
-                () => ShowModes(true), () => ShowModes(false), () => PickMap(GameMode.FreeRoam), () => PickMap(GameMode.TimeTrial),
-                ShowGarage, () => ShowDriverProfile(false), () => PickMap(GameMode.QuickRace, true), ShowSettings, ShowLeaderboards, ShowOnline, () => G.Quit(),
-            };
+            string[] names = { "FIND RACE", "MORE MODES", "GARAGE", "DRIVER", "SETTINGS", "LEADERBOARDS", "ONLINE", "QUIT" };
+            System.Action[] acts = { OpenFindRace, () => ShowModes(true), ShowGarage, () => ShowDriverProfile(false), ShowSettings, ShowLeaderboards, ShowOnline, () => G.Quit() };
             for (int i = 0; i < names.Length; i++)
             {
-                int col = i / 6, row = i % 6;
-                Btn(names[i], x0 + 0.13f + col * 0.27f, H * 0.5f - 0.225f - row * 0.064f, 0.25f, 0.054f, acts[i], false);
+                int col = i / 5, row = i % 5;
+                Btn(names[i], x0 + 0.13f + col * 0.27f, H * 0.5f - 0.225f - row * 0.064f, 0.25f, 0.054f, acts[i], i == 0);
             }
-            // Right: what's lined up, and a one-click start.
+            // Right: you and your car, and the way into a race.
             var cfg = G.config;
-            var map = MapCatalog.Get(cfg.map);
             var car = CarCatalog.Get(cfg.car);
+            var me = SaveData.Profile;
             float rx = 0.18f;
             VUI.Quad(panel, "card", new Vector2(rx + 0.1f, -0.02f), new Vector2(0.44f, 0.56f), VUI.PanelLight, 0.001f, 0.012f);
-            Lbl("NEXT SESSION", rx - 0.1f, 0.225f, 0.22f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.4f).characterSpacing = 4f;
-            Lbl(map.name.ToUpperInvariant(), rx - 0.1f, 0.19f, 0.34f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.42f);
-            Lbl(map.location + "  |  " + map.KindLabel, rx - 0.1f, 0.155f, 0.2f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.42f);
-            var tex = Preview(cfg.map);
-            if (tex != null) VUI.Quad(panel, "map", new Vector2(rx + 0.1f, 0.03f), new Vector2(0.36f, 0.2f), Color.white, 0f, 0.008f, tex);
-            Lbl(car.name.ToUpperInvariant(), rx - 0.1f, -0.1f, 0.3f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.42f);
-            Lbl(car.era + "  |  " + ModeName(cfg.mode), rx - 0.1f, -0.132f, 0.2f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.42f);
-            Btn("QUICK START", rx + 0.1f, -0.22f, 0.38f, 0.07f, () => { var c = G.config.Clone(); if (c.mode == GameMode.Online) c.mode = GameMode.QuickRace; G.StartSession(c); }, true);
+            Lbl("YOUR DRIVER", rx - 0.1f, 0.225f, 0.22f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.4f).characterSpacing = 4f;
+            VUI.Fit(Lbl(me.DisplayName.ToUpperInvariant() + "   #" + me.number, rx - 0.1f, 0.18f, 0.4f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.4f), 0.4f, 0.05f);
+            Lbl("YOUR CAR", rx - 0.1f, 0.09f, 0.22f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.4f).characterSpacing = 4f;
+            Lbl(car.name.ToUpperInvariant(), rx - 0.1f, 0.05f, 0.3f, VUI.Text, TextAlignmentOptions.MidlineLeft, true, 0.42f);
+            Lbl(car.era, rx - 0.1f, 0.018f, 0.2f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.42f);
+            Lbl("Races are up to " + RaceFinder.MaxRacers + " drivers on a circuit picked for you. If nobody else is searching, you race the AI within a minute.", rx - 0.1f, -0.06f, 0.19f, VUI.TextDim, TextAlignmentOptions.TopLeft, false, 0.4f);
+            Btn("FIND RACE", rx + 0.1f, -0.22f, 0.38f, 0.07f, OpenFindRace, true);
             Lbl("Hold both thumbsticks in to recenter your view", 0f, -H * 0.5f + 0.025f, 0.18f, VUI.TextDim, TextAlignmentOptions.Midline, false, W);
         }
 
@@ -190,7 +224,7 @@ namespace Veylix
 
         void ShowModes(bool all)
         {
-            Begin(all ? "DRIVE" : "RACE", all ? "Choose how you want to drive" : "Wheel to wheel against the AI field");
+            Begin(all ? "MORE MODES" : "RACE", all ? "Pick a mode and a track yourself" : "Wheel to wheel against the AI field");
             var modes = all
                 ? new[] { GameMode.GrandPrix, GameMode.QuickRace, GameMode.Championship, GameMode.Elimination, GameMode.TimeTrial, GameMode.Practice, GameMode.FreeRoam }
                 : new[] { GameMode.GrandPrix, GameMode.QuickRace, GameMode.Championship, GameMode.Elimination };
@@ -303,13 +337,13 @@ namespace Veylix
                     y -= dy;
                 }
                 Row("OPPONENTS");
-                VSlider.Make(panel, new Vector2(cx - 0.03f, y), 0.3f, 1, Settings.Quality == 0 ? 11 : 19, c.opponents, v => c.opponents = Mathf.RoundToInt(v), v => Mathf.RoundToInt(v).ToString(), 1f);
+                VSlider.Make(panel, new Vector2(cx - 0.03f, y), 0.3f, 1, RaceFinder.MaxRacers - 1, Mathf.Min(c.opponents, RaceFinder.MaxRacers - 1), v => c.opponents = Mathf.RoundToInt(v), v => Mathf.RoundToInt(v).ToString(), 1f);
                 y -= dy;
                 Row("AI DIFFICULTY");
                 VSelector.Make(panel, new Vector2(cx, y), 0.36f, SessionConfig.DifficultyNames, c.difficulty, v => c.difficulty = v);
                 y -= dy;
                 Row("GRID POSITION");
-                VSlider.Make(panel, new Vector2(cx - 0.03f, y), 0.3f, 1, 20, c.gridPosition, v => c.gridPosition = Mathf.RoundToInt(v), v => "P" + Mathf.RoundToInt(v), 1f);
+                VSlider.Make(panel, new Vector2(cx - 0.03f, y), 0.3f, 1, RaceFinder.MaxRacers, Mathf.Min(c.gridPosition, RaceFinder.MaxRacers), v => c.gridPosition = Mathf.RoundToInt(v), v => "P" + Mathf.RoundToInt(v), 1f);
                 y -= dy;
                 if (c.mode == GameMode.Elimination)
                 {
@@ -371,7 +405,7 @@ namespace Veylix
                 Back(() => ShowModes(false));
                 return;
             }
-            int rounds = 6, laps = 5, diff = G.config.difficulty, opp = Mathf.Min(G.config.opponents, 19);
+            int rounds = 6, laps = 5, diff = G.config.difficulty, opp = Mathf.Min(G.config.opponents, RaceFinder.MaxRacers - 1);
             float lx = -W * 0.5f + 0.05f, cx = -0.08f, y = 0.18f;
             Lbl("ROUNDS", lx, y, 0.26f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.3f);
             VSlider.Make(panel, new Vector2(cx - 0.03f, y), 0.3f, 3, 15, rounds, v => rounds = Mathf.RoundToInt(v), v => Mathf.RoundToInt(v).ToString(), 1f);
@@ -536,7 +570,7 @@ namespace Veylix
         {
             if (lookEdit == null) lookEdit = SaveData.Profile.Clone();
             const float w = 1.3f, h = 0.8f;
-            Begin(firstRun ? "WELCOME TO VEYLIX" : "YOUR DRIVER", firstRun ? "Before your first race: pick a name, a race number and how your driver looks." : "Name, race number and kit. Your driver by the car shows the changes.", false, w, h);
+            Begin(firstRun ? "WELCOME TO VEYLIX" : "YOUR DRIVER", firstRun ? "Before you head to your garage: pick a name, a race number and how your driver looks." : "Name, race number and kit. Your driver by the car shows the changes.", false, w, h);
             float lx = -w * 0.5f + 0.04f;
             // Name and an on-screen keyboard.
             Lbl("NAME", lx, 0.29f, 0.24f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.2f);
@@ -589,7 +623,7 @@ namespace Veylix
                     break;
             }
 
-            if (!firstRun) Btn("BACK", -w * 0.5f + 0.1f, -h * 0.5f + 0.045f, 0.15f, 0.045f, () => { lookEdit = null; if (G.showroom != null) G.showroom.ShowFigure(SaveData.Profile); ShowMain(); });
+            if (!firstRun) Btn("BACK", -w * 0.5f + 0.1f, -h * 0.5f + 0.045f, 0.15f, 0.045f, () => { lookEdit = null; G.PreviewDriver(SaveData.Profile); ShowMain(); });
             Btn(firstRun ? "LET'S RACE" : "SAVE", w * 0.5f - 0.17f, -h * 0.5f + 0.05f, 0.3f, 0.065f, () =>
             {
                 lookEdit.name = lookEdit.DisplayName;
@@ -600,16 +634,27 @@ namespace Veylix
                 Settings.PlayerName = lookEdit.name;
                 lookEdit = null;
                 if (Rig.I != null) { Rig.I.leftGlove?.SetColour(SaveData.Profile.Gloves); Rig.I.rightGlove?.SetColour(SaveData.Profile.Gloves); }
-                if (G.showroom != null) { G.showroom.ShowFigure(SaveData.Profile); G.showroom.Show(G.config.car); }
+                if (G.showroom != null && G.showroom.gameObject.activeInHierarchy) { G.showroom.ShowFigure(SaveData.Profile); G.showroom.Show(G.config.car); }
                 CrashAudio.Chime();
-                ShowMain();
+                if (profileDone != null) { var done = profileDone; profileDone = null; Hide(); done(); }
+                else ShowMain();
             }, true);
         }
 
         void Preview()
         {
-            if (G.showroom != null && lookEdit != null) G.showroom.ShowFigure(lookEdit);
+            if (lookEdit != null) G.PreviewDriver(lookEdit);
             CrashAudio.Tick();
+        }
+
+        System.Action profileDone;
+
+        /// First launch, in the dark space before the garage: make your driver, then 'done' carries on into the game.
+        public void ShowFirstRunProfile(System.Action done)
+        {
+            profileDone = done;
+            lookEdit = null;
+            ShowDriverProfile(true);
         }
 
         // ------------------------------------------------------------------ settings
@@ -742,9 +787,18 @@ namespace Veylix
 
         public void ShowOnline()
         {
-            Begin("ONLINE", Online.Available ? "Race other players. Up to 8 per room." : "Online play needs Photon Fusion 2 (see Veylix > Import Multiplayer in the Unity editor).");
+            Begin("ONLINE", Online.Available ? "Race other players. Up to " + Online.MaxPlayers + " per room." : "Online play needs Photon Fusion 2 (see Veylix > Import Multiplayer in the Unity editor).");
             if (Online.I != null) Online.I.BuildMenu(panel, this);
             Back(ShowMain);
+        }
+
+        /// A message with an OK button back to the main menu.
+        public void ShowNotice(string title, string text)
+        {
+            const float w = 0.8f, h = 0.4f;
+            Begin(title, null, false, w, h);
+            Lbl(text, -w * 0.5f + 0.04f, 0.08f, 0.24f, VUI.Text, TextAlignmentOptions.TopLeft, false, w - 0.08f);
+            Btn("OK", 0f, -h * 0.5f + 0.05f, 0.2f, 0.055f, ShowMain, true);
         }
 
         public void ShowOnlineStatus(string text)
@@ -906,6 +960,7 @@ namespace Veylix
 
         void Update()
         {
+            UpdateFindRace();
             if (loadingBar == null) return;
             if (!splash && World.Current != null && G != null && G.state == Game.State.Loading)
             {

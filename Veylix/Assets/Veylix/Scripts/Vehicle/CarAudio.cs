@@ -32,6 +32,37 @@ namespace Veylix
         uint rnd = 22222;
         Vector3 lastPos;
 
+        // Only the nearest few cars synthesise their engines: each one costs audio-thread time, and past the
+        // nearest handful you can't pick them out anyway.
+        const int MaxVoices = 4;
+        const float Earshot = 300f;
+        static readonly System.Collections.Generic.List<CarAudio> all = new System.Collections.Generic.List<CarAudio>();
+        static int rankedFrame = -1;
+        float listenerDist;
+        bool audible;
+
+        void OnEnable() { if (!all.Contains(this)) all.Add(this); }
+        void OnDisable() { all.Remove(this); }
+
+        /// Once a frame: mark the nearest MaxVoices cars (other than the one you're sitting in) as audible.
+        static void Rank()
+        {
+            if (rankedFrame == Time.frameCount) return;
+            rankedFrame = Time.frameCount;
+            var ear = AudioListenerRef.Listener;
+            foreach (var a in all)
+                a.listenerDist = a == null ? float.MaxValue : a.cockpit ? -1f : ear != null ? (ear.position - a.transform.position).sqrMagnitude : 0f;
+            all.Sort((x, y) => x.listenerDist.CompareTo(y.listenerDist));
+            int voices = 0;
+            foreach (var a in all)
+            {
+                if (a == null) continue;
+                if (a.cockpit) { a.audible = true; continue; }
+                a.audible = voices < MaxVoices && a.listenerDist < Earshot * Earshot;
+                if (a.audible) voices++;
+            }
+        }
+
         void Awake()
         {
             if (sine == null)
@@ -48,7 +79,7 @@ namespace Veylix
             src.dopplerLevel = 0f; // we do our own Doppler on the synthesis
             src.rolloffMode = AudioRolloffMode.Custom;
             src.SetCustomCurve(AudioSourceCurveType.CustomRolloff, AnimationCurve.EaseInOut(0f, 1f, 1f, 0f));
-            src.maxDistance = 420f;
+            src.maxDistance = Earshot;
             src.minDistance = 4f;
             src.Play();
         }
@@ -93,11 +124,12 @@ namespace Veylix
             if (car.damage != null && car.damage.EngineDead) vol *= 0f;
             pVolume = vol;
 
-            // Cars out of earshot stop synthesising their engine (saves a lot of audio CPU with a full grid).
-            if (!cockpit && AudioListenerRef.Listener != null && src != null)
+            // Cars out of earshot, or beyond the nearest few, stop synthesising their engine (saves a lot of audio CPU
+            // with a full grid).
+            if (!cockpit && src != null)
             {
-                float far = (AudioListenerRef.Listener.position - transform.position).sqrMagnitude;
-                if (far > 460f * 460f) { if (src.isPlaying) src.Stop(); return; }
+                Rank();
+                if (!audible) { if (src.isPlaying) src.Stop(); return; }
                 if (!src.isPlaying && enabled) src.Play();
             }
 
