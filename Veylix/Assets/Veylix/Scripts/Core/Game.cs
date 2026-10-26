@@ -447,7 +447,7 @@ namespace Veylix
             {
                 if (InputHub.MenuPressed && state == State.Results) menus.ShowResults(session);
                 // In the garage the menu button puts the menu away (to walk around) or brings it back in front of you.
-                else if (InputHub.MenuPressed && state == State.Menu && studio == null) { if (menus.Showing) menus.Hide(); else if (RaceFinder.I != null && RaceFinder.I.Searching) menus.ShowFindRace(); else menus.ShowMain(); }
+                else if (InputHub.MenuPressed && state == State.Menu && studio == null) { if (menus.Showing) menus.Hide(); else menus.ShowMain(); }
             }
             if (state != State.Session || playerCar == null) return;
             // P: pit this lap on the same tyres (the watch / pause menu lets you pick another compound).

@@ -84,11 +84,11 @@ Walk around (left stick or WASD; right stick or Q/E turns) and point at the stat
 car) and **FIND RACE** at the roller door. The menu button hides or brings back the menu.
 
 ## Find race
-**FIND RACE** (at the door, or in the main menu) searches for other drivers while a timer counts up. Races are up to
-12 drivers on a circuit picked for you. Online, everyone searching waits together. The race starts as soon as 12 are
-found, or at one minute if at least one other driver has turned up. If nobody has come after a minute (or online play
-is off), you race on your own against an AI field, 12 cars in all. **MORE MODES** in the main menu still has every
-mode with your own choice of track (Grand Prix, Quick Race, Championship, Elimination, Time Trial, Practice, Free Roam).
+**FIND RACE** (at the door, or in the main menu) starts a search: a timer counts up in the top left of your view and
+you can keep walking around your garage. Races are up to 12 drivers on a circuit picked for you. Online, everyone
+searching waits together and the race starts as soon as 12 are found, or at one minute if at least one other driver
+has turned up. After a minute you're always on your way to a race. Press **FIND RACE** again (or **STOP SEARCH** in
+the menu) to stop. **MORE MODES** in the main menu has every other mode with your own choice of track.
 
 ## If something goes wrong
 Every error the game hits is written to **Veylix-errors.txt** next to the project's Assets folder (on a headset, in the

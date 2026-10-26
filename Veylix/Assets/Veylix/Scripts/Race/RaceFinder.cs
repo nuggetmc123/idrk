@@ -1,12 +1,13 @@
+using TMPro;
 using UnityEngine;
 
 namespace Veylix
 {
     /// <summary>
-    /// FIND RACE: searches for other drivers while a timer counts up. Online, everyone searching shares a matchmaking
-    /// room. The room's host sends the room to a race as soon as it's full (12), or when the minute is up and at
-    /// least one other driver has turned up. If nobody has come after a minute (or online play is off), you race
-    /// anyway on your own against the AI field. Every race has at most 12 cars.
+    /// FIND RACE: searches for other drivers while a timer counts up in the top left of your view. Online, everyone
+    /// searching shares a matchmaking room. The room's host sends the room to a race as soon as it's full (12), or when
+    /// the minute is up and at least one other driver has turned up. If nobody has come after a minute (or online play
+    /// is off), you go to a race anyway with a full grid of 12. Every race has at most 12 cars.
     /// </summary>
     public class RaceFinder : MonoBehaviour
     {
@@ -48,6 +49,7 @@ namespace Veylix
         {
             if (!Searching) return;
             Searching = false;
+            ShowClock(false);
             Status = "";
             if (Online.I != null) Online.I.StopMatchmaking();
         }
@@ -56,14 +58,50 @@ namespace Veylix
         public void Stop(string status)
         {
             Searching = false;
+            ShowClock(false);
             Status = status;
         }
+
+        // ------------------------------------------------------------------ the clock in the corner of your view
+
+        Transform clock;
+        TextMeshPro clockText;
+
+        void ShowClock(bool on)
+        {
+            if (!on) { if (clock != null) Destroy(clock.gameObject); clock = null; clockText = null; return; }
+            var rig = Rig.I;
+            if (rig == null || rig.head == null) return;
+            if (clock == null)
+            {
+                clock = new GameObject("Find race clock").transform;
+                clock.SetParent(rig.head, false);
+                VUI.Quad(clock, "bg", new Vector2(0f, 0f), new Vector2(0.11f, 0.042f), new Color(0.05f, 0.055f, 0.06f, 0.82f), 0.001f, 0.01f);
+                VUI.Quad(clock, "line", new Vector2(-0.053f, 0f), new Vector2(0.0035f, 0.03f), VUI.Accent, 0f, 0.0015f);
+                clockText = VUI.Label(clock, "0:00", new Vector2(0.004f, 0f), 0.42f, VUI.Text, TextAlignmentOptions.Midline, true, 0.1f);
+                Layers.SetRecursive(clock.gameObject, Layers.UI);
+            }
+            // Top left of what you can see: fixed in a headset, worked out from the camera on a monitor.
+            const float d = 0.7f;
+            var cam = rig.head.GetComponent<Camera>();
+            if (!rig.IsXR && cam != null)
+            {
+                float hh = d * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad), hw = hh * cam.aspect;
+                clock.localPosition = new Vector3(-hw + 0.075f, hh - 0.04f, d);
+            }
+            else clock.localPosition = new Vector3(-0.27f, 0.2f, d);
+            clock.localRotation = Quaternion.identity;
+            if (clockText != null) clockText.text = Clock(Elapsed);
+        }
+
+        void OnDisable() { ShowClock(false); }
 
         void Update()
         {
             if (!Searching) return;
             if (Game.I == null || Game.I.state != Game.State.Menu) { Cancel(); return; }
             Elapsed += Time.unscaledDeltaTime;
+            ShowClock(true);
             var on = Online.I;
             bool online = on != null && on.InLobby;
             if (online)
@@ -83,16 +121,17 @@ namespace Veylix
             else if (Elapsed >= SearchSeconds && (on == null || !on.Busy)) RaceAlone();
         }
 
-        /// Nobody turned up: a race against the AI, 12 cars on a random circuit.
+        /// Nobody turned up: a full grid of 12 on a random circuit.
         void RaceAlone()
         {
             Searching = false;
+            ShowClock(false);
             if (Online.I != null) Online.I.StopMatchmaking();
             var cfg = RaceConfig();
             cfg.mode = GameMode.QuickRace;
             cfg.opponents = MaxRacers - 1;
             cfg.gridPosition = Random.Range(4, MaxRacers + 1);
-            Status = "No other drivers right now. Racing the field on " + MapCatalog.Get(cfg.map).name + ".";
+            Status = "Heading to " + MapCatalog.Get(cfg.map).name + ".";
             Game.I.StartSession(cfg);
         }
 
