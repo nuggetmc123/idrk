@@ -14,7 +14,7 @@ namespace Veylix
         public static GameObject Sea(Transform parent, float level, float size)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            Object.Destroy(go.GetComponent<Collider>());
+            Obj.Kill(go.GetComponent<Collider>());
             go.name = "Sea";
             go.transform.SetParent(parent, false);
             go.transform.position = new Vector3(0f, level, 0f);

@@ -37,12 +37,15 @@ namespace Veylix
         public string Stage { get; private set; } = "";
 
         void Awake() { Current = this; }
+
+        /// The editor's track preview builds a map outside Play mode, where Awake doesn't run.
+        public void UseAsCurrent() => Current = this;
         void OnDestroy() { if (Current == this) Current = null; }
 
         public void Clear()
         {
             Ready = false;
-            if (root != null) Destroy(root.gameObject);
+            if (root != null) Obj.Kill(root.gameObject);
             roads.Clear(); roadSides.Clear(); grid.Clear(); lamps.Clear();
             Surface.ClearCache();
             Buildings.ResetCache();

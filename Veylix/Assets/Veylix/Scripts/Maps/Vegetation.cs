@@ -10,6 +10,7 @@ namespace Veylix
     /// alpha-cut leaf cards whose normals point out from the crown, which lights them like a soft volume instead of
     /// flat planes. Two detail levels per species. Trunks near roads get colliders.
     /// </summary>
+    [ExecuteAlways]
     public class Vegetation : MonoBehaviour
     {
         class Kind
@@ -104,7 +105,16 @@ namespace Veylix
 
         void LateUpdate()
         {
-            var cam = Cameras.Main;
+            if (Application.isPlaying) DrawFor(Cameras.Main, null);
+        }
+
+        // Outside Play mode (the editor's track preview) draw for each camera as it renders, scene view included.
+        void OnEnable() { if (!Application.isPlaying) Camera.onPreCull += EditorDraw; }
+        void OnDisable() { Camera.onPreCull -= EditorDraw; }
+        void EditorDraw(Camera cam) { if (this != null && !Application.isPlaying) DrawFor(cam, cam); }
+
+        void DrawFor(Camera cam, Camera target)
+        {
             if (cam == null) return;
             GeometryUtility.CalculateFrustumPlanes(cam, planes);
             Vector3 cp = cam.transform.position;
@@ -122,20 +132,20 @@ namespace Veylix
                 foreach (var kv in cell.items)
                 {
                     var k = kinds[kv.Key];
-                    Draw(near ? k.near : k.far, k, kv.Value, d2 < 140f * 140f);
+                    Draw(near ? k.near : k.far, k, kv.Value, d2 < 140f * 140f, target);
                 }
             }
         }
 
-        void Draw(Mesh mesh, Kind k, List<Matrix4x4> list, bool shadows)
+        void Draw(Mesh mesh, Kind k, List<Matrix4x4> list, bool shadows, Camera target)
         {
             var castMode = shadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
             for (int i = 0; i < list.Count; i += 1023)
             {
                 int n = Mathf.Min(1023, list.Count - i);
                 list.CopyTo(i, batch, 0, n);
-                Graphics.DrawMeshInstanced(mesh, 0, k.bark, batch, n, null, castMode, true, Layers.Scenery);
-                if (mesh.subMeshCount > 1) Graphics.DrawMeshInstanced(mesh, 1, k.leaves, batch, n, null, castMode, true, Layers.Scenery);
+                Graphics.DrawMeshInstanced(mesh, 0, k.bark, batch, n, null, castMode, true, Layers.Scenery, target);
+                if (mesh.subMeshCount > 1) Graphics.DrawMeshInstanced(mesh, 1, k.leaves, batch, n, null, castMode, true, Layers.Scenery, target);
             }
         }
     }

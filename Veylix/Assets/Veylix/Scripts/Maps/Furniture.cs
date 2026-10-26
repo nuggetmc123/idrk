@@ -379,7 +379,7 @@ namespace Veylix
             for (int c = 0; c < 5; c++)
             {
                 var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                Destroy(box.GetComponent<Collider>());
+                Obj.Kill(box.GetComponent<Collider>());
                 box.transform.SetParent(transform, false);
                 box.transform.localPosition = new Vector3((c - 2) * 0.55f, 0f, 0.05f);
                 box.transform.localScale = new Vector3(0.45f, 1.0f, 0.12f);
@@ -387,7 +387,7 @@ namespace Veylix
                 for (int r = 0; r < 2; r++)
                 {
                     var lamp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    Destroy(lamp.GetComponent<Collider>());
+                    Obj.Kill(lamp.GetComponent<Collider>());
                     lamp.transform.SetParent(transform, false);
                     lamp.transform.localPosition = new Vector3((c - 2) * 0.55f, 0.22f - r * 0.44f, -0.02f);
                     lamp.transform.localScale = Vector3.one * 0.3f;
