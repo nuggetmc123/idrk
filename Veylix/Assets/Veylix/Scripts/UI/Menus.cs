@@ -603,6 +603,7 @@ namespace Veylix
                 Settings.PlayerName = lookEdit.name;
                 lookEdit = null;
                 if (Rig.I != null) { Rig.I.leftGlove?.SetColour(SaveData.Profile.Gloves); Rig.I.rightGlove?.SetColour(SaveData.Profile.Gloves); }
+                if (PlayerBody.I != null) PlayerBody.I.Rebuild();
                 if (G.showroom != null && G.showroom.gameObject.activeInHierarchy) { G.showroom.ShowFigure(SaveData.Profile); G.showroom.Show(G.config.car); }
                 CrashAudio.Chime();
                 if (profileDone != null) { var done = profileDone; profileDone = null; Hide(); done(); }

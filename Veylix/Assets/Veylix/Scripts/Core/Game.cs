@@ -50,6 +50,7 @@ namespace Veylix
             ApplyRenderScale();
             var rigGo = new GameObject("Rig");
             rig = rigGo.AddComponent<Rig>();
+            PlayerBody.Create(null); // your own body while you walk around the garage
             sky = new GameObject("Sky").AddComponent<Sky>();
             world = new GameObject("World").AddComponent<World>();
             menus = new GameObject("Menus").AddComponent<Menus>();

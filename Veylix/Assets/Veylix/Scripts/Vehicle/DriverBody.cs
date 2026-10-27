@@ -24,7 +24,7 @@ namespace Veylix
         static readonly Dictionary<string, Texture2D> suitTextures = new Dictionary<string, Texture2D>();
 
         /// suit, harness, buckle metal, boot, sole, HANS carbon, glove, glove cuff
-        static Material[] Materials(Color suit, Color accent, Color gloves, int number, string sponsor)
+        internal static Material[] Materials(Color suit, Color accent, Color gloves, int number, string sponsor)
         {
             var A = VXAssets.I;
             string key = ColorUtility.ToHtmlStringRGB(suit) + ColorUtility.ToHtmlStringRGB(accent) + number + sponsor;
@@ -192,7 +192,7 @@ namespace Veylix
             return go;
         }
 
-        static Transform Part(Transform parent, string name, Mesh mesh, Material[] mats)
+        internal static Transform Part(Transform parent, string name, Mesh mesh, Material[] mats)
         {
             var g = new GameObject(name);
             g.transform.SetParent(parent, false);
@@ -203,7 +203,7 @@ namespace Veylix
         }
 
         /// Two-bone joint (elbow / knee) between a root and a target, bending towards 'pole'.
-        static Vector3 SolveJoint(Vector3 root, Vector3 target, float a, float b, Vector3 pole)
+        internal static Vector3 SolveJoint(Vector3 root, Vector3 target, float a, float b, Vector3 pole)
         {
             Vector3 d = target - root;
             float dist = Mathf.Clamp(d.magnitude, 0.05f, a + b - 0.001f);
@@ -299,7 +299,7 @@ namespace Veylix
             }
         }
 
-        static void Place(Transform t, Vector3 a, Vector3 b, float len0)
+        internal static void Place(Transform t, Vector3 a, Vector3 b, float len0)
         {
             Vector3 d = b - a;
             float len = Mathf.Max(0.01f, d.magnitude);
