@@ -85,8 +85,8 @@ car) and **FIND RACE** at the roller door. The menu button hides or brings back 
 
 ## Find race
 **FIND RACE** (at the door, or in the main menu) starts a search: a timer counts up in the top left of your view and
-you can keep walking around your garage. Races are up to 12 drivers on a circuit picked for you. Online, everyone
-searching waits together and the race starts as soon as 12 are found, or at one minute if at least one other driver
+you can keep walking around your garage. Races are up to 6 drivers on a circuit picked for you. Online, everyone
+searching waits together and the race starts as soon as 6 are found, or at one minute if at least one other driver
 has turned up. After a minute you're always on your way to a race. Press **FIND RACE** again (or **STOP SEARCH** in
 the menu) to stop. **MORE MODES** in the main menu has every other mode with your own choice of track.
 

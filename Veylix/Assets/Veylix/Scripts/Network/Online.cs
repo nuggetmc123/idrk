@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Veylix
 {
     /// <summary>
-    /// Online races with Photon Fusion 2 (Shared Mode, up to 12 players a room).
+    /// Online races with Photon Fusion 2 (Shared Mode, up to 6 players a room).
     /// FIND RACE (the garage door, see RaceFinder): everyone searching waits in a matchmaking room until its host sends
     /// the room to a race.
     /// FIND A RACE: matchmaking on the track you've picked (joins a race filling up there, or opens one and waits).

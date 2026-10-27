@@ -161,6 +161,9 @@ namespace Veylix
                 if (gl.holding) { sum += gl.startWheelAngle + gl.unwrapped; n++; }
                 if (gr.holding) { sum += gr.startWheelAngle + gr.unwrapped; n++; }
                 float target = Mathf.Clamp(sum / n, -lockDeg, lockDeg);
+                // A small dead zone around straight ahead, so a hand wobbling on the rim doesn't nudge the car.
+                const float dead = 1.5f;
+                target = Mathf.Abs(target) < dead ? 0f : target - Mathf.Sign(target) * dead;
                 // Filter out the tiny shakes of a hand held in the air.
                 handTarget = Mathf.Lerp(handTarget, target, 1f - Mathf.Exp(-dt * 30f));
                 WeightedWheel(handTarget, n, dt);
@@ -189,8 +192,7 @@ namespace Veylix
             float c = 2f * Mathf.Sqrt(k) * 1.05f; // just over critical: no wobble
             // The tyres' self-centring (caster and aligning torque): stronger at speed and with grip.
             float centre = w * Mathf.Lerp(6f, 35f, speedF);
-            float align = car.AligningTorque * 0.0004f * w * speedF;
-            float acc = (target - WheelAngle) * k - wheelVel * c - WheelAngle * centre + align;
+            float acc = (target - WheelAngle) * k - wheelVel * c - WheelAngle * centre;
             wheelVel += acc * dt;
             float maxRate = Mathf.Lerp(900f, 420f, w); // degrees per second
             wheelVel = Mathf.Clamp(wheelVel, -maxRate, maxRate);
@@ -267,8 +269,8 @@ namespace Veylix
             // Where the front wheels "want" the steering to be: following the car's direction of travel (caster effect).
             float k = 18f * (0.15f + speedFactor);
             float c = 6f;
-            float alignDeg = car.AligningTorque * 0.02f;
-            float acc = -WheelAngle * k - wheelVel * c + alignDeg * speedFactor;
+            // Straight back to the centre (no tyre-force term: it could hold the wheel off centre and steer the car).
+            float acc = -WheelAngle * k - wheelVel * c;
             wheelVel += acc * dt;
             WheelAngle = Mathf.Clamp(WheelAngle + wheelVel * dt, -lockDeg, lockDeg);
         }

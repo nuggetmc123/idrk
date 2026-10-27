@@ -632,7 +632,7 @@ namespace Veylix
         void ShowSettings()
         {
             Begin("SETTINGS");
-            string[] tabs = { "DRIVING", "ASSISTS", "VR & COMFORT", "GRAPHICS", "AUDIO" };
+            string[] tabs = { "DRIVING", "ASSISTS", "VR & COMFORT", "GRAPHICS", "AUDIO", "HANDS" };
             for (int t = 0; t < tabs.Length; t++)
             {
                 int ti = t;
@@ -670,6 +670,13 @@ namespace Veylix
                     Row("SEAT FORWARD / BACK"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, -0.15f, 0.15f, Settings.SeatForward, v => { Settings.SeatForward = v; Rig.I?.Recenter(); }, v => (v * 100f).ToString("+0;-0;0") + " cm", 0.01f); y -= dy;
                     Row("TIMING TOWER IN COCKPIT"); VToggle.Make(panel, new Vector2(cx - 0.12f, y), Settings.ShowTimingTower, v => Settings.ShowTimingTower = v); y -= dy;
                     Btn("RECENTER VIEW", cx + 0.03f, y, 0.3f, 0.045f, () => Rig.I?.Recenter());
+                    break;
+                case 5:
+                    Lbl("Line your gloves up with your real hands. Hold a controller and look at it while you move the sliders.", lx, y, 0.21f, VUI.Text, TextAlignmentOptions.MidlineLeft, false, W - 0.12f); y -= dy;
+                    Row("GLOVES FORWARD / BACK"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, -0.1f, 0.1f, Settings.GloveForward, v => Settings.GloveForward = v, v => (v * 100f).ToString("+0;-0;0") + " cm", 0.005f); y -= dy;
+                    Row("GLOVES UP / DOWN"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, -0.1f, 0.1f, Settings.GloveUp, v => Settings.GloveUp = v, v => (v * 100f).ToString("+0;-0;0") + " cm", 0.005f); y -= dy;
+                    Row("GLOVES TILT"); VSlider.Make(panel, new Vector2(cx, y), 0.34f, -45f, 45f, Settings.GloveTilt, v => Settings.GloveTilt = v, v => v.ToString("+0;-0;0") + " deg", 1f); y -= dy;
+                    Btn("RESET", cx + 0.03f, y, 0.2f, 0.045f, () => { Settings.GloveForward = 0f; Settings.GloveUp = 0f; Settings.GloveTilt = 0f; ShowSettings(); });
                     break;
                 case 3:
                     Row("QUALITY"); VSelector.Make(panel, new Vector2(cx + 0.03f, y), 0.4f, new[] { "Quest (standalone)", "Balanced", "PC VR high" }, Settings.Quality, v => { Settings.Quality = v; Game.ApplyRenderScale(); }); y -= dy;

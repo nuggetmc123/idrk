@@ -5,15 +5,15 @@ namespace Veylix
 {
     /// <summary>
     /// FIND RACE: searches for other drivers while a timer counts up in the top left of your view. Online, everyone
-    /// searching shares a matchmaking room. The room's host sends the room to a race as soon as it's full (12), or when
+    /// searching shares a matchmaking room. The room's host sends the room to a race as soon as it's full (6), or when
     /// the minute is up and at least one other driver has turned up. If nobody has come after a minute (or online play
-    /// is off), you go to a race anyway with a full grid of 12. Every race has at most 12 cars.
+    /// is off), you go to a race anyway with a full grid of 6. Every race has at most 6 cars.
     /// </summary>
     public class RaceFinder : MonoBehaviour
     {
         public static RaceFinder I { get; private set; }
 
-        public const int MaxRacers = 12;
+        public const int MaxRacers = 6;
         public const float SearchSeconds = 60f;
 
         public bool Searching { get; private set; }
@@ -121,7 +121,7 @@ namespace Veylix
             else if (Elapsed >= SearchSeconds && (on == null || !on.Busy)) RaceAlone();
         }
 
-        /// Nobody turned up: a full grid of 12 on a random circuit.
+        /// Nobody turned up: a full grid of 6 on a random circuit.
         void RaceAlone()
         {
             Searching = false;

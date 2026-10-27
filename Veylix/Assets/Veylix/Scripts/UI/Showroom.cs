@@ -315,7 +315,7 @@ namespace Veylix
             stations.SetParent(transform, false);
             Vector3 cust = new Vector3(-2.9f, 0f, 1.6f);
             Station(o + cust, CarSpot - cust, "CUSTOMISE", "Paint, livery, wheels, aero, brakes, suspension", () => Game.I?.menus.OpenGarage());
-            Station(o + new Vector3(3.2f, 0f, 6.9f), Vector3.forward, "FIND RACE", "Up to 12 drivers. Racing within a minute.", () => Game.I?.menus.OpenFindRace());
+            Station(o + new Vector3(3.2f, 0f, 6.9f), Vector3.forward, "FIND RACE", "Up to 6 drivers. Racing within a minute.", () => Game.I?.menus.OpenFindRace());
         }
 
         /// A slim stand with an angled screen, readable by someone standing behind it looking along readerLooks.

@@ -29,6 +29,11 @@ namespace Veylix
         /// Where the forearm meets the glove (the driver body's arms reach to here).
         public Vector3 WristPosition => model != null ? model.TransformPoint(new Vector3(0f, 0f, -0.09f)) : transform.position;
 
+        // Controller grip pose -> hand: fingers forward, palm facing inwards, slight downward tilt; plus your own
+        // adjustment from Settings > Hands so the glove sits exactly where your real hand is.
+        Vector3 RestPosition => new Vector3(left ? -0.028f : 0.028f, -0.012f + Settings.GloveUp, -0.025f + Settings.GloveForward); // back of the hand outside the handle, palm round it
+        Quaternion RestRotation => Quaternion.Euler(-30f + Settings.GloveTilt, 0f, left ? 90f : -90f);
+
         public static Glove Create(Transform hand, bool left)
         {
             var g = hand.gameObject.AddComponent<Glove>();
@@ -48,8 +53,8 @@ namespace Veylix
             model = new GameObject("Glove").transform;
             model.SetParent(transform, false);
             // Controller grip pose -> hand: fingers forward, palm facing inwards, slight downward tilt.
-            model.localRotation = Quaternion.Euler(-30f, 0f, left ? 90f : -90f);
-            model.localPosition = new Vector3(left ? -0.01f : 0.01f, -0.01f, -0.04f);
+            model.localRotation = RestRotation;
+            model.localPosition = RestPosition;
             // Back of the hand is +Y, fingers +Z: the thumb is on +X for a left hand and -X for a right hand.
             thumbSide = left ? 1f : -1f;
             const float wristZ = -0.09f;
@@ -166,8 +171,8 @@ namespace Veylix
             }
             else
             {
-                model.localPosition = new Vector3(left ? -0.01f : 0.01f, -0.01f, -0.04f);
-                model.localRotation = Quaternion.Euler(-30f, 0f, left ? 90f : -90f);
+                model.localPosition = RestPosition;
+                model.localRotation = RestRotation;
             }
         }
 

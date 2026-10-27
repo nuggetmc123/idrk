@@ -193,10 +193,10 @@ namespace Veylix
                 float h = health[(int)Part.SuspFL + i];
                 float bend = (1f - h) * (1f - h);
                 float dir = ((i * 7919) % 2 == 0) ? 1f : -1f;
-                toe[i] = bend * 4.5f * dir;
+                toe[i] = bend * 1.2f * dir; // gentle: a damaged car should feel off, not steer itself
                 if (car.wheels[i] != null) car.wheels[i].gripScale = Mathf.Lerp(0.7f, 1f, h);
             }
-            steerPull = (toe[0] + toe[1]) * 0.5f;
+            steerPull = (toe[0] + toe[1]) * 0.25f;
         }
 
         void Update()

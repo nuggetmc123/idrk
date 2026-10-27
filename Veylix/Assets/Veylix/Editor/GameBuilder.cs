@@ -19,7 +19,7 @@ namespace Veylix.EditorTools
         public const string Root = "Assets/Veylix";
         public const string Gen = Root + "/Generated";
         public const string ScenePath = Root + "/Scenes/Veylix.unity";
-        public const int WorldVersion = 7;
+        public const int WorldVersion = 8;
         const string VersionFile = "ProjectSettings/VeylixWorldVersion.txt";
 
         public static bool WorldUpToDate => File.Exists(VersionFile) && File.ReadAllText(VersionFile).Trim() == WorldVersion.ToString() && File.Exists(ScenePath);
