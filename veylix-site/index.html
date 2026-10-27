@@ -60,7 +60,6 @@ p { margin: 0; max-width: 65ch; }
 .map canvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3.2; }
 .map .cap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .map .cap b { color: var(--ink); font-weight: 600; }
-.laptime { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; }
 
 /* Sections */
 section.s { border-top: 1px solid var(--line); }
@@ -69,17 +68,6 @@ section.s > .wrap { display: grid; grid-template-columns: 200px minmax(0, 1fr); 
 .s h2 { font-size: clamp(34px, 5vw, 52px); font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; }
 .s h2 + p { margin-top: 14px; font-size: 17px; }
 .body { min-width: 0; display: grid; gap: 28px; }
-
-/* Find race strip */
-.clock { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
-.clock .t { font-family: var(--mono); font-size: clamp(40px, 7vw, 64px); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--accent); line-height: 1; }
-.clock .n { font-family: var(--mono); font-size: 13px; color: var(--muted); }
-.grid12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; max-width: 520px; }
-.grid12 i { height: 10px; background: var(--line); }
-.grid12 i.on { background: var(--accent); }
-.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
-.steps h3 { font-size: 22px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
-.steps .k { font-family: var(--mono); font-size: 12px; color: var(--accent); display: block; margin-bottom: 6px; }
 
 /* Timing sheet */
 .sheet { overflow-x: auto; border-top: 2px solid var(--ink); }
@@ -127,7 +115,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
   .hero .wrap { grid-template-columns: minmax(0, 1fr); padding-block: 36px 32px; }
   section.s > .wrap, .policy .wrap { grid-template-columns: minmax(0, 1fr); gap: 14px; padding-block: 36px; }
   .toc { position: static; display: flex; flex-wrap: wrap; gap: 6px 16px; }
-  .steps, .feats, .tracks { grid-template-columns: minmax(0, 1fr); }
+  .feats, .tracks { grid-template-columns: minmax(0, 1fr); }
   .tracks section + section { margin-top: 24px; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
@@ -163,36 +151,14 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
         </div>
       </div>
       <figure class="map" style="margin:0">
-        <canvas id="trackmap" width="800" height="640" aria-label="Map of a Veylix circuit with a car lapping it. It changes to the next circuit every 15 seconds."></canvas>
+        <canvas id="trackmap" width="800" height="640" aria-label="Map of a Veylix circuit. It changes to the next circuit every 15 seconds."></canvas>
         <figcaption class="cap">
           <span><b id="trkname">Port Lumière Street Circuit</b> &nbsp;<span id="trkloc">Port Lumière</span></span>
-          <span><span id="trkno">01 / 15</span> &nbsp;·&nbsp; <span id="trkkm">3.17</span> km &nbsp;·&nbsp; lap <span class="laptime" id="laptime">0:00.000</span></span>
+          <span><span id="trkno">01 / 15</span> &nbsp;·&nbsp; <span id="trkkm">3.17</span> km</span>
         </figcaption>
       </figure>
     </div>
   </div>
-
-  <section class="s" id="find">
-    <div class="wrap">
-      <div class="label">Find race</div>
-      <div class="body">
-        <div>
-          <h2>One button to the grid</h2>
-          <p>Walk to the roller door of your garage and press Find Race. A timer counts up in the corner of your view while you look for other drivers. Within a minute you are on your way to a race.</p>
-        </div>
-        <div class="clock" aria-hidden="true">
-          <span class="t" id="findclock">0:00</span>
-          <span class="n" id="findcount">1 / 12 drivers</span>
-        </div>
-        <div class="grid12" id="slots" aria-hidden="true"></div>
-        <div class="steps">
-          <div><span class="k">FULL GRID</span><h3>Twelve found</h3><p>The race starts the moment twelve drivers are ready.</p></div>
-          <div><span class="k">AT 1:00</span><h3>Race who is there</h3><p>At one minute you race whoever has joined, even if it is just one other driver.</p></div>
-          <div><span class="k">ALWAYS</span><h3>A full field</h3><p>Every race lines up twelve cars on a circuit picked for you.</p></div>
-        </div>
-      </div>
-    </div>
-  </section>
 
   <section class="s" id="cars">
     <div class="wrap">
@@ -289,7 +255,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
         <div>
           <p class="label" style="padding:0 0 10px">Modes</p>
           <div class="modes">
-            <span class="hot">Find race</span><span>Grand Prix</span><span>Quick race</span><span>Championship</span><span>Elimination</span><span>Time trial</span><span>Practice</span><span>Free roam</span><span>Online</span>
+            <span>Grand Prix</span><span>Quick race</span><span>Championship</span><span>Elimination</span><span>Time trial</span><span>Practice</span><span>Free roam</span><span>Online</span>
           </div>
         </div>
       </div>
@@ -403,9 +369,9 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // ---------- the track map: every circuit in turn, 15 seconds each, with a car lapping it
+  // ---------- the track map: every circuit in turn, 15 seconds each
   var TRACKS = [{"n":"Port Lumière Street Circuit","l":"Port Lumière","km":3.17,"p":[[0,0],[120,50],[230,95],[262,108],[290,96],[330,90],[420,110],[500,140],[540,165],[560,195],[580,215],[620,215],[670,195],[700,160],[705,130],[690,110],[665,100],[650,88],[655,70],[672,66],[700,60],[720,40],[715,15],[695,0],[630,-40],[560,-80],[480,-110],[430,-125],[415,-118],[400,-128],[330,-140],[300,-130],[260,-112],[245,-98],[225,-100],[205,-90],[185,-92],[130,-95],[20,-100],[-20,-95],[-35,-80],[-30,-62],[-28,-40],[-18,-18]]},{"n":"Ashby Park Circuit","l":"Ashby Park","km":5.79,"p":[[0,0],[400,0],[700,0],[820,-30],[870,-100],[880,-180],[860,-240],[890,-290],[860,-340],[880,-390],[920,-420],[1000,-500],[1060,-700],[1060,-780],[1020,-820],[950,-830],[920,-850],[880,-845],[850,-830],[830,-800],[780,-760],[650,-740],[520,-720],[450,-740],[400,-740],[250,-760],[150,-730],[110,-650],[100,-560],[60,-500],[70,-430],[40,-380],[0,-350],[-40,-300],[-60,-220],[-60,-100],[-45,-30]]},{"n":"Desert Grand Prix","l":"Al Saqr","km":5.33,"p":[[0,0],[0,500],[0,900],[10,960],[50,975],[80,950],[100,920],[150,900],[300,880],[450,870],[500,850],[505,800],[480,720],[510,650],[485,580],[470,520],[480,480],[510,470],[530,500],[540,560],[560,590],[600,580],[800,450],[950,350],[1000,330],[1050,340],[1120,300],[1150,220],[1150,120],[1120,80],[800,50],[500,-40],[200,-80],[80,-80],[20,-50]]},{"n":"Japanese Mountain Circuit","l":"Kamisato","km":5.27,"p":[[0,0],[350,0],[480,-15],[530,-70],[520,-130],[555,-180],[520,-230],[555,-280],[525,-330],[520,-400],[545,-450],[530,-490],[500,-560],[470,-590],[440,-575],[445,-540],[400,-500],[340,-480],[280,-500],[200,-560],[150,-620],[90,-630],[40,-600],[-60,-520],[-150,-430],[-200,-330],[-205,-230],[-185,-160],[-170,-140],[-160,-115],[-175,-95],[-150,-40],[-80,-5]]},{"n":"Coastal Grand Prix","l":"Cala Serena","km":4.73,"p":[[0,0],[0,500],[0,800],[30,880],[90,900],[200,880],[300,920],[380,980],[450,980],[520,930],[560,860],[620,820],[640,750],[620,600],[560,480],[560,300],[540,150],[520,80],[540,50],[525,20],[500,-100],[450,-200],[350,-240],[200,-230],[100,-200],[40,-170],[10,-110]]},{"n":"Alpine Racing Circuit","l":"Hochfeld","km":4.41,"p":[[0,0],[0,300],[20,500],[60,560],[120,560],[400,620],[650,680],[720,700],[760,680],[760,640],[730,620],[550,520],[400,450],[340,420],[300,380],[300,320],[330,270],[380,220],[380,170],[340,100],[260,50],[150,40],[60,20],[50,-60],[15,-50]]},{"n":"Tropical Island Circuit","l":"Pulau Sentang","km":5.06,"p":[[0,0],[0,600],[20,680],[70,700],[110,680],[120,630],[140,590],[190,580],[300,600],[380,580],[420,520],[420,460],[380,400],[410,340],[380,280],[400,220],[460,200],[520,210],[550,250],[530,290],[520,330],[560,400],[620,420],[680,400],[760,330],[800,250],[820,150],[800,90],[760,80],[500,-40],[200,-80],[80,-100],[30,-80],[10,-40]]},{"n":"Night City Circuit","l":"Marina Vale","km":4.96,"p":[[0,0],[0,400],[0,450],[-40,480],[-40,530],[0,560],[0,700],[10,750],[60,760],[300,760],[340,750],[350,710],[350,600],[360,560],[400,550],[550,550],[590,540],[600,500],[600,350],[590,300],[620,280],[620,240],[620,100],[610,40],[570,20],[540,40],[520,120],[500,160],[460,170],[300,170],[260,160],[250,120],[250,40],[240,0],[200,-10],[100,-60],[40,-70],[5,-45]]},{"n":"Forest Grand Prix","l":"Malvoie","km":5.32,"p":[[0,0],[0,120],[20,160],[55,155],[60,120],[70,0],[80,-150],[100,-200],[80,-240],[110,-290],[250,-450],[420,-640],[470,-690],[520,-690],[550,-720],[560,-770],[560,-840],[530,-870],[490,-850],[430,-800],[360,-790],[300,-830],[270,-890],[270,-960],[220,-1000],[160,-990],[60,-940],[0,-860],[-40,-760],[-50,-500],[-50,-250],[-45,-140],[-25,-120],[-30,-95],[-50,-80],[-30,-40],[-10,-15]]},{"n":"Modern Stadium Circuit","l":"Qasr Al Bahr","km":4.35,"p":[[0,0],[0,350],[-10,400],[-50,420],[-150,420],[-190,440],[-200,480],[-180,540],[-210,600],[-190,680],[-150,700],[300,700],[600,700],[650,700],[680,720],[710,700],[760,680],[770,630],[740,600],[600,600],[560,580],[550,540],[550,450],[530,410],[490,400],[400,400],[360,390],[350,350],[350,250],[330,210],[290,200],[150,200],[110,190],[100,150],[100,50],[80,-40],[40,-70],[10,-40]]},{"n":"European Countryside Circuit","l":"Valle del Santerno","km":4.28,"p":[[0,0],[0,400],[20,480],[0,540],[20,580],[0,620],[-10,680],[-50,700],[-80,680],[-150,640],[-220,650],[-300,620],[-330,560],[-310,500],[-320,420],[-300,400],[-310,370],[-320,200],[-300,80],[-260,20],[-200,-10],[-80,-50],[-20,-45],[5,-20]]},{"n":"Snowy Mountain Circuit","l":"Isfjell","km":3.79,"p":[[0,0],[0,300],[10,360],[50,380],[85,360],[90,320],[110,250],[160,200],[240,190],[320,220],[380,280],[420,300],[470,290],[520,240],[540,170],[530,120],[555,100],[545,70],[500,0],[420,-60],[300,-120],[180,-130],[80,-110],[20,-70]]},{"n":"Australian Outback Circuit","l":"Coolabah Downs","km":4.54,"p":[[0,0],[0,600],[40,720],[130,770],[250,760],[340,720],[380,640],[360,560],[330,520],[340,480],[380,470],[500,480],[600,440],[640,380],[630,300],[600,220],[620,140],[600,60],[540,20],[480,30],[450,0],[460,-40],[420,-90],[330,-110],[200,-100],[80,-80],[20,-40]]},{"n":"Industrial Port Circuit","l":"Havenstad Docks","km":4.69,"p":[[0,0],[0,700],[10,760],[60,770],[300,770],[340,780],[350,820],[350,950],[360,1000],[400,1010],[430,990],[430,950],[430,700],[440,660],[480,650],[700,650],[740,640],[750,600],[750,200],[740,150],[700,140],[500,140],[460,130],[450,90],[450,0],[430,-60],[370,-80],[200,-80],[80,-80],[25,-50]]},{"n":"Neon City Circuit","l":"Silverline Strip","km":4.95,"p":[[0,0],[0,1000],[0,1500],[-10,1550],[-50,1560],[-200,1560],[-260,1540],[-270,1500],[-270,1200],[-260,1150],[-230,1130],[-230,1090],[-270,1000],[-270,600],[-280,400],[-330,330],[-330,250],[-320,180],[-270,150],[-200,120],[-170,80],[-170,20],[-170,-60],[-150,-100],[-100,-110],[-40,-100],[-5,-70]]}];
-  var HOLD = 15000, FADE = 600, SPEED = 52; // ms per circuit, crossfade, car speed in m/s
+  var HOLD = 15000, FADE = 600; // ms per circuit, crossfade
   function catmull(pts, per) {
     var out = [], n = pts.length;
     for (var i = 0; i < n; i++) {
@@ -427,7 +393,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
     }
     var box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
     path.forEach(function (p) { box.minX = Math.min(box.minX, p[0]); box.maxX = Math.max(box.maxX, p[0]); box.minY = Math.min(box.minY, p[1]); box.maxY = Math.max(box.maxY, p[1]); });
-    return { tr: tr, path: path, cum: cum, total: cum[cum.length - 1], box: box, lap: tr.km * 1000 / SPEED };
+    return { tr: tr, path: path, cum: cum, total: cum[cum.length - 1], box: box };
   }
   var prepared = TRACKS.map(prepare);
   var canvas = document.getElementById('trackmap'), ctx = canvas.getContext('2d');
@@ -446,7 +412,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
     document.getElementById('trkkm').textContent = tr.km.toFixed(2);
     document.getElementById('trkno').textContent = (i < 9 ? '0' : '') + (i + 1) + ' / ' + TRACKS.length;
   }
-  function drawTrack(T, elapsed, alpha) {
+  function drawTrack(T, alpha) {
     var W = canvas.width, H = canvas.height, pad = 70, bx = T.box;
     var k = Math.min((W - pad * 2) / (bx.maxX - bx.minX), (H - pad * 2) / (bx.maxY - bx.minY));
     var ox = (W - (bx.maxX - bx.minX) * k) / 2, oy = (H - (bx.maxY - bx.minY) * k) / 2;
@@ -467,13 +433,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
     ctx.fillStyle = accent; ctx.fillRect(-3, -14, 6, 28); ctx.restore();
     ctx.fillStyle = muted; ctx.font = '600 22px ' + css('--mono');
     ctx.fillText('S/F', X(s0) + 14, Y(s0) - 18);
-    var lapT = (elapsed / 1000 % T.lap) / T.lap;
-    var c = pointAt(T, lapT * T.total);
-    ctx.fillStyle = accent;
-    ctx.beginPath(); ctx.arc(X(c), Y(c), 11, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = panel; ctx.lineWidth = 3; ctx.stroke();
     ctx.globalAlpha = 1;
-    return lapT * T.lap;
   }
   var start = performance.now(), shown = -1;
   function draw(now) {
@@ -488,29 +448,12 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
     for (var gy = 40; gy < H; gy += 40) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
     // Crossfade into each new circuit, and out at the end of its 15 seconds.
     var alpha = Math.min(1, into / FADE, (HOLD - into) / FADE);
-    var secs = drawTrack(prepared[idx], reduce ? prepared[idx].lap * 370 : into, reduce ? 1 : Math.max(0, alpha));
-    var m = Math.floor(secs / 60), sec = secs - m * 60;
-    document.getElementById('laptime').textContent = m + ':' + (sec < 10 ? '0' : '') + sec.toFixed(3);
-    if (!reduce) requestAnimationFrame(draw);
+    drawTrack(prepared[idx], reduce ? 1 : Math.max(0, alpha));
+    // Only redraw while a fade is running; in between the map holds still.
+    if (!reduce) setTimeout(function () { requestAnimationFrame(draw); }, into < FADE || into > HOLD - FADE ? 0 : Math.min(250, HOLD - FADE - into));
   }
   requestAnimationFrame(draw);
 
-  // ---------- the Find Race timer: drivers turn up, the race goes at a full grid
-  var slots = document.getElementById('slots'), cells = [];
-  for (var s = 0; s < 12; s++) { var c = document.createElement('i'); slots.appendChild(c); cells.push(c); }
-  var arrivals = [0, 4, 9, 13, 18, 22, 27, 31, 36, 40, 44, 47];
-  function tick() {
-    var el = (performance.now() / 1000) % 54;
-    if (reduce) el = 31;
-    var shown = Math.min(el, 47);
-    var n = arrivals.filter(function (a) { return a <= shown; }).length;
-    cells.forEach(function (c, i) { c.className = i < n ? 'on' : ''; });
-    var sInt = Math.floor(shown);
-    document.getElementById('findclock').textContent = '0:' + (sInt < 10 ? '0' : '') + sInt;
-    document.getElementById('findcount').textContent = n === 12 ? '12 / 12 drivers  ·  race found' : n + ' / 12 drivers';
-  }
-  tick();
-  if (!reduce) setInterval(tick, 250);
 })();
 </script>
 </body>
