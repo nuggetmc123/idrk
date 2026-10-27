@@ -29,10 +29,17 @@ namespace Veylix
         /// Where the forearm meets the glove (the driver body's arms reach to here).
         public Vector3 WristPosition => model != null ? model.TransformPoint(new Vector3(0f, 0f, -0.09f)) : transform.position;
 
-        // Controller grip pose -> hand: fingers forward, palm facing inwards, slight downward tilt; plus your own
-        // adjustment from Settings > Hands so the glove sits exactly where your real hand is.
-        Vector3 RestPosition => new Vector3(left ? -0.028f : 0.028f, -0.012f + Settings.GloveUp, -0.025f + Settings.GloveForward); // back of the hand outside the handle, palm round it
-        Quaternion RestRotation => Quaternion.Euler(-30f + Settings.GloveTilt, 0f, left ? 90f : -90f);
+        // Where the glove sits on the controller. The hand transform follows OpenXR's grip pose, which Unity gives as:
+        // origin in the middle of your closed fist (the controller handle), +Z up the handle from little finger to
+        // thumb, +Y forward (the way your knuckles face), +X to your left. The glove is built wrist -> fingers along
+        // its +Z with the back of the hand on +Y, so: fingers along grip +Y, back of the hand outwards (grip +X on the
+        // left hand, -X on the right), and the handle passing through the middle of the curled fingers.
+        // Settings > Hands adds your own fine adjustment on top.
+        static readonly Vector3 HandleInGlove = new Vector3(0f, -0.028f, 0.015f);
+        Quaternion BaseRotation => Quaternion.LookRotation(Vector3.up, left ? Vector3.right : Vector3.left);
+        Quaternion RestRotation => Quaternion.AngleAxis(Settings.GloveTilt, Vector3.right) * BaseRotation;
+        Vector3 RestPosition => Quaternion.AngleAxis(Settings.GloveTilt, Vector3.right) * -(BaseRotation * HandleInGlove)
+                                + new Vector3(0f, Settings.GloveForward, Settings.GloveUp);
 
         public static Glove Create(Transform hand, bool left)
         {
