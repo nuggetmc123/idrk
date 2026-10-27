@@ -337,7 +337,12 @@ namespace Veylix
         {
             float pull = damage != null ? damage.SteerPull : 0f;
             float maxDeg = spec.maxSteerAngle;
-            float target = Mathf.Clamp(input.steer, -1f, 1f) * maxDeg + pull;
+            // Less lock at speed (a small movement of the wheel is a big turn when you're quick), and the front wheels
+            // can only swing so fast, slower at speed, so the car never snaps into a turn.
+            float speedF = Mathf.Clamp01(SpeedMs / 60f);
+            float want = Mathf.Clamp(input.steer, -1f, 1f) * maxDeg * Mathf.Lerp(1f, 0.6f, speedF) + pull;
+            float rate = Mathf.Lerp(70f, 28f, speedF); // road-wheel degrees per second
+            float target = Mathf.MoveTowards(SteerAngleDeg, want, rate * dt);
             SteerAngleDeg = target;
             // Ackermann: the inside wheel turns a little more.
             float a = Mathf.Abs(target) * Mathf.Deg2Rad;

@@ -188,13 +188,13 @@ namespace Veylix
             }
             float speedF = Mathf.Clamp01(car.SpeedMs / 55f);
             // Spring stiffness (how hard your hands pull the wheel round): softer = heavier.
-            float k = Mathf.Lerp(1400f, 260f, w) * Mathf.Lerp(1f, 0.7f, speedF) * (hands == 2 ? 1f : 0.7f);
+            float k = Mathf.Lerp(1400f, 110f, w) * Mathf.Lerp(1f, 0.7f, speedF) * (hands == 2 ? 1f : 0.7f);
             float c = 2f * Mathf.Sqrt(k) * 1.05f; // just over critical: no wobble
             // The tyres' self-centring (caster and aligning torque): stronger at speed and with grip.
-            float centre = w * Mathf.Lerp(6f, 35f, speedF);
+            float centre = w * Mathf.Lerp(12f, 60f, speedF);
             float acc = (target - WheelAngle) * k - wheelVel * c - WheelAngle * centre;
             wheelVel += acc * dt;
-            float maxRate = Mathf.Lerp(900f, 420f, w); // degrees per second
+            float maxRate = Mathf.Lerp(900f, 200f, w) * Mathf.Lerp(1f, 0.7f, speedF); // degrees per second
             wheelVel = Mathf.Clamp(wheelVel, -maxRate, maxRate);
             WheelAngle = Mathf.Clamp(WheelAngle + wheelVel * dt, -lockDeg, lockDeg);
             if (Mathf.Abs(WheelAngle) >= lockDeg) wheelVel = 0f;

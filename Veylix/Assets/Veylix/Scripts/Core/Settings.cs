@@ -26,7 +26,7 @@ namespace Veylix
         public static float GloveForward { get => F("gloveFwd2", 0f); set => SF("gloveFwd2", Mathf.Clamp(value, -0.1f, 0.1f)); }
         public static float GloveUp { get => F("gloveUp2", 0f); set => SF("gloveUp2", Mathf.Clamp(value, -0.1f, 0.1f)); }
         public static float GloveTilt { get => F("gloveTilt2", 0f); set => SF("gloveTilt2", Mathf.Clamp(value, -45f, 45f)); }
-        public static float SteeringWeight { get => F("steerWeight", 0.4f); set => SF("steerWeight", Mathf.Clamp01(value)); }
+        public static float SteeringWeight { get => F("steerWeight2", 0.75f); set => SF("steerWeight2", Mathf.Clamp01(value)); }
         public static float SteeringLinearity { get => F("steerLin", 0.2f); set => SF("steerLin", Mathf.Clamp01(value)); }
         public static float Haptics { get => F("haptics", 0.8f); set => SF("haptics", Mathf.Clamp01(value)); }
         public static bool Abs { get => I("abs", 0) == 1; set => SI("abs", value ? 1 : 0); }
