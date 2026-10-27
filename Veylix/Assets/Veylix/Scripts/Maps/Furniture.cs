@@ -432,6 +432,7 @@ namespace Veylix
             {
                 if (lamps[i] == null) continue;
                 bool on = i / 2 < columns;
+                if (mpb == null) mpb = new MaterialPropertyBlock(); // set up on first use (this can run before setup finishes)
                 lamps[i].GetPropertyBlock(mpb);
                 mpb.SetColor("_EmissionColor", on ? new Color(1f, 0.02f, 0.01f) * 6f : Color.black);
                 mpb.SetColor("_Color", on ? new Color(1f, 0.1f, 0.08f) : new Color(0.12f, 0.02f, 0.02f));

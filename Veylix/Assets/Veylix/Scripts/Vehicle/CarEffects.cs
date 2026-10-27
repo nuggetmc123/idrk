@@ -19,6 +19,7 @@ namespace Veylix
 
         public void Init(Car c)
         {
+            mpb = new MaterialPropertyBlock();
             car = c;
             parts = c.parts;
             var A = VXAssets.I;
@@ -37,7 +38,6 @@ namespace Veylix
             Fx.Fade(spray, new Color(0.9f, 0.92f, 0.95f, 0.35f), new Color(0.9f, 0.92f, 0.95f, 0.18f), new Color(1f, 1f, 1f, 0f));
             Fx.Grow(spray, 0.6f, 2.8f);
             for (int i = 0; i < 4; i++) trails[i] = new SkidTrail(car.wheels[i].width * 0.85f);
-            mpb = new MaterialPropertyBlock();
         }
 
         static Transform fxRoot;
@@ -129,6 +129,7 @@ namespace Veylix
             {
                 bool on = Env.Wetness > 0.25f || Env.Fog > 0.3f || Env.IsNight;
                 float blink = on && Mathf.Repeat(Time.time * 4f, 1f) < 0.5f ? 1f : 0.05f;
+                if (mpb == null) mpb = new MaterialPropertyBlock(); // set up on first use (this can run before setup finishes)
                 parts.rainLight.GetPropertyBlock(mpb);
                 mpb.SetColor("_EmissionColor", new Color(1f, 0.03f, 0.02f) * blink * 3f);
                 parts.rainLight.SetPropertyBlock(mpb);

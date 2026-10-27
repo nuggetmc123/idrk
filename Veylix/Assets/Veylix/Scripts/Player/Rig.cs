@@ -41,10 +41,10 @@ namespace Veylix
         void Awake()
         {
             I = this;
+            mpb = new MaterialPropertyBlock(); // before Build: building the rig can already touch the fade
             if (head == null) Build();
             Cameras.Main = cam;
             AudioListenerRef.Listener = head;
-            mpb = new MaterialPropertyBlock();
         }
 
         void OnEnable() { Application.onBeforeRender += BeforeRender; }
@@ -371,6 +371,7 @@ namespace Veylix
             vignette.enabled = vignetteAlpha > 0.01f;
             if (vignette.enabled)
             {
+                if (mpb == null) mpb = new MaterialPropertyBlock(); // set up on first use (this can run before setup finishes)
                 vignette.GetPropertyBlock(mpb);
                 mpb.SetColor("_Color", new Color(0f, 0f, 0f, vignetteAlpha));
                 vignette.SetPropertyBlock(mpb);
@@ -396,6 +397,7 @@ namespace Veylix
             fade.enabled = fadeAlpha > 0.005f;
             if (fade.enabled)
             {
+                if (mpb == null) mpb = new MaterialPropertyBlock(); // set up on first use (this can run before setup finishes)
                 fade.GetPropertyBlock(mpb);
                 mpb.SetColor("_Color", new Color(0f, 0f, 0f, fadeAlpha));
                 fade.SetPropertyBlock(mpb);
