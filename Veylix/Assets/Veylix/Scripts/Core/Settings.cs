@@ -30,7 +30,7 @@ namespace Veylix
         public static float SteeringLinearity { get => F("steerLin", 0.2f); set => SF("steerLin", Mathf.Clamp01(value)); }
         public static float Haptics { get => F("haptics", 0.8f); set => SF("haptics", Mathf.Clamp01(value)); }
         public static bool Abs { get => I("abs", 0) == 1; set => SI("abs", value ? 1 : 0); }
-        public static bool TractionControl { get => I("tc", 0) == 1; set => SI("tc", value ? 1 : 0); }
+        public static bool TractionControl { get => I("tc2", 1) == 1; set => SI("tc2", value ? 1 : 0); }
         public static bool AutoGears { get => I("autoGears", 0) == 1; set => SI("autoGears", value ? 1 : 0); }
         public static RacingLineMode RacingLine { get => (RacingLineMode)I("line", 0); set => SI("line", (int)value); }
         public static DamageMode Damage { get => (DamageMode)I("damage", 2); set => SI("damage", (int)value); }

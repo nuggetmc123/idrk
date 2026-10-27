@@ -242,6 +242,7 @@ namespace Veylix
             Steering(dt);
             Aero(v);
             Suspension(dt);
+            Stability(dt);
             Drivetrain(dt);
             Temperatures(dt);
             FuelAndEnergy(dt);
@@ -702,6 +703,41 @@ namespace Veylix
 
         float EngineRatioSq() { float r = Ratio(Gear); return r * r; }
 
+        float stabilityThrottle = 1f;
+
+        /// <summary>
+        /// Stability control (on with traction control): if the car starts rotating faster than your steering asks
+        /// for, or the back starts stepping out, it gently brakes the rotation and eases off the power, so steering
+        /// left and right never spins you into a donut. It only acts past the point a tidy car would go.
+        /// </summary>
+        void Stability(float dt)
+        {
+            stabilityThrottle = 1f;
+            if (!tractionControl || SpeedMs < 2f) return;
+            int grounded = 0;
+            foreach (var w in wheels) if (w.grounded) grounded++;
+            if (grounded < 3) return;
+            Vector3 localV = transform.InverseTransformDirection(Body.linearVelocity);
+            float vf = localV.z;
+            float r = transform.InverseTransformDirection(Body.angularVelocity).y; // + = turning right
+            // Yaw rate the steering asks for, capped by what the tyres can actually hold (about 2.5 g with downforce).
+            float steerRad = SteerAngleDeg * Mathf.Deg2Rad;
+            float want = vf * Mathf.Tan(steerRad) / spec.wheelbase;
+            float cap = 2.5f * Gravity / Mathf.Max(4f, SpeedMs);
+            want = Mathf.Clamp(want, -cap, cap);
+            float excess = r - want;
+            const float margin = 0.12f; // rad/s of slack before it steps in
+            if (Mathf.Abs(excess) > margin)
+            {
+                float over = excess - Mathf.Sign(excess) * margin;
+                float gain = 9f; // per second: how fast the extra rotation is taken out
+                Body.AddRelativeTorque(Vector3.up * (-over * gain * Body.inertiaTensor.y));
+            }
+            // The back stepping out (body slip angle): ease off the power.
+            float slip = Mathf.Abs(Mathf.Atan2(localV.x, Mathf.Max(1f, Mathf.Abs(vf)))) * Mathf.Rad2Deg;
+            if (slip > 6f) stabilityThrottle = Mathf.Lerp(1f, 0.2f, Mathf.InverseLerp(6f, 20f, slip));
+        }
+
         void Drivetrain(float dt)
         {
             bool engineDead = damage != null && damage.EngineDead;
@@ -709,7 +745,7 @@ namespace Veylix
             if (EngineTemp > 128f) powerScale *= Mathf.Lerp(1f, 0.6f, Mathf.InverseLerp(128f, 145f, EngineTemp));
             if (Fuel <= 0f) { engineDead = true; }
 
-            float thr = input.throttle;
+            float thr = input.throttle * stabilityThrottle;
             throttleSmooth = Mathf.MoveTowards(throttleSmooth, thr, dt / 0.06f);
             thr = throttleSmooth;
             if (cutTimer > 0f) { cutTimer -= dt; thr *= 0.15f; }

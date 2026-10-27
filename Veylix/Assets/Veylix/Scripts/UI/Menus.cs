@@ -340,7 +340,7 @@ namespace Veylix
             // Right column: the map and a summary.
             var tex = Preview(c.map);
             if (tex != null) VUI.Quad(panel, "img", new Vector2(0.36f, 0.12f), new Vector2(0.36f, 0.24f), Color.white, 0f, 0.008f, tex);
-            Lbl("Damage: " + Settings.Damage + "   Assists: " + (Settings.Abs ? "ABS " : "") + (Settings.TractionControl ? "TC " : "") + (Settings.AutoGears ? "Auto gears" : "Manual gears"), 0.18f, -0.06f, 0.2f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.4f);
+            Lbl("Damage: " + Settings.Damage + "   Assists: " + (Settings.Abs ? "ABS " : "") + (Settings.TractionControl ? "TC/Stability " : "") + (Settings.AutoGears ? "Auto gears" : "Manual gears"), 0.18f, -0.06f, 0.2f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.4f);
             Lbl("Change assists and damage in Settings.", 0.18f, -0.09f, 0.18f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, false, 0.4f);
             Back(() => ShowMaps(false));
             var online = Online.I;
@@ -655,7 +655,7 @@ namespace Veylix
                     break;
                 case 1:
                     Row("ABS"); VToggle.Make(panel, new Vector2(cx - 0.12f, y), Settings.Abs, v => Settings.Abs = v); y -= dy;
-                    Row("TRACTION CONTROL"); VToggle.Make(panel, new Vector2(cx - 0.12f, y), Settings.TractionControl, v => Settings.TractionControl = v); y -= dy;
+                    Row("TRACTION & STABILITY"); VToggle.Make(panel, new Vector2(cx - 0.12f, y), Settings.TractionControl, v => Settings.TractionControl = v); y -= dy;
                     Row("AUTOMATIC GEARS"); VToggle.Make(panel, new Vector2(cx - 0.12f, y), Settings.AutoGears, v => Settings.AutoGears = v); y -= dy;
                     Row("RACING LINE"); VSelector.Make(panel, new Vector2(cx + 0.03f, y), 0.4f, new[] { "Off", "Braking zones", "Full line" }, (int)Settings.RacingLine, v => Settings.RacingLine = (RacingLineMode)v); y -= dy;
                     Row("DAMAGE"); VSelector.Make(panel, new Vector2(cx + 0.03f, y), 0.4f, new[] { "Off", "Visual only", "Full" }, (int)Settings.Damage, v => Settings.Damage = (DamageMode)v); y -= dy;
