@@ -89,17 +89,17 @@ namespace Veylix
             // The body follows the head's direction lazily: only once you've turned well away, or as you walk.
             Vector3 look = Flat(rig.head.forward);
             float off = Vector3.Angle(bodyFwd, look);
-            float follow = off > 40f ? 6f : off > 15f ? 1.5f : 0.3f;
+            float follow = off > 30f ? 10f : off > 10f ? 3f : 0.6f;
             bodyFwd = Flat(Vector3.Slerp(bodyFwd, look, 1f - Mathf.Exp(-follow * dt)));
             if (!placed) bodyFwd = look;
             Vector3 right = Vector3.Cross(up, bodyFwd);
 
             // Torso: from the base of the neck (below and behind your eyes) down to the pelvis. Crouch and the hips drop.
-            // (Set a little low and back from where a neck really is, so looking down you see your chest, belly and
-            // feet instead of the inside of your own shoulders.)
-            Vector3 neck = head - up * 0.21f - bodyFwd * 0.14f;
+            // (Set a touch low and back from where a neck really is, so looking down you see your chest and feet
+            // rather than the inside of your own shoulders, while the body stays centred under you.)
+            Vector3 neck = head - up * 0.2f - bodyFwd * 0.07f;
             float hipH = Mathf.Clamp(eye - 0.6f, 0.42f, 1.0f);
-            Vector3 pelvis = new Vector3(neck.x, floor + hipH, neck.z) - bodyFwd * 0.02f;
+            Vector3 pelvis = new Vector3(neck.x, floor + hipH, neck.z) + bodyFwd * 0.02f; // hips right under your head
             Vector3 spine = neck - pelvis;
             float len = Mathf.Max(0.2f, spine.magnitude);
             var rot = Quaternion.LookRotation(spine / len, bodyFwd);

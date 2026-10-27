@@ -58,7 +58,8 @@ namespace Veylix
             fwd.Normalize();
             if (!inSession && G != null && G.state == Game.State.Menu)
             {
-                // In your garage: in front of where you're looking, off to the left so the car stays in view.
+                // In your garage: straight in front of where you're standing and looking (the Customise station
+                // nudges it aside so the car beside you stays in view).
                 Vector3 basePos = new Vector3(headPos.x, rig.transform.position.y, headPos.z);
                 float eye = rig.IsXR ? Mathf.Max(1.1f, rig.head.position.y - rig.transform.position.y) : 1.6f;
                 Vector3 right = Vector3.Cross(Vector3.up, fwd);
@@ -82,7 +83,7 @@ namespace Veylix
             Layers.SetRecursive(panel.gameObject, Layers.UI);
         }
 
-        float hubSideOffset = 0.42f;
+        float hubSideOffset = 0f;
         public bool Showing => Pointer.MenuActive;
 
         // ------------------------------------------------------------------ garage hub stations
@@ -93,7 +94,7 @@ namespace Veylix
             if (G.showroom != null) G.showroom.GoTo(Showroom.Spot.Customise);
             hubSideOffset = 0.55f;
             ShowGarage();
-            hubSideOffset = 0.42f;
+            hubSideOffset = 0f;
         }
 
         /// FIND RACE station by the roller door (and the main menu): start searching (a timer appears in the top left of
