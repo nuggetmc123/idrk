@@ -433,21 +433,26 @@ namespace Veylix
             AudioListener.pause = freeze;
             // VR: the settings screen rises from the watch on your left wrist. Desktop: the pause panel.
             if (on) { if (rig != null && rig.IsXR && rig.watch != null) menus.ShowWatch(); else menus.ShowPause(); }
+            else if (menus.OnWatch) menus.CloseWatch(); // shrinks back into the watch
             else menus.Hide();
             hud.SetVisible(!on);
         }
 
         void Update()
         {
+            bool watchKey = InputHub.MenuPressed || WatchTapped();
             if (state == State.Session || state == State.Paused)
             {
                 Music.Play(Settings.RaceMusic ? Music.Theme.Race : Music.Theme.None);
-                if (InputHub.MenuPressed) Pause(state == State.Session);
+                if (watchKey) Pause(state == State.Session);
             }
             else if (state == State.Results || state == State.Menu)
             {
                 if (InputHub.MenuPressed && state == State.Results) menus.ShowResults(session);
                 // In the garage the menu button puts the menu away (to walk around) or brings it back in front of you.
+                // In VR the menu button (or a tap on the watch) brings the settings screen up out of your watch.
+                else if (watchKey && state == State.Menu && studio == null && rig != null && rig.IsXR && rig.watch != null)
+                { if (menus.OnWatch) menus.CloseWatch(); else menus.ShowWatch(); }
                 else if (InputHub.MenuPressed && state == State.Menu && studio == null) { if (menus.Showing) menus.Hide(); else menus.ShowMain(); }
             }
             if (state != State.Session || playerCar == null) return;
@@ -474,6 +479,14 @@ namespace Veylix
             }
             if (state == State.Session && cockpit != null && session != null)
                 cockpit.inputEnabled = session.phase == RaceSession.Phase.Racing || session.phase == RaceSession.Phase.Countdown || session.phase == RaceSession.Phase.Grid || (session.phase == RaceSession.Phase.Finished && !session.player.finished);
+        }
+
+        /// Touching the watch on your left wrist with your right hand and pulling the trigger opens or closes it.
+        bool WatchTapped()
+        {
+            if (rig == null || !rig.IsXR || rig.watch == null || rig.watch.Face == null || rig.rightHand == null) return false;
+            if (!InputHub.Right.triggerDown) return false;
+            return (rig.rightHand.position - rig.watch.Face.position).sqrMagnitude < 0.07f * 0.07f;
         }
 
         IEnumerator Crash()

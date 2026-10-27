@@ -975,7 +975,9 @@ namespace Veylix
         /// </summary>
         public void ShowWatch()
         {
+            bool wasOpen = OnWatch;
             var s = G.session;
+            if (s == null || G.state == Game.State.Menu) { ShowWatchGarage(wasOpen); return; }
             Begin("SETTINGS", s != null ? ModeName(s.config.mode) + "  |  " + s.map.name + (s.config.mode == GameMode.Online ? "  |  the race keeps going" : "  |  paused") : null, true, WW, WH);
             float lx = -WW * 0.5f + 0.06f, cx = 0.12f, y = WH * 0.5f - 0.17f, dy = 0.075f;
             void Row(string l) => Lbl(l, lx, y, 0.27f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.4f);
@@ -1003,27 +1005,134 @@ namespace Veylix
             Btn("RECENTER", bx0 + bw + 0.02f, y, bw, bh, () => Rig.I?.Recenter());
             Btn(s != null && s.config.mode == GameMode.Online ? "LEAVE RACE" : "EXIT TO GARAGE", bx0 + (bw + 0.02f) * 2f, y, bw, bh, () => { if (Online.I != null) Online.I.Leave(); G.EnterMenu(); });
             Lbl("Press the menu button again to put the watch away", 0f, -WH * 0.5f + 0.03f, 0.2f, VUI.TextDim, TextAlignmentOptions.Midline, false, WW);
+            OpenWatch(wasOpen);
+        }
+
+        /// The watch in your garage: volumes and the ways out to everything else.
+        void ShowWatchGarage(bool wasOpen)
+        {
+            Begin("SETTINGS", "Your garage", true, WW, WH);
+            float lx = -WW * 0.5f + 0.06f, cx = 0.12f, y = WH * 0.5f - 0.17f, dy = 0.075f;
+            void Row(string l) => Lbl(l, lx, y, 0.27f, VUI.TextDim, TextAlignmentOptions.MidlineLeft, true, 0.4f);
+            string Pct(float v) => (v * 100f).ToString("0") + "%";
+            Row("MUSIC"); VSlider.Make(panel, new Vector2(cx, y), 0.42f, 0f, 1f, Settings.MusicVolume, v => Settings.MusicVolume = v, Pct, 0.05f); y -= dy;
+            Row("ENGINES"); VSlider.Make(panel, new Vector2(cx, y), 0.42f, 0f, 1f, Settings.EngineVolume, v => Settings.EngineVolume = v, Pct, 0.05f); y -= dy;
+            Row("EFFECTS"); VSlider.Make(panel, new Vector2(cx, y), 0.42f, 0f, 1f, Settings.EffectsVolume, v => Settings.EffectsVolume = v, Pct, 0.05f); y -= dy;
+            Row("MUSIC WHILE RACING"); VToggle.Make(panel, new Vector2(cx - 0.17f, y), Settings.RaceMusic, v => Settings.RaceMusic = v); y -= dy * 1.3f;
+            float bw = 0.32f, bh = 0.07f, bx0 = -WW * 0.5f + 0.06f + bw * 0.5f;
+            Btn("CLOSE", bx0, y, bw, bh, () => CloseWatch(), true);
+            Btn(FindingRace ? "STOP SEARCH" : "FIND RACE", bx0 + bw + 0.02f, y, bw, bh, () => CloseWatch(OpenFindRace));
+            Btn("MAIN MENU", bx0 + (bw + 0.02f) * 2f, y, bw, bh, () => CloseWatch(ShowMain));
+            y -= bh + 0.02f;
+            Btn("ALL SETTINGS", bx0, y, bw, bh, () => CloseWatch(ShowSettings));
+            Btn("YOUR DRIVER", bx0 + bw + 0.02f, y, bw, bh, () => CloseWatch(() => ShowDriverProfile(false)));
+            Btn("RECENTER", bx0 + (bw + 0.02f) * 2f, y, bw, bh, () => Rig.I?.Recenter());
+            Lbl("Press the menu button or tap the watch to put it away", 0f, -WH * 0.5f + 0.03f, 0.2f, VUI.TextDim, TextAlignmentOptions.Midline, false, WW);
+            OpenWatch(wasOpen);
+        }
+
+        // The screen grows up out of the watch face when it opens and shrinks back into it when it closes.
+        float watchPop;
+        bool watchClosing;
+        System.Action afterWatch;
+        const float PopTime = 0.22f;
+
+        void OpenWatch(bool wasOpen)
+        {
             OnWatch = true;
-            panel.localScale = Vector3.one * WatchScale;
+            watchClosing = false;
+            afterWatch = null;
+            if (!wasOpen) { watchPop = 0f; CrashAudio.Tick(); Rig.I?.Haptic(true, 0.25f, 0.06f); }
             FollowWatch();
-            CrashAudio.Tick();
+        }
+
+        /// Put the watch screen away (it shrinks back into the watch), then run 'after' (e.g. open another screen).
+        public void CloseWatch(System.Action after = null)
+        {
+            if (!OnWatch) { Hide(); after?.Invoke(); return; }
+            watchClosing = true;
+            afterWatch = after;
         }
 
         void FollowWatch()
         {
             var rig = Rig.I;
-            if (rig == null || rig.watch == null || rig.watch.Face == null) return;
+            if (rig == null || rig.watch == null || rig.watch.Face == null) { panel.localScale = Vector3.one * WatchScale; return; }
+            // Opening: rises with a little overshoot and settles. Closing: shrinks smoothly back down.
+            float k = Mathf.SmoothStep(0f, 1f, watchPop);
+            float grow = watchClosing ? k : EaseOutBack(watchPop);
             Vector3 face = rig.watch.Face.position;
             Vector3 pos = face + Vector3.up * (WH * WatchScale * 0.5f + 0.05f);
             Vector3 look = pos - rig.head.position;
             if (look.sqrMagnitude < 1e-4f) look = rig.head.forward;
-            panel.position = pos;
+            panel.position = Vector3.Lerp(face, pos, k);
             panel.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
+            panel.localScale = new Vector3(WatchScale * Mathf.Max(0.02f, grow), WatchScale * Mathf.Max(0.02f, grow * Mathf.Min(1f, k * 1.6f)), WatchScale);
+            Beam(face, panel.position - panel.up * (WH * 0.5f * panel.localScale.y), WW * panel.localScale.x, k);
+        }
+
+        static float EaseOutBack(float t)
+        {
+            const float c1 = 1.70158f, c3 = c1 + 1f;
+            t = Mathf.Clamp01(t) - 1f;
+            return 1f + c3 * t * t * t + c1 * t * t;
+        }
+
+        // A soft beam of light from the watch face up to the screen: bright while it opens, a faint glow once open.
+        MeshRenderer beam;
+        Material beamMat;
+
+        void Beam(Vector3 from, Vector3 to, float topWidth, float k)
+        {
+            if (beam == null)
+            {
+                var go = new GameObject("Watch beam");
+                go.transform.SetParent(transform, false);
+                go.layer = Layers.UI;
+                var mesh = new Mesh { name = "beam" };
+                // Two crossed tapered quads, narrow at the watch (y = 0) and wide at the screen (y = 1).
+                mesh.vertices = new[]
+                {
+                    new Vector3(-0.04f, 0f, 0f), new Vector3(0.04f, 0f, 0f), new Vector3(0.5f, 1f, 0f), new Vector3(-0.5f, 1f, 0f),
+                    new Vector3(0f, 0f, -0.04f), new Vector3(0f, 0f, 0.04f), new Vector3(0f, 1f, 0.12f), new Vector3(0f, 1f, -0.12f),
+                };
+                mesh.colors = new[] { Color.white, Color.white, new Color(1f, 1f, 1f, 0.15f), new Color(1f, 1f, 1f, 0.15f), Color.white, Color.white, new Color(1f, 1f, 1f, 0.15f), new Color(1f, 1f, 1f, 0.15f) };
+                mesh.triangles = new[] { 0, 2, 1, 0, 3, 2, 0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 4, 5, 6, 4, 6, 7 };
+                mesh.RecalculateBounds();
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                beam = go.AddComponent<MeshRenderer>();
+                beam.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                beamMat = new Material(Shader.Find("Veylix/UI") ?? Shader.Find("Sprites/Default")) { name = "Watch beam" };
+                beam.sharedMaterial = beamMat;
+            }
+            Vector3 d = to - from;
+            float len = d.magnitude;
+            bool show = OnWatch && len > 0.002f;
+            beam.enabled = show;
+            if (!show) return;
+            beam.transform.position = from;
+            beam.transform.rotation = Quaternion.FromToRotation(Vector3.up, d / len);
+            beam.transform.localScale = new Vector3(Mathf.Max(0.01f, topWidth), len, Mathf.Max(0.01f, topWidth * 0.4f));
+            // Brightest mid-way through opening, then settles to a faint glow.
+            float a = Mathf.Lerp(0.08f, 0.45f, Mathf.Sin(Mathf.Clamp01(k) * Mathf.PI));
+            var c = VUI.Accent; c.a = a;
+            beamMat.color = c;
         }
 
         void LateUpdate()
         {
-            if (OnWatch) FollowWatch();
+            if (!OnWatch) { if (beam != null && beam.enabled) beam.enabled = false; return; }
+            watchPop = Mathf.MoveTowards(watchPop, watchClosing ? 0f : 1f, Time.unscaledDeltaTime / PopTime);
+            FollowWatch();
+            if (watchClosing && watchPop <= 0f)
+            {
+                var after = afterWatch;
+                afterWatch = null;
+                watchClosing = false;
+                Hide();
+                if (beam != null) beam.enabled = false;
+                after?.Invoke();
+            }
         }
 
         // ------------------------------------------------------------------ in session

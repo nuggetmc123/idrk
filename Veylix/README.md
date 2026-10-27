@@ -59,11 +59,13 @@ visor, gloves). Your driver stands in a pool of light beside the screen and chan
 your car in the same kit, your number goes on your cars, and online everyone sees your driver in your car.
 **DRIVER** in the main menu changes it later.
 
-## The watch (in a race, VR)
-Press the menu button (three lines, left controller) and a screen rises from the watch on your left wrist: music,
-engine, effects and crowd volume, music while racing, pit stop (pick tyres, box this lap), resume, reset car, cockpit
-or chase view, restart, recenter, exit. Press the button again to put it away. Offline the race pauses; online it
-keeps going. On a monitor the same button (Esc) opens the pause menu.
+## The watch (VR)
+Press the menu button (three lines, left controller), or touch the watch on your left wrist with your right hand and
+pull the trigger, and a settings screen pops up out of the watch: it grows from the watch face with a little bounce
+and a beam of light, and shrinks back into the watch when you close it. In a race it has music, engine, effects and
+crowd volume, music while racing, pit stop (pick tyres, box this lap), resume, reset car, cockpit or chase view,
+restart, recenter and exit. Offline the race pauses; online it keeps going. In your garage it has the volumes plus
+Find Race, Main Menu, All Settings, Your Driver and Recenter. On a monitor the same button (Esc) opens the pause menu.
 
 ## Music and sound
 The music is synthesised live (no audio files): a relaxed theme in the garage, an ambient bed while loading and an
