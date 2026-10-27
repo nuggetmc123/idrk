@@ -156,26 +156,92 @@ namespace Veylix
         }
     }
 
-    /// <summary>Keeps a stretched cylinder between two points (suspension arms that follow the moving wheels).</summary>
-    public class Strut : MonoBehaviour
+    /// <summary>
+    /// All of a car's suspension arms in one mesh (one draw instead of two dozen). Each arm is a streamlined tube
+    /// stretched between its chassis mount and the upright, rebuilt every frame as the wheels move.
+    /// </summary>
+    public class StrutSet : MonoBehaviour
     {
-        public Transform a, b;
-        public Vector3 aOffset, bOffset;
-        public float thickness = 0.02f;
+        struct Arm { public Transform a, b; public Vector3 aOffset, bOffset; public float thickness; }
+        readonly List<Arm> arms = new List<Arm>();
+        Mesh mesh, unit;
+        Vector3[] unitV, unitN;
+        Vector2[] unitUV;
+        int[] unitT;
+        readonly List<Vector3> verts = new List<Vector3>(), norms = new List<Vector3>();
+
+        public static StrutSet For(Transform car, Material mat, Mesh unitTube)
+        {
+            var existing = car.Find("Arm");
+            var set = existing != null ? existing.GetComponent<StrutSet>() : null;
+            if (set != null) return set;
+            var go = new GameObject("Arm"); // the name CarLod hides at a distance
+            go.transform.SetParent(car, false);
+            go.AddComponent<MeshFilter>();
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            set = go.AddComponent<StrutSet>();
+            set.unit = unitTube;
+            return set;
+        }
+
+        public void Add(Transform a, Vector3 aOffset, Transform b, Vector3 bOffset, float thickness)
+        {
+            arms.Add(new Arm { a = a, b = b, aOffset = aOffset, bOffset = bOffset, thickness = thickness });
+            mesh = null; // rebuild with the new arm
+        }
 
         void LateUpdate() => Apply();
 
-        /// Stretch the arm between its two mount points (also used when the editor saves the car models).
+        /// Rebuild the arms where the wheels are now (also used when the editor saves the car models).
         public void Apply()
         {
-            if (a == null || b == null) return;
-            Vector3 pa = a.TransformPoint(aOffset), pb = b.TransformPoint(bOffset);
-            Vector3 d = pb - pa;
-            float len = d.magnitude;
-            if (len < 1e-4f) return;
-            transform.position = (pa + pb) * 0.5f;
-            transform.rotation = Quaternion.LookRotation(d / len, a.up);
-            transform.localScale = new Vector3(thickness, thickness, len);
+            if (unit == null || arms.Count == 0) return;
+            if (unitV == null) { unitV = unit.vertices; unitN = unit.normals; unitT = unit.triangles; var uvl = new List<Vector2>(); unit.GetUVs(0, uvl); unitUV = uvl.ToArray(); }
+            var mf = GetComponent<MeshFilter>();
+            if (mesh == null)
+            {
+                mesh = new Mesh { name = "suspension" };
+                mesh.MarkDynamic();
+                verts.Clear(); norms.Clear();
+                for (int i = 0; i < arms.Count; i++) { verts.AddRange(unitV); norms.AddRange(unitN); }
+                mesh.SetVertices(verts);
+                mesh.SetNormals(norms);
+                if (unitUV.Length == unitV.Length)
+                {
+                    var uvs = new List<Vector2>(unitUV.Length * arms.Count);
+                    for (int i = 0; i < arms.Count; i++) uvs.AddRange(unitUV);
+                    mesh.SetUVs(0, uvs); // the carbon weave
+                }
+                var tris = new int[unitT.Length * arms.Count];
+                for (int i = 0; i < arms.Count; i++)
+                    for (int t = 0; t < unitT.Length; t++) tris[i * unitT.Length + t] = unitT[t] + i * unitV.Length;
+                mesh.SetTriangles(tris, 0);
+                mf.sharedMesh = mesh;
+            }
+            var toLocal = transform.worldToLocalMatrix;
+            int k = 0;
+            for (int i = 0; i < arms.Count; i++)
+            {
+                var arm = arms[i];
+                Matrix4x4 m = Matrix4x4.Scale(Vector3.zero);
+                if (arm.a != null && arm.b != null)
+                {
+                    Vector3 pa = arm.a.TransformPoint(arm.aOffset), pb = arm.b.TransformPoint(arm.bOffset);
+                    Vector3 d = pb - pa;
+                    float len = d.magnitude;
+                    if (len > 1e-4f) m = toLocal * Matrix4x4.TRS((pa + pb) * 0.5f, Quaternion.LookRotation(d / len, arm.a.up), new Vector3(arm.thickness, arm.thickness, len));
+                }
+                for (int v = 0; v < unitV.Length; v++, k++)
+                {
+                    verts[k] = m.MultiplyPoint3x4(unitV[v]);
+                    norms[k] = m.MultiplyVector(unitN[v]).normalized;
+                }
+            }
+            mesh.SetVertices(verts);
+            mesh.SetNormals(norms);
+            mesh.RecalculateBounds();
         }
     }
 

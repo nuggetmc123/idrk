@@ -90,6 +90,9 @@ namespace Veylix
                 d.elbow[i] = Part(go.transform, "Elbow", BodyKit.Joint(), new[] { mats[Suit] });
                 d.hand[i] = Part(go.transform, "Hand", BodyKit.Hand(1f), new[] { mats[Glove], mats[Glove + 1] });
             }
+            // Other drivers sit deep in their cockpits: their shadows can't be seen, so don't pay for them.
+            if (!car.isPlayer)
+                foreach (var r in go.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             d.Pose();
             return d;
         }

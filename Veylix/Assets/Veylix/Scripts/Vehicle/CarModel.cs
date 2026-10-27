@@ -642,19 +642,19 @@ namespace Veylix
                 new Vector2(r - 0.008f, -hw * 0.9f), new Vector2(r, -hw * 0.75f), new Vector2(r, hw * 0.75f), new Vector2(r - 0.008f, hw * 0.9f),
                 new Vector2(r - 0.035f, hw * 0.98f), new Vector2(rimR + (r - rimR) * 0.45f, hw * 1.0f), new Vector2(rimR + 0.004f, hw * 0.9f),
             };
-            k.Lathe(0, prof, 40, 1f, true, 2f);
+            k.Lathe(0, prof, 32, 1f, true, 2f);
             // Rim: outer lip, barrel, dish.
             var rimProf = new[]
             {
                 new Vector2(rimR + 0.012f, hw * 0.9f), new Vector2(rimR - 0.004f, hw * 0.92f), new Vector2(rimR - 0.012f, hw * 0.8f),
                 new Vector2(rimR - 0.02f, -hw * 0.85f), new Vector2(rimR + 0.01f, -hw * 0.9f),
             };
-            k.Lathe(1, rimProf, 36, 1f, false);
+            k.Lathe(1, rimProf, 28, 1f, false);
             float face = hw * 0.62f;
             if (style == 4 || (sh.modern && style == 0))
             {
                 // Aero wheel cover with a small hub window.
-                k.Lathe(1, new[] { new Vector2(rimR - 0.01f, face + 0.02f), new Vector2(rimR * 0.55f, face + 0.005f), new Vector2(0.06f, face - 0.01f) }, 36, 1f, true);
+                k.Lathe(1, new[] { new Vector2(rimR - 0.01f, face + 0.02f), new Vector2(rimR * 0.55f, face + 0.005f), new Vector2(0.06f, face - 0.01f) }, 28, 1f, true);
             }
             else
             {
@@ -674,7 +674,7 @@ namespace Veylix
             k.Lathe(3, new[] { new Vector2(0.075f, face - 0.03f), new Vector2(0.07f, face + 0.02f), new Vector2(0.04f, face + 0.045f), new Vector2(0.001f, face + 0.05f) }, 6, 1f, false);
             // Brake disc inside the rim (it spins with the wheel; drilled look comes from its texture).
             float discR = rimR * 0.82f;
-            k.Lathe(2, new[] { new Vector2(discR * 0.55f, -hw * 0.35f), new Vector2(discR, -hw * 0.35f), new Vector2(discR, -hw * 0.35f - 0.032f), new Vector2(discR * 0.55f, -hw * 0.35f - 0.032f), new Vector2(discR * 0.55f, -hw * 0.35f) }, 28, 1f, false);
+            k.Lathe(2, new[] { new Vector2(discR * 0.55f, -hw * 0.35f), new Vector2(discR, -hw * 0.35f), new Vector2(discR, -hw * 0.35f - 0.032f), new Vector2(discR * 0.55f, -hw * 0.35f - 0.032f), new Vector2(discR * 0.55f, -hw * 0.35f) }, 20, 1f, false);
             var mesh = k.Build("wheel", 4);
             wheelCache[key] = mesh;
             return mesh;
@@ -692,14 +692,7 @@ namespace Veylix
 
         static void MakeStrut(Transform parent, Material mat, Transform a, Vector3 aOff, Transform b, Vector3 bOff, float thick)
         {
-            var go = new GameObject("Arm");
-            go.transform.SetParent(parent, false);
-            go.AddComponent<MeshFilter>().sharedMesh = UnitTube();
-            var r = go.AddComponent<MeshRenderer>();
-            r.sharedMaterial = mat;
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            var s = go.AddComponent<Strut>();
-            s.a = a; s.aOffset = aOff; s.b = b; s.bOffset = bOff; s.thickness = thick;
+            StrutSet.For(parent, mat, UnitTube()).Add(a, aOff, b, bOff, thick);
         }
 
         static Mesh unitTube;
@@ -738,7 +731,7 @@ namespace Veylix
         {
             if (helmetMesh != null) return helmetMesh;
             const float rx = 0.127f, ry = 0.141f, rz = 0.162f, lift = 0.02f;
-            const int half = 28, rings = 30;
+            const int half = 20, rings = 18;
             const float portTh = 64f, portLo = -11f, portHi = 19f; // eyeport, degrees
             var verts = new List<Vector3>(); var norms = new List<Vector3>(); var uvs = new List<Vector2>();
             var shell = new List<int>(); var visor = new List<int>(); var trim = new List<int>();
@@ -806,7 +799,7 @@ namespace Veylix
                     }
             }
             // Visor: a curved patch standing just proud of the shell, a little bigger than the eyeport.
-            int vs = 24, vr = 8;
+            int vs = 16, vr = 5;
             int vstart = verts.Count;
             for (int i = 0; i <= vs; i++)
             {
@@ -863,7 +856,7 @@ namespace Veylix
                 Vector3 at = P(sd * (portTh + 17f) * Mathf.Deg2Rad, 4.5f * Mathf.Deg2Rad, 1.012f);
                 Vector3 nrm = new Vector3(at.x / (rx * rx), (at.y - lift) / (ry * ry), at.z / (rz * rz)).normalized;
                 k.matrix = Matrix4x4.TRS(at, Quaternion.FromToRotation(Vector3.right, nrm), Vector3.one);
-                k.Lathe(0, new[] { new Vector2(0.001f, -0.002f), new Vector2(0.019f, -0.002f), new Vector2(0.019f, 0.003f), new Vector2(0.013f, 0.006f), new Vector2(0.001f, 0.0065f) }, 18);
+                k.Lathe(0, new[] { new Vector2(0.001f, -0.002f), new Vector2(0.019f, -0.002f), new Vector2(0.019f, 0.003f), new Vector2(0.013f, 0.006f), new Vector2(0.001f, 0.0065f) }, 12);
             }
             k.matrix = Matrix4x4.identity;
             // Tear-off tab at the visor's lower corner, and the chin vent.
@@ -872,9 +865,9 @@ namespace Veylix
             for (int v = -1; v <= 1; v++) k.Box(0, new Vector3(v * 0.016f, 0f, 0f), new Vector3(0.008f, 0.022f, 0.003f), 1f, 0.001f);
             k.matrix = Matrix4x4.identity;
             // Neck roll under the helmet.
-            var ring = new Vector3[25];
-            for (int i = 0; i <= 24; i++) { float a = i / 24f * Mathf.PI * 2f; ring[i] = new Vector3(Mathf.Sin(a) * 0.094f, -0.14f, Mathf.Cos(a) * 0.088f - 0.025f); }
-            k.Tube(0, ring, 0.016f, 10, false);
+            var ring = new Vector3[17];
+            for (int i = 0; i <= 16; i++) { float a = i / 16f * Mathf.PI * 2f; ring[i] = new Vector3(Mathf.Sin(a) * 0.094f, -0.14f, Mathf.Cos(a) * 0.088f - 0.025f); }
+            k.Tube(0, ring, 0.016f, 7, false);
             var parts = k.Build("helmet trim");
             int tb = verts.Count;
             verts.AddRange(parts.vertices); norms.AddRange(parts.normals);

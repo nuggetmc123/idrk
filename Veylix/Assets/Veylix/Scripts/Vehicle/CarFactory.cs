@@ -27,6 +27,8 @@ namespace Veylix
             car.damage.parts = car.parts;
             car.damage.Repair();
 
+            go.AddComponent<CarLod>().Init(car);
+
             var fx = go.AddComponent<CarEffects>();
             fx.Init(car);
 

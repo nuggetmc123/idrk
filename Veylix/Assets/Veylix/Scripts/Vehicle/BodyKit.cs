@@ -35,7 +35,7 @@ namespace Veylix
             var k = new MeshKit();
             var st = new S[TZ.Length];
             for (int i = 0; i < st.Length; i++) st[i] = new S(TZ[i] * SpineLen, TCY[i], THW[i], THH[i], TP[i]);
-            k.Loft(0, st, 28, 30, TorsoUV, 0, 0);
+            k.Loft(0, st, 22, 18, TorsoUV, 0, 0);
             return torso = k.Build("torso");
         }
 
@@ -79,7 +79,7 @@ namespace Veylix
             var k = new MeshKit();
             var st = new S[at.Length];
             for (int i = 0; i < at.Length; i++) st[i] = new S(at[i] * len, fwd[i], rx[i], ry[i], 2.2f);
-            k.Loft(0, st, 18, 16, uv, 0, 0);
+            k.Loft(0, st, 16, 8, uv, 0, 0);
             return k.Build(name);
         }
 
@@ -100,10 +100,10 @@ namespace Veylix
         {
             if (joint != null) return joint;
             var k = new MeshKit();
-            var prof = new Vector2[11];
-            for (int i = 0; i < 11; i++) { float a = -Mathf.PI / 2f + i / 10f * Mathf.PI; prof[i] = new Vector2(Mathf.Sin(a) * 0.5f, Mathf.Max(0.001f, Mathf.Cos(a) * 0.5f)); }
-            for (int i = 0; i < 11; i++) prof[i] = new Vector2(prof[i].y, prof[i].x); // (radius, axial)
-            k.Lathe(0, prof, 16);
+            var prof = new Vector2[8];
+            for (int i = 0; i < 8; i++) { float a = -Mathf.PI / 2f + i / 7f * Mathf.PI; prof[i] = new Vector2(Mathf.Sin(a) * 0.5f, Mathf.Max(0.001f, Mathf.Cos(a) * 0.5f)); }
+            for (int i = 0; i < 8; i++) prof[i] = new Vector2(prof[i].y, prof[i].x); // (radius, axial)
+            k.Lathe(0, prof, 12);
             joint = k.Build("joint");
             var uv = new List<Vector2>(joint.vertexCount);
             for (int i = 0; i < joint.vertexCount; i++) uv.Add(PlainUV); // plain suit colour
@@ -125,9 +125,9 @@ namespace Veylix
                 new S(0.16f, -0.012f, 0.041f, 0.026f, 2.6f, 0f, 0.85f),
                 new S(0.205f, -0.018f, 0.026f, 0.018f, 2.2f, 0f, 0.8f),
                 new S(0.215f, -0.022f, 0.012f, 0.01f, 2f, 0f, 0.6f),
-            }, 18, 14, null, 0, 0);
+            }, 12, 8, null, 0, 0);
             // Ankle: a padded cuff rising out of the shoe.
-            k.Tube(0, new[] { new Vector3(0f, 0.0f, -0.008f), new Vector3(0f, 0.06f, -0.01f), new Vector3(0f, 0.12f, -0.012f) }, 0.044f, 14, true, 0.04f);
+            k.Tube(0, new[] { new Vector3(0f, 0.0f, -0.008f), new Vector3(0f, 0.06f, -0.01f), new Vector3(0f, 0.12f, -0.012f) }, 0.044f, 10, true, 0.04f);
             // Thin rubber sole, and a pull tab at the heel.
             k.Box(1, new Vector3(0f, -0.038f, 0.08f), new Vector3(0.082f, 0.01f, 0.25f), 1f, 0.004f);
             k.Box(1, new Vector3(0f, 0.09f, -0.055f), new Vector3(0.022f, 0.05f, 0.006f), 1f, 0.002f);
@@ -156,7 +156,7 @@ namespace Veylix
                     p += dir * FingerLen[f] * FingerSeg[s - 1];
                     pts[s] = p;
                 }
-                k.Tube(0, pts, f == 3 ? 0.0094f : 0.0105f, 10, true, f == 3 ? 0.0078f : 0.0085f);
+                k.Tube(0, pts, f == 3 ? 0.0094f : 0.0105f, 6, true, f == 3 ? 0.0078f : 0.0085f);
             }
             // Thumb: a fleshy base off the side of the palm, then two segments reaching forward (relaxed) or over the
             // fingers (gripping).
@@ -166,8 +166,8 @@ namespace Veylix
                 Vector3 d2 = Vector3.Slerp(new Vector3(0.15f, -0.35f, 0.92f), new Vector3(-0.72f, -0.55f, 0.42f), curl).normalized;
                 Vector3 t2 = t1 + d2 * 0.032f;
                 Vector3 t3 = t2 + Vector3.Slerp(d2, new Vector3(-0.9f, -0.2f, 0.2f).normalized, curl * 0.6f) * 0.026f;
-                k.Tube(0, new[] { t0, Vector3.Lerp(t0, t1, 0.5f), t1 }, 0.017f, 10, true, 0.0125f);
-                k.Tube(0, new[] { t1, t2, t3 }, 0.0118f, 10, true, 0.0092f);
+                k.Tube(0, new[] { t0, Vector3.Lerp(t0, t1, 0.5f), t1 }, 0.017f, 6, true, 0.0125f);
+                k.Tube(0, new[] { t1, t2, t3 }, 0.0118f, 6, true, 0.0092f);
             }
             var m = k.Build(curl > 0.5f ? "fist" : "hand", 2);
             if (curl > 0.5f) fist = m; else open = m;
@@ -188,8 +188,8 @@ namespace Veylix
         static void AddPalm(MeshKit k)
         {
             // Gauntlet cuff, flaring over the sleeve, with a strap across it.
-            k.Loft(0, new[] { new S(-0.065f, 0f, 0.043f, 0.037f, 2.3f), new S(-0.03f, 0f, 0.038f, 0.031f, 2.3f), new S(0.005f, 0f, 0.034f, 0.024f, 2.4f) }, 18, 4, null, -1, -1);
-            k.Loft(1, new[] { new S(-0.042f, 0f, 0.0405f, 0.0345f, 2.3f), new S(-0.02f, 0f, 0.0385f, 0.0315f, 2.3f) }, 18, 2, null, -1, -1);
+            k.Loft(0, new[] { new S(-0.065f, 0f, 0.043f, 0.037f, 2.3f), new S(-0.03f, 0f, 0.038f, 0.031f, 2.3f), new S(0.005f, 0f, 0.034f, 0.024f, 2.4f) }, 12, 3, null, -1, -1);
+            k.Loft(1, new[] { new S(-0.042f, 0f, 0.0405f, 0.0345f, 2.3f), new S(-0.02f, 0f, 0.0385f, 0.0315f, 2.3f) }, 12, 1, null, -1, -1);
             k.Loft(0, new[]
             {
                 new S(0.0f, 0f, 0.033f, 0.022f, 2.4f),
@@ -197,7 +197,7 @@ namespace Veylix
                 new S(0.07f, 0.002f, 0.046f, 0.021f, 2.9f),
                 new S(0.095f, 0f, 0.045f, 0.018f, 2.8f),
                 new S(0.106f, -0.002f, 0.04f, 0.013f, 2.4f),
-            }, 18, 10, null, 0, 0);
+            }, 12, 6, null, 0, 0);
             k.Box(1, new Vector3(0f, 0.017f, 0.084f), new Vector3(0.074f, 0.006f, 0.02f), 1f, 0.0028f); // knuckle pad
         }
 
@@ -218,10 +218,10 @@ namespace Veylix
                 float a = Mathf.Lerp(-110f, 110f, i / 10f) * Mathf.Deg2Rad;
                 back[i] = new Vector3(Mathf.Sin(a) * 0.1f, -Mathf.Cos(a) * 0.085f, 0.015f + Mathf.Cos(a) * 0.035f);
             }
-            k.Tube(0, back, 0.022f, 10, true);
+            k.Tube(0, back, 0.022f, 7, true);
             // Front legs down the chest.
             for (int s = -1; s <= 1; s += 2)
-                k.Tube(0, new[] { new Vector3(s * 0.095f, 0.03f, 0.0f), new Vector3(s * 0.085f, 0.11f, -0.07f), new Vector3(s * 0.07f, 0.125f, -0.17f) }, 0.016f, 8, true, 0.013f);
+                k.Tube(0, new[] { new Vector3(s * 0.095f, 0.03f, 0.0f), new Vector3(s * 0.085f, 0.11f, -0.07f), new Vector3(s * 0.07f, 0.125f, -0.17f) }, 0.016f, 6, true, 0.013f);
             // Tether posts behind the helmet.
             for (int s = -1; s <= 1; s += 2)
                 k.Box(0, new Vector3(s * 0.05f, -0.08f, 0.06f), new Vector3(0.02f, 0.025f, 0.03f), 1f, 0.004f);
