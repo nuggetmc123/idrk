@@ -141,7 +141,7 @@ namespace Veylix
                 Btn(names[i], x0 + 0.13f + col * 0.27f, H * 0.5f - 0.225f - row * 0.064f, 0.25f, 0.054f, acts[i], i == 0);
             }
             // Right: you and your car, and the way into a race.
-            var cfg = G.config;
+            var cfg = G != null && G.config != null ? G.config : SaveData.D.lastSession ?? new SessionConfig();
             var car = CarCatalog.Get(cfg.car);
             var me = SaveData.Profile;
             float rx = 0.18f;

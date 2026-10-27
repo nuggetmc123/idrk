@@ -198,6 +198,7 @@ namespace Veylix
             Time.timeScale = 1f;
             AudioListener.pause = false;
             state = State.Menu;
+            if (config == null) config = SaveData.D.lastSession ?? new SessionConfig();
             TearDownSession();
             world.Clear();
             if (showroom == null) showroom = new GameObject("Showroom").AddComponent<Showroom>();
