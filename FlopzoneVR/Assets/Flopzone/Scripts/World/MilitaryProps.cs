@@ -162,12 +162,56 @@ namespace Flopzone
             k.BoxRot(p + rot * new Vector3(0, 2.5f, length / 2 + 0.3f), new Vector3(2f, 0.08f, 0.7f), OliveDark, rot * Quaternion.Euler(-10, 0, 0), false);
         }
 
+        /// <summary>An A-frame army tent: two roof sides meeting at a ridge pole, triangular ends, a dark doorway.</summary>
         public static void Tent(MapKit k, Vector3 p, float yaw)
         {
             var rot = Quaternion.Euler(0, yaw, 0);
-            k.BoxRot(p + rot * new Vector3(-1.1f, 1.1f, 0), new Vector3(0.06f, 2.6f, 4f), CamoMat, rot * Quaternion.Euler(0, 0, -38));
-            k.BoxRot(p + rot * new Vector3(1.1f, 1.1f, 0), new Vector3(0.06f, 2.6f, 4f), CamoMat, rot * Quaternion.Euler(0, 0, 38));
-            k.BoxRot(p + rot * new Vector3(0, 1.05f, -2f), new Vector3(2.9f, 2.1f, 0.04f), Canvas, rot, false);
+            const float halfW = 1.7f, h = 2.3f, len = 4.4f, t = 0.05f;
+            float slope = Mathf.Sqrt(halfW * halfW + h * h);
+            float tilt = Mathf.Atan2(halfW, h) * Mathf.Rad2Deg;
+            var pole = MapKit.M("5a4a32", 0.2f, 0f, Surface.Wood);
+            // the two roof sides, meeting exactly at the ridge (a little overhang at the bottom)
+            for (int side = -1; side <= 1; side += 2)
+            {
+                var c = new Vector3(side * halfW * 0.5f, h * 0.5f, 0);
+                k.BoxRot(p + rot * c, new Vector3(t, slope + 0.12f, len), CamoMat, rot * Quaternion.Euler(0, 0, side * tilt));
+            }
+            Prims.Cyl(k.S, p + rot * new Vector3(0, h + 0.02f, 0), 0.07f, len + 0.3f, pole, rot * Vector3.forward);
+            // triangular ends, built from canvas strips that narrow towards the top
+            const int strips = 7;
+            for (int e = -1; e <= 1; e += 2)
+            {
+                float z = e * (len * 0.5f - 0.02f);
+                for (int i = 0; i < strips; i++)
+                {
+                    float y0 = h * i / strips, y1 = h * (i + 1) / strips;
+                    float w = halfW * 2 * (1 - (y0 + y1) * 0.5f / h);
+                    k.BoxRot(p + rot * new Vector3(0, (y0 + y1) * 0.5f, z), new Vector3(w, y1 - y0, 0.03f), Canvas, rot, false);
+                }
+                Prims.Cyl(k.S, p + rot * new Vector3(0, h * 0.5f, z + e * 0.02f), 0.06f, h, pole, Vector3.up);
+                if (e > 0)
+                {
+                    // doorway: a dark triangle-ish opening with a rolled-up flap
+                    for (int i = 0; i < 4; i++)
+                    {
+                        float y0 = 1.6f * i / 4, y1 = 1.6f * (i + 1) / 4;
+                        float w = 1.1f * (1 - (y0 + y1) * 0.5f / 1.9f);
+                        k.BoxRot(p + rot * new Vector3(0, (y0 + y1) * 0.5f, z + 0.025f), new Vector3(w, y1 - y0, 0.01f), MapKit.M("15140f", 0.1f), rot, false);
+                    }
+                    Prims.Cyl(k.S, p + rot * new Vector3(0.62f, 1.25f, z + 0.06f), 0.16f, 0.9f, Canvas, rot * new Vector3(0.35f, 1, 0));
+                }
+            }
+            // guy ropes and pegs
+            for (int side = -1; side <= 1; side += 2)
+                for (int e = -1; e <= 1; e += 2)
+                {
+                    var top = p + rot * new Vector3(side * halfW * 0.35f, h * 0.65f, e * len * 0.35f);
+                    var peg = p + rot * new Vector3(side * (halfW + 0.9f), 0.05f, e * len * 0.35f);
+                    Prims.Cyl(k.S, (top + peg) * 0.5f, 0.015f, Vector3.Distance(top, peg), MapKit.M("c9bf9a", 0.1f, 0f, Surface.Fabric), top - peg);
+                    Prims.Cyl(k.S, peg + Vector3.up * 0.05f, 0.04f, 0.15f, pole, Vector3.up);
+                }
+            // ground sheet
+            k.BoxRot(p + Vector3.up * 0.015f, new Vector3(halfW * 2 + 0.2f, 0.02f, len + 0.2f), Canvas, rot, false);
         }
 
         public static void Jeep(MapKit k, Vector3 p, float yaw)
