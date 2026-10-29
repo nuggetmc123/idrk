@@ -12,15 +12,28 @@ namespace Flopzone
     /// If the master leaves, the next master adopts the room from its copy of
     /// the state (<see cref="Adopt"/>).
     /// </summary>
-    public class RoomHost
+    public class RoomHost : IBotHost
     {
         public const int HubMax = 20;
+        /// <summary>How long a match waits for players before filling up with bots.</summary>
+        public const float WaitForPlayers = 60f;
+        float created = Time.time;
+        int botSeq;
+        /// <summary>Set by PhotonLink: share bot poses / shots with everyone.</summary>
+        public Action<string, float[]> botPoseOut;
+        public Action<string, int, Vector3, Vector3, int> botShotOut;
+
+        static readonly string[] BotNames =
+        {
+            "Floppy_Joe", "Noodle", "Wobbles", "Sir_Flops", "Jellybean", "Spaghetti", "Ragtime", "Bonk",
+            "Limp_Lenny", "Wiggles", "Captain_Flop", "Gloop", "Mr_Bendy", "Squishy", "Dizzy", "Tumbles"
+        };
 
         public class P
         {
             public string id, name, party;
             public int team = -1, hp = 100, k, d;
-            public bool alive = true, admin;
+            public bool alive = true, admin, bot;
             public float respawnAt, protectUntil;
             public Vector3 pos;
         }
@@ -66,7 +79,7 @@ namespace Flopzone
             {
                 h.players[pi.id] = new P
                 {
-                    id = pi.id, name = pi.name, team = pi.team, hp = pi.hp, k = pi.k, d = pi.d, alive = pi.alive, admin = pi.admin,
+                    id = pi.id, name = pi.name, team = pi.team, hp = pi.hp, k = pi.k, d = pi.d, alive = pi.alive, admin = pi.admin, bot = pi.bot,
                     respawnAt = pi.alive ? 0 : Time.time + 3f
                 };
             }
@@ -92,6 +105,13 @@ namespace Flopzone
             {
                 emit(id, Msg.Of("t", "_kick", "reason", "You were removed from that room."));
                 return;
+            }
+            // a full room (bots included): a real player takes a bot's place
+            if (Md != null && players.Count >= Md.max)
+            {
+                P bot = null;
+                foreach (var q in players.Values) if (q.bot) { bot = q; if (!Teams || TeamCounts()[q.team] >= TeamCounts()[1 - q.team]) break; }
+                if (bot != null) Leave(bot.id);
             }
             var p = new P { id = id, name = UniqueName(name), party = party, admin = admin, team = PickTeam(party), protectUntil = Time.time + 1.5f };
             players[id] = p;
@@ -156,7 +176,7 @@ namespace Flopzone
         /* ---------------- payloads ---------------- */
 
         static Dictionary<string, object> PlayerPayload(P p)
-            => Msg.Of("id", p.id, "name", p.name, "team", p.team, "hp", p.hp, "alive", p.alive, "k", p.k, "d", p.d, "admin", p.admin);
+            => Msg.Of("id", p.id, "name", p.name, "team", p.team, "hp", p.hp, "alive", p.alive, "k", p.k, "d", p.d, "admin", p.admin, "bot", p.bot);
 
         List<object> Scores() => new List<object> { (double)scores[0], (double)scores[1] };
 
@@ -188,12 +208,40 @@ namespace Flopzone
 
         /* ---------------- match flow ---------------- */
 
+        /// <summary>Start as soon as the room is full; a running countdown keeps going while there are two sides.</summary>
         bool CanStart()
         {
+            var md = Md;
+            if (md == null) return false;
+            if (state == "waiting") return players.Count >= md.max;
             if (players.Count < 2) return false;
             if (!Teams) return true;
             var n = TeamCounts();
             return n[0] > 0 && n[1] > 0;
+        }
+
+        int Humans()
+        {
+            int n = 0;
+            foreach (var p in players.Values) if (!p.bot) n++;
+            return n;
+        }
+
+        /// <summary>Waited long enough: fill every empty seat with a bot.</summary>
+        void FillBots()
+        {
+            var md = Md;
+            if (md == null) return;
+            var names = new List<string>(BotNames);
+            foreach (var p in players.Values) names.Remove(p.name);
+            while (players.Count < md.max && names.Count > 0)
+            {
+                int pick = UnityEngine.Random.Range(0, names.Count);
+                var b = new P { id = "BOT" + (++botSeq) + UnityEngine.Random.Range(100, 999), name = names[pick], bot = true, team = PickTeam(null), protectUntil = Time.time + 1.5f };
+                names.RemoveAt(pick);
+                players[b.id] = b;
+                emit(null, Msg.Of("t", "pj", "p", PlayerPayload(b)));
+            }
         }
 
         void MatchState(string note) => emit(null, Msg.Of("t", "ms", "state", state, "time", (double)TimeLeft(), "scores", Scores(), "note", note));
@@ -212,7 +260,17 @@ namespace Flopzone
         {
             if (kind != "match") return;
             float t = Time.time;
-            if (state == "waiting") CheckStart();
+            if (state == "waiting")
+            {
+                if (Humans() > 0 && t - created >= WaitForPlayers)
+                {
+                    FillBots();
+                    state = "countdown";
+                    stateEnd = t + 5f;
+                    MatchState("Not enough players yet, so bots are filling the empty spots.");
+                }
+                else CheckStart();
+            }
             else if (state == "countdown")
             {
                 if (!CanStart()) { state = "waiting"; MatchState("Waiting for players"); }
@@ -285,18 +343,44 @@ namespace Flopzone
             }
         }
 
-        void Hit(P s, Dictionary<string, object> m)
+        void Hit(P s, Dictionary<string, object> m) => HitCore(s, m.Str("target"), (float)m.Num("dmg"), m.Str("gun"), m.Bool("head"), m.FloatArr("dir"));
+
+        void HitCore(P s, string targetId, float dmg, string gun, bool head, float[] dir)
         {
             if (kind != "match" || state == "countdown" || state == "ended") return;
-            if (!players.TryGetValue(m.Str("target"), out var t)) return;
+            if (s == null || !players.TryGetValue(targetId ?? "", out var t)) return;
             if (!s.alive || !t.alive || s == t || (Teams && s.team == t.team) || Time.time < t.protectUntil) return;
-            float dmg = Mathf.Clamp((float)m.Num("dmg"), 0, 260);
+            dmg = Mathf.Clamp(dmg, 0, 260);
             if (dmg <= 0) return;
             s.protectUntil = 0;
             t.hp = Mathf.Max(0, Mathf.RoundToInt(t.hp - dmg));
             emit(null, Msg.Of("t", "hp", "id", t.id, "hp", t.hp, "by", s.id));
-            if (t.hp <= 0) Kill(t, s, m.Str("gun"), m.Bool("head"), m.FloatArr("dir"));
+            if (t.hp <= 0) Kill(t, s, gun, head, dir);
         }
+
+        /* ---------------- IBotHost: the bots run on this headset ---------------- */
+
+        public void ApplyHit(string shooterId, string targetId, float dmg, string gun, bool head, float[] dir)
+        {
+            players.TryGetValue(shooterId ?? "", out var s);
+            HitCore(s, targetId, dmg, gun, head, dir);
+        }
+
+        public void BotFell(string id)
+        {
+            if (players.TryGetValue(id, out var p) && p.alive && kind == "match") Kill(p, null, "fall", false, null);
+        }
+
+        public void FlagAction(string id, string a, int team)
+        {
+            if (players.TryGetValue(id, out var p)) FlagAction(p, a, team);
+        }
+
+        public string FlagCarrier(int team) => flags != null && flags[team].state == "carried" ? flags[team].carrier : null;
+        public string FlagState(int team) => flags?[team].state;
+        public Vector3? FlagPos(int team) => flags?[team].pos;
+        public void BotPose(string id, float[] pose) => botPoseOut?.Invoke(id, pose);
+        public void BotShot(string id, int hand, Vector3 from, Vector3 to, int gun) => botShotOut?.Invoke(id, hand, from, to, gun);
 
         void Kill(P victim, P killer, string gun, bool head, float[] dir)
         {

@@ -84,6 +84,8 @@ namespace Flopzone
         public event Action<long, string> Banned;
         public event Action<Dictionary<string, object>> ModResult;
         public event Action<string, string> NameChanged;
+        /// <summary>The party leader boarded the plane and pulled us in.</summary>
+        public event Action Board;
 
         readonly List<Dictionary<string, object>> buf = new List<Dictionary<string, object>>();
 
@@ -253,6 +255,9 @@ namespace Flopzone
                 case "mod_result":
                     ModResult?.Invoke(m);
                     break;
+                case "board":
+                    Board?.Invoke();
+                    break;
                 case "_closed":
                     Closed?.Invoke();
                     break;
@@ -324,5 +329,6 @@ namespace Flopzone
         public void SendMod(string action, string target, int minutes, string reason)
             => Send("t", "mod", "action", action, "target", target, "minutes", minutes, "reason", reason);
         public void Ping() => Send("t", "ping");
+        public void BoardParty() => Send("t", "party_board");
     }
 }

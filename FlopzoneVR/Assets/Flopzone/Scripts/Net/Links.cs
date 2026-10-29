@@ -18,6 +18,8 @@ namespace Flopzone
         /// <summary>Hand over messages that arrived since last time.</summary>
         void Poll(List<Dictionary<string, object>> into);
         void Close();
+        /// <summary>Non-null when this headset runs the room (and so drives the bots).</summary>
+        IBotHost BotHost { get; }
     }
 
     /// <summary>WebSocket connection to the Flopzone Cloudflare Worker.</summary>
@@ -32,6 +34,7 @@ namespace Flopzone
         public bool Online => true;
         public bool Connected { get; private set; }
         public bool Failed { get; private set; }
+        public IBotHost BotHost => null;
         public string Error { get; private set; }
 
         public WsLink(string url)

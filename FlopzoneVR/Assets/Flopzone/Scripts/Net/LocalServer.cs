@@ -8,10 +8,14 @@ namespace Flopzone
     /// same match rules, and fills matches with bots. Used when no server URL
     /// is set (or the server can't be reached).
     /// </summary>
-    public class LocalServer : ILink
+    public class LocalServer : ILink, IBotHost
     {
         public bool Online => false;
         public bool Connected => true;
+        public IBotHost BotHost => this;
+        public void BotPose(string id, float[] pose) { }
+        public void BotShot(string id, int hand, Vector3 from, Vector3 to, int gun) { }
+        float fillBotsAt = -1f;
 
         public class Mode
         {
@@ -175,19 +179,11 @@ namespace Flopzone
             var md = Modes[m];
             Reset("match", m);
             map = Random.Range(0, MapBuilder.Names.Length);
-            state = "countdown";
-            stateEnd = Time.time + 5f;
+            // offline nobody else is coming: "search" for a few seconds, then fill up with bots
+            state = "waiting";
+            fillBotsAt = Time.time + 4f;
             players[myId] = new P { id = myId, name = myName, team = md.teams ? 0 : -1, protectUntil = Time.time + 1.5f };
-            var names = new List<string>(BotNames);
-            for (int i = 1; i < md.max; i++)
-            {
-                int pick = Random.Range(0, names.Count);
-                var b = new P { id = "BOT" + i, name = names[pick], bot = true, team = md.teams ? (i % 2 == 0 ? 0 : 1) : -1, protectUntil = Time.time + 1.5f };
-                names.RemoveAt(pick);
-                players[b.id] = b;
-            }
             SendRoom();
-            Out("t", "ms", "state", state, "time", 5.0, "scores", Scores(), "note", "");
         }
 
         List<object> Scores() => new List<object> { (double)scores[0], (double)scores[1] };
@@ -221,10 +217,35 @@ namespace Flopzone
 
         /* ---------------- match rules (same as the server's) ---------------- */
 
+        void FillBots()
+        {
+            var md = Modes[mode];
+            var names = new List<string>(BotNames);
+            int n = 1;
+            while (players.Count < md.max && names.Count > 0)
+            {
+                int pick = Random.Range(0, names.Count);
+                int[] counts = { 0, 0 };
+                foreach (var q in players.Values) if (q.team >= 0) counts[q.team]++;
+                var b = new P { id = "BOT" + (n++), name = names[pick], bot = true, team = md.teams ? (counts[0] <= counts[1] ? 0 : 1) : -1, protectUntil = Time.time + 1.5f };
+                names.RemoveAt(pick);
+                players[b.id] = b;
+                Out("t", "pj", "p", PlayerPayload(b));
+            }
+        }
+
         void Tick()
         {
             if (kind != "match") return;
             float t = Time.time;
+            if (state == "waiting" && fillBotsAt > 0 && t >= fillBotsAt)
+            {
+                fillBotsAt = -1;
+                FillBots();
+                state = "countdown";
+                stateEnd = t + 5f;
+                Out("t", "ms", "state", state, "time", 5.0, "scores", Scores(), "note", "No other players online, so bots are joining.");
+            }
             if (state == "countdown" && t >= stateEnd) StartMatch();
             else if (state == "live" && t >= endsAt) TimeUp();
             else if (state == "ended" && t >= stateEnd) { EnterHub(); return; }

@@ -31,6 +31,8 @@ namespace Flopzone
     {
         public bool Online => true;
         public bool Connected => true;
+        /// <summary>This headset runs the room (Photon master client), so it also drives the bots.</summary>
+        public IBotHost BotHost => host;
 
         readonly Queue<Dictionary<string, object>> inbox = new Queue<Dictionary<string, object>>();
         readonly LocalServer local = new LocalServer();
@@ -98,6 +100,12 @@ namespace Flopzone
                 case "party_decline": invitePartyId = null; break;
                 case "party_leave": PartyLeave(); break;
                 case "party_kick": PartyKick(m.Str("id")); break;
+                case "party_board":
+                    // the leader boarded the plane: pull everyone in the party who's here in with them
+                    if (partyId != null && partyLeader == myId)
+                        foreach (var kv in party)
+                            if (kv.Key != myId && idToRef.TryGetValue(kv.Key, out var br)) SendTo(br, Msg.Of("_", "board"));
+                    break;
             }
         }
 
@@ -391,6 +399,9 @@ namespace Flopzone
             Action<string, Dictionary<string, object>> emit = HostEmit;
             if (s != null && s.RoomId == "PHOTON" && s.RoomKind == roomKind) host = RoomHost.Adopt(s, emit);
             else host = new RoomHost(roomKind, roomMode, UnityEngine.Random.Range(0, MapBuilder.Names.Length), emit);
+            host.botPoseOut = (id, pose) => Broadcast(Msg.Of("_", "p", "b", id, "p", pose));
+            host.botShotOut = (id, hand, a, b, g) => Broadcast(Msg.Of("_", "e", "b", id,
+                "e", Msg.Of("k", "f", "h", hand, "g", g, "a", new[] { a.x, a.y, a.z }, "b", new[] { b.x, b.y, b.z })));
             hostKnown = true;
             hostRef = runner.LocalPlayer;
             Broadcast(Msg.Of("_", "host"));
@@ -519,6 +530,7 @@ namespace Flopzone
                     break;
                 case "p":
                 {
+                    if (m.Has("b")) { if (hostKnown && from == hostRef) Emit(Msg.Of("t", "st", "id", m.Str("b"), "p", m.FloatArr("p"))); return; }
                     if (fromId == null) return;
                     var p = m.FloatArr("p");
                     Emit(Msg.Of("t", "st", "id", fromId, "p", p));
@@ -526,7 +538,11 @@ namespace Flopzone
                     break;
                 }
                 case "e":
+                    if (m.Has("b")) { if (hostKnown && from == hostRef) Emit(Msg.Of("t", "ev", "id", m.Str("b"), "e", m.Obj("e"))); return; }
                     if (fromId != null) Emit(Msg.Of("t", "ev", "id", fromId, "e", m.Obj("e")));
+                    break;
+                case "board":
+                    if (fromId != null && fromId == partyLeader) Emit(Msg.Of("t", "board"));
                     break;
                 case "pinv":
                     invitePartyId = m.Str("party");

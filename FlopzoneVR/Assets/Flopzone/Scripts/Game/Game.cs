@@ -34,7 +34,8 @@ namespace Flopzone
 
         public IEnumerable<RemotePlayer> Remotes => remotes.Values;
         public RemotePlayer FindRemote(string id) => id != null && remotes.TryGetValue(id, out var r) ? r : null;
-        LocalServer Local => session != null ? session.link as LocalServer : null;
+        IBotHost BotHost => session != null ? session.link.BotHost : null;
+        float nextBotCheck;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AutoCreate()
@@ -244,6 +245,7 @@ namespace Flopzone
                 else session.SendPose(new[] { rig.transform.position.x, rig.transform.position.y, rig.transform.position.z });
             }
             if (session.Online && Time.time >= nextPing) { nextPing = Time.time + 15f; session.Ping(); }
+            if (Time.time >= nextBotCheck) { nextBotCheck = Time.time + 0.5f; SyncBots(); }
         }
 
         /* ======================= worlds and rooms ======================= */
@@ -295,14 +297,32 @@ namespace Flopzone
             r.hp = p.hp;
             r.alive = p.alive;
             remotes[p.id] = r;
-            if (p.bot && Local != null)
-            {
-                var b = r.gameObject.AddComponent<BotController>();
-                b.Init(r, Local);
-                b.Respawn(UnityEngine.Random.Range(0, 1000));
-                bots[p.id] = b;
-            }
+            if (p.bot && BotHost != null) DriveBot(r, true);
             if (!p.alive) r.avatar.SetVisible(false);
+        }
+
+        /// <summary>This headset runs the room: it moves and shoots for this bot.</summary>
+        void DriveBot(RemotePlayer r, bool respawn)
+        {
+            var b = r.gameObject.AddComponent<BotController>();
+            b.Init(r, BotHost);
+            if (respawn) b.Respawn(UnityEngine.Random.Range(0, 1000));
+            else b.TakeOver();
+            bots[r.id] = b;
+        }
+
+        /// <summary>If the player running the room leaves, the next one takes over the bots (and lets go of them otherwise).</summary>
+        void SyncBots()
+        {
+            var host = BotHost;
+            foreach (var r in remotes.Values)
+            {
+                if (r == null || !r.isBot) continue;
+                bool driving = bots.TryGetValue(r.id, out var b) && b != null;
+                if (host != null && !driving) DriveBot(r, false);
+                else if (host == null && driving) { Destroy(b); bots.Remove(r.id); }
+                else if (driving && b.server != host) b.server = host;
+            }
         }
 
         void RemoveRemote(string id)

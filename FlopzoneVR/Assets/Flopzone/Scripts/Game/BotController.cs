@@ -7,7 +7,8 @@ namespace Flopzone
     public class BotController : MonoBehaviour
     {
         public RemotePlayer view;
-        public LocalServer server;
+        public IBotHost server;
+        float nextShare;
         public GunDef gun;
         Vector3 pos, vel, goal;
         float yaw, aimYaw, aimPitch;
@@ -21,7 +22,7 @@ namespace Flopzone
 
         public Vector3 Pos => pos;
 
-        public void Init(RemotePlayer v, LocalServer s)
+        public void Init(RemotePlayer v, IBotHost s)
         {
             view = v;
             server = s;
@@ -39,6 +40,15 @@ namespace Flopzone
             vy = 0;
             PickGoal();
             PushPose(true);
+        }
+
+        /// <summary>Carry on from where this bot already is (another player was driving it).</summary>
+        public void TakeOver()
+        {
+            pos = view.FeetPos;
+            yaw = aimYaw = view.transform.eulerAngles.y;
+            vel = Vector3.zero;
+            PickGoal();
         }
 
         void PickGoal()
@@ -186,6 +196,7 @@ namespace Flopzone
             bool hitIt = Random.value < chance;
             var end = hitIt ? targetPoint : targetPoint + Random.insideUnitSphere * Mathf.Max(0.6f, d * 0.05f);
             view.PlayShot(1, from, end, gun.index);
+            server.BotShot(view.id, 1, from, end, gun.index);
             if (!hitIt) return;
             bool head = Random.value < 0.12f;
             float dmg = gun.damage * (gun.cls == GunClass.Shotgun ? gun.pellets * Random.Range(0.35f, 0.75f) : 1f) * (head ? gun.headMult : 1f) * 0.85f;
@@ -229,6 +240,7 @@ namespace Flopzone
             p[PoseData.RGun] = gun.index;
             p[PoseData.Speed] = new Vector3(vel.x, 0, vel.z).magnitude;
             view.ApplyPose(p, true);
+            if (Time.time >= nextShare) { nextShare = Time.time + 1f / 12f; server.BotPose(view.id, (float[])p.Clone()); }
         }
     }
 }
