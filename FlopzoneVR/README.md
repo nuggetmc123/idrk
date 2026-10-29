@@ -14,7 +14,8 @@ with friends, and go.
 3. Open it. **Everything imports and sets itself up** (and again after updates):
    - makes the game scene and its assets, adds the scene to the build and opens it
    - sets the Quest/Android player settings (IL2CPP, ARM64, Android 12L+, internet permission)
-   - imports the VR packages (XR Plug-in Management + OpenXR) and turns on OpenXR with
+   - installs the VR packages (XR Plug-in Management + OpenXR, listed in `Packages/manifest.json` so
+     Unity's Package Manager fetches them as the project opens) and turns on OpenXR with
      Meta Quest support and the Touch controller profile
 
 Then press Play (keyboard and mouse work without a headset).

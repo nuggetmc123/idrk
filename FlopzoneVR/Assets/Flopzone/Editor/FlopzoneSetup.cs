@@ -30,7 +30,13 @@ namespace Flopzone.EditorTools
         const string GeneratedDir = Root + "/Generated";
         const string StatePath = "ProjectSettings/FlopzoneSetup.json";
 
-        public static readonly string[] VrPackages = { "com.unity.xr.management", "com.unity.xr.openxr" };
+        /// <summary>
+        /// The VR packages. They're also listed in Packages/manifest.json, so Unity installs them by
+        /// itself when the project opens; this is the backup. OpenXR goes first because it brings XR
+        /// Plug-in Management with it, all in one request (each request reloads the scripts, which
+        /// used to lose the rest of the list).
+        /// </summary>
+        public static readonly string[] VrPackages = { "com.unity.xr.openxr", "com.unity.xr.management" };
 
         [Serializable]
         class State
@@ -91,10 +97,12 @@ namespace Flopzone.EditorTools
                 {
                     if (!VRPackagesInstalled)
                     {
-                        // try once per editor session (e.g. it was offline last time)
-                        if (!Busy && !SessionState.GetBool("Flopzone.TriedVR", false))
+                        // keep going after each package's script reload (a few tries per editor session,
+                        // e.g. if it was offline)
+                        int tries = SessionState.GetInt("Flopzone.VRTries", 0);
+                        if (!Busy && tries < 4)
                         {
-                            SessionState.SetBool("Flopzone.TriedVR", true);
+                            SessionState.SetInt("Flopzone.VRTries", tries + 1);
                             ImportVR(false);
                         }
                     }
