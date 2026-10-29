@@ -14,7 +14,8 @@ namespace Flopzone.Setup
     /// away again, so the game always compiles (offline with bots).
     ///
     /// It also finds second copies of Flopzone's scripts (an old copy left
-    /// next to a new one) and offers to delete them.
+    /// next to a new one) and offers to delete them, and deletes scripts that an
+    /// update removed (they stay behind when a new zip is extracted over an old one).
     ///
     /// It lives in its own assembly on purpose, so it keeps working even while
     /// the game's own scripts have compile errors.
@@ -35,7 +36,7 @@ namespace Flopzone.Setup
         static void OnCompiled(string assemblyPath, CompilerMessage[] messages)
         {
             foreach (var m in messages)
-                if (m.type == CompilerMessageType.Error && (m.message.Contains("Fusion") || m.message.Contains("already contains a definition") || m.message.Contains("already defines")))
+                if (m.type == CompilerMessageType.Error && (m.message.Contains("Fusion") || m.message.Contains("already contains a definition") || m.message.Contains("already defines") || m.message.Contains("does not contain a definition")))
                 {
                     EditorApplication.delayCall -= Check;
                     EditorApplication.delayCall += Check;
@@ -75,8 +76,16 @@ namespace Flopzone.Setup
             return false;
         }
 
+        /// <summary>Scripts that were removed or renamed in an update (paths inside Assets/Flopzone).</summary>
+        static readonly string[] Removed =
+        {
+            "Scripts/World/Airplane.cs",    // became Chopper.cs (the lobby helicopter)
+            "Scripts/World/HubPortal.cs",   // the hangar's walk-through gates, replaced by the helicopter
+        };
+
         static void Check()
         {
+            RemoveOldFiles();
             CheckDuplicates();
             bool fusion = HasFusion();
             bool changed = false;
@@ -110,6 +119,25 @@ namespace Flopzone.Setup
 #else
             PlayerSettings.SetScriptingDefineSymbolsForGroup(g, defines);
 #endif
+        }
+
+        /// <summary>Delete scripts left over from an older version (they'd break the build).</summary>
+        static void RemoveOldFiles()
+        {
+            bool any = false;
+            foreach (var rel in Removed)
+            {
+                string path = "Assets/Flopzone/" + rel;
+                try
+                {
+                    if (!File.Exists(path) || !File.ReadAllText(path).Contains("namespace Flopzone")) continue;
+                    if (!AssetDatabase.DeleteAsset(path)) { File.Delete(path); if (File.Exists(path + ".meta")) File.Delete(path + ".meta"); }
+                    Debug.Log("[Flopzone] Removed an old script that this version no longer uses: " + path);
+                    any = true;
+                }
+                catch (Exception e) { Debug.LogWarning("[Flopzone] Couldn't remove " + path + ": " + e.Message); }
+            }
+            if (any) AssetDatabase.Refresh();
         }
 
         /// <summary>Scripts from an old copy of Flopzone elsewhere in Assets cause "already defined" errors.</summary>
