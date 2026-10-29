@@ -8,32 +8,26 @@ with friends, and go.
 ## Open it
 
 1. Install **Unity 6 (6000.0 LTS)** from Unity Hub, with the **Android Build Support** module
-   (tick *OpenJDK* and *Android SDK & NDK Tools* too). Unity 2022.3 LTS should also work.
-2. Unity Hub → **Add** → **Add project from disk** → choose this `FlopzoneVR` folder.
-3. Open it. **Everything sets itself up** the first time (and again after updates):
-   - makes the game scene and its assets, and adds the scene to the build
+   (tick *OpenJDK* and *Android SDK & NDK Tools* too).
+2. Extract `Flopzone.zip`. Unity Hub → **Add** → **Add project from disk** → pick the extracted
+   folder (the one with `Assets`, `Packages` and `ProjectSettings` directly inside).
+3. Open it. **Everything imports and sets itself up** (and again after updates):
+   - makes the game scene and its assets, adds the scene to the build and opens it
    - sets the Quest/Android player settings (IL2CPP, ARM64, Android 12L+, internet permission)
    - imports the VR packages (XR Plug-in Management + OpenXR) and turns on OpenXR with
      Meta Quest support and the Touch controller profile
-   - sets *Active Input Handling* to *Both* (Unity asks to restart once for that)
-   - opens the **Flopzone** tab
 
-If Unity ever shows the setup didn't finish (for example it was offline while importing),
-press **Run setup again** on the Flopzone tab.
+Then press Play (keyboard and mouse work without a headset).
 
-## The Flopzone tab
+## The Flopzone menu
 
-Menu bar → **Flopzone → Open Flopzone Tab** (or Window → Flopzone).
+At the top of Unity, next to Window and Help:
 
-| Button | What it does |
+| Menu item | What it does |
 | --- | --- |
-| **Import Multiplayer** | Multiplayer is built into the game. This saves your server URL and checks the server is reachable. With no URL the game plays offline with bots. See [`Server/README.md`](Server/README.md) to deploy the free server. |
-| **Import VR Support** | Installs XR Plug-in Management + OpenXR and switches on Quest support (Android) and PC VR (so Quest Link works in Play mode). |
-| **Make APK** | Switches to Android and builds `Builds/Flopzone.apk`. |
-| **Make APK and run it on my Quest** | Same, then installs and launches it over USB (developer mode on). |
-
-The tab also shows a status checklist, and has a **Moderation** section for kicking,
-banning and muting players by player ID from your computer.
+| **Set Up Multiplayer** | A window with 3 one-button steps: install Node.js, sign in to Cloudflare (free), **Turn On Server**. The server's address fills itself in. Until then the game plays offline with bots. It also has moderation tools (kick / ban / mute by player ID). |
+| **Set Up VR (Quest)** | Imports XR Plug-in Management + OpenXR (if they aren't in yet) and switches on Quest support and PC VR (so Quest Link works in Play mode). |
+| **Build for Quest (APK)** | Switches to Android and builds `Builds/Flopzone.apk`. |
 
 ## Playing
 
@@ -110,7 +104,7 @@ ragdolls you can keep shooting around.
   mute the sender for 15 minutes. Names allow no swearing at all.
 - **Reports:** Menu → Report → player → reason. Moderators see them with the player's recent chat.
 - **Player IDs:** every player has one (Menu → Profile). Moderators can kick, mute, ban,
-  unban and reset names by ID from the in-game MOD tab, the Flopzone tab, or a browser.
+  unban and reset names by ID from the in-game MOD tab, Flopzone > Set Up Multiplayer, or a browser.
   How to become a moderator: [`Server/README.md`](Server/README.md#make-yourself-a-moderator).
 
 ## How it's built
@@ -121,7 +115,7 @@ the game starts. The only packages are Unity's own XR Plug-in Management and Ope
 
 ```
 Assets/Flopzone/
-  Editor/      auto-setup on load, the Flopzone tab, APK builds
+  Editor/      auto-setup on load, the Flopzone menu, APK builds
   Scripts/
     Core/      JSON, word filter, settings, materials, sound synthesis, audio
     Input/     headset + controllers (Unity XR input), keyboard fallback

@@ -4,7 +4,7 @@ namespace Flopzone
 {
     /// <summary>
     /// The few real asset references the game needs, made by the editor setup
-    /// (Flopzone > Run Setup) into Resources/FlopzoneAssets. Everything else —
+    /// (runs by itself when the project opens) into Resources/FlopzoneAssets. Everything else —
     /// models, maps, sounds, music — is generated in code at runtime.
     ///
     /// Template materials matter for builds: Unity only ships the shader
@@ -35,7 +35,7 @@ namespace Flopzone
                     instance = Resources.Load<GameAssets>("FlopzoneAssets");
                     if (instance == null)
                     {
-                        Debug.LogWarning("[Flopzone] Resources/FlopzoneAssets is missing; run Flopzone > Run Setup. Using fallbacks.");
+                        Debug.LogWarning("[Flopzone] Resources/FlopzoneAssets is missing; reopen the project to rebuild it. Using fallbacks.");
                         instance = CreateInstance<GameAssets>();
                     }
                     instance.FillFallbacks();

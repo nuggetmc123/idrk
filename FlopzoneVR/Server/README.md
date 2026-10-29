@@ -15,12 +15,16 @@ It starts on Cloudflare's free plan. Every player sends about 15 small position
 updates a second while in a room, so the free daily allowance covers a few hours of
 10-player play per day; if Flopzone gets busier than that, Workers Paid is $5/month.
 
-## Deploy it (about 5 minutes)
+## Turn it on
 
-You need [Node.js](https://nodejs.org) and a free [Cloudflare](https://dash.cloudflare.com/sign-up) account.
+Easiest: in Unity, **Flopzone > Set Up Multiplayer** and press the three buttons
+(install Node.js, sign in to Cloudflare, Turn On Server). It fills in the address by itself.
+Then **Flopzone > Build for Quest (APK)** so the headset gets it.
+
+By hand instead (needs [Node.js](https://nodejs.org) and a free [Cloudflare](https://dash.cloudflare.com/sign-up) account):
 
 ```bash
-cd FlopzoneVR/Server
+cd Server
 ```
 
 ```bash
@@ -35,10 +39,9 @@ npx wrangler login
 npx wrangler deploy
 ```
 
-The last line printed is your server's URL, like
-`https://flopzone-server.<your-name>.workers.dev`. In Unity, open the **Flopzone** tab,
-paste that URL into **Server URL**, and press **Import Multiplayer**. It should say
-"Connected!". Rebuild the APK so the headset has the URL too.
+The last line printed is the server's address, like
+`https://flopzone-server.<your-name>.workers.dev`. Paste it into the **Server address**
+box in Flopzone > Set Up Multiplayer.
 
 ## Make yourself a moderator
 
@@ -49,7 +52,7 @@ paste that URL into **Server URL**, and press **Import Multiplayer**. It should 
    ADMIN_IDS = "FZ7K3Q9X"
    ```
    (several IDs: `"FZ7K3Q9X,FZAB12CD"`)
-3. Deploy again: `npx wrangler deploy`
+3. Press **Turn On Server** again (or run `npx wrangler deploy`)
 
 You now have a **MOD** tab in the in-game menu: pick a player in your room or type
 their player ID or name, then Lookup, Kick, Mute, Ban, Unban, see Reports, or see who's online.
@@ -62,7 +65,7 @@ Set a secret admin key once:
 npx wrangler secret put ADMIN_KEY
 ```
 
-Then use the **Moderation** section of the Flopzone tab in Unity (type the same key), or
+Then use the **Moderation** section of Flopzone > Set Up Multiplayer in Unity (type the same key), or
 any browser / terminal:
 
 ```bash

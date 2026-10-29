@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!129 &1
+PlayerSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 26
+  productGUID: 7cdd5db7132941ec9359a34fc8eba351
+  AndroidProfiler: 0
+  defaultScreenOrientation: 3
+  targetDevice: 2
+  companyName: Flopzone
+  productName: Flopzone
+  defaultCursor: {fileID: 0}
+  cursorHotspot: {x: 0, y: 0}
+  m_ShowUnitySplashScreen: 1
+  m_ShowUnitySplashLogo: 1
+  defaultScreenWidth: 1920
+  defaultScreenHeight: 1080
+  m_ActiveColorSpace: 1
+  bundleVersion: 1.0
+  applicationIdentifier:
+    Android: com.flopzone.game
+    Standalone: com.flopzone.game
+  buildNumber:
+    Standalone: 0
+  AndroidBundleVersionCode: 1
+  activeInputHandler: 2

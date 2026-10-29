@@ -169,7 +169,7 @@ namespace Flopzone
             {
                 // Project is set to the new Input System only; keyboard play is off.
                 legacyInputWorks = false;
-                Debug.LogWarning("[Flopzone] Keyboard/mouse test controls need Active Input Handling = Both (Flopzone > Run Setup sets it).");
+                Debug.LogWarning("[Flopzone] Keyboard/mouse test controls need Active Input Handling = Both (Edit > Project Settings > Player > Other Settings).");
             }
 #endif
             HeadRot = Quaternion.Euler(deskPitch, deskYaw, 0);

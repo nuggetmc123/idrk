@@ -134,7 +134,7 @@ namespace Flopzone
                     Out("t", "toast", "msg", "Reports go to the moderators when you play online.");
                     break;
                 case "mod":
-                    Out("t", "mod_result", "ok", false, "msg", "Mod tools work on the online server (set it up in Unity: Flopzone tab).");
+                    Out("t", "mod_result", "ok", false, "msg", "Mod tools work on the online server (in Unity: Flopzone > Set Up Multiplayer).");
                     break;
                 case "friend_req":
                 case "party_invite":

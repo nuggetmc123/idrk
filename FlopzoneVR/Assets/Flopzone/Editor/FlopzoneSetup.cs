@@ -15,13 +15,13 @@ namespace Flopzone.EditorTools
     /// Sets the project up by itself whenever it is opened, and again after
     /// every update that bumps <see cref="Version"/>: makes the game scene and
     /// assets, sets the Quest/Android player settings, imports the VR packages
-    /// and turns on OpenXR for Quest. Everything is also on the Flopzone tab.
+    /// and turns on OpenXR for Quest. The Flopzone menu has Set Up Multiplayer, Set Up VR (Quest) and Build for Quest (APK).
     /// </summary>
     [InitializeOnLoad]
     public static class FlopzoneSetup
     {
         /// <summary>Bump this when a change needs the setup to run again on everyone's machine.</summary>
-        public const int Version = 1;
+        public const int Version = 2;
 
         public const string Root = "Assets/Flopzone";
         public const string ScenePath = Root + "/Scenes/Flopzone.unity";
@@ -77,7 +77,10 @@ namespace Flopzone.EditorTools
             if (S.version < Version || !File.Exists(AssetsPath) || !File.Exists(ScenePath))
             {
                 RunAll(false);
-                if (firstTime) EditorApplication.delayCall += () => FlopzoneWindow.Open();
+                if (firstTime) EditorApplication.delayCall += () => EditorUtility.DisplayDialog("Flopzone",
+                    "Flopzone is set up! Press Play to try it (keyboard and mouse work without a headset).\n\n" +
+                    "VR support is importing in the background. Use the Flopzone menu at the top for:\n" +
+                    "• Set Up Multiplayer\n• Set Up VR (Quest)\n• Build for Quest (APK)", "OK");
             }
             else
             {
@@ -436,7 +439,7 @@ namespace Flopzone.EditorTools
         {
             if (!VRPackagesInstalled)
             {
-                if (interactive) EditorUtility.DisplayDialog("Flopzone", "The VR packages aren't installed yet. Press 'Import VR Support' and wait for Unity to finish importing.", "OK");
+                if (interactive) EditorUtility.DisplayDialog("Flopzone", "The VR packages aren't installed yet. Use Flopzone > Set Up VR (Quest) and wait for Unity to finish importing.", "OK");
                 return;
             }
             var problems = new List<string>();
