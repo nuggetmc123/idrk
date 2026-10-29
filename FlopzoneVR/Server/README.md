@@ -1,6 +1,10 @@
-# Flopzone server
+# Flopzone account server (optional)
 
-A small Cloudflare Worker (free tier) that runs everything online in Flopzone:
+Online play itself runs on **Photon Fusion 2** (Flopzone > Set Up Multiplayer). This small,
+free Cloudflare Worker is an optional extra that remembers players between games:
+names unique across everyone, friends lists, saved reports, and bans/mutes by player ID.
+
+The Worker can also run whole matches by itself (it was Flopzone's first multiplayer), so it handles:
 
 - **Accounts** — every player gets a permanent player ID like `FZ7K3Q9X`
 - **Unique names** — no two players can have the same name (not case-sensitive), and names with swearing or slurs are refused
@@ -17,7 +21,7 @@ updates a second while in a room, so the free daily allowance covers a few hours
 
 ## Turn it on
 
-Easiest: in Unity, **Flopzone > Set Up Multiplayer** and press the three buttons
+Easiest: in Unity, **Flopzone > Set Up Multiplayer**, open **Optional: account server**, and press the three buttons
 (install Node.js, sign in to Cloudflare, Turn On Server). It fills in the address by itself.
 Then **Flopzone > Build for Quest (APK)** so the headset gets it.
 

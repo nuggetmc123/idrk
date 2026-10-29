@@ -138,7 +138,7 @@ namespace Flopzone
                     break;
                 case "friend_req":
                 case "party_invite":
-                    Out("t", "toast", "msg", "Friends and parties need the online server. You're playing offline.");
+                    Out("t", "toast", "msg", "Friends lists need the optional account server, and parties need online play (Flopzone > Set Up Multiplayer in Unity). Online, you can party up with anyone in your room from the Party tab.");
                     break;
                 case "ping":
                     Out("t", "pong");

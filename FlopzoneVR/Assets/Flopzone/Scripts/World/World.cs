@@ -56,6 +56,19 @@ namespace Flopzone
         public void ApplyTheme(MapTheme t)
         {
             theme = t;
+            if (!Application.isPlaying)
+            {
+                // editor preview: light it, but leave the scene's saved sky/fog alone
+                var pl = new GameObject("Sun");
+                pl.transform.SetParent(transform, false);
+                pl.transform.rotation = Quaternion.Euler(t.sunEuler);
+                var l = pl.AddComponent<Light>();
+                l.type = LightType.Directional;
+                l.color = t.sun;
+                l.intensity = t.sunIntensity;
+                l.shadows = LightShadows.Soft;
+                return;
+            }
             var sky = new Material(GameAssets.I.skybox);
             if (sky.HasProperty("_SkyTint")) sky.SetColor("_SkyTint", t.skyTint);
             if (sky.HasProperty("_GroundColor")) sky.SetColor("_GroundColor", t.groundTint);

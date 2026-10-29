@@ -23,7 +23,8 @@ namespace Flopzone
             Prims.Box(root.transform, new Vector3(0.35f, 0.7f, 0), new Vector3(0.08f, 1.4f, 0.08f), wood, false);
             t.board = Prims.Empty("board", root.transform, new Vector3(0, 1.5f, 0)).transform;
             var disc = Prims.Cyl(t.board, Vector3.zero, 0.9f, 0.06f, MapKit.M("f2efe6", 0.2f), Vector3.forward, true);
-            t.face = disc.GetComponent<Renderer>().material;
+            t.face = new Material(disc.GetComponent<Renderer>().sharedMaterial);
+            disc.GetComponent<Renderer>().sharedMaterial = t.face;
             Prims.Cyl(t.board, new Vector3(0, 0, -0.035f), 0.66f, 0.01f, MapKit.M("d63c2f", 0.2f), Vector3.forward);
             Prims.Cyl(t.board, new Vector3(0, 0, -0.04f), 0.42f, 0.01f, MapKit.M("f2efe6", 0.2f), Vector3.forward);
             Prims.Cyl(t.board, new Vector3(0, 0, -0.045f), 0.2f, 0.01f, MapKit.M("d63c2f", 0.2f), Vector3.forward);

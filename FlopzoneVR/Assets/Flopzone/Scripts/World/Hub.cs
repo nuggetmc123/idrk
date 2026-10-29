@@ -92,11 +92,15 @@ namespace Flopzone
                     var slotPos = new Vector3(tx + 0.42f + j * 0.85f, 1.12f, -15f);
                     var slot = Prims.Empty("slot " + g.name, k.D, slotPos).transform;
                     slot.rotation = Quaternion.Euler(0, 180, 90);
-                    var gun = Gun.Spawn(g, slotPos, slot.rotation);
-                    gun.home = slot;
-                    gun.returnDelay = 6f;
-                    gun.displayOnly = true;
-                    gun.GoHome();
+                    if (Application.isPlaying)
+                    {
+                        var gun = Gun.Spawn(g, slotPos, slot.rotation);
+                        gun.home = slot;
+                        gun.returnDelay = 6f;
+                        gun.displayOnly = true;
+                        gun.GoHome();
+                    }
+                    else GunModel.Build(g, slot);   // editor preview: just the look
                     var label = UIKit.Text(k.D, g.name, slotPos + new Vector3(0, -0.06f, 0.56f), 0.055f, Color.white);
                     label.transform.rotation = Quaternion.Euler(60, 180, 0);
                     j++;

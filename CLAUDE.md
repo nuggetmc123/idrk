@@ -7,4 +7,8 @@
 - Its top menu is **Flopzone** with exactly: Set Up Multiplayer, Set Up VR (Quest), Build for Quest (APK) (the user's requested layout, like Nullbound).
 - Everything must set itself up when the project opens (`Assets/Flopzone/Editor/FlopzoneSetup.cs`; bump `Version` when setup needs to rerun).
 - Unity isn't available in the cloud session. Type-check with Roslyn against Unity reference DLLs and say it wasn't tested in Unity.
-- Server: `FlopzoneVR/Server` (Cloudflare Worker); test with `npx wrangler dev` + `node test/smoke.mjs`.
+- Online play is Photon Fusion 2 (user's choice, like Nullbound). `Scripts/Net/PhotonLink.cs` is behind `#if FLOPZONE_FUSION`,
+  which `Assets/Flopzone/Setup/Editor/FusionSwitch.cs` (own asmdef) sets when Fusion.Runtime.dll exists. Only use Fusion APIs that
+  Nullbound proved (callbacks list, StartGameArgs, runner.SendReliableDataToPlayer); type-check against a Fusion stub with FLOPZONE_FUSION defined.
+- Bans/moderators without a server: `Assets/Flopzone/Resources/moderation.json` (headsets fetch it from the main branch on GitHub).
+- Optional account server: `FlopzoneVR/Server` (Cloudflare Worker); test with `npx wrangler dev` + `node test/smoke.mjs`.

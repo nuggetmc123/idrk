@@ -25,7 +25,7 @@ At the top of Unity, next to Window and Help:
 
 | Menu item | What it does |
 | --- | --- |
-| **Set Up Multiplayer** | A window with 3 one-button steps: install Node.js, sign in to Cloudflare (free), **Turn On Server**. The server's address fills itself in. Until then the game plays offline with bots. It also has moderation tools (kick / ban / mute by player ID). |
+| **Set Up Multiplayer** | Like Nullbound: 1) get a free Photon App ID, 2) paste it in, 3) import Photon Fusion 2 from the Asset Store. Flopzone switches online play on and fills in your App ID by itself. Until then the game plays offline with bots. Below that: an optional account server (names unique everywhere, friends lists, saved reports, bans) and moderation tools. |
 | **Set Up VR (Quest)** | Imports XR Plug-in Management + OpenXR (if they aren't in yet) and switches on Quest support and PC VR (so Quest Link works in Play mode). |
 | **Build for Quest (APK)** | Switches to Android and builds `Builds/Flopzone.apk`. |
 
@@ -102,16 +102,21 @@ ragdolls you can keep shooting around.
 
 - **Auto-mod:** in chat, "fuck", "shit" and "damn" are fine; slurs and other bad words
   mute the sender for 15 minutes. Names allow no swearing at all.
-- **Reports:** Menu → Report → player → reason. Moderators see them with the player's recent chat.
-- **Player IDs:** every player has one (Menu → Profile). Moderators can kick, mute, ban,
-  unban and reset names by ID from the in-game MOD tab, Flopzone > Set Up Multiplayer, or a browser.
-  How to become a moderator: [`Server/README.md`](Server/README.md#make-yourself-a-moderator).
+- **Player IDs:** every player has one (Menu → Profile).
+- **Moderators:** put your player ID in `Assets/Flopzone/Resources/moderation.json` under
+  `"admins"`. You get a **MOD** tab in the game menu: kick, mute and ban people in your room.
+- **Bans everywhere:** add the player's ID to `"bans"` in the same file and raise `"version"` by one,
+  for example `{ "id": "FZAB12CD", "reason": "slurs", "until": "" }` (`until` empty = forever).
+  Headsets download the newest file from GitHub (the `main` branch) each time the game starts, so no new APK is needed.
+- **Reports:** Menu → Report → player → reason. Moderators in the room are told right away; with the
+  optional account server they're also saved (see [`Server/README.md`](Server/README.md)).
 
 ## How it's built
 
 There are no imported art or sound files: every model (guns, players, maps) is built
 from shapes in code, and every sound effect and both music tracks are synthesised when
-the game starts. The only packages are Unity's own XR Plug-in Management and OpenXR.
+the game starts. Packages: Unity's XR Plug-in Management and OpenXR, plus Photon Fusion 2
+for online play (each hub and match is a Photon room; the room's master client runs the rules).
 
 ```
 Assets/Flopzone/
@@ -122,8 +127,9 @@ Assets/Flopzone/
     Player/    rig + movement, hands, avatars, ragdolls, other players
     Weapons/   the 22 guns, gun models, mags, effects
     World/     the 10 maps, the hub, portals, targets
-    Net/       server connection, session state, offline server with bots
+    Net/       Photon rooms + room rules, session state, offline mode with bots, account server link
     Game/      game flow, tutorial, bots, capture the flag
     UI/        VR UI kit, keyboard, menu, HUD
-Server/        the Cloudflare Worker (see its README)
+Server/        the optional account server, a Cloudflare Worker (see its README)
+Assets/Flopzone/Setup/   switches Photon on/off by itself (compiles even if the game has errors)
 ```

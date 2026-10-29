@@ -38,8 +38,11 @@ namespace Flopzone
                 default: Hub.Build(k); break;
             }
             Physics.SyncTransforms();
-            try { StaticBatchingUtility.Combine(k.S.gameObject); }
-            catch (Exception e) { Debug.LogWarning("[Flopzone] static batching skipped: " + e.Message); }
+            if (Application.isPlaying)
+            {
+                try { StaticBatchingUtility.Combine(k.S.gameObject); }
+                catch (Exception e) { Debug.LogWarning("[Flopzone] static batching skipped: " + e.Message); }
+            }
             return w;
         }
 

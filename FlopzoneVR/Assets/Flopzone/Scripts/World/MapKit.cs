@@ -323,7 +323,7 @@ namespace Flopzone
                 float a = R(0, Mathf.PI * 2);
                 float d = R(minR, maxR);
                 var go = make(new Vector3(Mathf.Cos(a) * d, 0, Mathf.Sin(a) * d));
-                if (go != null) foreach (var c in go.GetComponentsInChildren<Collider>()) UnityEngine.Object.Destroy(c);
+                if (go != null) foreach (var c in go.GetComponentsInChildren<Collider>()) UnityEngine.Object.DestroyImmediate(c);
             }
         }
     }

@@ -21,7 +21,7 @@ namespace Flopzone.EditorTools
     public static class FlopzoneSetup
     {
         /// <summary>Bump this when a change needs the setup to run again on everyone's machine.</summary>
-        public const int Version = 2;
+        public const int Version = 3;
 
         public const string Root = "Assets/Flopzone";
         public const string ScenePath = Root + "/Scenes/Flopzone.unity";
@@ -84,6 +84,9 @@ namespace Flopzone.EditorTools
             }
             else
             {
+                // Photon Fusion just arrived: put the saved App ID into it
+                if (FindType("Fusion.NetworkRunner") != null && MultiplayerSetup.SavedAppId.Length > 0 && MultiplayerSetup.FusionAppId != MultiplayerSetup.SavedAppId)
+                    MultiplayerSetup.FinishSetup(false);
                 RefreshInstalled(() =>
                 {
                     if (!VRPackagesInstalled)
@@ -228,6 +231,7 @@ namespace Flopzone.EditorTools
             SceneManager.SetActiveScene(scene);
             var root = new GameObject("Flopzone");
             root.AddComponent<Game>();
+            root.AddComponent<HubPreview>();   // shows the hub while editing
             // fog + skybox saved in the scene keep their shader variants in the build
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;

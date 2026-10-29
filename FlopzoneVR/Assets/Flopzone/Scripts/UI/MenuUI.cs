@@ -211,7 +211,7 @@ namespace Flopzone
         void BuildFriends()
         {
             Title("Friends");
-            if (!S.Online) { L(UIKit.Wrap("Friends and parties need the online server. Ask the game owner to set it up (in Unity: Flopzone > Set Up Multiplayer).", 0.8f, 0.028f), -0.33f, 0.1f, 0.028f); return; }
+            if (!S.Online) { L(UIKit.Wrap("Friends and parties need online play. Ask the game owner to set it up (in Unity: Flopzone > Set Up Multiplayer).", 0.8f, 0.028f), -0.33f, 0.1f, 0.028f); return; }
             B("+ Add Friend", 0.4f, H / 2 - 0.05f, 0.2f, 0.05f, () =>
             {
                 Build();
@@ -253,7 +253,7 @@ namespace Flopzone
         void BuildParty()
         {
             Title("Party");
-            if (!S.Online) { L("Parties need the online server.", -0.33f, 0.1f, 0.028f); return; }
+            if (!S.Online) { L("Parties need online play (in Unity: Flopzone > Set Up Multiplayer).", -0.33f, 0.1f, 0.028f); return; }
             float y = 0.24f;
             if (!string.IsNullOrEmpty(S.PendingInvitePartyId) && S.PendingInvitePartyId != S.PartyId)
             {
@@ -264,7 +264,8 @@ namespace Flopzone
             }
             if (!S.InParty)
             {
-                L(UIKit.Wrap("You're not in a party. Invite friends from the Friends tab (up to 6 people). Wherever the party leader goes, the whole party follows. In team modes the party stays on one team; a full party of 6 in 3v3 splits 3 and 3.", 0.82f, 0.026f), -0.33f, y - 0.08f, 0.026f, UIKit.Muted);
+                L(UIKit.Wrap("Up to 6 people. Wherever the party leader goes, the whole party follows. In team modes the party stays on one team; a full party of 6 in 3v3 splits 3 and 3.", 0.82f, 0.024f), -0.33f, y - 0.02f, 0.024f, UIKit.Muted);
+                InviteList(y - 0.12f);
                 return;
             }
             L($"Party ({S.PartyMembers.Count}/6)", -0.33f, y, 0.03f);
@@ -278,7 +279,23 @@ namespace Flopzone
                 if (lead && mem.Key != S.MyId) B("Kick", 0.42f, y, 0.12f, 0.045f, () => S.PartyKick(mem.Key), false, 0.02f);
                 y -= 0.055f;
             }
-            B("Leave Party", CX, -0.24f, 0.26f, 0.055f, () => S.PartyLeave());
+            if (lead && S.PartyMembers.Count < 6) InviteList(y - 0.01f);
+            B("Leave Party", CX, -0.27f, 0.26f, 0.055f, () => S.PartyLeave());
+        }
+
+        /// <summary>Buttons to invite the people in this room.</summary>
+        void InviteList(float y)
+        {
+            var here = new List<PlayerInfo>();
+            foreach (var p in S.Players.Values)
+                if (p.id != S.MyId && !p.bot && !S.PartyMembers.Exists(m => m.Key == p.id)) here.Add(p);
+            if (here.Count == 0) { L("Nobody else is in this room to invite yet.", -0.33f, y, 0.024f, UIKit.Muted); return; }
+            L("Invite someone in this room:", -0.33f, y, 0.024f, UIKit.Muted);
+            for (int i = 0; i < Mathf.Min(here.Count, 8); i++)
+            {
+                var p = here[i];
+                B(p.name, -0.24f + (i % 4) * 0.205f, y - 0.055f - (i / 4) * 0.055f, 0.195f, 0.045f, () => S.PartyInviteFriend(p.id), false, 0.02f);
+            }
         }
 
         static readonly string[] QuickChat = { "gg", "nice shot!", "follow me", "lol", "help!", "thanks!", "on my way", "get the flag!" };

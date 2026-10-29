@@ -55,6 +55,7 @@ namespace Flopzone
             QualitySettings.vSyncCount = 0;
             foreach (var cam in FindObjectsByType<Camera>(FindObjectsSortMode.None)) cam.gameObject.SetActive(false);
             foreach (var l in FindObjectsByType<AudioListener>(FindObjectsSortMode.None)) l.enabled = false;
+            foreach (var w in FindObjectsByType<World>(FindObjectsSortMode.None)) Destroy(w.gameObject);   // the editor's hub preview
 
             gameObject.AddComponent<VRInput>();
             gameObject.AddComponent<AudioManager>();
@@ -105,35 +106,29 @@ namespace Flopzone
 
         IEnumerator Connect()
         {
-            string url = FlopzoneConfig.I.SocketUrl;
-            ILink link = null;
-            if (url.Length > 0)
-            {
-                var ws = new WsLink(url);
-                float t0 = Time.time;
-                while (!ws.Connected && !ws.Failed && Time.time - t0 < 9f) yield return null;
-                if (ws.Connected) link = ws;
-                else
-                {
-                    Debug.LogWarning("[Flopzone] couldn't reach " + url + ": " + ws.Error);
-                    ws.Close();
-                }
-            }
-            bool fellBack = url.Length > 0 && link == null;
-            if (link == null) link = new LocalServer();
+            // the ban / moderator list (Resources/moderation.json, plus the newest copy online)
+            yield return Moderation.Refresh();
+            ILink link;
+#if FLOPZONE_FUSION
+            // Photon Fusion 2 is in the project: online play. (The account server URL is optional.)
+            link = new PhotonLink(FlopzoneConfig.I.SocketUrl);
+            PhotonLink.CurrentSession = () => session;
+#else
+            // No Photon yet: offline with bots (Flopzone > Set Up Multiplayer turns it on).
+            link = new LocalServer();
+#endif
             UseSession(new Session(link));
             session.Hello();
             float t1 = Time.time;
-            while (!session.Welcomed && !banned && Time.time - t1 < 6f) { session.Tick(); yield return null; }
-            if (!session.Welcomed && !banned && session.Online)
+            while (!session.Welcomed && !banned && Time.time - t1 < 12f) { session.Tick(); yield return null; }
+            if (!session.Welcomed && !banned)
             {
                 link.Close();
                 UseSession(new Session(new LocalServer()));
                 session.Hello();
                 session.Tick();
-                fellBack = true;
+                Hud.I.Toast("Couldn't go online, so you're playing offline with bots.", 5f);
             }
-            if (fellBack) Hud.I.Toast("Couldn't reach the Flopzone server, so you're playing offline with bots.", 5f);
         }
 
         void UseSession(Session s)
@@ -156,7 +151,7 @@ namespace Flopzone
             s.Kicked += reason =>
             {
                 kicked = true;
-                Hud.I.Popup("Kicked", reason, ("Reconnect", () => { kicked = false; Hud.I.ClosePopup(); StartCoroutine(Reconnect()); }));
+                Hud.I.Popup("Kicked", reason, ("OK", () => { kicked = false; Hud.I.ClosePopup(); GoHub(); }));
             };
             s.Banned += OnBanned;
             s.PartyInvite += (pid, from) => Hud.I.Popup("Party invite", from + " invited you to their party.",
@@ -231,7 +226,7 @@ namespace Flopzone
             if (VRInput.I.MenuDown && (tutorial == null || tutorial.AllowMenu) && !banned && session.Welcomed) menu.Toggle();
             if (session.RoomId != null && Time.time >= nextPose && rig != null)
             {
-                nextPose = Time.time + 1f / 15f;
+                nextPose = Time.time + 1f / 12f;
                 if (session.Online) session.SendPose(rig.BuildPose());
                 else session.SendPose(new[] { rig.transform.position.x, rig.transform.position.y, rig.transform.position.z });
             }

@@ -29,9 +29,10 @@ namespace Flopzone.EditorTools
     }
 
     /// <summary>
-    /// Flopzone > Set Up Multiplayer. Three steps, each one button: install
-    /// Node.js, sign in to Cloudflare (free), turn on the server. The server's
-    /// address is filled in for you. Until then the game plays offline with bots.
+    /// Flopzone > Set Up Multiplayer. The two things only you can do (get a
+    /// free Photon App ID, import Photon Fusion 2), then everything else is
+    /// automatic. Below that, the optional account server and moderation tools.
+    /// Until Photon is in, the game plays offline with bots.
     /// </summary>
     public class MultiplayerSetup : EditorWindow
     {
@@ -56,7 +57,7 @@ namespace Flopzone.EditorTools
         public static void Open()
         {
             var w = GetWindow<MultiplayerSetup>(true, "Flopzone Multiplayer", true);
-            w.minSize = new Vector2(480, 560);
+            w.minSize = new Vector2(460, 470);
         }
 
         void OnEnable()
@@ -71,59 +72,93 @@ namespace Flopzone.EditorTools
         void OnInspectorUpdate() => Repaint();
 
         bool Online => !string.IsNullOrEmpty(url);
+        string appId;
+        bool showAccount;
+
+        static bool FusionInstalled => FindType("Fusion.NetworkRunner") != null;
 
         void OnGUI()
         {
             var big = new GUIStyle(EditorStyles.boldLabel) { fontSize = 15 };
             var wrap = new GUIStyle(EditorStyles.label) { wordWrap = true };
+            if (appId == null) appId = SavedAppId;
             scroll = EditorGUILayout.BeginScrollView(scroll);
             GUILayout.Space(8);
-            GUILayout.Label(Online ? "Multiplayer is ON" : "Multiplayer is OFF (playing offline with bots)", big);
-            GUILayout.Label(Online
-                ? "Friends, parties, matchmaking, unique names, the chat auto-mod, reports and bans all work. Build a new APK so the headset uses this server."
-                : "Do these 3 steps once. Each one is a button. It's free.", wrap);
+            GUILayout.Label(FusionInstalled ? "Multiplayer is ON" : "Multiplayer is OFF (playing offline with bots)", big);
+            GUILayout.Label(FusionInstalled
+                ? "Photon Fusion 2 is installed. The hub, matchmaking for every mode, parties, chat and the auto-mod are on."
+                : "Do these 3 steps once. Everything else happens by itself.", wrap);
             GUILayout.Space(12);
 
+            // Step 1
+            GUILayout.Label("1. Get your free Photon App ID", EditorStyles.boldLabel);
+            GUILayout.Label("Make an account, click \"Create a new app\", choose Fusion, then Fusion 2. Copy the App ID (a long code).", wrap);
+            if (GUILayout.Button("Open Photon website")) Application.OpenURL("https://dashboard.photonengine.com");
+            GUILayout.Space(10);
+
+            // Step 2
+            GUILayout.Label("2. Paste your App ID here", EditorStyles.boldLabel);
+            EditorGUI.BeginChangeCheck();
+            appId = EditorGUILayout.TextField("App ID", appId);
+            if (EditorGUI.EndChangeCheck()) { SavedAppId = appId; if (FusionInstalled) TryApplyAppId(appId); }
+            if (!string.IsNullOrEmpty(appId) && appId.Trim().Length < 20)
+                EditorGUILayout.HelpBox("That looks too short. A Photon App ID looks like 1a2b3c4d-1234-5678-9abc-def012345678.", MessageType.Warning);
+            GUILayout.Space(10);
+
+            // Step 3
+            GUILayout.Label("3. Import Photon Fusion 2 (free)", EditorStyles.boldLabel);
+            if (FusionInstalled) EditorGUILayout.HelpBox("Done! Photon Fusion 2 is installed.", MessageType.Info);
+            else
+            {
+                GUILayout.Label("Click the button, find \"Photon Fusion 2\", click \"Add to My Assets\", then \"Open in Unity\" and \"Import\" " +
+                                "(or: Window > Package Manager > My Assets > Photon Fusion 2 > Import).", wrap);
+                if (GUILayout.Button("Find Photon Fusion 2 in the Asset Store")) Application.OpenURL("https://assetstore.unity.com/?q=photon%20fusion%202");
+            }
+            GUILayout.Space(14);
+
+            if (FusionInstalled)
+            {
+                if (GUILayout.Button("Finish setup now (apply App ID)", GUILayout.Height(30))) FinishSetup(true);
+            }
+            else
+                EditorGUILayout.HelpBox("When the import finishes, Unity recompiles and Flopzone switches multiplayer on and fills in your App ID by itself.", MessageType.None);
+
+            GUILayout.Space(14);
+            showAccount = EditorGUILayout.Foldout(showAccount, "Optional: account server (names unique everywhere, friends lists, saved reports, bans)", true);
+            if (showAccount) AccountGUI(wrap);
+
+            GUILayout.Space(6);
+            showMod = EditorGUILayout.Foldout(showMod, "Moderation (kick / ban / mute by player ID)", true);
+            if (showMod) ModGUI();
+            EditorGUILayout.EndScrollView();
+        }
+
+        void AccountGUI(GUIStyle wrap)
+        {
+            GUILayout.Label("Photon runs the games. This free extra server remembers players between games. Three buttons:", wrap);
             using (new EditorGUI.DisabledScope(proc != null))
             {
-                // Step 1
-                GUILayout.Label("1. Install Node.js" + (nodeInstalled == true ? "   ✔" : ""), EditorStyles.boldLabel);
-                if (nodeInstalled == true) GUILayout.Label("Node.js is installed.", wrap);
-                else
+                GUILayout.Label("a. Install Node.js" + (nodeInstalled == true ? "   ✔" : ""), EditorStyles.boldLabel);
+                if (nodeInstalled != true)
                 {
-                    GUILayout.Label("Download the LTS version, install it, then restart Unity.", wrap);
                     GUILayout.BeginHorizontal();
                     if (GUILayout.Button("Open nodejs.org")) Application.OpenURL("https://nodejs.org");
                     if (GUILayout.Button("Check again", GUILayout.Width(100))) CheckNode();
                     GUILayout.EndHorizontal();
                 }
-                GUILayout.Space(10);
-
-                // Step 2
-                GUILayout.Label("2. Sign in to Cloudflare (free)", EditorStyles.boldLabel);
-                GUILayout.Label("A browser opens. Make a free account (or log in) and click Allow.", wrap);
+                GUILayout.Label("b. Sign in to Cloudflare (free)", EditorStyles.boldLabel);
                 if (GUILayout.Button("Sign in to Cloudflare")) Run("Signing in", "npx --yes wrangler login", (code, outp) =>
-                {
-                    SetStatus(code == 0 ? "Signed in. Now press Turn On Server." : "Sign-in didn't finish. Try again.", code == 0);
-                });
-                GUILayout.Space(10);
-
-                // Step 3
-                GUILayout.Label("3. Turn on the server", EditorStyles.boldLabel);
-                GUILayout.Label("Puts the Flopzone server online and fills in its address below.", wrap);
-                if (GUILayout.Button("Turn On Server", GUILayout.Height(30))) Deploy();
+                    SetStatus(code == 0 ? "Signed in. Now press Turn On Server." : "Sign-in didn't finish. Try again.", code == 0));
+                GUILayout.Label("c. Turn on the account server", EditorStyles.boldLabel);
+                if (GUILayout.Button("Turn On Server")) Deploy();
             }
-
-            GUILayout.Space(10);
-            GUILayout.Label("Server address", EditorStyles.boldLabel);
             EditorGUI.BeginChangeCheck();
-            url = EditorGUILayout.TextField(url);
+            url = EditorGUILayout.TextField("Server address", url);
             if (EditorGUI.EndChangeCheck()) SaveUrl();
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Test connection")) TestConnection();
-            if (Online && GUILayout.Button("Play offline instead")) { url = ""; SaveUrl(); SetStatus("Offline: the game plays against bots.", true); }
+            if (Online && GUILayout.Button("Don't use it")) { url = ""; SaveUrl(); SetStatus("Not using the account server.", true); }
             GUILayout.EndHorizontal();
-
             if (status.Length > 0) EditorGUILayout.HelpBox(status, statusOk ? MessageType.Info : MessageType.Warning);
             if (proc != null) EditorGUILayout.HelpBox(running + "... (this can take a minute)", MessageType.None);
             if (log.Length > 0)
@@ -132,11 +167,96 @@ namespace Flopzone.EditorTools
                 GUILayout.Label(log.ToString(), EditorStyles.miniLabel);
                 EditorGUILayout.EndScrollView();
             }
+        }
 
-            GUILayout.Space(10);
-            showMod = EditorGUILayout.Foldout(showMod, "Moderation (kick / ban / mute by player ID)", true);
-            if (showMod) ModGUI();
-            EditorGUILayout.EndScrollView();
+        /* ---------------- Photon App ID ---------------- */
+
+        const string AppIdFile = "ProjectSettings/FlopzonePhotonAppId.txt";
+
+        public static string SavedAppId
+        {
+            get => File.Exists(AppIdFile) ? File.ReadAllText(AppIdFile).Trim() : "";
+            set => File.WriteAllText(AppIdFile, (value ?? "").Trim());
+        }
+
+        /// <summary>Called by itself once Photon Fusion is detected (and by the button).</summary>
+        public static void FinishSetup(bool interactive)
+        {
+            string id = SavedAppId;
+            bool applied = !string.IsNullOrEmpty(id) && TryApplyAppId(id);
+            string msg = "Multiplayer is ready!\n\n";
+            if (applied) msg += "Your Photon App ID is set.\n";
+            else if (string.IsNullOrEmpty(id)) msg += "You still need an App ID: open Flopzone > Set Up Multiplayer and paste it in.\n";
+            else msg += "Couldn't fill in the App ID by itself. Paste it in Tools > Fusion > Fusion Hub.\n";
+            msg += "\nPress Play, or Flopzone > Build for Quest (APK). Walk into a portal in the hub to find a match.";
+            if (interactive || !applied) EditorUtility.DisplayDialog("Flopzone", msg, "OK");
+            else Debug.Log("[Flopzone] " + msg.Replace("\n", " "));
+        }
+
+        /// <summary>The App ID inside Fusion's own settings ("" if none / no Fusion).</summary>
+        public static string FusionAppId
+        {
+            get
+            {
+                try
+                {
+                    var settingsType = FindType("Fusion.Photon.Realtime.PhotonAppSettings");
+                    object global = settingsType == null ? null : GetMember(settingsType, null, "Global");
+                    object app = global == null ? null : GetMember(settingsType, global, "AppSettings");
+                    return app == null ? "" : (GetMember(app.GetType(), app, "AppIdFusion") as string ?? "").Trim();
+                }
+                catch (Exception) { return ""; }
+            }
+        }
+
+        /// <summary>Writes the App ID into Fusion's settings (PhotonAppSettings.Global.AppSettings.AppIdFusion).</summary>
+        public static bool TryApplyAppId(string id)
+        {
+            try
+            {
+                var settingsType = FindType("Fusion.Photon.Realtime.PhotonAppSettings");
+                if (settingsType == null) return false;
+                object global = GetMember(settingsType, null, "Global");
+                if (global == null) return false;
+                object app = GetMember(settingsType, global, "AppSettings");
+                if (app == null || !SetMember(app.GetType(), app, "AppIdFusion", (id ?? "").Trim())) return false;
+                if (global is UnityEngine.Object asset) { EditorUtility.SetDirty(asset); AssetDatabase.SaveAssets(); }
+                Debug.Log("[Flopzone] Photon App ID applied.");
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Flopzone] Couldn't set the Photon App ID automatically: " + e.Message);
+                return false;
+            }
+        }
+
+        static Type FindType(string fullName)
+        {
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try { var t = asm.GetType(fullName, false); if (t != null) return t; }
+                catch (Exception) { }
+            }
+            return null;
+        }
+
+        const System.Reflection.BindingFlags Any = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Instance;
+
+        static object GetMember(Type t, object target, string name)
+        {
+            var p = t.GetProperty(name, Any);
+            if (p != null) return p.GetValue(target);
+            return t.GetField(name, Any)?.GetValue(target);
+        }
+
+        static bool SetMember(Type t, object target, string name, object value)
+        {
+            var f = t.GetField(name, Any);
+            if (f != null) { f.SetValue(target, value); return true; }
+            var p = t.GetProperty(name, Any);
+            if (p != null && p.CanWrite) { p.SetValue(target, value); return true; }
+            return false;
         }
 
         void SetStatus(string s, bool ok) { status = s; statusOk = ok; Repaint(); }
@@ -172,7 +292,7 @@ namespace Flopzone.EditorTools
                     {
                         url = m.Value;
                         SaveUrl();
-                        SetStatus("Server is on! Testing the connection...", true);
+                        SetStatus("Account server is on! Testing the connection...", true);
                         TestConnection();
                     }
                     else if (o2.Contains("login") || o2.Contains("authenticate") || o2.Contains("Not logged in"))
@@ -282,7 +402,7 @@ namespace Flopzone.EditorTools
             Request(UnityWebRequest.Get(HttpBase(url) + "/"), r =>
             {
                 if (r.result == UnityWebRequest.Result.Success && r.downloadHandler.text.Contains("Flopzone"))
-                    SetStatus("Connected! Multiplayer is on. Build for Quest (APK) again so the headset gets it.", true);
+                    SetStatus("Connected! The account server is on. Build for Quest (APK) again so the headset gets it.", true);
                 else SetStatus("Can't reach the server yet (" + (r.error ?? "no reply") + "). A brand-new server can take a minute; press Test connection again.", false);
             });
         }
@@ -308,7 +428,7 @@ namespace Flopzone.EditorTools
 
         void ModGUI()
         {
-            EditorGUILayout.HelpBox("In the game: add your player ID (Menu > Profile) to ADMIN_IDS in Server/wrangler.toml and press Turn On Server again. You'll get a MOD tab in the game menu.\n\nFrom here: run 'npx wrangler secret put ADMIN_KEY' in the Server folder once, then type the same key below.", MessageType.None);
+            EditorGUILayout.HelpBox("Make yourself a moderator: put your player ID (in the game: Menu > Profile) in Assets/Flopzone/Resources/moderation.json under \"admins\". You get a MOD tab in the game menu to kick, mute and ban people in your room.\n\nBan someone everywhere: add their ID under \"bans\" in that file and raise \"version\" by one. Headsets download the newest file when the game starts (once it's on GitHub's main branch).\n\nWith the optional account server you can also do it from here: run 'npx wrangler secret put ADMIN_KEY' in the Server folder once, then type the same key below.", MessageType.None);
             string key = EditorGUILayout.PasswordField("Admin key", modKey);
             if (key != modKey) { modKey = key; EditorPrefs.SetString("Flopzone.AdminKey", modKey); }
             modTarget = EditorGUILayout.TextField("Player ID or name", modTarget);
@@ -335,7 +455,7 @@ namespace Flopzone.EditorTools
 
         void Mod(string action)
         {
-            if (!Online) { modOutput = "Turn on the server first."; return; }
+            if (!Online) { modOutput = "These buttons need the optional account server. Without it: use the MOD tab in the game, or put the player ID in Assets/Flopzone/Resources/moderation.json under \"bans\" (bump \"version\")."; return; }
             if (string.IsNullOrEmpty(modKey)) { modOutput = "Type the admin key first."; return; }
             string u = HttpBase(url) + "/admin?key=" + UnityWebRequest.EscapeURL(modKey) + "&action=" + action +
                        "&target=" + UnityWebRequest.EscapeURL(modTarget ?? "") + "&minutes=" + modMinutes + "&reason=" + UnityWebRequest.EscapeURL(modReason ?? "");
