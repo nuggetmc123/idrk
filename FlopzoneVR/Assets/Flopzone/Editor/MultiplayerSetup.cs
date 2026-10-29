@@ -20,8 +20,8 @@ namespace Flopzone.EditorTools
         static void VR()
         {
             // also repairs the scene/assets if they went missing
-            if (!File.Exists(FlopzoneSetup.ScenePath) || !File.Exists(FlopzoneSetup.AssetsPath)) FlopzoneSetup.RunAll(true);
-            else FlopzoneSetup.ImportVR(true);
+            if (!File.Exists(FlopzoneSetup.ScenePath) || !File.Exists(FlopzoneSetup.AssetsPath)) FlopzoneSetup.RunAll(false);
+            VRSetup.Open();
         }
 
         [MenuItem("Flopzone/Build for Quest (APK)", priority = 2)]

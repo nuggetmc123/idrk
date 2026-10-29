@@ -31,10 +31,9 @@ namespace Flopzone.EditorTools
         const string StatePath = "ProjectSettings/FlopzoneSetup.json";
 
         /// <summary>
-        /// The VR packages. They're also listed in Packages/manifest.json, so Unity installs them by
-        /// itself when the project opens; this is the backup. OpenXR goes first because it brings XR
-        /// Plug-in Management with it, all in one request (each request reloads the scripts, which
-        /// used to lose the rest of the list).
+        /// The VR packages, added when you click Flopzone > Set Up VR (Quest). OpenXR goes first
+        /// because it brings XR Plug-in Management with it, all in one request (each request
+        /// reloads the scripts, which used to lose the rest of the list).
         /// </summary>
         public static readonly string[] VrPackages = { "com.unity.xr.openxr", "com.unity.xr.management" };
 
@@ -87,7 +86,7 @@ namespace Flopzone.EditorTools
                 RunAll(false);
                 if (firstTime) EditorApplication.delayCall += () => EditorUtility.DisplayDialog("Flopzone",
                     "Flopzone is set up! Press Play to try it (keyboard and mouse work without a headset).\n\n" +
-                    "VR support is importing in the background. Use the Flopzone menu at the top for:\n" +
+                    "To add VR support, click Flopzone > Set Up VR (Quest). Use the Flopzone menu at the top for:\n" +
                     "• Set Up Multiplayer\n• Set Up VR (Quest)\n• Build for Quest (APK)", "OK");
             }
             else
@@ -99,13 +98,13 @@ namespace Flopzone.EditorTools
                 {
                     if (!VRPackagesInstalled)
                     {
-                        // keep going after each package's script reload (a few tries per editor session,
-                        // e.g. if it was offline)
+                        // VR is only added when you click Set Up VR (Quest); if that click's install was
+                        // cut short by Unity reloading its scripts, carry on (a few tries)
                         int tries = SessionState.GetInt("Flopzone.VRTries", 0);
-                        if (!Busy && tries < 4)
+                        if (SessionState.GetBool(VRClickedKey, false) && !Busy && tries < 4)
                         {
                             SessionState.SetInt("Flopzone.VRTries", tries + 1);
-                            ImportVR(false);
+                            ImportVR(true);
                         }
                     }
                     else if (!S.xrConfigured || S.xrConfigVersion < XRConfigVersion || !XRLoaderAssigned(BuildTargetGroup.Android))
@@ -133,7 +132,7 @@ namespace Flopzone.EditorTools
                 AssetDatabase.Refresh();
                 LastMessage = "Setup done.";
                 Debug.Log("[Flopzone] Project setup done (version " + Version + ").");
-                ImportVR(interactive);
+                // VR packages are added by Flopzone > Set Up VR (Quest), not here
                 if (inputChanged && !S.askedRestart)
                 {
                     S.askedRestart = true;
@@ -365,6 +364,8 @@ namespace Flopzone.EditorTools
         }
 
         public static bool HasPackage(string name) => installed.Contains(name);
+        /// <summary>VR packages in and OpenXR switched on for Quest.</summary>
+        public static bool VRReady => VRPackagesInstalled && S.xrConfigured && XRLoaderAssigned(BuildTargetGroup.Android);
         public static bool VRPackagesInstalled => FindType("UnityEngine.XR.OpenXR.OpenXRLoader") != null && FindType("UnityEngine.XR.Management.XRGeneralSettings") != null;
 
         const int XRConfigVersion = 2;

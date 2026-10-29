@@ -14,9 +14,7 @@ with friends, and go.
 3. Open it. **Everything imports and sets itself up** (and again after updates):
    - makes the game scene and its assets, adds the scene to the build and opens it
    - sets the Quest/Android player settings (IL2CPP, ARM64, Android 12L+, internet permission)
-   - installs the VR packages (XR Plug-in Management + OpenXR, listed in `Packages/manifest.json` so
-     Unity's Package Manager fetches them as the project opens) and turns on OpenXR with
-     Meta Quest support and the Touch controller profile
+   - VR is added when you want it: **Flopzone → Set Up VR (Quest) → Import VR** (see below)
 
 Then press Play (keyboard and mouse work without a headset).
 
@@ -27,7 +25,7 @@ At the top of Unity, next to Window and Help:
 | Menu item | What it does |
 | --- | --- |
 | **Set Up Multiplayer** | Like Nullbound: 1) get a free Photon App ID, 2) paste it in, 3) import Photon Fusion 2 from the Asset Store. Flopzone switches online play on and fills in your App ID by itself. Until then the game plays offline with bots. Below that: an optional account server (names unique everywhere, friends lists, saved reports, bans) and moderation tools. |
-| **Set Up VR (Quest)** | Imports XR Plug-in Management + OpenXR (if they aren't in yet) and switches on Quest support and PC VR (so Quest Link works in Play mode). |
+| **Set Up VR (Quest)** | Opens the VR window. Click **Import VR**: it installs XR Plug-in Management + OpenXR by itself and switches on Meta Quest support, the Touch controllers and PC VR (so Quest Link works in Play mode). Unity reloads once or twice, then it says **VR is ON**. |
 | **Build for Quest (APK)** | Switches to Android and builds `Builds/Flopzone.apk`. |
 
 ## Playing
