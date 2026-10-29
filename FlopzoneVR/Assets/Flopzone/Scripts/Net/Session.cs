@@ -45,6 +45,8 @@ namespace Flopzone
         public string PendingInvitePartyId, PendingInviteFrom;
 
         public string RoomId, RoomKind, Mode, State = "";
+        /// <summary>A private match: just the party (plus bots), no strangers, no waiting.</summary>
+        public bool PrivateMatch;
         public int Map = -1, MyTeam = -1, SpawnIndex;
         public float StateEndsAt;
         public int[] Scores = { 0, 0 };
@@ -84,7 +86,7 @@ namespace Flopzone
         public event Action<long, string> Banned;
         public event Action<Dictionary<string, object>> ModResult;
         public event Action<string, string> NameChanged;
-        /// <summary>The party leader boarded the plane and pulled us in.</summary>
+        /// <summary>The party leader boarded the lobby helicopter and pulled us in.</summary>
         public event Action Board;
 
         readonly List<Dictionary<string, object>> buf = new List<Dictionary<string, object>>();
@@ -158,6 +160,7 @@ namespace Flopzone
                     RoomId = m.Str("id");
                     RoomKind = m.Str("kind");
                     Mode = m.Str("mode", null);
+                    PrivateMatch = m.Bool("priv");
                     Map = m.Int("map", -1);
                     State = m.Str("state");
                     StateEndsAt = Time.time + (float)m.Num("time");
@@ -317,7 +320,7 @@ namespace Flopzone
         public void PartyDecline(string partyId) => Send("t", "party_decline", "partyId", partyId);
         public void PartyLeave() => Send("t", "party_leave");
         public void PartyKick(string id) => Send("t", "party_kick", "id", id);
-        public void Go(string dest) => Send("t", "go", "dest", dest);
+        public void Go(string dest, bool priv = false) => Send("t", "go", "dest", dest, "priv", priv);
         public void SendPose(float[] p) => Send("t", "st", "p", p);
         public void SendEvent(Dictionary<string, object> e) => Send("t", "ev", "e", e);
         public void SendHit(string target, float dmg, bool head, string gun, Vector3 dir)

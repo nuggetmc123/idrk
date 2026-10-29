@@ -53,6 +53,7 @@ namespace Flopzone
         RoomHost host;
         readonly List<Dictionary<string, object>> hostQueue = new List<Dictionary<string, object>>();
         string roomKind, roomMode;
+        bool roomPrivate;
         float roomWaitUntil, autoHubAt = -1, retryAt = -1;
         string retryDest;
 
@@ -84,7 +85,7 @@ namespace Flopzone
             if (AccountTypes.Contains(t)) { ToAccount(m); return; }
             switch (t)
             {
-                case "go": Go(m.Str("dest")); break;
+                case "go": Go(m.Str("dest"), m.Bool("priv")); break;
                 case "st": Pose(m); break;
                 case "ev": if (m.Obj("e") != null) Broadcast(Msg.Of("_", "e", "e", m.Obj("e"))); break;
                 case "hit":
@@ -101,7 +102,7 @@ namespace Flopzone
                 case "party_leave": PartyLeave(); break;
                 case "party_kick": PartyKick(m.Str("id")); break;
                 case "party_board":
-                    // the leader boarded the plane: pull everyone in the party who's here in with them
+                    // the leader boarded the lobby helicopter: pull everyone in the party who's here in with them
                     if (partyId != null && partyLeader == myId)
                         foreach (var kv in party)
                             if (kv.Key != myId && idToRef.TryGetValue(kv.Key, out var br)) SendTo(br, Msg.Of("_", "board"));
@@ -245,7 +246,7 @@ namespace Flopzone
 
         /* ======================= rooms ======================= */
 
-        async void Go(string dest)
+        async void Go(string dest, bool priv = false)
         {
             if (busy) return;
             bool hub = dest == "hub";
@@ -253,6 +254,8 @@ namespace Flopzone
             if (partyId != null && partyLeader != myId) { Emit(Msg.Of("t", "toast", "msg", "Only the party leader picks where the party goes.")); return; }
             string name = null;
             var md = hub ? null : LocalServer.Modes[dest];
+            if (priv && !hub && (partyId == null || party.Count <= 1))
+                name = "FZP_" + Guid.NewGuid().ToString("N").Substring(0, 10);   // a hidden room of your own
             if (partyId != null && party.Count > 1)
             {
                 if (md != null && party.Count > md.max) { Emit(Msg.Of("t", "toast", "msg", $"Your party has {party.Count} people, {md.name} fits {md.max}.")); return; }
@@ -260,12 +263,12 @@ namespace Flopzone
                 name = "FZ_" + Guid.NewGuid().ToString("N").Substring(0, 10);
                 foreach (var kv in party)
                     if (kv.Key != myId && idToRef.TryGetValue(kv.Key, out var r))
-                        SendTo(r, Msg.Of("_", "follow", "dest", dest, "session", name));
+                        SendTo(r, Msg.Of("_", "follow", "dest", dest, "session", name, "priv", priv && !hub));
             }
-            await JoinRoom(dest, name);
+            await JoinRoom(dest, name, priv && !hub);
         }
 
-        async Task JoinRoom(string dest, string sessionName)
+        async Task JoinRoom(string dest, string sessionName, bool priv = false)
         {
             if (busy) return;
             busy = true;
@@ -277,6 +280,7 @@ namespace Flopzone
                 ResetRoom();
                 roomKind = hub ? "hub" : "match";
                 roomMode = hub ? null : dest;
+                roomPrivate = priv && !hub;
                 var go = new GameObject("Photon");
                 UnityEngine.Object.DontDestroyOnLoad(go);
                 runner = go.AddComponent<NetworkRunner>();
@@ -288,7 +292,7 @@ namespace Flopzone
                     SessionName = sessionName,
                     SessionNameGenerator = () => "FZ_" + Guid.NewGuid().ToString("N").Substring(0, 10),
                     SessionProperties = new Dictionary<string, SessionProperty> { ["k"] = hub ? 0 : 1, ["m"] = hub ? 0 : ModeIndex(dest) },
-                    IsVisible = true,
+                    IsVisible = !roomPrivate,   // private rooms never show up in matchmaking
                     PlayerCount = hub ? RoomHost.HubMax : md.max,
                     SceneManager = scenes,
                 };
@@ -398,7 +402,8 @@ namespace Flopzone
             if (host != null || runner == null) return;
             Action<string, Dictionary<string, object>> emit = HostEmit;
             if (s != null && s.RoomId == "PHOTON" && s.RoomKind == roomKind) host = RoomHost.Adopt(s, emit);
-            else host = new RoomHost(roomKind, roomMode, UnityEngine.Random.Range(0, MapBuilder.Names.Length), emit);
+            else host = new RoomHost(roomKind, roomMode, UnityEngine.Random.Range(0, MapBuilder.Names.Length), emit, roomPrivate);
+            host.priv = roomPrivate && roomKind == "match";
             host.botPoseOut = (id, pose) => Broadcast(Msg.Of("_", "p", "b", id, "p", pose));
             host.botShotOut = (id, hand, a, b, g) => Broadcast(Msg.Of("_", "e", "b", id,
                 "e", Msg.Of("k", "f", "h", hand, "g", g, "a", new[] { a.x, a.y, a.z }, "b", new[] { b.x, b.y, b.z })));
@@ -573,7 +578,7 @@ namespace Flopzone
                     if (fromId != null && partyLeader == myId) { party.RemoveAll(kv => kv.Key == fromId); SendParty(); }
                     break;
                 case "follow":
-                    if (fromId != null && fromId == partyLeader) _ = JoinRoom(m.Str("dest"), m.Str("session"));
+                    if (fromId != null && fromId == partyLeader) _ = JoinRoom(m.Str("dest"), m.Str("session"), m.Bool("priv"));
                     break;
                 case "toast":
                     Emit(Msg.Of("t", "toast", "msg", m.Str("msg")));

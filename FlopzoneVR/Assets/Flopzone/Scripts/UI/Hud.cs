@@ -32,7 +32,7 @@ namespace Flopzone
             status = UIKit.Text(follow, "", new Vector3(0, 0.55f, 0), 0.07f, Color.white);
             center = UIKit.Text(follow, "", new Vector3(0, 0.12f, 0), 0.16f, UIKit.Accent);
             toast = UIKit.Text(follow, "", new Vector3(0, -0.3f, 0), 0.055f, Color.white);
-            // top left: the matchmaking timer while you wait in the plane
+            // top left: the matchmaking timer while you wait in the helicopter
             search = UIKit.Text(follow, "", new Vector3(-0.95f, 0.62f, 0), 0.06f, Color.white, TextAnchor.UpperLeft);
             for (int i = 0; i < 5; i++)
             {
@@ -107,7 +107,7 @@ namespace Flopzone
             if (g == null || g.session == null) { status.text = search.text = ""; return; }
             var s = g.session;
             search.text = SearchText(g, s);
-            if (g.InPlane) { status.text = ""; return; }
+            if (g.InLobby) { status.text = ""; return; }
             if (!s.InMatch) { status.text = ""; return; }
             string modeName = LocalServer.Modes.TryGetValue(s.Mode ?? "", out var md) ? md.name : s.Mode;
             string clock = Clock(s.TimeLeft);
@@ -129,12 +129,13 @@ namespace Flopzone
         /// <summary>"FINDING MATCH 0:23 / 1:00" while the match fills up.</summary>
         static string SearchText(Game g, Session s)
         {
-            if (!g.InPlane) return "";
-            if (!s.InMatch) return s.IsLeaderOrSolo ? "<color=#ff9a1f>PICK A GAME MODE</color>\n<size=30>on the screen at the front of the plane</size>"
+            if (!g.InLobby) return "";
+            if (!s.InMatch) return s.IsLeaderOrSolo ? "<color=#ff9a1f>PICK A GAME MODE</color>\n<size=30>on the screen at the front of the helicopter</size>"
                                                     : "<color=#ff9a1f>WAITING FOR YOUR PARTY LEADER</color>\n<size=30>they pick the game mode</size>";
             LocalServer.Modes.TryGetValue(s.Mode ?? "", out var md);
             string count = md != null ? $"{s.Players.Count} / {md.max} players" : s.Players.Count + " players";
             if (s.State == "countdown") return $"<color=#5ad96b>MATCH FOUND!</color>\n<size=30>{count} · deploying in {Mathf.CeilToInt(s.TimeLeft)}</size>";
+            if (s.PrivateMatch) return $"<color=#ff9a1f>PRIVATE MATCH</color>  starting...\n<size=30>{(md != null ? md.name + " · " : "")}just your party, bots fill the rest</size>";
             int secs = Mathf.FloorToInt(Mathf.Max(0, RoomHost.WaitForPlayers - s.TimeLeft));
             return $"<color=#ff9a1f>FINDING MATCH</color>  {secs / 60}:{secs % 60:00} / 1:00\n<size=30>{(md != null ? md.name + " · " : "")}{count}</size>";
         }

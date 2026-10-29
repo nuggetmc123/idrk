@@ -57,8 +57,12 @@ namespace Flopzone
         bool Teams => Md != null && Md.teams;
         static long NowMs => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        public RoomHost(string kind, string mode, int map, Action<string, Dictionary<string, object>> emit)
+        /// <summary>A private match: only the party is in it, so it starts straight away with bots in the empty seats.</summary>
+        public bool priv;
+
+        public RoomHost(string kind, string mode, int map, Action<string, Dictionary<string, object>> emit, bool priv = false)
         {
+            this.priv = priv;
             this.kind = kind;
             this.mode = kind == "hub" ? null : mode;
             this.map = kind == "hub" ? -1 : map;
@@ -184,7 +188,7 @@ namespace Flopzone
         {
             if (state == "live") return Mathf.Max(0, endsAt - Time.time);
             if (state == "countdown" || state == "ended") return Mathf.Max(0, stateEnd - Time.time);
-            if (state == "waiting") return Mathf.Max(0, WaitForPlayers - (Time.time - created));
+            if (state == "waiting") return Mathf.Max(0, (priv ? 3f : WaitForPlayers) - (Time.time - created));
             return 0;
         }
 
@@ -202,7 +206,7 @@ namespace Flopzone
         {
             var list = new List<object>();
             foreach (var p in players.Values) list.Add(PlayerPayload(p));
-            return Msg.Of("t", "room", "id", "PHOTON", "kind", kind, "mode", mode, "map", map, "state", state,
+            return Msg.Of("t", "room", "id", "PHOTON", "kind", kind, "mode", mode, "map", map, "state", state, "priv", kind == "match" && priv,
                 "time", (double)TimeLeft(), "scores", Scores(), "flags", FlagsPayload(), "team", you.team,
                 "spawn", UnityEngine.Random.Range(0, 1000), "players", list);
         }
@@ -263,12 +267,13 @@ namespace Flopzone
             float t = Time.time;
             if (state == "waiting")
             {
-                if (Humans() > 0 && t - created >= WaitForPlayers)
+                // private: a few seconds for the party to load in, then go
+                if (Humans() > 0 && t - created >= (priv ? 3f : WaitForPlayers))
                 {
                     FillBots();
                     state = "countdown";
-                    stateEnd = t + 5f;
-                    MatchState("Not enough players yet, so bots are filling the empty spots.");
+                    stateEnd = t + (priv ? 3f : 5f);
+                    MatchState(priv ? "" : "Not enough players yet, so bots are filling the empty spots.");
                 }
                 else CheckStart();
             }

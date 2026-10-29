@@ -144,7 +144,7 @@ namespace Flopzone
             {
                 case 1: return new Vector2(21, 33);
                 case 6: return new Vector2(40, 34.5f);
-                case HubIndex: return new Vector2(44, 82);   // the airfield goes out to z = 80
+                case HubIndex: return new Vector2(44, 46);
                 case TutorialIndex: return new Vector2(16, 16);
                 default: return new Vector2(35, 35);
             }

@@ -15,7 +15,7 @@ namespace Flopzone
         Transform[] dots = new Transform[2];
         public bool Active { get; set; }
         float keepUntil;
-        /// <summary>A screen in the world (loadout station, the plane's mode screen) wants lasers while you're near it.</summary>
+        /// <summary>A screen in the world (loadout station, the helicopter's lobby screen) wants lasers while you're near it.</summary>
         public void KeepOn() => keepUntil = Time.time + 0.25f;
         bool Nearby => !Active && Time.time < keepUntil;
         /// <summary>True while a laser is on a button: guns don't fire then.</summary>

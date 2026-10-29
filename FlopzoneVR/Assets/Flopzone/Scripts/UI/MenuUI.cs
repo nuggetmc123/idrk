@@ -164,9 +164,9 @@ namespace Flopzone
             bool canPick = S.IsLeaderOrSolo;
             L(canPick ? (S.InParty ? $"You lead a party of {S.PartyMembers.Count}. Everyone comes with you." : "Pick a mode (or walk into a portal in the hub).")
                       : "Your party leader picks where the party goes.", -0.33f, 0.25f, 0.026f, UIKit.Muted);
-            for (int i = 0; i < Hub.Portals.Length; i++)
+            for (int i = 0; i < Hub.Modes.Length; i++)
             {
-                var p = Hub.Portals[i];
+                var p = Hub.Modes[i];
                 float x = i % 2 == 0 ? -0.1f : 0.32f;
                 float y = 0.15f - (i / 2) * 0.12f;
                 var b = B(p.label, x, y, 0.4f, 0.09f, () => { Game.I.GoMode(p.mode); Close(); }, false, 0.028f);

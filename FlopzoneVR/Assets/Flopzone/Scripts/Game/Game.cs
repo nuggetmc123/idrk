@@ -35,9 +35,9 @@ namespace Flopzone
         public IEnumerable<RemotePlayer> Remotes => remotes.Values;
         public RemotePlayer FindRemote(string id) => id != null && remotes.TryGetValue(id, out var r) ? r : null;
         IBotHost BotHost => session != null ? session.link.BotHost : null;
-        Airplane plane;
-        /// <summary>Sitting in the transport plane (picking a mode, or waiting for the match to fill).</summary>
-        public bool InPlane => plane != null && plane.Occupied;
+        Chopper chopper;
+        /// <summary>Sitting in the helicopter lobby (picking a mode, or waiting for the match to fill).</summary>
+        public bool InLobby => chopper != null && chopper.Occupied;
         float nextBotCheck;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -177,7 +177,7 @@ namespace Flopzone
             s.NameChanged += (id, name) => { var r = FindRemote(id); if (r != null) r.SetName(name); };
             s.NeedName += () => { if (session.Welcomed && tutorial == null && session.RoomId != null) Hud.I.Toast("A moderator reset your name. Pick a new one in Menu > Profile."); };
             s.Closed += OnClosed;
-            s.Board += () => { if (session.InHub && !InPlane && tutorial == null && !banned) BoardPlane(false); };
+            s.Board += () => { if (session.InHub && !InLobby && tutorial == null && !banned) BoardChopper(false); };
             SessionChanged?.Invoke();
         }
 
@@ -279,14 +279,14 @@ namespace Flopzone
             rig.SetTeam(session.MyTeam);
             rig.GiveLoadout(Save.Settings.primaryGun, Save.Settings.sidearmGun);
             bool waiting = session.InMatch && (session.State == "waiting" || session.State == "countdown");
-            if (waiting || (session.InHub && InPlane))
+            if (waiting || (session.InHub && InLobby))
             {
-                // the match is still filling up (or we haven't picked one yet): wait in the plane
-                if (!InPlane) { EnsurePlane(); plane.Enter(rig, SeatIndex()); }   // pulled in with the party: the door shuts behind you too
+                // the match is still filling up (or we haven't picked one yet): wait in the chopper
+                if (!InLobby) { EnsureChopper(); chopper.Enter(rig, SeatIndex()); }   // pulled in with the party: the door shuts behind you too
             }
             else
             {
-                if (plane != null) plane.Exit();
+                if (chopper != null) chopper.Exit();
                 world.Spawn(session.MyTeam, session.SpawnIndex, out var pos, out var yaw);
                 rig.Respawn(pos, yaw);
             }
@@ -294,8 +294,8 @@ namespace Flopzone
             fellSent = false;
             if (session.InMatch && session.Mode == "ctf") ctf = CtfFlags.Create(world);
             AudioManager.I.PlayMusic(session.InHub ? "music_hub" : "music_match");
-            if (session.InHub) { if (!InPlane) Hud.I.Big("THE HUB", 2f, Color.white); }
-            else if (InPlane) Hud.I.Big("FINDING MATCH", 2.5f, UIKit.Accent);
+            if (session.InHub) { if (!InLobby) Hud.I.Big("THE HUB", 2f, Color.white); }
+            else if (InLobby) Hud.I.Big("FINDING MATCH", 2.5f, UIKit.Accent);
             else
             {
                 string modeName = LocalServer.Modes.TryGetValue(session.Mode, out var md) ? md.name : session.Mode;
@@ -364,17 +364,17 @@ namespace Flopzone
             session.Go("hub");
         }
 
-        public void GoMode(string mode)
+        public void GoMode(string mode, bool privateMatch = false)
         {
             if (session == null || tutorial != null) return;
             if (!session.IsLeaderOrSolo) { Hud.I.Toast("Only your party leader can pick a mode."); return; }
-            if (session.InHub && !InPlane) BoardPlane(true);
-            session.Go(mode);
+            if (session.InHub && !InLobby) BoardChopper(true);
+            session.Go(mode, privateMatch);
         }
 
-        void EnsurePlane()
+        void EnsureChopper()
         {
-            if (plane == null) plane = Airplane.Create();
+            if (chopper == null) chopper = Chopper.Create();
         }
 
         /// <summary>Everyone in the party gets their own seat.</summary>
@@ -384,29 +384,29 @@ namespace Flopzone
             return 0;
         }
 
-        /// <summary>Walk up the plane's ramp: in you go, the door shuts, and (if you lead a party) everyone is pulled in.</summary>
-        public void BoardPlane(bool pullParty)
+        /// <summary>Walk up the chopper's ramp: in you go, the door shuts, and (if you lead a party) everyone is pulled in.</summary>
+        public void BoardChopper(bool pullParty)
         {
-            if (session == null || tutorial != null || InPlane || !rig.Alive) return;
+            if (session == null || tutorial != null || InLobby || !rig.Alive) return;
             if (menu.IsOpen) menu.Close();
-            EnsurePlane();
-            plane.Enter(rig, SeatIndex());
+            EnsureChopper();
+            chopper.Enter(rig, SeatIndex());
             Hud.I.Big(session.IsLeaderOrSolo ? "PICK A GAME MODE" : "WAITING FOR YOUR\nPARTY LEADER", 2.5f, UIKit.Accent);
             if (pullParty && session.InParty && session.IsLeaderOrSolo) session.BoardParty();
         }
 
-        /// <summary>Off the plane. While searching for a match this cancels the search (party leader only).</summary>
-        public void LeavePlane()
+        /// <summary>Off the chopper. While searching for a match this cancels the search (party leader only).</summary>
+        public void LeaveChopper()
         {
-            if (session == null || !InPlane) return;
+            if (session == null || !InLobby) return;
             if (session.InMatch) { GoHub(); return; }
-            plane.Exit();
-            rig.Teleport(Airplane.HubExit, 180f);
+            chopper.Exit();
+            rig.Teleport(Chopper.HubExit, 180f);
         }
 
         public void LoadoutChanged()
         {
-            if (session != null && session.InMatch && rig.Alive && !InPlane) { pendingLoadout = true; Hud.I.Toast("Your new loadout is ready next time you spawn."); return; }
+            if (session != null && session.InMatch && rig.Alive && !InLobby) { pendingLoadout = true; Hud.I.Toast("Your new loadout is ready next time you spawn."); return; }
             rig.GiveLoadout(Save.Settings.primaryGun, Save.Settings.sidearmGun);
         }
 
@@ -537,13 +537,13 @@ namespace Flopzone
 
         void OnMatchState(string state, string note)
         {
-            if (state == "countdown") { Hud.I.Big(InPlane ? "MATCH FOUND!" : "GET READY", 1.5f, InPlane ? UIKit.Good : UIKit.Accent); AudioManager.Ui("beep", 0.6f); }
+            if (state == "countdown") { Hud.I.Big(InLobby ? "MATCH FOUND!" : "GET READY", 1.5f, InLobby ? UIKit.Good : UIKit.Accent); AudioManager.Ui("beep", 0.6f); }
             else if (state == "live")
             {
-                if (InPlane)
+                if (InLobby)
                 {
-                    // deploy: out of the plane and onto the map
-                    plane.Exit();
+                    // deploy: out of the chopper and onto the map
+                    chopper.Exit();
                     world.Spawn(session.MyTeam, session.SpawnIndex, out var p, out var yaw);
                     rig.Respawn(p, yaw);
                     MyHp = 100;

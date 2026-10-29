@@ -100,7 +100,7 @@ namespace Flopzone
                 {
                     string dest = m.Str("dest");
                     if (dest == "hub") EnterHub();
-                    else if (Modes.ContainsKey(dest)) EnterMatch(dest);
+                    else if (Modes.ContainsKey(dest)) EnterMatch(dest, m.Bool("priv"));
                     break;
                 }
                 case "st":
@@ -177,15 +177,19 @@ namespace Flopzone
             SendRoom();
         }
 
-        void EnterMatch(string m)
+        bool priv;
+
+        void EnterMatch(string m, bool privateMatch)
         {
             var md = Modes[m];
             Reset("match", m);
             map = Random.Range(0, MapBuilder.Names.Length);
             // offline nobody else is coming: "search" for a minute (or until the leader
-            // presses Start Now on the plane's screen), then fill up with bots
+            // presses Start Now on the lobby helicopter's screen), then fill up with bots
             state = "waiting";
-            fillBotsAt = Time.time + RoomHost.WaitForPlayers;
+            priv = privateMatch;
+            // private: just you (and your party), so straight in with bots
+            fillBotsAt = Time.time + (priv ? 0.5f : RoomHost.WaitForPlayers);
             players[myId] = new P { id = myId, name = myName, team = md.teams ? 0 : -1, protectUntil = Time.time + 1.5f };
             SendRoom();
         }
@@ -198,7 +202,7 @@ namespace Flopzone
         {
             var list = new List<object>();
             foreach (var p in players.Values) list.Add(PlayerPayload(p));
-            Out("t", "room", "id", "LOCAL" + roomSeq, "kind", kind, "mode", mode, "map", map, "state", state,
+            Out("t", "room", "id", "LOCAL" + roomSeq, "kind", kind, "mode", mode, "map", map, "state", state, "priv", kind == "match" && priv,
                 "time", (double)TimeLeft(), "scores", Scores(), "flags", FlagsPayload(), "team", Me.team, "spawn", Random.Range(0, 1000), "players", list);
         }
 
@@ -248,8 +252,9 @@ namespace Flopzone
                 fillBotsAt = -1;
                 FillBots();
                 state = "countdown";
-                stateEnd = t + 5f;
-                Out("t", "ms", "state", state, "time", 5.0, "scores", Scores(), "note", "Not enough players found, so bots are joining.");
+                float wait = priv ? 3f : 5f;
+                stateEnd = t + wait;
+                Out("t", "ms", "state", state, "time", (double)wait, "scores", Scores(), "note", priv ? "" : "Not enough players found, so bots are joining.");
             }
             if (state == "countdown" && t >= stateEnd) StartMatch();
             else if (state == "live" && t >= endsAt) TimeUp();

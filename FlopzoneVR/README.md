@@ -35,19 +35,23 @@ At the top of Unity, next to Window and Help:
 pick a name (must be unique; slurs and swearing are refused), then learn to grab, shoot,
 drop the mag, reload, jump, sprint, crouch and open the menu. After that, the hub.
 
-**Hub:** a forward operating base. Try all 22 guns in the armory, shoot targets on the live-fire
+**Hub:** a forward operating base. Board the lobby helicopter to play, try all 22 guns in the armory, shoot targets on the live-fire
 range, play Flappy Flop on the arcade machines, change your guns at the loadout station, and check
 out the helipad, barracks, motor pool and watchtowers.
 
-**The plane:** a transport plane is parked on the airfield behind the hangar. Walk up its ramp and
-you're inside. The ramp closes behind you, and if you lead a party, everyone in it is pulled in too.
-Inside there are six loadout stations, two arcade machines, and the mode screen at the front.
-Only the party leader (or a solo player) can pick the mode there.
-After that the plane is **finding a match**: the top left of your view counts up to 1:00 and shows
-how many players have joined. If the match isn't full after a minute, it starts with whoever joined
-and bots fill the empty spots (offline, the leader can also press *Start now with bots*). When the
-match starts, you deploy onto the map. Walking through one of the hangar's six gates boards the
-plane with that mode already picked.
+**The lobby helicopter:** a big twin-rotor helicopter stands on the landing pad at the north end
+of the base, where you'd expect a deployment centre. Walk up its ramp and you're inside. The ramp
+closes behind you, and if you lead a party, everyone in it is pulled in too. Inside there are six
+loadout stations, two arcade machines, and the lobby screen at the front. Only the party leader (or
+a solo player) can use it:
+
+- **Public:** anyone can join. The top left of your view says **FINDING MATCH** and counts up to
+  1:00, with how many players have joined. If the match isn't full after a minute, it starts with
+  whoever joined and bots fill the empty spots (offline, the leader can also press *Start now with bots*).
+- **Private:** just your party, no strangers. You go in straight away and bots fill the empty spots.
+
+When the match starts, you deploy onto the map. Outside, by the ramp, there are four more arcade
+machines and a loadout station.
 
 **Players** are white, floppy mannequins: a tall rounded head with dot eyes and a smile, a long
 body, thin arms with fingers, and flat feet. They're all white; your team shows as a coloured band

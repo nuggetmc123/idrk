@@ -3,18 +3,20 @@ using UnityEngine;
 namespace Flopzone
 {
     /// <summary>
-    /// The transport plane. Outside: a big grey four-engine cargo plane parked on
-    /// the hub's airfield with its ramp down. Walk up the ramp and you're inside
-    /// the cargo bay (built far above every map), the ramp closes behind you and
-    /// your party is pulled in. In here: the mode screen (party leader or solo
-    /// players only), six loadout stations, arcade machines, and the wait for a
-    /// full match.
+    /// The lobby helicopter. Outside: a big twin-rotor helicopter parked in the hub
+    /// with its ramp down. Walk up the ramp and you're inside the cabin (built far
+    /// above every map), the ramp closes behind you and your party is pulled in.
+    /// In here: the lobby screen (party leader or solo players only) to pick a mode
+    /// and public or private, six loadout stations, arcade machines, and the wait
+    /// for a full match.
     /// </summary>
-    public class Airplane : MonoBehaviour
+    public class Chopper : MonoBehaviour
     {
         public static readonly Vector3 Origin = new Vector3(0, 500, 0);
-        /// <summary>Where you come out in the hub if you leave the plane: at the foot of the ramp.</summary>
-        public static readonly Vector3 HubExit = new Vector3(0, 0.05f, 44.5f);
+        /// <summary>Where the parked helicopter's ramp meets the cabin (in the hub).</summary>
+        public static readonly Vector3 HubSpot = new Vector3(0, 0, 27f);
+        /// <summary>Where you come out in the hub if you leave: just past the foot of the ramp.</summary>
+        public static readonly Vector3 HubExit = new Vector3(0, 0.05f, 21f);
 
         public bool Occupied { get; private set; }
         Transform door;
@@ -23,6 +25,8 @@ namespace Flopzone
         UIPanel screen;
         string screenKey = "";
         float nextScreen;
+        /// <summary>The leader's choice on the lobby screen.</summary>
+        bool privateMatch;
 
         const float OpenAngle = -100f;
 
@@ -34,11 +38,11 @@ namespace Flopzone
 
         /* ======================= inside ======================= */
 
-        public static Airplane Create()
+        public static Chopper Create()
         {
-            var root = new GameObject("Airplane");
+            var root = new GameObject("Chopper");
             root.transform.position = Origin;
-            var a = root.AddComponent<Airplane>();
+            var a = root.AddComponent<Chopper>();
             a.BuildInterior();
             return a;
         }
@@ -157,7 +161,7 @@ namespace Flopzone
             var bulk = MapKit.M("5a6048", 0.3f, 0.3f, Surface.PaintedMetal);
             Prims.Box(t, new Vector3(0, 1.55f, 8.1f), new Vector3(4.6f, 3.1f, 0.2f), bulk);
             Prims.Box(t, new Vector3(1.55f, 1.0f, 7.99f), new Vector3(0.75f, 1.9f, 0.04f), rib, false);
-            UIKit.Text(t, "CREW ONLY", new Vector3(1.55f, 1.7f, 7.96f), 0.06f, new Color(0.95f, 0.85f, 0.4f));
+            UIKit.Text(t, "COCKPIT", new Vector3(1.55f, 1.7f, 7.96f), 0.06f, new Color(0.95f, 0.85f, 0.4f));
             ArcadeMachine.Create(t, new Vector3(-1.7f, 0, 7.1f), 0f, "2a7fff");
             ArcadeMachine.Create(t, new Vector3(1.7f, 0, 6.2f), -20f, "ff4fa3");
             Prims.Box(t, new Vector3(0, 1.75f, 8.02f), new Vector3(2.2f, 1.32f, 0.06f), rib, false);
@@ -244,7 +248,7 @@ namespace Flopzone
             bool leader = s.IsLeaderOrSolo;
             var md = s.Mode != null && LocalServer.Modes.TryGetValue(s.Mode, out var m) ? m : null;
             int secs = Mathf.FloorToInt(Mathf.Max(0, RoomHost.WaitForPlayers - s.TimeLeft));
-            string key = $"{s.RoomKind}|{s.State}|{leader}|{s.Mode}|{s.Players.Count}|{(s.InMatch ? secs : 0)}|{(s.State == "countdown" ? Mathf.CeilToInt(s.TimeLeft) : 0)}";
+            string key = $"{s.RoomKind}|{s.State}|{leader}|{s.Mode}|{s.PrivateMatch}|{privateMatch}|{s.Players.Count}|{(s.InMatch ? secs : 0)}|{(s.State == "countdown" ? Mathf.CeilToInt(s.TimeLeft) : 0)}";
             if (key == screenKey) return;
             screenKey = key;
             screen.Clear();
@@ -252,11 +256,14 @@ namespace Flopzone
             if (s.InMatch && md != null && (s.State == "waiting" || s.State == "countdown"))
             {
                 bool found = s.State == "countdown";
-                var title = screen.Text(found ? "MATCH FOUND!" : "FINDING MATCH" + new string('.', 1 + secs % 3), new Vector2(0, 0.42f), 0.11f, found ? UIKit.Good : c);
+                string head0 = found ? (s.PrivateMatch ? "PRIVATE MATCH" : "MATCH FOUND!")
+                             : s.PrivateMatch ? "STARTING PRIVATE MATCH..." : "FINDING MATCH" + new string('.', 1 + secs % 3);
+                var title = screen.Text(head0, new Vector2(0, 0.42f), 0.1f, found ? UIKit.Good : c);
                 title.fontStyle = FontStyle.Bold;
-                screen.Text(md.name.ToUpperInvariant(), new Vector2(0, 0.25f), 0.07f, Color.white);
+                screen.Text(md.name.ToUpperInvariant() + (s.PrivateMatch ? "  ·  PRIVATE" : "  ·  PUBLIC"), new Vector2(0, 0.25f), 0.07f, Color.white);
                 screen.Text($"{s.Players.Count} / {md.max} players", new Vector2(0, 0.12f), 0.06f, UIKit.Muted);
                 if (found) screen.Text("Deploying in " + Mathf.CeilToInt(s.TimeLeft) + "...", new Vector2(0, -0.04f), 0.08f, Color.white);
+                else if (s.PrivateMatch) screen.Text("Just your party. Bots fill the empty spots.", new Vector2(0, -0.04f), 0.045f, UIKit.Muted);
                 else
                 {
                     screen.Text($"{secs / 60}:{secs % 60:00} / 1:00", new Vector2(0, -0.03f), 0.09f, Color.white);
@@ -270,126 +277,147 @@ namespace Flopzone
                 }
                 return;
             }
-            var head = screen.Text("SELECT GAME MODE", new Vector2(0, 0.47f), 0.085f, c);
+            var head = screen.Text("SELECT GAME MODE", new Vector2(0, 0.49f), 0.08f, c);
             head.fontStyle = FontStyle.Bold;
-            screen.Text(leader ? (s.InParty ? "You lead the party: everyone comes with you." : "Point and pull the trigger to pick.")
-                               : "Only your party leader can pick the mode.", new Vector2(0, 0.37f), 0.036f, UIKit.Muted);
-            for (int i = 0; i < Hub.Portals.Length; i++)
+            // public or private
+            var pub = screen.Button("PUBLIC", new Vector2(-0.3f, 0.37f), new Vector2(0.5f, 0.1f), () => { privateMatch = false; screenKey = ""; }, 0.045f);
+            var pri = screen.Button("PRIVATE", new Vector2(0.3f, 0.37f), new Vector2(0.5f, 0.1f), () => { privateMatch = true; screenKey = ""; }, 0.045f);
+            var on = new Color(0.95f, 0.5f, 0.1f);
+            (privateMatch ? pri : pub).SetColors(on, Color.Lerp(on, Color.white, 0.3f));
+            pub.interactable = pri.interactable = leader;
+            screen.Text(!leader ? "Only your party leader can pick the mode."
+                        : privateMatch ? "PRIVATE: just your party, straight in. Bots fill the empty spots."
+                        : "PUBLIC: anyone can join. Finding a match takes up to 1:00, then bots fill in.",
+                new Vector2(0, 0.28f), 0.033f, UIKit.Muted);
+            for (int i = 0; i < Hub.Modes.Length; i++)
             {
-                var p = Hub.Portals[i];
-                var pos = new Vector2(i % 2 == 0 ? -0.48f : 0.48f, 0.2f - (i / 2) * 0.22f);
-                var b = screen.Button(p.label + "\n<size=22>" + p.info + "</size>", pos, new Vector2(0.9f, 0.19f), () => Game.I.GoMode(p.mode), 0.045f);
+                var p = Hub.Modes[i];
+                var pos = new Vector2(i % 2 == 0 ? -0.48f : 0.48f, 0.14f - (i / 2) * 0.2f);
+                var b = screen.Button(p.label + "\n<size=22>" + p.info + "</size>", pos, new Vector2(0.9f, 0.17f), () => Game.I.GoMode(p.mode, privateMatch), 0.042f);
                 b.interactable = leader;
             }
-            screen.Button("LEAVE PLANE", new Vector2(0, -0.5f), new Vector2(0.6f, 0.11f), () => Game.I.LeavePlane(), 0.04f);
+            screen.Button("LEAVE HELICOPTER", new Vector2(0, -0.5f), new Vector2(0.7f, 0.11f), () => Game.I.LeaveChopper(), 0.04f);
         }
 
-        /* ======================= outside, on the hub's airfield ======================= */
+        /* ======================= outside, in the hub ======================= */
 
-        /// <summary>The parked plane. pos is the back end of the main cabin; the nose points along +z, the ramp comes down toward -z.</summary>
+        /// <summary>
+        /// The big twin-rotor helicopter parked in the hub. pos is the top of its rear ramp
+        /// (the back of the cabin); the nose points along +z and the ramp comes down toward -z.
+        /// </summary>
         public static void BuildExterior(MapKit k, Vector3 pos)
         {
-            var root = Prims.Empty("transport plane", k.S, pos).transform;
-            var dyn = Prims.Empty("transport plane (moving parts)", k.D, pos).transform;
-            var grey = MapKit.M("6c757b", 0.35f, 0.35f, Surface.PaintedMetal);
-            var greyDark = MapKit.M("4f575c", 0.35f, 0.35f, Surface.PaintedMetal);
+            var root = Prims.Empty("lobby helicopter", k.S, pos).transform;
+            var dyn = Prims.Empty("lobby helicopter (rotors)", k.D, pos).transform;
+            var olive = MapKit.M("4f5a2a", 0.3f, 0.3f, Surface.PaintedMetal);
+            var oliveDark = MapKit.M("39421d", 0.3f, 0.3f, Surface.PaintedMetal);
             var black = MapKit.M("1d1f21", 0.3f, 0.2f, Surface.Rubber);
             var glass = MilitaryProps.Glass;
             var steel = MilitaryProps.DarkSteel;
             var tire = MilitaryProps.Tire;
+            var floorM = MapKit.M("4a4d50", 0.35f, 0.5f, Surface.Metal);
+            const float len = 13.5f;   // cabin length
 
-            // fuselage: round body, flat belly, rounded nose with a radome
-            Prims.Cyl(root, new Vector3(0, 3.3f, 11f), 4.8f, 19.6f, grey, Vector3.forward);
-            Prims.Box(root, new Vector3(0, 3.3f, 11.1f), new Vector3(4.6f, 4.6f, 19.8f), null).GetComponent<Renderer>().enabled = false;
-            Prims.Box(root, new Vector3(0, 1.5f, 11.1f), new Vector3(4.0f, 1.3f, 19.8f), grey);
-            Prims.Ball(root, new Vector3(0, 3.35f, 20f), new Vector3(4.8f, 4.6f, 8f), grey, true);
-            Prims.Ball(root, new Vector3(0, 2.4f, 20.4f), new Vector3(4.2f, 3.2f, 6.5f), grey);
-            Prims.Ball(root, new Vector3(0, 2.95f, 23.6f), new Vector3(1.8f, 1.7f, 1.4f), black);
+            // the long, boxy cabin with rounded top and belly
+            // (it starts 1.2 m in, so the open back of the hold shows behind the ramp)
+            Prims.Box(root, new Vector3(0, 2.25f, (len + 1.2f) / 2), new Vector3(4.0f, 2.7f, len - 1.2f), olive, false);
+            Prims.Make(PrimitiveType.Cylinder, root, new Vector3(0, 3.6f, (len + 1.2f) / 2), new Vector3(4.0f, (len - 1.2f) / 2, 1.5f), olive, false, Quaternion.Euler(90, 0, 0));
+            Prims.Make(PrimitiveType.Cylinder, root, new Vector3(0, 0.9f, len / 2 + 0.6f), new Vector3(3.8f, len / 2 - 0.6f, 0.7f), oliveDark, false, Quaternion.Euler(90, 0, 0));
+            Prims.Box(root, new Vector3(0, 2.4f, (len + 1.2f) / 2), new Vector3(4.0f, 3.6f, len - 1.2f), null).GetComponent<Renderer>().enabled = false;
+            // the cockpit: a rounded nose with a big windscreen
+            Prims.Ball(root, new Vector3(0, 2.5f, len), new Vector3(4.0f, 3.4f, 6.0f), olive, true);
+            Prims.Ball(root, new Vector3(0, 1.6f, len + 0.3f), new Vector3(3.6f, 1.6f, 5.2f), oliveDark);
             for (int i = 0; i < 4; i++)
-                Prims.Box(root, new Vector3(-0.9f + i * 0.6f, 4.75f, 21.75f), new Vector3(0.5f, 0.34f, 0.05f), glass, false, Quaternion.Euler(-40, (i - 1.5f) * -12f, 0));
-            foreach (float side in new[] { -1f, 1f })
-                Prims.Box(root, new Vector3(side * 1.75f, 4.55f, 21.2f), new Vector3(0.05f, 0.34f, 0.6f), glass, false, Quaternion.Euler(0, side * -25f, 0));
-            // a row of little windows, the crew door, roundels and the name
+                Prims.Box(root, new Vector3(-1.05f + i * 0.7f, 3.3f, len + 2.35f), new Vector3(0.62f, 0.75f, 0.05f), glass, false, Quaternion.Euler(-35, (i - 1.5f) * -14f, 0));
             foreach (float side in new[] { -1f, 1f })
             {
-                for (int i = 0; i < 6; i++) Prims.Box(root, new Vector3(side * 2.38f, 3.7f, 3.6f + i * 2.4f), new Vector3(0.05f, 0.36f, 0.36f), glass, false);
-                Prims.Box(root, new Vector3(side * 2.39f, 2.4f, 17.2f), new Vector3(0.04f, 1.8f, 0.9f), greyDark, false);
-                Prims.Cyl(root, new Vector3(side * 2.41f, 3.9f, 7f), 1.3f, 0.02f, Prims.Lit(Color.white, 0.4f), Vector3.right);
-                Prims.Cyl(root, new Vector3(side * 2.43f, 3.9f, 7f), 0.8f, 0.02f, MapKit.M("1f3a75", 0.4f), Vector3.right);
-                var name = k.Sign(pos + new Vector3(side * 2.45f, 4.5f, 13f), side * 90f, "FLOPZONE AIR", 0.35f, new Color(0.15f, 0.15f, 0.17f));
-                name.fontStyle = FontStyle.Bold;
+                Prims.Box(root, new Vector3(side * 1.75f, 3.0f, len + 1.4f), new Vector3(0.05f, 0.8f, 1.2f), glass, false, Quaternion.Euler(0, side * -22f, 0));
+                Prims.Box(root, new Vector3(side * 1.55f, 1.6f, len + 2.0f), new Vector3(0.05f, 0.5f, 0.6f), glass, false, Quaternion.Euler(0, side * -30f, 0));
+            }
+            Prims.Cyl(root, new Vector3(0.9f, 3.0f, len + 3.2f), 0.12f, 2.4f, steel, new Vector3(0, 0.15f, 1f));   // refuelling probe
+
+            // round windows, a crew door, the name and roundels down both sides; fuel pods low down
+            foreach (float side in new[] { -1f, 1f })
+            {
+                for (int i = 0; i < 6; i++) Prims.Cyl(root, new Vector3(side * 2.01f, 2.7f, 2f + i * 1.8f), 0.42f, 0.04f, glass, Vector3.right);
+                Prims.Box(root, new Vector3(side * 2.02f, 1.95f, len - 1.6f), new Vector3(0.04f, 1.8f, 0.95f), oliveDark, false);
+                Prims.Cyl(root, new Vector3(side * 2.03f, 2.3f, 5.6f), 1.1f, 0.02f, Prims.Lit(Color.white, 0.4f), Vector3.right);
+                Prims.Cyl(root, new Vector3(side * 2.05f, 2.3f, 5.6f), 0.62f, 0.02f, MapKit.M("1f3a75", 0.4f), Vector3.right);
+                var nm = k.Sign(pos + new Vector3(side * 2.06f, 1.45f, 8.4f), side * 90f, "FLOPZONE", 0.42f, new Color(0.08f, 0.09f, 0.06f));
+                nm.fontStyle = FontStyle.Bold;
+                Prims.Make(PrimitiveType.Capsule, root, new Vector3(side * 2.35f, 1.15f, 6.8f), new Vector3(0.9f, 4.0f, 1.0f), olive, false, Quaternion.Euler(90, 0, 0));
+                Prims.Box(root, new Vector3(side * 2.15f, 0.4f, 2.6f), new Vector3(0.2f, 0.8f, 0.2f), steel, false);
+                Prims.Cyl(root, new Vector3(side * 2.2f, 0.5f, 2.6f), 1.0f, 0.45f, tire, Vector3.right, true);
+                Prims.Cyl(root, new Vector3(side * 2.2f, 0.5f, 2.6f), 0.5f, 0.48f, steel, Vector3.right);
+                foreach (float z in new[] { len - 2.3f, len - 1.3f })
+                {
+                    Prims.Cyl(root, new Vector3(side * 1.3f, 0.45f, z), 0.9f, 0.4f, tire, Vector3.right, true);
+                    Prims.Cyl(root, new Vector3(side * 1.3f, 0.45f, z), 0.45f, 0.42f, steel, Vector3.right);
+                }
             }
 
-            // upswept tail over the open ramp
-            var tailDir = Quaternion.Euler(20, 0, 0) * Vector3.forward;
-            Prims.Cyl(root, new Vector3(0, 5.2f, -3.2f), 3.9f, 8.4f, grey, tailDir);
-            Prims.Box(root, new Vector3(0, 5.1f, -3.0f), new Vector3(3.9f, 1.4f, 7.2f), grey, true, Quaternion.Euler(20, 0, 0));
-            Prims.Box(root, new Vector3(0, 2.6f, 1.15f), new Vector3(4.2f, 3.3f, 0.06f), Prims.Unlit(new Color(0.03f, 0.03f, 0.035f)), false);
-            Prims.Box(root, new Vector3(0, 0.95f, 0.5f), new Vector3(3.6f, 0.2f, 1.4f), MapKit.M("4a4d50", 0.35f, 0.5f, Surface.Metal));
+            // the back: open hold over the lowered ramp
+            Prims.Box(root, new Vector3(0, 2.4f, 1.15f), new Vector3(3.8f, 2.9f, 0.06f), Prims.Unlit(new Color(0.03f, 0.03f, 0.035f)), false);
+            Prims.Box(root, new Vector3(0, 0.95f, 0.5f), new Vector3(3.6f, 0.2f, 1.4f), floorM);
             foreach (float side in new[] { -1f, 1f })
             {
-                Prims.Box(root, new Vector3(side * 2.05f, 2.0f, 0.6f), new Vector3(0.3f, 2.4f, 1.6f), grey);
-                Prims.Cyl(root, new Vector3(side * 1.6f, 1.9f, -1.2f), 0.12f, 2.6f, steel, new Vector3(0, 0.8f, 1f));
+                Prims.Box(root, new Vector3(side * 1.9f, 2.2f, 0.6f), new Vector3(0.22f, 2.7f, 1.6f), olive);
+                Prims.Cyl(root, new Vector3(side * 1.5f, 1.9f, -1.0f), 0.1f, 2.4f, steel, new Vector3(0, 0.8f, 1f));
             }
-            // the ramp, down on the ground, with grip strips and chevrons
-            var ramp = Prims.Box(root, new Vector3(0, 0.55f, -2.75f), new Vector3(3.4f, 0.15f, 5.6f), MapKit.M("4a4d50", 0.35f, 0.5f, Surface.Metal), true, Quaternion.Euler(-9.8f, 0, 0));
+            Prims.Box(root, new Vector3(0, 3.95f, 0.6f), new Vector3(4.0f, 0.5f, 1.6f), olive);
+            var lobby = k.Sign(pos + new Vector3(0, 5.0f, 0.15f), 180, "LOBBY", 0.7f, new Color(0.95f, 0.88f, 0.55f));
+            lobby.fontStyle = FontStyle.Bold;
+            var ramp = Prims.Box(root, new Vector3(0, 0.5f, -2.5f), new Vector3(3.2f, 0.15f, 5.1f), floorM, true, Quaternion.Euler(-10.4f, 0, 0));
             for (int i = 0; i < 8; i++)
                 Prims.Box(ramp.transform, new Vector3(0, 0.55f, -0.42f + i * 0.12f), new Vector3(0.95f, 0.1f, 0.01f), MapKit.M("202224", 0.2f, 0f, Surface.Rubber), false);
-            foreach (float x in new[] { -1.55f, 1.55f })
-                Prims.Box(ramp.transform, new Vector3(x / 3.4f, 0.55f, 0), new Vector3(0.04f, 0.1f, 1f), MilitaryProps.Hazard, false);
+            foreach (float x in new[] { -1.45f, 1.45f })
+                Prims.Box(ramp.transform, new Vector3(x / 3.2f, 0.55f, 0), new Vector3(0.04f, 0.1f, 1f), MilitaryProps.Hazard, false);
 
-            // wings, engines with idling props, tail planes
-            Prims.Box(root, new Vector3(0, 5.95f, 10.5f), new Vector3(34f, 0.4f, 4.4f), grey);
-            Prims.Box(root, new Vector3(0, 5.75f, 10.5f), new Vector3(5f, 0.8f, 5f), grey);
+            // two rotor towers, the engines either side of the back one, and the rotors
+            Prims.Box(root, new Vector3(0, 4.9f, 2.4f), new Vector3(2.0f, 2.2f, 4.4f), olive);
+            Prims.Box(root, new Vector3(0, 5.9f, 1.4f), new Vector3(1.6f, 1.4f, 2.4f), olive, true, Quaternion.Euler(-12, 0, 0));
+            Prims.Box(root, new Vector3(0, 4.55f, len - 1.0f), new Vector3(1.5f, 0.9f, 2.6f), olive);
+            Prims.Box(root, new Vector3(0, 4.25f, len / 2), new Vector3(0.9f, 0.5f, len - 3f), oliveDark);
             foreach (float side in new[] { -1f, 1f })
             {
-                Prims.Box(root, new Vector3(side * 18.5f, 5.95f, 10.2f), new Vector3(3f, 0.3f, 3.2f), grey);
-                Prims.Box(root, new Vector3(side * 20f, 5.95f, 10.0f), new Vector3(0.3f, 0.3f, 0.5f), Prims.Emissive(side < 0 ? new Color(1f, 0.1f, 0.1f) : new Color(0.1f, 1f, 0.2f), 3f), false);
-                Prims.Box(root, new Vector3(side * 11f, 5.75f, 8.6f), new Vector3(9f, 0.06f, 0.6f), greyDark, false);
-                foreach (float x in new[] { 5.5f, 10.5f })
-                {
-                    var ex = side * x;
-                    Prims.Cyl(root, new Vector3(ex, 5.3f, 12.2f), 1.3f, 4.6f, grey, Vector3.forward);
-                    Prims.Cyl(root, new Vector3(ex, 5.3f, 14.45f), 1.15f, 0.12f, black, Vector3.forward);
-                    Prims.Box(root, new Vector3(ex, 4.85f, 10.6f), new Vector3(0.5f, 0.5f, 1.4f), black, false);
-                    Prims.Ball(root, new Vector3(ex, 5.3f, 14.85f), new Vector3(0.6f, 0.6f, 0.9f), steel);
-                    var prop = Prims.Empty("prop", dyn, new Vector3(ex, 5.3f, 14.75f)).transform;
-                    for (int b = 0; b < 4; b++)
-                        Prims.Box(prop, Vector3.zero, new Vector3(0.24f, 3.8f, 0.05f), black, false, Quaternion.Euler(0, 0, b * 45f + (b % 2) * 45f));
-                    var spin = prop.gameObject.AddComponent<Spinner>();
-                    spin.axis = Vector3.forward;
-                    spin.speed = x < 8 ? 160f : 0f;   // the inner engines idle
-                }
+                Prims.Cyl(root, new Vector3(side * 1.65f, 4.85f, 2.0f), 1.05f, 3.4f, oliveDark, Vector3.forward);
+                Prims.Cyl(root, new Vector3(side * 1.65f, 4.85f, 0.25f), 0.8f, 0.2f, black, Vector3.forward);
+                Prims.Box(root, new Vector3(side * 1.2f, 4.85f, 2.0f), new Vector3(0.5f, 0.3f, 1.8f), steel, false);
             }
-            Prims.Box(root, new Vector3(0, 6.75f, -6.6f), new Vector3(14f, 0.3f, 3.4f), grey);
-            Prims.Box(root, new Vector3(0, 9.6f, -6.9f), new Vector3(0.4f, 6.4f, 4.0f), grey, true, Quaternion.Euler(-15, 0, 0));
-            foreach (float side in new[] { -1f, 1f })
-                k.Sign(pos + new Vector3(side * 0.23f, 10.2f, -7.1f), side * 90f, "FZ-130", 0.35f, Color.white);
-
-            // landing gear pods, wheels and the nose wheel
-            foreach (float side in new[] { -1f, 1f })
-            {
-                Prims.Box(root, new Vector3(side * 2.55f, 1.45f, 9f), new Vector3(1.1f, 1.7f, 7f), grey);
-                foreach (float z in new[] { 7.5f, 10.5f })
-                {
-                    Prims.Cyl(root, new Vector3(side * 2.75f, 0.6f, z), 1.2f, 0.5f, tire, Vector3.right, true);
-                    Prims.Cyl(root, new Vector3(side * 3.01f, 0.6f, z), 0.6f, 0.04f, steel, Vector3.right);
-                }
-            }
-            Prims.Cyl(root, new Vector3(0, 0.95f, 19f), 0.18f, 1.2f, steel, Vector3.up);
-            Prims.Cyl(root, new Vector3(0, 0.45f, 19f), 0.9f, 0.5f, tire, Vector3.right, true);
-            Prims.Box(root, new Vector3(0, 5.72f, 6f), new Vector3(0.3f, 0.2f, 0.3f), Prims.Emissive(new Color(1f, 0.15f, 0.1f), 3f), false);
+            Rotor(root, dyn, new Vector3(0, 7.05f, 1.3f), olive, steel, black, 25f);
+            Rotor(root, dyn, new Vector3(0, 5.35f, len - 1.0f), olive, steel, black, -25f);
+            Prims.Box(root, new Vector3(0, 4.35f, len / 2), new Vector3(0.3f, 0.2f, 0.3f), Prims.Emissive(new Color(1f, 0.15f, 0.1f), 3f), false);
 
             // the way in: walk up the ramp
             var trig = Prims.Empty("boarding", k.D, pos + new Vector3(0, 0, 0.5f));
-            trig.AddComponent<PlaneBoarding>();
-            k.Sign(pos + new Vector3(0, 3.4f, 1.1f), 180, "BOARD HERE", 0.3f, new Color(0.95f, 0.85f, 0.4f));
-            k.Sign(pos + new Vector3(0, 3.1f, 1.1f), 180, "walk up the ramp · your party comes with you", 0.13f, Color.white);
+            trig.AddComponent<ChopperBoarding>();
+            var board = k.Sign(pos + new Vector3(0, 3.0f, 1.1f), 180, "BOARD HERE", 0.32f, new Color(0.95f, 0.85f, 0.4f));
+            board.fontStyle = FontStyle.Bold;
+            k.Sign(pos + new Vector3(0, 2.62f, 1.1f), 180, "walk up the ramp · your party comes with you", 0.13f, Color.white);
+            k.Sign(pos + new Vector3(0, 2.3f, 1.1f), 180, "pick a mode · public or private", 0.13f, Color.white);
+        }
+
+        /// <summary>A three-bladed rotor turning slowly (the engines are idling).</summary>
+        static void Rotor(Transform root, Transform dyn, Vector3 at, Material m, Material steel, Material black, float speed)
+        {
+            Prims.Cyl(root, at - Vector3.up * 0.35f, 0.35f, 0.7f, steel, Vector3.up);
+            var spin = Prims.Empty("rotor", dyn, at).transform;
+            Prims.Cyl(spin, Vector3.zero, 0.75f, 0.3f, steel, Vector3.up);
+            Prims.Ball(spin, Vector3.up * 0.2f, new Vector3(0.6f, 0.35f, 0.6f), m);
+            for (int b = 0; b < 3; b++)
+            {
+                var arm = Prims.Empty("blade", spin, Vector3.zero).transform;
+                arm.localRotation = Quaternion.Euler(0, b * 120f, 0);
+                Prims.Box(arm, new Vector3(4.6f, 0, 0), new Vector3(8.6f, 0.07f, 0.6f), black, false, Quaternion.Euler(4, 0, 0));
+                Prims.Box(arm, new Vector3(8.75f, 0.005f, 0), new Vector3(0.3f, 0.075f, 0.61f), MilitaryProps.Hazard, false);
+            }
+            var sp = spin.gameObject.AddComponent<Spinner>();
+            sp.speed = speed;
         }
     }
 
-    /// <summary>The top of the parked plane's ramp: walk in and you board.</summary>
-    public class PlaneBoarding : MonoBehaviour
+    /// <summary>The top of the parked helicopter's ramp: walk in and you board.</summary>
+    public class ChopperBoarding : MonoBehaviour
     {
         float cooldown;
 
@@ -397,12 +425,12 @@ namespace Flopzone
         {
             var rig = PlayerRig.I;
             var g = Game.I;
-            if (rig == null || g == null || !rig.Alive || Time.time < cooldown || g.InPlane) return;
+            if (rig == null || g == null || !rig.Alive || Time.time < cooldown || g.InLobby) return;
             var local = transform.InverseTransformPoint(rig.transform.position);
             if (Mathf.Abs(local.x) < 1.7f && Mathf.Abs(local.z) < 0.7f && local.y > -0.5f && local.y < 2.5f)
             {
                 cooldown = Time.time + 3f;
-                g.BoardPlane(true);
+                g.BoardChopper(true);
             }
         }
     }
