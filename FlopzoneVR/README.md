@@ -138,10 +138,20 @@ that nobody can get past.
 
 ### Guns (22)
 
-- **Pistols:** Flop 9, Duck Deagle, Buzz Mini, Revolt Revolver, Squeak .22, Twin Hammer
-- **Shotguns:** Boomstick, Sawed Slam, Auto Thunder, Drum Brute, Slug Lord
-- **Snipers** (working scopes): Longshot, Whisper, Elephant Gun, Marksman DMR, Needle
-- **Assault rifles:** Rattle AR, Bulldog, Viper Carbine, Burst Bravo, Heavy HMR, Spitfire
+Each one is modelled on a real gun:
+
+- **Pistols:** Flop 9 (Glock), Duck Deagle (Desert Eagle), Buzz Mini (Uzi), Revolt Revolver
+  (with a speed loader), Squeak .22 (target pistol), Twin Hammer (Beretta 93R)
+- **Shotguns:** Boomstick (Remington 870 pump), Sawed Slam (sawed-off double barrel), Auto Thunder
+  (Benelli M4), Drum Brute (AA-12), Slug Lord (slug pump with a red dot)
+- **Snipers** (scopes that really zoom, with a crosshair): Longshot (M24 bolt-action), Whisper
+  (VSS, suppressed), Elephant Gun (big-bore bolt rifle), Marksman DMR (SR-25), Needle (AWM)
+- **Assault rifles:** Rattle AR (AR-15), Bulldog (AUG bullpup), Viper Carbine (AK), Burst Bravo (SCAR),
+  Heavy HMR (M249), Spitfire (Vector)
+
+**Two hands:** squeeze grip with your free hand on the front of a gun you're holding (the
+handguard, pump or foregrip). Rifles and shotguns then aim along the line between your hands.
+Let go with the grip hand and the other hand keeps the gun.
 
 Every gun has muzzle flash, tracer, shell ejection, recoil, haptics, its own sound and an
 ammo counter. Hits spray blood and leave splats; kills turn players into physics

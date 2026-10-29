@@ -110,6 +110,8 @@ namespace Flopzone
                 hands[i].transform.localPosition = input.HandPos(i);
                 hands[i].transform.localRotation = input.HandRot(i);
             }
+            // a gun held in both hands aims from the grip hand toward the support hand
+            for (int i = 0; i < 2; i++) hands[i].ApplyTwoHanded();
         }
 
         public void SetTeam(int t)

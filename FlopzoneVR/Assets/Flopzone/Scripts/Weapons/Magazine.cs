@@ -14,9 +14,19 @@ namespace Flopzone
         {
             var go = GunModel.BuildMag(def, null);
             go.transform.SetPositionAndRotation(pos, rot);
+            // a box that fits this mag's shape (drums, curved and long mags differ a lot)
+            var bounds = new Bounds(new Vector3(0, -0.05f, 0), Vector3.zero);
+            bool first = true;
+            foreach (var r in go.GetComponentsInChildren<Renderer>())
+            {
+                var lc = go.transform.InverseTransformPoint(r.bounds.center);
+                var ls = go.transform.InverseTransformVector(r.bounds.size);
+                var lb = new Bounds(lc, new Vector3(Mathf.Abs(ls.x), Mathf.Abs(ls.y), Mathf.Abs(ls.z)));
+                if (first) { bounds = lb; first = false; } else bounds.Encapsulate(lb);
+            }
             var col = go.AddComponent<BoxCollider>();
-            col.center = new Vector3(0, -0.05f, 0);
-            col.size = new Vector3(0.035f, 0.11f, 0.06f);
+            col.center = bounds.center;
+            col.size = Vector3.Max(bounds.size, new Vector3(0.025f, 0.03f, 0.025f));
             var rb = go.AddComponent<Rigidbody>();
             rb.mass = 0.3f;
             var m = go.AddComponent<Magazine>();

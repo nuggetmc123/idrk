@@ -81,37 +81,91 @@ namespace Flopzone
             if (scopeTex != null) scopeTex.Release();
         }
 
+        static Texture2D scopeMask;
+
+        /// <summary>The scope's round edge and crosshair: clear inside a circle, black outside, with thin lines and mil dots.</summary>
+        static Texture2D ScopeMask()
+        {
+            if (scopeMask != null) return scopeMask;
+            const int n = 256;
+            scopeMask = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "fz_scope_mask" };
+            var px = new Color32[n * n];
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = (x + 0.5f) / n * 2 - 1, dy = (y + 0.5f) / n * 2 - 1;
+                    float r = Mathf.Sqrt(dx * dx + dy * dy);
+                    float a = Mathf.Clamp01((r - 0.9f) / 0.06f);                       // soft dark edge
+                    float line = Mathf.Abs(dx) < 0.006f || Mathf.Abs(dy) < 0.006f ? 1f : 0f;
+                    if (r < 0.06f) line = 0f;                                          // gap in the middle
+                    if ((Mathf.Abs(dx) < 0.02f && Mathf.Abs(dy) > 0.45f) || (Mathf.Abs(dy) < 0.02f && Mathf.Abs(dx) > 0.45f)) line = 1f;   // thick posts
+                    for (int i = 1; i <= 3; i++)                                       // mil dots
+                    {
+                        float m = i * 0.13f;
+                        if ((dx * dx + (Mathf.Abs(dy) - m) * (Mathf.Abs(dy) - m) < 0.0002f) || ((Mathf.Abs(dx) - m) * (Mathf.Abs(dx) - m) + dy * dy < 0.0002f)) line = 1f;
+                    }
+                    byte alpha = (byte)(Mathf.Max(a, line * 0.9f) * 255);
+                    px[y * n + x] = r < 0.012f ? new Color32(255, 40, 30, 255) : new Color32(0, 0, 0, alpha);   // red centre dot
+                }
+            scopeMask.SetPixels32(px);
+            scopeMask.Apply();
+            return scopeMask;
+        }
+
+        Material scopeGlass;
+
+        /// <summary>
+        /// A real scope: a camera at the front lens with a narrow field of view draws into a texture
+        /// shown on the back lens, under a round black edge with a crosshair. It only renders while
+        /// your eye is up close (it's a whole extra view of the world, so it's skipped otherwise).
+        /// </summary>
         void EnableScope(bool on)
         {
             if (model.scopeEye == null) return;
             if (on && scopeCam == null)
             {
-                scopeTex = new RenderTexture(256, 256, 16) { name = "scope" };
+                scopeTex = new RenderTexture(384, 384, 16) { name = "scope" };
                 var camGo = new GameObject("scopeCam");
-                camGo.transform.SetParent(model.scopeEye, false);
-                camGo.transform.localPosition = new Vector3(0, 0, 0.25f);
+                camGo.transform.SetParent(model.scopeFront != null ? model.scopeFront : model.scopeEye, false);
                 scopeCam = camGo.AddComponent<Camera>();
+                scopeCam.enabled = false;
                 scopeCam.targetTexture = scopeTex;
                 scopeCam.cullingMask = ~(1 << Layers.MirrorOnly);
-                scopeCam.fieldOfView = 7f;
+                // more zoom on the big rifles
+                scopeCam.fieldOfView = def.id == "needle" || def.id == "elephant" ? 4.5f : def.id == "marksman" || def.id == "whisper" ? 9f : 6f;
                 scopeCam.nearClipPlane = 0.05f;
-                scopeCam.farClipPlane = 250f;
+                scopeCam.farClipPlane = 300f;
                 scopeCam.stereoTargetEye = StereoTargetEyeMask.None;
-                scopeCam.depth = -5;
-                scopeLens = UIKit.Quad(model.scopeEye, new Vector3(0, 0, 0.001f), new Vector2(0.034f, 0.034f), Color.white, 2000);
+                scopeCam.allowHDR = false;
+                scopeCam.allowMSAA = false;
+                // the picture (drawn after the solid parts of the gun, so they can't cover it)
+                float d = 0.034f;
+                scopeLens = UIKit.Quad(model.scopeEye, Vector3.zero, new Vector2(d, d), Color.white, 2995);
                 scopeLens.transform.localRotation = Quaternion.identity;
-                var m = scopeLens.GetComponent<Renderer>().sharedMaterial;
-                m.mainTexture = scopeTex;
-                // crosshair
-                var reticle = UIKit.Text(scopeLens.transform, "+", new Vector3(0, 0, -0.01f), 1.2f, new Color(0, 0, 0, 0.8f));
-                reticle.transform.localScale = Vector3.one;
+                scopeGlass = scopeLens.GetComponent<Renderer>().sharedMaterial;
+                scopeGlass.mainTexture = scopeTex;
+                var mask = UIKit.Quad(scopeLens.transform, new Vector3(0, 0, -0.0005f), Vector2.one, Color.white, 2996);
+                mask.GetComponent<Renderer>().sharedMaterial.mainTexture = ScopeMask();
             }
-            if (scopeCam != null)
-            {
-                scopeCam.enabled = on;
-                if (scopeLens) scopeLens.SetActive(on);
-            }
+            if (scopeLens) scopeLens.SetActive(on);
         }
+
+        /// <summary>Render the scope view this frame if an eye is close to it.</summary>
+        void UpdateScope()
+        {
+            if (scopeCam == null || scopeLens == null || !scopeLens.activeSelf) return;
+            var rig = PlayerRig.I;
+            bool looking = rig != null && Vector3.Distance(rig.head.position, model.scopeEye.position) < 0.3f
+                           && Vector3.Dot(rig.head.forward, model.scopeEye.forward) > 0.6f;
+            if (looking)
+            {
+                scopeCam.Render();
+                scopeGlass.color = Color.white;
+            }
+            else scopeGlass.color = new Color(0.12f, 0.16f, 0.2f);   // just glass when you're not looking through it
+        }
+
+        void LateUpdate() => UpdateScope();
 
         protected override void Update()
         {

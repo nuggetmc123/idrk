@@ -14,6 +14,8 @@ namespace Flopzone
         public PlayerRig rig;
         public Transform attach;
         public Grabbable held;
+        /// <summary>The gun in the other hand that this hand is steadying (its foregrip).</summary>
+        public Gun supporting;
         bool heldByTrigger;
         GameObject glove;
         Vector3 lastPos;
@@ -93,6 +95,8 @@ namespace Flopzone
             lastRot = transform.rotation;
             if (held != null && held.holder != this) { held = null; }
             var input = VRInput.I;
+            // steadying the other hand's gun: hold on while the grip is squeezed
+            if (supporting != null && (input == null || !input.Grip(index) || supporting.holder != Other || !rig.Alive)) StopSupporting();
             // the hand stays visible while it holds something; the fingers wrap round it
             glove.SetActive(rig.Alive && !(held is Magazine));
             if (input != null) AnimateFingers(input);
@@ -106,7 +110,19 @@ namespace Flopzone
             }
 
             bool release = heldByTrigger ? !input.Trigger(index) : !input.Grip(index);
-            if (release) { Release(); return; }
+            if (release)
+            {
+                // let go with the grip hand while the other hand steadies it: the other hand keeps the gun
+                if (held is Gun twoHanded && Other.supporting == twoHanded)
+                {
+                    Other.StopSupporting();
+                    ReleaseQuietly();
+                    Other.Grab(twoHanded, false);
+                    return;
+                }
+                Release();
+                return;
+            }
 
             if (held is Magazine mag)
             {
@@ -123,8 +139,21 @@ namespace Flopzone
 
         void TryGrab()
         {
-            // 1) pull the mag out of the gun in the other hand
+            // 0) steady the gun in the other hand by its foregrip (unless the hand is on the mag)
             var otherGun = Other.HeldGun;
+            if (otherGun != null && otherGun.model.foregrip != null)
+            {
+                float dFore = Vector3.Distance(attach.position, otherGun.model.foregrip.position);
+                float dMag = otherGun.hasMag ? Vector3.Distance(attach.position, otherGun.model.magwell.position) : 99f;
+                if (dFore < 0.2f && (dMag > 0.13f || dFore < dMag))
+                {
+                    supporting = otherGun;
+                    VRInput.I.Haptic(index, 0.25f, 0.03f);
+                    AudioManager.Sfx("grab", attach.position, 0.4f);
+                    return;
+                }
+            }
+            // 1) pull the mag out of the gun in the other hand
             if (otherGun != null && otherGun.hasMag && Vector3.Distance(attach.position, otherGun.model.magwell.position) < 0.13f)
             {
                 var mag = otherGun.TakeMag();
@@ -204,9 +233,39 @@ namespace Flopzone
             held = null;
         }
 
+        public void StopSupporting()
+        {
+            supporting = null;
+            if (glove != null) { glove.transform.localPosition = Vector3.zero; glove.transform.localRotation = Quaternion.identity; }
+        }
+
+        /// <summary>
+        /// Two-handed aiming. On the grip hand: point the gun from this hand toward the support
+        /// hand (rifles and shotguns; a pistol just gets cupped). On the support hand: draw the
+        /// hand on the gun's foregrip.
+        /// </summary>
+        public void ApplyTwoHanded()
+        {
+            if (held is Gun g && Other.supporting == g && g.def.cls != GunClass.Pistol)
+            {
+                var fore = g.model.foregrip.localPosition;
+                var toSupport = Other.transform.position - transform.position;
+                if (toSupport.sqrMagnitude > 0.01f && fore.sqrMagnitude > 0.0001f)
+                {
+                    var aim = Quaternion.LookRotation(toSupport, transform.up);
+                    g.transform.rotation = aim * Quaternion.Inverse(Quaternion.FromToRotation(Vector3.forward, fore.normalized));
+                }
+            }
+            else if (held is Gun g2 && g2.transform.localRotation != Quaternion.identity && Other.supporting != g2)
+                g2.transform.localRotation = Quaternion.identity;   // back to one hand
+            if (supporting != null && glove != null && supporting.model.foregrip != null)
+                glove.transform.SetPositionAndRotation(supporting.model.foregrip.position, supporting.transform.rotation);
+        }
+
         /// <summary>Drop everything (dying).</summary>
         public void DropAll()
         {
+            StopSupporting();
             if (held == null) return;
             var g = held;
             held = null;
