@@ -39,14 +39,14 @@ namespace Flopzone
             Prims.Ball(t, new Vector3(0, bottom + h + 0.12f, 0.0f), new Vector3(0.18f, 0.14f, 0.06f), frame);
             // the glass: a quad facing forward (+z of the mirror)
             m.half = new Vector2(w / 2, h / 2);
-            m.rt = new RenderTexture(512, Mathf.RoundToInt(512 * h / w), 16) { name = "fz_mirror", antiAliasing = 2 };
+            m.rt = new RenderTexture(512, Mathf.RoundToInt(512 * h / w), 16) { name = "fz_mirror" };
             m.glassMat = Prims.Sprite(Color.white);
             m.glassMat.mainTexture = m.rt;
-            // the camera behind the glass sees the world flipped left-to-right: flip it back
-            m.glassMat.mainTextureScale = new Vector2(-1, 1);
-            m.glassMat.mainTextureOffset = new Vector2(1, 0);
-            m.glassMat.renderQueue = 2000;
-            var q = Prims.Make(PrimitiveType.Quad, t, new Vector3(0, bottom + h / 2, 0.005f), new Vector3(w, h, 1), m.glassMat, false, Quaternion.Euler(0, 180, 0), "glass");
+            // drawn after the solid things, so the mirror's own wooden back can't paint over it
+            m.glassMat.renderQueue = 2990;
+            // the camera behind the glass sees the world flipped left-to-right: the negative
+            // width flips the picture back (this material draws both sides, so it still shows)
+            var q = Prims.Make(PrimitiveType.Quad, t, new Vector3(0, bottom + h / 2, 0.005f), new Vector3(-w, h, 1), m.glassMat, false, Quaternion.Euler(0, 180, 0), "glass");
             q.layer = Layers.MirrorGlass;
             m.glass = q.transform;
             var cg = new GameObject("mirror camera");

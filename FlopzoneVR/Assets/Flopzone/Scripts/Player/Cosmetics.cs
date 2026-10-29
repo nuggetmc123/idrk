@@ -501,13 +501,16 @@ namespace Flopzone
 
         static void GlovesOn(Body b, int gloves, List<GameObject> made)
         {
+            for (int s = 0; s < 2; s++) GloveOn(b.hand[s], b.handParts[s], gloves, made);
+        }
+
+        /// <summary>Put gloves on one hand (a body's, or your own first-person hand).</summary>
+        public static void GloveOn(Transform h, List<Renderer> parts, int gloves, List<GameObject> made)
+        {
             var (mainC, cuffC) = GloveColors(gloves);
             var main = L(mainC, gloves == 4 ? 0.85f : 0.3f, 0f, gloves == 3 ? Surface.Wood : Surface.Rubber);
             var cuff = L(cuffC, 0.3f);
-            for (int s = 0; s < 2; s++)
             {
-                var h = b.hand[s];
-                var parts = b.handParts[s];
                 // parts[0] is the palm, the rest are fingers (the last one is the thumb)
                 if (gloves == 1) parts[0].sharedMaterial = main;
                 else if (gloves != 2) foreach (var r in parts) r.sharedMaterial = main;

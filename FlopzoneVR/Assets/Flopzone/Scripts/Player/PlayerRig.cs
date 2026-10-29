@@ -126,8 +126,8 @@ namespace Flopzone
         {
             int code = Save.Settings.look;
             if (selfAvatar) { selfAvatar.ApplyLook(code); Prims.SetLayer(selfAvatar.gameObject, Layers.MirrorOnly); }
-            var (main, cuff) = Cosmetics.GloveColors(Look.Unpack(code).gloves);
-            foreach (var h in hands) if (h) h.SetGloveColors(main, cuff);
+            int gloves = Look.Unpack(code).gloves;
+            foreach (var h in hands) if (h) h.SetGloves(gloves);
         }
 
         float mirrorUntil;

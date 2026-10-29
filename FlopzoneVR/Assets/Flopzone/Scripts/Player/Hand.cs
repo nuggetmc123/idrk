@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Flopzone
@@ -35,32 +36,35 @@ namespace Flopzone
             return h;
         }
 
+        Transform handShape;
+        Material bare;
+        readonly List<Renderer> handParts = new List<Renderer>();
+        readonly List<GameObject> gloveExtras = new List<GameObject>();
+        int glovesOn = -1;
+
+        /// <summary>Your own hand: the same white mannequin hand everyone else sees (palm, four fingers, a thumb).</summary>
         void BuildGlove()
         {
             glove = Prims.Empty("glove", transform);
-            var m = Prims.Lit(new Color(0.15f, 0.15f, 0.17f), 0.4f);
-            var accent = Prims.Lit(UIKit.Accent, 0.4f);
+            handShape = Prims.Empty("hand", glove.transform, new Vector3(0, 0, -0.02f)).transform;
+            bare = Prims.Lit(new Color(0.93f, 0.93f, 0.92f), 0.45f, 0f, Surface.Plastic);
             float side = index == 0 ? -1 : 1;
-            Prims.Box(glove.transform, new Vector3(0, 0, -0.03f), new Vector3(0.075f, 0.03f, 0.09f), m, false);
-            Prims.Box(glove.transform, new Vector3(0, 0, -0.085f), new Vector3(0.07f, 0.04f, 0.04f), accent, false);
+            handParts.Add(Prims.Ball(handShape, new Vector3(0, 0, -0.01f), new Vector3(0.06f, 0.025f, 0.075f), bare, false).GetComponent<Renderer>());
             for (int f = 0; f < 4; f++)
-                Prims.Box(glove.transform, new Vector3((f - 1.5f) * 0.018f, -0.012f, 0.03f), new Vector3(0.016f, 0.02f, 0.045f), m, false, Quaternion.Euler(35, 0, 0));
-            Prims.Box(glove.transform, new Vector3(-side * 0.04f, 0.0f, -0.01f), new Vector3(0.018f, 0.02f, 0.05f), m, false, Quaternion.Euler(0, -side * 35, 0));
+                handParts.Add(Prims.Capsule(handShape, new Vector3((f - 1.5f) * 0.014f, -0.004f, 0.045f), 0.012f, 0.05f, bare, new Vector3((f - 1.5f) * 0.25f, -0.15f, 1)).GetComponent<Renderer>());
+            handParts.Add(Prims.Capsule(handShape, new Vector3(-side * 0.032f, 0, 0.0f), 0.013f, 0.045f, bare, new Vector3(-side, 0, 0.8f)).GetComponent<Renderer>());
+            SetGloves(0);
         }
 
-        /// <summary>Recolour your own hands to match the gloves you picked (the second piece is the cuff).</summary>
-        public void SetGloveColors(Color main, Color cuff)
+        /// <summary>Wear the gloves picked at the Outfitter (0 = bare white hands).</summary>
+        public void SetGloves(int gloves)
         {
-            if (glove == null) return;
-            var mm = Prims.Lit(main, 0.4f);
-            var cm = Prims.Lit(cuff, 0.4f);
-            int i = 0;
-            foreach (Transform c in glove.transform)
-            {
-                var r = c.GetComponent<Renderer>();
-                if (r) r.sharedMaterial = i == 1 ? cm : mm;
-                i++;
-            }
+            if (handShape == null || gloves == glovesOn) return;
+            glovesOn = gloves;
+            foreach (var go in gloveExtras) if (go != null) Destroy(go);
+            gloveExtras.Clear();
+            foreach (var r in handParts) r.sharedMaterial = bare;
+            if (gloves > 0) Cosmetics.GloveOn(handShape, handParts, gloves, gloveExtras);
         }
 
         /// <summary>Called by PlayerRig every frame after the pose update.</summary>
