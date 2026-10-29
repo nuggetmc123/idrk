@@ -21,6 +21,27 @@ namespace Flopzone
         /// <summary>1v1 and 2v2 keep the tight maps; every other mode plays on the bigger versions.</summary>
         public static bool Expands(string mode) => mode != null && mode != "1v1" && mode != "2v2";
 
+        /// <summary>
+        /// Build the hub over several frames (used while loading, so the headset keeps getting
+        /// frames instead of freezing on one long one). Same result as Build(HubIndex).
+        /// </summary>
+        public static System.Collections.IEnumerator BuildHubOverFrames(Action<World> done)
+        {
+            var go = new GameObject("Hub");
+            var w = go.AddComponent<World>();
+            w.mapIndex = HubIndex;
+            w.mapName = "Hub";
+            var k = new MapKit(w, 1000 + HubIndex);
+            foreach (var _ in Hub.Steps(k)) yield return null;
+            w.bounds = Bounds(HubIndex);
+            BarrierField.Create(k.D, w.bounds);
+            Physics.SyncTransforms();
+            yield return null;
+            try { StaticBatchingUtility.Combine(k.S.gameObject); }
+            catch (Exception e) { Debug.LogWarning("[Flopzone] static batching skipped: " + e.Message); }
+            done(w);
+        }
+
         public static World Build(int index, bool expanded = false)
         {
             var go = new GameObject(index == HubIndex ? "Hub" : index == TutorialIndex ? "Training" : "Map " + Names[index]);

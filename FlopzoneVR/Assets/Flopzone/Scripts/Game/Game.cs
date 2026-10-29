@@ -66,8 +66,10 @@ namespace Flopzone
             Save.Load();
             Application.runInBackground = true;
 #if UNITY_ANDROID && !UNITY_EDITOR
-            QualitySettings.shadows = ShadowQuality.HardOnly;   // Quest: crisp and cheap
-            QualitySettings.shadowDistance = 35f;
+            // Quest: no live shadows (they draw everything twice), and run at the headset's
+            // refresh rate; Android otherwise caps games at 30 fps, which judders in VR
+            QualitySettings.shadows = ShadowQuality.Disable;
+            Application.targetFrameRate = 120;
 #else
             QualitySettings.shadows = ShadowQuality.All;        // PC / editor: soft shadows
             QualitySettings.shadowDistance = 70f;
@@ -109,8 +111,12 @@ namespace Flopzone
             var popup = Hud.I.Popup("Welcome to Flopzone", "Loading to hub...");
             // the textures are painted on other threads while the welcome popup shows
             while (surfacesReady != null && !surfacesReady.IsCompleted && Time.time - started < 20f) yield return null;
-            // something nice to stand in while we connect
-            BuildWorld(MapBuilder.HubIndex);
+            // something nice to stand in while we connect, built a piece per frame so the
+            // headset keeps getting frames (one long frame freezes and judders in VR)
+            popup.PlaceInFront(rig.head, 0.9f, 0.05f);
+            yield return MapBuilder.BuildHubOverFrames(w => world = w);
+            Physics.gravity = new Vector3(0, -9.81f * world.gravity, 0);
+            rig.GravityScale = world.gravity;
             world.Spawn(-1, 0, out var p, out var yaw);
             rig.Teleport(p, yaw);
             popup.PlaceInFront(rig.head, 0.9f, 0.05f);

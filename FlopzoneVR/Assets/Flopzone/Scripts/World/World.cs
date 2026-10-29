@@ -36,7 +36,9 @@ namespace Flopzone
         Light sunLight;
         System.Threading.Tasks.Task<Color32[]> skyTask;
         Texture2D skyTex;
+#if !UNITY_ANDROID || UNITY_EDITOR
         ReflectionProbe probe;
+#endif
 
         public Vector3 Center => Vector3.zero;
 
@@ -125,6 +127,8 @@ namespace Flopzone
             RenderSettings.skybox = pano;
             DynamicGI.UpdateEnvironment();
             // one reflection snapshot so metal and wet surfaces reflect this map's sky and buildings
+            // (PC only: on Quest the six extra renders cause a hitch, and the sky's reflection is plenty)
+#if !UNITY_ANDROID || UNITY_EDITOR
             if (probe == null)
             {
                 var pg = new GameObject("Reflections");
@@ -140,6 +144,7 @@ namespace Flopzone
                 probe.importance = 1;
             }
             probe.RenderProbe();
+#endif
         }
 
         /// <summary>True if a point is outside the play area (with a little slack).</summary>

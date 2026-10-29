@@ -29,6 +29,7 @@ namespace Flopzone
         float vy;
         bool sprinting, crouched, snapLatched, wasGrounded = true;
         float crouchY, stepDist, bodyYaw;
+        int lastStep;
         Avatar selfAvatar;
         int team = -1;
 
@@ -231,7 +232,14 @@ namespace Flopzone
             if (grounded && flat.magnitude > 0.001f)
             {
                 stepDist += flat.magnitude;
-                if (stepDist > (sprinting ? 2.1f : 1.5f)) { stepDist = 0; AudioManager.Sfx("step", transform.position, sprinting ? 0.55f : 0.35f, Random.Range(0.9f, 1.1f)); }
+                if (stepDist > (sprinting ? 1.9f : crouched ? 0.9f : 1.3f))
+                {
+                    stepDist = 0;
+                    int v = Random.Range(0, Synth.StepVariants);
+                    if (v == lastStep) v = (v + 1) % Synth.StepVariants;
+                    lastStep = v;
+                    AudioManager.Sfx("step" + v, transform.position, sprinting ? 0.6f : crouched ? 0.2f : 0.4f, Random.Range(0.92f, 1.06f));
+                }
             }
 
             // ---- turning ----

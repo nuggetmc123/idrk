@@ -33,7 +33,9 @@ namespace Flopzone
             d["hurt"] = Hurt();
             d["impact"] = Click(0.08f, 800f, 0.5f, 17, 1);
             d["ricochet"] = Ricochet();
-            d["step"] = Thud(0.09f, 90f, 0.35f, 18);
+            // footsteps: four slightly different ones so walking doesn't sound like a loop
+            for (int i = 0; i < StepVariants; i++) d["step" + i] = Footstep(40 + i * 7);
+            d["step"] = d["step0"];
             d["jump"] = Sweep(220f, 420f, 0.14f, 0.35f, Wave.Triangle);
             d["land"] = Thud(0.14f, 70f, 0.6f, 19);
             d["ui_click"] = Ding(1800f, 0.05f, 0.45f);
@@ -135,6 +137,45 @@ namespace Flopzone
                 b[i] = lp * env + snap;
             }
             Normalize(b, 0.7f);
+            return b;
+        }
+
+        public const int StepVariants = 4;
+
+        /// <summary>
+        /// A boot on hard ground: the heel lands (a dull knock with a gritty crunch),
+        /// then the toe rolls down a moment later (a quieter scuff of grit).
+        /// </summary>
+        static float[] Footstep(int seed)
+        {
+            var r = new Random(seed);
+            var b = Buf(0.24f);
+            float knockHz = 85f + (float)r.NextDouble() * 30f;
+            float toeAt = 0.055f + (float)r.NextDouble() * 0.03f;
+            float grit = 0.6f + (float)r.NextDouble() * 0.5f;
+            float lowA = 0, lowB = 0, mid = 0;
+            double phase = 0;
+            for (int i = 0; i < b.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float n = (float)(r.NextDouble() * 2 - 1);
+                // crackle: now and then a sharper grain of sand or gravel
+                if (r.NextDouble() < 0.025) n *= 3f;
+                lowA += 0.08f * (n - lowA);      // dull body of the impact
+                lowB += 0.3f * (n - lowB);
+                mid += 0.5f * ((lowB - lowA) - mid);   // a band of grit in the middle
+                // heel: very fast attack, quick decay, the knock drops in pitch as the sole flattens
+                float heelEnv = t < 0.0015f ? t / 0.0015f : (float)Math.Exp(-(t - 0.0015f) * 48);
+                phase += knockHz * (1 + 0.6 * Math.Exp(-t * 70)) / Rate;
+                float knock = (float)Math.Sin(2 * Math.PI * phase);
+                float heel = (knock * 0.55f + lowA * 2.2f + mid * grit) * heelEnv;
+                // toe: a softer, brighter scuff
+                float td = t - toeAt;
+                float toeEnv = td < 0 ? 0 : td < 0.004f ? td / 0.004f : (float)Math.Exp(-(td - 0.004f) * 38);
+                float toe = (lowA * 1.1f + mid * 1.4f * grit) * toeEnv * 0.45f;
+                b[i] = heel + toe;
+            }
+            Normalize(b, 0.8f);
             return b;
         }
 

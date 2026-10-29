@@ -23,6 +23,12 @@ namespace Flopzone
 
         public static void Build(MapKit k)
         {
+            foreach (var _ in Steps(k)) { }
+        }
+
+        /// <summary>The hub, one section at a time (each yield is a good place to show a frame while loading).</summary>
+        public static System.Collections.Generic.IEnumerable<object> Steps(MapKit k)
+        {
             k.world.ApplyTheme(new MapTheme
             {
                 sky = SkyStyle.Day,
@@ -48,6 +54,7 @@ namespace Flopzone
             k.Box(new Vector3(0, 0.05f, 23.4f), new Vector3(44, 0.01f, 0.3f), paint, 0, false);
             for (int i = 0; i < 22; i++) k.Box(new Vector3(-21f + i * 2f, 0.052f, 23.4f), new Vector3(0.9f, 0.012f, 0.3f), MapKit.M("1a1a1a", 0.3f), 45, false);
 
+            yield return null;
             // ---- flagpole + base sign in the middle ----
             MilitaryProps.Flagpole(k, new Vector3(0, 0, 9));
             var plaque = k.Block(new Vector3(0, 0, 6.5f), new Vector3(3.4f, 1.1f, 0.5f), concrete);
@@ -55,18 +62,23 @@ namespace Flopzone
             t1.fontStyle = FontStyle.Bold;
             k.Sign(new Vector3(0, 0.42f, 6.24f), 180, "FORWARD OPERATING BASE", 0.14f, Color.white);
 
+            yield return null;
             // ---- the lobby helicopter, with arcade machines and a loadout station by its ramp ----
             Lobby(k);
 
+            yield return null;
             // ---- the Outfitter: pick your hat, clothes and gloves ----
             OutfitStation.BuildBooth(k, new Vector3(-15, 0, 14));
 
+            yield return null;
             // ---- armory: the gun table under a camo net, ammo stacked around ----
             Armory(k);
 
+            yield return null;
             // ---- shooting range to the south ----
             Range(k);
 
+            yield return null;
             // ---- helipad + motor pool to the east ----
             var pad = Prims.Cyl(k.S, new Vector3(31, 0.06f, 12), 13f, 0.12f, concrete, Vector3.up);
             pad.name = "helipad";
@@ -88,6 +100,7 @@ namespace Flopzone
             for (int i = 0; i < 6; i++) MilitaryProps.Drum(k, new Vector3(38 + (i % 2) * 0.7f, 0, -28 + (i / 2) * 0.7f), i % 3 == 0 ? "8a2a1a" : "3f4a2a");
             MilitaryProps.Radar(k, new Vector3(38, 0, 24));
 
+            yield return null;
             // ---- barracks + tents to the west ----
             MilitaryProps.Quonset(k, new Vector3(-33, 0, 14), 90, 13);
             MilitaryProps.Quonset(k, new Vector3(-33, 0, -14), 90, 13);
@@ -98,6 +111,7 @@ namespace Flopzone
             MilitaryProps.Sandbags(k, new Vector3(-22, 0, -22), new Vector3(-16, 0, -22), 3);
             MilitaryProps.Sandbags(k, new Vector3(16, 0, -22), new Vector3(22, 0, -22), 3);
 
+            yield return null;
             // ---- perimeter: HESCO walls, a fence by the gate, towers in the corners, floodlights ----
             float hx = 42.5f, hz = 44.5f, north = 44.5f;
             MilitaryProps.Hesco(k, new Vector3(-hx, 0, -hz), new Vector3(-hx, 0, north), 1.8f);
@@ -114,6 +128,7 @@ namespace Flopzone
             MilitaryProps.FloodLight(k, new Vector3(19, 0, -14), -20);
             for (int i = 0; i < 6; i++) MilitaryProps.Jersey(k, new Vector3(-21 + i * 8.4f, 0, -8.5f), 90);
 
+            yield return null;
             // ---- hills and trees outside the wire ----
             k.Backdrop(40, 55, 110, p => { k.Pine(p, k.R(8, 14)); return null; });
             k.Backdrop(14, 120, 220, p => { Prims.Ball(k.S, p, new Vector3(k.R(60, 120), k.R(25, 55), k.R(60, 120)), MapKit.M("5f6b48", 0.05f, 0f, Surface.Grass)); return null; });
