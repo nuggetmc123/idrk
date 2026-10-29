@@ -14,6 +14,10 @@ namespace Flopzone
         LineRenderer[] lines = new LineRenderer[2];
         Transform[] dots = new Transform[2];
         public bool Active { get; set; }
+        float keepUntil;
+        /// <summary>A screen in the world (loadout station, the plane's mode screen) wants lasers while you're near it.</summary>
+        public void KeepOn() => keepUntil = Time.time + 0.25f;
+        bool Nearby => !Active && Time.time < keepUntil;
         /// <summary>True while a laser is on a button: guns don't fire then.</summary>
         public bool OverUI { get; private set; }
 
@@ -42,7 +46,7 @@ namespace Flopzone
             var input = VRInput.I;
             for (int h = 0; h < 2; h++)
             {
-                bool show = Active && input != null && input.XRActive && hands[h] != null;
+                bool show = (Active || Nearby) && input != null && input.XRActive && hands[h] != null;
                 lines[h].enabled = show;
                 dots[h].gameObject.SetActive(false);
                 if (!show) continue;
@@ -66,7 +70,7 @@ namespace Flopzone
                 lines[h].SetPosition(0, origin);
                 lines[h].SetPosition(1, origin + dir * len);
             }
-            if (Active && input != null && !input.XRActive) DesktopPointer();
+            if ((Active || Nearby) && input != null && !input.XRActive) DesktopPointer();
         }
 
         void DesktopPointer()
@@ -76,8 +80,11 @@ namespace Flopzone
             if (cam == null) return;
             try
             {
-                if (Cursor.lockState == CursorLockMode.Locked) Cursor.lockState = CursorLockMode.None;
-                var ray = cam.ScreenPointToRay(Input.mousePosition);
+                // near a screen in the world, aim with the middle of the view so mouse-look keeps working
+                if (Cursor.lockState == CursorLockMode.Locked && !Nearby) Cursor.lockState = CursorLockMode.None;
+                var ray = Nearby && Cursor.lockState == CursorLockMode.Locked
+                    ? cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0))
+                    : cam.ScreenPointToRay(Input.mousePosition);
                 if (Physics.Raycast(ray, out var hit, 8f, Layers.UIMask, QueryTriggerInteraction.Collide))
                 {
                     var b = hit.collider.GetComponentInParent<UIButton>();

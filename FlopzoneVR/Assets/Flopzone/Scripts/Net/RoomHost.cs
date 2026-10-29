@@ -184,6 +184,7 @@ namespace Flopzone
         {
             if (state == "live") return Mathf.Max(0, endsAt - Time.time);
             if (state == "countdown" || state == "ended") return Mathf.Max(0, stateEnd - Time.time);
+            if (state == "waiting") return Mathf.Max(0, WaitForPlayers - (Time.time - created));
             return 0;
         }
 
@@ -335,7 +336,7 @@ namespace Flopzone
             switch (m.Str("t"))
             {
                 case "hit": Hit(p, m); break;
-                case "die": if (p.alive && kind == "match") Kill(p, null, "fall", false, null); break;
+                case "die": if (p.alive && kind == "match" && state == "live") Kill(p, null, "fall", false, null); break;
                 case "flag": FlagAction(p, m.Str("a"), m.Int("team", -1)); break;
                 case "chat": Chat(p, m.Str("msg")); break;
                 case "mod": Mod(p, m); break;
@@ -347,7 +348,7 @@ namespace Flopzone
 
         void HitCore(P s, string targetId, float dmg, string gun, bool head, float[] dir)
         {
-            if (kind != "match" || state == "countdown" || state == "ended") return;
+            if (kind != "match" || state != "live") return;
             if (s == null || !players.TryGetValue(targetId ?? "", out var t)) return;
             if (!s.alive || !t.alive || s == t || (Teams && s.team == t.team) || Time.time < t.protectUntil) return;
             dmg = Mathf.Clamp(dmg, 0, 260);

@@ -34,7 +34,7 @@ namespace Flopzone
             var asphalt = MapKit.M("3a3a3c", 0.4f, 0f, Surface.Asphalt);
             var paint = MapKit.M("e8c33a", 0.35f);
             var white = MapKit.M("e6e6e0", 0.35f);
-            k.Ground(70, 70, dirt);
+            k.Ground(70, 92, dirt);
 
             // ---- the parade ground (concrete apron) and roads ----
             k.Box(new Vector3(0, 0.02f, 4), new Vector3(46, 0.05f, 40), concrete, 0, false);
@@ -55,6 +55,9 @@ namespace Flopzone
 
             // ---- the deployment hangar with a gate for each mode ----
             Hangar(k);
+
+            // ---- the airfield behind it: the transport plane, arcade machines and a loadout station ----
+            Airfield(k);
 
             // ---- armory: the gun table under a camo net, ammo stacked around ----
             Armory(k);
@@ -94,14 +97,14 @@ namespace Flopzone
             MilitaryProps.Sandbags(k, new Vector3(16, 0, -22), new Vector3(22, 0, -22), 3);
 
             // ---- perimeter: HESCO walls, a fence by the gate, towers in the corners, floodlights ----
-            float hx = 42.5f, hz = 44.5f;
-            MilitaryProps.Hesco(k, new Vector3(-hx, 0, -hz), new Vector3(-hx, 0, hz), 1.8f);
-            MilitaryProps.Hesco(k, new Vector3(hx, 0, -hz), new Vector3(hx, 0, hz), 1.8f);
-            MilitaryProps.Hesco(k, new Vector3(-hx, 0, hz), new Vector3(hx, 0, hz), 1.8f);
+            float hx = 42.5f, hz = 44.5f, north = 80.5f;
+            MilitaryProps.Hesco(k, new Vector3(-hx, 0, -hz), new Vector3(-hx, 0, north), 1.8f);
+            MilitaryProps.Hesco(k, new Vector3(hx, 0, -hz), new Vector3(hx, 0, north), 1.8f);
+            MilitaryProps.Hesco(k, new Vector3(-hx, 0, north), new Vector3(hx, 0, north), 1.8f);
             MilitaryProps.Hesco(k, new Vector3(-hx, 0, -hz), new Vector3(-6, 0, -hz), 1.8f);
             MilitaryProps.Hesco(k, new Vector3(6, 0, -hz), new Vector3(hx, 0, -hz), 1.8f);
             MilitaryProps.Fence(k, new Vector3(-6, 0, -hz + 0.6f), new Vector3(6, 0, -hz + 0.6f), 3f);
-            foreach (var c in new[] { new Vector3(-38.5f, 0, -40.5f), new Vector3(38.5f, 0, -40.5f), new Vector3(-38.5f, 0, 40.5f), new Vector3(38.5f, 0, 40.5f) })
+            foreach (var c in new[] { new Vector3(-38.5f, 0, -40.5f), new Vector3(38.5f, 0, -40.5f), new Vector3(-38.5f, 0, 76.5f), new Vector3(38.5f, 0, 76.5f) })
                 MilitaryProps.Watchtower(k, c, Mathf.Atan2(-c.x, -c.z) * Mathf.Rad2Deg);
             MilitaryProps.FloodLight(k, new Vector3(-19, 0, 21), 160);
             MilitaryProps.FloodLight(k, new Vector3(19, 0, 21), 200);
@@ -110,7 +113,7 @@ namespace Flopzone
             for (int i = 0; i < 6; i++) MilitaryProps.Jersey(k, new Vector3(-21 + i * 8.4f, 0, -8.5f), 90);
 
             // ---- hills and trees outside the wire ----
-            k.Backdrop(40, 55, 110, p => { k.Pine(p, k.R(8, 14)); return null; });
+            k.Backdrop(50, 55, 120, p => { if (Mathf.Abs(p.x) > 48 || p.z < -50 || p.z > 86) k.Pine(p, k.R(8, 14)); return null; });
             k.Backdrop(14, 120, 220, p => { Prims.Ball(k.S, p, new Vector3(k.R(60, 120), k.R(25, 55), k.R(60, 120)), MapKit.M("5f6b48", 0.05f, 0f, Surface.Grass)); return null; });
 
             for (int i = 0; i < 10; i++) k.world.ffaSpawns.Add(new Vector3(k.R(-5, 5), 0, k.R(-5, -2)));
@@ -140,7 +143,7 @@ namespace Flopzone
             for (int i = 0; i < 12; i++) k.Box(new Vector3(-22 + i * 4f, h - 0.4f, front - 0.32f), new Vector3(0.5f, 0.15f, 0.06f), Prims.Emissive(Prims.Hex("fff1c9"), 2.2f), 0, false);
             var sign = k.Sign(new Vector3(0, 7.9f, front - 0.33f), 180, "DEPLOYMENT", 0.9f, new Color(0.95f, 0.9f, 0.7f));
             sign.fontStyle = FontStyle.Bold;
-            k.Sign(new Vector3(0, 6.85f, front - 0.33f), 180, "walk through a gate to deploy  ·  the party leader takes the whole squad", 0.24f, new Color(0.85f, 0.85f, 0.8f));
+            k.Sign(new Vector3(0, 6.85f, front - 0.33f), 180, "walk through a gate to board the plane for that mode  ·  or board it on the airfield behind the hangar", 0.24f, new Color(0.85f, 0.85f, 0.8f));
             // inside: dim lights and crates so the gates have depth
             for (int i = 0; i < 6; i++) k.Box(new Vector3(-17.5f + i * 7f, h - 0.3f, 31.5f), new Vector3(3f, 0.1f, 0.4f), Prims.Emissive(Prims.Hex("e8f0ff"), 1.4f), 0, false);
             for (int i = 0; i < 5; i++) k.CrateStack(new Vector3(-20 + i * 10f, 0, 36), 0);
@@ -150,6 +153,41 @@ namespace Flopzone
             // the six gates
             for (int i = 0; i < Portals.Length; i++)
                 HubPortal.Create(k, new Vector3(-17.5f + i * 7f, 0, front), 180f, Portals[i].mode, Portals[i].label, Portals[i].info, i);
+        }
+
+        static void Airfield(MapKit k)
+        {
+            var asphalt = MapKit.M("3a3a3c", 0.4f, 0f, Surface.Asphalt);
+            var paint = MapKit.M("e8c33a", 0.35f);
+            var white = MapKit.M("e6e6e0", 0.35f);
+            k.Box(new Vector3(0, 0.02f, 61), new Vector3(84, 0.05f, 44), asphalt, 0, false);
+            k.Box(new Vector3(0, 0.046f, 61), new Vector3(0.3f, 0.01f, 40), paint, 0, false);
+            for (int i = 0; i < 10; i++) k.Box(new Vector3(-30, 0.046f, 44 + i * 4f), new Vector3(10, 0.01f, 0.3f), white, 0, false);
+            for (int i = 0; i < 10; i++) k.Box(new Vector3(30, 0.046f, 44 + i * 4f), new Vector3(10, 0.01f, 0.3f), white, 0, false);
+            k.Box(new Vector3(0, 0.046f, 47.5f), new Vector3(6, 0.01f, 0.25f), paint, 0, false);
+            Airplane.BuildExterior(k, new Vector3(0, 0, 52f));
+            // wheel chocks, a fuel truck and a tug
+            foreach (float x in new[] { -2.75f, 2.75f })
+                foreach (float z in new[] { 58.2f, 63.8f }) k.Box(new Vector3(x, 0.15f, z), new Vector3(0.4f, 0.3f, 0.3f), MilitaryProps.Hazard, 0, false);
+            MilitaryProps.Truck(k, new Vector3(-20, 0, 66), 15);
+            MilitaryProps.Jeep(k, new Vector3(19, 0, 50), -35);
+            for (int i = 0; i < 4; i++) MilitaryProps.Drum(k, new Vector3(-24 + i * 0.7f, 0, 72), "3f4a2a");
+            // the ready area by the ramp: arcade machines under a camo net, and a loadout station
+            MilitaryProps.CamoNet(k, new Vector3(-9.5f, 0, 46.2f), new Vector2(6, 4), 3f);
+            string[] colors = { "2a7fff", "ff4fa3", "38c172", "ffb02e" };
+            for (int i = 0; i < 4; i++) ArcadeMachine.Create(k.D, new Vector3(-11f + i * 1.0f, 0, 46.6f), 0f, colors[i]);
+            k.Sign(new Vector3(-9.5f, 2.45f, 46.35f), 180, "ARCADE", 0.35f, new Color(1f, 0.5f, 0.85f));
+            LoadoutStation.Create(k.D, new Vector3(6f, 0, 46.4f), 0f);
+            MilitaryProps.Sandbags(k, new Vector3(4.6f, 0, 47.4f), new Vector3(7.4f, 0, 47.4f), 2);
+            for (int i = 0; i < 3; i++) MilitaryProps.AmmoCrate(k, new Vector3(8.3f, 0, 45.6f + i * 0.6f), 90);
+            // signs on the parade ground pointing round the hangar
+            foreach (float x in new[] { -33f, 33f })
+            {
+                Prims.Cyl(k.S, new Vector3(x, 1.4f, 22), 0.1f, 2.8f, MilitaryProps.DarkSteel, Vector3.up, true);
+                k.Box(new Vector3(x, 2.6f, 22), new Vector3(3.6f, 0.9f, 0.08f), MilitaryProps.OliveDark, 0, false);
+                k.Sign(new Vector3(x, 2.75f, 21.95f), 180, "AIRFIELD", 0.3f, new Color(0.95f, 0.85f, 0.45f));
+                k.Sign(new Vector3(x, 2.45f, 21.95f), 180, "board the plane · behind the hangar", 0.12f, Color.white);
+            }
         }
 
         static void Armory(MapKit k)

@@ -330,5 +330,7 @@ namespace Flopzone
             => Send("t", "mod", "action", action, "target", target, "minutes", minutes, "reason", reason);
         public void Ping() => Send("t", "ping");
         public void BoardParty() => Send("t", "party_board");
+        /// <summary>Offline: stop searching and fill the match with bots now.</summary>
+        public void StartNow() => Send("t", "start_now");
     }
 }

@@ -113,7 +113,7 @@ namespace Flopzone
                     ApplyHit(myId, m.Str("target"), (float)m.Num("dmg"), m.Str("gun"), m.Bool("head"), m.FloatArr("dir"));
                     break;
                 case "die":
-                    if (players.TryGetValue(myId, out var meDie) && meDie.alive && kind == "match") Kill(meDie, null, "fall", false, null);
+                    if (players.TryGetValue(myId, out var meDie) && meDie.alive && kind == "match" && state == "live") Kill(meDie, null, "fall", false, null);
                     break;
                 case "flag":
                     FlagAction(myId, m.Str("a"), m.Int("team"));
@@ -143,6 +143,9 @@ namespace Flopzone
                 case "friend_req":
                 case "party_invite":
                     Out("t", "toast", "msg", "Friends lists need the optional account server, and parties need online play (Flopzone > Set Up Multiplayer in Unity). Online, you can party up with anyone in your room from the Party tab.");
+                    break;
+                case "start_now":
+                    if (kind == "match" && state == "waiting") fillBotsAt = Time.time;
                     break;
                 case "ping":
                     Out("t", "pong");
@@ -179,9 +182,10 @@ namespace Flopzone
             var md = Modes[m];
             Reset("match", m);
             map = Random.Range(0, MapBuilder.Names.Length);
-            // offline nobody else is coming: "search" for a few seconds, then fill up with bots
+            // offline nobody else is coming: "search" for a minute (or until the leader
+            // presses Start Now on the plane's screen), then fill up with bots
             state = "waiting";
-            fillBotsAt = Time.time + 4f;
+            fillBotsAt = Time.time + RoomHost.WaitForPlayers;
             players[myId] = new P { id = myId, name = myName, team = md.teams ? 0 : -1, protectUntil = Time.time + 1.5f };
             SendRoom();
         }
@@ -202,6 +206,7 @@ namespace Flopzone
         {
             if (state == "live") return Mathf.Max(0, endsAt - Time.time);
             if (state == "countdown" || state == "ended") return Mathf.Max(0, stateEnd - Time.time);
+            if (state == "waiting" && fillBotsAt > 0) return Mathf.Max(0, fillBotsAt - Time.time);
             return 0;
         }
 
@@ -244,7 +249,7 @@ namespace Flopzone
                 FillBots();
                 state = "countdown";
                 stateEnd = t + 5f;
-                Out("t", "ms", "state", state, "time", 5.0, "scores", Scores(), "note", "No other players online, so bots are joining.");
+                Out("t", "ms", "state", state, "time", 5.0, "scores", Scores(), "note", "Not enough players found, so bots are joining.");
             }
             if (state == "countdown" && t >= stateEnd) StartMatch();
             else if (state == "live" && t >= endsAt) TimeUp();
@@ -299,7 +304,7 @@ namespace Flopzone
 
         public void ApplyHit(string shooterId, string targetId, float dmg, string gun, bool head, float[] dir)
         {
-            if (kind != "match" || state == "countdown" || state == "ended") return;
+            if (kind != "match" || state != "live") return;
             if (!players.TryGetValue(shooterId, out var s) || !players.TryGetValue(targetId, out var t)) return;
             if (!s.alive || !t.alive || s == t) return;
             if (Modes[mode].teams && s.team == t.team) return;

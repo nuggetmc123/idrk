@@ -35,6 +35,9 @@ namespace Flopzone
         public IEnumerable<RemotePlayer> Remotes => remotes.Values;
         public RemotePlayer FindRemote(string id) => id != null && remotes.TryGetValue(id, out var r) ? r : null;
         IBotHost BotHost => session != null ? session.link.BotHost : null;
+        Airplane plane;
+        /// <summary>Sitting in the transport plane (picking a mode, or waiting for the match to fill).</summary>
+        public bool InPlane => plane != null && plane.Occupied;
         float nextBotCheck;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -174,6 +177,7 @@ namespace Flopzone
             s.NameChanged += (id, name) => { var r = FindRemote(id); if (r != null) r.SetName(name); };
             s.NeedName += () => { if (session.Welcomed && tutorial == null && session.RoomId != null) Hud.I.Toast("A moderator reset your name. Pick a new one in Menu > Profile."); };
             s.Closed += OnClosed;
+            s.Board += () => { if (session.InHub && !InPlane && tutorial == null && !banned) BoardPlane(false); };
             SessionChanged?.Invoke();
         }
 
@@ -250,7 +254,7 @@ namespace Flopzone
 
         /* ======================= worlds and rooms ======================= */
 
-        void BuildWorld(int index)
+        void BuildWorld(int index, bool expanded = false)
         {
             if (ctf) { Destroy(ctf.gameObject); ctf = null; }
             foreach (var h in rig.hands) if (h.held is Magazine) h.Release();
@@ -259,7 +263,7 @@ namespace Flopzone
             foreach (var m in FindObjectsByType<Magazine>(FindObjectsSortMode.None)) Destroy(m.gameObject);
             foreach (var rd in FindObjectsByType<RagdollLife>(FindObjectsSortMode.None)) Destroy(rd.gameObject);
             if (world != null) Destroy(world.gameObject);
-            world = MapBuilder.Build(index);
+            world = MapBuilder.Build(index, expanded);
             Physics.gravity = new Vector3(0, -9.81f * world.gravity, 0);
             rig.GravityScale = world.gravity;
         }
@@ -269,17 +273,29 @@ namespace Flopzone
             if (tutorial != null) { Destroy(tutorial.gameObject); tutorial = null; }
             ClearRemotes();
             int map = session.InHub ? MapBuilder.HubIndex : Mathf.Clamp(session.Map, 0, MapBuilder.Names.Length - 1);
-            if (world == null || world.mapIndex != map) BuildWorld(map);
+            bool big = session.InMatch && MapBuilder.Expands(session.Mode);
+            if (world == null || world.mapIndex != map || world.expanded != big) BuildWorld(map, big);
             foreach (var p in session.Players.Values) if (p.id != session.MyId) AddRemote(p);
             rig.SetTeam(session.MyTeam);
             rig.GiveLoadout(Save.Settings.primaryGun, Save.Settings.sidearmGun);
-            world.Spawn(session.MyTeam, session.SpawnIndex, out var pos, out var yaw);
-            rig.Respawn(pos, yaw);
+            bool waiting = session.InMatch && (session.State == "waiting" || session.State == "countdown");
+            if (waiting || (session.InHub && InPlane))
+            {
+                // the match is still filling up (or we haven't picked one yet): wait in the plane
+                if (!InPlane) { EnsurePlane(); plane.Enter(rig, SeatIndex()); }   // pulled in with the party: the door shuts behind you too
+            }
+            else
+            {
+                if (plane != null) plane.Exit();
+                world.Spawn(session.MyTeam, session.SpawnIndex, out var pos, out var yaw);
+                rig.Respawn(pos, yaw);
+            }
             MyHp = 100;
             fellSent = false;
             if (session.InMatch && session.Mode == "ctf") ctf = CtfFlags.Create(world);
             AudioManager.I.PlayMusic(session.InHub ? "music_hub" : "music_match");
-            if (session.InHub) Hud.I.Big("THE HUB", 2f, Color.white);
+            if (session.InHub) { if (!InPlane) Hud.I.Big("THE HUB", 2f, Color.white); }
+            else if (InPlane) Hud.I.Big("FINDING MATCH", 2.5f, UIKit.Accent);
             else
             {
                 string modeName = LocalServer.Modes.TryGetValue(session.Mode, out var md) ? md.name : session.Mode;
@@ -352,14 +368,45 @@ namespace Flopzone
         {
             if (session == null || tutorial != null) return;
             if (!session.IsLeaderOrSolo) { Hud.I.Toast("Only your party leader can pick a mode."); return; }
-            string name = LocalServer.Modes.TryGetValue(mode, out var md) ? md.name : mode;
-            Hud.I.Toast("Finding a " + name + " match...");
+            if (session.InHub && !InPlane) BoardPlane(true);
             session.Go(mode);
+        }
+
+        void EnsurePlane()
+        {
+            if (plane == null) plane = Airplane.Create();
+        }
+
+        /// <summary>Everyone in the party gets their own seat.</summary>
+        int SeatIndex()
+        {
+            for (int i = 0; i < session.PartyMembers.Count; i++) if (session.PartyMembers[i].Key == session.MyId) return i;
+            return 0;
+        }
+
+        /// <summary>Walk up the plane's ramp: in you go, the door shuts, and (if you lead a party) everyone is pulled in.</summary>
+        public void BoardPlane(bool pullParty)
+        {
+            if (session == null || tutorial != null || InPlane || !rig.Alive) return;
+            if (menu.IsOpen) menu.Close();
+            EnsurePlane();
+            plane.Enter(rig, SeatIndex());
+            Hud.I.Big(session.IsLeaderOrSolo ? "PICK A GAME MODE" : "WAITING FOR YOUR\nPARTY LEADER", 2.5f, UIKit.Accent);
+            if (pullParty && session.InParty && session.IsLeaderOrSolo) session.BoardParty();
+        }
+
+        /// <summary>Off the plane. While searching for a match this cancels the search (party leader only).</summary>
+        public void LeavePlane()
+        {
+            if (session == null || !InPlane) return;
+            if (session.InMatch) { GoHub(); return; }
+            plane.Exit();
+            rig.Teleport(Airplane.HubExit, 180f);
         }
 
         public void LoadoutChanged()
         {
-            if (session != null && session.InMatch && rig.Alive) { pendingLoadout = true; Hud.I.Toast("Your new loadout is ready next time you spawn."); return; }
+            if (session != null && session.InMatch && rig.Alive && !InPlane) { pendingLoadout = true; Hud.I.Toast("Your new loadout is ready next time you spawn."); return; }
             rig.GiveLoadout(Save.Settings.primaryGun, Save.Settings.sidearmGun);
         }
 
@@ -490,8 +537,20 @@ namespace Flopzone
 
         void OnMatchState(string state, string note)
         {
-            if (state == "countdown") { Hud.I.Big("GET READY", 1.5f); AudioManager.Ui("beep", 0.6f); }
-            else if (state == "live") { Hud.I.Big("FIGHT!", 1.5f, UIKit.Good); AudioManager.Ui("go", 0.8f); }
+            if (state == "countdown") { Hud.I.Big(InPlane ? "MATCH FOUND!" : "GET READY", 1.5f, InPlane ? UIKit.Good : UIKit.Accent); AudioManager.Ui("beep", 0.6f); }
+            else if (state == "live")
+            {
+                if (InPlane)
+                {
+                    // deploy: out of the plane and onto the map
+                    plane.Exit();
+                    world.Spawn(session.MyTeam, session.SpawnIndex, out var p, out var yaw);
+                    rig.Respawn(p, yaw);
+                    MyHp = 100;
+                }
+                Hud.I.Big("FIGHT!", 1.5f, UIKit.Good);
+                AudioManager.Ui("go", 0.8f);
+            }
             else if (state == "waiting" && !string.IsNullOrEmpty(note)) Hud.I.Toast(note);
         }
 

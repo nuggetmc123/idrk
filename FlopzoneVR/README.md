@@ -35,9 +35,23 @@ At the top of Unity, next to Window and Help:
 pick a name (must be unique; slurs and swearing are refused), then learn to grab, shoot,
 drop the mag, reload, jump, sprint, crouch and open the menu. After that, the hub.
 
-**Hub:** a forward operating base. Walk through one of the six deployment gates in the
-hangar to start a match, try all 22 guns in the armory, shoot targets on the live-fire range,
-and check out the helipad, barracks, motor pool and watchtowers.
+**Hub:** a forward operating base. Try all 22 guns in the armory, shoot targets on the live-fire
+range, play Flappy Flop on the arcade machines, change your guns at the loadout station, and check
+out the helipad, barracks, motor pool and watchtowers.
+
+**The plane:** a transport plane is parked on the airfield behind the hangar. Walk up its ramp and
+you're inside. The ramp closes behind you, and if you lead a party, everyone in it is pulled in too.
+Inside there are six loadout stations, two arcade machines, and the mode screen at the front.
+Only the party leader (or a solo player) can pick the mode there.
+After that the plane is **finding a match**: the top left of your view counts up to 1:00 and shows
+how many players have joined. If the match isn't full after a minute, it starts with whoever joined
+and bots fill the empty spots (offline, the leader can also press *Start now with bots*). When the
+match starts, you deploy onto the map. Walking through one of the hangar's six gates boards the
+plane with that mode already picked.
+
+**Players** are white, floppy mannequins: a tall rounded head with dot eyes and a smile, a long
+body, thin arms with fingers, and flat feet. Your team shows as a tint on the body and a coloured
+arm band. When you're killed you go full ragdoll.
 
 ### Controls (Quest)
 
@@ -87,6 +101,10 @@ Offline, empty seats are filled with bots.
 
 Warehouse · Rooftops · Dune Outpost · Frostbite · Jungle Ruins · Neon City · Shipyard ·
 Foundry · Castle Keep · Moon Base (low gravity) — plus the Hub and the Training Range.
+
+1v1 and 2v2 play on the normal, tight maps. Every other mode (Team Deathmatch, Free For All,
+3v3, Capture the Flag) plays on a bigger version of the same maps: 35% wider, with extra cover.
+The spawns, flags and barrier move out with them.
 
 Every map has its own painted 360° sky (clear day, sunset, night with stars and moon, overcast,
 desert haze, space), textured surfaces (concrete, metal, brick, sand, snow, grass and more, with

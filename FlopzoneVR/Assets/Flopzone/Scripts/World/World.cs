@@ -24,6 +24,8 @@ namespace Flopzone
         public string mapName = "Hub";
         public float killY = -25f;
         public float gravity = 1f;
+        /// <summary>The bigger version of the map (for everything but 1v1 and 2v2).</summary>
+        public bool expanded;
         public readonly List<Vector3>[] teamSpawns = { new List<Vector3>(), new List<Vector3>() };
         public readonly List<Vector3> ffaSpawns = new List<Vector3>();
         public Vector3[] flagBase = new Vector3[2];

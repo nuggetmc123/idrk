@@ -232,7 +232,7 @@ namespace Flopzone
             if (Alive && Game.I != null && Game.I.world != null)
             {
                 if (transform.position.y < Game.I.world.killY) Game.I.LocalFell();
-                else if (Game.I.world.OutOfBounds(transform.position)) Game.I.OutOfBounds();
+                else if (!Game.I.InPlane && Game.I.world.OutOfBounds(transform.position)) Game.I.OutOfBounds();
             }
         }
 

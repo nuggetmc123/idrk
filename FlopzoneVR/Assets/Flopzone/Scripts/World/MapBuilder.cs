@@ -15,7 +15,13 @@ namespace Flopzone
         public const int HubIndex = -1;
         public const int TutorialIndex = -2;
 
-        public static World Build(int index)
+        /// <summary>How much bigger a map gets for the larger modes (everything but 1v1 and 2v2).</summary>
+        public const float ExpandScale = 1.35f;
+
+        /// <summary>1v1 and 2v2 keep the tight maps; every other mode plays on the bigger versions.</summary>
+        public static bool Expands(string mode) => mode != null && mode != "1v1" && mode != "2v2";
+
+        public static World Build(int index, bool expanded = false)
         {
             var go = new GameObject(index == HubIndex ? "Hub" : index == TutorialIndex ? "Training" : "Map " + Names[index]);
             var w = go.AddComponent<World>();
@@ -40,6 +46,7 @@ namespace Flopzone
             // the edge of the play area: a glowing wall nobody gets past
             w.bounds = Bounds(index);
             if (index >= 0) Dress(k, w.bounds, index);
+            if (index >= 0 && expanded) Expand(k, w, index);
             BarrierField.Create(k.D, w.bounds);
             Physics.SyncTransforms();
             if (Application.isPlaying)
@@ -98,13 +105,46 @@ namespace Flopzone
             }
         }
 
+        /// <summary>
+        /// The big version of a map: a few more pieces of cover, then the whole layout is
+        /// spread out sideways (heights stay the same, so every jump and ramp still works),
+        /// along with the spawns, flags and the play area.
+        /// </summary>
+        static void Expand(MapKit k, World w, int index)
+        {
+            Physics.SyncTransforms();
+            var b = w.bounds;
+            int placed = 0;
+            for (int i = 0; i < 60 && placed < 10; i++)
+            {
+                var p = new Vector3(k.R(-b.x + 4, b.x - 4), 0, k.R(-b.y + 4, b.y - 4));
+                if (!Physics.Raycast(p + Vector3.up * 30, Vector3.down, out var hit, 60f, Layers.ShootMask, QueryTriggerInteraction.Ignore)) continue;
+                if (Physics.CheckSphere(hit.point + Vector3.up * 1.4f, 1.2f, Layers.ShootMask, QueryTriggerInteraction.Ignore)) continue;
+                k.CrateStack(hit.point, k.R(0, 360));
+                placed++;
+            }
+            float s = ExpandScale;
+            k.S.localScale = new Vector3(s, 1, s);
+            foreach (Transform c in k.D) c.localPosition = new Vector3(c.localPosition.x * s, c.localPosition.y, c.localPosition.z * s);
+            Vector3 Spread(Vector3 v) => new Vector3(v.x * s, v.y, v.z * s);
+            for (int t = 0; t < 2; t++)
+            {
+                for (int i = 0; i < w.teamSpawns[t].Count; i++) w.teamSpawns[t][i] = Spread(w.teamSpawns[t][i]);
+                w.flagBase[t] = Spread(w.flagBase[t]);
+            }
+            for (int i = 0; i < w.ffaSpawns.Count; i++) w.ffaSpawns[i] = Spread(w.ffaSpawns[i]);
+            w.bounds = b * s;
+            w.expanded = true;
+            Physics.SyncTransforms();
+        }
+
         static Vector2 Bounds(int index)
         {
             switch (index)
             {
                 case 1: return new Vector2(21, 33);
                 case 6: return new Vector2(40, 34.5f);
-                case HubIndex: return new Vector2(44, 46);
+                case HubIndex: return new Vector2(44, 82);   // the airfield goes out to z = 80
                 case TutorialIndex: return new Vector2(16, 16);
                 default: return new Vector2(35, 35);
             }
