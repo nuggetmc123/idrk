@@ -1,0 +1,266 @@
+using UnityEngine;
+
+namespace Flopzone
+{
+    /// <summary>
+    /// A cartoony body built from primitives, posed every frame from a head
+    /// and two hands (arms and legs are solved with simple two-bone IK), and
+    /// turned into a floppy physics ragdoll when the player dies.
+    /// </summary>
+    public class Avatar : MonoBehaviour
+    {
+        public Transform head, torso, pelvis, neck;
+        public Transform[] upperArm = new Transform[2], lowerArm = new Transform[2], hand = new Transform[2];
+        public Transform[] thigh = new Transform[2], shin = new Transform[2], foot = new Transform[2];
+        public Color shirt, skin, pants;
+        float walkPhase;
+
+        const float UpperArm = 0.28f, LowerArm = 0.27f, Thigh = 0.42f, Shin = 0.42f;
+
+        static readonly Color[] Skins =
+        {
+            Prims.Hex("f1c27d"), Prims.Hex("e0ac69"), Prims.Hex("c68642"), Prims.Hex("8d5524"),
+            Prims.Hex("ffdbac"), Prims.Hex("a1665e"), Prims.Hex("7fd36b"), Prims.Hex("9ec8ff")
+        };
+
+        public static Color TeamColor(int team)
+        {
+            if (team == 0) return new Color(0.9f, 0.22f, 0.2f);
+            if (team == 1) return new Color(0.2f, 0.45f, 0.95f);
+            return new Color(0.95f, 0.75f, 0.2f);
+        }
+
+        public static Avatar Build(Transform parent, string seed, Color shirtColor)
+        {
+            var go = new GameObject("avatar");
+            go.transform.SetParent(parent, false);
+            var a = go.AddComponent<Avatar>();
+            int h = string.IsNullOrEmpty(seed) ? 0 : seed.GetHashCode();
+            var rnd = new System.Random(h);
+            a.skin = Skins[rnd.Next(Skins.Length)];
+            a.shirt = shirtColor;
+            a.pants = Color.Lerp(new Color(0.15f, 0.17f, 0.25f), new Color(0.3f, 0.25f, 0.18f), (float)rnd.NextDouble());
+            var skinM = Prims.Lit(a.skin, 0.35f);
+            var shirtM = Prims.Lit(a.shirt, 0.25f);
+            var pantsM = Prims.Lit(a.pants, 0.2f);
+            var shoeM = Prims.Lit(new Color(0.12f, 0.1f, 0.1f), 0.4f);
+            var dark = Prims.Lit(new Color(0.05f, 0.05f, 0.06f), 0.8f);
+
+            a.head = Prims.Empty("head", go.transform).transform;
+            Prims.Ball(a.head, new Vector3(0, 0, 0), new Vector3(0.24f, 0.26f, 0.25f), skinM, false);
+            Prims.Ball(a.head, new Vector3(-0.05f, 0.025f, 0.105f), new Vector3(0.055f, 0.065f, 0.03f), Prims.Lit(Color.white, 0.6f), false);
+            Prims.Ball(a.head, new Vector3(0.05f, 0.025f, 0.105f), new Vector3(0.055f, 0.065f, 0.03f), Prims.Lit(Color.white, 0.6f), false);
+            Prims.Ball(a.head, new Vector3(-0.05f, 0.022f, 0.12f), new Vector3(0.028f, 0.032f, 0.015f), dark, false);
+            Prims.Ball(a.head, new Vector3(0.05f, 0.022f, 0.12f), new Vector3(0.028f, 0.032f, 0.015f), dark, false);
+            Prims.Box(a.head, new Vector3(0, -0.055f, 0.112f), new Vector3(0.07f, 0.012f, 0.01f), dark, false, Quaternion.Euler(0, 0, rnd.Next(2) == 0 ? 6 : -6));
+            int hat = rnd.Next(4);
+            var hatM = Prims.Lit(Color.Lerp(shirtColor, Color.black, 0.35f), 0.3f);
+            if (hat == 0) { Prims.Cyl(a.head, new Vector3(0, 0.1f, 0), 0.24f, 0.06f, hatM, Vector3.up); Prims.Box(a.head, new Vector3(0, 0.08f, 0.12f), new Vector3(0.2f, 0.015f, 0.1f), hatM, false); }
+            else if (hat == 1) Prims.Ball(a.head, new Vector3(0, 0.07f, -0.01f), new Vector3(0.25f, 0.16f, 0.26f), hatM, false);
+            else if (hat == 2) { Prims.Box(a.head, new Vector3(0, 0.1f, 0), new Vector3(0.26f, 0.05f, 0.26f), hatM, false); Prims.Box(a.head, new Vector3(0, 0.07f, 0), new Vector3(0.34f, 0.01f, 0.34f), hatM, false); }
+            var hb = a.head.gameObject.AddComponent<SphereCollider>();
+            hb.radius = 0.14f;
+
+            a.torso = Prims.Empty("torso", go.transform).transform;
+            Prims.Capsule(a.torso, Vector3.zero, 0.32f, 0.52f, shirtM, Vector3.up);
+            Prims.Box(a.torso, new Vector3(0, 0.02f, 0.14f), new Vector3(0.14f, 0.14f, 0.02f), Prims.Lit(Color.Lerp(shirtColor, Color.white, 0.5f), 0.3f), false);
+            var tb = a.torso.gameObject.AddComponent<CapsuleCollider>();
+            tb.radius = 0.17f; tb.height = 0.58f;
+            a.pelvis = Prims.Empty("pelvis", go.transform).transform;
+            Prims.Capsule(a.pelvis, Vector3.zero, 0.3f, 0.3f, pantsM, Vector3.right);
+            var pb = a.pelvis.gameObject.AddComponent<SphereCollider>();
+            pb.radius = 0.16f;
+            a.neck = Prims.Empty("neck", go.transform).transform;
+            Prims.Cyl(a.neck, Vector3.zero, 0.09f, 0.1f, skinM, Vector3.up);
+
+            for (int s = 0; s < 2; s++)
+            {
+                a.upperArm[s] = Segment("upperArm" + s, go.transform, 0.09f, shirtM);
+                a.lowerArm[s] = Segment("lowerArm" + s, go.transform, 0.075f, skinM);
+                a.hand[s] = Prims.Empty("hand" + s, go.transform).transform;
+                Prims.Ball(a.hand[s], Vector3.zero, new Vector3(0.08f, 0.06f, 0.1f), skinM, false);
+                a.thigh[s] = Segment("thigh" + s, go.transform, 0.13f, pantsM);
+                a.shin[s] = Segment("shin" + s, go.transform, 0.11f, pantsM);
+                a.foot[s] = Prims.Empty("foot" + s, go.transform).transform;
+                Prims.Box(a.foot[s], new Vector3(0, 0.03f, 0.04f), new Vector3(0.1f, 0.07f, 0.22f), shoeM, false);
+            }
+            return a;
+        }
+
+        static Transform Segment(string name, Transform parent, float thickness, Material m)
+        {
+            var t = Prims.Empty(name, parent).transform;
+            var vis = Prims.Make(PrimitiveType.Capsule, t, Vector3.zero, new Vector3(thickness, 0.5f, thickness), m, false);
+            vis.name = "vis";
+            return t;
+        }
+
+        /// <summary>Stretch a segment between two points (its visual is a unit capsule along Y).</summary>
+        static void Place(Transform seg, Vector3 a, Vector3 b)
+        {
+            var d = b - a;
+            float len = Mathf.Max(0.01f, d.magnitude);
+            seg.position = (a + b) * 0.5f;
+            seg.rotation = Quaternion.FromToRotation(Vector3.up, d / len);
+            var vis = seg.GetChild(0);
+            var s = vis.localScale;
+            vis.localScale = new Vector3(s.x, (len + s.x) * 0.5f, s.z);
+        }
+
+        static Vector3 SolveElbow(Vector3 root, Vector3 target, float l1, float l2, Vector3 pole)
+        {
+            var d = target - root;
+            float dist = Mathf.Clamp(d.magnitude, 0.01f, l1 + l2 - 0.001f);
+            var dir = d.normalized;
+            float a = (l1 * l1 - l2 * l2 + dist * dist) / (2 * dist);
+            float h = Mathf.Sqrt(Mathf.Max(0, l1 * l1 - a * a));
+            var bend = Vector3.ProjectOnPlane(pole, dir);
+            if (bend.sqrMagnitude < 1e-4f) bend = Vector3.ProjectOnPlane(Vector3.down, dir);
+            return root + dir * a + bend.normalized * h;
+        }
+
+        /// <summary>Pose the body. feet = floor point under the player, yaw = body facing.</summary>
+        public void Pose(Vector3 feet, float yaw, Vector3 headPos, Quaternion headRot, Vector3 lPos, Quaternion lRot, Vector3 rPos, Quaternion rRot, float speed, bool crouch)
+        {
+            var bodyRot = Quaternion.Euler(0, yaw, 0);
+            var right = bodyRot * Vector3.right;
+            var fwd = bodyRot * Vector3.forward;
+            head.SetPositionAndRotation(headPos, headRot);
+            var neckPos = headPos - Vector3.up * 0.16f - fwd * 0.04f;
+            neck.position = headPos - Vector3.up * 0.12f;
+            neck.rotation = bodyRot;
+            float hipH = Mathf.Clamp(headPos.y - feet.y - 0.78f, 0.35f, 0.92f);
+            var pelvisPos = new Vector3(neckPos.x, feet.y + hipH, neckPos.z) - fwd * 0.03f;
+            var spineUp = (neckPos - pelvisPos).normalized;
+            torso.position = Vector3.Lerp(pelvisPos, neckPos, 0.55f);
+            torso.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(fwd, spineUp), spineUp);
+            pelvis.SetPositionAndRotation(pelvisPos, bodyRot);
+
+            walkPhase += Time.deltaTime * Mathf.Clamp(speed, 0, 7f) * 2.6f;
+            float stride = Mathf.Clamp01(speed / 4f) * 0.32f;
+            for (int s = 0; s < 2; s++)
+            {
+                float side = s == 0 ? -1 : 1;
+                var shoulder = neckPos + right * side * 0.19f - spineUp * 0.06f;
+                var handPos = s == 0 ? lPos : rPos;
+                var handRot = s == 0 ? lRot : rRot;
+                var reach = handPos - shoulder;
+                if (reach.magnitude > UpperArm + LowerArm) handPos = shoulder + reach.normalized * (UpperArm + LowerArm);
+                var elbow = SolveElbow(shoulder, handPos, UpperArm, LowerArm, Vector3.down + right * side * 0.6f - fwd * 0.3f);
+                Place(upperArm[s], shoulder, elbow);
+                Place(lowerArm[s], elbow, handPos);
+                hand[s].SetPositionAndRotation(handPos, handRot);
+
+                var hip = pelvisPos + right * side * 0.1f;
+                float ph = walkPhase + (s == 0 ? 0 : Mathf.PI);
+                var footPos = new Vector3(hip.x, feet.y + 0.02f, hip.z) + fwd * Mathf.Sin(ph) * stride + right * side * 0.04f;
+                footPos.y += Mathf.Max(0, Mathf.Cos(ph)) * stride * 0.35f;
+                var knee = SolveElbow(hip, footPos + Vector3.up * 0.06f, Thigh, Shin, fwd + Vector3.up * 0.1f);
+                Place(thigh[s], hip, knee);
+                Place(shin[s], knee, footPos + Vector3.up * 0.06f);
+                foot[s].SetPositionAndRotation(footPos, bodyRot);
+            }
+        }
+
+        public void SetVisible(bool v)
+        {
+            foreach (var r in GetComponentsInChildren<Renderer>(true)) r.enabled = v;
+            foreach (var c in GetComponentsInChildren<Collider>(true)) c.enabled = v;
+        }
+
+        /* ---------------- ragdoll ---------------- */
+
+        /// <summary>
+        /// Copy the current pose into a physics ragdoll and fling it.
+        /// The ragdoll cleans itself up after a while.
+        /// </summary>
+        public GameObject SpawnRagdoll(Vector3 velocity, Vector3 impulse, bool headshot)
+        {
+            var root = new GameObject("ragdoll");
+            var skinM = Prims.Lit(skin, 0.35f);
+            var shirtM = Prims.Lit(shirt, 0.25f);
+            var pantsM = Prims.Lit(pants, 0.2f);
+
+            var rPelvis = Part(root.transform, "pelvis", pelvis.position, torso.rotation, 0.16f, 0.32f, pantsM, 9f);
+            var rTorso = Part(root.transform, "torso", torso.position, torso.rotation, 0.17f, 0.55f, shirtM, 11f);
+            var rHead = Part(root.transform, "head", head.position, head.rotation, 0.13f, 0.27f, skinM, 4f, true);
+            // the head's face (copied so the ragdoll keeps its look)
+            for (int i = 1; i < head.childCount; i++)
+            {
+                var c = head.GetChild(i);
+                var copy = Instantiate(c.gameObject, rHead.transform);
+                copy.transform.SetPositionAndRotation(c.position, c.rotation);
+                copy.transform.localScale = c.localScale;
+                foreach (var col in copy.GetComponentsInChildren<Collider>()) Destroy(col);
+                foreach (var rend in copy.GetComponentsInChildren<Renderer>(true)) rend.enabled = true;
+            }
+            Joint(rTorso, rPelvis, torso.position - torso.up * 0.27f, 25, 30, 20);
+            Joint(rHead, rTorso, head.position - Vector3.up * 0.13f, 30, 40, 40);
+            var parts = new System.Collections.Generic.List<Rigidbody> { rPelvis, rTorso, rHead };
+            for (int s = 0; s < 2; s++)
+            {
+                var ua = SegPart(root.transform, upperArm[s], 0.05f, shirtM, 2.5f);
+                var la = SegPart(root.transform, lowerArm[s], 0.042f, skinM, 1.8f);
+                var th = SegPart(root.transform, thigh[s], 0.07f, pantsM, 6f);
+                var sh = SegPart(root.transform, shin[s], 0.06f, pantsM, 4.5f);
+                Joint(ua, rTorso, upperArm[s].position - upperArm[s].up * Half(upperArm[s]), 80, 80, 60);
+                Joint(la, ua, lowerArm[s].position - lowerArm[s].up * Half(lowerArm[s]), 5, 100, 10);
+                Joint(th, rPelvis, thigh[s].position - thigh[s].up * Half(thigh[s]), 40, 60, 30);
+                Joint(sh, th, shin[s].position - shin[s].up * Half(shin[s]), 5, 100, 10);
+                parts.Add(ua); parts.Add(la); parts.Add(th); parts.Add(sh);
+            }
+            foreach (var rb in parts) Rb.SetVelocity(rb, velocity);
+            var hitPart = headshot ? rHead : rTorso;
+            hitPart.AddForce(impulse, ForceMode.Impulse);
+            rPelvis.AddForce(impulse * 0.4f + Vector3.up * 2f, ForceMode.Impulse);
+            root.AddComponent<RagdollLife>();
+            AudioManager.Sfx("flop", torso.position, 1f, Random.Range(0.85f, 1.15f));
+            return root;
+        }
+
+        static float Half(Transform seg) => seg.GetChild(0).localScale.y - seg.GetChild(0).localScale.x * 0.5f;
+
+        static Rigidbody Part(Transform parent, string name, Vector3 pos, Quaternion rot, float radius, float height, Material m, float mass, bool sphere = false)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.SetPositionAndRotation(pos, rot);
+            if (sphere)
+            {
+                var c = go.AddComponent<SphereCollider>(); c.radius = radius;
+                Prims.Ball(go.transform, Vector3.zero, new Vector3(0.24f, 0.26f, 0.25f), m, false);
+            }
+            else
+            {
+                var c = go.AddComponent<CapsuleCollider>(); c.radius = radius; c.height = height; c.direction = 1;
+                Prims.Make(PrimitiveType.Capsule, go.transform, Vector3.zero, new Vector3(radius * 2, height * 0.5f, radius * 2), m, false);
+            }
+            var rb = go.AddComponent<Rigidbody>();
+            rb.mass = mass;
+            Rb.SetDamping(rb, 0.05f, 0.6f);
+            rb.solverIterations = 12;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            return rb;
+        }
+
+        static Rigidbody SegPart(Transform parent, Transform seg, float radius, Material m, float mass)
+        {
+            float len = (seg.GetChild(0).localScale.y * 2f) - radius;
+            return Part(parent, seg.name, seg.position, seg.rotation, radius, Mathf.Max(radius * 2.1f, len), m, mass);
+        }
+
+        static void Joint(Rigidbody child, Rigidbody parentBody, Vector3 worldAnchor, float twist, float swing1, float swing2)
+        {
+            var j = child.gameObject.AddComponent<CharacterJoint>();
+            j.connectedBody = parentBody;
+            j.anchor = child.transform.InverseTransformPoint(worldAnchor);
+            j.axis = Vector3.right;
+            j.swingAxis = Vector3.forward;
+            j.lowTwistLimit = new SoftJointLimit { limit = -twist };
+            j.highTwistLimit = new SoftJointLimit { limit = twist };
+            j.swing1Limit = new SoftJointLimit { limit = swing1 };
+            j.swing2Limit = new SoftJointLimit { limit = swing2 };
+            j.enableProjection = true;
+        }
+    }
+}

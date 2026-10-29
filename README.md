@@ -205,6 +205,12 @@ you own, and you can't add DNS records to `github.io`. Development instances are
 To go past that: buy a domain, point it at GitHub Pages (Settings → Pages → Custom
 domain), then create a Clerk production instance for it and swap in the `pk_live_` key.
 
+## Flopzone (Unity VR game)
+
+`FlopzoneVR/` is a separate project: a Unity VR ragdoll shooter for Meta Quest, plus its
+Cloudflare Worker server in `FlopzoneVR/Server/`. It isn't part of the website. Open the
+`FlopzoneVR` folder in Unity Hub; see [`FlopzoneVR/README.md`](FlopzoneVR/README.md).
+
 ## Pages setup
 
 Already done: **Settings → Pages → Build and deployment → Source: GitHub Actions**.

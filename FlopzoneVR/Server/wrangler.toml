@@ -1,0 +1,20 @@
+name = "flopzone-server"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# One instance ("global") holds every account, party, hub and match.
+[[durable_objects.bindings]]
+name = "GAME"
+class_name = "GameServer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameServer"]
+
+[vars]
+# Player IDs (shown in game under Menu > Profile) that get the Mod menu.
+# Comma separated, e.g. "FZ7K3Q9X,FZAB12CD". Redeploy after changing.
+ADMIN_IDS = ""
+
+# The /admin HTTP endpoint also needs a secret key. Set it once with:
+#   npx wrangler secret put ADMIN_KEY
