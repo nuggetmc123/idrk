@@ -50,8 +50,8 @@ match starts, you deploy onto the map. Walking through one of the hangar's six g
 plane with that mode already picked.
 
 **Players** are white, floppy mannequins: a tall rounded head with dot eyes and a smile, a long
-body, thin arms with fingers, and flat feet. Your team shows as a tint on the body and a coloured
-arm band. When you're killed you go full ragdoll.
+body, thin arms with fingers, and flat feet. They're all white; your team shows as a coloured band
+on each arm. When you're killed you go full ragdoll.
 
 ### Controls (Quest)
 

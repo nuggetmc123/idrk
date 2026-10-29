@@ -31,10 +31,10 @@ namespace Flopzone
             var a = go.AddComponent<Avatar>();
             // a smooth, white, floppy mannequin: tall rounded head with a dot-eyed smile,
             // long rounded body, thin limbs, little fingers, flat rounded feet.
-            // The team shows as a tint on the body and a coloured band on the arms.
+            // All white like the reference; the team shows only as a coloured band on each upper arm.
             var white = new Color(0.93f, 0.93f, 0.92f);
             a.skin = white;
-            a.shirt = Color.Lerp(white, shirtColor, 0.28f);
+            a.shirt = white;
             a.pants = white;
             var skinM = Prims.Lit(a.skin, 0.45f, 0f, Surface.Plastic);
             var bodyM = Prims.Lit(a.shirt, 0.45f, 0f, Surface.Plastic);
@@ -68,7 +68,7 @@ namespace Flopzone
             {
                 float side = s == 0 ? -1 : 1;
                 a.upperArm[s] = Segment("upperArm" + s, go.transform, 0.07f, bodyM);
-                Prims.Cyl(a.upperArm[s].GetChild(0), new Vector3(0, -0.5f, 0), 1.15f, 0.3f, bandM, Vector3.up);
+                Prims.Cyl(a.upperArm[s].GetChild(0), new Vector3(0, -0.5f, 0), 1.15f, 0.6f, bandM, Vector3.up);
                 a.lowerArm[s] = Segment("lowerArm" + s, go.transform, 0.06f, skinM);
                 a.hand[s] = Prims.Empty("hand" + s, go.transform).transform;
                 Prims.Ball(a.hand[s], new Vector3(0, 0, -0.01f), new Vector3(0.06f, 0.025f, 0.075f), skinM, false);
