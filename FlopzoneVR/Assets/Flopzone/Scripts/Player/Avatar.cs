@@ -39,11 +39,11 @@ namespace Flopzone
             var rnd = new System.Random(h);
             a.skin = Skins[rnd.Next(Skins.Length)];
             a.shirt = shirtColor;
-            a.pants = Color.Lerp(new Color(0.15f, 0.17f, 0.25f), new Color(0.3f, 0.25f, 0.18f), (float)rnd.NextDouble());
+            a.pants = new Color(0.45f, 0.46f, 0.34f);
             var skinM = Prims.Lit(a.skin, 0.35f);
-            var shirtM = Prims.Lit(a.shirt, 0.25f);
-            var pantsM = Prims.Lit(a.pants, 0.2f);
-            var shoeM = Prims.Lit(new Color(0.12f, 0.1f, 0.1f), 0.4f);
+            var shirtM = Prims.Lit(a.shirt, 0.25f, 0f, Surface.Fabric);
+            var pantsM = Prims.Lit(new Color(0.78f, 0.78f, 0.72f), 0.2f, 0f, Surface.Camo);
+            var shoeM = Prims.Lit(new Color(0.16f, 0.12f, 0.09f), 0.35f, 0f, Surface.Rubber);
             var dark = Prims.Lit(new Color(0.05f, 0.05f, 0.06f), 0.8f);
 
             a.head = Prims.Empty("head", go.transform).transform;
@@ -53,17 +53,40 @@ namespace Flopzone
             Prims.Ball(a.head, new Vector3(-0.05f, 0.022f, 0.12f), new Vector3(0.028f, 0.032f, 0.015f), dark, false);
             Prims.Ball(a.head, new Vector3(0.05f, 0.022f, 0.12f), new Vector3(0.028f, 0.032f, 0.015f), dark, false);
             Prims.Box(a.head, new Vector3(0, -0.055f, 0.112f), new Vector3(0.07f, 0.012f, 0.01f), dark, false, Quaternion.Euler(0, 0, rnd.Next(2) == 0 ? 6 : -6));
-            int hat = rnd.Next(4);
-            var hatM = Prims.Lit(Color.Lerp(shirtColor, Color.black, 0.35f), 0.3f);
-            if (hat == 0) { Prims.Cyl(a.head, new Vector3(0, 0.1f, 0), 0.24f, 0.06f, hatM, Vector3.up); Prims.Box(a.head, new Vector3(0, 0.08f, 0.12f), new Vector3(0.2f, 0.015f, 0.1f), hatM, false); }
-            else if (hat == 1) Prims.Ball(a.head, new Vector3(0, 0.07f, -0.01f), new Vector3(0.25f, 0.16f, 0.26f), hatM, false);
-            else if (hat == 2) { Prims.Box(a.head, new Vector3(0, 0.1f, 0), new Vector3(0.26f, 0.05f, 0.26f), hatM, false); Prims.Box(a.head, new Vector3(0, 0.07f, 0), new Vector3(0.34f, 0.01f, 0.34f), hatM, false); }
+            // combat helmet (in the team colour), goggles or a headset
+            var gear = Prims.Lit(Color.Lerp(shirtColor, new Color(0.25f, 0.27f, 0.18f), 0.55f), 0.3f, 0f, Surface.Fabric);
+            var black = Prims.Lit(new Color(0.06f, 0.06f, 0.07f), 0.5f, 0.2f, Surface.Rubber);
+            Prims.Ball(a.head, new Vector3(0, 0.065f, -0.01f), new Vector3(0.275f, 0.19f, 0.29f), gear, false);
+            Prims.Box(a.head, new Vector3(0, 0.02f, -0.005f), new Vector3(0.285f, 0.02f, 0.295f), gear, false);
+            int kit = rnd.Next(3);
+            if (kit == 0)
+            {
+                Prims.Box(a.head, new Vector3(0, 0.1f, 0.12f), new Vector3(0.2f, 0.06f, 0.05f), black, false, Quaternion.Euler(-20, 0, 0));
+                Prims.Box(a.head, new Vector3(0, 0.1f, 0.146f), new Vector3(0.16f, 0.04f, 0.01f), Prims.Lit(new Color(0.3f, 0.6f, 0.9f), 0.95f, 0.3f, Surface.Plastic), false, Quaternion.Euler(-20, 0, 0));
+            }
+            else if (kit == 1)
+            {
+                Prims.Cyl(a.head, new Vector3(-0.135f, 0.0f, 0), 0.08f, 0.04f, black, Vector3.right);
+                Prims.Cyl(a.head, new Vector3(0.135f, 0.0f, 0), 0.08f, 0.04f, black, Vector3.right);
+                Prims.Box(a.head, new Vector3(-0.12f, -0.04f, 0.08f), new Vector3(0.01f, 0.01f, 0.1f), black, false, Quaternion.Euler(0, 20, 0));
+            }
+            else
+            {
+                Prims.Box(a.head, new Vector3(0, 0.13f, 0.09f), new Vector3(0.05f, 0.04f, 0.04f), black, false);
+                Prims.Cyl(a.head, new Vector3(0, 0.12f, 0.13f), 0.035f, 0.05f, black, Vector3.forward);
+            }
             var hb = a.head.gameObject.AddComponent<SphereCollider>();
             hb.radius = 0.14f;
 
             a.torso = Prims.Empty("torso", go.transform).transform;
             Prims.Capsule(a.torso, Vector3.zero, 0.32f, 0.52f, shirtM, Vector3.up);
-            Prims.Box(a.torso, new Vector3(0, 0.02f, 0.14f), new Vector3(0.14f, 0.14f, 0.02f), Prims.Lit(Color.Lerp(shirtColor, Color.white, 0.5f), 0.3f), false);
+            // plate carrier with pouches, and a team patch on the shoulder
+            var vest = Prims.Lit(new Color(0.3f, 0.32f, 0.22f), 0.2f, 0f, Surface.Fabric);
+            Prims.Box(a.torso, new Vector3(0, 0.03f, 0.01f), new Vector3(0.34f, 0.36f, 0.3f), vest, false);
+            for (int i = 0; i < 3; i++)
+                Prims.Box(a.torso, new Vector3(-0.1f + i * 0.1f, -0.06f, 0.17f), new Vector3(0.085f, 0.11f, 0.05f), vest, false);
+            Prims.Box(a.torso, new Vector3(0, 0.1f, 0.165f), new Vector3(0.22f, 0.07f, 0.03f), Prims.Lit(Color.Lerp(shirtColor, Color.white, 0.2f), 0.3f, 0f, Surface.Fabric), false);
+            Prims.Box(a.torso, new Vector3(0, -0.15f, 0.0f), new Vector3(0.36f, 0.05f, 0.32f), black, false);
             var tb = a.torso.gameObject.AddComponent<CapsuleCollider>();
             tb.radius = 0.17f; tb.height = 0.58f;
             a.pelvis = Prims.Empty("pelvis", go.transform).transform;
@@ -179,21 +202,14 @@ namespace Flopzone
             var root = new GameObject("ragdoll");
             var skinM = Prims.Lit(skin, 0.35f);
             var shirtM = Prims.Lit(shirt, 0.25f);
-            var pantsM = Prims.Lit(pants, 0.2f);
+            var pantsM = Prims.Lit(new Color(0.78f, 0.78f, 0.72f), 0.2f, 0f, Surface.Camo);
 
             var rPelvis = Part(root.transform, "pelvis", pelvis.position, torso.rotation, 0.16f, 0.32f, pantsM, 9f);
             var rTorso = Part(root.transform, "torso", torso.position, torso.rotation, 0.17f, 0.55f, shirtM, 11f);
             var rHead = Part(root.transform, "head", head.position, head.rotation, 0.13f, 0.27f, skinM, 4f, true);
             // the head's face (copied so the ragdoll keeps its look)
-            for (int i = 1; i < head.childCount; i++)
-            {
-                var c = head.GetChild(i);
-                var copy = Instantiate(c.gameObject, rHead.transform);
-                copy.transform.SetPositionAndRotation(c.position, c.rotation);
-                copy.transform.localScale = c.localScale;
-                foreach (var col in copy.GetComponentsInChildren<Collider>()) Destroy(col);
-                foreach (var rend in copy.GetComponentsInChildren<Renderer>(true)) rend.enabled = true;
-            }
+            CopyDetails(head, rHead.transform);
+            CopyDetails(torso, rTorso.transform);
             Joint(rTorso, rPelvis, torso.position - torso.up * 0.27f, 25, 30, 20);
             Joint(rHead, rTorso, head.position - Vector3.up * 0.13f, 30, 40, 40);
             var parts = new System.Collections.Generic.List<Rigidbody> { rPelvis, rTorso, rHead };
@@ -216,6 +232,20 @@ namespace Flopzone
             root.AddComponent<RagdollLife>();
             AudioManager.Sfx("flop", torso.position, 1f, Random.Range(0.85f, 1.15f));
             return root;
+        }
+
+        /// <summary>Copy the face, helmet, vest etc. (every child but the first, the base shape) onto a ragdoll part.</summary>
+        static void CopyDetails(Transform from, Transform to)
+        {
+            for (int i = 1; i < from.childCount; i++)
+            {
+                var c = from.GetChild(i);
+                var copy = Instantiate(c.gameObject, to);
+                copy.transform.SetPositionAndRotation(c.position, c.rotation);
+                copy.transform.localScale = c.lossyScale;
+                foreach (var col in copy.GetComponentsInChildren<Collider>()) Destroy(col);
+                foreach (var rend in copy.GetComponentsInChildren<Renderer>(true)) rend.enabled = true;
+            }
         }
 
         static float Half(Transform seg) => seg.GetChild(0).localScale.y - seg.GetChild(0).localScale.x * 0.5f;

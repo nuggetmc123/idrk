@@ -21,7 +21,7 @@ namespace Flopzone
             r = new Rand(seed);
         }
 
-        public static Material M(string hex, float smooth = 0.2f, float metal = 0f) => Prims.Lit(Prims.Hex(hex), smooth, metal);
+        public static Material M(string hex, float smooth = 0.2f, float metal = 0f, Surface surface = Surface.Auto) => Prims.Lit(Prims.Hex(hex), smooth, metal, surface);
         public static Material Glow(string hex, float k = 1.6f) => Prims.Emissive(Prims.Hex(hex), k);
 
         public float R(float a, float b) => a + (float)r.NextDouble() * (b - a);
@@ -99,8 +99,8 @@ namespace Flopzone
 
         public void Crate(Vector3 pos, float size, float yaw)
         {
-            var wood = M(Pick("b07a45", "a06c3c", "9a7044"), 0.15f);
-            var edge = M("6e4a28", 0.15f);
+            var wood = M(Pick("b07a45", "a06c3c", "9a7044"), 0.15f, 0f, Surface.Plank);
+            var edge = M("6e4a28", 0.15f, 0f, Surface.Wood);
             var c = Block(pos, Vector3.one * size, wood, yaw);
             var t = c.transform;
             float e = 0.06f / size;
@@ -146,7 +146,7 @@ namespace Flopzone
 
         public void Tree(Vector3 pos, float h, string leafHex)
         {
-            var trunk = M("6b4a2e", 0.1f);
+            var trunk = M("6b4a2e", 0.1f, 0f, Surface.Wood);
             var leaf = M(leafHex, 0.1f);
             Prims.Cyl(S, pos + Vector3.up * h * 0.35f, 0.35f * h / 5f + 0.15f, h * 0.7f, trunk, Vector3.up, true);
             int blobs = Ri(3, 6);
@@ -160,7 +160,7 @@ namespace Flopzone
 
         public void Pine(Vector3 pos, float h)
         {
-            var trunk = M("5a3c22", 0.1f);
+            var trunk = M("5a3c22", 0.1f, 0f, Surface.Wood);
             var needle = M(Pick("2f5d3a", "2a5233", "36694a"), 0.1f);
             var snow = M("f2f6ff", 0.3f);
             Prims.Cyl(S, pos + Vector3.up * h * 0.2f, 0.3f, h * 0.4f, trunk, Vector3.up, true);
@@ -175,7 +175,7 @@ namespace Flopzone
 
         public void Palm(Vector3 pos, float h)
         {
-            var trunk = M("8a6a45", 0.15f);
+            var trunk = M("8a6a45", 0.15f, 0f, Surface.Wood);
             var leaf = M(Pick("3f8f3a", "4e9a3b"), 0.2f);
             int segs = 6;
             Vector3 p = pos;
@@ -203,7 +203,7 @@ namespace Flopzone
 
         public void Rock(Vector3 pos, float s, string hex)
         {
-            var m = M(hex, 0.15f);
+            var m = M(hex, 0.15f, 0f, Surface.Rock);
             var rot = Quaternion.Euler(R(0, 40), R(0, 360), R(0, 40));
             Prims.Box(S, pos + Vector3.up * s * 0.3f, new Vector3(s, s * 0.7f, s * 0.9f), m, true, rot);
         }
@@ -219,7 +219,7 @@ namespace Flopzone
         /// <summary>A building block with window strips.</summary>
         public GameObject Building(Vector3 pos, Vector3 size, string wallHex, string windowHex, bool glow, bool collider = true)
         {
-            var wall = M(wallHex, 0.2f);
+            var wall = M(wallHex, 0.2f, 0f, Surface.Concrete);
             var win = glow ? Glow(windowHex, 1.3f) : M(windowHex, 0.85f, 0.4f);
             var b = Box(pos + Vector3.up * size.y * 0.5f, size, wall, 0f, collider);
             int floors = Mathf.Max(1, Mathf.FloorToInt(size.y / 3.2f));

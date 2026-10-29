@@ -229,7 +229,11 @@ namespace Flopzone
 
             foreach (var hand in hands) hand.Tick();
 
-            if (Alive && Game.I != null && Game.I.world != null && transform.position.y < Game.I.world.killY) Game.I.LocalFell();
+            if (Alive && Game.I != null && Game.I.world != null)
+            {
+                if (transform.position.y < Game.I.world.killY) Game.I.LocalFell();
+                else if (Game.I.world.OutOfBounds(transform.position)) Game.I.OutOfBounds();
+            }
         }
 
         public float HorizontalSpeed => new Vector3(cc.velocity.x, 0, cc.velocity.z).magnitude;

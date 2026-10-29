@@ -37,6 +37,10 @@ namespace Flopzone
                 case TutorialIndex: Training(k); break;
                 default: Hub.Build(k); break;
             }
+            // the edge of the play area: a glowing wall nobody gets past
+            w.bounds = Bounds(index);
+            if (index >= 0) Dress(k, w.bounds, index);
+            BarrierField.Create(k.D, w.bounds);
             Physics.SyncTransforms();
             if (Application.isPlaying)
             {
@@ -47,15 +51,75 @@ namespace Flopzone
         }
 
         /* ======================= 0 · Warehouse ======================= */
+        /// <summary>Make a map look lived-in: stains and scorch marks on the ground, rubble, tyres, cones.</summary>
+        static void Dress(MapKit k, Vector2 b, int index)
+        {
+            Physics.SyncTransforms();
+            var stain = Prims.Fade(new Color(0.05f, 0.04f, 0.03f, 0.45f));
+            stain.mainTexture = Prims.SoftDot;
+            stain.renderQueue = 2460;
+            var scorch = Prims.Fade(new Color(0.02f, 0.02f, 0.02f, 0.7f));
+            scorch.mainTexture = Prims.SoftDot;
+            scorch.renderQueue = 2461;
+            bool snowy = index == 3, space = index == 9;
+            for (int i = 0; i < 40; i++)
+            {
+                var p = new Vector3(k.R(-b.x + 2, b.x - 2), 0, k.R(-b.y + 2, b.y - 2));
+                if (!Physics.Raycast(p + Vector3.up * 30, Vector3.down, out var hit, 60f, Layers.ShootMask, QueryTriggerInteraction.Ignore)) continue;
+                var q = Prims.Make(PrimitiveType.Quad, k.D, hit.point + hit.normal * 0.012f, new Vector3(k.R(1f, 3.5f), k.R(1f, 3.5f), 1),
+                    i % 4 == 0 ? scorch : stain, false, Quaternion.LookRotation(-hit.normal) * Quaternion.Euler(0, 0, k.R(0, 360)));
+                q.name = "stain";
+            }
+            var rubble = MapKit.M(snowy ? "dfe6ee" : space ? "8a8a8e" : "8c8478", 0.15f, 0f, Surface.Concrete);
+            for (int i = 0; i < 30; i++)
+            {
+                var p = new Vector3(k.R(-b.x + 2, b.x - 2), 0, k.R(-b.y + 2, b.y - 2));
+                if (!Physics.Raycast(p + Vector3.up * 30, Vector3.down, out var hit, 60f, Layers.ShootMask, QueryTriggerInteraction.Ignore)) continue;
+                for (int j = 0; j < 3; j++)
+                    Prims.Box(k.S, hit.point + new Vector3(k.R(-0.4f, 0.4f), 0.05f, k.R(-0.4f, 0.4f)), Vector3.one * k.R(0.08f, 0.25f), rubble, false, Quaternion.Euler(k.R(0, 90), k.R(0, 360), k.R(0, 90)));
+            }
+            if (space || index == 4 || index == 8) return;
+            var tire = MapKit.M("1b1b1b", 0.25f, 0f, Surface.Rubber);
+            var cone = MapKit.M("ff6a13", 0.4f, 0f, Surface.Plastic);
+            for (int i = 0; i < 6; i++)
+            {
+                var p = new Vector3(k.R(-b.x + 4, b.x - 4), 0, k.R(-b.y + 6, b.y - 6));
+                if (!Physics.Raycast(p + Vector3.up * 30, Vector3.down, out var hit, 60f, Layers.ShootMask, QueryTriggerInteraction.Ignore) || hit.point.y > 0.5f) continue;
+                if (i % 2 == 0)
+                    for (int t = 0; t < 3; t++) Prims.Cyl(k.S, hit.point + Vector3.up * (0.15f + t * 0.3f), 0.95f, 0.3f, tire, Vector3.up, t == 0);
+                else
+                    for (int c = 0; c < 3; c++)
+                    {
+                        var cp = hit.point + new Vector3(c * 0.8f, 0, k.R(-0.3f, 0.3f));
+                        Prims.Box(k.S, cp + Vector3.up * 0.02f, new Vector3(0.4f, 0.04f, 0.4f), cone, false);
+                        Prims.Cyl(k.S, cp + Vector3.up * 0.32f, 0.16f, 0.6f, cone, Vector3.up);
+                        Prims.Cyl(k.S, cp + Vector3.up * 0.35f, 0.18f, 0.08f, MapKit.M("f2f2f2", 0.4f, 0f, Surface.Plastic), Vector3.up);
+                    }
+            }
+        }
+
+        static Vector2 Bounds(int index)
+        {
+            switch (index)
+            {
+                case 1: return new Vector2(21, 33);
+                case 6: return new Vector2(40, 34.5f);
+                case HubIndex: return new Vector2(44, 46);
+                case TutorialIndex: return new Vector2(16, 16);
+                default: return new Vector2(35, 35);
+            }
+        }
+
         static void Warehouse(MapKit k)
         {
             k.world.ApplyTheme(new MapTheme
             {
+                sky = SkyStyle.Overcast,
                 skyTint = Prims.Hex("8aa0b8"), sunEuler = new Vector3(62, 35, 0), sunIntensity = 1.0f,
                 ambSky = Prims.Hex("7d8a99"), ambEquator = Prims.Hex("5b5f66"), ambGround = Prims.Hex("3a3632"),
                 fog = Prims.Hex("8c96a3"), fogDensity = 0.008f
             });
-            var concrete = MapKit.M("7c7f84", 0.25f);
+            var concrete = MapKit.M("7c7f84", 0.25f, 0f, Surface.Concrete);
             var wall = MapKit.M("3e5a63", 0.3f, 0.3f);
             var beam = MapKit.M("c9a227", 0.35f, 0.5f);
             k.Ground(36, 36, concrete);
@@ -123,15 +187,16 @@ namespace Flopzone
         {
             k.world.ApplyTheme(new MapTheme
             {
+                sky = SkyStyle.Sunset,
                 skyTint = Prims.Hex("ff9a5c"), groundTint = Prims.Hex("4a3a4f"), atmosphere = 1.6f, exposure = 1.3f,
                 sun = Prims.Hex("ffb27a"), sunIntensity = 1.2f, sunEuler = new Vector3(14, -60, 0),
                 ambSky = Prims.Hex("c9877a"), ambEquator = Prims.Hex("8a6670"), ambGround = Prims.Hex("3c3040"),
                 fog = Prims.Hex("d99a86"), fogDensity = 0.007f
             });
-            var roof = MapKit.M("8d8f94", 0.2f);
-            var tar = MapKit.M("4a4b50", 0.15f);
+            var roof = MapKit.M("8d8f94", 0.2f, 0f, Surface.Concrete);
+            var tar = MapKit.M("4a4b50", 0.15f, 0f, Surface.Asphalt);
             var rail = MapKit.M("3a3d44", 0.5f, 0.6f);
-            var plank = MapKit.M("9c7448", 0.15f);
+            var plank = MapKit.M("9c7448", 0.15f, 0f, Surface.Plank);
             // (center, size, roof height, wall color)
             var roofs = new[]
             {
@@ -188,7 +253,7 @@ namespace Flopzone
 
         static void WaterTower(MapKit k, Vector3 p)
         {
-            var wood = MapKit.M("7a5638", 0.15f);
+            var wood = MapKit.M("7a5638", 0.15f, 0f, Surface.Plank);
             var steel = MapKit.M("444", 0.4f, 0.7f);
             foreach (var o in new[] { new Vector3(-1, 0, -1), new Vector3(1, 0, -1), new Vector3(-1, 0, 1), new Vector3(1, 0, 1) })
                 k.Box(p + o + Vector3.up * 1.5f, new Vector3(0.2f, 3f, 0.2f), steel);
@@ -201,14 +266,15 @@ namespace Flopzone
         {
             k.world.ApplyTheme(new MapTheme
             {
+                sky = SkyStyle.Haze,
                 skyTint = Prims.Hex("9cc3e6"), groundTint = Prims.Hex("c9a46b"), exposure = 1.4f, sunIntensity = 1.35f,
                 sun = Prims.Hex("fff0d0"), sunEuler = new Vector3(58, 120, 0),
                 ambSky = Prims.Hex("a9c2dd"), ambEquator = Prims.Hex("c9ad85"), ambGround = Prims.Hex("8a6a45"),
                 fog = Prims.Hex("e3cfa8"), fogDensity = 0.007f
             });
-            var sand = MapKit.M("dcc08a", 0.08f);
-            var stone = MapKit.M("c99a63", 0.1f);
-            var stoneDark = MapKit.M("a77a4b", 0.1f);
+            var sand = MapKit.M("dcc08a", 0.08f, 0f, Surface.Sand);
+            var stone = MapKit.M("c99a63", 0.1f, 0f, Surface.Brick);
+            var stoneDark = MapKit.M("a77a4b", 0.1f, 0f, Surface.Brick);
             k.Ground(60, 60, sand);
             float H = 34;
             k.Battlement(new Vector3(-H, 0, -H), new Vector3(H, 0, -H), 4.5f, 1.2f, stone);
@@ -265,7 +331,7 @@ namespace Flopzone
         static void Stall(MapKit k, Vector3 p, float yaw, string clothHex)
         {
             var rot = Quaternion.Euler(0, yaw, 0);
-            var wood = MapKit.M("7a5638", 0.15f);
+            var wood = MapKit.M("7a5638", 0.15f, 0f, Surface.Plank);
             foreach (var o in new[] { new Vector3(-1.3f, 0, -1), new Vector3(1.3f, 0, -1), new Vector3(-1.3f, 0, 1), new Vector3(1.3f, 0, 1) })
                 k.BoxRot(p + rot * (o + Vector3.up * 1.2f), new Vector3(0.12f, 2.4f, 0.12f), wood, rot);
             k.BoxRot(p + rot * new Vector3(0, 2.45f, 0), new Vector3(3f, 0.08f, 2.4f), MapKit.M(clothHex, 0.1f), rot * Quaternion.Euler(8, 0, 0), false);
@@ -279,15 +345,16 @@ namespace Flopzone
         {
             k.world.ApplyTheme(new MapTheme
             {
+                sky = SkyStyle.Overcast,
                 skyTint = Prims.Hex("b8c8de"), groundTint = Prims.Hex("e8eef7"), exposure = 1.1f, sunIntensity = 0.95f,
                 sun = Prims.Hex("e6efff"), sunEuler = new Vector3(30, 200, 0),
                 ambSky = Prims.Hex("c7d6ea"), ambEquator = Prims.Hex("a9b7c9"), ambGround = Prims.Hex("8995a6"),
                 fog = Prims.Hex("dbe5f2"), fogDensity = 0.016f
             });
-            var snow = MapKit.M("eef3fb", 0.35f);
-            var ice = Prims.Lit(Prims.Hex("a9dcf5"), 0.95f, 0.1f);
-            var logs = MapKit.M("6e4b2f", 0.1f);
-            var roofM = MapKit.M("4b3a33", 0.2f);
+            var snow = MapKit.M("eef3fb", 0.35f, 0f, Surface.Snow);
+            var ice = Prims.Lit(Prims.Hex("a9dcf5"), 0.95f, 0.1f, Surface.Ice);
+            var logs = MapKit.M("6e4b2f", 0.1f, 0f, Surface.Wood);
+            var roofM = MapKit.M("4b3a33", 0.2f, 0f, Surface.Plank);
             k.Ground(60, 60, snow);
             k.InvisibleFence(34, 34);
             // frozen lake in the middle
@@ -338,14 +405,15 @@ namespace Flopzone
         {
             k.world.ApplyTheme(new MapTheme
             {
+                sky = SkyStyle.Day,
                 skyTint = Prims.Hex("8fc9a8"), groundTint = Prims.Hex("4a6a3a"), exposure = 1.15f, sunIntensity = 1.1f,
                 sun = Prims.Hex("fff6d6"), sunEuler = new Vector3(48, 70, 0),
                 ambSky = Prims.Hex("8db59a"), ambEquator = Prims.Hex("5c7a4f"), ambGround = Prims.Hex("2f3d24"),
                 fog = Prims.Hex("9fbf9a"), fogDensity = 0.014f
             });
-            var grass = MapKit.M("4f7f35", 0.1f);
-            var stone = MapKit.M("8f8c7a", 0.12f);
-            var moss = MapKit.M("6b7f4a", 0.1f);
+            var grass = MapKit.M("4f7f35", 0.1f, 0f, Surface.Grass);
+            var stone = MapKit.M("8f8c7a", 0.12f, 0f, Surface.Rock);
+            var moss = MapKit.M("6b7f4a", 0.1f, 0f, Surface.Rock);
             k.Ground(60, 60, grass);
             k.InvisibleFence(34, 34);
             // stepped temple in the middle
@@ -386,13 +454,14 @@ namespace Flopzone
         {
             k.world.ApplyTheme(new MapTheme
             {
+                sky = SkyStyle.Night,
                 skyTint = Prims.Hex("1a1440"), groundTint = Prims.Hex("0a0a14"), exposure = 0.35f, atmosphere = 0.6f, sunSize = 0.0f,
                 sun = Prims.Hex("8f7dff"), sunIntensity = 0.45f, sunEuler = new Vector3(60, 30, 0),
                 ambSky = Prims.Hex("3a2f7a"), ambEquator = Prims.Hex("2a2245"), ambGround = Prims.Hex("120f1c"),
                 fog = Prims.Hex("2a1d4a"), fogDensity = 0.018f
             });
-            var asphalt = MapKit.M("26262c", 0.55f);
-            var walk = MapKit.M("4a4a55", 0.3f);
+            var asphalt = MapKit.M("26262c", 0.55f, 0f, Surface.Asphalt);
+            var walk = MapKit.M("4a4a55", 0.3f, 0f, Surface.Tile);
             k.Ground(60, 60, asphalt);
             k.InvisibleFence(34, 34);
             string[] neon = { "ff2bd6", "2bf5ff", "ffe12b", "7c2bff", "2bff8a" };
@@ -447,12 +516,13 @@ namespace Flopzone
         {
             k.world.ApplyTheme(new MapTheme
             {
+                sky = SkyStyle.Overcast,
                 skyTint = Prims.Hex("7f98b0"), groundTint = Prims.Hex("3a4a55"), exposure = 1.0f, sunIntensity = 0.9f,
                 sun = Prims.Hex("e8eef5"), sunEuler = new Vector3(35, -120, 0),
                 ambSky = Prims.Hex("8a9cad"), ambEquator = Prims.Hex("66707a"), ambGround = Prims.Hex("343c44"),
                 fog = Prims.Hex("9aa8b5"), fogDensity = 0.012f
             });
-            var concrete = MapKit.M("8a8d90", 0.2f);
+            var concrete = MapKit.M("8a8d90", 0.2f, 0f, Surface.Concrete);
             var water = Prims.Lit(Prims.Hex("1f4f6b"), 0.92f, 0.1f);
             k.Box(new Vector3(0, -3, 0), new Vector3(400, 0.1f, 400), water, 0, false);
             k.Box(new Vector3(0, -2, 0), new Vector3(52, 4, 70), concrete);
@@ -500,6 +570,7 @@ namespace Flopzone
         {
             k.world.ApplyTheme(new MapTheme
             {
+                sky = SkyStyle.Sunset,
                 skyTint = Prims.Hex("5a4a40"), groundTint = Prims.Hex("2a2220"), exposure = 0.75f, sunIntensity = 0.7f,
                 sun = Prims.Hex("ffc79a"), sunEuler = new Vector3(55, 10, 0),
                 ambSky = Prims.Hex("6a5548"), ambEquator = Prims.Hex("4a3d36"), ambGround = Prims.Hex("2a1f1a"),
@@ -569,15 +640,16 @@ namespace Flopzone
         {
             k.world.ApplyTheme(new MapTheme
             {
+                sky = SkyStyle.Day,
                 skyTint = Prims.Hex("6f9ad1"), groundTint = Prims.Hex("4a5a3a"), exposure = 1.3f, sunIntensity = 1.2f,
                 sun = Prims.Hex("fff4dc"), sunEuler = new Vector3(45, -150, 0),
                 ambSky = Prims.Hex("9ab4d6"), ambEquator = Prims.Hex("7a8a6a"), ambGround = Prims.Hex("3a3f2a"),
                 fog = Prims.Hex("b9cbe0"), fogDensity = 0.006f
             });
-            var grass = MapKit.M("5e8c3a", 0.1f);
-            var stone = MapKit.M("9a9a96", 0.15f);
-            var stoneDark = MapKit.M("7a7a76", 0.15f);
-            var wood = MapKit.M("7a5638", 0.15f);
+            var grass = MapKit.M("5e8c3a", 0.1f, 0f, Surface.Grass);
+            var stone = MapKit.M("9a9a96", 0.15f, 0f, Surface.Brick);
+            var stoneDark = MapKit.M("7a7a76", 0.15f, 0f, Surface.Brick);
+            var wood = MapKit.M("7a5638", 0.15f, 0f, Surface.Plank);
             k.Ground(80, 80, grass);
             float H = 33;
             k.Battlement(new Vector3(-H, 0, -H), new Vector3(H, 0, -H), 5f, 1.6f, stone);
@@ -636,13 +708,14 @@ namespace Flopzone
         {
             k.world.ApplyTheme(new MapTheme
             {
+                sky = SkyStyle.Space,
                 skyTint = Color.black, groundTint = Color.black, atmosphere = 0f, exposure = 0.6f, sunSize = 0.03f,
                 sun = Prims.Hex("ffffff"), sunIntensity = 1.4f, sunEuler = new Vector3(25, 60, 0),
                 ambSky = Prims.Hex("4a4f66"), ambEquator = Prims.Hex("3a3d48"), ambGround = Prims.Hex("1f2026"),
                 fog = Color.black, fogDensity = 0f
             });
             k.world.gravity = 0.35f;
-            var dust = MapKit.M("9a9a9e", 0.08f);
+            var dust = MapKit.M("9a9a9e", 0.08f, 0f, Surface.Sand);
             var white = MapKit.M("e8ecf2", 0.5f, 0.2f);
             var panel = Prims.Lit(Prims.Hex("1f3f8a"), 0.9f, 0.5f);
             k.Ground(80, 80, dust);
@@ -708,12 +781,21 @@ namespace Flopzone
         /* ======================= Training range (tutorial) ======================= */
         static void Training(MapKit k)
         {
-            k.world.ApplyTheme(new MapTheme { fogDensity = 0.004f });
-            var floor = MapKit.M("6f7b6a", 0.15f);
-            k.Ground(20, 20, floor);
+            k.world.ApplyTheme(new MapTheme { fogDensity = 0.004f, sky = SkyStyle.Day, sunEuler = new Vector3(40, -30, 0) });
+            var floor = MapKit.M("8a7a5e", 0.1f, 0f, Surface.Dirt);
+            k.Ground(30, 30, floor);
+            k.Box(new Vector3(0, 0.02f, 2), new Vector3(12, 0.05f, 12), MapKit.M("a3a199", 0.25f, 0f, Surface.Concrete), 0, false);
             k.InvisibleFence(16, 16);
-            var wood = MapKit.M("8a6a45", 0.2f);
+            var wood = MapKit.M("6b5536", 0.2f, 0f, Surface.Plank);
             k.Block(new Vector3(0, 0, 3), new Vector3(6, 1f, 0.8f), wood);
+            MilitaryProps.Sandbags(k, new Vector3(-5, 0, 4.2f), new Vector3(5, 0, 4.2f), 2);
+            MilitaryProps.Hesco(k, new Vector3(-15, 0, -15), new Vector3(-15, 0, 15), 1.6f);
+            MilitaryProps.Hesco(k, new Vector3(15, 0, -15), new Vector3(15, 0, 15), 1.6f);
+            MilitaryProps.Hesco(k, new Vector3(-15, 0, 15), new Vector3(15, 0, 15), 1.6f);
+            MilitaryProps.Watchtower(k, new Vector3(-12, 0, 12), 135);
+            MilitaryProps.AmmoCrate(k, new Vector3(3.5f, 1f, 3), 0);
+            MilitaryProps.FloodLight(k, new Vector3(10, 0, -6), -40);
+            k.Sign(new Vector3(0, 3.2f, 14.4f), 180, "BASIC TRAINING", 0.6f, new Color(0.95f, 0.85f, 0.45f));
             for (int i = 0; i < 3; i++)
             {
                 var t = ShootingTarget.Create(k.D, new Vector3(-4 + i * 4, 0, 10 + i * 3));

@@ -15,6 +15,7 @@ namespace Flopzone
     public class GameAssets : ScriptableObject
     {
         public Material lit;
+        public Material litNormal;
         public Material litEmissive;
         public Material fade;
         public Material unlit;
@@ -22,6 +23,7 @@ namespace Flopzone
         public Material particleAdd;
         public Material particleAlpha;
         public Material skybox;
+        public Material skyPanoramic;
         public Font font;
 
         static GameAssets instance;
@@ -47,6 +49,7 @@ namespace Flopzone
         void FillFallbacks()
         {
             if (lit == null) lit = new Material(Shader.Find("Standard"));
+            if (litNormal == null) { litNormal = new Material(lit); litNormal.EnableKeyword("_NORMALMAP"); }
             if (litEmissive == null) { litEmissive = new Material(lit); litEmissive.EnableKeyword("_EMISSION"); }
             if (fade == null) fade = MakeFade(new Material(lit));
             if (unlit == null) unlit = new Material(Shader.Find("Unlit/Color"));
@@ -54,6 +57,7 @@ namespace Flopzone
             if (particleAdd == null) particleAdd = new Material(Shader.Find("Legacy Shaders/Particles/Additive"));
             if (particleAlpha == null) particleAlpha = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended"));
             if (skybox == null) skybox = new Material(Shader.Find("Skybox/Procedural"));
+            if (skyPanoramic == null) { var sh = Shader.Find("Skybox/Panoramic"); if (sh != null) skyPanoramic = new Material(sh); }
             if (font == null) font = BuiltinFont();
         }
 

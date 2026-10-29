@@ -20,27 +20,44 @@ namespace Flopzone
             var p = root.AddComponent<HubPortal>();
             p.mode = mode;
             var c = Prims.Hex(Colors[colorIndex % Colors.Length]);
-            var stone = MapKit.M("e8e2d4", 0.3f);
-            var trim = Prims.Emissive(c, 1.4f);
-            Prims.Box(root.transform, new Vector3(-1.9f, 2.2f, 0), new Vector3(0.6f, 4.4f, 0.8f), stone);
-            Prims.Box(root.transform, new Vector3(1.9f, 2.2f, 0), new Vector3(0.6f, 4.4f, 0.8f), stone);
-            Prims.Box(root.transform, new Vector3(0, 4.6f, 0), new Vector3(4.6f, 0.6f, 0.9f), stone);
-            Prims.Box(root.transform, new Vector3(0, 4.25f, 0.46f), new Vector3(3.2f, 0.08f, 0.02f), trim, false);
-            Prims.Box(root.transform, new Vector3(-1.9f, 2.2f, 0.41f), new Vector3(0.1f, 4f, 0.02f), trim, false);
-            Prims.Box(root.transform, new Vector3(1.9f, 2.2f, 0.41f), new Vector3(0.1f, 4f, 0.02f), trim, false);
-            var mem = Prims.Make(PrimitiveType.Quad, root.transform, new Vector3(0, 2.1f, 0), new Vector3(3.2f, 4.0f, 1), null, false, Quaternion.identity, "membrane");
+            var frame = MilitaryProps.OliveDark;
+            var steel = MilitaryProps.DarkSteel;
+            var glow = Prims.Emissive(c, 1.8f);
+            var t = root.transform;
+            // a heavy steel blast-door frame, opened up, with a glowing field across it
+            Prims.Box(t, new Vector3(-2.75f, 2.5f, 0), new Vector3(0.5f, 5f, 0.7f), frame);
+            Prims.Box(t, new Vector3(2.75f, 2.5f, 0), new Vector3(0.5f, 5f, 0.7f), frame);
+            Prims.Box(t, new Vector3(0, 5.2f, 0), new Vector3(6f, 0.4f, 0.7f), frame);
+            Prims.Box(t, new Vector3(-2.52f, 2.5f, 0.36f), new Vector3(0.06f, 4.8f, 0.02f), glow, false);
+            Prims.Box(t, new Vector3(2.52f, 2.5f, 0.36f), new Vector3(0.06f, 4.8f, 0.02f), glow, false);
+            Prims.Box(t, new Vector3(0, 4.98f, 0.36f), new Vector3(5f, 0.06f, 0.02f), glow, false);
+            for (int i = 0; i < 9; i++)
+                Prims.Box(t, new Vector3(-2.75f, 0.3f + i * 0.55f, 0.36f), new Vector3(0.5f, 0.18f, 0.02f), i % 2 == 0 ? MilitaryProps.Hazard : steel, false, Quaternion.Euler(0, 0, 35));
+            for (int i = 0; i < 9; i++)
+                Prims.Box(t, new Vector3(2.75f, 0.3f + i * 0.55f, 0.36f), new Vector3(0.5f, 0.18f, 0.02f), i % 2 == 0 ? MilitaryProps.Hazard : steel, false, Quaternion.Euler(0, 0, -35));
+            // the field
+            var mem = Prims.Make(PrimitiveType.Quad, t, new Vector3(0, 2.5f, 0), new Vector3(5f, 4.95f, 1), null, false, Quaternion.identity, "membrane");
             p.membrane = Prims.Sprite(new Color(c.r, c.g, c.b, 0.45f));
             p.membrane.mainTexture = Prims.SoftDot;
             p.membrane.renderQueue = 3050;
             mem.GetComponent<Renderer>().sharedMaterial = p.membrane;
             p.baseColor = p.membrane.color;
-            var pad = Prims.Cyl(root.transform, new Vector3(0, 0.04f, 1.6f), 3.2f, 0.06f, Prims.Emissive(c * 0.7f, 1f), Vector3.up);
+            p.ring = Prims.Cyl(t, new Vector3(0, 2.5f, 0.05f), 3.2f, 0.03f, glow, Vector3.forward).transform;
+            // floor pad with chevrons pointing in
+            var pad = Prims.Box(t, new Vector3(0, 0.05f, 1.6f), new Vector3(5f, 0.04f, 3f), MapKit.M("2a2c2e", 0.4f, 0f, Surface.Rubber), false);
             pad.name = "pad";
-            p.ring = Prims.Cyl(root.transform, new Vector3(0, 2.1f, 0.05f), 2.6f, 0.03f, trim, Vector3.forward).transform;
-            var t = UIKit.Text(root.transform, label, new Vector3(0, 5.35f, 0.2f), 0.5f, Color.white);
-            t.transform.localRotation = Quaternion.Euler(0, 180, 0);
-            t.fontStyle = FontStyle.Bold;
-            var t2 = UIKit.Text(root.transform, info, new Vector3(0, 3.95f, 0.47f), 0.17f, c);
+            for (int i = 0; i < 3; i++)
+            {
+                Prims.Box(t, new Vector3(-0.55f, 0.075f, 2.6f - i * 0.8f), new Vector3(1.3f, 0.01f, 0.18f), glow, false, Quaternion.Euler(0, 40, 0));
+                Prims.Box(t, new Vector3(0.55f, 0.075f, 2.6f - i * 0.8f), new Vector3(1.3f, 0.01f, 0.18f), glow, false, Quaternion.Euler(0, -40, 0));
+            }
+            // a lit screen above the gate with the mode
+            Prims.Box(t, new Vector3(0, 5.75f, 0.3f), new Vector3(4.6f, 0.75f, 0.12f), steel, false);
+            Prims.Box(t, new Vector3(0, 5.75f, 0.37f), new Vector3(4.4f, 0.6f, 0.01f), Prims.Unlit(new Color(c.r * 0.12f, c.g * 0.12f, c.b * 0.12f)), false);
+            var title = UIKit.Text(t, label, new Vector3(0, 5.82f, 0.39f), 0.32f, Color.Lerp(c, Color.white, 0.6f));
+            title.transform.localRotation = Quaternion.Euler(0, 180, 0);
+            title.fontStyle = FontStyle.Bold;
+            var t2 = UIKit.Text(t, info, new Vector3(0, 5.56f, 0.39f), 0.14f, c);
             t2.transform.localRotation = Quaternion.Euler(0, 180, 0);
             return p;
         }
@@ -53,7 +70,7 @@ namespace Flopzone
             var rig = PlayerRig.I;
             if (rig == null || !rig.Alive || Time.time < cooldown) return;
             var local = transform.InverseTransformPoint(rig.head.position);
-            if (Mathf.Abs(local.x) < 1.5f && Mathf.Abs(local.z) < 0.5f && local.y > 0 && local.y < 4.5f)
+            if (Mathf.Abs(local.x) < 2.3f && Mathf.Abs(local.z) < 0.5f && local.y > 0 && local.y < 5f)
             {
                 cooldown = Time.time + 4f;
                 AudioManager.Sfx("portal", transform.position + Vector3.up * 2, 1f);

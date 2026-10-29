@@ -35,8 +35,9 @@ At the top of Unity, next to Window and Help:
 pick a name (must be unique; slurs and swearing are refused), then learn to grab, shoot,
 drop the mag, reload, jump, sprint, crouch and open the menu. After that, the hub.
 
-**Hub:** walk into one of the six glowing portals to start a match, try all 22 guns on
-the gun table, and shoot targets on the range.
+**Hub:** a forward operating base. Walk through one of the six deployment gates in the
+hangar to start a match, try all 22 guns in the armory, shoot targets on the live-fire range,
+and check out the helipad, barracks, motor pool and watchtowers.
 
 ### Controls (Quest)
 
@@ -86,6 +87,11 @@ Offline, empty seats are filled with bots.
 
 Warehouse · Rooftops · Dune Outpost · Frostbite · Jungle Ruins · Neon City · Shipyard ·
 Foundry · Castle Keep · Moon Base (low gravity) — plus the Hub and the Training Range.
+
+Every map has its own painted 360° sky (clear day, sunset, night with stars and moon, overcast,
+desert haze, space), textured surfaces (concrete, metal, brick, sand, snow, grass and more, with
+bump detail), a reflection snapshot for shiny metal, and a glowing energy barrier around the edge
+that nobody can get past.
 
 ### Guns (22)
 

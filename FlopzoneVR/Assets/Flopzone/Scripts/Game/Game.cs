@@ -49,14 +49,21 @@ namespace Flopzone
             I = this;
             Save.Load();
             Application.runInBackground = true;
-            QualitySettings.shadows = ShadowQuality.HardOnly;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            QualitySettings.shadows = ShadowQuality.HardOnly;   // Quest: crisp and cheap
             QualitySettings.shadowDistance = 35f;
+#else
+            QualitySettings.shadows = ShadowQuality.All;        // PC / editor: soft shadows
+            QualitySettings.shadowDistance = 70f;
+            QualitySettings.shadowCascades = 2;
+#endif
             QualitySettings.antiAliasing = 4;
             QualitySettings.vSyncCount = 0;
             foreach (var cam in FindObjectsByType<Camera>(FindObjectsSortMode.None)) cam.gameObject.SetActive(false);
             foreach (var l in FindObjectsByType<AudioListener>(FindObjectsSortMode.None)) l.enabled = false;
             foreach (var w in FindObjectsByType<World>(FindObjectsSortMode.None)) Destroy(w.gameObject);   // the editor's hub preview
 
+            surfacesReady = Surfaces.Prewarm();
             gameObject.AddComponent<VRInput>();
             gameObject.AddComponent<AudioManager>();
             gameObject.AddComponent<Fx>();
@@ -77,14 +84,20 @@ namespace Flopzone
 
         /* ======================= boot ======================= */
 
+        System.Threading.Tasks.Task surfacesReady;
+
         IEnumerator Boot()
         {
-            // something nice to stand in while we load
+            float started = Time.time;
+            rig.Teleport(new Vector3(0, 0.05f, 0), 0);
+            var popup = Hud.I.Popup("Welcome to Flopzone", "Loading to hub...");
+            // the textures are painted on other threads while the welcome popup shows
+            while (surfacesReady != null && !surfacesReady.IsCompleted && Time.time - started < 20f) yield return null;
+            // something nice to stand in while we connect
             BuildWorld(MapBuilder.HubIndex);
             world.Spawn(-1, 0, out var p, out var yaw);
             rig.Teleport(p, yaw);
-            float started = Time.time;
-            var popup = Hud.I.Popup("Welcome to Flopzone", "Loading to hub...");
+            popup.PlaceInFront(rig.head, 0.9f, 0.05f);
             var body = popup.content.GetComponentsInChildren<TextMesh>()[1];
             UIPointer.I.Active = false;
 
@@ -353,6 +366,14 @@ namespace Flopzone
             }
             world.Spawn(-1, 0, out var p, out var yaw);
             rig.Teleport(p, yaw);
+        }
+
+        /// <summary>Somehow got past the barrier: back to a spawn point.</summary>
+        public void OutOfBounds()
+        {
+            world.Spawn(session != null ? session.MyTeam : -1, UnityEngine.Random.Range(0, 1000), out var p, out var yaw);
+            rig.Teleport(p, yaw);
+            Hud.I.Toast("Out of bounds! Back you go.");
         }
 
         public void Invoke2(float delay, Action a) => StartCoroutine(After(delay, a));

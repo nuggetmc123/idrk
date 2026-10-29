@@ -108,6 +108,7 @@ namespace Flopzone
             else { vy -= 9.81f * w.gravity * dt; next.y = pos.y + vy * dt; }
             pos = next;
             if (pos.y < w.killY) { server.BotFell(view.id); return; }
+            if (w.OutOfBounds(pos)) { Respawn(Random.Range(0, 1000)); return; }
 
             // stuck?
             if ((pos - lastPos).sqrMagnitude < 0.0004f && vel.sqrMagnitude > 1f) { stuckTimer += dt; if (stuckTimer > 1f) { PickGoal(); stuckTimer = 0; } }

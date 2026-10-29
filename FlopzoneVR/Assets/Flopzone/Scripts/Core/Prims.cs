@@ -9,13 +9,26 @@ namespace Flopzone
         static readonly Dictionary<string, Material> cache = new Dictionary<string, Material>();
         static Texture2D softDot;
 
-        public static Material Lit(Color c, float smooth = 0.25f, float metal = 0f)
+        /// <summary>A lit, textured material. Surface.Auto picks a texture from how metallic it is.</summary>
+        public static Material Lit(Color c, float smooth = 0.25f, float metal = 0f, Surface surface = Surface.Auto)
         {
-            string key = "L" + c + smooth + metal;
+            if (surface == Surface.Auto) surface = metal >= 0.5f ? Surface.Metal : metal >= 0.2f ? Surface.PaintedMetal : Surface.Generic;
+            string key = "L" + c + smooth + metal + surface;
             if (!cache.TryGetValue(key, out var m) || m == null)
             {
-                m = new Material(GameAssets.I.lit) { name = "fz_lit" };
-                m.color = c;
+                m = new Material(GameAssets.I.litNormal) { name = "fz_" + surface };
+                var tex = Surfaces.Get(surface);
+                m.mainTexture = tex.albedo;
+                m.mainTextureScale = Vector2.one / Surfaces.TileMeters(surface);
+                if (m.HasProperty("_BumpMap"))
+                {
+                    m.SetTexture("_BumpMap", tex.normal);
+                    m.SetTextureScale("_BumpMap", m.mainTextureScale);
+                    m.SetFloat("_BumpScale", 1f);
+                    m.EnableKeyword("_NORMALMAP");
+                }
+                // the detail texture averages ~0.85, so lift the colour to keep it true
+                m.color = new Color(Mathf.Min(1, c.r * 1.15f), Mathf.Min(1, c.g * 1.15f), Mathf.Min(1, c.b * 1.15f), c.a);
                 m.SetFloat("_Glossiness", smooth);
                 m.SetFloat("_Metallic", metal);
                 m.enableInstancing = true;
@@ -115,6 +128,8 @@ namespace Flopzone
             go.transform.localRotation = localRot ?? Quaternion.identity;
             go.transform.localScale = scale;
             if (mat != null) go.GetComponent<Renderer>().sharedMaterial = mat;
+            // boxes get UVs in meters, so textures are the same size on every box
+            if (type == PrimitiveType.Cube) go.GetComponent<MeshFilter>().sharedMesh = Surfaces.Box(scale);
             if (!collider)
             {
                 Object.DestroyImmediate(go.GetComponent<Collider>());
@@ -130,6 +145,44 @@ namespace Flopzone
 
         public static GameObject Ball(Transform parent, Vector3 pos, Vector3 scale, Material mat, bool collider = false)
             => Make(PrimitiveType.Sphere, parent, pos, scale, mat, collider);
+
+        static Mesh lowBall;
+
+        /// <summary>A cheap ball (60 vertices instead of 500) for things there are lots of, like sandbags.</summary>
+        public static GameObject LowBall(Transform parent, Vector3 pos, Vector3 scale, Material mat)
+        {
+            if (lowBall == null)
+            {
+                const int seg = 10, ring = 5;
+                var v = new System.Collections.Generic.List<Vector3>();
+                var uv = new System.Collections.Generic.List<Vector2>();
+                var t = new System.Collections.Generic.List<int>();
+                for (int r = 0; r <= ring; r++)
+                    for (int s = 0; s <= seg; s++)
+                    {
+                        float lat = Mathf.PI * r / ring - Mathf.PI / 2, lon = 2 * Mathf.PI * s / seg;
+                        v.Add(new Vector3(Mathf.Cos(lat) * Mathf.Cos(lon), Mathf.Sin(lat), Mathf.Cos(lat) * Mathf.Sin(lon)) * 0.5f);
+                        uv.Add(new Vector2((float)s / seg, (float)r / ring));
+                    }
+                for (int r = 0; r < ring; r++)
+                    for (int s = 0; s < seg; s++)
+                    {
+                        int a = r * (seg + 1) + s, b = a + seg + 1;
+                        t.Add(a); t.Add(b); t.Add(a + 1);
+                        t.Add(a + 1); t.Add(b); t.Add(b + 1);
+                    }
+                lowBall = new Mesh { name = "fz_lowball" };
+                lowBall.SetVertices(v);
+                lowBall.SetUVs(0, uv);
+                lowBall.SetTriangles(t, 0);
+                lowBall.RecalculateNormals();
+                lowBall.RecalculateTangents();
+                lowBall.RecalculateBounds();
+            }
+            var go = Make(PrimitiveType.Sphere, parent, pos, scale, mat, false);
+            go.GetComponent<MeshFilter>().sharedMesh = lowBall;
+            return go;
+        }
 
         /// <summary>Cylinder of a given diameter and full length, lying along local axis.</summary>
         public static GameObject Cyl(Transform parent, Vector3 pos, float diameter, float length, Material mat, Vector3 axis, bool collider = false)

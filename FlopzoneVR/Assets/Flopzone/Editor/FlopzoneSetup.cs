@@ -21,7 +21,7 @@ namespace Flopzone.EditorTools
     public static class FlopzoneSetup
     {
         /// <summary>Bump this when a change needs the setup to run again on everyone's machine.</summary>
-        public const int Version = 3;
+        public const int Version = 4;
 
         public const string Root = "Assets/Flopzone";
         public const string ScenePath = Root + "/Scenes/Flopzone.unity";
@@ -170,6 +170,20 @@ namespace Flopzone.EditorTools
             return m;
         }
 
+        static Texture2D FlatNormalTexture()
+        {
+            string path = GeneratedDir + "/FlatNormal.asset";
+            var t = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (t != null) return t;
+            t = new Texture2D(4, 4, TextureFormat.RGBA32, false, true) { name = "FlatNormal" };
+            var px = new Color[16];
+            for (int i = 0; i < 16; i++) px[i] = new Color(0.5f, 0.5f, 1f, 0.5f);
+            t.SetPixels(px);
+            t.Apply();
+            AssetDatabase.CreateAsset(t, path);
+            return t;
+        }
+
         static GameAssets EnsureGameAssets()
         {
             var a = AssetDatabase.LoadAssetAtPath<GameAssets>(AssetsPath);
@@ -179,6 +193,16 @@ namespace Flopzone.EditorTools
                 AssetDatabase.CreateAsset(a, AssetsPath);
             }
             a.lit = MakeMat("Lit", "Standard", m => { m.enableInstancing = true; m.SetFloat("_Glossiness", 0.3f); });
+            var flatNormal = FlatNormalTexture();
+            a.litNormal = MakeMat("LitNormal", "Standard", m =>
+            {
+                // textured + normal-mapped: the look almost everything in the game uses
+                m.enableInstancing = true;
+                m.mainTexture = Texture2D.whiteTexture;
+                m.SetTexture("_BumpMap", flatNormal);
+                m.EnableKeyword("_NORMALMAP");
+            });
+            a.skyPanoramic = MakeMat("SkyPanoramic", "Skybox/Panoramic", m => { if (m.HasProperty("_Mapping")) m.SetFloat("_Mapping", 1); });
             a.litEmissive = MakeMat("LitEmissive", "Standard", m =>
             {
                 m.enableInstancing = true;
@@ -276,7 +300,7 @@ namespace Flopzone.EditorTools
             var so = new SerializedObject(gs);
             var list = so.FindProperty("m_AlwaysIncludedShaders");
             if (list == null) return;
-            foreach (var name in new[] { "Sprites/Default", "Unlit/Color", "Legacy Shaders/Particles/Additive", "Legacy Shaders/Particles/Alpha Blended", "Skybox/Procedural" })
+            foreach (var name in new[] { "Sprites/Default", "Unlit/Color", "Legacy Shaders/Particles/Additive", "Legacy Shaders/Particles/Alpha Blended", "Skybox/Procedural", "Skybox/Panoramic" })
             {
                 var sh = Shader.Find(name);
                 if (sh == null) continue;

@@ -18,8 +18,55 @@ namespace Flopzone.EditorTools
                 !EditorUtility.DisplayDialog("Flopzone", "VR isn't switched on for Android yet, so the APK would run flat. Build anyway?\n\n(Use Flopzone > Set Up VR (Quest) first to fix this.)", "Build anyway", "Cancel"))
                 return;
             if (!UnityEditor.SceneManagement.EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            SessionState.SetBool(RunKey, run);
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+            {
+                // switching recompiles every script; finish the build once Unity is done (even across its reload)
+                SessionState.SetBool(PendingKey, true);
+                FlopzoneSetup.LastMessage = "Switching to Android, then building the APK...";
                 EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
+                WaitThenBuild();
+                return;
+            }
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                SessionState.SetBool(PendingKey, true);
+                WaitThenBuild();
+                return;
+            }
+            Build(run);
+        }
+
+        const string PendingKey = "Flopzone.BuildPending", RunKey = "Flopzone.BuildRun";
+        static double quietSince;
+
+        [InitializeOnLoadMethod]
+        static void Resume()
+        {
+            if (SessionState.GetBool(PendingKey, false)) WaitThenBuild();
+        }
+
+        static void WaitThenBuild()
+        {
+            quietSince = -1;
+            EditorApplication.update -= Tick;
+            EditorApplication.update += Tick;
+        }
+
+        static void Tick()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode) { quietSince = -1; return; }
+            // wait until Unity has been idle for a moment (setting changes can start another compile)
+            if (quietSince < 0) { quietSince = EditorApplication.timeSinceStartup; return; }
+            if (EditorApplication.timeSinceStartup - quietSince < 2.0) return;
+            EditorApplication.update -= Tick;
+            if (!SessionState.GetBool(PendingKey, false)) return;
+            SessionState.SetBool(PendingKey, false);
+            Build(SessionState.GetBool(RunKey, false));
+        }
+
+        static void Build(bool run)
+        {
             EditorUserBuildSettings.buildAppBundle = false;
             Directory.CreateDirectory("Builds");
             string path = Path.GetFullPath("Builds/Flopzone.apk");
