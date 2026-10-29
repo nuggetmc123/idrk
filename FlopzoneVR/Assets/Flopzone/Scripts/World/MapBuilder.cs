@@ -64,10 +64,10 @@ namespace Flopzone
             Physics.SyncTransforms();
             var stain = Prims.Fade(new Color(0.05f, 0.04f, 0.03f, 0.45f));
             stain.mainTexture = Prims.SoftDot;
-            stain.renderQueue = 2460;
+            stain.renderQueue = 2501;   // first of the transparent queue (Unity resets fade materials below 2501)
             var scorch = Prims.Fade(new Color(0.02f, 0.02f, 0.02f, 0.7f));
             scorch.mainTexture = Prims.SoftDot;
-            scorch.renderQueue = 2461;
+            scorch.renderQueue = 2502;
             bool snowy = index == 3, space = index == 9;
             for (int i = 0; i < 40; i++)
             {

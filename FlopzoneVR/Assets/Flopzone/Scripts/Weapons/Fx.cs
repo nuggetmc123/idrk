@@ -115,7 +115,7 @@ namespace Flopzone
             go.name = n;
             var m = Prims.Sprite(c);
             m.mainTexture = Prims.SoftDot;
-            m.renderQueue = 2450;
+            m.renderQueue = 2501;   // first in the see-through queue, under the other effects
             go.GetComponent<Renderer>().sharedMaterial = m;
             go.SetActive(false);
             return go;
