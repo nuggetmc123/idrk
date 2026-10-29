@@ -14,6 +14,11 @@ namespace Flopzone
         public Transform[] thigh = new Transform[2], shin = new Transform[2], foot = new Transform[2];
         public Color shirt, skin, pants;
         float walkPhase;
+        Cosmetics.Body body;
+        Material bare;
+        readonly System.Collections.Generic.List<GameObject> outfit = new System.Collections.Generic.List<GameObject>();
+        /// <summary>The outfit being worn (a packed <see cref="Look"/>), or -1 before the first one.</summary>
+        public int LookCode { get; private set; } = -1;
 
         const float UpperArm = 0.28f, LowerArm = 0.27f, Thigh = 0.42f, Shin = 0.42f;
 
@@ -24,7 +29,8 @@ namespace Flopzone
             return new Color(0.95f, 0.75f, 0.2f);
         }
 
-        public static Avatar Build(Transform parent, string seed, Color shirtColor)
+        /// <summary>Build a player body. look is a packed <see cref="Look"/>; -1 picks a random outfit from the seed (bots).</summary>
+        public static Avatar Build(Transform parent, string seed, Color shirtColor, int look = 0)
         {
             var go = new GameObject("avatar");
             go.transform.SetParent(parent, false);
@@ -80,8 +86,56 @@ namespace Flopzone
                 a.foot[s] = Prims.Empty("foot" + s, go.transform).transform;
                 Prims.Capsule(a.foot[s], new Vector3(0, 0.025f, 0.05f), 0.075f, 0.2f, skinM, Vector3.forward);
             }
+            a.bare = skinM;
+            a.body = new Cosmetics.Body
+            {
+                head = a.head, torso = a.torso, pelvis = a.pelvis, upperArm = a.upperArm, lowerArm = a.lowerArm, hand = a.hand,
+                thigh = a.thigh, shin = a.shin, foot = a.foot,
+                torsoBase = a.torso.GetChild(0).GetComponent<Renderer>(),
+                pelvisBase = a.pelvis.GetChild(0).GetComponent<Renderer>(),
+                upperArmVis = new Renderer[2], lowerArmVis = new Renderer[2], thighVis = new Renderer[2], shinVis = new Renderer[2], footBase = new Renderer[2],
+                handParts = new System.Collections.Generic.List<Renderer>[2],
+            };
+            for (int s = 0; s < 2; s++)
+            {
+                a.body.upperArmVis[s] = a.upperArm[s].GetChild(0).GetComponent<Renderer>();
+                a.body.lowerArmVis[s] = a.lowerArm[s].GetChild(0).GetComponent<Renderer>();
+                a.body.thighVis[s] = a.thigh[s].GetChild(0).GetComponent<Renderer>();
+                a.body.shinVis[s] = a.shin[s].GetChild(0).GetComponent<Renderer>();
+                a.body.footBase[s] = a.foot[s].GetChild(0).GetComponent<Renderer>();
+                a.body.handParts[s] = new System.Collections.Generic.List<Renderer>();
+                foreach (Transform c in a.hand[s]) a.body.handParts[s].Add(c.GetComponent<Renderer>());
+            }
+            a.ApplyLook(look < 0 ? Look.FromSeed(seed) : look);
             return a;
         }
+
+        /// <summary>Change clothes: take the old outfit off and put the new one on.</summary>
+        public void ApplyLook(int code)
+        {
+            if (code == LookCode) return;
+            LookCode = code;
+            foreach (var go in outfit) if (go != null) DestroyImmediate(go);
+            outfit.Clear();
+            body.torsoBase.sharedMaterial = shirtMat;
+            body.pelvisBase.sharedMaterial = shirtMat;
+            for (int s = 0; s < 2; s++)
+            {
+                body.upperArmVis[s].sharedMaterial = shirtMat;
+                body.lowerArmVis[s].sharedMaterial = bare;
+                body.thighVis[s].sharedMaterial = bare;
+                body.shinVis[s].sharedMaterial = bare;
+                body.footBase[s].sharedMaterial = bare;
+                foreach (var r in body.handParts[s]) r.sharedMaterial = bare;
+            }
+            Cosmetics.Apply(body, Look.Unpack(code), outfit);
+            // a hidden body (your own, or a player waiting for their first pose) stays hidden
+            bool shown = body.torsoBase.enabled;
+            foreach (var go in outfit)
+                if (go != null) foreach (var r in go.GetComponentsInChildren<Renderer>(true)) r.enabled = shown;
+        }
+
+        Material shirtMat => Prims.Lit(shirt, 0.45f, 0f, Surface.Plastic);
 
         static Transform Segment(string name, Transform parent, float thickness, Material m)
         {
@@ -176,7 +230,8 @@ namespace Flopzone
             var skinM = Prims.Lit(skin, 0.45f, 0f, Surface.Plastic);
             var shirtM = Prims.Lit(shirt, 0.45f, 0f, Surface.Plastic);
 
-            var rPelvis = Part(root.transform, "pelvis", pelvis.position, torso.rotation, 0.12f, 0.24f, shirtM, 9f);
+            var rPelvis = Part(root.transform, "pelvis", pelvis.position, torso.rotation, 0.12f, 0.24f, shirtM, 9f, false, false);
+            CopyDetails(pelvis, rPelvis.transform, 0);
             var rTorso = Part(root.transform, "torso", torso.position, torso.rotation, 0.13f, 0.72f, shirtM, 11f, false, false);
             var rHead = Part(root.transform, "head", head.position, head.rotation, 0.12f, 0.27f, skinM, 4f, true, false);
             // the real head and body shapes (copied so the ragdoll keeps its look)
@@ -187,10 +242,13 @@ namespace Flopzone
             var parts = new System.Collections.Generic.List<Rigidbody> { rPelvis, rTorso, rHead };
             for (int s = 0; s < 2; s++)
             {
-                var ua = SegPart(root.transform, upperArm[s], 0.05f, shirtM, 2.5f);
-                var la = SegPart(root.transform, lowerArm[s], 0.042f, skinM, 1.8f);
-                var th = SegPart(root.transform, thigh[s], 0.07f, skinM, 6f);
-                var sh = SegPart(root.transform, shin[s], 0.06f, skinM, 4.5f);
+                var ua = SegPart(root.transform, upperArm[s], 0.05f, Worn(upperArm[s]), 2.5f);
+                var la = SegPart(root.transform, lowerArm[s], 0.042f, Worn(lowerArm[s]), 1.8f);
+                var th = SegPart(root.transform, thigh[s], 0.07f, Worn(thigh[s]), 6f);
+                var sh = SegPart(root.transform, shin[s], 0.06f, Worn(shin[s]), 4.5f);
+                // hands (gloves and all) ride on the forearms, feet (and shoes) on the shins
+                CopyDetails(hand[s], la.transform, 0);
+                CopyDetails(foot[s], sh.transform, 0);
                 Joint(ua, rTorso, upperArm[s].position - upperArm[s].up * Half(upperArm[s]), 80, 80, 60);
                 Joint(la, ua, lowerArm[s].position - lowerArm[s].up * Half(lowerArm[s]), 5, 100, 10);
                 Joint(th, rPelvis, thigh[s].position - thigh[s].up * Half(thigh[s]), 40, 60, 30);
@@ -205,6 +263,8 @@ namespace Flopzone
             AudioManager.Sfx("flop", torso.position, 1f, Random.Range(0.85f, 1.15f));
             return root;
         }
+
+        static Material Worn(Transform seg) => seg.GetChild(0).GetComponent<Renderer>().sharedMaterial;
 
         /// <summary>Copy a body part's shapes (from child <paramref name="first"/> on) onto a ragdoll part.</summary>
         static void CopyDetails(Transform from, Transform to, int first = 1)

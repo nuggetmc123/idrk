@@ -53,6 +53,24 @@ plane with that mode already picked.
 body, thin arms with fingers, and flat feet. They're all white; your team shows as a coloured band
 on each arm. When you're killed you go full ragdoll.
 
+**The Outfitter** (the striped booth on the west side of the parade ground) is where you dress
+up. Walk up to the kiosk and pick:
+
+- **Hats (19):** baseball cap, backwards cap, beanie, cowboy hat, top hat, party hat, Viking helmet,
+  crown, hard hat, chef hat, halo, propeller cap, headphones, army helmet, pirate hat, wizard hat,
+  bucket hat, traffic cone, Santa hat
+- **Tops (10):** T-shirt, hoodie, tank top, suit & tie, camo jacket, Hawaiian shirt, hi-vis vest,
+  sports jersey, puffer jacket, lab coat
+- **Pants (5):** jeans, shorts, camo, track pants, cargo pants
+- **Shoes (4):** sneakers, boots, combat boots, high-tops
+- **Gloves (7):** fingerless, boxing gloves, work gloves, rubber gloves, cartoon gloves, tactical, mittens
+
+Caps, beanies, bucket hats, the party hat, the propeller cap, headphones and the wizard hat come in
+12 colours, and so do the T-shirt, hoodie, tank top, Hawaiian shirt, jersey and puffer jacket.
+A mannequin in the booth wears your outfit in a T-pose, so you can see it. **Random** and
+**Plain** buttons are there too. Your gloves show on your own hands, everyone else sees your
+outfit, and it stays on your ragdoll when you flop. Bots dress up at random.
+
 ### Controls (Quest)
 
 | | |

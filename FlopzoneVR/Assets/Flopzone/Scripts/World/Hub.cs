@@ -59,6 +59,9 @@ namespace Flopzone
             // ---- the airfield behind it: the transport plane, arcade machines and a loadout station ----
             Airfield(k);
 
+            // ---- the Outfitter: pick your hat, clothes and gloves ----
+            OutfitStation.BuildBooth(k, new Vector3(-15, 0, 14));
+
             // ---- armory: the gun table under a camo net, ammo stacked around ----
             Armory(k);
 

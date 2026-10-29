@@ -114,8 +114,18 @@ namespace Flopzone
         {
             team = t;
             if (selfAvatar) Destroy(selfAvatar.gameObject);
-            selfAvatar = Avatar.Build(transform, Game.I != null && Game.I.session != null ? Game.I.session.MyId : "me", Avatar.TeamColor(t));
+            selfAvatar = Avatar.Build(transform, Game.I != null && Game.I.session != null ? Game.I.session.MyId : "me", Avatar.TeamColor(t), Save.Settings.look);
             selfAvatar.SetVisible(false);
+            RefreshLook();
+        }
+
+        /// <summary>Put on the outfit from the Outfitter (your hidden body for your ragdoll, and the gloves on your own hands).</summary>
+        public void RefreshLook()
+        {
+            int code = Save.Settings.look;
+            if (selfAvatar) selfAvatar.ApplyLook(code);
+            var (main, cuff) = Cosmetics.GloveColors(Look.Unpack(code).gloves);
+            foreach (var h in hands) if (h) h.SetGloveColors(main, cuff);
         }
 
         public IEnumerable<Gun> LoadoutGuns()
@@ -256,6 +266,7 @@ namespace Flopzone
             p[PoseData.LGun] = lg != null ? lg.def.index : -1;
             p[PoseData.RGun] = rg != null ? rg.def.index : -1;
             p[PoseData.Speed] = HorizontalSpeed;
+            PoseData.PutLook(p, Save.Settings.look);
             return p;
         }
 

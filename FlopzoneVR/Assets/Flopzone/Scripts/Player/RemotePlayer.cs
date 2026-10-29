@@ -6,7 +6,16 @@ namespace Flopzone
     public static class PoseData
     {
         public const int FeetX = 0, Yaw = 3, Head = 4, HeadRot = 7, LHand = 11, LRot = 14, RHand = 18, RRot = 21, Flags = 25, LGun = 26, RGun = 27, Speed = 28;
-        public const int Length = 29;
+        /// <summary>The outfit, split in two halves (each stored +1 so 0 means "not sent", as with bots).</summary>
+        public const int LookLo = 29, LookHi = 30;
+        public const int Length = 31;
+
+        public static void PutLook(float[] p, int code) { p[LookLo] = (code & 0x1FFF) + 1; p[LookHi] = (code >> 13) + 1; }
+        public static int GetLook(float[] p)
+        {
+            if (p.Length <= LookHi || p[LookLo] < 0.5f || p[LookHi] < 0.5f) return -1;
+            return (Mathf.RoundToInt(p[LookLo]) - 1) | (Mathf.RoundToInt(p[LookHi]) - 1) << 13;
+        }
         public const int FlagCrouch = 1, FlagSprint = 2, FlagGrounded = 4;
 
         public static Vector3 V(float[] p, int i) => new Vector3(p[i], p[i + 1], p[i + 2]);
@@ -30,6 +39,7 @@ namespace Flopzone
         public bool alive = true;
         public int hp = 100;
         public Avatar avatar;
+        int look;
 
         TextMesh nameTag;
         Transform hpBar;
@@ -53,6 +63,7 @@ namespace Flopzone
             var rp = go.AddComponent<RemotePlayer>();
             rp.id = id;
             rp.isBot = bot;
+            rp.look = bot ? -1 : 0;   // bots dress at random; people's outfits arrive with their pose
             rp.playerName = name;
             rp.Rebuild(team);
             return rp;
@@ -65,7 +76,7 @@ namespace Flopzone
             if (tagRoot) Destroy(tagRoot.gameObject);
             heldGuns[0] = heldGuns[1] = null;
             heldGunIdx[0] = heldGunIdx[1] = -1;
-            avatar = Avatar.Build(transform, id, Avatar.TeamColor(team));
+            avatar = Avatar.Build(transform, id, Avatar.TeamColor(team), look);
             foreach (var c in avatar.GetComponentsInChildren<Collider>())
             {
                 var hb = c.gameObject.AddComponent<Hitbox>();
@@ -112,6 +123,8 @@ namespace Flopzone
                 if (Vector3.Distance(PoseData.V(from, 0), PoseData.V(to, 0)) > 4f) from = (float[])to.Clone();
             }
             lastPoseTime = Time.time;
+            int newLook = PoseData.GetLook(p);
+            if (newLook >= 0 && newLook != look) { look = newLook; if (avatar) avatar.ApplyLook(look); }
             SetGun(0, Mathf.RoundToInt(p[PoseData.LGun]));
             SetGun(1, Mathf.RoundToInt(p[PoseData.RGun]));
         }

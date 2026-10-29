@@ -48,6 +48,21 @@ namespace Flopzone
             Prims.Box(glove.transform, new Vector3(-side * 0.04f, 0.0f, -0.01f), new Vector3(0.018f, 0.02f, 0.05f), m, false, Quaternion.Euler(0, -side * 35, 0));
         }
 
+        /// <summary>Recolour your own hands to match the gloves you picked (the second piece is the cuff).</summary>
+        public void SetGloveColors(Color main, Color cuff)
+        {
+            if (glove == null) return;
+            var mm = Prims.Lit(main, 0.4f);
+            var cm = Prims.Lit(cuff, 0.4f);
+            int i = 0;
+            foreach (Transform c in glove.transform)
+            {
+                var r = c.GetComponent<Renderer>();
+                if (r) r.sharedMaterial = i == 1 ? cm : mm;
+                i++;
+            }
+        }
+
         /// <summary>Called by PlayerRig every frame after the pose update.</summary>
         public void Tick()
         {
