@@ -140,8 +140,11 @@ namespace Flopzone
             var def = GunCatalog.Get(idx);
             if (def == null || avatar == null) return;
             heldGuns[h] = GunModel.Build(def, avatar.hand[h]);
-            var mag = GunModel.BuildMag(def, heldGuns[h].magwell);
-            mag.name = "mag";
+            if (!def.revolver)
+            {
+                var mag = GunModel.BuildMag(def, heldGuns[h].magwell);
+                mag.name = "mag";
+            }
         }
 
         public GunModel HeldGun(int h) => heldGuns[h];

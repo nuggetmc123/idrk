@@ -55,7 +55,8 @@ namespace Flopzone
         void ShowMag(bool on)
         {
             hasMag = on;
-            if (on && magVisual == null)
+            // a revolver's speed loader goes away once it's loaded (the rounds show in the cylinder)
+            if (on && magVisual == null && !def.revolver)
             {
                 magVisual = GunModel.BuildMag(def, model.magwell);
                 magVisual.name = "mag";
@@ -139,7 +140,7 @@ namespace Flopzone
                 scopeCam.allowHDR = false;
                 scopeCam.allowMSAA = false;
                 // the picture (drawn after the solid parts of the gun, so they can't cover it)
-                float d = 0.034f;
+                float d = model.scopeRadius * 1.8f;
                 scopeLens = UIKit.Quad(model.scopeEye, Vector3.zero, new Vector2(d, d), Color.white, 2995);
                 scopeLens.transform.localRotation = Quaternion.identity;
                 scopeGlass = scopeLens.GetComponent<Renderer>().sharedMaterial;
