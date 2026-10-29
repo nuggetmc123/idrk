@@ -31,11 +31,10 @@ namespace Flopzone.EditorTools
         const string StatePath = "ProjectSettings/FlopzoneSetup.json";
 
         /// <summary>
-        /// The VR packages, added when you click Flopzone > Set Up VR (Quest). OpenXR goes first
-        /// because it brings XR Plug-in Management with it, all in one request (each request
-        /// reloads the scripts, which used to lose the rest of the list).
+        /// The VR package, added when you click Flopzone > Set Up VR (Quest). OpenXR brings XR
+        /// Plug-in Management with it, so it's one request: one download, one script reload.
         /// </summary>
-        public static readonly string[] VrPackages = { "com.unity.xr.openxr", "com.unity.xr.management" };
+        public static readonly string[] VrPackages = { "com.unity.xr.openxr" };
 
         [Serializable]
         class State
@@ -348,7 +347,7 @@ namespace Flopzone.EditorTools
 
         static void RefreshInstalled(Action then)
         {
-            listRequest = Client.List(true, false);
+            listRequest = Client.List(true, true);   // offline (instant), and count packages that came in as dependencies
             EditorApplication.CallbackFunction poll = null;
             poll = () =>
             {
@@ -388,7 +387,7 @@ namespace Flopzone.EditorTools
                     return;
                 }
                 LastMessage = "Importing VR packages...";
-                if (interactive) EditorUtility.DisplayProgressBar("Flopzone", "Installing VR (XR Plug-in Management + OpenXR)... this takes a minute.", 0.3f);
+                if (interactive) EditorUtility.DisplayProgressBar("Flopzone", "Installing VR (OpenXR + XR Plug-in Management)...", 0.3f);
                 NextPackage();
             });
         }
