@@ -21,7 +21,7 @@ namespace Flopzone.EditorTools
     public static class FlopzoneSetup
     {
         /// <summary>Bump this when a change needs the setup to run again on everyone's machine.</summary>
-        public const int Version = 4;
+        public const int Version = 5;
 
         public const string Root = "Assets/Flopzone";
         public const string ScenePath = Root + "/Scenes/Flopzone.unity";
@@ -90,6 +90,7 @@ namespace Flopzone.EditorTools
             }
             else
             {
+                ApplyPlayerSettings();
                 // Photon Fusion just arrived: put the saved App ID into it
                 if (FindType("Fusion.NetworkRunner") != null && MultiplayerSetup.SavedAppId.Length > 0 && MultiplayerSetup.FusionAppId != MultiplayerSetup.SavedAppId)
                     MultiplayerSetup.FinishSetup(false);
@@ -278,7 +279,9 @@ namespace Flopzone.EditorTools
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
         }
 
-        static void ApplyPlayerSettings()
+        /// <summary>Quest player settings. Runs every time the project opens and before each APK build, because
+        /// extracting a new zip replaces ProjectSettings (which would put Android back to Unity's defaults).</summary>
+        public static void ApplyPlayerSettings()
         {
             PlayerSettings.companyName = "Flopzone";
             PlayerSettings.productName = "Flopzone";

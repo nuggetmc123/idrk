@@ -68,6 +68,7 @@ namespace Flopzone.EditorTools
         static void Build(bool run)
         {
             EditorUserBuildSettings.buildAppBundle = false;
+            FlopzoneSetup.ApplyPlayerSettings();   // Android 12L (API 32) minimum: OpenXR needs at least 24, Quest wants 32
             Directory.CreateDirectory("Builds");
             string path = Path.GetFullPath("Builds/Flopzone.apk");
             var options = new BuildPlayerOptions
