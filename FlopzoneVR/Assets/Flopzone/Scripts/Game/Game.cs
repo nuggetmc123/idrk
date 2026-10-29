@@ -38,6 +38,18 @@ namespace Flopzone
         Chopper chopper;
         /// <summary>Sitting in the helicopter lobby (picking a mode, or waiting for the match to fill).</summary>
         public bool InLobby => chopper != null && chopper.Occupied;
+
+        /// <summary>
+        /// The helicopter cabin is private: someone sitting in their own cabin (way up at
+        /// Chopper.Origin) only shows up for people in the same party who are in there too.
+        /// </summary>
+        public bool HiddenInLobby(RemotePlayer r, Vector3 feet)
+        {
+            if (r.isBot || feet.y < Chopper.Origin.y - 50f) return false;
+            if (!InLobby || session == null) return true;
+            foreach (var kv in session.PartyMembers) if (kv.Key == r.id) return false;
+            return true;
+        }
         float nextBotCheck;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]

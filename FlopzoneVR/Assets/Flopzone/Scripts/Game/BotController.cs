@@ -78,21 +78,21 @@ namespace Flopzone
 
             // movement
             Vector3 dir;
-            float speed = 3.2f;
+            float speed = 3.8f;
             if (targetVisible && targetT != null)
             {
                 var to = targetPoint - pos; to.y = 0;
                 float d = to.magnitude;
                 var side = Vector3.Cross(Vector3.up, to.normalized) * strafeSign;
                 dir = (d > 14f ? to.normalized : d < 6f ? -to.normalized * 0.6f : Vector3.zero) + side * 0.8f;
-                speed = 2.6f;
+                speed = 3.1f;
                 if (Random.value < dt * 0.4f) strafeSign = -strafeSign;
             }
             else
             {
                 dir = goal - pos; dir.y = 0;
                 if (dir.magnitude < 2f) { PickGoal(); dir = goal - pos; dir.y = 0; }
-                speed = 4.2f;
+                speed = 5.0f;
             }
             if (dir.sqrMagnitude > 0.01f) dir.Normalize();
             // steer around walls

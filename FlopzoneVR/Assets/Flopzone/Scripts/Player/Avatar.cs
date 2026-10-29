@@ -275,6 +275,7 @@ namespace Flopzone
                 var copy = Instantiate(c.gameObject, to);
                 copy.transform.SetPositionAndRotation(c.position, c.rotation);
                 copy.transform.localScale = c.lossyScale;
+                Prims.SetLayer(copy, Layers.Default);   // your own body lives on the mirror-only layer; the ragdoll is for everyone
                 foreach (var col in copy.GetComponentsInChildren<Collider>()) Destroy(col);
                 foreach (var rend in copy.GetComponentsInChildren<Renderer>(true)) rend.enabled = true;
             }

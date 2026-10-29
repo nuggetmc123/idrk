@@ -58,6 +58,8 @@ namespace Flopzone
                 Prims.Box(k.S, P(-2.0f + i * 0.28f, 1.35f, -2.4f), new Vector3(0.05f, 0.62f, 0.42f), Prims.Lit(c, 0.3f, 0f, Surface.Fabric), false);
                 Prims.Box(k.S, P(-2.0f + i * 0.28f, 1.68f, -2.4f), new Vector3(0.01f, 0.06f, 0.2f), trim, false);
             }
+            // a full-length mirror just outside, angled at the kiosk so you can watch yourself change
+            Mirror.Create(k.D, P(3.4f, 0.04f, 3.7f), 200f, new Vector2(1.2f, 2.0f));
             // the mannequin pedestal and the dressing kiosk
             Prims.Cyl(k.S, P(-1.2f, 0.26f, 1.2f), 1.1f, 0.2f, MapKit.M("2c2f33", 0.6f, 0.6f, Surface.Metal), Vector3.up, true);
             Prims.Cyl(k.S, P(-1.2f, 0.365f, 1.2f), 0.9f, 0.01f, Prims.Emissive(Prims.Hex("ff6bd5"), 1.4f), Vector3.up);

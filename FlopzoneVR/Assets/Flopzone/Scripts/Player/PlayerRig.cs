@@ -60,6 +60,7 @@ namespace Flopzone
             cam.nearClipPlane = 0.03f;
             cam.farClipPlane = 400f;
             cam.clearFlags = CameraClearFlags.Skybox;
+            cam.cullingMask = ~(1 << Layers.MirrorOnly);   // your own body is for mirrors only
             camGo.AddComponent<AudioListener>();
             head = camGo.transform;
 
@@ -116,6 +117,7 @@ namespace Flopzone
             if (selfAvatar) Destroy(selfAvatar.gameObject);
             selfAvatar = Avatar.Build(transform, Game.I != null && Game.I.session != null ? Game.I.session.MyId : "me", Avatar.TeamColor(t), Save.Settings.look);
             selfAvatar.SetVisible(false);
+            Prims.SetLayer(selfAvatar.gameObject, Layers.MirrorOnly);
             RefreshLook();
         }
 
@@ -123,9 +125,31 @@ namespace Flopzone
         public void RefreshLook()
         {
             int code = Save.Settings.look;
-            if (selfAvatar) selfAvatar.ApplyLook(code);
+            if (selfAvatar) { selfAvatar.ApplyLook(code); Prims.SetLayer(selfAvatar.gameObject, Layers.MirrorOnly); }
             var (main, cuff) = Cosmetics.GloveColors(Look.Unpack(code).gloves);
             foreach (var h in hands) if (h) h.SetGloveColors(main, cuff);
+        }
+
+        float mirrorUntil;
+        bool mirrorBody;
+
+        /// <summary>A mirror can see you: show your body (to mirrors only) for a moment.</summary>
+        public void ShowInMirror() => mirrorUntil = Time.time + 0.3f;
+
+        void UpdateMirrorBody()
+        {
+            if (selfAvatar == null) return;
+            bool want = Alive && Time.time < mirrorUntil;
+            if (want != mirrorBody)
+            {
+                mirrorBody = want;
+                // renderers only: the colliders stay off so you don't bump into yourself
+                foreach (var r in selfAvatar.GetComponentsInChildren<Renderer>(true)) r.enabled = want;
+            }
+            if (want)
+                selfAvatar.Pose(transform.position, bodyYaw, head.position, head.rotation,
+                    hands[0].transform.position, hands[0].transform.rotation, hands[1].transform.position, hands[1].transform.rotation,
+                    HorizontalSpeed, crouched);
         }
 
         public IEnumerable<Gun> LoadoutGuns()
@@ -186,7 +210,7 @@ namespace Flopzone
             var yawRot = Quaternion.Euler(0, headYaw, 0);
             var move = yawRot * new Vector3(stick.x, 0, stick.y);
             if (move.sqrMagnitude > 1f) move.Normalize();
-            float speed = crouched ? 1.7f : sprinting ? 5.4f : 3.1f;
+            float speed = crouched ? 2.0f : sprinting ? 6.3f : 3.7f;   // walking is a bit quicker than real life
             bool grounded = cc.isGrounded;
             if (grounded && vy < 0) vy = -1.5f;
             if (Alive && !MenuOpen && grounded && input.Down(ControlAction.Jump))
@@ -238,6 +262,8 @@ namespace Flopzone
             cc.center = new Vector3(0, h * 0.5f + cc.skinWidth, 0);
 
             foreach (var hand in hands) hand.Tick();
+
+            UpdateMirrorBody();
 
             if (Alive && Game.I != null && Game.I.world != null)
             {

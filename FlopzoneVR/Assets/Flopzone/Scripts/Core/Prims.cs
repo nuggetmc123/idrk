@@ -266,6 +266,10 @@ namespace Flopzone
         public const int Default = 0;
         public const int IgnoreRaycast = 2;
         public const int UI = 5;
+        /// <summary>Your own body: only mirrors see it (the headset camera leaves it out).</summary>
+        public const int MirrorOnly = 30;
+        /// <summary>The glass of a mirror: the mirror's own camera leaves it out.</summary>
+        public const int MirrorGlass = 29;
         /// <summary>What bullets can hit: everything but UI and trigger volumes.</summary>
         public const int ShootMask = ~((1 << UI) | (1 << IgnoreRaycast));
         public const int UIMask = 1 << UI;

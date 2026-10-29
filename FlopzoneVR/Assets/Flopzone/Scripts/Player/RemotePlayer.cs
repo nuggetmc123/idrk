@@ -40,6 +40,7 @@ namespace Flopzone
         public int hp = 100;
         public Avatar avatar;
         int look;
+        bool lobbyHidden;
 
         TextMesh nameTag;
         Transform hpBar;
@@ -77,6 +78,7 @@ namespace Flopzone
             heldGuns[0] = heldGuns[1] = null;
             heldGunIdx[0] = heldGunIdx[1] = -1;
             avatar = Avatar.Build(transform, id, Avatar.TeamColor(team), look);
+            lobbyHidden = false;   // worked out again next frame
             foreach (var c in avatar.GetComponentsInChildren<Collider>())
             {
                 var hb = c.gameObject.AddComponent<Hitbox>();
@@ -161,6 +163,13 @@ namespace Flopzone
                     PoseData.V(shown, PoseData.RHand), PoseData.Q(shown, PoseData.RRot),
                     shown[PoseData.Speed], ((int)shown[PoseData.Flags] & PoseData.FlagCrouch) != 0);
             }
+            // inside the lobby helicopter you only see your own party (everyone gets their own private cabin)
+            bool hide = Game.I != null && Game.I.HiddenInLobby(this, PoseData.V(shown, PoseData.FeetX));
+            if (hide != lobbyHidden)
+            {
+                lobbyHidden = hide;
+                avatar.SetVisible(!hide && alive);
+            }
             // name tag faces the camera
             var cam = Camera.main;
             if (cam && tagRoot)
@@ -171,7 +180,7 @@ namespace Flopzone
                 hpBar.localScale = new Vector3(0.38f * k, 0.022f, 1f);
                 hpBar.localPosition = new Vector3(-0.19f * (1 - k), -0.08f, 0);
                 hpBar.GetComponent<Renderer>().sharedMaterial.color = Color.Lerp(new Color(0.95f, 0.25f, 0.2f), new Color(0.3f, 0.9f, 0.35f), k);
-                tagRoot.gameObject.SetActive(alive);
+                tagRoot.gameObject.SetActive(alive && !lobbyHidden);
                 if (chatBubble.text.Length > 0 && Time.time > chatUntil) chatBubble.text = "";
             }
         }
@@ -211,7 +220,7 @@ namespace Flopzone
         {
             alive = true;
             hp = 100;
-            avatar.SetVisible(true);
+            avatar.SetVisible(!lobbyHidden);
             for (int h = 0; h < 2; h++) if (heldGuns[h]) heldGuns[h].gameObject.SetActive(true);
             if (to != null) { shown = (float[])to.Clone(); from = (float[])to.Clone(); lerpT = 1f; }
         }

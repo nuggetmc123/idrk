@@ -92,6 +92,7 @@ namespace Flopzone
                 camGo.transform.localPosition = new Vector3(0, 0, 0.25f);
                 scopeCam = camGo.AddComponent<Camera>();
                 scopeCam.targetTexture = scopeTex;
+                scopeCam.cullingMask = ~(1 << Layers.MirrorOnly);
                 scopeCam.fieldOfView = 7f;
                 scopeCam.nearClipPlane = 0.05f;
                 scopeCam.farClipPlane = 250f;

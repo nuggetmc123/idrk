@@ -41,7 +41,9 @@ out the helipad, barracks, motor pool and watchtowers.
 
 **The lobby helicopter:** a big twin-rotor helicopter stands on the landing pad at the north end
 of the base, where you'd expect a deployment centre. Walk up its ramp and you're inside. The ramp
-closes behind you, and if you lead a party, everyone in it is pulled in too. Inside there are six
+closes behind you, and if you lead a party, everyone in it is pulled in too. The cabin is your
+party's own private lobby: other players boarding at the same time get their own cabin, and you
+only see your party in yours. Inside there are six
 loadout stations, two arcade machines, and the lobby screen at the front. Only the party leader (or
 a solo player) can use it:
 
@@ -71,7 +73,9 @@ up. Walk up to the kiosk and pick:
 
 Caps, beanies, bucket hats, the party hat, the propeller cap, headphones and the wizard hat come in
 12 colours, and so do the T-shirt, hoodie, tank top, Hawaiian shirt, jersey and puffer jacket.
-A mannequin in the booth wears your outfit in a T-pose, so you can see it. **Random** and
+A mannequin in the booth wears your outfit in a T-pose, so you can see it. There's also a
+full-length **mirror** next to the booth: walk up to it and you see yourself, outfit and all
+(your body only shows in mirrors, never in your own view). **Random** and
 **Plain** buttons are there too. Your gloves show on your own hands, everyone else sees your
 outfit, and it stays on your ragdoll when you flop. Bots dress up at random.
 
