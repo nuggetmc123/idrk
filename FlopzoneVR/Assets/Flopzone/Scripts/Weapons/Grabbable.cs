@@ -30,6 +30,9 @@ namespace Flopzone
         {
             holder = h;
             releasedAt = -1f;
+            // no physics smoothing while it rides on a hand: it would drag the gun back to where
+            // physics last saw it, so it jitters in your hand and lags off your hip
+            body.interpolation = RigidbodyInterpolation.None;
             body.isKinematic = true;
             SetColliders(false);
             transform.SetParent(h.attach, false);
@@ -44,6 +47,7 @@ namespace Flopzone
             transform.SetParent(null, true);
             if (home != null && Vector3.Distance(transform.position, home.position) < 0.28f) { GoHome(); return; }
             body.isKinematic = false;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
             SetColliders(true);
             Rb.SetVelocity(body, velocity);
             body.angularVelocity = angular;
@@ -54,6 +58,7 @@ namespace Flopzone
         {
             if (home == null) return;
             releasedAt = -1f;
+            body.interpolation = RigidbodyInterpolation.None;
             body.isKinematic = true;
             SetColliders(!homeOnBody);
             transform.SetParent(home, false);

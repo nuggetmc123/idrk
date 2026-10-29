@@ -12,6 +12,8 @@ namespace Flopzone
         public Transform head, torso, pelvis, neck;
         public Transform[] upperArm = new Transform[2], lowerArm = new Transform[2], hand = new Transform[2];
         public Transform[] thigh = new Transform[2], shin = new Transform[2], foot = new Transform[2];
+        readonly Transform[] handShapes = new Transform[2];
+        readonly System.Collections.Generic.List<Renderer>[] handParts = new System.Collections.Generic.List<Renderer>[2];
         public Color shirt, skin, pants;
         float walkPhase;
         Cosmetics.Body body;
@@ -77,10 +79,8 @@ namespace Flopzone
                 Prims.Cyl(a.upperArm[s].GetChild(0), new Vector3(0, -0.5f, 0), 1.15f, 0.6f, bandM, Vector3.up);
                 a.lowerArm[s] = Segment("lowerArm" + s, go.transform, 0.06f, skinM);
                 a.hand[s] = Prims.Empty("hand" + s, go.transform).transform;
-                Prims.Ball(a.hand[s], new Vector3(0, 0, -0.01f), new Vector3(0.06f, 0.025f, 0.075f), skinM, false);
-                for (int f = 0; f < 4; f++)
-                    Prims.Capsule(a.hand[s], new Vector3((f - 1.5f) * 0.014f, -0.004f, 0.045f), 0.012f, 0.05f, skinM, new Vector3((f - 1.5f) * 0.25f, -0.15f, 1));
-                Prims.Capsule(a.hand[s], new Vector3(-side * 0.032f, 0, 0.0f), 0.013f, 0.045f, skinM, new Vector3(-side, 0, 0.8f));
+                a.handParts[s] = new System.Collections.Generic.List<Renderer>();
+                a.handShapes[s] = BuildHandShape(a.hand[s], side, 1.15f, out _, a.handParts[s], new Transform[5], skinM);
                 a.thigh[s] = Segment("thigh" + s, go.transform, 0.075f, skinM);
                 a.shin[s] = Segment("shin" + s, go.transform, 0.07f, skinM);
                 a.foot[s] = Prims.Empty("foot" + s, go.transform).transform;
@@ -89,7 +89,7 @@ namespace Flopzone
             a.bare = skinM;
             a.body = new Cosmetics.Body
             {
-                head = a.head, torso = a.torso, pelvis = a.pelvis, upperArm = a.upperArm, lowerArm = a.lowerArm, hand = a.hand,
+                head = a.head, torso = a.torso, pelvis = a.pelvis, upperArm = a.upperArm, lowerArm = a.lowerArm, hand = a.handShapes,
                 thigh = a.thigh, shin = a.shin, foot = a.foot,
                 torsoBase = a.torso.GetChild(0).GetComponent<Renderer>(),
                 pelvisBase = a.pelvis.GetChild(0).GetComponent<Renderer>(),
@@ -103,8 +103,7 @@ namespace Flopzone
                 a.body.thighVis[s] = a.thigh[s].GetChild(0).GetComponent<Renderer>();
                 a.body.shinVis[s] = a.shin[s].GetChild(0).GetComponent<Renderer>();
                 a.body.footBase[s] = a.foot[s].GetChild(0).GetComponent<Renderer>();
-                a.body.handParts[s] = new System.Collections.Generic.List<Renderer>();
-                foreach (Transform c in a.hand[s]) a.body.handParts[s].Add(c.GetComponent<Renderer>());
+                a.body.handParts[s] = a.handParts[s];
             }
             a.ApplyLook(look < 0 ? Look.FromSeed(seed) : look);
             return a;
@@ -136,6 +135,42 @@ namespace Flopzone
         }
 
         Material shirtMat => Prims.Lit(shirt, 0.45f, 0f, Surface.Plastic);
+
+        /// <summary>
+        /// A white mannequin hand: a rounded palm, four fingers and a thumb on knuckle joints so they
+        /// can curl. The palm faces inward (toward the other hand), like a hand round a controller.
+        /// Renderers go in <paramref name="parts"/> (palm first, thumb last); joints in <paramref name="joints"/>.
+        /// </summary>
+        public static Transform BuildHandShape(Transform parent, float side, float scale, out Material bare,
+            System.Collections.Generic.List<Renderer> parts, Transform[] joints, Material m = null)
+        {
+            bare = m ?? Prims.Lit(new Color(0.93f, 0.93f, 0.92f), 0.45f, 0f, Surface.Plastic);
+            var shape = Prims.Empty("hand", parent).transform;
+            shape.localScale = Vector3.one * scale;
+            shape.localRotation = Quaternion.Euler(0, 0, -side * 90f);   // palm toward the middle
+            parts.Add(Prims.Ball(shape, new Vector3(0, 0, -0.01f), new Vector3(0.06f, 0.026f, 0.075f), bare, false).GetComponent<Renderer>());
+            for (int f = 0; f < 4; f++)
+            {
+                var knuckle = Prims.Empty("finger" + f, shape, new Vector3((f - 1.5f) * 0.015f, -0.004f, 0.022f)).transform;
+                knuckle.localRotation = Quaternion.Euler(0, (f - 1.5f) * 6f, 0);
+                float len = f == 3 ? 0.04f : f == 0 || f == 2 ? 0.048f : 0.052f;
+                parts.Add(Prims.Capsule(knuckle, new Vector3(0, 0, len * 0.45f), 0.0125f, len, bare, Vector3.forward).GetComponent<Renderer>());
+                joints[f] = knuckle;
+            }
+            var thumb = Prims.Empty("thumb", shape, new Vector3(-side * 0.026f, -0.004f, -0.02f)).transform;
+            thumb.localRotation = Quaternion.Euler(0, -side * 40f, 0);
+            parts.Add(Prims.Capsule(thumb, new Vector3(0, 0, 0.022f), 0.014f, 0.048f, bare, Vector3.forward).GetComponent<Renderer>());
+            joints[4] = thumb;
+            return shape;
+        }
+
+        /// <summary>Bend the fingers (0 = open, 1 = a fist).</summary>
+        public static void CurlFingers(Transform[] joints, float index, float grip, float side)
+        {
+            for (int f = 0; f < 4; f++)
+                if (joints[f]) joints[f].localRotation = Quaternion.Euler((f == 0 ? index : grip) * 95f, (f - 1.5f) * 6f * (1 - grip), 0);
+            if (joints[4]) joints[4].localRotation = Quaternion.Euler(grip * 25f, -side * (40f - grip * 30f), 0);
+        }
 
         static Transform Segment(string name, Transform parent, float thickness, Material m)
         {
@@ -255,10 +290,19 @@ namespace Flopzone
                 Joint(sh, th, shin[s].position - shin[s].up * Half(shin[s]), 5, 100, 10);
                 parts.Add(ua); parts.Add(la); parts.Add(th); parts.Add(sh);
             }
-            foreach (var rb in parts) Rb.SetVelocity(rb, velocity);
+            // send the body flying: every part gets launched along the hit (and up), with a random
+            // tumble, then it's all physics from there (no canned animation)
+            var along = impulse.sqrMagnitude > 0.01f ? impulse.normalized : -torso.forward;
+            along.y = Mathf.Max(along.y, 0f);
+            var fling = along * Random.Range(8f, 12f) + Vector3.up * Random.Range(5f, 8f);
+            var spin = Random.onUnitSphere * Random.Range(4f, 9f);
+            foreach (var rb in parts)
+            {
+                Rb.SetVelocity(rb, velocity + fling);
+                rb.angularVelocity = spin;
+            }
             var hitPart = headshot ? rHead : rTorso;
             hitPart.AddForce(impulse, ForceMode.Impulse);
-            rPelvis.AddForce(impulse * 0.4f + Vector3.up * 2f, ForceMode.Impulse);
             root.AddComponent<RagdollLife>();
             AudioManager.Sfx("flop", torso.position, 1f, Random.Range(0.85f, 1.15f));
             return root;

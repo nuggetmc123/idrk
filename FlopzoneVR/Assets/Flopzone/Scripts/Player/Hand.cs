@@ -39,21 +39,34 @@ namespace Flopzone
         Transform handShape;
         Material bare;
         readonly List<Renderer> handParts = new List<Renderer>();
+        /// <summary>Knuckle joints: index, middle, ring, little, then the thumb.</summary>
+        readonly Transform[] fingers = new Transform[5];
+        float curlIndex, curlGrip;
         readonly List<GameObject> gloveExtras = new List<GameObject>();
         int glovesOn = -1;
 
-        /// <summary>Your own hand: the same white mannequin hand everyone else sees (palm, four fingers, a thumb).</summary>
+        /// <summary>
+        /// Your own hand: the same white mannequin hand everyone else sees, a bit bigger than
+        /// life so it reads well in VR. The palm faces inward like it does around the controller,
+        /// and the fingers curl with the grip and trigger.
+        /// </summary>
         void BuildGlove()
         {
             glove = Prims.Empty("glove", transform);
-            handShape = Prims.Empty("hand", glove.transform, new Vector3(0, 0, -0.02f)).transform;
-            bare = Prims.Lit(new Color(0.93f, 0.93f, 0.92f), 0.45f, 0f, Surface.Plastic);
             float side = index == 0 ? -1 : 1;
-            handParts.Add(Prims.Ball(handShape, new Vector3(0, 0, -0.01f), new Vector3(0.06f, 0.025f, 0.075f), bare, false).GetComponent<Renderer>());
-            for (int f = 0; f < 4; f++)
-                handParts.Add(Prims.Capsule(handShape, new Vector3((f - 1.5f) * 0.014f, -0.004f, 0.045f), 0.012f, 0.05f, bare, new Vector3((f - 1.5f) * 0.25f, -0.15f, 1)).GetComponent<Renderer>());
-            handParts.Add(Prims.Capsule(handShape, new Vector3(-side * 0.032f, 0, 0.0f), 0.013f, 0.045f, bare, new Vector3(-side, 0, 0.8f)).GetComponent<Renderer>());
+            handShape = Avatar.BuildHandShape(glove.transform, side, 1.3f, out bare, handParts, fingers);
+            handShape.localPosition = new Vector3(0, 0, -0.035f);
             SetGloves(0);
+        }
+
+        /// <summary>Curl the fingers: the index finger follows the trigger, the rest follow the grip.</summary>
+        void AnimateFingers(VRInput input)
+        {
+            float k = 1f - Mathf.Exp(-Time.deltaTime * 25f);
+            bool holding = held != null;
+            curlIndex = Mathf.Lerp(curlIndex, holding ? Mathf.Max(0.45f, input.TriggerValue(index)) : input.TriggerValue(index), k);
+            curlGrip = Mathf.Lerp(curlGrip, holding ? 1f : input.GripValue(index), k);
+            Avatar.CurlFingers(fingers, curlIndex, curlGrip, index == 0 ? -1 : 1);
         }
 
         /// <summary>Wear the gloves picked at the Outfitter (0 = bare white hands).</summary>
@@ -78,10 +91,11 @@ namespace Flopzone
             AngularVelocity = float.IsNaN(axis.x) ? Vector3.zero : axis * (ang * Mathf.Deg2Rad / dt);
             lastPos = transform.position;
             lastRot = transform.rotation;
-            glove.SetActive(held == null);
-
             if (held != null && held.holder != this) { held = null; }
             var input = VRInput.I;
+            // the hand stays visible while it holds something; the fingers wrap round it
+            glove.SetActive(rig.Alive && !(held is Magazine));
+            if (input != null) AnimateFingers(input);
             if (!rig.Alive) return;
 
             if (held == null)
@@ -118,7 +132,7 @@ namespace Flopzone
             }
             // 2) a gun in a holster
             Grabbable best = null;
-            float bestD = 0.24f;
+            float bestD = 0.3f;
             foreach (var g in rig.LoadoutGuns())
             {
                 if (g == null || g.Held || !g.AtHome) continue;
@@ -128,8 +142,8 @@ namespace Flopzone
             // 3) anything loose nearby
             if (best == null)
             {
-                bestD = 0.16f;
-                foreach (var c in Physics.OverlapSphere(attach.position, 0.16f, ~0, QueryTriggerInteraction.Collide))
+                bestD = 0.2f;
+                foreach (var c in Physics.OverlapSphere(attach.position, 0.2f, ~0, QueryTriggerInteraction.Collide))
                 {
                     var g = c.GetComponentInParent<Grabbable>();
                     if (g == null || g.holder == this) continue;

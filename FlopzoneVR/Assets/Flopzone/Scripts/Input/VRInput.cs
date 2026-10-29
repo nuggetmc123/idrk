@@ -102,7 +102,10 @@ namespace Flopzone
                 var d = devices[h];
                 var s = now[h];
                 if (d.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 p)) s.pos = p + Vector3.up * lift;
-                if (d.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion r)) s.rot = r;
+                // the hands (and the guns in them) point where the controller points: OpenXR's aim pose.
+                // The plain device rotation is the grip pose, which is tilted along the handle.
+                if (d.TryGetFeatureValue(AimRotation, out Quaternion aim) && aim != default(Quaternion)) s.rot = aim;
+                else if (d.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion r)) s.rot = r;
                 s.tracked = d.isValid;
                 if (ReadButtons)
                 {
@@ -187,6 +190,8 @@ namespace Flopzone
         /// <summary>Set by the menu so desktop clicks go to the UI rather than capturing the mouse.</summary>
         public bool MenuOpenForDesktop { get; set; }
 
+        static readonly InputFeatureUsage<Quaternion> AimRotation = new InputFeatureUsage<Quaternion>("PointerRotation");
+
         public Vector3 HandPos(int h) => now[h].pos;
         public Quaternion HandRot(int h) => now[h].rot;
         public bool HandTracked(int h) => now[h].tracked;
@@ -195,6 +200,7 @@ namespace Flopzone
         public bool TriggerDown(int h) => now[h].trigger && !prev[h].trigger;
         public bool TriggerUp(int h) => !now[h].trigger && prev[h].trigger;
         public bool Grip(int h) => now[h].grip;
+        public float GripValue(int h) => now[h].gripValue;
         public bool GripDown(int h) => now[h].grip && !prev[h].grip;
         public bool GripUp(int h) => !now[h].grip && prev[h].grip;
         public Vector2 MoveStick => now[0].axis;
