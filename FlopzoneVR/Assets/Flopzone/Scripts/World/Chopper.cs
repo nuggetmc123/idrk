@@ -72,7 +72,6 @@ namespace Flopzone
             var quilt = MapKit.M("6b7653", 0.1f, 0f, Surface.Fabric);
             var rib = MilitaryProps.DarkSteel;
             var steel = MilitaryProps.Steel;
-            var red = MapKit.M("8a2a22", 0.1f, 0f, Surface.Fabric);
             var yellow = MilitaryProps.Hazard;
             var strip = Prims.Emissive(Prims.Hex("fff1d6"), 1.6f);
 
@@ -133,21 +132,6 @@ namespace Flopzone
                 l.color = new Color(1f, 0.92f, 0.8f);
                 l.shadows = LightShadows.None;
             }
-
-            // a double row of red jump seats down the middle
-            for (int i = 0; i < 5; i++)
-            {
-                float z = -3.6f + i * 1.4f;
-                foreach (float side in new[] { -1f, 1f })
-                {
-                    Prims.Box(t, new Vector3(side * 0.36f, 0.46f, z), new Vector3(0.44f, 0.06f, 1.25f), red);
-                    Prims.Cyl(t, new Vector3(side * 0.55f, 0.23f, z - 0.5f), 0.04f, 0.46f, steel, Vector3.up);
-                    Prims.Cyl(t, new Vector3(side * 0.55f, 0.23f, z + 0.5f), 0.04f, 0.46f, steel, Vector3.up);
-                    Prims.Box(t, new Vector3(side * 0.12f, 0.85f, z), new Vector3(0.04f, 0.65f, 1.25f), red, false);
-                }
-                Prims.Cyl(t, new Vector3(0, 0.75f, z), 0.05f, 1.5f, steel, Vector3.up);
-            }
-            Prims.Cyl(t, new Vector3(0, 1.2f, -0.8f), 0.05f, 7.4f, steel, Vector3.forward);
 
             // six loadout stations along the walls
             for (int i = 0; i < 3; i++)
