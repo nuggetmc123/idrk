@@ -44,6 +44,8 @@ namespace Flopzone.EditorTools
             public int version;
             public bool packagesRequested;
             public bool xrConfigured;
+            /// <summary>Bumped when the XR settings need redoing (2: only one Quest feature may be on).</summary>
+            public int xrConfigVersion;
             public bool askedRestart;
         }
 
@@ -106,7 +108,9 @@ namespace Flopzone.EditorTools
                             ImportVR(false);
                         }
                     }
-                    else if (!S.xrConfigured || !XRLoaderAssigned(BuildTargetGroup.Android)) ConfigureXR(false);
+                    else if (!S.xrConfigured || S.xrConfigVersion < XRConfigVersion || !XRLoaderAssigned(BuildTargetGroup.Android))
+                        ConfigureXR(SessionState.GetBool(VRClickedKey, false));   // finish what the menu button started
+                    else SessionState.SetBool(VRClickedKey, false);
                 });
             }
         }
@@ -363,9 +367,14 @@ namespace Flopzone.EditorTools
         public static bool HasPackage(string name) => installed.Contains(name);
         public static bool VRPackagesInstalled => FindType("UnityEngine.XR.OpenXR.OpenXRLoader") != null && FindType("UnityEngine.XR.Management.XRGeneralSettings") != null;
 
+        const int XRConfigVersion = 2;
+        /// <summary>Set when the menu button started an install: after Unity reloads, the setup carries on and says when it's done.</summary>
+        const string VRClickedKey = "Flopzone.VRClicked";
+
         /// <summary>Install XR Plug-in Management + OpenXR, then switch them on for Quest.</summary>
         public static void ImportVR(bool interactive)
         {
+            if (interactive) SessionState.SetBool(VRClickedKey, true);
             RefreshInstalled(() =>
             {
                 packageQueue.Clear();
@@ -378,6 +387,7 @@ namespace Flopzone.EditorTools
                     return;
                 }
                 LastMessage = "Importing VR packages...";
+                if (interactive) EditorUtility.DisplayProgressBar("Flopzone", "Installing VR (XR Plug-in Management + OpenXR)... this takes a minute.", 0.3f);
                 NextPackage();
             });
         }
@@ -386,6 +396,7 @@ namespace Flopzone.EditorTools
         {
             if (packageQueue.Count == 0)
             {
+                EditorUtility.ClearProgressBar();
                 LastMessage = "VR packages imported. Configuring OpenXR for Quest...";
                 // the packages compile first; the domain reload runs AutoRun again, which configures XR
                 return;
@@ -506,7 +517,10 @@ namespace Flopzone.EditorTools
             EnableOpenXRFeatures(problems);
             AssetDatabase.SaveAssets();
             S.xrConfigured = problems.Count == 0;
+            S.xrConfigVersion = XRConfigVersion;
             SaveState();
+            SessionState.SetBool(VRClickedKey, false);
+            EditorUtility.ClearProgressBar();
             if (problems.Count == 0)
             {
                 LastMessage = "VR is ready: OpenXR is on for Quest (Android) and PC VR.";
@@ -542,11 +556,22 @@ namespace Flopzone.EditorTools
                         if (m.Name == "GetFeatures" && !m.IsGenericMethodDefinition && m.GetParameters().Length == 0) features = m.Invoke(settings, null) as Array;
                     if (features == null) continue;
                     bool controller = false;
+                    // only one Quest feature may be on ("Only one OpenXR feature may have a custom runtime loader"):
+                    // newer OpenXR has Meta Quest Support, older only the Oculus Quest one
+                    bool hasMeta = false;
+                    foreach (var f in features) if (f.GetType().Name == "MetaQuestFeature") hasMeta = true;
+                    string questFeature = hasMeta ? "MetaQuestFeature" : "OculusQuestFeature";
                     foreach (var f in features)
                     {
                         string n = f.GetType().Name;
+                        if (n == "OculusQuestFeature" && hasMeta)
+                        {
+                            f.GetType().GetProperty("enabled")?.SetValue(f, false);
+                            EditorUtility.SetDirty((UnityEngine.Object)f);
+                            continue;
+                        }
                         bool want = n == "OculusTouchControllerProfile" || n == "MetaQuestTouchPlusControllerProfile" || n == "MetaQuestTouchProControllerProfile"
-                                    || (group == BuildTargetGroup.Android && (n == "MetaQuestFeature" || n == "OculusQuestFeature"));
+                                    || (group == BuildTargetGroup.Android && n == questFeature);
                         if (!want) continue;
                         f.GetType().GetProperty("enabled")?.SetValue(f, true);
                         EditorUtility.SetDirty((UnityEngine.Object)f);
