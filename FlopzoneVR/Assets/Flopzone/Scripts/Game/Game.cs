@@ -64,6 +64,8 @@ namespace Flopzone
             if (I != null && I != this) { Destroy(gameObject); return; }
             I = this;
             Save.Load();
+            Progression.FixLoadout();
+            Progression.LeveledUp += OnLevelUp;
             Application.runInBackground = true;
 #if UNITY_ANDROID && !UNITY_EDITOR
             // Quest: no live shadows (they draw everything twice), and run at the headset's
@@ -289,6 +291,8 @@ namespace Flopzone
         void OnRoom()
         {
             if (tutorial != null) { Destroy(tutorial.gameObject); tutorial = null; }
+            if (session.InMatch && session.RoomId != xpRoom) { xpRoom = session.RoomId; Progression.StartMatch(); }
+            Progression.FixLoadout();
             ClearRemotes();
             int map = session.InHub ? MapBuilder.HubIndex : Mathf.Clamp(session.Map, 0, MapBuilder.Names.Length - 1);
             bool big = session.InMatch && MapBuilder.Expands(session.Mode);
@@ -382,12 +386,27 @@ namespace Flopzone
             session.Go("hub");
         }
 
-        public void GoMode(string mode, bool privateMatch = false)
+        public void GoMode(string mode, bool privateMatch = false, bool ranked = false)
         {
             if (session == null || tutorial != null) return;
             if (!session.IsLeaderOrSolo) { Hud.I.Toast("Only your party leader can pick a mode."); return; }
+            if (ranked && !RoomHost.CanBeRanked(mode)) { Hud.I.Toast("Free For All and Capture The Flag can't be ranked."); return; }
+            if (ranked && Progression.Level < Progression.RankedMinLevel) { Hud.I.Toast($"Ranked opens at level {Progression.RankedMinLevel}. Play public matches to level up."); return; }
             if (session.InHub && !InLobby) BoardChopper(true);
-            session.Go(mode, privateMatch);
+            session.Go(mode, privateMatch && !ranked, ranked);
+        }
+
+        /* ---------------- XP ---------------- */
+
+        string xpRoom;
+
+        /// <summary>Public and ranked matches give XP. Private matches never do (so nobody farms levels against bots alone).</summary>
+        bool EarnsXp => session != null && session.InMatch && !session.PrivateMatch && tutorial == null;
+
+        void OnLevelUp(int level)
+        {
+            Hud.I.Big($"LEVEL UP!\n<size=26>Level {level} · new skill points. Spend them in Menu > Skills</size>", 3.5f, UIKit.Good);
+            AudioManager.Ui("win", 0.6f, 1.2f);
         }
 
         void EnsureChopper()
@@ -531,6 +550,7 @@ namespace Flopzone
             }
             if (killer == session.MyId && victim != session.MyId)
             {
+                if (EarnsXp) Progression.AddXp(head ? 125 : 100);
                 Hud.I.Big(head ? "HEADSHOT!" : "SLOPPED " + NameOf(victim), 1.5f, UIKit.Good);
                 AudioManager.Ui(head ? "hit_head" : "hitmarker", 1f, 0.8f);
             }
@@ -580,6 +600,18 @@ namespace Flopzone
             bool won = teams ? winnerTeam == session.MyTeam : winnerId == session.MyId;
             bool draw = teams ? winnerTeam < 0 : winnerId == null;
             string title = draw ? "DRAW" : won ? "VICTORY!" : "DEFEAT";
+            string reward;
+            if (!EarnsXp) reward = "Private match: no XP.";
+            else
+            {
+                Progression.AddXp((won ? 500 : 0) + 200);
+                reward = $"+{Progression.MatchXp} XP  ·  Level {Progression.Level} ({Progression.Xp}/{Progression.XpToNext()})";
+                if (session.RankedMatch)
+                {
+                    int change = Progression.RankedResult(won, draw);
+                    reward += $"\nRANKED: {Progression.Tier(Progression.Rp)} · {Progression.Rp} RP ({(change >= 0 ? "+" : "")}{change})";
+                }
+            }
             AudioManager.Ui(won ? "win" : "lose", 0.8f);
             var lines = new List<string>();
             var players = m.Arr("players");
@@ -596,7 +628,7 @@ namespace Flopzone
                 }
             }
             string score = teams ? $"RED {session.Scores[0]} - {session.Scores[1]} BLUE\n" : "";
-            Hud.I.Popup(title, (m.Str("note").Length > 0 ? m.Str("note") + "\n" : "") + score + string.Join("\n", lines) + "\n\nBack to the hub in 10 seconds...",
+            Hud.I.Popup(title, (m.Str("note").Length > 0 ? m.Str("note") + "\n" : "") + score + string.Join("\n", lines) + "\n\n" + reward + "\n\nBack to the hub in 10 seconds...",
                 ("OK", () => Hud.I.ClosePopup()));
             Invoke2(9.5f, () => Hud.I.ClosePopup());
         }
@@ -606,6 +638,7 @@ namespace Flopzone
             if (string.IsNullOrEmpty(note)) return;
             Hud.I.Feed(note, UIKit.Accent);
             if (note.Contains("captured")) AudioManager.Ui("flag_cap", 0.8f);
+            if (note == $"{session.MyName} captured the flag!" && EarnsXp) Progression.AddXp(300);
             else if (note.Contains("took")) AudioManager.Ui("flag_take", 0.7f);
         }
 

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Flopzone
 {
-    public enum GunClass { Pistol, Shotgun, Sniper, AssaultRifle }
+    public enum GunClass { Pistol, Shotgun, Sniper, AssaultRifle, SMG }
     public enum FireMode { Semi, Auto, Burst, Bolt, Pump }
 
     /// <summary>Stats and look of one gun.</summary>
@@ -32,7 +32,7 @@ namespace Flopzone
         public float MaxHit => damage * pellets * headMult;
     }
 
-    /// <summary>All 22 guns: 6 pistols, 5 shotguns, 5 snipers, 6 assault rifles.</summary>
+    /// <summary>All 30 guns. New guns go on the end so saved loadouts keep pointing at the same gun.</summary>
     public static class GunCatalog
     {
         public static readonly GunDef[] All = Build();
@@ -79,19 +79,28 @@ namespace Flopzone
                 G("bravo",    "Burst Bravo",     GunClass.AssaultRifle, FireMode.Burst, 25, 1, 900, 30, 1.0f, 4, "shot_ar", 1.1f,  "#3f6fd8", 0.4f, 0.26f,  0.06f, 0.22f),
                 G("hmr",      "Heavy HMR",       GunClass.AssaultRifle, FireMode.Auto,  32, 1, 450, 20, 1.4f, 8, "shot_ar", 0.7f,  "#4a4a4a", 0.46f, 0.3f,  0.07f, 0.24f),
                 G("spitfire", "Spitfire",        GunClass.AssaultRifle, FireMode.Auto,  16, 1, 960, 40, 2.4f, 3, "shot_ar", 1.3f,  "#ff4fa3", 0.36f, 0.2f,  0.055f, 0.2f),
+                // ---- added with the skill tree (index 22+) ----
+                G("classic",  "Classic 45",      GunClass.Pistol, FireMode.Semi,  34, 1, 300,  8, 1.0f, 10, "shot_pistol", 0.9f, "#9b7b5a", 0.2f, 0.05f, 0.04f, 0),
+                G("hornet",   "Hornet",          GunClass.SMG, FireMode.Auto,     17, 1, 800, 30, 1.8f, 3,  "shot_smg", 1.1f,  "#e2c044", 0.3f, 0.06f, 0.05f, 0.2f),
+                G("slab",     "Slab",            GunClass.SMG, FireMode.Auto,     23, 1, 600, 25, 2.0f, 4,  "shot_smg", 0.9f,  "#6d6d6d", 0.3f, 0.06f, 0.05f, 0.22f),
+                G("bullhorn", "Bullhorn",        GunClass.SMG, FireMode.Auto,     15, 1, 900, 50, 2.2f, 2,  "shot_smg", 1.25f, "#3b4a3f", 0.5f, 0.05f, 0.06f, 0f),
+                G("twintube", "Twin Tube",       GunClass.Shotgun, FireMode.Pump, 13, 8, 80, 14, 5.5f, 17, "shot_shotgun", 0.95f, "#2d2d2d", 0.45f, 0.38f, 0.06f, 0f),
+                G("fiftycal", "Fifty Cal",       GunClass.Sniper, FireMode.Semi, 110, 1, 90, 10, 0.1f, 26, "shot_sniper", 0.65f, "#55575c", 0.66f, 0.54f, 0.07f, 0.28f),
+                G("mosin",    "Old Mosin",       GunClass.Sniper, FireMode.Bolt, 100, 1, 40,  5, 0.05f, 22, "shot_sniper", 0.85f, "#8a5a32", 0.36f, 0.6f, 0.05f, 0.36f),
+                G("gecko",    "Gecko",           GunClass.AssaultRifle, FireMode.Auto, 21, 1, 750, 30, 1.5f, 4, "shot_ar", 1.15f, "#4d5c4a", 0.33f, 0.18f, 0.06f, 0.2f),
             };
             for (int i = 0; i < list.Length; i++)
             {
                 var g = list[i];
                 g.index = i;
                 g.scope = g.cls == GunClass.Sniper;
-                g.range = g.cls == GunClass.Shotgun ? 45f : g.cls == GunClass.Pistol ? 80f : 160f;
+                g.range = g.cls == GunClass.Shotgun ? 45f : g.cls == GunClass.Pistol ? 80f : g.cls == GunClass.SMG ? 100f : 160f;
                 g.headMult = g.cls == GunClass.Sniper ? 2f : 1.6f;
                 g.pump = g.mode == FireMode.Pump;
                 g.twinBarrel = g.id == "sawed";
                 g.revolver = g.id == "revolt";
                 g.drum = g.id == "brute" || g.id == "hmr";
-                g.longMag = g.id == "spitfire" || g.id == "buzz";
+                g.longMag = g.id == "spitfire" || g.id == "buzz" || g.id == "hornet" || g.id == "slab";
             }
             return list;
         }
@@ -111,6 +120,7 @@ namespace Flopzone
                 case GunClass.Pistol: return "Pistols";
                 case GunClass.Shotgun: return "Shotguns";
                 case GunClass.Sniper: return "Snipers";
+                case GunClass.SMG: return "SMGs";
                 default: return "Assault Rifles";
             }
         }

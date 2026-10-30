@@ -26,7 +26,7 @@ namespace Flopzone
         string screenKey = "";
         float nextScreen;
         /// <summary>The leader's choice on the lobby screen.</summary>
-        bool privateMatch;
+        bool privateMatch, ranked;
 
         const float OpenAngle = -100f;
 
@@ -232,7 +232,7 @@ namespace Flopzone
             bool leader = s.IsLeaderOrSolo;
             var md = s.Mode != null && LocalServer.Modes.TryGetValue(s.Mode, out var m) ? m : null;
             int secs = Mathf.FloorToInt(Mathf.Max(0, RoomHost.WaitForPlayers - s.TimeLeft));
-            string key = $"{s.RoomKind}|{s.State}|{leader}|{s.Mode}|{s.PrivateMatch}|{privateMatch}|{s.Players.Count}|{(s.InMatch ? secs : 0)}|{(s.State == "countdown" ? Mathf.CeilToInt(s.TimeLeft) : 0)}";
+            string key = $"{s.RoomKind}|{s.State}|{leader}|{s.Mode}|{s.PrivateMatch}|{s.RankedMatch}|{privateMatch}|{ranked}|{Progression.Level}|{s.Players.Count}|{(s.InMatch ? secs : 0)}|{(s.State == "countdown" ? Mathf.CeilToInt(s.TimeLeft) : 0)}";
             if (key == screenKey) return;
             screenKey = key;
             screen.Clear();
@@ -244,7 +244,7 @@ namespace Flopzone
                              : s.PrivateMatch ? "STARTING PRIVATE MATCH..." : "FINDING MATCH" + new string('.', 1 + secs % 3);
                 var title = screen.Text(head0, new Vector2(0, 0.42f), 0.1f, found ? UIKit.Good : c);
                 title.fontStyle = FontStyle.Bold;
-                screen.Text(md.name.ToUpperInvariant() + (s.PrivateMatch ? "  ·  PRIVATE" : "  ·  PUBLIC"), new Vector2(0, 0.25f), 0.07f, Color.white);
+                screen.Text(md.name.ToUpperInvariant() + (s.PrivateMatch ? "  ·  PRIVATE" : s.RankedMatch ? "  ·  RANKED" : "  ·  PUBLIC"), new Vector2(0, 0.25f), 0.07f, s.RankedMatch ? Progression.TierColor(Progression.Rp) : Color.white);
                 screen.Text($"{s.Players.Count} / {md.max} players", new Vector2(0, 0.12f), 0.06f, UIKit.Muted);
                 if (found) screen.Text("Deploying in " + Mathf.CeilToInt(s.TimeLeft) + "...", new Vector2(0, -0.04f), 0.08f, Color.white);
                 else if (s.PrivateMatch) screen.Text("Just your party. Bots fill the empty spots.", new Vector2(0, -0.04f), 0.045f, UIKit.Muted);
@@ -264,21 +264,30 @@ namespace Flopzone
             var head = screen.Text("SELECT GAME MODE", new Vector2(0, 0.49f), 0.08f, c);
             head.fontStyle = FontStyle.Bold;
             // public or private
-            var pub = screen.Button("PUBLIC", new Vector2(-0.3f, 0.37f), new Vector2(0.5f, 0.1f), () => { privateMatch = false; screenKey = ""; }, 0.045f);
-            var pri = screen.Button("PRIVATE", new Vector2(0.3f, 0.37f), new Vector2(0.5f, 0.1f), () => { privateMatch = true; screenKey = ""; }, 0.045f);
+            // public, private or ranked
+            bool canRank = Progression.Level >= Progression.RankedMinLevel;
+            if (ranked && !canRank) ranked = false;
+            var pub = screen.Button("PUBLIC", new Vector2(-0.6f, 0.37f), new Vector2(0.5f, 0.1f), () => { privateMatch = ranked = false; screenKey = ""; }, 0.045f);
+            var pri = screen.Button("PRIVATE", new Vector2(0f, 0.37f), new Vector2(0.5f, 0.1f), () => { privateMatch = true; ranked = false; screenKey = ""; }, 0.045f);
+            var rnk = screen.Button(canRank ? "RANKED" : $"RANKED (LV {Progression.RankedMinLevel})", new Vector2(0.6f, 0.37f), new Vector2(0.5f, 0.1f),
+                () => { ranked = true; privateMatch = false; screenKey = ""; }, canRank ? 0.045f : 0.034f);
             var on = new Color(0.95f, 0.5f, 0.1f);
-            (privateMatch ? pri : pub).SetColors(on, Color.Lerp(on, Color.white, 0.3f));
+            (ranked ? rnk : privateMatch ? pri : pub).SetColors(on, Color.Lerp(on, Color.white, 0.3f));
             pub.interactable = pri.interactable = leader;
+            rnk.interactable = leader && canRank;
             screen.Text(!leader ? "Only your party leader can pick the mode."
-                        : privateMatch ? "PRIVATE: just your party, straight in. Bots fill the empty spots."
+                        : ranked ? $"RANKED: you're {Progression.Tier(Progression.Rp)} ({Progression.Rp} RP). Win +25, lose -20. No FFA or CTF."
+                        : privateMatch ? "PRIVATE: just your party, straight in. Bots fill the empty spots. No XP."
                         : "PUBLIC: anyone can join. Finding a match takes up to 1:00, then bots fill in.",
                 new Vector2(0, 0.28f), 0.033f, UIKit.Muted);
             for (int i = 0; i < Hub.Modes.Length; i++)
             {
                 var p = Hub.Modes[i];
                 var pos = new Vector2(i % 2 == 0 ? -0.48f : 0.48f, 0.14f - (i / 2) * 0.2f);
-                var b = screen.Button(p.label + "\n<size=22>" + p.info + "</size>", pos, new Vector2(0.9f, 0.17f), () => Game.I.GoMode(p.mode, privateMatch), 0.042f);
-                b.interactable = leader;
+                bool allowed = !ranked || RoomHost.CanBeRanked(p.mode);
+                var b = screen.Button(p.label + "\n<size=22>" + (allowed ? p.info : "not in ranked") + "</size>", pos, new Vector2(0.9f, 0.17f),
+                    () => Game.I.GoMode(p.mode, privateMatch, ranked), 0.042f);
+                b.interactable = leader && allowed;
             }
             screen.Button("LEAVE HELICOPTER", new Vector2(0, -0.5f), new Vector2(0.7f, 0.11f), () => Game.I.LeaveChopper(), 0.04f);
         }

@@ -8,11 +8,12 @@ namespace Flopzone
     {
         public GunDef def;
         public int ammo;
+        public int code;   // the gun's attachments (an extended mag looks longer)
         float looseSince = -1f;
 
-        public static Magazine Spawn(GunDef def, int ammo, Vector3 pos, Quaternion rot)
+        public static Magazine Spawn(GunDef def, int ammo, Vector3 pos, Quaternion rot, int code = 0)
         {
-            var go = GunModel.BuildMag(def, null);
+            var go = GunModel.BuildMag(def, null, code);
             go.transform.SetPositionAndRotation(pos, rot);
             // a box that fits this mag's shape (drums, curved and long mags differ a lot)
             var bounds = new Bounds(new Vector3(0, -0.05f, 0), Vector3.zero);
@@ -32,6 +33,7 @@ namespace Flopzone
             var m = go.AddComponent<Magazine>();
             m.def = def;
             m.ammo = ammo;
+            m.code = code;
             return m;
         }
 

@@ -175,12 +175,15 @@ namespace Flopzone
             k.Sign(new Vector3(0, 2.7f, -8.9f), 0, "ARMORY", 0.5f, new Color(0.95f, 0.85f, 0.45f));
             var tableM = MapKit.M("5a4632", 0.3f, 0f, Surface.Plank);
             var leg = MilitaryProps.DarkSteel;
-            float tx = -10.5f;
-            foreach (GunClass cls in System.Enum.GetValues(typeof(GunClass)))
+            // one table per class, all centred under the net
+            const float step = 0.72f, gap = 0.45f;
+            var classes = (GunClass[])System.Enum.GetValues(typeof(GunClass));
+            float tx = -(GunCatalog.All.Length * step + (classes.Length - 1) * gap) / 2;
+            foreach (GunClass cls in classes)
             {
                 int n = 0;
                 foreach (var g in GunCatalog.All) if (g.cls == cls) n++;
-                float len = n * 0.85f;
+                float len = n * step;
                 var center = new Vector3(tx + len / 2, 0, -12f);
                 k.Box(center + Vector3.up * 0.92f, new Vector3(len, 0.06f, 1.1f), tableM);
                 k.Box(center + Vector3.up * 0.45f, new Vector3(len - 0.2f, 0.9f, 0.9f), MilitaryProps.OliveDark);
@@ -190,7 +193,7 @@ namespace Flopzone
                 foreach (var g in GunCatalog.All)
                 {
                     if (g.cls != cls) continue;
-                    var slotPos = new Vector3(tx + 0.42f + j * 0.85f, 1.12f, -12f);
+                    var slotPos = new Vector3(tx + step / 2 + j * step, 1.12f, -12f);
                     var slot = Prims.Empty("slot " + g.name, k.D, slotPos).transform;
                     slot.rotation = Quaternion.Euler(0, 180, 90);
                     if (Application.isPlaying)
@@ -202,11 +205,11 @@ namespace Flopzone
                         gun.GoHome();
                     }
                     else GunModel.Build(g, slot);   // editor preview: just the look
-                    var label = UIKit.Text(k.D, g.name, slotPos + new Vector3(0, -0.06f, 0.56f), 0.055f, Color.white);
+                    var label = UIKit.Text(k.D, g.name, slotPos + new Vector3(0, -0.06f, 0.56f), 0.045f, Color.white);
                     label.transform.rotation = Quaternion.Euler(60, 180, 0);
                     j++;
                 }
-                tx += len + 0.6f;
+                tx += len + gap;
             }
             for (int i = 0; i < 4; i++) MilitaryProps.AmmoCrate(k, new Vector3(-12.5f, 0, -13.5f + i * 0.6f), 90);
             for (int i = 0; i < 4; i++) MilitaryProps.AmmoCrate(k, new Vector3(12.5f, 0, -13.5f + i * 0.6f), -90);

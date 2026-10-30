@@ -59,6 +59,11 @@ namespace Flopzone
 
         /// <summary>A private match: only the party is in it, so it starts straight away with bots in the empty seats.</summary>
         public bool priv;
+        /// <summary>A ranked match (team modes except Capture The Flag).</summary>
+        public bool ranked;
+
+        /// <summary>Modes that can be ranked: everything but Free For All and Capture The Flag.</summary>
+        public static bool CanBeRanked(string mode) => mode != null && mode != "ffa" && mode != "ctf" && LocalServer.Modes.ContainsKey(mode);
 
         public RoomHost(string kind, string mode, int map, Action<string, Dictionary<string, object>> emit, bool priv = false)
         {
@@ -79,6 +84,8 @@ namespace Flopzone
             if (h.state == "live") h.endsAt = Time.time + s.TimeLeft;
             else h.stateEnd = Time.time + s.TimeLeft;
             h.scores = new[] { s.Scores[0], s.Scores[1] };
+            h.priv = s.PrivateMatch;
+            h.ranked = s.RankedMatch;
             foreach (var pi in s.Players.Values)
             {
                 h.players[pi.id] = new P
@@ -206,7 +213,7 @@ namespace Flopzone
         {
             var list = new List<object>();
             foreach (var p in players.Values) list.Add(PlayerPayload(p));
-            return Msg.Of("t", "room", "id", "PHOTON", "kind", kind, "mode", mode, "map", map, "state", state, "priv", kind == "match" && priv,
+            return Msg.Of("t", "room", "id", "PHOTON", "kind", kind, "mode", mode, "map", map, "state", state, "priv", kind == "match" && priv, "ranked", kind == "match" && ranked,
                 "time", (double)TimeLeft(), "scores", Scores(), "flags", FlagsPayload(), "team", you.team,
                 "spawn", UnityEngine.Random.Range(0, 1000), "players", list);
         }

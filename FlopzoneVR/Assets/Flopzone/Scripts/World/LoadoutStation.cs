@@ -5,13 +5,16 @@ namespace Flopzone
 {
     /// <summary>
     /// A loadout kiosk: walk up to it and the lasers come on. Flip through
-    /// primaries and sidearms; a hologram of the gun spins above the screen.
+    /// primaries and sidearms (the ones you've unlocked), or switch to the attachments
+    /// screen and fit optics, muzzles, grips and mags. A hologram of the gun spins above.
     /// </summary>
     public class LoadoutStation : MonoBehaviour
     {
         UIPanel panel;
         Transform holo;
-        int shownPrimary = -1, shownSidearm = -1;
+        int shownPrimary = -1, shownSidearm = -1, shownCode = -1, shownUnlocks = -1;
+        bool attachMode;
+        int attachGun;   // 0 = primary, 1 = sidearm
 
         static List<int> primaries, sidearms;
 
@@ -61,37 +64,93 @@ namespace Flopzone
             var rig = PlayerRig.I;
             if (rig == null) return;
             var st = Save.Settings;
-            if (st.primaryGun != shownPrimary || st.sidearmGun != shownSidearm) Rebuild();
+            int unlocks = Progression.Points * 1000 + Progression.Level;
+            if (st.primaryGun != shownPrimary || st.sidearmGun != shownSidearm || Attachments.For(EditedGun) != shownCode || unlocks != shownUnlocks) Rebuild();
             var d = rig.head.position - transform.position;
             d.y = 0;
             if (d.sqrMagnitude < 1.8f * 1.8f && UIPointer.I) UIPointer.I.KeepOn();
         }
+
+        int EditedGun => attachMode && attachGun == 1 ? Save.Settings.sidearmGun : Save.Settings.primaryGun;
 
         void Rebuild()
         {
             var st = Save.Settings;
             shownPrimary = st.primaryGun;
             shownSidearm = st.sidearmGun;
+            shownCode = Attachments.For(EditedGun);
+            shownUnlocks = Progression.Points * 1000 + Progression.Level;
             panel.Clear();
-            panel.Text("LOADOUT STATION", new Vector2(0, 0.185f), 0.03f, UIKit.Accent);
-            Row("PRIMARY · left hip", primaries, st.primaryGun, 0.08f, i => st.primaryGun = i);
-            Row("SIDEARM · right hip", sidearms, st.sidearmGun, -0.07f, i => st.sidearmGun = i);
-            var def = GunCatalog.Get(st.primaryGun);
-            if (def != null)
-                panel.Text($"{GunCatalog.ClassName(def.cls).TrimEnd('s')} · {def.damage * def.pellets:0} dmg · {def.magSize} rds · {def.rpm:0} rpm",
-                    new Vector2(0, -0.185f), 0.019f, UIKit.Muted);
+            var def = GunCatalog.Get(EditedGun);
+            if (attachMode) BuildAttachments(def);
+            else
+            {
+                panel.Text("LOADOUT STATION", new Vector2(0, 0.185f), 0.03f, UIKit.Accent);
+                Row("PRIMARY · left hip", primaries, st.primaryGun, 0.09f, i => st.primaryGun = i);
+                Row("SIDEARM · right hip", sidearms, st.sidearmGun, -0.04f, i => st.sidearmGun = i);
+                if (def != null)
+                    panel.Text($"{GunCatalog.ClassName(def.cls).TrimEnd('s')} · {def.damage * def.pellets:0} dmg · {Attachments.MagSize(def, shownCode)} rds · {def.rpm:0} rpm",
+                        new Vector2(0, -0.125f), 0.019f, UIKit.Muted);
+                panel.Button("ATTACHMENTS", new Vector2(0, -0.18f), new Vector2(0.3f, 0.055f), () => { attachMode = true; attachGun = 0; Rebuild(); }, 0.024f);
+            }
 
             for (int i = holo.childCount - 1; i >= 0; i--) Destroy(holo.GetChild(i).gameObject);
             if (def != null)
             {
-                var gm = GunModel.Build(def, holo);
+                var gm = GunModel.Build(def, holo, shownCode);
                 gm.transform.localPosition = new Vector3(0, 0, -def.bodyLen * 0.3f);
                 foreach (var c in gm.GetComponentsInChildren<Collider>()) Destroy(c);
             }
         }
 
-        void Row(string label, List<int> list, int current, float y, System.Action<int> set)
+        /// <summary>The attachments screen: one row per slot for the gun you're editing.</summary>
+        void BuildAttachments(GunDef def)
         {
+            if (def == null) return;
+            panel.Text("ATTACHMENTS · " + def.name.ToUpperInvariant(), new Vector2(0, 0.19f), 0.026f, UIKit.Accent);
+            var p = panel.Button("Primary", new Vector2(-0.12f, 0.145f), new Vector2(0.2f, 0.042f), () => { attachGun = 0; Rebuild(); }, 0.02f);
+            var s = panel.Button("Sidearm", new Vector2(0.12f, 0.145f), new Vector2(0.2f, 0.042f), () => { attachGun = 1; Rebuild(); }, 0.02f);
+            var on = new Color(0.95f, 0.5f, 0.1f);
+            (attachGun == 0 ? p : s).SetColors(on, Color.Lerp(on, Color.white, 0.3f));
+            int code = shownCode;
+            for (int si = 0; si < 4; si++)
+            {
+                var slot = (Slot)si;
+                float y = 0.085f - si * 0.062f;
+                int v = Attachments.Get(code, slot);
+                bool any = false;
+                for (int o = 1; o < Attachments.Options(slot); o++) any |= Attachments.Fits(def, slot, o);
+                panel.Text(slot.ToString().ToUpperInvariant(), new Vector2(-0.27f, y), 0.018f, UIKit.Muted, TextAnchor.MiddleLeft);
+                if (!any) { panel.Text("doesn't fit this gun", new Vector2(0.03f, y), 0.019f, UIKit.Muted); continue; }
+                panel.Text(Attachments.Name(slot, v), new Vector2(0.03f, y + 0.008f), 0.024f, Color.white);
+                panel.Text(Attachments.Describe(slot, v), new Vector2(0.03f, y - 0.018f), 0.014f, UIKit.Muted);
+                int gun = EditedGun;
+                panel.Button("<", new Vector2(-0.13f, y), new Vector2(0.06f, 0.05f), () => Step(def, gun, slot, -1), 0.03f);
+                panel.Button(">", new Vector2(0.2f, y), new Vector2(0.06f, 0.05f), () => Step(def, gun, slot, 1), 0.03f);
+            }
+            panel.Text("More attachments unlock in Menu > Skills.", new Vector2(0, -0.17f), 0.015f, UIKit.Muted);
+            panel.Button("BACK", new Vector2(0.24f, -0.19f), new Vector2(0.12f, 0.04f), () => { attachMode = false; Rebuild(); }, 0.018f);
+        }
+
+        /// <summary>Next attachment in this slot that fits and is unlocked.</summary>
+        void Step(GunDef def, int gun, Slot slot, int dir)
+        {
+            int code = Attachments.For(gun), n = Attachments.Options(slot), v = Attachments.Get(code, slot);
+            for (int i = 0; i < n; i++)
+            {
+                v = ((v + dir) % n + n) % n;
+                if (Attachments.Fits(def, slot, v) && Progression.HasAttachment(slot, v)) break;
+            }
+            Attachments.Set(gun, Attachments.With(code, slot, v));
+            AudioManager.Ui("ui_click", 0.6f);
+            if (Game.I) Game.I.LoadoutChanged();
+            Rebuild();
+        }
+
+        void Row(string label, List<int> all, int current, float y, System.Action<int> set)
+        {
+            var list = all.FindAll(Progression.HasGun);
+            if (list.Count == 0) return;
             int at = Mathf.Max(0, list.IndexOf(current));
             var g = GunCatalog.Get(list[at]);
             panel.Text(label, new Vector2(0, y + 0.045f), 0.02f, UIKit.Muted);

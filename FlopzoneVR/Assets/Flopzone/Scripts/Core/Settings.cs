@@ -35,6 +35,7 @@ namespace Flopzone
         public bool crouchToggle = true;
         public int primaryGun = 16;   // index into GunCatalog.All (Rattle AR)
         public int sidearmGun = 0;    // a pistol
+        public int[] attach = new int[0];   // attachments on each gun (index = gun), see Attachments
         public int look = 0;          // your outfit: a packed Look (hat, top, pants, shoes, gloves)
         public XRButton jump = XRButton.A;
         public XRButton unloadMag = XRButton.B;

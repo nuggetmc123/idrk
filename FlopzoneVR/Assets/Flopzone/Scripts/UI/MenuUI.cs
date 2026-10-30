@@ -11,7 +11,7 @@ namespace Flopzone
     /// </summary>
     public class MenuUI : MonoBehaviour
     {
-        enum Tab { Play, Loadout, Friends, Party, Chat, Report, Settings, Controls, Profile, Mod }
+        enum Tab { Play, Loadout, Friends, Party, Chat, Report, Settings, Controls, Profile, Mod, Skills }
 
         UIPanel panel;
         UIKeyboard keyboard;
@@ -129,7 +129,7 @@ namespace Flopzone
             if (keyboard != null) { Destroy(keyboard.gameObject); keyboard = null; }
 
             // tabs
-            var tabs = new List<Tab> { Tab.Play, Tab.Loadout, Tab.Friends, Tab.Party, Tab.Chat, Tab.Report, Tab.Settings, Tab.Controls, Tab.Profile };
+            var tabs = new List<Tab> { Tab.Play, Tab.Loadout, Tab.Skills, Tab.Friends, Tab.Party, Tab.Chat, Tab.Report, Tab.Settings, Tab.Controls, Tab.Profile };
             if (S.IsAdmin) tabs.Add(Tab.Mod);
             for (int i = 0; i < tabs.Count; i++)
             {
@@ -145,6 +145,7 @@ namespace Flopzone
             {
                 case Tab.Play: BuildPlay(); break;
                 case Tab.Loadout: BuildLoadout(); break;
+                case Tab.Skills: BuildSkills(); break;
                 case Tab.Friends: BuildFriends(); break;
                 case Tab.Party: BuildParty(); break;
                 case Tab.Chat: BuildChat(); break;
@@ -188,11 +189,11 @@ namespace Flopzone
                 var g = GunCatalog.All[i];
                 if (g.cls == GunClass.Pistol) continue;
                 int idx = i;
-                float x = -0.24f + col * 0.205f, y = 0.215f - row * 0.06f;
-                B(g.name, x, y, 0.195f, 0.05f, () => { st.primaryGun = idx; Save.Store(); Game.I.LoadoutChanged(); Build(); }, st.primaryGun == idx, 0.02f);
+                float x = -0.24f + col * 0.205f, y = 0.225f - row * 0.05f;
+                GunButton(g, x, y, st.primaryGun == idx, () => st.primaryGun = idx);
                 if (++col == 4) { col = 0; row++; }
             }
-            float y2 = 0.215f - 4 * 0.06f - 0.03f;
+            float y2 = 0.225f - (row + (col > 0 ? 1 : 0)) * 0.05f - 0.005f;
             L("Sidearm (right hip)", -0.33f, y2, 0.026f, UIKit.Muted);
             col = 0;
             for (int i = 0; i < GunCatalog.All.Length; i++)
@@ -200,12 +201,93 @@ namespace Flopzone
                 var g = GunCatalog.All[i];
                 if (g.cls != GunClass.Pistol) continue;
                 int idx = i;
-                B(g.name, -0.24f + (col % 4) * 0.205f, y2 - 0.055f - (col / 4) * 0.06f, 0.195f, 0.05f, () => { st.sidearmGun = idx; Save.Store(); Game.I.LoadoutChanged(); Build(); }, st.sidearmGun == idx, 0.02f);
+                GunButton(g, -0.24f + (col % 4) * 0.205f, y2 - 0.045f - (col / 4) * 0.05f, st.sidearmGun == idx, () => st.sidearmGun = idx);
                 col++;
             }
             var def = GunCatalog.Get(st.primaryGun);
-            L($"{def.name}: {GunCatalog.ClassName(def.cls).TrimEnd('s')} · {def.damage * def.pellets:0} dmg · {def.magSize} rounds · {def.rpm:0} rpm",
-              -0.33f, -0.29f, 0.02f, UIKit.Muted);
+            L($"{def.name}: {GunCatalog.ClassName(def.cls).TrimEnd('s')} · {def.damage * def.pellets:0} dmg · {Attachments.MagSize(def, Attachments.For(def.index))} rounds · {def.rpm:0} rpm",
+              -0.33f, -0.255f, 0.019f, UIKit.Muted);
+            L("Grey guns unlock in Skills. Fit attachments at a Loadout Station.", -0.33f, -0.285f, 0.016f, UIKit.Muted);
+        }
+
+        void GunButton(GunDef g, float x, float y, bool selected, Action pick)
+        {
+            bool have = Progression.HasGun(g.index);
+            var b = B(have ? g.name : g.name + " (locked)", x, y, 0.195f, 0.042f, () =>
+            {
+                if (!Progression.HasGun(g.index)) { Hud.I.Toast($"Unlock the {g.name} in Menu > Skills."); return; }
+                pick();
+                Save.Store();
+                Game.I.LoadoutChanged();
+                Build();
+            }, selected, have ? 0.018f : 0.015f);
+            if (!have) b.SetColors(UIKit.ButtonColor * 0.55f, UIKit.ButtonColor * 0.7f);
+        }
+
+        /* ---------------- skill tree ---------------- */
+
+        void BuildSkills()
+        {
+            Title("Skills");
+            L($"Level {Progression.Level}   XP {Progression.Xp} / {Progression.XpToNext()}   ·   {Progression.Points} skill point{(Progression.Points == 1 ? "" : "s")}",
+              -0.07f, H / 2 - 0.05f, 0.022f, Progression.Points > 0 ? UIKit.Good : Color.white);
+            const float colW = 0.148f, x0 = -0.36f + colW / 2;
+            for (int c = 0; c < Progression.Branches.Length; c++)
+            {
+                string branch = Progression.Branches[c];
+                float x = x0 + c * colW, y = 0.255f;
+                L(branch.ToUpperInvariant(), x, y, 0.018f, UIKit.Accent, TextAnchor.MiddleCenter);
+                y -= 0.05f;
+                // the free starter gun at the top of each gun branch
+                foreach (var id in Progression.Starters)
+                {
+                    var g = GunCatalog.ById(id);
+                    if (g == null || BranchOf(g) != branch) continue;
+                    B(g.name + "\n<size=29>STARTER</size>", x, y, colW - 0.008f, 0.047f, null, true, 0.0145f).interactable = true;
+                    y -= 0.055f;
+                }
+                foreach (var n in Progression.Tree)
+                {
+                    if (n.branch != branch) continue;
+                    var state = Progression.State(n);
+                    var req = n.requires != null ? Progression.Find(n.requires) : null;
+                    string sub = state == Progression.NodeState.Owned ? "UNLOCKED"
+                               : state == Progression.NodeState.Locked ? "after " + (req != null ? req.name : "?")
+                               : $"{n.cost} point{(n.cost == 1 ? "" : "s")}";
+                    var node = n;
+                    var b = B(n.name + "\n<size=29>" + sub + "</size>", x, y, colW - 0.008f, 0.047f, () =>
+                    {
+                        switch (Progression.State(node))
+                        {
+                            case Progression.NodeState.Available:
+                                Progression.Unlock(node);
+                                AudioManager.Ui("win", 0.5f, 1.3f);
+                                Hud.I.Toast($"Unlocked {node.name}!");
+                                Build();
+                                break;
+                            case Progression.NodeState.NeedsPoints: Hud.I.Toast($"Needs {node.cost} skill point{(node.cost == 1 ? "" : "s")}. Level up in public or ranked matches."); break;
+                            case Progression.NodeState.Locked: Hud.I.Toast("Unlock the one above it first."); break;
+                        }
+                    }, state == Progression.NodeState.Owned, 0.0145f);
+                    if (state == Progression.NodeState.Locked) b.SetColors(UIKit.ButtonColor * 0.5f, UIKit.ButtonColor * 0.65f);
+                    else if (state == Progression.NodeState.Available) b.SetColors(new Color(0.85f, 0.45f, 0.1f), new Color(1f, 0.6f, 0.2f));
+                    y -= 0.055f;
+                }
+            }
+            L(UIKit.Wrap("Earn XP in public and ranked matches: kills 100, headshots +25, flag captures 300, finishing 200, winning +500. Private matches give no XP.", 0.85f, 0.0145f),
+              -0.36f, -0.25f, 0.0145f, UIKit.Muted);
+        }
+
+        static string BranchOf(GunDef g)
+        {
+            switch (g.cls)
+            {
+                case GunClass.Pistol: return "Pistols";
+                case GunClass.SMG: return "SMGs";
+                case GunClass.Shotgun: return "Shotguns";
+                case GunClass.Sniper: return "Snipers";
+                default: return "Rifles";
+            }
         }
 
         void BuildFriends()
@@ -426,7 +508,13 @@ namespace Flopzone
             string server = S.Online ? "Online" : "Offline (bots only)";
             L("Status: " + server, -0.33f, -0.07f, 0.026f, S.Online ? UIKit.Good : UIKit.Muted);
             if (S.IsAdmin) L("You are a moderator: see the MOD tab.", -0.33f, -0.12f, 0.024f, UIKit.Accent);
-            if (Save.TutorialDone) B("Replay tutorial", CX, -0.22f, 0.26f, 0.05f, () => { Close(); Game.I.StartTutorial(); }, false, 0.022f);
+            L($"Level {Progression.Level}  ({Progression.Xp} / {Progression.XpToNext()} XP)", -0.33f, -0.17f, 0.028f, UIKit.Good);
+            int rp = Progression.Rp, next = Progression.ToNextTier(rp);
+            L($"Rank: {Progression.Tier(rp)}  ·  {rp} RP", -0.33f, -0.215f, 0.028f, Progression.TierColor(rp));
+            L(Progression.Level < Progression.RankedMinLevel ? $"Ranked opens at level {Progression.RankedMinLevel}."
+              : $"{Progression.RankedWins} wins · {Progression.RankedLosses} losses" + (next > 0 ? $" · {next} RP to the next rank" : " · top rank!"),
+              -0.33f, -0.25f, 0.018f, UIKit.Muted);
+            if (Save.TutorialDone) B("Replay tutorial", 0.4f, -0.2f, 0.26f, 0.05f, () => { Close(); Game.I.StartTutorial(); }, false, 0.022f);
         }
 
         void OnModResult(Dictionary<string, object> m)

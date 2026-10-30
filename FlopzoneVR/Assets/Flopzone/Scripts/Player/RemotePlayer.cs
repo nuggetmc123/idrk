@@ -137,12 +137,13 @@ namespace Flopzone
             heldGunIdx[h] = idx;
             if (heldGuns[h]) Destroy(heldGuns[h].gameObject);
             heldGuns[h] = null;
-            var def = GunCatalog.Get(idx);
+            var def = GunCatalog.Get(Attachments.GunOf(idx));
+            int code = Attachments.CodeOf(idx);
             if (def == null || avatar == null) return;
-            heldGuns[h] = GunModel.Build(def, avatar.hand[h]);
+            heldGuns[h] = GunModel.Build(def, avatar.hand[h], code);
             if (!def.revolver)
             {
-                var mag = GunModel.BuildMag(def, heldGuns[h].magwell);
+                var mag = GunModel.BuildMag(def, heldGuns[h].magwell, code);
                 mag.name = "mag";
             }
         }
@@ -198,10 +199,11 @@ namespace Flopzone
         /// <summary>Muzzle flash, sound and tracer for a shot this player fired.</summary>
         public void PlayShot(int hand, Vector3 from, Vector3 to, int gunIdx)
         {
-            var def = GunCatalog.Get(gunIdx);
+            var def = GunCatalog.Get(Attachments.GunOf(gunIdx));
+            bool quiet = def != null && Attachments.Suppressed(def, Attachments.CodeOf(gunIdx));
             var gm = heldGuns[Mathf.Clamp(hand, 0, 1)];
-            if (gm != null) Fx.I.MuzzleFlash(gm.muzzle, def != null && def.cls == GunClass.Shotgun ? 1.5f : 1f);
-            if (def != null) AudioManager.Sfx(def.sound, from, 1f, def.pitch);
+            if (gm != null && !quiet) Fx.I.MuzzleFlash(gm.muzzle, def != null && def.cls == GunClass.Shotgun ? 1.5f : 1f);
+            if (def != null) AudioManager.Sfx(def.sound, from, quiet ? 0.3f : 1f, def.pitch * (quiet ? 1.25f : 1f));
             Fx.I.Tracer(from, to);
         }
 

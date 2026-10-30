@@ -49,6 +49,30 @@ namespace Flopzone
 
         public void Anchor(string name, float y, float z, float angle = 0f, float x = 0f) => anchors[name] = (new P3(x, y, z), angle);
 
+        /// <summary>Set while drawing a gun that gets a different optic: its own sight only marks where optics go.</summary>
+        public bool skipOptic;
+        /// <summary>Radius of the last muzzle bore drawn (sizes the suppressor or compensator that goes on it).</summary>
+        public float boreR = 0.006f;
+
+        /// <summary>Mark where an optic sits (y = top of the rail). A rail only marks it if nothing has yet.</summary>
+        public void OpticMount(float y, float z, bool force)
+        {
+            if (force || !anchors.ContainsKey("optic")) Anchor("optic", y, z);
+        }
+
+        /// <summary>Stretch everything up/down by k about y = 0 (an extended mag is a longer mag).</summary>
+        public void StretchY(float k)
+        {
+            foreach (var p in parts.Values)
+                for (int i = 0; i < p.v.Count; i++)
+                {
+                    var v = p.v[i]; p.v[i] = new P3(v.x, v.y * k, v.z);
+                    var n = p.n[i]; var m = new P3(n.x, n.y / k, n.z);
+                    float l = (float)Math.Sqrt(P3.Dot(m, m));
+                    p.n[i] = l > 1e-6f ? m * (1f / l) : n;
+                }
+        }
+
         /// <summary>Everything added inside <paramref name="build"/> is turned (degrees) about a pivot and moved.</summary>
         public void With(P3 pivot, float rx, float ry, float rz, P3 move, Action build)
         {
@@ -296,6 +320,7 @@ namespace Flopzone
         /// <summary>A hollow muzzle end: a dark disc set into the end of a tube.</summary>
         public void Bore(float y, float z, float r, float x = 0)
         {
+            boreR = r;
             Tube(GM.Port, new P3(x, y, z - 0.004f), new P3(x, y, z + 0.0004f), r, r, 12, false, true);
         }
 

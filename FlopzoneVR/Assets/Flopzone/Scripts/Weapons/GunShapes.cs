@@ -14,6 +14,7 @@ namespace Flopzone
         /// <summary>Picatinny rail along the top: a base with cross slots.</summary>
         static void Rail(GunMesh g, float y, float z0, float z1, float w = 0.021f, GM m = GM.Dark)
         {
+            g.OpticMount(y + 0.0095f, z0 + (z1 - z0) * 0.4f, false);
             g.Box(m, 0, y + 0.003f, (z0 + z1) / 2, w * 0.75f, 0.006f, z1 - z0, 0.001f);
             for (float z = z0 + 0.004f; z < z1 - 0.003f; z += 0.0095f)
                 g.Box(m, 0, y + 0.0075f, z + 0.0025f, w, 0.004f, 0.005f, 0.0008f);
@@ -77,6 +78,8 @@ namespace Flopzone
         /// <summary>A red dot sight on a rail (y = top of the rail). Clear glass at both ends, the dot inside.</summary>
         static void RedDot(GunMesh g, float y, float z)
         {
+            g.OpticMount(y, z, true);
+            if (g.skipOptic) return;
             g.Profile(GM.Dark, 0, 0.026f, 0.002f, z - 0.024f, y, z + 0.024f, y, z + 0.022f, y + 0.012f, z - 0.022f, y + 0.012f);
             g.TubeZ(GM.Dark, 0, y + 0.03f, z - 0.024f, z + 0.024f, 0.019f, 0.0195f, 20, false);
             Ring(g, GM.Dark, y + 0.03f, z - 0.024f, 0.0195f, 0.0215f, 0.004f);
@@ -111,6 +114,8 @@ namespace Flopzone
         /// </summary>
         static void Holo(GunMesh g, float y, float z)
         {
+            g.OpticMount(y, z, true);
+            if (g.skipOptic) return;
             float w = 0.034f, top = y + 0.052f;
             // base with the quick-detach lever and the battery cap
             g.Profile(GM.Dark, 0, w, 0.003f, z - 0.045f, y, z + 0.04f, y, z + 0.04f, y + 0.016f, z - 0.045f, y + 0.016f);
@@ -140,6 +145,7 @@ namespace Flopzone
         /// <summary>A 3x magnifier flipped to the side on its mount (sits behind a holo sight).</summary>
         static void FlipMagnifier(GunMesh g, float y, float z)
         {
+            if (g.skipOptic) return;
             g.Profile(GM.Dark, 0, 0.028f, 0.002f, z - 0.02f, y, z + 0.02f, y, z + 0.018f, y + 0.012f, z - 0.018f, y + 0.012f);
             g.Box(GM.Dark, 0.024f, y + 0.02f, z, 0.026f, 0.024f, 0.03f, 0.002f);
             g.TubeZ(GM.Dark, 0.046f, y + 0.032f, z - 0.05f, z + 0.045f, 0.0145f, -1, 20);
@@ -154,6 +160,8 @@ namespace Flopzone
         /// </summary>
         static void Acog(GunMesh g, float y, float z, float fov = 8f)
         {
+            g.OpticMount(y, z, true);
+            if (g.skipOptic) return;
             float cy = y + 0.03f;
             g.Profile(GM.Dark, 0, 0.026f, 0.002f, z - 0.035f, y, z + 0.035f, y, z + 0.03f, y + 0.014f, z - 0.03f, y + 0.014f);   // mount
             foreach (float bz in new[] { -0.02f, 0.02f }) g.Tube(GM.Metal, new P3(0.013f, y + 0.007f, z + bz), new P3(0.019f, y + 0.007f, z + bz), 0.005f, 0.005f, 10);
@@ -318,11 +326,80 @@ namespace Flopzone
         /* ======================= the guns ======================= */
 
         /// <summary>Build a gun by its catalogue id.</summary>
-        public static GunMesh Build(string id)
+        public static GunMesh Build(string id) => Build(id, 0);
+
+        /// <summary>Build a gun with attachments (an <see cref="Attachments"/> code) fitted.</summary>
+        public static GunMesh Build(string id, int code)
         {
             var g = new GunMesh();
+            int optic = Attachments.Get(code, Slot.Optic);
+            g.skipOptic = optic != 0;
             Pick(g, id);
+            g.skipOptic = false;
+            FillSlots(g);
+            if (code != 0) Fit(g, code);
             return g;
+        }
+
+        /// <summary>The attachment points a gun has: "optic", "under" (for a grip or laser), "muzzle".</summary>
+        public static bool HasPoint(string id, string point)
+        {
+            if (!points.TryGetValue(id, out var set))
+            {
+                var g = Build(id, 0);
+                points[id] = set = new System.Collections.Generic.HashSet<string>(g.anchors.Keys);
+            }
+            return set.Contains(point);
+        }
+
+        static readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>> points =
+            new System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>();
+
+        /// <summary>Guns that weren't given an under-barrel point get one where the second hand goes, if that's under a handguard.</summary>
+        static void FillSlots(GunMesh g)
+        {
+            if (g.anchors.ContainsKey("under") || g.anchors.ContainsKey("pump")) return;
+            if (!g.anchors.TryGetValue("foregrip", out var f) || !g.anchors.TryGetValue("muzzle", out var mz)) return;
+            if (f.pos.z > 0.12f && f.pos.y > -0.01f && f.pos.y < mz.pos.y - 0.012f) g.Anchor("under", f.pos.y, f.pos.z);
+        }
+
+        /// <summary>Draw the chosen attachments on their points and move the muzzle / hand points to match.</summary>
+        static void Fit(GunMesh g, int code)
+        {
+            int optic = Attachments.Get(code, Slot.Optic), muzzle = Attachments.Get(code, Slot.Muzzle), under = Attachments.Get(code, Slot.Under);
+            if (optic != 0 && g.anchors.TryGetValue("optic", out var o))
+            {
+                float y = o.pos.y, z = o.pos.z;
+                if (optic == 1) RedDot(g, y, z);
+                else if (optic == 2) Holo(g, y, z);
+                else Acog(g, y, z, 12f);
+            }
+            if (muzzle != 0 && g.anchors.TryGetValue("muzzle", out var m))
+            {
+                float y = m.pos.y, z = m.pos.z - 0.008f;
+                float r = Math.Max(0.0105f, Math.Min(0.02f, g.boreR * 2.2f));
+                if (muzzle == 1) { Suppressor(g, y, z, 0.16f, r * 1.25f); g.Anchor("muzzle", y, z + 0.165f); }
+                else { MuzzleBrake(g, y, z, r * 0.85f, 0.05f); g.Anchor("muzzle", y, z + 0.055f); }
+            }
+            if (under != 0 && g.anchors.TryGetValue("under", out var u))
+            {
+                float y = u.pos.y, z = u.pos.z;
+                if (under == 1)
+                {
+                    g.Box(GM.Dark, 0, y - 0.004f, z, 0.016f, 0.008f, 0.04f, 0.0015f);
+                    g.Tube(GM.Polymer, new P3(0, y - 0.006f, z), new P3(0, y - 0.085f, z - 0.012f), 0.0135f, 0.0145f, 16);
+                    g.Ball(GM.Polymer, 0, y - 0.085f, z - 0.012f, 0.0145f, 0.006f, 0.0145f, 12);
+                    g.Anchor("foregrip", y - 0.05f, z - 0.006f);
+                }
+                else
+                {
+                    g.Box(GM.Dark, 0, y - 0.012f, z + 0.01f, 0.022f, 0.018f, 0.05f, 0.002f);
+                    g.TubeZ(GM.Dark, 0.006f, y - 0.012f, z + 0.035f, z + 0.039f, 0.004f, -1, 12);
+                    g.Ball(GM.Glow, 0.006f, y - 0.012f, z + 0.0395f, 0.0028f, 0.0028f, 0.001f, 8);
+                    g.Box(GM.Rubber, -0.012f, y - 0.012f, z - 0.004f, 0.003f, 0.008f, 0.012f, 0.0008f);
+                    g.Anchor("laser", y - 0.012f, z + 0.041f, 0, 0.006f);
+                }
+            }
         }
 
         /// <summary>The AR-15 lower and upper receivers (shared by the AR, the DMR and others).</summary>
@@ -389,10 +466,11 @@ namespace Flopzone
 
         /* ======================= magazines ======================= */
 
-        public static GunMesh BuildMag(string id)
+        public static GunMesh BuildMag(string id, bool extended = false)
         {
             var g = new GunMesh();
             PickMag(g, id);
+            if (extended) g.StretchY(1.45f);
             return g;
         }
 

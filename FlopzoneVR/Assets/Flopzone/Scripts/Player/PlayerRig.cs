@@ -167,8 +167,10 @@ namespace Flopzone
             foreach (var h in hands) if (h.held is Gun) h.ReleaseQuietly();
             if (primary) Destroy(primary.gameObject);
             if (sidearm) Destroy(sidearm.gameObject);
-            primary = Gun.Spawn(GunCatalog.Get(primaryIdx) ?? GunCatalog.All[16], holsters[0].position, holsters[0].rotation);
-            sidearm = Gun.Spawn(GunCatalog.Get(sidearmIdx) ?? GunCatalog.All[0], holsters[1].position, holsters[1].rotation);
+            var pd = GunCatalog.Get(primaryIdx) ?? GunCatalog.All[16];
+            var sd = GunCatalog.Get(sidearmIdx) ?? GunCatalog.All[0];
+            primary = Gun.Spawn(pd, holsters[0].position, holsters[0].rotation, Attachments.For(pd.index));
+            sidearm = Gun.Spawn(sd, holsters[1].position, holsters[1].rotation, Attachments.For(sd.index));
             primary.home = holsters[0];
             sidearm.home = holsters[1];
             primary.homeOnBody = sidearm.homeOnBody = true;
@@ -299,8 +301,8 @@ namespace Flopzone
             p[PoseData.Flags] = (crouched ? PoseData.FlagCrouch : 0) | (sprinting ? PoseData.FlagSprint : 0) | (cc.isGrounded ? PoseData.FlagGrounded : 0);
             var lg = hands[0].HeldGun;
             var rg = hands[1].HeldGun;
-            p[PoseData.LGun] = lg != null ? lg.def.index : -1;
-            p[PoseData.RGun] = rg != null ? rg.def.index : -1;
+            p[PoseData.LGun] = lg != null ? Attachments.Pack(lg.def.index, lg.code) : -1;
+            p[PoseData.RGun] = rg != null ? Attachments.Pack(rg.def.index, rg.code) : -1;
             p[PoseData.Speed] = HorizontalSpeed;
             PoseData.PutLook(p, Save.Settings.look);
             return p;

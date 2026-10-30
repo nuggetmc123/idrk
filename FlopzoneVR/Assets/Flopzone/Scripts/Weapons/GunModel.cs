@@ -23,6 +23,8 @@ namespace Flopzone
         public Transform foregrip;      // where the second hand holds on
         public Transform ammoAnchor;    // where the ammo counter sits (back of the gun, facing you)
         public Transform visual;        // everything but the mag; recoil kicks this
+        public Transform laser;         // the laser's lens, if one is fitted
+        public int code;                // the attachments fitted (see Attachments)
 
         /* ---------------- materials ---------------- */
 
@@ -138,14 +140,17 @@ namespace Flopzone
 
         Dictionary<string, (P3 pos, float angle)> anchors;
 
-        public static GunModel Build(GunDef def, Transform parent)
+        public static GunModel Build(GunDef def, Transform parent, int code = 0)
         {
-            if (!guns.TryGetValue(def.id, out var b) || b.parts.Count == 0 || b.parts[0].mesh == null)
-                guns[def.id] = b = Make(GunShapes.Build(def.id));
+            code = Attachments.Clean(def, code);
+            string key = def.id + "#" + code;
+            if (!guns.TryGetValue(key, out var b) || b.parts.Count == 0 || b.parts[0].mesh == null)
+                guns[key] = b = Make(GunShapes.Build(def.id, code));
             var root = new GameObject("gun:" + def.name);
             root.transform.SetParent(parent, false);
             var m = root.AddComponent<GunModel>();
             m.def = def;
+            m.code = code;
             m.anchors = b.anchors;
             m.visual = Prims.Empty("visual", root.transform).transform;
             var groups = new Dictionary<string, Transform>();
@@ -159,6 +164,7 @@ namespace Flopzone
             m.ejectPort = m.Point("eject", r, null, new Vector3(0.02f, 0.07f, 0.05f));
             m.scopeEye = m.Point("scopeEye", r);
             m.scopeFront = m.Point("scopeFront", r);
+            m.laser = m.Point("laser", m.visual);
             if (b.anchors.TryGetValue("scopeRadius", out var sr)) m.scopeRadius = sr.pos.y;
             if (b.anchors.TryGetValue("scopeFov", out var sf)) m.scopeFov = sf.pos.y;
             m.ammoAnchor = m.Point("ammo", m.visual, null, new Vector3(0.022f, 0.07f, -0.05f));
@@ -167,10 +173,12 @@ namespace Flopzone
         }
 
         /// <summary>The detachable magazine for this gun. Its origin sits on the gun's magwell; it hangs down (-Y).</summary>
-        public static GameObject BuildMag(GunDef def, Transform parent)
+        public static GameObject BuildMag(GunDef def, Transform parent, int code = 0)
         {
-            if (!mags.TryGetValue(def.id, out var b) || b.parts.Count == 0 || b.parts[0].mesh == null)
-                mags[def.id] = b = Make(GunShapes.BuildMag(def.id));
+            bool ext = Attachments.Get(Attachments.Clean(def, code), Slot.Mag) == 1;
+            string key = def.id + (ext ? "#x" : "");
+            if (!mags.TryGetValue(key, out var b) || b.parts.Count == 0 || b.parts[0].mesh == null)
+                mags[key] = b = Make(GunShapes.BuildMag(def.id, ext));
             var go = new GameObject("mag:" + def.id);
             go.transform.SetParent(parent, false);
             Attach(b, go.transform, def.accent, null);

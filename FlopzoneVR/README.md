@@ -34,7 +34,7 @@ At the top of Unity, next to Window and Help:
 pick a name (must be unique; slurs and swearing are refused), then learn to grab, shoot,
 drop the mag, reload, jump, sprint, crouch and open the menu. After that, the hub.
 
-**Hub:** a forward operating base. Board the lobby helicopter to play, try all 22 guns in the armory, shoot targets on the live-fire
+**Hub:** a forward operating base. Board the lobby helicopter to play, try all 30 guns in the armory (even locked ones), shoot targets on the live-fire
 range, play Flappy Slop on the arcade machines, change your guns at the loadout station, and check
 out the helipad, barracks, motor pool and watchtowers.
 
@@ -50,6 +50,10 @@ a solo player) can use it:
   1:00, with how many players have joined. If the match isn't full after a minute, it starts with
   whoever joined and bots fill the empty spots (offline, the leader can also press *Start now with bots*).
 - **Private:** just your party, no strangers. You go in straight away and bots fill the empty spots.
+  **Private matches give no XP**, so you can't level up in them.
+- **Ranked** (from level 5): Team Deathmatch, 1v1, 2v2 and 3v3 only (not Free For All or Capture The Flag).
+  Ranked players are only matched with other ranked players. Win **+25 RP**, lose **-20 RP**.
+  Ranks: Bronze (0), Silver (200), Gold (500), Platinum (900), Diamond (1400), Champion (2000).
 
 When the match starts, you deploy onto the map. Outside, by the ramp, there are four more arcade
 machines and a loadout station.
@@ -103,10 +107,32 @@ Tab menu.
 
 ### The menu (≡)
 
-Play · Loadout (pick your primary and sidearm) · Friends (add by name or player ID,
+Play · Loadout (pick your primary and sidearm) · **Skills** (the skill tree) · Friends (add by name or player ID,
 invite to party) · Party (up to 6, leader takes everyone) · Chat (keyboard + quick chat) ·
 **Report** (pick a player and a reason) · Settings · Controls · Profile (your name and
-**player ID**) · **MOD** (moderators only).
+**player ID**, level and rank) · **MOD** (moderators only).
+
+### Levels and the skill tree
+
+Public and ranked matches give XP: a kill 100, a headshot kill 125, a flag capture 300,
+finishing a match 200, winning +500. Level 1 to 2 takes 400 XP, and each level after
+takes 100 more. Every level gives a **skill point** (two every fifth level). Spend points in Menu > Skills.
+
+You start with the Flop 9, Hornet, Boomstick, Rattle AR and Longshot. Every other gun sits on
+the tree in its branch (Pistols, SMGs, Shotguns, Rifles, Snipers), each one unlocking after an earlier one.
+The **Attachments** branch unlocks the Red Dot, Holo Sight, 4x ACOG, Vertical Grip, Laser,
+Compensator, Suppressor and Extended Mag.
+
+### Attachments
+
+At any loadout station press **ATTACHMENTS** and pick, for your primary or your sidearm:
+
+- **Optic:** the gun's own sight, Red Dot, Holo Sight or a 4x ACOG that really zooms (rifles, SMGs, shotguns with a rail)
+- **Muzzle:** Suppressor (quiet, no muzzle flash) or Compensator (40% less kick)
+- **Under the barrel:** Vertical Grip (less kick and spread; your other hand holds it) or Laser (tighter spread, a red beam)
+- **Mag:** Extended Mag (50% more rounds, a longer mag)
+
+Each gun remembers its own attachments, and other players see them on your gun.
 
 ### Game modes
 
@@ -136,7 +162,7 @@ desert haze, space), textured surfaces (concrete, metal, brick, sand, snow, gras
 bump detail), a reflection snapshot for shiny metal, and a glowing energy barrier around the edge
 that nobody can get past.
 
-### Guns (22)
+### Guns (30)
 
 Each one is modelled on a real gun:
 
@@ -147,7 +173,10 @@ Each one is modelled on a real gun:
 - **Snipers** (scopes that really zoom, with a crosshair): Longshot (M24 bolt-action), Whisper
   (VSS, suppressed), Elephant Gun (big-bore bolt rifle), Marksman DMR (SR-25), Needle (AWM)
 - **Assault rifles:** Rattle AR (AR-15), Bulldog (AUG bullpup), Viper Carbine (AK), Burst Bravo (SCAR),
-  Heavy HMR (M249), Spitfire (Vector)
+  Heavy HMR (M249), Spitfire (Vector), Gecko (G36C)
+- **SMGs:** Hornet (MP5), Slab (UMP45), Bullhorn (P90, with its 50-round mag on top)
+- Also new: Classic 45 (M1911) pistol, Twin Tube (KSG bullpup pump shotgun), Fifty Cal (Barrett M82, semi-auto),
+  Old Mosin (Mosin-Nagant with a small scope)
 
 **Sights:** the Rattle AR, Spitfire and Burst Bravo carry EOTech-style **holo sights**: see-through glass with a glowing ring and
 dot (the Bravo also has a 3x magnifier flipped to the side). The Heavy HMR has a 4x **ACOG**, and the Bulldog's built-in
@@ -190,10 +219,10 @@ Assets/Flopzone/
     Core/      JSON, word filter, settings, materials, sound synthesis, audio
     Input/     headset + controllers (Unity XR input), keyboard fallback
     Player/    rig + movement, hands, avatars, ragdolls, other players
-    Weapons/   the 22 guns, gun models, mags, effects
+    Weapons/   the 30 guns, attachments, gun models, mags, effects
     World/     the 10 maps, the hub, portals, targets
     Net/       Photon rooms + room rules, session state, offline mode with bots, account server link
-    Game/      game flow, tutorial, bots, capture the flag
+    Game/      game flow, tutorial, bots, capture the flag, levels/skill tree/ranked (Progression.cs)
     UI/        VR UI kit, keyboard, menu, HUD
 Server/        the optional account server, a Cloudflare Worker (see its README)
 Assets/Flopzone/Setup/   switches Photon on/off by itself (compiles even if the game has errors)

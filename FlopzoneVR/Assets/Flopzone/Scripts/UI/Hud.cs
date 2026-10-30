@@ -157,7 +157,7 @@ namespace Flopzone
             hpFill.localPosition = new Vector3(-0.05f * (1 - k), -0.026f, 0);
             hpFill.GetComponent<Renderer>().sharedMaterial.color = Color.Lerp(new Color(0.95f, 0.25f, 0.2f), new Color(0.3f, 0.9f, 0.35f), k);
             var gun = rig.hands[1].HeldGun ?? rig.hands[0].HeldGun;
-            string ammo = gun != null ? (gun.hasMag ? gun.ammo + "/" + gun.def.magSize : "NO MAG") : "";
+            string ammo = gun != null ? (gun.hasMag ? gun.ammo + "/" + gun.MagSize : "NO MAG") : "";
             string clock = g != null && g.session != null && g.session.InMatch ? Clock(g.session.TimeLeft) : (g != null && g.session != null && g.session.Online ? "ONLINE" : "OFFLINE");
             watchInfo.text = clock + (ammo.Length > 0 ? "   " + ammo : "");
         }

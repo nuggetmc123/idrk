@@ -100,7 +100,7 @@ namespace Flopzone
                 {
                     string dest = m.Str("dest");
                     if (dest == "hub") EnterHub();
-                    else if (Modes.ContainsKey(dest)) EnterMatch(dest, m.Bool("priv"));
+                    else if (Modes.ContainsKey(dest)) EnterMatch(dest, m.Bool("priv"), m.Bool("ranked"));
                     break;
                 }
                 case "st":
@@ -177,9 +177,9 @@ namespace Flopzone
             SendRoom();
         }
 
-        bool priv;
+        bool priv, ranked;
 
-        void EnterMatch(string m, bool privateMatch)
+        void EnterMatch(string m, bool privateMatch, bool rankedMatch = false)
         {
             var md = Modes[m];
             Reset("match", m);
@@ -188,6 +188,7 @@ namespace Flopzone
             // presses Start Now on the lobby helicopter's screen), then fill up with bots
             state = "waiting";
             priv = privateMatch;
+            ranked = rankedMatch && !priv && RoomHost.CanBeRanked(m);
             // private: just you (and your party), so straight in with bots
             fillBotsAt = Time.time + (priv ? 0.5f : RoomHost.WaitForPlayers);
             players[myId] = new P { id = myId, name = myName, team = md.teams ? 0 : -1, protectUntil = Time.time + 1.5f };
@@ -203,6 +204,7 @@ namespace Flopzone
             var list = new List<object>();
             foreach (var p in players.Values) list.Add(PlayerPayload(p));
             Out("t", "room", "id", "LOCAL" + roomSeq, "kind", kind, "mode", mode, "map", map, "state", state, "priv", kind == "match" && priv,
+                "ranked", kind == "match" && ranked,
                 "time", (double)TimeLeft(), "scores", Scores(), "flags", FlagsPayload(), "team", Me.team, "spawn", Random.Range(0, 1000), "players", list);
         }
 

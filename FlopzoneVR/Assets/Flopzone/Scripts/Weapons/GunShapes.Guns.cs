@@ -27,7 +27,7 @@ namespace Flopzone
                 case "bravo": Scar(g); break;
                 case "hmr": M249(g); break;
                 case "spitfire": Vector(g); break;
-                default: Ar15(g); break;
+                default: if (!PickNew(g, id)) Ar15(g); break;
             }
         }
 
@@ -52,7 +52,7 @@ namespace Flopzone
                 case "hmr": AmmoPouch(g); break;
                 case "boom": case "slug": case "thunder": ShellHolder(g, 4); break;
                 case "sawed": ShellHolder(g, 2); break;
-                default: Stanag(g); break;
+                default: if (!PickNewMag(g, id)) Stanag(g); break;
             }
         }
 
@@ -65,6 +65,7 @@ namespace Flopzone
             g.Anchor("foregrip", -0.045f, 0.03f);
             g.Anchor("eject", boreY + 0.006f, 0.05f, 0, 0.016f);
             g.Anchor("ammo", boreY, -0.03f, 0, 0.02f);
+            if (!g.anchors.ContainsKey("under")) g.Anchor("under", boreY - 0.03f, muzzleZ - 0.06f);   // a laser under the frame
         }
 
         static void Serrations(GunMesh g, float w, float y0, float y1, float z0, int n, float step)
@@ -480,6 +481,7 @@ namespace Flopzone
             g.Bore(0.062f, 0.56f, 0.005f);
             TriggerGuard(g, 0.03f, 0.004f, 0.062f, GM.Metal);
             RifleAnchors(g, 0.062f, 0.57f, 0.03f, 0.27f, 0.03f, 0.095f);
+            g.Anchor("optic", 0.092f, 0.06f);   // on a side-rail mount over the dust cover
         }
 
         static void Scar(GunMesh g)

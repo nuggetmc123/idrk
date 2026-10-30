@@ -9,6 +9,10 @@ namespace Flopzone
         public GunDef def;
         public GunModel model;
         public int ammo;
+        /// <summary>The attachments on this gun (see <see cref="Attachments"/>).</summary>
+        public int code;
+        public int MagSize => Attachments.MagSize(def, code);
+        Transform laserBeam;
         public bool hasMag = true;
         GameObject magVisual;
         float nextShot;
@@ -22,11 +26,11 @@ namespace Flopzone
         TextMesh ammoText;
         int shownAmmo = -2;
 
-        public static Gun Spawn(GunDef def, Vector3 pos, Quaternion rot)
+        public static Gun Spawn(GunDef def, Vector3 pos, Quaternion rot, int code = 0)
         {
             var go = new GameObject("Gun " + def.name);
             go.transform.SetPositionAndRotation(pos, rot);
-            var model = GunModel.Build(def, go.transform);
+            var model = GunModel.Build(def, go.transform, code);
             // one box around the whole gun for grabbing and dropping
             var bounds = new Bounds(Vector3.zero, Vector3.zero);
             bool first = true;
@@ -46,7 +50,8 @@ namespace Flopzone
             var gun = go.AddComponent<Gun>();
             gun.def = def;
             gun.model = model;
-            gun.ammo = def.magSize;
+            gun.code = model.code;
+            gun.ammo = gun.MagSize;
             gun.ShowMag(true);
             gun.ammoText = UIKit.Text(model.ammoAnchor, "", Vector3.zero, 0.02f, Color.white);
             return gun;
@@ -58,7 +63,7 @@ namespace Flopzone
             // a revolver's speed loader goes away once it's loaded (the rounds show in the cylinder)
             if (on && magVisual == null && !def.revolver)
             {
-                magVisual = GunModel.BuildMag(def, model.magwell);
+                magVisual = GunModel.BuildMag(def, model.magwell, code);
                 magVisual.name = "mag";
             }
             if (!on && magVisual != null) { Destroy(magVisual); magVisual = null; }
@@ -79,6 +84,7 @@ namespace Flopzone
 
         void OnDestroy()
         {
+            if (laserBeam != null) Destroy(laserBeam.gameObject);
             if (scopeTex != null) scopeTex.Release();
         }
 
@@ -166,13 +172,50 @@ namespace Flopzone
             else scopeGlass.color = new Color(0.12f, 0.16f, 0.2f);   // just glass when you're not looking through it
         }
 
-        void LateUpdate() => UpdateScope();
+        void LateUpdate()
+        {
+            UpdateScope();
+            UpdateLaser();
+        }
+
+        /// <summary>A laser fitted under the barrel shows a thin red beam and a dot while it's in your hand.</summary>
+        void UpdateLaser()
+        {
+            if (model.laser == null) return;
+            bool on = Held;
+            if (on && laserBeam == null)
+            {
+                var beam = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Destroy(beam.GetComponent<Collider>());
+                beam.name = "laserBeam";
+                beam.GetComponent<Renderer>().sharedMaterial = Prims.Emissive(new Color(1f, 0.1f, 0.08f), 2f);
+                beam.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                laserBeam = beam.transform;
+                var dot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                Destroy(dot.GetComponent<Collider>());
+                dot.name = "dot";
+                dot.GetComponent<Renderer>().sharedMaterial = beam.GetComponent<Renderer>().sharedMaterial;
+                dot.transform.SetParent(laserBeam, false);
+            }
+            if (laserBeam == null) return;
+            laserBeam.gameObject.SetActive(on);
+            if (!on) return;
+            var from = model.laser.position;
+            var dir = model.laser.forward;
+            float len = 40f;
+            if (Physics.Raycast(from, dir, out var hit, len, Layers.ShootMask, QueryTriggerInteraction.Ignore)) len = hit.distance;
+            laserBeam.SetPositionAndRotation(from + dir * (len * 0.5f), Quaternion.LookRotation(dir));
+            laserBeam.localScale = new Vector3(0.0012f, 0.0012f, len);
+            var d = laserBeam.GetChild(0);
+            d.localPosition = new Vector3(0, 0, 0.5f);
+            d.localScale = new Vector3(0.012f / 0.0012f, 0.012f / 0.0012f, 0.012f / Mathf.Max(0.01f, len));
+        }
 
         protected override void Update()
         {
             base.Update();
             kick = Mathf.MoveTowards(kick, 0f, Time.deltaTime * 9f);
-            model.visual.localRotation = Quaternion.Euler(-def.recoil * kick, 0, 0);
+            model.visual.localRotation = Quaternion.Euler(-def.recoil * Attachments.RecoilMult(code) * kick, 0, 0);
             model.visual.localPosition = new Vector3(0, 0, -0.04f * kick);
             if (ammoText != null)
             {
@@ -181,7 +224,7 @@ namespace Flopzone
                 {
                     shownAmmo = show;
                     ammoText.text = show == -2 ? "" : show == -1 ? "--" : show.ToString();
-                    ammoText.color = show <= Mathf.Max(1, def.magSize / 4) ? UIKit.Bad : Color.white;
+                    ammoText.color = show <= Mathf.Max(1, MagSize / 4) ? UIKit.Bad : Color.white;
                 }
             }
             if (!Held || holder == null) return;
@@ -238,7 +281,7 @@ namespace Flopzone
             bool hitSomeone = false;
             for (int p = 0; p < def.pellets; p++)
             {
-                var spread = Random.insideUnitCircle * Mathf.Tan(def.spread * Mathf.Deg2Rad);
+                var spread = Random.insideUnitCircle * Mathf.Tan(def.spread * Attachments.SpreadMult(code) * Mathf.Deg2Rad);
                 var dir = (muzzle.forward + muzzle.right * spread.x + muzzle.up * spread.y).normalized;
                 Vector3 end = origin + dir * def.range;
                 var all = Physics.RaycastAll(origin, dir, def.range, Layers.ShootMask, QueryTriggerInteraction.Ignore);
@@ -276,13 +319,15 @@ namespace Flopzone
                 Game.I.ReportHit(kv.Key, kv.Value.dmg, kv.Value.head, def, kv.Value.dir);
             if (hitSomeone) AudioManager.Ui(hits.Count > 0 && HasHead(hits) ? "hit_head" : "hitmarker", 0.8f);
 
-            Fx.I.MuzzleFlash(muzzle, def.cls == GunClass.Shotgun ? 1.6f : def.cls == GunClass.Sniper ? 1.4f : 1f);
-            AudioManager.Sfx(def.sound, origin, 1f, def.pitch);
+            bool quiet = Attachments.Suppressed(def, code);
+            if (!quiet) Fx.I.MuzzleFlash(muzzle, def.cls == GunClass.Shotgun ? 1.6f : def.cls == GunClass.Sniper ? 1.4f : 1f);
+            AudioManager.Sfx(def.sound, origin, quiet ? 0.35f : 1f, def.pitch * (quiet ? 1.25f : 1f));
             if (def.cls != GunClass.Shotgun || def.mode != FireMode.Pump) Fx.I.Shell(model.ejectPort, holder.Velocity);
             if (def.mode == FireMode.Bolt || def.mode == FireMode.Pump) Invoke(nameof(CycleSound), Mathf.Min(0.35f, def.Interval * 0.4f));
             kick = 1f;
-            VRInput.I.Haptic(holder.index, def.cls == GunClass.Pistol ? 0.4f : 0.8f, def.cls == GunClass.AssaultRifle ? 0.04f : 0.09f);
-            Game.I.ReportShot(holder.index, origin, firstEnd, def.index);
+            VRInput.I.Haptic(holder.index, (def.cls == GunClass.Pistol ? 0.4f : 0.8f) * Attachments.RecoilMult(code),
+                def.cls == GunClass.AssaultRifle || def.cls == GunClass.SMG ? 0.04f : 0.09f);
+            Game.I.ReportShot(holder.index, origin, firstEnd, Attachments.Pack(def.index, code));
         }
 
         static bool HasHead(Dictionary<RemotePlayer, (float dmg, bool head, Vector3 dir)> hits)
@@ -305,7 +350,7 @@ namespace Flopzone
             var pos = model.magwell.position;
             var rot = model.magwell.rotation;
             ShowMag(false);
-            var mag = Magazine.Spawn(def, ammo, pos, rot);
+            var mag = Magazine.Spawn(def, ammo, pos, rot, code);
             mag.OnRelease(null, holder != null ? holder.Velocity + model.magwell.up * -1.2f : Vector3.down, Vector3.zero);
             ammo = 0;
             AudioManager.Sfx("mag_out", pos, 0.9f);
@@ -315,7 +360,7 @@ namespace Flopzone
         public Magazine TakeMag()
         {
             if (!hasMag) return null;
-            var mag = Magazine.Spawn(def, ammo, model.magwell.position, model.magwell.rotation);
+            var mag = Magazine.Spawn(def, ammo, model.magwell.position, model.magwell.rotation, code);
             ShowMag(false);
             ammo = 0;
             AudioManager.Sfx("mag_out", model.magwell.position, 0.9f);
@@ -337,14 +382,14 @@ namespace Flopzone
         /// <summary>Keyboard testing only: instant reload.</summary>
         public void QuickReload()
         {
-            ammo = def.magSize;
+            ammo = MagSize;
             ShowMag(true);
             AudioManager.Sfx("mag_in", model.magwell.position, 1f);
         }
 
         public void Refill()
         {
-            ammo = def.magSize;
+            ammo = MagSize;
             ShowMag(true);
         }
     }

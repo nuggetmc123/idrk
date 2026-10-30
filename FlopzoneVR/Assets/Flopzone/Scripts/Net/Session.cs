@@ -47,6 +47,8 @@ namespace Flopzone
         public string RoomId, RoomKind, Mode, State = "";
         /// <summary>A private match: just the party (plus bots), no strangers, no waiting.</summary>
         public bool PrivateMatch;
+        /// <summary>A ranked match: only other ranked players get matched in, and the result moves your rank.</summary>
+        public bool RankedMatch;
         public int Map = -1, MyTeam = -1, SpawnIndex;
         public float StateEndsAt;
         public int[] Scores = { 0, 0 };
@@ -161,6 +163,7 @@ namespace Flopzone
                     RoomKind = m.Str("kind");
                     Mode = m.Str("mode", null);
                     PrivateMatch = m.Bool("priv");
+                    RankedMatch = m.Bool("ranked") && !PrivateMatch;
                     Map = m.Int("map", -1);
                     State = m.Str("state");
                     StateEndsAt = Time.time + (float)m.Num("time");
@@ -320,7 +323,7 @@ namespace Flopzone
         public void PartyDecline(string partyId) => Send("t", "party_decline", "partyId", partyId);
         public void PartyLeave() => Send("t", "party_leave");
         public void PartyKick(string id) => Send("t", "party_kick", "id", id);
-        public void Go(string dest, bool priv = false) => Send("t", "go", "dest", dest, "priv", priv);
+        public void Go(string dest, bool priv = false, bool ranked = false) => Send("t", "go", "dest", dest, "priv", priv, "ranked", ranked && !priv);
         public void SendPose(float[] p) => Send("t", "st", "p", p);
         public void SendEvent(Dictionary<string, object> e) => Send("t", "ev", "e", e);
         public void SendHit(string target, float dmg, bool head, string gun, Vector3 dir)

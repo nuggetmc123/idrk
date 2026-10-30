@@ -198,7 +198,7 @@ namespace Flopzone
             if (Vector3.Distance(attach.position, rig.pouch.position) > 0.26f && VRInput.I.XRActive) return;
             var gun = Other.HeldGun;
             if (gun == null) return;
-            var mag = Magazine.Spawn(gun.def, gun.def.magSize, attach.position, attach.rotation);
+            var mag = Magazine.Spawn(gun.def, gun.MagSize, attach.position, attach.rotation, gun.code);
             AudioManager.Sfx("grab", attach.position, 0.7f);
             VRInput.I.Haptic(index, 0.35f, 0.04f);
             Grab(mag, true);
