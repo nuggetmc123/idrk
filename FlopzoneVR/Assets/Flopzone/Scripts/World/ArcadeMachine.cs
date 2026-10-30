@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Flopzone
 {
     /// <summary>
-    /// An arcade cabinet that plays "Flappy Flop": tap the big button (or pull
+    /// An arcade cabinet that plays "Flappy Slop": tap the big button (or pull
     /// the trigger with your hand near the controls) to flap through the pipes.
     /// The game is drawn pixel by pixel into a small texture.
     /// </summary>
@@ -47,7 +47,7 @@ namespace Flopzone
             Prims.Box(t, new Vector3(0, 1.36f, -0.155f), new Vector3(0.62f, 0.62f, 0.02f), black, false, Quaternion.Euler(8, 0, 0));
             var marquee = Prims.Box(t, new Vector3(0, 1.9f, -0.255f), new Vector3(0.66f, 0.16f, 0.01f), Prims.Emissive(Prims.Hex("ffd34d"), 1.4f), false);
             marquee.name = "marquee";
-            var title = UIKit.Text(t, "FLAPPY FLOP", new Vector3(0, 1.9f, -0.262f), 0.07f, new Color(0.3f, 0.12f, 0.02f));
+            var title = UIKit.Text(t, "FLAPPY SLOP", new Vector3(0, 1.9f, -0.262f), 0.07f, new Color(0.3f, 0.12f, 0.02f));
             title.fontStyle = FontStyle.Bold;
             // the screen
             a.tex = new Texture2D(W, H, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, name = "fz_arcade" };

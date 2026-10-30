@@ -55,7 +55,7 @@ namespace Flopzone
         {
             if (!Ready && building != null && building.IsCompleted)
             {
-                if (building.Exception != null) Debug.LogError("[Flopzone] sound generation failed: " + building.Exception);
+                if (building.Exception != null) Debug.LogError("[Sloppy] sound generation failed: " + building.Exception);
                 else
                 {
                     foreach (var kv in building.Result)

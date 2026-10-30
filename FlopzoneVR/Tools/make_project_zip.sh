@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Zip the Flopzone Unity project with Assets/Packages/ProjectSettings at the zip root,
+# Zip the Sloppy Unity project with Assets/Packages/ProjectSettings at the zip root,
 # so "Extract All" + Unity Hub > Add > Add project from disk just works.
 # Usage: FlopzoneVR/Tools/make_project_zip.sh [output.zip]
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
-out="$(realpath -m "${1:-$here/../Flopzone.zip}")"
+out="$(realpath -m "${1:-$here/../Sloppy.zip}")"
 rm -f "$out"
 cd "$here"
 git ls-files . | grep -v '^Tools/' | python3 -c "

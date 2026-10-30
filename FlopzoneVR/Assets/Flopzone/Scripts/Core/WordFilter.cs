@@ -46,7 +46,7 @@ namespace Flopzone
 
         static readonly string[] NameExtra = { "fuck", "shit", "damn", "fck", "fuk", "sht", "dumbass", "jackass", "cock", "boob", "titty", "tities", "sexy" };
 
-        static readonly string[] Reserved = { "admin", "moderator", "mod", "owner", "flopzone", "system", "server" };
+        static readonly string[] Reserved = { "admin", "moderator", "mod", "owner", "flopzone", "sloppy", "system", "server" };
 
         static readonly Regex Repeat1 = new Regex(@"(.)\1+");
         static readonly Regex Repeat2 = new Regex(@"(.)\1{2,}");

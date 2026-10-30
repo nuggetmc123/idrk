@@ -27,7 +27,7 @@ namespace Flopzone
             }
             catch (System.Exception e)
             {
-                Debug.LogWarning("[Flopzone] Couldn't show the hub preview: " + e.Message);
+                Debug.LogWarning("[Sloppy] Couldn't show the hub preview: " + e.Message);
                 Clear();
             }
         }

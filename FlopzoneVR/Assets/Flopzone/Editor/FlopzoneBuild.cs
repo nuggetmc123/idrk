@@ -9,13 +9,13 @@ namespace Flopzone.EditorTools
         {
             if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Android, BuildTarget.Android))
             {
-                EditorUtility.DisplayDialog("Flopzone: Android support needed",
+                EditorUtility.DisplayDialog("Sloppy: Android support needed",
                     "To make an APK, Unity needs Android Build Support.\n\nOpen Unity Hub > Installs > the gear next to your Unity version > Add modules, and tick 'Android Build Support' (with OpenJDK and Android SDK & NDK Tools). Then reopen this project.", "OK");
                 return;
             }
             if (!File.Exists(FlopzoneSetup.ScenePath)) FlopzoneSetup.RunAll(true);
             if (!FlopzoneSetup.XRLoaderAssigned(BuildTargetGroup.Android) &&
-                !EditorUtility.DisplayDialog("Flopzone", "VR isn't switched on for Android yet, so the APK would run flat. Build anyway?\n\n(Use Flopzone > Set Up VR (Quest) first to fix this.)", "Build anyway", "Cancel"))
+                !EditorUtility.DisplayDialog("Sloppy", "VR isn't switched on for Android yet, so the APK would run flat. Build anyway?\n\n(Use Sloppy > Set Up VR (Quest) first to fix this.)", "Build anyway", "Cancel"))
                 return;
             if (!UnityEditor.SceneManagement.EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             SessionState.SetBool(RunKey, run);
@@ -70,7 +70,7 @@ namespace Flopzone.EditorTools
             EditorUserBuildSettings.buildAppBundle = false;
             FlopzoneSetup.ApplyPlayerSettings();   // Android 12L (API 32) minimum: OpenXR needs at least 24, Quest wants 32
             Directory.CreateDirectory("Builds");
-            string path = Path.GetFullPath("Builds/Flopzone.apk");
+            string path = Path.GetFullPath("Builds/Sloppy.apk");
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { FlopzoneSetup.ScenePath },
@@ -84,12 +84,12 @@ namespace Flopzone.EditorTools
             {
                 FlopzoneSetup.LastMessage = "APK built: " + path;
                 if (!run) EditorUtility.RevealInFinder(path);
-                EditorUtility.DisplayDialog("Flopzone", "APK ready:\n" + path + "\n\nInstall it on your Quest with SideQuest or the Meta Quest Developer Hub (developer mode on).", "OK");
+                EditorUtility.DisplayDialog("Sloppy", "APK ready:\n" + path + "\n\nInstall it on your Quest with SideQuest or the Meta Quest Developer Hub (developer mode on).", "OK");
             }
             else
             {
                 FlopzoneSetup.LastMessage = "APK build failed (" + report.summary.totalErrors + " errors). See the Console for details.";
-                EditorUtility.DisplayDialog("Flopzone", FlopzoneSetup.LastMessage, "OK");
+                EditorUtility.DisplayDialog("Sloppy", FlopzoneSetup.LastMessage, "OK");
             }
         }
     }

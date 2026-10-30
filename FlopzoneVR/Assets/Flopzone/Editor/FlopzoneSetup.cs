@@ -31,7 +31,7 @@ namespace Flopzone.EditorTools
         const string StatePath = "ProjectSettings/FlopzoneSetup.json";
 
         /// <summary>
-        /// The VR package, added when you click Flopzone > Set Up VR (Quest). OpenXR brings XR
+        /// The VR package, added when you click Sloppy > Set Up VR (Quest). OpenXR brings XR
         /// Plug-in Management with it, so it's one request: one download, one script reload.
         /// </summary>
         public static readonly string[] VrPackages = { "com.unity.xr.openxr" };
@@ -83,9 +83,9 @@ namespace Flopzone.EditorTools
             if (S.version < Version || !File.Exists(AssetsPath) || !File.Exists(ScenePath))
             {
                 RunAll(false);
-                if (firstTime) EditorApplication.delayCall += () => EditorUtility.DisplayDialog("Flopzone",
-                    "Flopzone is set up! Press Play to try it (keyboard and mouse work without a headset).\n\n" +
-                    "To add VR support, click Flopzone > Set Up VR (Quest). Use the Flopzone menu at the top for:\n" +
+                if (firstTime) EditorApplication.delayCall += () => EditorUtility.DisplayDialog("Sloppy",
+                    "Sloppy is set up! Press Play to try it (keyboard and mouse work without a headset).\n\n" +
+                    "To add VR support, click Sloppy > Set Up VR (Quest). Use the Sloppy menu at the top for:\n" +
                     "• Set Up Multiplayer\n• Set Up VR (Quest)\n• Build for Quest (APK)", "OK");
             }
             else
@@ -131,16 +131,16 @@ namespace Flopzone.EditorTools
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
                 LastMessage = "Setup done.";
-                Debug.Log("[Flopzone] Project setup done (version " + Version + ").");
-                // VR packages are added by Flopzone > Set Up VR (Quest), not here
+                Debug.Log("[Sloppy] Project setup done (version " + Version + ").");
+                // VR packages are added by Sloppy > Set Up VR (Quest), not here
                 if (inputChanged && !S.askedRestart)
                 {
                     S.askedRestart = true;
                     SaveState();
                     EditorApplication.delayCall += () =>
                     {
-                        if (EditorUtility.DisplayDialog("Flopzone",
-                            "Flopzone switched 'Active Input Handling' to Both (needed for VR plus keyboard testing). Unity needs to restart for that to take effect.",
+                        if (EditorUtility.DisplayDialog("Sloppy",
+                            "Sloppy switched 'Active Input Handling' to Both (needed for VR plus keyboard testing). Unity needs to restart for that to take effect.",
                             "Restart now", "Later"))
                             EditorApplication.OpenProject(Directory.GetCurrentDirectory());
                     };
@@ -150,7 +150,7 @@ namespace Flopzone.EditorTools
             {
                 LastMessage = "Setup failed: " + e.Message;
                 Debug.LogException(e);
-                if (interactive) EditorUtility.DisplayDialog("Flopzone", LastMessage, "OK");
+                if (interactive) EditorUtility.DisplayDialog("Sloppy", LastMessage, "OK");
             }
         }
 
@@ -168,7 +168,7 @@ namespace Flopzone.EditorTools
         {
             string path = GeneratedDir + "/" + name + ".mat";
             var shader = Shader.Find(shaderName);
-            if (shader == null) { Debug.LogWarning("[Flopzone] shader missing: " + shaderName); return null; }
+            if (shader == null) { Debug.LogWarning("[Sloppy] shader missing: " + shaderName); return null; }
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (m == null)
             {
@@ -264,7 +264,7 @@ namespace Flopzone.EditorTools
             foreach (var go in scene.GetRootGameObjects()) UnityEngine.Object.DestroyImmediate(go);
             var prev = SceneManager.GetActiveScene();
             SceneManager.SetActiveScene(scene);
-            var root = new GameObject("Flopzone");
+            var root = new GameObject("Sloppy");
             root.AddComponent<Game>();
             root.AddComponent<HubPreview>();   // shows the hub while editing
             // fog + skybox saved in the scene keep their shader variants in the build
@@ -283,8 +283,8 @@ namespace Flopzone.EditorTools
         /// extracting a new zip replaces ProjectSettings (which would put Android back to Unity's defaults).</summary>
         public static void ApplyPlayerSettings()
         {
-            PlayerSettings.companyName = "Flopzone";
-            PlayerSettings.productName = "Flopzone";
+            PlayerSettings.companyName = "Sloppy";
+            PlayerSettings.productName = "Sloppy";
             PlayerSettings.colorSpace = ColorSpace.Linear;
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
             PlayerSettings.Android.minSdkVersion = (AndroidSdkVersions)32;
@@ -294,11 +294,11 @@ namespace Flopzone.EditorTools
             PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES3, GraphicsDeviceType.Vulkan });
 #if UNITY_2021_2_OR_NEWER
             var android = UnityEditor.Build.NamedBuildTarget.Android;
-            PlayerSettings.SetApplicationIdentifier(android, "com.flopzone.game");
+            PlayerSettings.SetApplicationIdentifier(android, "com.sloppy.game");
             PlayerSettings.SetScriptingBackend(android, ScriptingImplementation.IL2CPP);
             PlayerSettings.SetManagedStrippingLevel(android, ManagedStrippingLevel.Low);
 #else
-            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.flopzone.game");
+            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.sloppy.game");
             PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
             PlayerSettings.SetManagedStrippingLevel(BuildTargetGroup.Android, ManagedStrippingLevel.Low);
 #endif
@@ -341,7 +341,7 @@ namespace Flopzone.EditorTools
             }
             catch (Exception e)
             {
-                Debug.LogWarning("[Flopzone] Couldn't set Active Input Handling (set it to Both in Player Settings): " + e.Message);
+                Debug.LogWarning("[Sloppy] Couldn't set Active Input Handling (set it to Both in Player Settings): " + e.Message);
                 return false;
             }
         }
@@ -390,7 +390,7 @@ namespace Flopzone.EditorTools
                     return;
                 }
                 LastMessage = "Importing VR packages...";
-                if (interactive) EditorUtility.DisplayProgressBar("Flopzone", "Installing VR (OpenXR + XR Plug-in Management)...", 0.3f);
+                if (interactive) EditorUtility.DisplayProgressBar("Sloppy", "Installing VR (OpenXR + XR Plug-in Management)...", 0.3f);
                 NextPackage();
             });
         }
@@ -405,7 +405,7 @@ namespace Flopzone.EditorTools
                 return;
             }
             string name = packageQueue.Dequeue();
-            Debug.Log("[Flopzone] Adding package " + name);
+            Debug.Log("[Sloppy] Adding package " + name);
             addRequest = Client.Add(name);
             EditorApplication.update += PollAdd;
         }
@@ -418,7 +418,7 @@ namespace Flopzone.EditorTools
             else
             {
                 LastMessage = "Couldn't add a package: " + (addRequest.Error != null ? addRequest.Error.message : "unknown error");
-                Debug.LogWarning("[Flopzone] " + LastMessage);
+                Debug.LogWarning("[Sloppy] " + LastMessage);
             }
             addRequest = null;
             NextPackage();
@@ -489,7 +489,7 @@ namespace Flopzone.EditorTools
         {
             if (!VRPackagesInstalled)
             {
-                if (interactive) EditorUtility.DisplayDialog("Flopzone", "The VR packages aren't installed yet. Use Flopzone > Set Up VR (Quest) and wait for Unity to finish importing.", "OK");
+                if (interactive) EditorUtility.DisplayDialog("Sloppy", "The VR packages aren't installed yet. Use Sloppy > Set Up VR (Quest) and wait for Unity to finish importing.", "OK");
                 return;
             }
             var problems = new List<string>();
@@ -527,16 +527,16 @@ namespace Flopzone.EditorTools
             if (problems.Count == 0)
             {
                 LastMessage = "VR is ready: OpenXR is on for Quest (Android) and PC VR.";
-                Debug.Log("[Flopzone] " + LastMessage);
-                if (interactive) EditorUtility.DisplayDialog("Flopzone", LastMessage, "Nice");
+                Debug.Log("[Sloppy] " + LastMessage);
+                if (interactive) EditorUtility.DisplayDialog("Sloppy", LastMessage, "Nice");
             }
             else
             {
                 LastMessage = "VR packages are in, but some settings need a click: " + string.Join("; ", problems);
-                Debug.LogWarning("[Flopzone] " + LastMessage);
+                Debug.LogWarning("[Sloppy] " + LastMessage);
                 if (interactive)
                 {
-                    EditorUtility.DisplayDialog("Flopzone",
+                    EditorUtility.DisplayDialog("Sloppy",
                         "Almost there. In the window that opens:\n\n1. Android tab: tick OpenXR, then under OpenXR tick 'Meta Quest Support'.\n2. Add the 'Oculus Touch Controller Profile' under Interaction Profiles.\n3. PC tab: tick OpenXR.\n\n(" + string.Join("; ", problems) + ")", "Open settings");
                     SettingsService.OpenProjectSettings("Project/XR Plug-in Management");
                 }

@@ -327,7 +327,7 @@ namespace Flopzone
                 Prims.Box(root, new Vector3(side * 2.02f, 1.95f, len - 1.6f), new Vector3(0.04f, 1.8f, 0.95f), oliveDark, false);
                 Prims.Cyl(root, new Vector3(side * 2.03f, 2.3f, 5.6f), 1.1f, 0.02f, Prims.Lit(Color.white, 0.4f), Vector3.right);
                 Prims.Cyl(root, new Vector3(side * 2.05f, 2.3f, 5.6f), 0.62f, 0.02f, MapKit.M("1f3a75", 0.4f), Vector3.right);
-                var nm = k.Sign(pos + new Vector3(side * 2.06f, 1.45f, 8.4f), side * 90f, "FLOPZONE", 0.42f, new Color(0.08f, 0.09f, 0.06f));
+                var nm = k.Sign(pos + new Vector3(side * 2.06f, 1.45f, 8.4f), side * 90f, "SLOPPY", 0.42f, new Color(0.08f, 0.09f, 0.06f));
                 nm.fontStyle = FontStyle.Bold;
                 Prims.Make(PrimitiveType.Capsule, root, new Vector3(side * 2.35f, 1.15f, 6.8f), new Vector3(0.9f, 4.0f, 1.0f), olive, false, Quaternion.Euler(90, 0, 0));
                 Prims.Box(root, new Vector3(side * 2.15f, 0.4f, 2.6f), new Vector3(0.2f, 0.8f, 0.2f), steel, false);

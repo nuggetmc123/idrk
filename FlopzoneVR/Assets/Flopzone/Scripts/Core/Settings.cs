@@ -127,7 +127,7 @@ namespace Flopzone
                 string s = PlayerPrefs.GetString(SettingsKey, "");
                 if (!string.IsNullOrEmpty(s)) Settings = JsonUtility.FromJson<GameSettings>(s);
             }
-            catch (Exception e) { Debug.LogWarning("[Flopzone] settings reset: " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[Sloppy] settings reset: " + e.Message); }
             if (Settings == null) Settings = new GameSettings();
             Settings.primaryGun = Mathf.Clamp(Settings.primaryGun, 0, GunCatalog.All.Length - 1);
             Settings.sidearmGun = Mathf.Clamp(Settings.sidearmGun, 0, GunCatalog.All.Length - 1);

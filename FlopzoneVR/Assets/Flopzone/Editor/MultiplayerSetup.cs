@@ -10,13 +10,13 @@ using Debug = UnityEngine.Debug;
 
 namespace Flopzone.EditorTools
 {
-    /// <summary>The top "Flopzone" menu.</summary>
+    /// <summary>The top "Sloppy" menu.</summary>
     static class FlopzoneMenu
     {
-        [MenuItem("Flopzone/Set Up Multiplayer", priority = 0)]
+        [MenuItem("Sloppy/Set Up Multiplayer", priority = 0)]
         static void Multiplayer() => MultiplayerSetup.Open();
 
-        [MenuItem("Flopzone/Set Up VR (Quest)", priority = 1)]
+        [MenuItem("Sloppy/Set Up VR (Quest)", priority = 1)]
         static void VR()
         {
             // also repairs the scene/assets if they went missing
@@ -24,12 +24,12 @@ namespace Flopzone.EditorTools
             VRSetup.Open();
         }
 
-        [MenuItem("Flopzone/Build for Quest (APK)", priority = 2)]
+        [MenuItem("Sloppy/Build for Quest (APK)", priority = 2)]
         static void Apk() => FlopzoneBuild.BuildApk(false);
     }
 
     /// <summary>
-    /// Flopzone > Set Up Multiplayer. The two things only you can do (get a
+    /// Sloppy > Set Up Multiplayer. The two things only you can do (get a
     /// free Photon App ID, import Photon Fusion 2), then everything else is
     /// automatic. Below that, the optional account server and moderation tools.
     /// Until Photon is in, the game plays offline with bots.
@@ -56,7 +56,7 @@ namespace Flopzone.EditorTools
 
         public static void Open()
         {
-            var w = GetWindow<MultiplayerSetup>(true, "Flopzone Multiplayer", true);
+            var w = GetWindow<MultiplayerSetup>(true, "Sloppy Multiplayer", true);
             w.minSize = new Vector2(460, 470);
         }
 
@@ -121,7 +121,7 @@ namespace Flopzone.EditorTools
                 if (GUILayout.Button("Finish setup now (apply App ID)", GUILayout.Height(30))) FinishSetup(true);
             }
             else
-                EditorGUILayout.HelpBox("When the import finishes, Unity recompiles and Flopzone switches multiplayer on and fills in your App ID by itself.", MessageType.None);
+                EditorGUILayout.HelpBox("When the import finishes, Unity recompiles and Sloppy switches multiplayer on and fills in your App ID by itself.", MessageType.None);
 
             GUILayout.Space(14);
             showAccount = EditorGUILayout.Foldout(showAccount, "Optional: account server (names unique everywhere, friends lists, saved reports, bans)", true);
@@ -186,11 +186,11 @@ namespace Flopzone.EditorTools
             bool applied = !string.IsNullOrEmpty(id) && TryApplyAppId(id);
             string msg = "Multiplayer is ready!\n\n";
             if (applied) msg += "Your Photon App ID is set.\n";
-            else if (string.IsNullOrEmpty(id)) msg += "You still need an App ID: open Flopzone > Set Up Multiplayer and paste it in.\n";
+            else if (string.IsNullOrEmpty(id)) msg += "You still need an App ID: open Sloppy > Set Up Multiplayer and paste it in.\n";
             else msg += "Couldn't fill in the App ID by itself. Paste it in Tools > Fusion > Fusion Hub.\n";
-            msg += "\nPress Play, or Flopzone > Build for Quest (APK). Walk into a portal in the hub to find a match.";
-            if (interactive || !applied) EditorUtility.DisplayDialog("Flopzone", msg, "OK");
-            else Debug.Log("[Flopzone] " + msg.Replace("\n", " "));
+            msg += "\nPress Play, or Sloppy > Build for Quest (APK). Board the lobby helicopter in the hub to find a match.";
+            if (interactive || !applied) EditorUtility.DisplayDialog("Sloppy", msg, "OK");
+            else Debug.Log("[Sloppy] " + msg.Replace("\n", " "));
         }
 
         /// <summary>The App ID inside Fusion's own settings ("" if none / no Fusion).</summary>
@@ -221,12 +221,12 @@ namespace Flopzone.EditorTools
                 object app = GetMember(settingsType, global, "AppSettings");
                 if (app == null || !SetMember(app.GetType(), app, "AppIdFusion", (id ?? "").Trim())) return false;
                 if (global is UnityEngine.Object asset) { EditorUtility.SetDirty(asset); AssetDatabase.SaveAssets(); }
-                Debug.Log("[Flopzone] Photon App ID applied.");
+                Debug.Log("[Sloppy] Photon App ID applied.");
                 return true;
             }
             catch (Exception e)
             {
-                Debug.LogWarning("[Flopzone] Couldn't set the Photon App ID automatically: " + e.Message);
+                Debug.LogWarning("[Sloppy] Couldn't set the Photon App ID automatically: " + e.Message);
                 return false;
             }
         }

@@ -58,7 +58,7 @@ namespace Flopzone
             // ---- flagpole + base sign in the middle ----
             MilitaryProps.Flagpole(k, new Vector3(0, 0, 9));
             var plaque = k.Block(new Vector3(0, 0, 6.5f), new Vector3(3.4f, 1.1f, 0.5f), concrete);
-            var t1 = k.Sign(new Vector3(0, 0.8f, 6.24f), 180, "FLOPZONE", 0.4f, new Color(0.95f, 0.85f, 0.45f));
+            var t1 = k.Sign(new Vector3(0, 0.8f, 6.24f), 180, "SLOPPY", 0.4f, new Color(0.95f, 0.85f, 0.45f));
             t1.fontStyle = FontStyle.Bold;
             k.Sign(new Vector3(0, 0.42f, 6.24f), 180, "FORWARD OPERATING BASE", 0.14f, Color.white);
 

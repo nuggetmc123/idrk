@@ -100,7 +100,7 @@ namespace Flopzone.Setup
                 changed = true;
             }
             if (changed)
-                Debug.Log(fusion ? "[Flopzone] Photon Fusion 2 found: online play is ON." : "[Flopzone] Photon Fusion 2 not found: the game plays offline with bots.");
+                Debug.Log(fusion ? "[Sloppy] Photon Fusion 2 found: online play is ON." : "[Sloppy] Photon Fusion 2 not found: the game plays offline with bots.");
         }
 
         static string Get(BuildTargetGroup g)
@@ -132,10 +132,10 @@ namespace Flopzone.Setup
                 {
                     if (!File.Exists(path) || !File.ReadAllText(path).Contains("namespace Flopzone")) continue;
                     if (!AssetDatabase.DeleteAsset(path)) { File.Delete(path); if (File.Exists(path + ".meta")) File.Delete(path + ".meta"); }
-                    Debug.Log("[Flopzone] Removed an old script that this version no longer uses: " + path);
+                    Debug.Log("[Sloppy] Removed an old script that this version no longer uses: " + path);
                     any = true;
                 }
-                catch (Exception e) { Debug.LogWarning("[Flopzone] Couldn't remove " + path + ": " + e.Message); }
+                catch (Exception e) { Debug.LogWarning("[Sloppy] Couldn't remove " + path + ": " + e.Message); }
             }
             if (any) AssetDatabase.Refresh();
         }
@@ -156,12 +156,12 @@ namespace Flopzone.Setup
             }
             catch (Exception) { return; }
             if (extras.Length == 0) return;
-            Debug.LogWarning("[Flopzone] Extra copies of Flopzone scripts outside Assets/Flopzone:\n" + string.Join("\n", extras));
+            Debug.LogWarning("[Sloppy] Extra copies of Sloppy scripts outside Assets/Flopzone:\n" + string.Join("\n", extras));
             if (EditorPrefs.GetBool(DuplicateAskedKey, false)) return;
             EditorPrefs.SetBool(DuplicateAskedKey, true);
             string list = string.Join("\n", extras.Take(12)) + (extras.Length > 12 ? "\n... and " + (extras.Length - 12) + " more" : "");
-            if (EditorUtility.DisplayDialog("Flopzone: extra copies found",
-                    "These Flopzone scripts are in your project twice:\n\n" + list + "\n\nTwo copies cause lots of errors. Delete the extra copies?\n\n(The real ones in Assets/Flopzone are kept.)",
+            if (EditorUtility.DisplayDialog("Sloppy: extra copies found",
+                    "These Sloppy scripts are in your project twice:\n\n" + list + "\n\nTwo copies cause lots of errors. Delete the extra copies?\n\n(The real ones in Assets/Flopzone are kept.)",
                     "Delete extra copies", "Keep"))
             {
                 foreach (var file in extras) if (!AssetDatabase.DeleteAsset(file)) File.Delete(file);

@@ -37,7 +37,7 @@ namespace Flopzone
                     instance = Resources.Load<GameAssets>("FlopzoneAssets");
                     if (instance == null)
                     {
-                        Debug.LogWarning("[Flopzone] Resources/FlopzoneAssets is missing; reopen the project to rebuild it. Using fallbacks.");
+                        Debug.LogWarning("[Sloppy] Resources/FlopzoneAssets is missing; reopen the project to rebuild it. Using fallbacks.");
                         instance = CreateInstance<GameAssets>();
                     }
                     instance.FillFallbacks();

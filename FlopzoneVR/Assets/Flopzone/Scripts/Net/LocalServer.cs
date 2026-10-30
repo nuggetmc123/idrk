@@ -138,11 +138,11 @@ namespace Flopzone
                     Out("t", "toast", "msg", "Reports go to the moderators when you play online.");
                     break;
                 case "mod":
-                    Out("t", "mod_result", "ok", false, "msg", "Mod tools work on the online server (in Unity: Flopzone > Set Up Multiplayer).");
+                    Out("t", "mod_result", "ok", false, "msg", "Mod tools work on the online server (in Unity: Sloppy > Set Up Multiplayer).");
                     break;
                 case "friend_req":
                 case "party_invite":
-                    Out("t", "toast", "msg", "Friends lists need the optional account server, and parties need online play (Flopzone > Set Up Multiplayer in Unity). Online, you can party up with anyone in your room from the Party tab.");
+                    Out("t", "toast", "msg", "Friends lists need the optional account server, and parties need online play (Sloppy > Set Up Multiplayer in Unity). Online, you can party up with anyone in your room from the Party tab.");
                     break;
                 case "start_now":
                     if (kind == "match" && state == "waiting") fillBotsAt = Time.time;

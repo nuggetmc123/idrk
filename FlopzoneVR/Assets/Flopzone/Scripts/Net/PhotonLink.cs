@@ -163,7 +163,7 @@ namespace Flopzone
             if (!accountFailed && (account.Failed || (!account.Connected && Time.realtimeSinceStartup - accountStarted > 10f)))
             {
                 accountFailed = true;
-                Debug.LogWarning("[Flopzone] Account server unreachable, keeping accounts on this headset.");
+                Debug.LogWarning("[Sloppy] Account server unreachable, keeping accounts on this headset.");
                 foreach (var q in accountQueue) LocalAccount(q);
                 accountQueue.Clear();
             }
@@ -357,7 +357,7 @@ namespace Flopzone
             {
                 case ShutdownReason.InvalidAuthentication:
                 case ShutdownReason.CustomAuthenticationFailed:
-                    return "the Photon App ID is missing or wrong (Flopzone > Set Up Multiplayer, then build again)";
+                    return "the Photon App ID is missing or wrong (Sloppy > Set Up Multiplayer, then build again)";
                 case ShutdownReason.PhotonCloudTimeout:
                 case ShutdownReason.ConnectionTimeout:
                 case ShutdownReason.ConnectionRefused:
@@ -484,7 +484,7 @@ namespace Flopzone
         {
             if (runner == null || !runner.IsRunning || p == runner.LocalPlayer) return;
             try { runner.SendReliableDataToPlayer(p, default(ReliableKey), Encoding.UTF8.GetBytes(Json.Write(m))); }
-            catch (Exception e) { Debug.LogWarning("[Flopzone] send failed: " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[Sloppy] send failed: " + e.Message); }
         }
 
         void Broadcast(Dictionary<string, object> m)
@@ -496,7 +496,7 @@ namespace Flopzone
                 if (p == runner.LocalPlayer) continue;
                 if (data == null) data = Encoding.UTF8.GetBytes(Json.Write(m));
                 try { runner.SendReliableDataToPlayer(p, default(ReliableKey), data); }
-                catch (Exception e) { Debug.LogWarning("[Flopzone] send failed: " + e.Message); }
+                catch (Exception e) { Debug.LogWarning("[Sloppy] send failed: " + e.Message); }
             }
         }
 

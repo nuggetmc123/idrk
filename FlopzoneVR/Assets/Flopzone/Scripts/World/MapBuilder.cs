@@ -38,7 +38,7 @@ namespace Flopzone
             Physics.SyncTransforms();
             yield return null;
             try { StaticBatchingUtility.Combine(k.S.gameObject); }
-            catch (Exception e) { Debug.LogWarning("[Flopzone] static batching skipped: " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[Sloppy] static batching skipped: " + e.Message); }
             done(w);
         }
 
@@ -73,7 +73,7 @@ namespace Flopzone
             if (Application.isPlaying)
             {
                 try { StaticBatchingUtility.Combine(k.S.gameObject); }
-                catch (Exception e) { Debug.LogWarning("[Flopzone] static batching skipped: " + e.Message); }
+                catch (Exception e) { Debug.LogWarning("[Sloppy] static batching skipped: " + e.Message); }
             }
             return w;
         }
@@ -540,7 +540,7 @@ namespace Flopzone
             // neon signs
             for (int i = 0; i < 6; i++)
                 k.Sym((p, y) => k.Box(p, new Vector3(0.2f, 0.6f, k.R(3, 6)), MapKit.Glow(neon[k.Ri(0, neon.Length)], 3f), y, false), new Vector3(-23.9f, k.R(4, 10), -28 + i * 9), 0);
-            k.Sign(new Vector3(-23.6f, 7, -10), 90, "FLOP COLA", 1.2f, Prims.Hex("ff59e3"));
+            k.Sign(new Vector3(-23.6f, 7, -10), 90, "SLOP COLA", 1.2f, Prims.Hex("ff59e3"));
             k.Sign(new Vector3(23.6f, 7, 10), -90, "RAGDOLL BAR", 1.2f, Prims.Hex("59f3ff"));
             // cars
             for (int i = 0; i < 5; i++) k.Sym((p, y) => Car(k, p, y, k.Pick("c0392b", "2980b9", "f1c40f", "ecf0f1", "8e44ad")), new Vector3(k.R(-9, 9), 0, k.R(-26, -6)), k.Pick(0f, 90f, 15f));

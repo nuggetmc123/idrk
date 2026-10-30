@@ -151,7 +151,7 @@ namespace Flopzone
             if (watch == null) return;
             var g = Game.I;
             int hp = g != null ? g.MyHp : 100;
-            watchHp.text = rig.Alive ? hp + " HP" : "FLOPPED";
+            watchHp.text = rig.Alive ? hp + " HP" : "SLOPPED";
             float k = Mathf.Clamp01(hp / 100f);
             hpFill.localScale = new Vector3(0.1f * k, 0.012f, 1);
             hpFill.localPosition = new Vector3(-0.05f * (1 - k), -0.026f, 0);

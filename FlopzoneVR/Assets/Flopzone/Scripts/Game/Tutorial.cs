@@ -75,7 +75,7 @@ namespace Flopzone
         void ShowNameEntry()
         {
             board.Clear();
-            board.Text("Welcome to Flopzone!", new Vector2(0, 0.19f), 0.06f, UIKit.Accent);
+            board.Text("Welcome to Sloppy!", new Vector2(0, 0.19f), 0.06f, UIKit.Accent);
             board.Text("Pick your player name. Everyone will see it, and it has to be unique.", new Vector2(0, 0.12f), 0.026f, Color.white);
             board.Text("3–16 letters, numbers or _ · no swearing or slurs", new Vector2(0, 0.08f), 0.022f, UIKit.Muted);
             error = board.Text("", new Vector2(0, -0.225f), 0.026f, UIKit.Bad);

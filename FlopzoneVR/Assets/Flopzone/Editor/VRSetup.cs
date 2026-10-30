@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Flopzone.EditorTools
 {
     /// <summary>
-    /// Flopzone > Set Up VR (Quest). One big Import VR button (like BoostedVR):
+    /// Sloppy > Set Up VR (Quest). One big Import VR button (like BoostedVR):
     /// it installs XR Plug-in Management + OpenXR, waits for Unity to reload,
     /// then switches on OpenXR with Meta Quest support and the Touch controllers.
     /// </summary>
@@ -12,7 +12,7 @@ namespace Flopzone.EditorTools
     {
         public static void Open()
         {
-            var w = GetWindow<VRSetup>(true, "Flopzone VR", true);
+            var w = GetWindow<VRSetup>(true, "Sloppy VR", true);
             w.minSize = new Vector2(420, 300);
         }
 

@@ -1,10 +1,10 @@
-# Flopzone account server (optional)
+# Sloppy account server (optional)
 
-Online play itself runs on **Photon Fusion 2** (Flopzone > Set Up Multiplayer). This small,
+Online play itself runs on **Photon Fusion 2** (Sloppy > Set Up Multiplayer). This small,
 free Cloudflare Worker is an optional extra that remembers players between games:
 names unique across everyone, friends lists, saved reports, and bans/mutes by player ID.
 
-The Worker can also run whole matches by itself (it was Flopzone's first multiplayer), so it handles:
+The Worker can also run whole matches by itself (it was Sloppy's first multiplayer), so it handles:
 
 - **Accounts** — every player gets a permanent player ID like `FZ7K3Q9X`
 - **Unique names** — no two players can have the same name (not case-sensitive), and names with swearing or slurs are refused
@@ -17,13 +17,13 @@ The Worker can also run whole matches by itself (it was Flopzone's first multipl
 
 It starts on Cloudflare's free plan. Every player sends about 15 small position
 updates a second while in a room, so the free daily allowance covers a few hours of
-10-player play per day; if Flopzone gets busier than that, Workers Paid is $5/month.
+10-player play per day; if Sloppy gets busier than that, Workers Paid is $5/month.
 
 ## Turn it on
 
-Easiest: in Unity, **Flopzone > Set Up Multiplayer**, open **Optional: account server**, and press the three buttons
+Easiest: in Unity, **Sloppy > Set Up Multiplayer**, open **Optional: account server**, and press the three buttons
 (install Node.js, sign in to Cloudflare, Turn On Server). It fills in the address by itself.
-Then **Flopzone > Build for Quest (APK)** so the headset gets it.
+Then **Sloppy > Build for Quest (APK)** so the headset gets it.
 
 By hand instead (needs [Node.js](https://nodejs.org) and a free [Cloudflare](https://dash.cloudflare.com/sign-up) account):
 
@@ -45,7 +45,7 @@ npx wrangler deploy
 
 The last line printed is the server's address, like
 `https://flopzone-server.<your-name>.workers.dev`. Paste it into the **Server address**
-box in Flopzone > Set Up Multiplayer.
+box in Sloppy > Set Up Multiplayer.
 
 ## Make yourself a moderator
 
@@ -69,7 +69,7 @@ Set a secret admin key once:
 npx wrangler secret put ADMIN_KEY
 ```
 
-Then use the **Moderation** section of Flopzone > Set Up Multiplayer in Unity (type the same key), or
+Then use the **Moderation** section of Sloppy > Set Up Multiplayer in Unity (type the same key), or
 any browser / terminal:
 
 ```bash

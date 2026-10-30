@@ -56,7 +56,7 @@ namespace Flopzone
         static void AutoCreate()
         {
             // the generated scene already has one; this covers pressing Play in any other scene
-            if (FindFirstObjectByType<Game>() == null) new GameObject("Flopzone").AddComponent<Game>();
+            if (FindFirstObjectByType<Game>() == null) new GameObject("Sloppy").AddComponent<Game>();
         }
 
         void Awake()
@@ -108,7 +108,7 @@ namespace Flopzone
         {
             float started = Time.time;
             rig.Teleport(new Vector3(0, 0.05f, 0), 0);
-            var popup = Hud.I.Popup("Welcome to Flopzone", "Loading to hub...");
+            var popup = Hud.I.Popup("Welcome to Sloppy", "Loading to hub...");
             // the textures are painted on other threads while the welcome popup shows
             while (surfacesReady != null && !surfacesReady.IsCompleted && Time.time - started < 20f) yield return null;
             // something nice to stand in while we connect, built a piece per frame so the
@@ -149,7 +149,7 @@ namespace Flopzone
             link = new PhotonLink(FlopzoneConfig.I.SocketUrl);
             PhotonLink.CurrentSession = () => session;
 #else
-            // No Photon yet: offline with bots (Flopzone > Set Up Multiplayer turns it on).
+            // No Photon yet: offline with bots (Sloppy > Set Up Multiplayer turns it on).
             link = new LocalServer();
 #endif
             UseSession(new Session(link));
@@ -521,7 +521,7 @@ namespace Flopzone
                 MyHp = 0;
                 rig.Die(dir, head);
                 lastKillerName = killer == null ? "gravity" : NameOf(killer);
-                Hud.I.Big("FLOPPED\n<size=24>by " + lastKillerName + " · back in 3...</size>", 3f, UIKit.Bad);
+                Hud.I.Big("SLOPPED\n<size=24>by " + lastKillerName + " · back in 3...</size>", 3f, UIKit.Bad);
                 AudioManager.Ui("lose", 0.4f);
             }
             else
@@ -531,7 +531,7 @@ namespace Flopzone
             }
             if (killer == session.MyId && victim != session.MyId)
             {
-                Hud.I.Big(head ? "HEADSHOT!" : "FLOPPED " + NameOf(victim), 1.5f, UIKit.Good);
+                Hud.I.Big(head ? "HEADSHOT!" : "SLOPPED " + NameOf(victim), 1.5f, UIKit.Good);
                 AudioManager.Ui(head ? "hit_head" : "hitmarker", 1f, 0.8f);
             }
         }

@@ -116,7 +116,7 @@ namespace Flopzone
             if (skyTask == null || !skyTask.IsCompleted) return;
             var task = skyTask;
             skyTask = null;
-            if (task.Exception != null) { Debug.LogWarning("[Flopzone] sky: " + task.Exception.Message); return; }
+            if (task.Exception != null) { Debug.LogWarning("[Sloppy] sky: " + task.Exception.Message); return; }
             skyTex = new Texture2D(Sky.W, Sky.H, TextureFormat.RGBA32, false) { name = "fz_sky", wrapModeU = TextureWrapMode.Repeat, wrapModeV = TextureWrapMode.Clamp };
             skyTex.SetPixels32(task.Result);
             skyTex.Apply(false, true);

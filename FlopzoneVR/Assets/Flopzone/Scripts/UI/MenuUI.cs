@@ -211,7 +211,7 @@ namespace Flopzone
         void BuildFriends()
         {
             Title("Friends");
-            if (!S.Online) { L(UIKit.Wrap("Friends and parties need online play. Ask the game owner to set it up (in Unity: Flopzone > Set Up Multiplayer).", 0.8f, 0.028f), -0.33f, 0.1f, 0.028f); return; }
+            if (!S.Online) { L(UIKit.Wrap("Friends and parties need online play. Ask the game owner to set it up (in Unity: Sloppy > Set Up Multiplayer).", 0.8f, 0.028f), -0.33f, 0.1f, 0.028f); return; }
             B("+ Add Friend", 0.4f, H / 2 - 0.05f, 0.2f, 0.05f, () =>
             {
                 Build();
@@ -253,7 +253,7 @@ namespace Flopzone
         void BuildParty()
         {
             Title("Party");
-            if (!S.Online) { L("Parties need online play (in Unity: Flopzone > Set Up Multiplayer).", -0.33f, 0.1f, 0.028f); return; }
+            if (!S.Online) { L("Parties need online play (in Unity: Sloppy > Set Up Multiplayer).", -0.33f, 0.1f, 0.028f); return; }
             float y = 0.24f;
             if (!string.IsNullOrEmpty(S.PendingInvitePartyId) && S.PendingInvitePartyId != S.PartyId)
             {

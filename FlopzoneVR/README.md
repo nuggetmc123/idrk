@@ -1,4 +1,4 @@
-# Flopzone
+# Sloppy
 
 A VR ragdoll shooter for Meta Quest, made in Unity. Grab guns off your hips, reload by
 pulling mags from your waist, and send other players flopping across 10 maps in Team
@@ -9,33 +9,33 @@ with friends, and go.
 
 1. Install **Unity 6 (6000.0 LTS)** from Unity Hub, with the **Android Build Support** module
    (tick *OpenJDK* and *Android SDK & NDK Tools* too).
-2. Extract `Flopzone.zip`. Unity Hub → **Add** → **Add project from disk** → pick the extracted
+2. Extract `Sloppy.zip`. Unity Hub → **Add** → **Add project from disk** → pick the extracted
    folder (the one with `Assets`, `Packages` and `ProjectSettings` directly inside).
 3. Open it. **Everything imports and sets itself up** (and again after updates):
    - makes the game scene and its assets, adds the scene to the build and opens it
    - sets the Quest/Android player settings (IL2CPP, ARM64, Android 12L+, internet permission)
-   - VR is added when you want it: **Flopzone → Set Up VR (Quest) → Import VR** (see below)
+   - VR is added when you want it: **Sloppy → Set Up VR (Quest) → Import VR** (see below)
 
 Then press Play (keyboard and mouse work without a headset).
 
-## The Flopzone menu
+## The Sloppy menu
 
 At the top of Unity, next to Window and Help:
 
 | Menu item | What it does |
 | --- | --- |
-| **Set Up Multiplayer** | Like Nullbound: 1) get a free Photon App ID, 2) paste it in, 3) import Photon Fusion 2 from the Asset Store. Flopzone switches online play on and fills in your App ID by itself. Until then the game plays offline with bots. Below that: an optional account server (names unique everywhere, friends lists, saved reports, bans) and moderation tools. |
+| **Set Up Multiplayer** | Like Nullbound: 1) get a free Photon App ID, 2) paste it in, 3) import Photon Fusion 2 from the Asset Store. Sloppy switches online play on and fills in your App ID by itself. Until then the game plays offline with bots. Below that: an optional account server (names unique everywhere, friends lists, saved reports, bans) and moderation tools. |
 | **Set Up VR (Quest)** | Opens the VR window. Click **Import VR**: it installs XR Plug-in Management + OpenXR by itself and switches on Meta Quest support, the Touch controllers and PC VR (so Quest Link works in Play mode). Unity reloads once or twice, then it says **VR is ON**. |
-| **Build for Quest (APK)** | Switches to Android and builds `Builds/Flopzone.apk`. |
+| **Build for Quest (APK)** | Switches to Android and builds `Builds/Sloppy.apk`. |
 
 ## Playing
 
-**First launch:** a "Welcome to Flopzone — Loading to hub..." popup, then the tutorial:
+**First launch:** a "Welcome to Sloppy — Loading to hub..." popup, then the tutorial:
 pick a name (must be unique; slurs and swearing are refused), then learn to grab, shoot,
 drop the mag, reload, jump, sprint, crouch and open the menu. After that, the hub.
 
 **Hub:** a forward operating base. Board the lobby helicopter to play, try all 22 guns in the armory, shoot targets on the live-fire
-range, play Flappy Flop on the arcade machines, change your guns at the loadout station, and check
+range, play Flappy Slop on the arcade machines, change your guns at the loadout station, and check
 out the helipad, barracks, motor pool and watchtowers.
 
 **The lobby helicopter:** a big twin-rotor helicopter stands on the landing pad at the north end
@@ -179,7 +179,7 @@ for online play (each hub and match is a Photon room; the room's master client r
 
 ```
 Assets/Flopzone/
-  Editor/      auto-setup on load, the Flopzone menu, APK builds
+  Editor/      auto-setup on load, the Sloppy menu, APK builds
   Scripts/
     Core/      JSON, word filter, settings, materials, sound synthesis, audio
     Input/     headset + controllers (Unity XR input), keyboard fallback
