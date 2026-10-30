@@ -16,6 +16,8 @@ namespace Flopzone
         public Transform scopeEye;      // back lens of the scope (where your eye goes)
         public Transform scopeFront;    // front lens (the scope's camera looks out from here)
         public float scopeRadius = 0.018f;
+        /// <summary>The zoomed view's field of view in degrees (smaller = more zoom).</summary>
+        public float scopeFov = 6f;
         public Transform ejectPort;
         public Transform pumpPart;
         public Transform foregrip;      // where the second hand holds on
@@ -44,7 +46,23 @@ namespace Flopzone
                 case GM.Port: return Prims.Lit(new Color(0.015f, 0.015f, 0.018f), 0.2f);
                 case GM.Red: return Prims.Lit(new Color(0.72f, 0.1f, 0.08f), 0.35f, 0f, Surface.Plastic);
                 case GM.Glow: return Prims.Emissive(new Color(1f, 0.15f, 0.1f), 3f);
+                case GM.Lens: return LensMat;
                 default: return Prims.Lit(accent, 0.5f, 0.3f, Surface.PaintedMetal);
+            }
+        }
+
+        static Material lensMat;
+        /// <summary>See-through sight glass with a faint blue tint (shared).</summary>
+        static Material LensMat
+        {
+            get
+            {
+                if (lensMat == null)
+                {
+                    lensMat = Prims.Fade(new Color(0.55f, 0.75f, 0.95f, 0.16f));
+                    lensMat.SetFloat("_Glossiness", 0.95f);
+                }
+                return lensMat;
             }
         }
 
@@ -142,6 +160,7 @@ namespace Flopzone
             m.scopeEye = m.Point("scopeEye", r);
             m.scopeFront = m.Point("scopeFront", r);
             if (b.anchors.TryGetValue("scopeRadius", out var sr)) m.scopeRadius = sr.pos.y;
+            if (b.anchors.TryGetValue("scopeFov", out var sf)) m.scopeFov = sf.pos.y;
             m.ammoAnchor = m.Point("ammo", m.visual, null, new Vector3(0.022f, 0.07f, -0.05f));
             if (m.ammoAnchor != null) m.ammoAnchor.localRotation = Quaternion.Euler(0, -60, 0);
             return m;

@@ -149,6 +149,12 @@ Each one is modelled on a real gun:
 - **Assault rifles:** Rattle AR (AR-15), Bulldog (AUG bullpup), Viper Carbine (AK), Burst Bravo (SCAR),
   Heavy HMR (M249), Spitfire (Vector)
 
+**Sights:** the Rattle AR, Spitfire and Burst Bravo carry EOTech-style **holo sights**: see-through glass with a glowing ring and
+dot (the Bravo also has a 3x magnifier flipped to the side). The Heavy HMR has a 4x **ACOG**, and the Bulldog's built-in
+1.5x scope, the ACOG and every sniper scope really zoom when you put your eye to them: Needle 4.5° (the most zoom),
+Elephant Gun 5°, Longshot 6°, Marksman and Whisper 9°, ACOG 8°, Bulldog 20°. Sniper scopes have rings, ridged turrets,
+eyecups and flip-up lens caps (the Needle has a sunshade). The red dots have clear glass now too.
+
 **Two hands:** squeeze grip with your free hand on the front of a gun you're holding (the
 handguard, pump or foregrip). Rifles and shotguns then aim along the line between your hands.
 Let go with the grip hand and the other hand keeps the gun.

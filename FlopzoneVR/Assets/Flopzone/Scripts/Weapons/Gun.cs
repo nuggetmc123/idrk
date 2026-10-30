@@ -67,7 +67,7 @@ namespace Flopzone
         public override void OnGrab(Hand h)
         {
             base.OnGrab(h);
-            if (def.scope) EnableScope(true);
+            if (model.scopeEye != null) EnableScope(true);   // snipers, the ACOG, the AUG's built-in scope
         }
 
         public override void OnRelease(Hand h, Vector3 velocity, Vector3 angular)
@@ -133,7 +133,7 @@ namespace Flopzone
                 scopeCam.targetTexture = scopeTex;
                 scopeCam.cullingMask = ~(1 << Layers.MirrorOnly);
                 // more zoom on the big rifles
-                scopeCam.fieldOfView = def.id == "needle" || def.id == "elephant" ? 4.5f : def.id == "marksman" || def.id == "whisper" ? 9f : 6f;
+                scopeCam.fieldOfView = model.scopeFov;
                 scopeCam.nearClipPlane = 0.05f;
                 scopeCam.farClipPlane = 300f;
                 scopeCam.stereoTargetEye = StereoTargetEyeMask.None;

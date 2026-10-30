@@ -341,7 +341,7 @@ namespace Flopzone
             Handguard(g, by, 0.165f, 0.47f, 0.024f, GM.Tan);
             g.TubeZ(GM.Metal, 0, by, 0.47f, 0.62f, 0.01f, 0.009f, 16);
             MuzzleBrake(g, by, 0.62f, 0.0095f);
-            Scope(g, 0.1055f, -0.06f, 0.24f);
+            Scope(g, 0.1055f, -0.06f, 0.24f, 0.0152f, 0.026f, 9f);
             Bipod(g, by - 0.024f, 0.45f);
             RifleAnchors(g, by, 0.69f, by - 0.03f, 0.3f, 0.0f, 0.09f);
         }
@@ -363,13 +363,13 @@ namespace Flopzone
             {
                 MuzzleBrake(g, by, end, 0.012f, 0.07f);
                 g.TubeZ(GM.Metal, 0, by - 0.012f, 0.35f, 0.37f, 0.016f, -1, 14);   // barrel band
-                Scope(g, by + 0.017f, -0.07f, 0.2f, 0.0152f, 0.024f);
+                Scope(g, by + 0.017f, -0.07f, 0.2f, 0.0152f, 0.024f, 5f);
                 end += 0.07f;
             }
             else
             {
                 g.Bore(by, end, 0.004f);
-                Scope(g, by + 0.017f, -0.07f, 0.24f, 0.0152f, 0.028f);
+                Scope(g, by + 0.017f, -0.07f, 0.24f, 0.0152f, 0.028f, 6f);
                 Bipod(g, by - 0.062f, 0.4f);
             }
             RifleAnchors(g, by, end + 0.01f, by - 0.07f, 0.3f, 0.002f, 0.12f);
@@ -394,7 +394,7 @@ namespace Flopzone
                 g.Box(GM.Port, (float)System.Math.Cos(a) * 0.0118f, by + (float)System.Math.Sin(a) * 0.0118f, 0.47f, 0.003f, 0.003f, 0.4f, 0.0004f);
             }
             MuzzleBrake(g, by, 0.74f, 0.011f, 0.065f);
-            Scope(g, by + 0.025f, -0.08f, 0.26f, 0.017f, 0.03f);
+            Scope(g, by + 0.025f, -0.08f, 0.24f, 0.017f, 0.031f, 4.5f, true);
             Bipod(g, by - 0.066f, 0.34f);
             RifleAnchors(g, by, 0.815f, by - 0.075f, 0.28f, -0.004f, 0.12f);
         }
@@ -414,7 +414,7 @@ namespace Flopzone
             g.Profile(GM.Wood, 0, 0.044f, 0.008f, 0.14f, 0.03f, 0.27f, 0.034f, 0.27f, 0.05f, 0.14f, 0.05f);   // forend
             Suppressor(g, by, 0.14f, 0.36f, 0.021f);
             Rail(g, 0.088f, -0.03f, 0.12f);
-            Scope(g, 0.0955f, -0.04f, 0.17f, 0.0145f, 0.022f);
+            Scope(g, 0.0955f, -0.04f, 0.17f, 0.0145f, 0.022f, 9f);
             TriggerGuard(g, 0.03f, 0.004f, 0.064f, GM.Metal);
             RifleAnchors(g, by, 0.51f, 0.025f, 0.2f, 0.03f, 0.085f);
         }
@@ -447,6 +447,10 @@ namespace Flopzone
             g.Box(GM.Port, 0.0255f, 0.06f, -0.12f, 0.002f, 0.02f, 0.05f, 0.0004f);
             g.Anchor("muzzle", 0.066f, 0.445f);
             g.Anchor("magwell", 0.004f, -0.1f);
+            g.Anchor("scopeEye", 0.143f, -0.114f);      // the built-in 1.5x scope really magnifies
+            g.Anchor("scopeFront", 0.143f, 0.105f);
+            g.Anchor("scopeRadius", 0.0155f, 0);
+            g.Anchor("scopeFov", 20f, 0);
             g.Anchor("foregrip", -0.02f, 0.125f);
             g.Anchor("eject", 0.06f, -0.12f, 0, 0.026f);
             g.Anchor("ammo", 0.07f, -0.22f, 0, 0.027f);
@@ -501,7 +505,8 @@ namespace Flopzone
             g.TubeZ(GM.Metal, 0, 0.087f, 0.335f, 0.45f, 0.009f, -1, 14);
             FlashHider(g, 0.087f, 0.45f, 0.0105f);
             g.Profile(GM.Dark, 0, 0.016f, 0.002f, 0.31f, 0.116f, 0.33f, 0.116f, 0.326f, 0.138f, 0.314f, 0.138f);   // folding front sight
-            RedDot(g, 0.1155f, 0.05f);
+            Holo(g, 0.1155f, 0.11f);
+            FlipMagnifier(g, 0.1155f, 0.0f);
             g.Box(GM.Accent, -0.015f, 0.04f, -0.01f, 0.003f, 0.008f, 0.01f, 0.0005f);
             RifleAnchors(g, 0.087f, 0.505f, 0.05f, 0.26f, 0.0f, 0.09f);
         }
@@ -512,6 +517,7 @@ namespace Flopzone
             g.Profile(GM.Dark, 0, 0.05f, 0.004f, -0.07f, 0.035f, 0.21f, 0.035f, 0.21f, 0.1f, -0.06f, 0.1f, -0.07f, 0.09f);
             g.Profile(GM.Metal, 0, 0.052f, 0.004f, -0.04f, 0.1f, 0.18f, 0.1f, 0.18f, 0.116f, -0.03f, 0.12f);   // feed tray cover
             Rail(g, 0.116f, -0.02f, 0.16f);
+            Acog(g, 0.1235f, 0.07f, 8f);
             g.Box(GM.Port, 0.0252f, 0.065f, 0.06f, 0.002f, 0.03f, 0.08f, 0.0004f);
             g.Profile(GM.Polymer, 0, 0.03f, 0.004f, -0.07f, 0.095f, -0.32f, 0.095f, -0.33f, 0.085f, -0.33f, -0.02f, -0.31f, -0.025f, -0.12f, 0.05f, -0.07f, 0.05f);
             g.Profile(GM.Rubber, 0, 0.034f, 0.004f, -0.345f, -0.024f, -0.328f, -0.024f, -0.328f, 0.092f, -0.345f, 0.088f);
@@ -543,7 +549,7 @@ namespace Flopzone
             g.TubeZ(GM.Dark, 0, 0.088f, 0.2f, 0.27f, 0.015f, -1, 16);
             Suppressor(g, 0.088f, 0.27f, 0.12f, 0.018f);
             M4Stock(g, 0.088f, -0.075f, GM.Polymer);
-            RedDot(g, 0.1155f, 0.03f);
+            Holo(g, 0.1155f, 0.05f);
             g.Box(GM.Port, 0.0212f, 0.09f, 0.1f, 0.002f, 0.016f, 0.04f, 0.0004f);
             RifleAnchors(g, 0.088f, 0.4f, 0.0f, 0.15f, -0.004f, 0.11f, -10f);
         }

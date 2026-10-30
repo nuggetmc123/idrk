@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Flopzone
 {
     /// <summary>The materials a gun is made of (GunModel turns these into real materials).</summary>
-    public enum GM { Metal, Dark, Polymer, Wood, DarkWood, Rubber, Tan, Olive, Green, Chrome, Brass, Glass, Port, Accent, Red, Glow, Bronze }
+    public enum GM { Metal, Dark, Polymer, Wood, DarkWood, Rubber, Tan, Olive, Green, Chrome, Brass, Glass, Port, Accent, Red, Glow, Bronze, Lens }
 
     /// <summary>A small vector, so gun shapes can be built (and previewed) without Unity.</summary>
     public struct P3
@@ -106,7 +106,7 @@ namespace Flopzone
         }
 
         /// <summary>A quad a-b-c-d (counter-clockwise seen from outside), normal from its corners.</summary>
-        void Quad(GM m, P3 a, P3 b, P3 c, P3 d)
+        public void Quad(GM m, P3 a, P3 b, P3 c, P3 d)
         {
             var n = P3.Cross(b - a, d - a);
             if (n.Len < 1e-12f) n = P3.Cross(c - b, a - b);
