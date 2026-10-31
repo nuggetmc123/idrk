@@ -110,6 +110,9 @@ namespace Rago
                 Player.Hud.RaidTimer = "";
                 Player.Gear.Ammo = Profile.Current.stashAmmo;
             }
+            foreach (var sl in new[] { Player.Gear.Primary, Player.Gear.Secondary, Player.Gear.Pistol })
+                if (sl.item is Gun pg) { Synth.Gunshot(pg.g); Synth.GunshotDistant(pg.g); }
+            Synth.MagIn(); Synth.MagOut(); Synth.SlideForward(); Synth.SlideBack();
             var spawn = Map.PlayerSpawns.Count > 0 ? Map.PlayerSpawns[(rs != null ? rs.spawnIndex : Random.Range(0, Map.PlayerSpawns.Count)) % Map.PlayerSpawns.Count] : new Pose(Vector3.up * 0.1f, Quaternion.identity);
             Player.Teleport(spawn.position, spawn.rotation.eulerAngles.y);
             if (to == Area.Market && NetHub.Online)

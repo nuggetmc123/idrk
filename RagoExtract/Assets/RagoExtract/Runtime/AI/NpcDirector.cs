@@ -35,6 +35,7 @@ namespace Rago
                     bool heavy = s.heavy || rng.Chance(0.15f);
                     var n = Npc.Spawn(id, s.pos + new Vector3(off.x, 0, off.y), rng.Range(0f, 360f), seed * 1000 + id, heavy, transform);
                     if (puppets) n.MakePuppet();
+                    Synth.Gunshot(n.Weapon); Synth.GunshotDistant(n.Weapon); // pre-generate so the first shot doesn't hitch
                     n.OnDied = OnNpcDied;
                     Npcs.Add(n);
                     _byId[id] = n;

@@ -89,6 +89,12 @@ namespace Rago
         {
             if (h == secondaryHand) { secondaryHand = null; return; }
             if (h != primaryHand) return;
+            if (secondaryHand != null && !XRInputs.VR)
+            {
+                // desktop: letting go with the main hand drops the gun from both hands
+                var s2 = secondaryHand; secondaryHand = null; s2.Held = null; s2.HeldAsSecondary = false;
+                Desktop.LeftGripToggle = false;
+            }
             if (secondaryHand != null)
             {
                 // hand-over: the support hand becomes the primary hand
