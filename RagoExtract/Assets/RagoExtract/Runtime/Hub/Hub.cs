@@ -71,7 +71,6 @@ namespace Rago
             // the screen: green phosphor
             var screen = UI.Panel(transform, "Screen", new Vector3(0, 1.84f, 0.0f), Quaternion.identity, new Vector2(1.24f, 0.8f), null, true, Skin.Crt);
             _title = UI.Text(screen, "RDT-7 // DEPLOYMENT", new Vector3(-0.58f, 0.335f, 0), 0.05f, UI.CrtGreen, TextAnchor.MiddleLeft, FontStyle.Bold);
-            UI.Text(screen, "SELECT AREA:", new Vector3(-0.58f, 0.255f, 0), 0.036f, UI.CrtDim, TextAnchor.MiddleLeft);
             for (int i = 0; i < Maps.RaidIds.Length; i++)
             {
                 string id = Maps.RaidIds[i];
@@ -80,6 +79,7 @@ namespace Rago
             }
             _mapInfo = UI.Text(screen, "", new Vector3(0.02f, 0.215f, 0), 0.04f, UI.CrtDim, TextAnchor.UpperLeft);
             _status = UI.Text(screen, "", new Vector3(-0.58f, -0.2f, 0), 0.036f, UI.CrtGreen, TextAnchor.UpperLeft);
+            _mapInfo.gameObject.SetActive(false); _status.gameObject.SetActive(false);   // the screen only shows the title, the maps and the rules line
             UI.Text(screen, "4-10 OPERATORS  /  TARGET 8  /  AUTO-LAUNCH AT 01:00", new Vector3(-0.58f, -0.355f, 0), 0.03f, UI.CrtDim, TextAnchor.MiddleLeft);
             // the console: one big push key
             var console = new GameObject("Console").transform; console.SetParent(transform, false);
