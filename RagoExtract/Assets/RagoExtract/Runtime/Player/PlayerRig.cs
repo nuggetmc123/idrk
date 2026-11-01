@@ -295,7 +295,7 @@ namespace Rago
                 _stepDist = 0;
                 var surf = GroundSurface();
                 Sfx.Play(Synth.Footstep(surf, Random.Range(0, 4)), transform.position, Sprinting ? 0.55f : Crouched ? 0.15f : 0.35f, 1f + Random.Range(-0.08f, 0.08f), 1f, 25f);
-                Noise.Emit(transform.position, Sprinting ? 16f : Crouched ? 3f : 8f, 0);
+                if (!Crouched) Noise.Emit(transform.position, Sprinting ? 5f : 1.8f, 0);   // scavs barely hear footsteps
             }
 
             // turning

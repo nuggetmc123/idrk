@@ -179,7 +179,8 @@ namespace Rago
             foreach (var sl in new[] { Player.Gear.Primary, Player.Gear.Secondary, Player.Gear.Pistol })
                 if (sl.item is Gun pg) { Synth.Gunshot(pg.g); Synth.GunshotDistant(pg.g); }
             Synth.MagIn(); Synth.MagOut(); Synth.SlideForward(); Synth.SlideBack();
-            var spawn = Map.PlayerSpawns.Count > 0 ? Map.PlayerSpawns[(rs != null ? rs.spawnIndex : Random.Range(0, Map.PlayerSpawns.Count)) % Map.PlayerSpawns.Count] : new Pose(Vector3.up * 0.1f, Quaternion.identity);
+            // each player in a raid gets a different spawn spot; the raid seed shuffles which one
+            var spawn = Map.PlayerSpawns.Count > 0 ? Map.PlayerSpawns[(rs != null ? rs.spawnIndex + Mathf.Abs(rs.seed) : Random.Range(0, Map.PlayerSpawns.Count)) % Map.PlayerSpawns.Count] : new Pose(Vector3.up * 0.1f, Quaternion.identity);
             Player.Teleport(spawn.position, spawn.rotation.eulerAngles.y);
             if (ElevatorArrival)
             {
@@ -288,7 +289,7 @@ namespace Rago
             if (online) NetGame.I.Begin(true);
             FieldMap.Create(map, map.DisplayName);   // photographed now, while the screen is still black
             var dir = NpcDirector.Create(map.transform);
-            dir.SpawnSquads(map.NpcSpawns, rs.seed, online && !NetHub.Backend.IsHost);
+            dir.SpawnSquads(map.NpcSpawns, rs.seed, online && !NetHub.Backend.IsHost, map.PlayerSpawns);
             g.Player.Hud.Center(map.DisplayName.ToUpper() + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>", 6f);
         }
 

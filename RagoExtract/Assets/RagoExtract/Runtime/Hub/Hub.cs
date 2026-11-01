@@ -61,7 +61,8 @@ namespace Rago
             _beacon = new Material(dome.GetComponent<MeshRenderer>().sharedMaterial); dome.GetComponent<MeshRenderer>().sharedMaterial = _beacon;
             _beaconLight = new GameObject("BeaconLight").AddComponent<Light>(); _beaconLight.transform.SetParent(transform, false); _beaconLight.transform.localPosition = new Vector3(0.62f, 2.55f, 0.1f);
             _beaconLight.type = LightType.Point; _beaconLight.color = new Color(1f, 0.55f, 0.15f); _beaconLight.range = 3f; _beaconLight.intensity = 0f;
-            var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 1.2f, 0.22f); col.size = new Vector3(1.4f, 2.4f, 0.6f);
+            var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 1.2f, 0.27f); col.size = new Vector3(1.4f, 2.4f, 0.4f); // behind the screen, so the laser reaches the map buttons
+            var ped = gameObject.AddComponent<BoxCollider>(); ped.center = new Vector3(0, 0.52f, 0.2f); ped.size = new Vector3(1.3f, 1.04f, 0.6f);
             // stencilled markings
             UI.Text(transform, "RDT-7", new Vector3(-0.58f, 0.85f, -0.105f), 0.07f, UI.Stencil, TextAnchor.MiddleLeft, FontStyle.Bold);
             UI.Text(transform, "RAID DEPLOYMENT TERMINAL", new Vector3(-0.58f, 0.76f, -0.105f), 0.03f, UI.Stencil, TextAnchor.MiddleLeft);

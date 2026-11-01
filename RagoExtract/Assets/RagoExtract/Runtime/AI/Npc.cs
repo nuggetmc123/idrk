@@ -86,11 +86,12 @@ namespace Rago
             if (NavMesh.SamplePosition(pos, out var hit, 3f, NavMesh.AllAreas)) n.Agent.Warp(hit.position);
             for (int i = 0; i < 4; i++)
             {
-                Vector2 c = n._rng.InCircle() * 14f;
+                Vector2 c = n._rng.InCircle() * 25f;
                 Vector3 p = pos + new Vector3(c.x, 0, c.y);
                 if (NavMesh.SamplePosition(p, out var ph, 4f, NavMesh.AllAreas)) n._patrol.Add(ph.position);
             }
             n._think = n._rng.Range(0f, 0.3f);
+            n._waitT = n._rng.Range(3f, 30f);   // staggered, so the whole map doesn't start walking at once
             return n;
         }
 
@@ -213,7 +214,7 @@ namespace Rago
                     if (!AgentOk || Agent.remainingDistance < 0.8f)
                     {
                         _waitT -= 0.2f;
-                        if (_waitT <= 0) { _waitT = _rng.Range(2f, 7f); _patrolIdx = (_patrolIdx + 1) % _patrol.Count; Go(_patrol[_patrolIdx], 1.4f); }
+                        if (_waitT <= 0) { _waitT = _rng.Range(25f, 35f); _patrolIdx = (_patrolIdx + 1) % _patrol.Count; Go(_patrol[_patrolIdx], 1.4f); } // a new spot about every 30 s
                     }
                     break;
                 case NpcState.Investigate:

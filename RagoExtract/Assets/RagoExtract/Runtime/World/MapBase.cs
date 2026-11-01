@@ -243,15 +243,19 @@ namespace Rago
                 Squad(p + new Vector3(b.Rng.Range(-8f, 8f), 0, b.Rng.Range(-8f, 8f)), b.Rng.Range(2, 4), kind % 6 == 2);
                 ExtraNav.Add(new Bounds(p + Vector3.up * 5, new Vector3(80, 30, 80)));
             }
-            // extracts at the far ends of the farthest locations
+            // only 3 extracts per map: the first one in town, plus two far out on opposite sides
+            for (int i = Extracts.Count - 1; i >= 1; i--) { if (Extracts[i] != null) Compat.Kill(Extracts[i].gameObject); Extracts.RemoveAt(i); }
             var far = new List<Vector3>(spots);
             far.Sort((a1, a2) => a2.sqrMagnitude.CompareTo(a1.sqrMagnitude));
-            for (int i = 0; i < extractNames.Length && i < far.Count; i++)
+            var picks = new List<Vector3>();
+            if (far.Count > 0) picks.Add(far[0]);
+            if (far.Count > 1) { var best = far[1]; foreach (var f in far) if ((f - far[0]).sqrMagnitude > (best - far[0]).sqrMagnitude) best = f; picks.Add(best); }
+            for (int i = 0; i < picks.Count && i < extractNames.Length; i++)
             {
-                var dir = new Vector3(far[i].x, 0, far[i].z).normalized;
-                var e = far[i] + dir * 32f;
+                var dir = new Vector3(picks[i].x, 0, picks[i].z).normalized;
+                var e = picks[i] + dir * 32f;
                 e.x = Mathf.Clamp(e.x, -half + 15, half - 15); e.z = Mathf.Clamp(e.z, -half + 15, half - 15);
-                Road(far[i], e, roadMat); roads.Add((far[i], e));
+                Road(picks[i], e, roadMat); roads.Add((picks[i], e));
                 AddExtract(e, extractNames[i]);
             }
             // forest + rocks everywhere else
@@ -280,9 +284,82 @@ namespace Rago
                 var mid = (a1 + a2) / 2; var d = a2 - a1;
                 b.Collider(mid + Vector3.up * 10, new Vector3(1, 20, d.magnitude), Quaternion.LookRotation(d.normalized), Synth.Surface.Concrete);
             }
-            // spawns along the edges
-            Spawn(new Vector3(0, 0.1f, -half + 20), 0); Spawn(new Vector3(-half + 20, 0.1f, 0), 90);
-            Spawn(new Vector3(0, 0.1f, half - 20), 180); if (!seaEast) Spawn(new Vector3(half - 20, 0.1f, 0), -90);
+            // spawn spots out towards the border, well away from the raiders. Every player in a raid gets a different one:
+            // about half are small lootable places (a shed, a cabin, a supply tent, an open container) with a few crates
+            // to search before you move out, and the rest are out in the open (a wrecked car, a rock pile, a sandbag nest).
+            PlayerSpawns.Clear();
+            int sites = 0;
+            for (int i = 0; i < 70 && sites < 10; i++)
+            {
+                float ang = (sites + i * 0.37f) / 10f * Mathf.PI * 2f;
+                var hp = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (half * b.Rng.Range(0.8f, 0.9f));
+                hp.x = Mathf.Clamp(hp.x, -half + 30, half - 30); hp.z = Mathf.Clamp(hp.z, -half + 30, half - 30);
+                if (seaEast && hp.x > core.xMax - 25) continue;
+                if (Near(hp, spots, 75f) || NearRoad(hp, roads, 10f)) continue;
+                bool crowded = false; foreach (var sp in PlayerSpawns) if ((sp.position - hp).sqrMagnitude < 120 * 120) crowded = true;
+                if (crowded) continue;
+                if (sites % 2 == 0) LootSpawn(hp, sites / 2 % 4, wooden); else OpenSpawn(hp, sites / 2 % 3);
+                sites++;
+            }
+        }
+
+        /// <summary>A small lootable place you can start the raid in: you stand inside, facing out towards the middle of the map.</summary>
+        void LootSpawn(Vector3 p, int kind, bool wooden)
+        {
+            var b = B;
+            float yaw = Mathf.Atan2(p.x, p.z) * Mathf.Rad2Deg;   // local -z (doorway / open end) faces the map centre
+            var q = Quaternion.Euler(0, yaw, 0);
+            Vector3 P(float x, float z) => p + q * new Vector3(x, 0, z);
+            float face = yaw + 180f;   // what the player looks at: out of the door
+            LootCrate.Kind Pick() { float r = b.Rng.Value; return r < 0.5f ? LootCrate.Kind.Crate : r < 0.7f ? LootCrate.Kind.Medical : r < 0.82f ? LootCrate.Kind.Optics : r < 0.92f ? LootCrate.Kind.Duffel : LootCrate.Kind.WeaponCase; }
+            switch (kind)
+            {
+                case 0: // tool shed: shelves and a workbench
+                    b.Building(p, yaw, new Vector2(4.6f, 4.2f), 1, wooden ? Maps.WoodPlank : Maps.ConcreteDark, wooden ? new Color(0.55f, 0.43f, 0.32f) : new Color(0.6f, 0.62f, 0.58f), Maps.WoodPlank, wooden ? Maps.WoodPlank : Maps.Concrete, 0, true);
+                    b.Shelf(P(0, 1.65f), yaw, 3f);
+                    b.Table(P(-1.55f, 0.2f), yaw + 90, new Vector2(1.6f, 0.7f));
+                    AddCrate(P(1.4f, 0.7f), yaw, Pick()); AddCrate(P(-1.5f, 0.2f) + Vector3.up * 0.82f, yaw + 90, LootCrate.Kind.Duffel);
+                    b.AddLight(p + Vector3.up * 2.6f, new Color(1f, 0.85f, 0.6f), 5f, 0.8f);
+                    break;
+                case 1: // hunter's cabin: cot, table, footlocker
+                    b.Building(p, yaw, new Vector2(6f, 5f), 1, Maps.WoodPlank, new Color(0.5f, 0.38f, 0.27f), Maps.WoodPlank, Maps.WoodPlank, 0, true);
+                    b.Box(P(-2.2f, 1.2f) + Vector3.up * 0.3f, new Vector3(0.9f, 0.45f, 2f), Maps.WoodPlank, new Color(0.45f, 0.36f, 0.28f), q, true, Synth.Surface.Wood); // cot
+                    b.Table(P(1.6f, 1.2f), yaw, new Vector2(1.4f, 0.9f));
+                    AddCrate(P(1.6f, 1.2f) + Vector3.up * 0.8f, yaw, Pick()); AddCrate(P(-2.2f, -1.5f), yaw + 90, LootCrate.Kind.Crate); AddCrate(P(2.3f, -1.4f), yaw, Pick());
+                    b.AddLight(p + Vector3.up * 2.6f, new Color(1f, 0.8f, 0.55f), 6f, 0.8f);
+                    break;
+                case 2: // supply tent behind sandbags
+                    b.Tent(P(0, 0.6f), yaw, new Vector3(4.2f, 2.4f, 4.6f), new Color(0.32f, 0.36f, 0.24f));
+                    b.Sandbags(P(-3f, 3.4f), P(3f, 3.4f), 2);
+                    b.Crate(P(-1.3f, 2f), yaw, new Vector3(0.9f, 0.7f, 0.9f));
+                    AddCrate(P(1.1f, 2f), yaw, LootCrate.Kind.Medical); AddCrate(P(-1.2f, 0.3f), yaw + 90, Pick()); AddCrate(P(1.2f, 0.4f), yaw, LootCrate.Kind.Crate);
+                    b.Barrel(P(2.6f, -1.6f), new Color(0.3f, 0.35f, 0.25f));
+                    break;
+                default: // an open shipping container someone was living out of
+                    b.ShippingContainer(P(0, 0.8f), yaw + 180f, new Color(0.42f, 0.2f, 0.14f), true);   // open end faces the centre
+                    AddCrate(P(-0.6f, 2.6f), yaw, LootCrate.Kind.Crate); AddCrate(P(0.6f, 1.6f), yaw, Pick()); AddCrate(P(-0.6f, 0.4f), yaw + 90, LootCrate.Kind.Duffel);
+                    b.Barrel(P(-1.9f, -3.4f), new Color(0.2f, 0.3f, 0.45f)); b.Crate(P(-2.8f, -1.6f), yaw + 20, new Vector3(1f, 0.8f, 1f));
+                    b.AddLight(P(0, 1.5f) + Vector3.up * 2.2f, new Color(1f, 0.85f, 0.6f), 5f, 0.7f);
+                    p = P(0, -0.6f);
+                    break;
+            }
+            Spawn(p + Vector3.up * 0.15f, face);
+        }
+
+        /// <summary>A spawn out in the open, behind a bit of cover, with nothing to loot.</summary>
+        void OpenSpawn(Vector3 p, int kind)
+        {
+            var b = B;
+            float yaw = Mathf.Atan2(p.x, p.z) * Mathf.Rad2Deg;   // local -z faces the map centre: the cover is on that side
+            var q = Quaternion.Euler(0, yaw, 0);
+            Vector3 P(float x, float z) => p + q * new Vector3(x, 0, z);
+            switch (kind)
+            {
+                case 0: b.CarWreck(P(0, -2.6f), yaw + 80f, new Color(0.35f, 0.38f, 0.42f)); b.Rock(P(3.5f, 1.5f), 1.6f); break;            // wrecked car
+                case 1: b.Rock(P(-1.8f, -2f), 3f); b.Rock(P(1.9f, -2.4f), 2.2f); b.Rock(P(0.3f, 2.4f), 1.4f); b.Pine(P(-4f, 2f), 11f); break;  // rock pile in the trees
+                default: b.Sandbags(P(-2.5f, -2f), P(2.5f, -2f), 3); b.Sandbags(P(-2.5f, -2f), P(-2.5f, 1.5f), 2); b.JerseyBarrier(P(3.5f, 0.5f), yaw + 90); break; // old sandbag nest
+            }
+            Spawn(p + Vector3.up * 0.15f, yaw + 180f);
         }
 
         static bool Near(Vector3 p, List<Vector3> spots, float r) { foreach (var s in spots) if ((s - p).sqrMagnitude < r * r) return true; return false; }
