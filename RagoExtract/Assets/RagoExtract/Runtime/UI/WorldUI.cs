@@ -246,7 +246,7 @@ namespace Rago
         Material _fadeM, _damageM, _suppM;
         float _fadeTarget = 0, _fadeCur = 1, _dmg, _sup;
         bool _blocked;
-        TextMesh _toast, _center, _objective;
+        TextMesh _toast, _center, _objective, _queue;
         float _toastT, _centerT;
         TextMesh _wristHp, _wristInfo, _wristAmmo;
         Transform _wrist;
@@ -272,6 +272,9 @@ namespace Rago
             _toast.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_toast);
             _center = UI.Text(cam, "", new Vector3(0, 0.06f, 0.8f), 0.04f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
             _center.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_center);
+            // matchmaking status, top-left of your view
+            _queue = UI.Text(cam, "", new Vector3(-0.2f, 0.13f, 0.6f), 0.02f, new Color(0.55f, 1f, 0.6f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            _queue.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_queue);
             // training objective, low in your view
             _objective = UI.Text(cam, "", new Vector3(0, -0.2f, 0.75f), 0.022f, new Color(1f, 0.86f, 0.5f), TextAnchor.MiddleCenter);
             _objective.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_objective);
@@ -323,6 +326,8 @@ namespace Rago
         public void Suppress(float a) { _sup = Mathf.Clamp01(_sup + a); }
         public void Toast(string s) { _toast.text = s; _toastT = 2.5f; }
         public void Center(string s, float time = 3f) { _center.text = s; _centerT = time; }
+        /// <summary>Top-left matchmaking line (FINDING RAID 0:12 / RAID FOUND / JOINING RAID); empty hides it.</summary>
+        public void Queue(string s) { if (_queue != null) _queue.text = s ?? ""; }
         public void Objective(string s) { if (_objective != null) _objective.text = s ?? ""; }
 
         public void Tick(float dt)

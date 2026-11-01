@@ -200,6 +200,7 @@ namespace Rago
             }
             if (to == Area.Bunker && LastResult != null) { ResultsBoard.Show(MapRoot, LastResult); LastResult = null; }
             if (to != Area.Raid) Player.Hud.Center("", 0.01f);
+            Player.Hud.Queue("");
             Player.Frozen = false;
             Player.Hud.FadeTo(0f);
             _travelling = false;

@@ -15,7 +15,8 @@ namespace Rago
         TextMesh _status, _mapInfo, _title;
         WorldButton _queueBtn;
         readonly List<WorldButton> _mapBtns = new List<WorldButton>();
-        bool _queued;
+        bool _queued, _joining;
+        float _queueStart;
         Coroutine _offline;
         public static bool AnyQueued;
 
@@ -91,6 +92,12 @@ namespace Rago
 
         void Update()
         {
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (_queued && !_joining && pl != null)
+            {
+                int t = Mathf.FloorToInt(Time.time - _queueStart);
+                pl.Hud.Queue("FINDING RAID  " + (t / 60) + ":" + (t % 60).ToString("00"));
+            }
             float on = _queued && Mathf.Repeat(Time.time, 0.8f) < 0.4f ? 1f : 0f;
             if (_beacon != null) _beacon.SetColor("_EmissionColor", new Color(3f, 1.4f, 0.2f) * on);
             if (_beaconLight != null) _beaconLight.intensity = on * 1.5f;
@@ -113,9 +120,10 @@ namespace Rago
 
         void ToggleQueue()
         {
+            if (_joining) return;   // raid already found: on the way in
             if (_queued) { Cancel(); return; }
             if (AnyQueued) return;
-            _queued = true; AnyQueued = true;
+            _queued = true; AnyQueued = true; _joining = false; _queueStart = Time.time;
             _queueBtn.SetText("CANCEL"); _queueBtn.SetColor(new Color(0.6f, 0.14f, 0.1f));
             Sfx.UI(Synth.Beep(), 0.5f);
             // save the loadout before matchmaking so a crash can't eat gear
@@ -131,6 +139,7 @@ namespace Rago
             _queued = false; AnyQueued = false;
             _queueBtn.SetText("QUEUE"); _queueBtn.SetColor(new Color(0.2f, 0.42f, 0.2f));
             _status.text = "> QUEUE CANCELLED";
+            HudQueue("");
         }
 
         void OnStatus(QueueStatus s)
@@ -142,6 +151,8 @@ namespace Rago
         void OnFailed(string why)
         {
             _status.text = "> MATCHMAKING FAILED: " + (why ?? "").ToUpper();
+            HudQueue("");
+            RagoGame.I?.Player?.Toast("Couldn't find a raid: " + (why ?? "matchmaking failed"));
             Sfx.UI(Synth.UiError(), 0.4f);
             _queued = false; AnyQueued = false;
             _queueBtn.SetText("QUEUE"); _queueBtn.SetColor(new Color(0.2f, 0.42f, 0.2f));
@@ -149,10 +160,24 @@ namespace Rago
 
         void OnStart(RaidStart rs)
         {
-            _queued = false; AnyQueued = false;
+            if (_joining) return;
+            _joining = true;
             Sfx.UI(Synth.QueueFound(), 0.7f);
+            StartCoroutine(Join(rs));
+        }
+
+        // top-left: RAID FOUND, then JOINING RAID, then off to the raid (the line is cleared once you arrive)
+        IEnumerator Join(RaidStart rs)
+        {
+            HudQueue("RAID FOUND");
+            yield return new WaitForSeconds(1.5f);
+            HudQueue("JOINING RAID");
+            yield return new WaitForSeconds(0.5f);
+            _queued = false; AnyQueued = false; _joining = false;
             RagoGame.I.StartRaid(rs);
         }
+
+        static void HudQueue(string s) { var pl = RagoGame.I != null ? RagoGame.I.Player : null; if (pl != null && pl.Hud != null) pl.Hud.Queue(s); }
 
         IEnumerator OfflineQueue()
         {
@@ -168,7 +193,7 @@ namespace Rago
             OnStart(new RaidStart { map = _map, seed = Random.Range(1, 1000000), spawnIndex = Random.Range(0, 10), players = 1, online = false });
         }
 
-        void OnDestroy() { if (_queued) { AnyQueued = false; if (NetHub.Online) NetHub.Backend.CancelQueue(); } }
+        void OnDestroy() { if (_queued) { AnyQueued = false; if (!_joining) { HudQueue(""); if (NetHub.Online) NetHub.Backend.CancelQueue(); } } }
     }
 
     // ======================================================================================= TRADERS
