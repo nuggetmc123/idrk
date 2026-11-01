@@ -363,8 +363,8 @@ namespace Rago
             Quaternion q = Quaternion.LookRotation(dir);
             Box(a + d * 0.5f + Vector3.up * h, new Vector3(0.04f, 0.04f, len), m, Color.white, q, false);
             Box(a + d * 0.5f + Vector3.up * 0.1f, new Vector3(0.04f, 0.04f, len), m, Color.white, q, false);
-            // mesh panel (dark see-through look)
-            Raw(Mats.Lit("chainlink", new Color(0.2f, 0.2f, 0.2f), 0.6f, 0.3f)).Box(a + d * 0.5f + Vector3.up * h * 0.5f, new Vector3(0.01f, h * 0.9f, len), new Color(1, 1, 1), 0, 0, q);
+            // see-through chain-link mesh panel
+            Raw(Mats.Unlit("chainlink", new Color(0.32f, 0.33f, 0.33f, 0.3f))).Box(a + d * 0.5f + Vector3.up * h * 0.5f, new Vector3(0.01f, h * 0.9f, len), new Color(1, 1, 1), 0, 0, q);
             Collider(a + d * 0.5f + Vector3.up * h * 0.5f, new Vector3(0.1f, h, len), q, Synth.Surface.Metal);
         }
 

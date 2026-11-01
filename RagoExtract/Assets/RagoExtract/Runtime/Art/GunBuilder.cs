@@ -747,22 +747,18 @@ namespace Rago
                 case MagStyle.Stanag:
                 case MagStyle.LongBox:
                     float l = style == MagStyle.LongBox ? 0.24f : 0.18f;
-                    for (int i = 0; i < 3; i++)
                     {
-                        float t = i / 3f;
-                        mb.Sub(1).Box(new Vector3(0, -l * (t + 1f / 6f), 0.012f * t * t * 3), new Vector3(0.024f, l / 3f + 0.004f, 0.062f), w, 0.003f, 1, Quaternion.Euler(-8 * t, 0, 0));
+                        var end = CurvedMag(mb, 1, 4, l, 0.024f, 0.062f, 3.5f, w);
+                        mb.Sub(0).Box(end.Item1, new Vector3(0.03f, 0.012f, 0.07f), w, 0.004f, 1, end.Item2);
                     }
-                    mb.Sub(0).Box(new Vector3(0, -l - 0.005f, 0.03f), new Vector3(0.03f, 0.012f, 0.07f), w, 0.004f);
                     mb.Sub(2).Cyl(new Vector3(0, -0.004f, -0.02f), new Vector3(0, -0.004f, 0.02f), 0.005f, 0.005f, 8, w);
                     size = new Vector3(0.03f, l, 0.07f);
                     break;
                 case MagStyle.Banana:
-                    for (int i = 0; i < 5; i++)
                     {
-                        float t = i / 5f;
-                        mb.Sub(0).Box(new Vector3(0, -0.04f * i - 0.02f, 0.016f * i * i * 0.5f), new Vector3(0.026f, 0.044f, 0.068f), w, 0.004f, 1, Quaternion.Euler(-9 * i, 0, 0));
+                        var end = CurvedMag(mb, 0, 6, 0.21f, 0.026f, 0.068f, 7f, w, true);
+                        mb.Sub(1).Box(end.Item1, new Vector3(0.028f, 0.01f, 0.072f), w, 0.003f, 1, end.Item2);
                     }
-                    for (int i = 0; i < 5; i++) mb.Sub(1).Box(new Vector3(0.0135f, -0.04f * i - 0.02f, 0.016f * i * i * 0.5f), new Vector3(0.002f, 0.03f, 0.05f), w, 0.001f, 1, Quaternion.Euler(-9 * i, 0, 0));
                     mb.Sub(2).Cyl(new Vector3(0, -0.004f, -0.02f), new Vector3(0, -0.004f, 0.02f), 0.0055f, 0.0055f, 8, w);
                     size = new Vector3(0.03f, 0.2f, 0.12f);
                     break;
@@ -776,8 +772,10 @@ namespace Rago
                     size = new Vector3(sw, sl, 0.08f);
                     break;
                 case MagStyle.SmgCurved:
-                    for (int i = 0; i < 3; i++) mb.Sub(1).Box(new Vector3(0, -0.04f * i - 0.02f, 0.008f * i * i), new Vector3(0.022f, 0.044f, 0.032f), w, 0.003f, 1, Quaternion.Euler(-10 * i, 0, 0));
-                    mb.Sub(0).Box(new Vector3(0, -0.13f, 0.035f), new Vector3(0.026f, 0.01f, 0.04f), w, 0.003f, 1, Quaternion.Euler(-25, 0, 0));
+                    {
+                        var end = CurvedMag(mb, 1, 4, 0.14f, 0.022f, 0.032f, 6f, w);
+                        mb.Sub(0).Box(end.Item1, new Vector3(0.026f, 0.01f, 0.04f), w, 0.003f, 1, end.Item2);
+                    }
                     size = new Vector3(0.026f, 0.14f, 0.06f);
                     break;
                 case MagStyle.Drum:
@@ -819,6 +817,26 @@ namespace Rago
                     break;
             }
             return mb.Build("Mag", parent, mats);
+        }
+
+        /// <summary>
+        /// A smoothly curved magazine body: overlapping segments laid along an arc that bends towards the muzzle.
+        /// Returns the position/rotation of the base plate.
+        /// </summary>
+        static (Vector3, Quaternion) CurvedMag(MB mb, int sub, int segs, float length, float width, float depth, float bendPerSeg, Color w, bool ribs = false)
+        {
+            float segLen = length / segs;
+            Vector3 p = Vector3.zero;
+            for (int i = 0; i < segs; i++)
+            {
+                var q = Quaternion.Euler(-bendPerSeg * (i + 0.5f), 0, 0);
+                Vector3 c = p + q * new Vector3(0, -segLen * 0.5f, 0);
+                mb.Sub(sub).Box(c, new Vector3(width, segLen * 1.08f, depth), w, 0.003f, 1, q);
+                if (ribs) mb.Sub(sub).Box(c + q * new Vector3(width * 0.5f + 0.0008f, 0, 0), new Vector3(0.0018f, segLen * 0.55f, depth * 0.6f), w * 0.72f, 0.0006f, 1, q);
+                p += q * new Vector3(0, -segLen, 0);
+            }
+            var qe = Quaternion.Euler(-bendPerSeg * segs, 0, 0);
+            return (p + qe * new Vector3(0, -0.004f, 0), qe);
         }
 
         // ------------------------------------------------------------------ sights

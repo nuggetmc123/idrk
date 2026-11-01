@@ -412,11 +412,11 @@ namespace Rago
             bool engaging = State == NpcState.Combat || State == NpcState.Cover;
             Vector3 shoulder = head + yawQ * new Vector3(0.16f, -0.24f, -0.02f);
             Quaternion gunRot = engaging ? Quaternion.LookRotation((AimPoint - shoulder).normalized, Vector3.up)
-                                         : yawQ * Quaternion.Euler(32, -28, 0);
+                                         : yawQ * Quaternion.Euler(15, -45, 0);
             gunRot *= Quaternion.Euler(-_recoil * 6f, 0, 0);
             Vector3 buttLocal = GunModel.butt != null ? GunModel.butt.localPosition : new Vector3(0, 0.05f, -0.3f);
             Vector3 gunPos = engaging ? shoulder - gunRot * buttLocal - gunRot * Vector3.forward * _recoil * 0.03f
-                                      : head + yawQ * new Vector3(0.12f, -0.55f, 0.28f);
+                                      : head + yawQ * new Vector3(0.15f, -0.4f, 0.16f);
             if (!Weapon.TwoHanded) gunPos = head + gunRot * new Vector3(0.0f, -0.12f, 0.45f);
             GunModel.root.transform.SetPositionAndRotation(gunPos, gunRot);
             Vector3 gripR = GunModel.root.transform.position;
