@@ -14,16 +14,22 @@ namespace Rago
         {
             var l = new List<ItemData>();
             foreach (var s in Stash) if (s != null) l.AddRange(s.Save());
+            if (_medCabinet != null) l.AddRange(_medCabinet.Save());
             return l;
         }
+
+        ItemContainer _medCabinet;
 
         void LoadStash()
         {
             if (Profile.Current == null) return;
             foreach (var d in new List<ItemData>(Profile.Current.stash))
             {
+                // fill the main rooms first, then the expansion rooms; overflow goes on the first section's next page
                 var k = StashSection.For(d);
-                foreach (var s in Stash) if (s.kind == k) { s.Place(d); break; }
+                bool placed = false;
+                foreach (var s in Stash) if (s.kind == k && s.Place(d, false)) { placed = true; break; }
+                if (!placed) foreach (var s in Stash) if (s.kind == k) { s.Place(d, true); break; }
             }
             // died and lost all your armour? a beat-up bump helmet and soft vest turn up on the stands, so you never raid naked
             var prof = Profile.Current;
@@ -32,6 +38,123 @@ namespace Rago
                 foreach (var s in Stash) if (s.kind == StashKind.Armor) { s.Place(new ItemData("helm_bump")); s.Place(new ItemData("vest_soft")); }
             if (Application.isPlaying) prof.freeArmor = false;
             foreach (var s in Stash) s.Refresh();
+        }
+
+        // ------------------------------------------------------------------------------- expansions
+        void Walls(Material conc, Color tint, float Ht, params (Vector3 a, Vector3 b)[] segs) { foreach (var w in segs) B.Wall(w.a, w.b, Ht, 0.3f, conc, tint); }
+
+        void FloorCeiling(float x0, float x1, float z0, float z1, Material floor, Material conc, float Ht)
+        {
+            var c = new Vector3((x0 + x1) / 2, 0, (z0 + z1) / 2); var sz = new Vector3(x1 - x0, 0.2f, z1 - z0);
+            B.Box(c + Vector3.down * 0.1f, sz, floor, Color.white);
+            B.Box(c + Vector3.up * (Ht + 0.1f), sz, conc, new Color(0.5f, 0.5f, 0.5f));
+        }
+
+        void Lamp(Vector3 p, Material lampMat, Color light, float Ht)
+        {
+            B.Box(new Vector3(p.x, Ht - 0.08f, p.z), new Vector3(1.2f, 0.08f, 0.25f), lampMat, Color.white, null, false);
+            B.AddLight(new Vector3(p.x, Ht - 0.4f, p.z), light, 9f, 1.4f, true);
+        }
+
+        void BuildExpansions(Material floor, Material conc, Material paint, Material lampMat, Color tint, float Ht)
+        {
+            var b = B;
+            var prof = Profile.Current;
+            // 1. STORAGE ROOM (west of the Armory): extra gun rack + gear wall
+            if (BunkerJobs.Built(prof, "storage"))
+            {
+                FloorCeiling(-13, -6, 6, 13, floor, conc, Ht);
+                Walls(conc, tint, Ht, (new Vector3(-13, 0, 6), new Vector3(-8, 0, 6)), (new Vector3(-6, 0, 13), new Vector3(-13, 0, 13)), (new Vector3(-13, 0, 13), new Vector3(-13, 0, 6)));
+                b.Box(new Vector3(-9.5f, 0.6f, 12.84f), new Vector3(7, 1.2f, 0.02f), paint, Color.white, null, false);
+                Lamp(new Vector3(-9.5f, 0, 9.5f), lampMat, new Color(1f, 0.88f, 0.7f), Ht);
+                Stash.Add(StashSection.Create(transform, new Vector3(-12.6f, 0, 9.4f), -90, StashKind.Weapons));
+                Stash.Add(StashSection.Create(transform, new Vector3(-9.4f, 0, 12.75f), 0, StashKind.Gear));
+                b.Crate(new Vector3(-7f, 0, 6.8f), 12, new Vector3(0.9f, 0.6f, 0.6f));
+                b.Sign(new Vector3(-5.8f, 2.7f, 7.5f), Quaternion.Euler(0, -90, 0), "STORAGE", new Color(0.9f, 0.8f, 0.6f), 0.12f);
+            }
+            else SealedDoor.Create(b, transform, new Vector3(-6, 0, 7.5f), -90, "STORAGE ROOM", 1);
+
+            // 2. MED BAY (south of the Armor Room): cabinet that restocks meds after every raid
+            if (BunkerJobs.Built(prof, "medbay"))
+            {
+                FloorCeiling(8, 15, -13, -7, floor, conc, Ht);
+                Walls(conc, tint, Ht, (new Vector3(8, 0, -13), new Vector3(15, 0, -13)), (new Vector3(8, 0, -7), new Vector3(8, 0, -13)), (new Vector3(15, 0, -13), new Vector3(15, 0, -7)));
+                var white = Mats.Lit("medbay_white", new Color(0.82f, 0.84f, 0.84f), 0f, 0.4f, Mats.Plaster, null, 0.3f, 0.1f, true, 0.4f);
+                b.Box(new Vector3(11.5f, 1.0f, -12.84f), new Vector3(7, 2.0f, 0.02f), white, Color.white, null, false);
+                Lamp(new Vector3(11.5f, 0, -10f), lampMat, new Color(0.85f, 0.95f, 1f), Ht);
+                // stretcher
+                b.Box(new Vector3(9.3f, 0.75f, -10.5f), new Vector3(0.75f, 0.08f, 2.0f), Maps.Metal, new Color(0.5f, 0.52f, 0.55f), null, true, Synth.Surface.Metal);
+                b.Box(new Vector3(9.3f, 0.82f, -10.5f), new Vector3(0.7f, 0.06f, 1.9f), Mats.Lit("mattress", new Color(0.35f, 0.38f, 0.3f), 0, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0), new Color(0.6f, 0.75f, 0.8f), null, false);
+                foreach (var dx in new[] { -0.3f, 0.3f }) foreach (var dz in new[] { -0.9f, 0.9f }) b.Cyl(new Vector3(9.3f + dx, 0, -10.5f + dz), new Vector3(9.3f + dx, 0.75f, -10.5f + dz), 0.02f, 0.02f, 6, Maps.Metal, new Color(0.5f, 0.5f, 0.5f), false);
+                // med cabinet on the back wall
+                var cab = new GameObject("MedCabinet").transform; cab.SetParent(transform, false);
+                cab.localPosition = new Vector3(12.2f, 0, -12.8f); cab.localRotation = Quaternion.Euler(0, 180, 0);
+                var mb = new MB(2);
+                mb.Sub(0).Box(new Vector3(0, 1.35f, 0.06f), new Vector3(1.5f, 1.0f, 0.12f), new Color(0.9f, 0.9f, 0.88f), 0.01f);
+                mb.Sub(1).Box(new Vector3(0, 1.98f, 0.0f), new Vector3(0.2f, 0.06f, 0.01f), new Color(0.85f, 0.1f, 0.1f), 0f);
+                mb.Sub(1).Box(new Vector3(0, 1.98f, 0.0f), new Vector3(0.06f, 0.2f, 0.01f), new Color(0.85f, 0.1f, 0.1f), 0f);
+                mb.Build("Cabinet", cab, Mats.Lit("cabinet", Color.white, 0.4f, 0.5f, Mats.Metal, null, 0.2f, 0.2f), Mats.Unlit("redcross", Color.white));
+                _medCabinet = ItemContainer.Grid(cab, new Vector3(0, 1.35f, -0.02f), Quaternion.Euler(-90, 0, 0), 4, 3, new Vector2(0.34f, 0.3f), 0.26f, it => !(it is Gun) && !(it is Backpack) && !(it is ArmorItem));
+                UI.Text(cab, "MED CABINET - restocks after every raid", new Vector3(0, 0.75f, -0.02f), 0.035f, UI.Dim);
+                b.Sign(new Vector3(11.5f, 2.7f, -6.8f), Quaternion.Euler(0, 180, 0), "MED BAY", new Color(0.95f, 0.5f, 0.5f), 0.12f);
+            }
+            else SealedDoor.Create(b, transform, new Vector3(11.5f, 0, -7), 180, "MED BAY", 2);
+
+            // 3. GENERATOR ROOM (east of the Armory): makes money every raid
+            if (BunkerJobs.Built(prof, "generator"))
+            {
+                FloorCeiling(6, 13, 6, 13, floor, conc, Ht);
+                Walls(conc, tint, Ht, (new Vector3(8, 0, 6), new Vector3(13, 0, 6)), (new Vector3(13, 0, 13), new Vector3(6, 0, 13)), (new Vector3(13, 0, 6), new Vector3(13, 0, 13)));
+                Lamp(new Vector3(9.5f, 0, 9.5f), lampMat, new Color(1f, 0.85f, 0.6f), Ht);
+                var body = Mats.Lit("generator", new Color(0.55f, 0.48f, 0.12f), 0.5f, 0.45f, Mats.Metal, Mats.MetalN, 0.5f, 0.5f);
+                b.Box(new Vector3(10.2f, 0.15f, 9.0f), new Vector3(2.6f, 0.3f, 1.4f), Maps.Metal, new Color(0.25f, 0.25f, 0.25f), null, true, Synth.Surface.Metal); // skid
+                b.Box(new Vector3(9.6f, 0.95f, 9.0f), new Vector3(1.4f, 1.3f, 1.2f), body, Color.white, null, true, Synth.Surface.Metal, 0.03f);
+                b.Cyl(new Vector3(10.4f, 0.75f, 9.0f), new Vector3(11.3f, 0.75f, 9.0f), 0.45f, 0.45f, 18, body, new Color(0.8f, 0.8f, 0.8f), true, Synth.Surface.Metal);
+                b.Cyl(new Vector3(9.3f, 1.6f, 8.7f), new Vector3(9.3f, Ht, 8.7f), 0.08f, 0.08f, 10, Maps.Metal, new Color(0.3f, 0.3f, 0.3f), false); // exhaust
+                b.Box(new Vector3(9.6f, 1.25f, 8.39f), new Vector3(0.5f, 0.3f, 0.02f), Mats.Lit("gen_panel", new Color(0.1f, 0.1f, 0.1f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(0.2f, 1.2f, 0.3f)), Color.white, null, false);
+                for (int i = 0; i < 4; i++) b.Cyl(new Vector3(8.0f, 0.2f + i * 0.12f, 9.0f), new Vector3(6.3f, 0.2f + i * 0.12f, 9.0f + i * 0.1f), 0.025f, 0.025f, 6, Maps.Metal, new Color(0.12f, 0.12f, 0.12f), false); // cables
+                var l = b.AddLight(new Vector3(9.6f, 1.6f, 8.0f), new Color(0.4f, 1f, 0.5f), 3f, 0.6f);
+                l.gameObject.AddComponent<Flicker>();
+                GeneratorPanel.Create(transform, new Vector3(9.5f, 1.5f, 12.8f), 0);
+                b.Sign(new Vector3(5.8f, 2.7f, 11f), Quaternion.Euler(0, 90, 0), "GENERATOR", new Color(0.9f, 0.8f, 0.6f), 0.12f);
+            }
+            else SealedDoor.Create(b, transform, new Vector3(6, 0, 11), 90, "GENERATOR ROOM", 3);
+
+            // 4. TROPHY VAULT (north of the Armory): more armour stands and gun racks
+            if (BunkerJobs.Built(prof, "vault"))
+            {
+                FloorCeiling(-1, 6, 13, 20, floor, conc, Ht);
+                Walls(conc, tint, Ht, (new Vector3(6, 0, 20), new Vector3(-1, 0, 20)), (new Vector3(-1, 0, 20), new Vector3(-1, 0, 13)), (new Vector3(6, 0, 13), new Vector3(6, 0, 20)));
+                Lamp(new Vector3(2.5f, 0, 16.5f), lampMat, new Color(1f, 0.85f, 0.55f), Ht);
+                Stash.Add(StashSection.Create(transform, new Vector3(-0.6f, 0, 16.6f), -90, StashKind.Weapons));
+                Stash.Add(StashSection.Create(transform, new Vector3(3.0f, 0, 19.6f), 0, StashKind.Armor));
+                // trophy plinth with a gold light
+                b.Box(new Vector3(3.6f, 0.5f, 15.6f), new Vector3(0.7f, 1.0f, 0.7f), Mats.Lit("plinth", new Color(0.15f, 0.15f, 0.16f), 0.2f, 0.6f), Color.white, null, true, Synth.Surface.Metal, 0.02f);
+                b.Box(new Vector3(3.6f, 1.12f, 15.6f), new Vector3(0.22f, 0.22f, 0.22f), Mats.Gold, Color.white, Quaternion.Euler(0, 30, 0), false);
+                b.AddLight(new Vector3(3.6f, 2.6f, 15.6f), new Color(1f, 0.8f, 0.4f), 4f, 1.6f);
+                b.Sign(new Vector3(4.5f, 2.7f, 12.8f), Quaternion.identity, "TROPHY VAULT", new Color(1f, 0.8f, 0.35f), 0.12f);
+            }
+            else SealedDoor.Create(b, transform, new Vector3(4.5f, 0, 13), 0, "TROPHY VAULT", 4);
+        }
+
+        void RestockMedBay()
+        {
+            var prof = Profile.Current;
+            if (_medCabinet == null || prof == null || !Application.isPlaying) return;
+            if (prof.raids <= prof.medRestockRaid) return;
+            prof.medRestockRaid = prof.raids;
+            var rng = new Rng(prof.raids * 977 + 5);
+            var ids = new List<string> { "ifak", "painkillers", "bandage" };
+            if (rng.Chance(0.35f)) ids.Add("trauma_kit");
+            if (rng.Chance(0.25f)) ids.Add("stim");
+            int n = 0;
+            foreach (var id in ids)
+            {
+                var it = ItemFactory.Spawn(id, _medCabinet.transform.position, _medCabinet.transform.rotation);
+                if (it == null) continue;
+                if (_medCabinet.Add(it)) n++; else Destroy(it.gameObject);
+            }
+            if (n > 0 && RagoGame.I != null && RagoGame.I.Player != null) RagoGame.I.Player.Toast("Med Bay restocked: +" + n + " meds");
         }
 
         public override void Build()
@@ -73,9 +196,10 @@ namespace Rago
             float ax = 6f, az0 = D / 2, az1 = D / 2 + 7f;
             b.Box(new Vector3(0, -0.1f, (az0 + az1) / 2), new Vector3(ax * 2, 0.2f, az1 - az0), floor, Color.white);
             b.Box(new Vector3(0, Ht + 0.1f, (az0 + az1) / 2), new Vector3(ax * 2, 0.2f, az1 - az0), conc, new Color(0.5f, 0.5f, 0.5f));
-            b.Wall(new Vector3(-ax, 0, az0), new Vector3(-ax, 0, az1), Ht, 0.3f, conc, wallTint);
-            b.Wall(new Vector3(-ax, 0, az1), new Vector3(ax, 0, az1), Ht, 0.3f, conc, wallTint);
-            b.Wall(new Vector3(ax, 0, az1), new Vector3(ax, 0, az0), Ht, 0.3f, conc, wallTint);
+            // doorways to the expansion rooms (sealed until the Foreman builds them)
+            b.Wall(new Vector3(-ax, 0, az0), new Vector3(-ax, 0, az1), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(1.5f, 2.0f, 0, 2.4f) });   // Storage Room
+            b.Wall(new Vector3(-ax, 0, az1), new Vector3(ax, 0, az1), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(ax + 4.5f, 2.0f, 0, 2.4f) }); // Trophy Vault
+            b.Wall(new Vector3(ax, 0, az1), new Vector3(ax, 0, az0), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(2f, 2.0f, 0, 2.4f) });      // Generator Room
             b.Box(new Vector3(0, 0.6f, az1 - 0.16f), new Vector3(ax * 2, 1.2f, 0.02f), paint, Color.white, null, false);
             b.Box(new Vector3(0, Ht - 0.08f, (az0 + az1) / 2), new Vector3(1.2f, 0.08f, 0.25f), lampMat, Color.white, null, false);
             b.AddLight(new Vector3(0, Ht - 0.4f, (az0 + az1) / 2), new Color(1f, 0.88f, 0.7f), 9f, 1.4f, true);
@@ -93,7 +217,7 @@ namespace Rago
             b.Box(new Vector3((rx0 + rx1) / 2, Ht + 0.1f, rzc), new Vector3(rx1 - rx0, 0.2f, rz1 - rz0), conc, new Color(0.5f, 0.5f, 0.5f));
             b.Wall(new Vector3(rx0, 0, rz1), new Vector3(rx1, 0, rz1), Ht, 0.3f, conc, wallTint);
             b.Wall(new Vector3(rx1, 0, rz1), new Vector3(rx1, 0, rz0), Ht, 0.3f, conc, wallTint);
-            b.Wall(new Vector3(rx1, 0, rz0), new Vector3(rx0, 0, rz0), Ht, 0.3f, conc, wallTint);
+            b.Wall(new Vector3(rx1, 0, rz0), new Vector3(rx0, 0, rz0), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(3.5f, 2.0f, 0, 2.4f) });  // Med Bay
             b.Wall(new Vector3(rx0, 0, rz0), new Vector3(rx0, 0, -D / 2), Ht, 0.3f, conc, wallTint);
             b.Box(new Vector3(rx1 - 0.16f, 0.6f, rzc), new Vector3(0.02f, 1.2f, rz1 - rz0), paint, Color.white, null, false);
             b.Box(new Vector3((rx0 + rx1) / 2, Ht - 0.08f, rzc), new Vector3(0.25f, 0.08f, 1.2f), lampMat, Color.white, null, false);
@@ -105,7 +229,9 @@ namespace Rago
 
             // ---- main hall: gear stash on the north wall, kiosk on the east side
             Stash.Add(StashSection.Create(transform, new Vector3(-4.6f, 0, D / 2 - 0.25f), 0, StashKind.Gear));
+            BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
             LoadStash();
+            RestockMedBay();
             Kiosk.Create(transform, new Vector3(W / 2 - 0.9f, 0, 4.2f), Quaternion.Euler(0, 90, 0));
             // workbench + props
             b.Crate(new Vector3(3.6f, 0, D / 2 - 0.7f), 10, new Vector3(1.0f, 0.6f, 0.6f));
@@ -144,6 +270,7 @@ namespace Rago
     public class MarketMap : MapBase
     {
         public readonly List<TraderStall> Stalls = new List<TraderStall>();
+        public QuestStall Foreman;
 
         public override void Build()
         {
@@ -193,6 +320,9 @@ namespace Rago
             var spots = new[] { (new Vector3(-18, 0, 12), 0f), (new Vector3(-6, 0, 14), 0f), (new Vector3(8, 0, 14), 0f), (new Vector3(20, 0, 12), 0f) };
             for (int i = 0; i < defs.Count && i < spots.Length; i++)
                 Stalls.Add(TraderStall.Create(transform, spots[i].Item1, spots[i].Item2, defs[i], 100 + i * 17));
+            // Bruno the Foreman: bunker expansion jobs
+            Foreman = QuestStall.Create(transform, new Vector3(15, 0, 4), 0, 211);
+            b.AddLight(new Vector3(15, 3.6f, 3.4f), new Color(1f, 0.8f, 0.55f), 7f, 1.2f);
             // central kiosk
             Kiosk.Create(transform, new Vector3(0, 0, -2), Quaternion.identity);
             Kiosk.Create(transform, new Vector3(-16, 0, -6), Quaternion.Euler(0, -80, 0));

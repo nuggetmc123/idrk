@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Rago
 {
-    public enum Outfit { Operator, Raider, RaiderHeavy, Gunsmith, Medic, Fence, Quartermaster, Kiosk }
+    public enum Outfit { Operator, Raider, RaiderHeavy, Gunsmith, Medic, Fence, Quartermaster, Kiosk, Foreman }
 
     /// <summary>
     /// A procedurally built humanoid made of rigid segments on a bone hierarchy. Used for the player's own
@@ -118,6 +118,10 @@ namespace Rago
                     break;
                 case Outfit.Fence:
                     p.top = new Color(0.1f, 0.1f, 0.12f); p.top2 = new Color(0.55f, 0.1f, 0.12f); p.pants = new Color(0.1f, 0.1f, 0.12f); p.gear = new Color(0.8f, 0.65f, 0.25f); p.suit = true; p.accent = new Color(0.8f, 0.65f, 0.25f);
+                    break;
+                case Outfit.Foreman:
+                    // work shirt + hi-vis vest (apron panels) + orange cap
+                    p.top = new Color(0.22f, 0.28f, 0.4f); p.top2 = p.top * 0.85f; p.pants = new Color(0.3f, 0.27f, 0.22f); p.gear = new Color(1f, 0.5f, 0.06f); p.apron = true; p.cap = true; p.accent = new Color(0.9f, 0.9f, 0.3f);
                     break;
                 case Outfit.Quartermaster:
                     p.top = new Color(0.3f, 0.33f, 0.24f); p.top2 = p.top * 0.85f; p.pants = new Color(0.28f, 0.3f, 0.22f); p.gear = new Color(0.25f, 0.2f, 0.15f); p.beanie = true; p.plate = false; p.accent = new Color(0.9f, 0.5f, 0.1f);

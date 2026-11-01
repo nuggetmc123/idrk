@@ -480,15 +480,25 @@ namespace Rago
         // ------------------------------------------------------------------------------- contents
         IEnumerable<Slot> AllSlots() { foreach (var g in _groups) foreach (var s in g.slots) yield return s; }
 
-        public void Place(ItemData d)
+        public void Place(ItemData d) => Place(d, true);
+
+        /// <summary>Puts an item on this section. If it's full: hidden on the next page (allowOverflow) or false.</summary>
+        public bool Place(ItemData d, bool allowOverflow)
         {
             var it = ItemFactory.Spawn(d, transform.position + Vector3.up, transform.rotation);
-            if (it == null) return;
+            if (it == null) return true;
             it.transform.SetParent(null, true);
             Slot target = null;
             foreach (var g in _groups) { target = g.FirstFree(it); if (target != null) break; }
-            if (target == null) { _overflow.Add(d); Compat.Kill(it.gameObject); return; }
+            if (target == null)
+            {
+                Compat.Kill(it.gameObject);
+                if (!allowOverflow) return false;
+                _overflow.Add(d);
+                return true;
+            }
             target.Store(it, false);
+            return true;
         }
 
         void NextPage()

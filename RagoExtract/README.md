@@ -79,6 +79,16 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   - **Jackpot** ($9,000-$45,000): cold wallet and gold idol, plus the vault-only gold bar, blue diamond and Crown Jewel.
 
   Pick something up and its name, rarity and value pop up.
+- **Bruno the Foreman** (Market, right of the raid kiosk) gives you **bunker expansion jobs**. Each job needs certain items plus a cash fee. Put the items on his TURN IN tray and press TURN IN ITEMS. When everything is in, press PAY & BUILD. The new room opens in your bunker; until then its doorway is a sealed, hazard-striped door.
+
+  | # | Job | Bring | Fee | Unlocks |
+  |---|---|---|---|---|
+  | 1 | Clear the Storage Room | 5 Scrap Metal, 3 Tin Cans, 2 Battery Packs | $4,000 | **Storage Room** (off the Armory, west): extra gun rack + extra gear wall |
+  | 2 | Build a Med Bay | 3 Bandages, 1 IFAK, 2 Whiskey Bottles | $10,000 | **Med Bay** (off the Armor Room, south): a med cabinet that restocks meds after every raid |
+  | 3 | Wire up a Generator | 4 Battery Packs, 2 Military Radios, 1 Graphics Card | $22,000 | **Generator Room** (off the Armory, east): earns $1,500 every raid (holds up to $15,000); press COLLECT |
+  | 4 | Dig a Trophy Vault | 1 Rugged Laptop, 2 Luxury Watches, 1 Gold Idol | $50,000 | **Trophy Vault** (off the Armory, north): more armor stands, gun racks and a trophy plinth |
+
+  Turned-in items are saved, so you can bring them over several raids.
 - **Kiosk**: pick a map and queue. Each raid holds 4-10 players. The queue tries to reach 8, starts right away at 10, and once the queue timer hits **1 minute** it launches with whoever is queued.
 - **Raids**: three maps.
   - **Dockyard**: container yard, cranes, warehouses, Harbor Office vault.

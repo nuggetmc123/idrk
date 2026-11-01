@@ -21,7 +21,12 @@ namespace Rago
         public float snapAngle = 45f;
         public float volume = 1f;
         public int version = 1;
-        public bool freeArmor;   // set when you die: a basic helmet + vest wait in the Armor Room if you own none
+        public bool freeArmor;
+        // bunker expansions (Foreman jobs in the Market)
+        public int bunkerLevel;                              // how many expansions are built
+        public List<int> jobProgress = new List<int>();      // items turned in for the current job, per requirement
+        public int genCash;                                  // generator earnings waiting to be collected
+        public int medRestockRaid;                           // raid count when the Med Bay was last restocked   // set when you die: a basic helmet + vest wait in the Armor Room if you own none
 
         static string PathFile => Path.Combine(Application.persistentDataPath, "rago_profile.json");
 
@@ -47,6 +52,7 @@ namespace Rago
             if (stashAmmo == null || stashAmmo.Length != n) { var a = new int[n]; if (stashAmmo != null) System.Array.Copy(stashAmmo, a, Mathf.Min(n, stashAmmo.Length)); stashAmmo = a; }
             if (stash == null) stash = new List<ItemData>();
             if (loadout == null) loadout = new Loadout();
+            if (jobProgress == null) jobProgress = new List<int>();
             if (loadout.pack == null) loadout.pack = new List<ItemData>();
             stash.RemoveAll(d => d == null || Db.Get(d.id) == null);
             loadout.pack.RemoveAll(d => d == null || Db.Get(d.id) == null);

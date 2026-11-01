@@ -143,7 +143,7 @@ namespace Rago
             var market = Map as MarketMap;
             var loose = new List<ItemData>();
             if (bunker != null) prof.stash = bunker.SaveStash();
-            if (market != null) foreach (var s in market.Stalls) s.SweepToStash(loose);
+            if (market != null) { foreach (var s in market.Stalls) s.SweepToStash(loose); if (market.Foreman != null) market.Foreman.SweepToStash(loose); }
             // anything lying around the hub goes back to the stash
             if (MapRoot != null)
                 foreach (var it in new List<Item>(Item.All))
@@ -240,6 +240,7 @@ namespace Rago
             Done = true;
             var prof = Profile.Current;
             prof.extracts++;
+            BunkerJobs.RaidFinished(prof);
             var gear = _g.Player.Gear;
             prof.loadout = gear.SaveLoadout();
             // ammo you carried comes back to the stash
@@ -258,6 +259,7 @@ namespace Rago
             Done = true;
             var prof = Profile.Current;
             prof.deaths++;
+            BunkerJobs.RaidFinished(prof);
             var gear = _g.Player.Gear;
             var carried = gear.AllCarried();
             // drop everything you carried as lootable items around your body
