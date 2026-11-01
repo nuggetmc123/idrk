@@ -92,12 +92,6 @@ namespace Rago
 
         void Update()
         {
-            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
-            if (_queued && !_joining && pl != null)
-            {
-                int t = Mathf.FloorToInt(Time.time - _queueStart);
-                pl.Hud.Queue("FINDING RAID  " + (t / 60) + ":" + (t % 60).ToString("00"));
-            }
             float on = _queued && Mathf.Repeat(Time.time, 0.8f) < 0.4f ? 1f : 0f;
             if (_beacon != null) _beacon.SetColor("_EmissionColor", new Color(3f, 1.4f, 0.2f) * on);
             if (_beaconLight != null) _beaconLight.intensity = on * 1.5f;
@@ -124,6 +118,7 @@ namespace Rago
             if (_queued) { Cancel(); return; }
             if (AnyQueued) return;
             _queued = true; AnyQueued = true; _joining = false; _queueStart = Time.time;
+            HudQueue("FINDING RAID", true);
             _queueBtn.SetText("CANCEL"); _queueBtn.SetColor(new Color(0.6f, 0.14f, 0.1f));
             Sfx.UI(Synth.Beep(), 0.5f);
             // save the loadout before matchmaking so a crash can't eat gear
@@ -171,13 +166,13 @@ namespace Rago
         {
             HudQueue("RAID FOUND");
             yield return new WaitForSeconds(1.5f);
-            HudQueue("JOINING RAID");
+            HudQueue("JOINING RAID", true);   // keeps counting through the loading screen until you're in
             yield return new WaitForSeconds(0.5f);
             _queued = false; AnyQueued = false; _joining = false;
             RagoGame.I.StartRaid(rs);
         }
 
-        static void HudQueue(string s) { var pl = RagoGame.I != null ? RagoGame.I.Player : null; if (pl != null && pl.Hud != null) pl.Hud.Queue(s); }
+        static void HudQueue(string s, bool timer = false) { var pl = RagoGame.I != null ? RagoGame.I.Player : null; if (pl != null && pl.Hud != null) pl.Hud.Queue(s, timer); }
 
         IEnumerator OfflineQueue()
         {

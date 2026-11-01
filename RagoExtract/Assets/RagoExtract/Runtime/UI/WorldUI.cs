@@ -327,7 +327,8 @@ namespace Rago
         public void Toast(string s) { _toast.text = s; _toastT = 2.5f; }
         public void Center(string s, float time = 3f) { _center.text = s; _centerT = time; }
         /// <summary>Top-left matchmaking line (FINDING RAID 0:12 / RAID FOUND / JOINING RAID); empty hides it.</summary>
-        public void Queue(string s) { if (_queue != null) _queue.text = s ?? ""; }
+        public void Queue(string s, bool timer = false) { _queueLabel = s ?? ""; _queueTimer = timer && _queueLabel.Length > 0; _queueStart = Time.unscaledTime; if (_queue != null) _queue.text = _queueTimer ? _queueLabel + "  0:00" : _queueLabel; }
+        string _queueLabel = ""; bool _queueTimer; float _queueStart;
         public void Objective(string s) { if (_objective != null) _objective.text = s ?? ""; }
 
         public void Tick(float dt)
@@ -345,6 +346,7 @@ namespace Rago
             _suppM.SetColor("_Color", new Color(0, 0, 0, _sup * 0.75f));
             _supp.enabled = _sup > 0.01f;
             _toastT -= dt; if (_toastT <= 0) _toast.text = "";
+            if (_queueTimer && _queue != null) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); _queue.text = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
             _centerT -= dt; if (_centerT <= 0) _center.text = "";
             _crosshair.SetActive(!XRInputs.VR && !Desktop.Aiming && v.Alive);
             // wrist

@@ -94,7 +94,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   | 4 | Dig a Trophy Vault | 1 Rugged Laptop, 2 Luxury Watches, 1 Gold Idol | $50,000 | **Trophy Vault** (off the Armory, north): more armor stands, gun racks and a trophy plinth |
 
   Turned-in items are saved, so you can bring them over several raids.
-- **Raid terminal** (in your bunker, east wall; there are no raid terminals in the Market): pick a map on the green screen and press the big **QUEUE** key. Each raid holds 4-10 players. The queue tries to reach 8, starts right away at 10, and once the queue timer hits **1 minute** it launches with whoever is queued. While you're queued, the top-left of your view shows **FINDING RAID** with a timer, then **RAID FOUND** and **JOINING RAID** when a match is ready.
+- **Raid terminal** (in your bunker, east wall; there are no raid terminals in the Market): pick a map on the green screen and press the big **QUEUE** key. Each raid holds 4-10 players. The queue tries to reach 8, starts right away at 10, and once the queue timer hits **1 minute** it launches with whoever is queued. While you're queued, the top-left of your view shows **FINDING RAID** with a timer, then **RAID FOUND** and **JOINING RAID** (with its own timer, which runs until you are in the raid) when a match is ready.
 - **Raids**: three maps.
   - **Dockyard**: container yard, cranes, warehouses, Harbor Office vault, and the **Workers' Village** through the west gate.
   - **Pinewood Outpost**: forest, military outpost, bunker vault, and the **North Hamlet** of wooden houses past the forest.
