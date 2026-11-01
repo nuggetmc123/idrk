@@ -21,7 +21,9 @@ namespace Rago.EditorTools
         public static bool FusionInstalled => FindType("Fusion.NetworkRunner") != null;
         public static bool ModuleCompiled => Type.GetType("Rago.Net.FusionBackend, RagoExtract.Fusion") != null;
         public static string AppId => File.Exists(AppIdPath) ? File.ReadAllText(AppIdPath).Trim() : "";
-        public static bool IsOn => FusionInstalled && !string.IsNullOrEmpty(AppId) && RagoSetup.HasDefine(Define) && !RagoSetup.HasDefine("RAGO_DISABLE_NET");
+        public static bool IsOn => FusionInstalled && !string.IsNullOrEmpty(AppId) && DefineEverywhere && !RagoSetup.HasDefine("RAGO_DISABLE_NET") && ModuleCompiled;
+        /// <summary>The on-switch is set for both Quest (Android) and PC builds.</summary>
+        public static bool DefineEverywhere => RagoSetup.HasDefineIn(BuildTargetGroup.Android, Define) && RagoSetup.HasDefineIn(BuildTargetGroup.Standalone, Define);
 
         static Type FindType(string full)
         {
@@ -150,6 +152,14 @@ namespace Rago.EditorTools
 
         void OnEnable() { if (_appId == null) _appId = RagoMultiplayer.AppId; }
 
+        static string Tail(string s) => s.Length <= 4 ? s : s.Substring(s.Length - 4);
+
+        static void Check(string label, bool ok)
+        {
+            var st = new GUIStyle(EditorStyles.label) { richText = true, wordWrap = true };
+            GUILayout.Label((ok ? "<color=#3fbf5a><b>[done]</b></color>  " : "<color=#d9822b><b>[ todo ]</b></color>  ") + label, st);
+        }
+
         void Update()
         {
             if (EditorApplication.timeSinceStartup > _nextRefresh) { _nextRefresh = EditorApplication.timeSinceStartup + 1.0; Repaint(); }
@@ -165,8 +175,16 @@ namespace Rago.EditorTools
 
             GUILayout.Space(6);
             GUILayout.Label(on ? "Multiplayer is ON" : "Multiplayer is OFF", title);
-            GUILayout.Label(on ? "Photon Fusion 2 is installed. The Market, raid matchmaking (4-10 players) and voice chat are on."
+            GUILayout.Label(on ? "Everything is set up. Press Play: the raid terminal in your bunker should say ONLINE. The Market, raid matchmaking (4-10 players) and voice chat are on."
                                : "Do the 3 steps below, then press Finish. Until then the game plays offline (solo raids with AI).", wrap);
+            // checklist: exactly what is and isn't done
+            GUILayout.Space(4);
+            bool disabled = RagoSetup.HasDefine("RAGO_DISABLE_NET");
+            Check("Photon Fusion 2 SDK imported", fusion);
+            Check("App ID saved" + (string.IsNullOrEmpty(RagoMultiplayer.AppId) ? "" : "  (..." + Tail(RagoMultiplayer.AppId) + ")"), !string.IsNullOrEmpty(RagoMultiplayer.AppId));
+            Check("Multiplayer switched on for Quest + PC (press Finish)", RagoMultiplayer.DefineEverywhere);
+            Check(disabled ? "Multiplayer code: switched off after a compile error (press Finish to retry)" : "Multiplayer code compiled", !disabled && RagoMultiplayer.ModuleCompiled);
+            if (EditorApplication.isCompiling) EditorGUILayout.HelpBox("Unity is compiling... the checklist updates when it's done.", MessageType.Info);
             GUILayout.Space(10);
 
             GUILayout.Label("1. Get your free Photon App ID", head);

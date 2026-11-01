@@ -425,6 +425,8 @@ namespace Rago.EditorTools
 
         static readonly BuildTargetGroup[] Groups = { BuildTargetGroup.Android, BuildTargetGroup.Standalone };
 
+        public static bool HasDefineIn(BuildTargetGroup g, string d) => GetDefines(g).Contains(d);
+
         public static bool HasDefine(string d) => GetDefines(BuildTargetGroup.Android).Contains(d) || GetDefines(BuildTargetGroup.Standalone).Contains(d);
 
         public static void AddDefine(string d)

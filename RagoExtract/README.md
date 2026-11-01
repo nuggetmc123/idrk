@@ -30,6 +30,8 @@ Three buttons:
 3. Press **Import Photon Fusion 2**. If the SDK is already in your Downloads it's imported straight away; otherwise the Photon download page opens and the SDK is imported automatically as soon as the download finishes (or use **Pick .unitypackage...**).
 4. Press **Finish setup now**. Multiplayer turns on after one recompile.
 
+The Multiplayer window shows a checklist ([done] / [ todo ]) of each step, so you can see exactly what's left. In the game, the raid terminal in your bunker says ONLINE when it worked, or tells you exactly what's missing.
+
 Online play runs on Photon's cloud in Shared mode: everyone meets in the Market, raids are matched per map (4-10 players, aims for 8, launches at 1:00), and the session's master client runs the raiders (it hands over automatically if they leave). Voice chat is built in: your microphone is streamed over the same connection and others hear you from your position in 3D. Without an App ID the game runs offline (solo raids with AI).
 
 ## How the game works
@@ -105,7 +107,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   The village, hamlet and suburbs are streets of houses you can walk into and search room by room (stairs, furniture, loot crates inside), and each has its own extract.
 
   Each raid lasts 40 minutes. To leave, reach an extract (green smoke), step into the zone and use the **laptop** on the supply crate (grab it, click its CALL key, or press F on desktop). A **10-second** countdown runs on the laptop and your HUD. Stay in the zone until it hits zero; leaving the zone cancels the call. If you die, you lose what you brought and your body drops it for others to loot.
-- **Raiders**: squad NPCs that patrol, hear gunshots and footsteps, notice you over time, take cover, peek, fire bursts with human-like aim, flinch when hit, ragdoll on death and drop their gun and loot.
+- **Raiders**: up to 16 per raid, spread over the whole map in small squads. They patrol, notice you over time when they can see you, take cover, peek, fire bursts with human-like aim, flinch when hit, ragdoll on death and drop their gun and loot. A gunshot only brings raiders over if they're close (about 30 m); farther away they just stop and look toward the sound, and only come for you if they spot you. A vault alarm pulls in everyone nearby.
 - **Guns**: 50 original guns (pistols, revolvers, SMGs, shotguns, rifles, DMRs, snipers, LMGs) in 5 rarity tiers.
   - Common ones turn up everywhere and Rare/Epic ones are hard to find.
   - 7 **Vault** guns spawn only inside vaults. Open a vault with a Vault Keycard, or grab the hack panel and hold on for 30 seconds while the alarm draws every Raider nearby.

@@ -165,6 +165,30 @@ namespace Rago
             UpdateFingers(input);
         }
 
+        const float SnapDist = 0.07f;
+        bool _snapOk = true;
+
+        /// <summary>
+        /// Called right before the frame is drawn (VR): put the hand - and whatever it holds - exactly on the controller,
+        /// so it never trails behind. If a wall is holding the physics hand back, the hand stays against the wall.
+        /// </summary>
+        public void RenderSnap(Vector3 tp, Quaternion tr)
+        {
+            if (rig.Dead || rb == null || !_snapOk) return;
+            tr = Compat.SafeRot(tr);
+            tp += _sag + tr * _recoilPos * 0.04f;
+            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot * 0.05f));
+            if ((rb.position - tp).sqrMagnitude > SnapDist * SnapDist) return;
+            transform.SetPositionAndRotation(tp, tr);
+            var held = Held != null && !HeldAsSecondary ? Held : null;
+            if (held != null && held.Held && held.primaryHand == this && held.rb != null)
+            {
+                held.GetHeldPose(out var p, out var r);
+                if (!float.IsNaN(p.x)) held.transform.SetPositionAndRotation(p, Compat.SafeRot(r));
+            }
+            UpdateVisualPose();
+        }
+
         void FixedUpdate()
         {
             if (rig == null) return;
@@ -179,6 +203,7 @@ namespace Rago
             tp += _sag;
             tp += tr * _recoilPos * 0.04f;
             tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot * 0.05f));
+            _snapOk = (rb.position - tp).sqrMagnitude < SnapDist * SnapDist;
 
             if (!XRInputs.VR || rig.Dead)
             {
@@ -214,7 +239,25 @@ namespace Rago
             }
         }
 
-        void LateUpdate()
+        void LateUpdate() { UpdateVisualPose(); }
+
+        /// <summary>
+        /// Empty hand: wrap it around the controller's grip the way you actually hold it - palm facing in, knuckles out,
+        /// fingers along the handle - instead of a flat hand floating over it. In VR the controller's grip pose
+        /// sits in the middle of the handle, so the palm is pushed out by half a handle's width.
+        /// </summary>
+        void RestPose()
+        {
+            if (XRInputs.VR)
+            {
+                float s = left ? -1 : 1;
+                _visual.localRotation = Quaternion.Euler(0, 0, s * -90f);
+                _visual.localPosition = new Vector3(s * 0.028f, -0.005f, -0.015f);
+            }
+            else { _visual.localPosition = Vector3.zero; _visual.localRotation = Quaternion.identity; }
+        }
+
+        void UpdateVisualPose()
         {
             // snap the hand visual onto the grip when holding something
             if (Held != null && Held.Held)
@@ -229,14 +272,14 @@ namespace Rago
                     _visual.position = Held.secondGrip.position;
                     _visual.rotation = Quaternion.LookRotation(Held.transform.forward, Held.transform.up) * Quaternion.Euler(0, 0, left ? 70 : -70);
                 }
-                else { _visual.localPosition = Vector3.zero; _visual.localRotation = Quaternion.identity; }
+                else RestPose();
             }
             else if (Racking != null && Racking.rig.slide != null)
             {
                 _visual.position = Racking.rig.slide.position;
                 _visual.rotation = Racking.transform.rotation * Quaternion.Euler(0, 0, left ? 90 : -90);
             }
-            else { _visual.localPosition = Vector3.zero; _visual.localRotation = Quaternion.identity; }
+            else RestPose();
         }
 
         // ---------------------------------------------------------------------------------- grabbing

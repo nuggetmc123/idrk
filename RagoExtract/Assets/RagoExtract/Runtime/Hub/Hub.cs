@@ -107,7 +107,7 @@ namespace Rago
                 _mapBtns[i].SetText((sel ? "> " : "  ") + Maps.Name(Maps.RaidIds[i]).ToUpper());
             }
             _mapInfo.text = UI.Wrap(Maps.Blurb(id).ToUpper(), 20);
-            _status.text = "> " + (NetHub.Online ? "ONLINE - " + NetHub.Backend.Status.ToUpper() : "OFFLINE - SOLO RAID WITH AI\n  (RAGO EXTRACT > MULTIPLAYER TURNS ONLINE ON)");
+            _status.text = "> " + UI.Wrap(NetHub.StatusText.ToUpper(), 44).Replace("\n", "\n  ");
         }
 
         void ToggleQueue()

@@ -67,6 +67,21 @@ namespace Rago
             }
         }
 
+        /// <summary>Re-read just the head and hand poses (no buttons) right before rendering, for the lowest latency.</summary>
+        public static void RefreshPoses()
+        {
+            if (!VR) return;
+            var l = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand); var r = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+            if (l.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 lp)) Left.Position = lp;
+            if (l.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion lr)) Left.Rotation = lr;
+            if (r.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 rp)) Right.Position = rp;
+            if (r.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion rr)) Right.Rotation = rr;
+            var head = InputDevices.GetDeviceAtXRNode(XRNode.CenterEye);
+            if (!head.isValid) head = InputDevices.GetDeviceAtXRNode(XRNode.Head);
+            if (head.TryGetFeatureValue(CommonUsages.centerEyePosition, out Vector3 hp) || head.TryGetFeatureValue(CommonUsages.devicePosition, out hp)) HeadPos = hp;
+            if (head.TryGetFeatureValue(CommonUsages.centerEyeRotation, out Quaternion hr) || head.TryGetFeatureValue(CommonUsages.deviceRotation, out hr)) HeadRot = hr;
+        }
+
         static void ReadHand(XRNode node, ref HandInput h, ref bool pg, ref bool pt, ref bool pp, ref bool ps, ref bool pc, ref bool pm)
         {
             var d = InputDevices.GetDeviceAtXRNode(node);

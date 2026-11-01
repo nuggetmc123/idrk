@@ -47,17 +47,47 @@ namespace Rago
             catch (System.Exception e) { Debug.LogError("[Rago Extract] startup failed - please send this error:\n" + e); }
         }
 
+        /// <summary>
+        /// In VR the headset paces the frames: don't force a frame rate (a mismatch with the display = judder), and run
+        /// physics at the display's refresh rate so hands and held guns move in step with every rendered frame.
+        /// Quest (Android) also gets lighter shadows so it holds its frame rate on the big maps.
+        /// </summary>
+        void ConfigureFramePacing()
+        {
+            if (!XRInputs.VR) return;
+            Application.targetFrameRate = -1;
+            QualitySettings.vSyncCount = 0;
+            float hz = 72f;
+            try
+            {
+                var subs = new List<UnityEngine.XR.XRDisplaySubsystem>();
+                SubsystemManager.GetSubsystems(subs);
+                foreach (var d in subs) if (d.running && d.TryGetDisplayRefreshRate(out float r) && r > 1f) { hz = r; break; }
+            }
+            catch { }
+            Time.fixedDeltaTime = 1f / Mathf.Clamp(hz, 60f, 120f);
+            if (Application.platform == RuntimePlatform.Android)
+            {
+                QualitySettings.shadows = ShadowQuality.HardOnly;
+                QualitySettings.shadowResolution = ShadowResolution.Low;
+                QualitySettings.shadowDistance = 25f;
+                QualitySettings.pixelLightCount = 1;
+            }
+            Debug.Log("[Rago Extract] VR at " + hz + " Hz");
+        }
+
         void Boot2()
         {
             DisableSceneCameras();
             Application.targetFrameRate = 90;
             QualitySettings.vSyncCount = 0;
+            ConfigureFramePacing();
             QualitySettings.shadowDistance = 35f;
             QualitySettings.shadowCascades = 1;
             QualitySettings.pixelLightCount = 3;
             QualitySettings.antiAliasing = 4;
             QualitySettings.lodBias = 1.5f;
-            Time.fixedDeltaTime = 1f / 72f;
+            if (!XRInputs.VR) Time.fixedDeltaTime = 1f / 72f;
             Physics.defaultSolverIterations = 10;
             Physics.defaultSolverVelocityIterations = 4;
             Layers.Init();
@@ -110,6 +140,7 @@ namespace Rago
         {
             _travelling = true;
             RemoveEditorPreview();
+            ConfigureFramePacing();   // the headset may have come up after boot
             Player.Hud.FadeTo(1f);
             Player.Frozen = true;
             float t = 0;

@@ -28,6 +28,7 @@ namespace Rago
         public bool Alive => Health > 0;
         public int ActorId => 1000 + Id;
         public System.Action<Npc> OnDied;
+        const float HearClose = 28f;   // gunshots closer than this make raiders come and check; farther ones only make them look
         public ArmorDef Helmet, Vest;
 
         Vector3 _home;
@@ -145,10 +146,21 @@ namespace Rago
                 if (Time.time - e.time > 0.6f) break;
                 if (e.source >= 1000) continue;
                 float d = Vector3.Distance(e.pos, transform.position);
-                if (d < e.radius)
+                if (d >= e.radius) continue;
+                // only a close noise (or an alarm) brings them over; a distant gunshot just makes them stop and look that way.
+                // They only come for you if they're really close or they actually see you (vision above).
+                bool close = e.alarm || d < Mathf.Min(e.radius, HearClose);
+                bool calm = State == NpcState.Patrol || State == NpcState.Idle || State == NpcState.Search;
+                if (close)
                 {
-                    _awareness = Mathf.Max(_awareness, d < e.radius * 0.4f ? 0.9f : 0.5f);
-                    if (State == NpcState.Patrol || State == NpcState.Idle || State == NpcState.Search) { State = NpcState.Investigate; _lastKnown = e.pos; _searchT = 12f; }
+                    _awareness = Mathf.Max(_awareness, d < e.radius * 0.4f ? 0.9f : 0.6f);
+                    if (calm) { State = NpcState.Investigate; _lastKnown = e.pos; _searchT = 12f; }
+                }
+                else if (calm)
+                {
+                    _awareness = Mathf.Max(_awareness, 0.3f);
+                    Vector3 to = e.pos - transform.position; to.y = 0;
+                    if (to.sqrMagnitude > 1f) Yaw = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg;   // turn to look; they still have to spot you
                 }
             }
         }

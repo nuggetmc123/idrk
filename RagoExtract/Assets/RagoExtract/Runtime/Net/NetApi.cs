@@ -91,5 +91,21 @@ namespace Rago
         public static INetBackend Backend;
         public static IVoiceBackend Voice;
         public static bool Online => Backend != null && Backend.Ready;
+
+        /// <summary>Plain-language multiplayer status for the raid terminal / settings, saying exactly what's missing.</summary>
+        public static string StatusText
+        {
+            get
+            {
+                if (Backend != null) return Backend.Ready ? "ONLINE - PHOTON FUSION (" + (Backend.Status ?? "") + ")" : "NOT ONLINE: " + (Backend.Status ?? "connecting...");
+#if RAGO_DISABLE_NET
+                return "MULTIPLAYER SWITCHED OFF: THE FUSION MODULE HAD A COMPILE ERROR.\nOPEN RAGO EXTRACT > MULTIPLAYER AND PRESS FINISH.";
+#elif RAGO_FUSION
+                return "MULTIPLAYER IS ON BUT DIDN'T START.\nCHECK THE UNITY CONSOLE FOR [RAGO] ERRORS.";
+#else
+                return "MULTIPLAYER NOT SET UP - SOLO RAIDS WITH AI.\nIN UNITY: RAGO EXTRACT > MULTIPLAYER (3 STEPS).";
+#endif
+            }
+        }
     }
 }

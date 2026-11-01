@@ -30,6 +30,7 @@ namespace Rago
         Vector3 _lastHead;
         float _crouchOffset;
         public bool Frozen;
+        float _smoothY;
 
         public static PlayerRig Create()
         {
@@ -78,8 +79,15 @@ namespace Rago
 
         void OnBeforeRender()
         {
-            // late head update for lowest latency
-            if (XRInputs.VR && !Dead) ApplyHead();
+            if (!XRInputs.VR || Dead) return;
+            // latest poses right before the frame is drawn: head, then hands (+ what they hold) exactly on the controllers,
+            // then the gear on your body, so nothing trails a frame behind
+            XRInputs.RefreshPoses();
+            ApplyHead();
+            HandTargets(out var lp, out var lr, out var rp, out var rr);
+            HandL.RenderSnap(lp, lr);
+            HandR.RenderSnap(rp, rr);
+            Gear.Tick();
         }
 
         void ApplyHead()
@@ -106,7 +114,7 @@ namespace Rago
             }
             else { Desktop.Yaw = yaw; Desktop.Pitch = 0; }
             Cc.enabled = true;
-            _vy = 0;
+            _vy = 0; _smoothY = 0;
             _lastHead = Head.position;
             Body.Snap();
         }
@@ -266,7 +274,17 @@ namespace Rago
             }
             _vy += Physics.gravity.y * dt;
             Vector3 step = (MoveVelocity + Vector3.up * _vy) * dt;
+            float yBefore = transform.position.y;
             Cc.Move(step);
+            if (XRInputs.VR)
+            {
+                // the camera rides on the capsule: soak up its little vertical bumps (stairs, uneven ground, ground
+                // snapping) and ease the view after it instead of jolting it - big falls/jumps still follow directly
+                float dy = transform.position.y - yBefore;
+                if (Cc.isGrounded && Mathf.Abs(dy) < 0.45f) _smoothY -= dy;
+                _smoothY = Mathf.Abs(_smoothY) > 0.5f ? 0f : Mathf.Lerp(_smoothY, 0f, 1f - Mathf.Exp(-12f * dt));
+                var o = Origin.localPosition; o.y = _smoothY; Origin.localPosition = o;
+            }
             if (Sprinting) Vitals.Stamina -= dt * 14f;
 
             // footsteps

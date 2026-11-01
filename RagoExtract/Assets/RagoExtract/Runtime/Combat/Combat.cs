@@ -50,11 +50,11 @@ namespace Rago
     /// <summary>Noise events let NPCs hear gunshots, footsteps and alarms.</summary>
     public static class Noise
     {
-        public struct Event { public Vector3 pos; public float radius; public int source; public float time; }
+        public struct Event { public Vector3 pos; public float radius; public int source; public float time; public bool alarm; }
         public static readonly List<Event> Recent = new List<Event>();
-        public static void Emit(Vector3 pos, float radius, int source)
+        public static void Emit(Vector3 pos, float radius, int source, bool alarm = false)
         {
-            Recent.Add(new Event { pos = pos, radius = radius, source = source, time = Time.time });
+            Recent.Add(new Event { pos = pos, radius = radius, source = source, time = Time.time, alarm = alarm });
             if (Recent.Count > 64) Recent.RemoveAt(0);
         }
     }

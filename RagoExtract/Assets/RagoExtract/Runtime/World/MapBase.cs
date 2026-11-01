@@ -768,7 +768,7 @@ namespace Rago
             if (_alarm != null) _alarm.loop = true;
             _alarmT = 25f;
             NpcDirector.I?.AlertAll(transform.position, 80f);
-            Noise.Emit(transform.position, 80f, 0);
+            Noise.Emit(transform.position, 80f, 0, true);   // the vault alarm really does pull everyone nearby
             if (broadcast) NetGame.I?.VaultOpened(Id);
             foreach (var s in _rack.slots) s.enabled = true;
             foreach (var s in _shelf.slots) s.enabled = true;

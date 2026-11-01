@@ -22,13 +22,21 @@ namespace Rago
         void OnDestroy() { if (I == this) I = null; }
 
         /// <summary>Spawn squads at the given points. Deterministic so every client builds the same NPC set.</summary>
+        public const int MaxNpcs = 16;   // raiders per raid (spread over the whole map)
+
         public void SpawnSquads(List<MapBase.NpcSpawn> spawns, int seed, bool puppets)
         {
             var rng = new Rng(seed * 13 + 5);
             int id = 0;
-            foreach (var s in spawns)
+            // the maps are huge: spread a limited number of raiders over randomly picked squad spots, in smaller groups
+            var order = new List<MapBase.NpcSpawn>(spawns);
+            for (int k = order.Count - 1; k > 0; k--) { int j = rng.Range(0, k + 1); var t = order[k]; order[k] = order[j]; order[j] = t; }
+            int total = 0;
+            foreach (var s in order)
             {
-                int count = s.count;
+                if (total >= MaxNpcs) break;
+                int count = Mathf.Min(MaxNpcs - total, Mathf.Max(1, s.count - 1));
+                total += count;
                 for (int i = 0; i < count; i++)
                 {
                     Vector2 off = rng.InCircle() * 2.5f;

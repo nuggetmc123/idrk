@@ -39,6 +39,7 @@ namespace Rago
             item = it;
             it.slot = this;
             it.rb.isKinematic = true;
+            it.rb.interpolation = RigidbodyInterpolation.None;   // interpolation would keep drawing it where it was: stored items must ride with the slot
             it.SetCollidersTrigger(true);
             it.transform.SetParent(transform, false);
             float scale = 1f;
@@ -61,6 +62,7 @@ namespace Rago
             if (item != it) return;
             item = null;
             it.slot = null;
+            if (it.rb != null) it.rb.interpolation = RigidbodyInterpolation.Interpolate;
             it.transform.localScale = Vector3.one;
             it.transform.SetParent(null, true);
             onChanged?.Invoke(this);
