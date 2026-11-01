@@ -41,6 +41,8 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   - **Shooting range** (west tunnel) with steel targets.
 
   Each stash section has a NEXT PAGE button when it's full.
+- **First time?** A short **training** starts in your bunker. Glowing markers and a line of text at the bottom of your view walk you through it: register your callsign at the **ID terminal**, draw, shoot, reload, open your backpack, put on armor, see your stash and find the raid terminal. Your progress is saved, and **SKIP TRAINING** on the ID terminal ends it.
+- **Callsign**: 3-14 letters/numbers, entered on the ID terminal's keyboard (on desktop, look at the screen and type). Every operator also has a 4-digit tag (for example REX#4821) so no two players ever show the same name. If two players with the same name and tag meet online, one of them gets a new tag automatically. You can change your callsign at the terminal any time.
 - **Getting to the Market**: take the lift. In your bunker it's on the south wall (behind you when you spawn, under LIFT - MARKET). Press **CALL** on the panel next to it: the bell rings and the doors slide open. Walk in, and the doors close behind you and the lift goes up (or press GO UP inside). You arrive inside the Market's lift, which opens onto the Market. To go back, use the lift on the Market's east wall (LIFT - BUNKER) the same way.
 - **Market** is a shared safe zone where players meet, with proximity voice chat. It has 4 NPC traders:
   - **Viktor** (rifles and shotguns)
@@ -92,11 +94,13 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   Turned-in items are saved, so you can bring them over several raids.
 - **Raid terminal** (in your bunker, east wall; there are no raid terminals in the Market): pick a map on the green screen and press the big **QUEUE** key. Each raid holds 4-10 players. The queue tries to reach 8, starts right away at 10, and once the queue timer hits **1 minute** it launches with whoever is queued.
 - **Raids**: three maps.
-  - **Dockyard**: container yard, cranes, warehouses, Harbor Office vault.
-  - **Pinewood Outpost**: forest, military outpost, bunker vault.
-  - **Old Town**: streets, apartments, bank vault.
+  - **Dockyard**: container yard, cranes, warehouses, Harbor Office vault, and the **Workers' Village** through the west gate.
+  - **Pinewood Outpost**: forest, military outpost, bunker vault, and the **North Hamlet** of wooden houses past the forest.
+  - **Old Town**: streets, apartments, bank vault, and the **Suburbs** at the north end of the main street.
 
-  Each raid lasts 25 minutes. Reach an extraction zone (green smoke) and stand in it for 8 seconds. If you die, you lose what you brought and your body drops it for others to loot.
+  The village, hamlet and suburbs are streets of houses you can walk into and search room by room (stairs, furniture, loot crates inside), and each has its own extract.
+
+  Each raid lasts 25 minutes. To leave, reach an extract (green smoke), step into the zone and use the **laptop** on the supply crate (grab it, click its CALL key, or press F on desktop). A **10-second** countdown runs on the laptop and your HUD. Stay in the zone until it hits zero; leaving the zone cancels the call. If you die, you lose what you brought and your body drops it for others to loot.
 - **Raiders**: squad NPCs that patrol, hear gunshots and footsteps, notice you over time, take cover, peek, fire bursts with human-like aim, flinch when hit, ragdoll on death and drop their gun and loot.
 - **Guns**: 50 original guns (pistols, revolvers, SMGs, shotguns, rifles, DMRs, snipers, LMGs) in 5 rarity tiers.
   - Common ones turn up everywhere and Rare/Epic ones are hard to find.

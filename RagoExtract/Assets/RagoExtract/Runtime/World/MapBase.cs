@@ -104,6 +104,77 @@ namespace Rago
         public void Spawn(Vector3 p, float yaw) => PlayerSpawns.Add(new Pose(p, Quaternion.Euler(0, yaw, 0)));
         public void Squad(Vector3 p, int n, bool heavy = false) => NpcSpawns.Add(new NpcSpawn { pos = p, count = n, heavy = heavy });
 
+        /// <summary>
+        /// A street of houses you can walk into: a road along local +x from origin with lots on both sides.
+        /// Every house has a doorway facing the road, stairs, windows, furniture along the walls and loot points inside.
+        /// Returns the interior loot points (feed them to ScatterLoot).
+        /// </summary>
+        protected List<Vector3> Neighborhood(Vector3 origin, float yaw, int lots, float lotW, bool wooden)
+        {
+            var b = B;
+            var pts = new List<Vector3>();
+            var q = Quaternion.Euler(0, yaw, 0);
+            float len = lots * lotW;
+            Vector3 P(float x, float y, float z) => origin + q * new Vector3(x, y, z);
+            var road = wooden ? Maps.GroundDirt : Maps.Asphalt;
+            b.Box(P(len / 2, 0.015f, 0), new Vector3(len + 12, 0.02f, 7), road, Color.white, q, false);
+            Color[] paint = { new Color(0.85f, 0.8f, 0.7f), new Color(0.72f, 0.78f, 0.82f), new Color(0.82f, 0.72f, 0.6f), new Color(0.7f, 0.75f, 0.62f), new Color(0.9f, 0.88f, 0.82f), new Color(0.78f, 0.62f, 0.55f) };
+            Color[] fabric = { new Color(0.45f, 0.25f, 0.2f), new Color(0.25f, 0.3f, 0.4f), new Color(0.35f, 0.38f, 0.28f), new Color(0.5f, 0.45f, 0.38f) };
+            var fabricMat = Mats.Lit("furn_fabric", Color.white, 0f, 0.12f, Mats.Fabric, Mats.FabricN, 0.45f, 0.05f);
+            var woodMat = Mats.Lit("furn_wood", Color.white, 0f, 0.35f, Mats.Wood, Mats.WoodN, 0.4f, 0.2f, true, 1f);
+            foreach (int side in new[] { 1, -1 })
+                for (int i = 0; i < lots; i++)
+                {
+                    if (b.Rng.Chance(0.12f)) continue; // an empty lot now and then
+                    float w = b.Rng.Range(8f, 10.5f), d = b.Rng.Range(7f, 9f);
+                    int floors = b.Rng.Chance(0.45f) ? 2 : 1;
+                    float x = (i + 0.5f) * lotW + b.Rng.Range(-1f, 1f);
+                    float z = side * (4.5f + d / 2 + b.Rng.Range(1.5f, 3.5f));
+                    float hy = yaw + (side > 0 ? 0 : 180);   // doorway (local -z) faces the road
+                    var hq = Quaternion.Euler(0, hy, 0);
+                    Vector3 hp = P(x, 0, z);
+                    bool brick = !wooden && b.Rng.Chance(0.4f);
+                    var wall = wooden ? Maps.WoodPlank : brick ? Maps.Brick : Maps.Plaster;
+                    Color tint = wooden ? new Color(0.62f, 0.5f, 0.38f) * b.Rng.Range(0.85f, 1.1f) : brick ? Color.white : b.Rng.Pick(paint);
+                    pts.AddRange(b.Building(hp, hy, new Vector2(w, d), floors, wall, tint, Maps.WoodPlank, wooden ? Maps.WoodPlank : Maps.ConcreteDark, 0, true));
+                    // furniture against the walls (loot points stay in the middle of the rooms)
+                    float hx = w / 2, hz = d / 2;
+                    Vector3 H(float lx, float ly, float lz) => hp + hq * new Vector3(lx, ly, lz);
+                    for (int f = 0; f < floors; f++)
+                    {
+                        float y = f * 3.2f + 0.1f;
+                        bool bedroom = floors > 1 ? f == floors - 1 : b.Rng.Chance(0.5f);
+                        var fc = b.Rng.Pick(fabric);
+                        if (bedroom)
+                        {
+                            b.Box(H(-hx + 1.15f, y + 0.25f, hz * 0.2f), new Vector3(1.9f, 0.5f, 1.5f), woodMat, new Color(0.5f, 0.38f, 0.28f), hq, true, Synth.Surface.Wood);
+                            b.Box(H(-hx + 1.15f, y + 0.55f, hz * 0.2f), new Vector3(1.8f, 0.14f, 1.4f), fabricMat, fc, hq, false, Synth.Surface.Dirt, 0.04f);
+                            b.Box(H(-hx + 0.4f, y + 0.72f, hz * 0.2f), new Vector3(0.3f, 0.14f, 1.2f), fabricMat, new Color(0.9f, 0.88f, 0.84f), hq, false, Synth.Surface.Dirt, 0.05f);
+                        }
+                        else
+                        {
+                            // couch + coffee table
+                            b.Box(H(-hx + 0.55f, y + 0.25f, 0), new Vector3(0.9f, 0.5f, 2.1f), fabricMat, fc, hq, true, Synth.Surface.Dirt, 0.06f);
+                            b.Box(H(-hx + 0.25f, y + 0.6f, 0), new Vector3(0.3f, 0.5f, 2.1f), fabricMat, fc * 0.9f, hq, false, Synth.Surface.Dirt, 0.06f);
+                        }
+                        b.Table(H(-hx * 0.15f, y, hz - 0.75f), hy, new Vector2(1.4f, 0.8f), 0.78f);
+                        if (w > 8.5f) b.Shelf(H(-hx + 1.7f, y, -hz + 0.4f), hy, 1.4f);
+                        b.Box(H(-0.5f, y + 0.012f, 0), new Vector3(2.4f, 0.01f, 1.7f), fabricMat, b.Rng.Pick(fabric) * 0.8f, hq, false); // rug
+                    }
+                    // yard: low picket fence on the road side with a gap at the path, a mailbox
+                    float fz = -hz - b.Rng.Range(1.5f, 2.2f);
+                    foreach (var sx in new[] { -1, 1 })
+                        b.Box(H(sx * (hx * 0.5f + 1.1f), 0.45f, fz), new Vector3(hx - 1.3f, 0.9f, 0.06f), woodMat, new Color(0.88f, 0.86f, 0.8f), hq, true, Synth.Surface.Wood);
+                    b.Box(H(1.6f, 0.6f, fz - 0.3f), new Vector3(0.25f, 0.2f, 0.4f), Maps.Metal, new Color(0.25f, 0.3f, 0.35f), hq, false, Synth.Surface.Metal);
+                    b.Cyl(H(1.6f, 0f, fz - 0.3f), H(1.6f, 0.5f, fz - 0.3f), 0.03f, 0.03f, 6, woodMat, new Color(0.4f, 0.3f, 0.2f), false);
+                    if (b.Rng.Chance(0.3f)) b.CarWreck(H(hx + 2.4f, 0, -hz + 1f), hy + 90 + b.Rng.Range(-10f, 10f), b.Rng.Pick(paint) * 0.6f);
+                }
+            // street lights + a few wrecks on the road
+            for (int i = 0; i <= lots; i += 2) b.LightPole(P(i * lotW, 0, 4.2f), 6f, new Color(1f, 0.82f, 0.6f), false);
+            for (int i = 0; i < lots / 2; i++) if (b.Rng.Chance(0.5f)) b.CarWreck(P(b.Rng.Range(4f, len - 4f), 0, b.Rng.Range(-2f, 2f)), yaw + b.Rng.Range(-20f, 20f), b.Rng.Pick(paint) * 0.55f);
+            return pts;
+        }
+
         /// <summary>Scatter random loot crates around interior points.</summary>
         protected void ScatterLoot(List<Vector3> pts, float chance)
         {
@@ -248,8 +319,11 @@ namespace Rago
         public string Name;
         public float Radius = 2.6f;
         float _t; float _beep;
-        public const float Time_ = 8f;
+        public const float Time_ = 10f;
         ParticleSystem _smoke;
+        bool _calling;
+        TextMesh _screen, _screenSub;
+        Transform _laptop;
 
         public static Extraction Create(Transform parent, Vector3 pos, string name)
         {
@@ -279,7 +353,64 @@ namespace Rago
             var sign = new GameObject("Sign"); sign.transform.SetParent(go.transform, false); sign.transform.localPosition = Vector3.up * 2.6f;
             UI.Text(sign.transform, "EXTRACT\n" + name.ToUpper(), Vector3.zero, 0.22f, new Color(0.5f, 1f, 0.6f), TextAnchor.MiddleCenter, FontStyle.Bold);
             sign.AddComponent<Billboard>();
+            e.BuildLaptop();
             return e;
+        }
+
+        /// <summary>Rugged laptop on a crate at the edge of the zone: use it to call the exfil (10 s countdown).</summary>
+        void BuildLaptop()
+        {
+            _laptop = new GameObject("ExfilLaptop").transform;
+            _laptop.SetParent(transform, false);
+            _laptop.localPosition = new Vector3(0, 0, 1.1f);
+            Color olive = UI.Lin(new Color(0.3f, 0.33f, 0.24f)), dark = UI.Lin(new Color(0.09f, 0.09f, 0.1f)), keys = UI.Lin(new Color(0.16f, 0.16f, 0.17f)), bump = UI.Lin(new Color(0.55f, 0.45f, 0.12f));
+            var mb = new MB(2);
+            mb.Sub(0).Box(new Vector3(0, 0.22f, 0), new Vector3(0.62f, 0.44f, 0.46f), olive, 0.02f, 1);                 // supply crate
+            foreach (var x in new[] { -0.32f, 0.32f }) mb.Sub(0).Box(new Vector3(x, 0.3f, 0), new Vector3(0.025f, 0.05f, 0.16f), olive * 0.7f, 0.006f); // handles
+            mb.Sub(1).Box(new Vector3(0, 0.455f, 0), new Vector3(0.38f, 0.03f, 0.27f), dark, 0.008f, 1);                // laptop base
+            mb.Sub(1).Box(new Vector3(0, 0.471f, -0.03f), new Vector3(0.32f, 0.004f, 0.14f), keys, 0.002f);             // keyboard
+            foreach (var x in new[] { -0.19f, 0.19f }) foreach (var z in new[] { -0.135f, 0.135f })
+                    mb.Sub(1).Box(new Vector3(x, 0.455f, z), new Vector3(0.03f, 0.036f, 0.03f), bump, 0.01f);           // rubber corner bumpers
+            mb.Build("Crate", _laptop, Mats.Lit("exfil_crate", Color.white, 0.2f, 0.3f, Mats.Metal, null, 0.5f, 0.4f), Mats.Lit("exfil_laptop", Color.white, 0.3f, 0.45f, Mats.Noise, null, 0.3f, 0.3f));
+            var lid = new GameObject("Lid").transform; lid.SetParent(_laptop, false);
+            lid.localPosition = new Vector3(0, 0.47f, 0.13f); lid.localRotation = Quaternion.Euler(-12, 0, 0);
+            var lm = new MB();
+            lm.Box(new Vector3(0, 0.125f, 0.008f), new Vector3(0.38f, 0.25f, 0.016f), dark, 0.008f, 1);
+            lm.Build("LidShell", lid, Mats.Lit("exfil_laptop", Color.white, 0.3f, 0.45f, Mats.Noise, null, 0.3f, 0.3f));
+            var scr = UI.Panel(lid, "Screen", new Vector3(0, 0.125f, -0.004f), Quaternion.identity, new Vector2(0.31f, 0.19f), null, false, Skin.Crt);
+            UI.Text(scr, "EXFIL UPLINK", new Vector3(-0.14f, 0.075f, 0), 0.016f, UI.CrtDim, TextAnchor.MiddleLeft, FontStyle.Bold);
+            _screen = UI.Text(scr, "READY", new Vector3(0, 0.01f, 0), 0.05f, UI.CrtGreen, TextAnchor.MiddleCenter, FontStyle.Bold);
+            _screenSub = UI.Text(scr, "PRESS TO CALL EXFIL", new Vector3(0, -0.055f, 0), 0.016f, UI.CrtDim, TextAnchor.MiddleCenter);
+            UI.Button(scr, "CALL EXFIL", new Vector3(0.0f, -0.055f, -0.004f), new Vector2(0.2f, 0.04f), Call, null, BtnStyle.Crt).Label.text = "";
+            var deck = new GameObject("Deck").transform; deck.SetParent(_laptop, false);
+            deck.localPosition = new Vector3(0, 0.474f, -0.04f); deck.localRotation = Quaternion.Euler(90, 0, 0);
+            UI.Button(deck, "CALL", new Vector3(0, 0, 0), new Vector2(0.12f, 0.06f), Call, new Color(0.2f, 0.42f, 0.2f), BtnStyle.Key);
+            var col = _laptop.gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.3f, 0); col.size = new Vector3(0.62f, 0.62f, 0.46f);
+            _laptop.gameObject.AddComponent<ExfilLaptop>().zone = this;
+        }
+
+        bool PlayerInZone(PlayerRig p)
+        {
+            Vector3 d = p.transform.position - transform.position; d.y = 0;
+            return d.magnitude < Radius + 0.4f;
+        }
+
+        void SetScreen(string big, string small)
+        {
+            if (_screen != null && _screen.text != big) _screen.text = big;
+            if (_screenSub != null && _screenSub.text != small) _screenSub.text = small;
+        }
+
+        public void Call()
+        {
+            var p = RagoGame.I != null ? RagoGame.I.Player : null;
+            var raid = RaidManager.I;
+            if (p == null || raid == null || raid.Done || !p.Vitals.Alive) return;
+            if (_calling) return;
+            if (!PlayerInZone(p)) { p.Toast("Get inside the green zone first"); Sfx.UI(Synth.UiError(), 0.3f); return; }
+            _calling = true; _t = 0; _beep = 0;
+            Sfx.Play(Synth.QueueFound(), _laptop.position, 0.5f, 1f, 0.6f, 15f);
+            p.Toast("Exfil called - stay in the zone for " + (int)Time_ + " seconds");
         }
 
         void Update()
@@ -287,17 +418,41 @@ namespace Rago
             var p = RagoGame.I != null ? RagoGame.I.Player : null;
             var raid = RaidManager.I;
             if (p == null || raid == null || !p.Vitals.Alive || raid.Done) return;
-            Vector3 d = p.transform.position - transform.position; d.y = 0;
-            if (d.magnitude < Radius)
+            bool inside = PlayerInZone(p);
+            // desktop: look at the laptop and press F
+            if (!_calling && !XRInputs.VR && Desktop.Interact && Physics.Raycast(p.Head.position, p.Head.forward, out var hit, 3f, ~0, QueryTriggerInteraction.Collide) && hit.collider.transform.IsChildOf(_laptop)) Call();
+            if (_calling)
             {
+                if (!inside)
+                {
+                    _calling = false; _t = 0;
+                    Sfx.UI(Synth.UiError(), 0.4f);
+                    p.Hud.Center("EXFIL ABORTED\n<size=40>you left the zone</size>", 2f);
+                    SetScreen("SIGNAL LOST", "PRESS TO CALL AGAIN");
+                    return;
+                }
                 _t += Time.deltaTime;
                 _beep -= Time.deltaTime;
-                if (_beep <= 0) { _beep = 1f; Sfx.UI(Synth.Beep(), 0.4f); }
-                p.Hud.Center("EXTRACTING  " + Mathf.CeilToInt(Time_ - _t), 0.2f);
-                if (_t >= Time_) raid.Extract(Name);
+                if (_beep <= 0) { _beep = 1f; Sfx.Play(Synth.Beep(), _laptop.position, 0.4f, 1.2f, 0.5f, 12f); }
+                int left = Mathf.CeilToInt(Time_ - _t);
+                SetScreen("00:" + left.ToString("00"), "EXFIL INBOUND - HOLD POSITION");
+                p.Hud.Center("EXTRACTING  " + left, 0.2f);
+                if (_t >= Time_) { _calling = false; raid.Extract(Name); }
             }
-            else _t = 0;
+            else
+            {
+                _t = 0;
+                SetScreen(inside ? "READY" : "STANDBY", inside ? "PRESS TO CALL EXFIL" : "ENTER THE ZONE");
+                if (inside) p.Hud.Center("Use the laptop to call the exfil", 0.2f);
+            }
         }
+    }
+
+    /// <summary>Grab the exfil laptop (VR) to call the exfil.</summary>
+    public class ExfilLaptop : Interactable
+    {
+        public Extraction zone;
+        public override void OnGrab(Hand h) { if (zone != null) zone.Call(); h.Haptic(0.3f, 0.05f); }
     }
 
     public class Billboard : MonoBehaviour

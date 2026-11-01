@@ -52,7 +52,7 @@ namespace Rago
         public override void Build()
         {
             Ambience = Synth.Amb.Harbor;
-            NavBounds = new Bounds(new Vector3(0, 5, 0), new Vector3(190, 40, 190));
+            NavBounds = new Bounds(new Vector3(-45, 5, 0), new Vector3(290, 40, 190));
             Lighting(new Color(1f, 0.62f, 0.38f), 1.05f, new Vector3(12, 245, 0), new Color(0.45f, 0.45f, 0.55f), new Color(0.55f, 0.42f, 0.36f), new Color(0.2f, 0.17f, 0.15f),
                 new Color(0.55f, 0.43f, 0.38f), 0.0065f, new Color(0.2f, 0.25f, 0.42f), new Color(0.95f, 0.55f, 0.32f), 0.45f);
             var b = B;
@@ -103,7 +103,9 @@ namespace Rago
             // fences + barriers + props
             b.Fence(new Vector3(-85, 0, 88), new Vector3(68, 0, 88));
             b.Fence(new Vector3(-85, 0, -88), new Vector3(68, 0, -88));
-            b.Fence(new Vector3(-85, 0, -88), new Vector3(-85, 0, 88));
+            // west fence with a gate onto the road to the workers' village
+            b.Fence(new Vector3(-85, 0, -88), new Vector3(-85, 0, -6));
+            b.Fence(new Vector3(-85, 0, 6), new Vector3(-85, 0, 88));
             for (int i = 0; i < 14; i++) b.JerseyBarrier(new Vector3(b.Rng.Range(-75f, 60f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Range(0, 180f));
             for (int i = 0; i < 30; i++) b.Barrel(new Vector3(b.Rng.Range(-75f, 65f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Pick(new[] { new Color(0.15f, 0.3f, 0.6f), new Color(0.6f, 0.15f, 0.1f), new Color(0.2f, 0.35f, 0.2f) }));
             for (int i = 0; i < 22; i++) b.Crate(new Vector3(b.Rng.Range(-75f, 65f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Range(0, 90f), new Vector3(1.2f, 1.0f, 1.2f));
@@ -128,6 +130,17 @@ namespace Rago
             // squads
             Squad(new Vector3(25, 0, 20), 3); Squad(new Vector3(40, 0, -30), 2); Squad(new Vector3(-55, 0, 45), 3, true);
             Squad(new Vector3(-55, 0, -60), 2); Squad(new Vector3(-20, 0, -48), 3, true); Squad(new Vector3(60, 0, 60), 2); Squad(new Vector3(-40, 0, 0), 2);
+            // ---- Workers' Village (west): a street of houses you can search room by room
+            b.Ground(new Vector3(-135, 0, 0), new Vector2(100, 120), Maps.GroundGrass, Synth.Surface.Grass, -0.01f);
+            var village = Neighborhood(new Vector3(-88, 0, 0), 180, 6, 13.5f, false);
+            ScatterLoot(village, 0.85f);
+            b.Fence(new Vector3(-85, 0, -58), new Vector3(-183, 0, -58));
+            b.Fence(new Vector3(-85, 0, 58), new Vector3(-183, 0, 58));
+            b.Fence(new Vector3(-183, 0, -58), new Vector3(-183, 0, 58));
+            for (int i = 0; i < 26; i++) { var tp = new Vector3(b.Rng.Range(-180f, -90f), 0, b.Rng.Chance(0.5f) ? b.Rng.Range(28f, 55f) : b.Rng.Range(-55f, -28f)); b.Pine(tp, b.Rng.Range(7f, 11f)); }
+            AddExtract(new Vector3(-176, 0, 0), "Village Road");
+            Squad(new Vector3(-120, 0, 8), 3); Squad(new Vector3(-150, 0, -10), 2); Squad(new Vector3(-105, 0, -12), 2, true);
+            Spawn(new Vector3(-178, 0.1f, 22), 90);
         }
 
         List<Vector3> Warehouse(Vector3 pos, float yaw, Vector2 size)
@@ -194,13 +207,14 @@ namespace Rago
             // river valley
             float river = Mathf.Abs(z + 15 + Mathf.Sin(x * 0.04f) * 8f);
             float riverCut = Mathf.Clamp01(1 - river / 7f) * 3.2f;
-            return h * flat - riverCut;
+            float north = Mathf.Clamp01((92f - z) / 14f);   // flattens into the hamlet's valley in the north
+            return h * flat * north - riverCut;
         }
 
         public override void Build()
         {
             Ambience = Synth.Amb.Forest;
-            NavBounds = new Bounds(new Vector3(0, 5, 0), new Vector3(190, 50, 190));
+            NavBounds = new Bounds(new Vector3(0, 5, 42), new Vector3(190, 50, 275));
             Lighting(new Color(0.9f, 0.92f, 0.95f), 0.85f, new Vector3(40, 150, 0), new Color(0.55f, 0.6f, 0.68f), new Color(0.45f, 0.48f, 0.45f), new Color(0.2f, 0.22f, 0.16f),
                 new Color(0.62f, 0.66f, 0.68f), 0.012f, new Color(0.45f, 0.52f, 0.6f), new Color(0.75f, 0.78f, 0.8f), 0.75f, 0.6f);
             var b = B;
@@ -275,6 +289,20 @@ namespace Rago
             }
             Squad(o, 3, true); Squad(o + new Vector3(15, 0, -10), 2); Squad(o + new Vector3(-15, 0, 10), 2);
             Squad(new Vector3(-55, 0, -50), 3); Squad(rt, 2); Squad(new Vector3(40, 0, -40), 2); Squad(new Vector3(-30, 0, 55), 2);
+            // ---- North Hamlet: wooden houses in a valley past the forest
+            b.Ground(new Vector3(0, 0, 137), new Vector2(190, 84), Maps.GroundGrass, Synth.Surface.Grass, -0.02f);
+            var hamlet = Neighborhood(new Vector3(-62, 0, 132), 0, 9, 13.8f, true);
+            ScatterLoot(hamlet, 0.85f);
+            for (int i = 0; i < 70; i++)
+            {
+                var tp = new Vector3(b.Rng.Range(-94f, 94f), 0, b.Rng.Range(97f, 178f));
+                if (Mathf.Abs(tp.z - 132f) < 22f && Mathf.Abs(tp.x) < 70f) continue;
+                if (Vector2.Distance(new Vector2(tp.x, tp.z), new Vector2(0, 170)) < 9f) continue; // keep the extract clear
+                b.Pine(tp, b.Rng.Range(8f, 13f));
+            }
+            AddExtract(new Vector3(0, 0, 170), "North Hamlet");
+            Squad(new Vector3(-30, 0, 132), 3); Squad(new Vector3(40, 0, 135), 2); Squad(new Vector3(0, 0, 150), 2, true);
+            Spawn(new Vector3(-85, 0.2f, 172), 135);
         }
     }
 
@@ -284,7 +312,7 @@ namespace Rago
         public override void Build()
         {
             Ambience = Synth.Amb.Town;
-            NavBounds = new Bounds(new Vector3(0, 8, 0), new Vector3(180, 40, 180));
+            NavBounds = new Bounds(new Vector3(0, 8, 45), new Vector3(180, 40, 272));
             Lighting(new Color(1f, 0.8f, 0.65f), 0.95f, new Vector3(9, 80, 0), new Color(0.5f, 0.52f, 0.62f), new Color(0.5f, 0.46f, 0.44f), new Color(0.18f, 0.17f, 0.17f),
                 new Color(0.66f, 0.62f, 0.6f), 0.011f, new Color(0.35f, 0.42f, 0.58f), new Color(0.95f, 0.72f, 0.55f), 0.55f);
             var b = B;
@@ -352,6 +380,18 @@ namespace Rago
             }
             Squad(new Vector3(17, 0, -17), 3, true); Squad(new Vector3(-17, 0, -51), 2); Squad(new Vector3(51, 0, 17), 3);
             Squad(new Vector3(-51, 0, 51), 2); Squad(new Vector3(17, 0, 51), 2); Squad(new Vector3(-68, 0, 68), 2); Squad(new Vector3(51, 0, -51), 2);
+            // ---- Suburbs (north): main street continues into a residential street
+            b.Ground(new Vector3(0, 0, 135), new Vector2(180, 92), Maps.GroundGrass, Synth.Surface.Grass, -0.01f);
+            b.Box(new Vector3(0, 0.01f, 109), new Vector3(9, 0.02f, 40), Maps.Asphalt, Color.white, null, false);
+            var suburb = Neighborhood(new Vector3(-67, 0, 128), 0, 10, 13.4f, false);
+            ScatterLoot(suburb, 0.85f);
+            b.Fence(new Vector3(-90, 0, 180), new Vector3(90, 0, 180));
+            b.Fence(new Vector3(-90, 0, 90), new Vector3(-90, 0, 180));
+            b.Fence(new Vector3(90, 0, 90), new Vector3(90, 0, 180));
+            for (int i = 0; i < 30; i++) { var tp = new Vector3(b.Rng.Range(-86f, 86f), 0, b.Rng.Range(150f, 177f)); if (Mathf.Abs(tp.x) < 9f || Vector2.Distance(new Vector2(tp.x, tp.z), new Vector2(60, 168)) < 5f) continue; b.Pine(tp, b.Rng.Range(7f, 10f)); }
+            AddExtract(new Vector3(0, 0, 168), "Suburbs");
+            Squad(new Vector3(-40, 0, 128), 3); Squad(new Vector3(30, 0, 132), 2); Squad(new Vector3(0, 0, 150), 2, true);
+            Spawn(new Vector3(60, 0.1f, 168), 180);
         }
 
         void Bank(Vector3 c)
