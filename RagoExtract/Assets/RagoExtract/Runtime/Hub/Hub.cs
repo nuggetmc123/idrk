@@ -130,6 +130,7 @@ namespace Rago
         public Outfit outfit;
         public List<string> stock = new List<string>();
         public float sellRate = 0.55f;
+        public float valuableBonus = 1f;   // extra multiplier when buying valuables / junk
         public System.Func<ItemDef, bool> buys;
         public Color color;
     }
@@ -249,7 +250,7 @@ namespace Rago
         }
 
         int Price(ItemDef d) => Mathf.RoundToInt(d.price * (d.rarity >= Rarity.Rare ? 1.6f : 1.25f) / 10f) * 10;
-        int SellValue(Item it) => Mathf.RoundToInt(it.Value * _t.sellRate * (it.def != null && it.def.kind == ItemKind.Valuable ? 1.3f : 1f));
+        int SellValue(Item it) => Mathf.Max(1, Mathf.RoundToInt(it.Value * _t.sellRate * (it.def != null && it.def.kind == ItemKind.Valuable ? _t.valuableBonus : 1f)));
 
         void Buy(ItemDef d)
         {
@@ -321,15 +322,17 @@ namespace Rago
             var gunsmith = new TraderDef { name = "Viktor", title = "Gunsmith - rifles & shotguns", outfit = Outfit.Gunsmith, color = new Color(0.75f, 0.45f, 0.2f), sellRate = 0.5f };
             foreach (var g in Db.Guns) if (g.TwoHanded && g.rarity <= Rarity.Rare && g.cls != GunClass.SMG) gunsmith.stock.Add(g.id);
             gunsmith.buys = d => d.kind == ItemKind.Gun;
-            var arms = new TraderDef { name = "Mara", title = "Quartermaster - sidearms, SMGs, optics, ammo", outfit = Outfit.Quartermaster, color = new Color(0.35f, 0.55f, 0.3f), sellRate = 0.5f };
+            var arms = new TraderDef { name = "Mara", title = "Quartermaster - sidearms, SMGs, optics, ammo, bags", outfit = Outfit.Quartermaster, color = new Color(0.35f, 0.55f, 0.3f), sellRate = 0.5f };
             foreach (var g in Db.Guns) if ((!g.TwoHanded || g.cls == GunClass.SMG) && g.rarity <= Rarity.Rare) arms.stock.Add(g.id);
             foreach (var s in Db.Sights) if (s.rarity <= Rarity.Rare) arms.stock.Add(s.id);
             foreach (var m in Db.Misc) if (m.kind == ItemKind.Ammo) arms.stock.Add(m.id);
-            arms.buys = d => d.kind == ItemKind.Gun || d.kind == ItemKind.Sight;
+            // basic bags only; better bags and all armour have to be found in raids
+            arms.stock.Add("pack_day"); arms.stock.Add("pack_assault");
+            arms.buys = d => d.kind == ItemKind.Gun || d.kind == ItemKind.Sight || d.kind == ItemKind.Armor || d.kind == ItemKind.Backpack || d.kind == ItemKind.Magazine;
             var medic = new TraderDef { name = "Doc Hale", title = "Medic - meds & stims", outfit = Outfit.Medic, color = new Color(0.8f, 0.2f, 0.2f), sellRate = 0.6f };
             foreach (var m in Db.Misc) if (m.kind == ItemKind.Med) medic.stock.Add(m.id);
-            medic.buys = d => d.kind == ItemKind.Med;
-            var fence = new TraderDef { name = "Silas", title = "Fence - buys anything, sells keycards", outfit = Outfit.Fence, color = new Color(0.8f, 0.65f, 0.25f), sellRate = 0.65f };
+            medic.buys = d => d.kind == ItemKind.Med || d.kind == ItemKind.Valuable;
+            var fence = new TraderDef { name = "Silas", title = "Fence - buys anything, best price for valuables", outfit = Outfit.Fence, color = new Color(0.8f, 0.65f, 0.25f), sellRate = 0.65f, valuableBonus = 1.3f };
             fence.stock.Add("key_vault"); fence.stock.Add("val_intel"); fence.stock.Add("val_drive");
             fence.buys = d => true;
             return new List<TraderDef> { gunsmith, arms, medic, fence };
@@ -337,74 +340,160 @@ namespace Rago
     }
 
     // ======================================================================================= STASH
-    /// <summary>Your bunker stash: gun rack + shelves. Everything left here when you leave is saved.</summary>
-    public class StashWall : MonoBehaviour
+    public enum StashKind { Weapons, Armor, Gear }
+
+    /// <summary>
+    /// One part of your bunker stash. The Armory holds guns, sights and mags; the Armor Room has armour stands
+    /// (helmet + vest) and backpack shelves; the Gear wall holds meds, valuables, keys and junk.
+    /// Everything left here when you leave is saved. When a section is full the rest goes on the next page.
+    /// </summary>
+    public class StashSection : MonoBehaviour
     {
-        ItemContainer _rack, _pistols, _shelf;
+        public StashKind kind;
+        readonly List<ItemContainer> _groups = new List<ItemContainer>();
         readonly List<ItemData> _overflow = new List<ItemData>();
         TextMesh _info, _ammo;
+        static Material Board => Mats.Lit("pegboard", Color.white, 0.1f, 0.3f, Mats.Wood, null, 0.3f, 0.1f);
+        static Material Steel => Mats.Lit("shelf", new Color(0.3f, 0.32f, 0.35f), 0.7f, 0.4f, Mats.Metal, null, 0.4f, 0.5f);
 
-        public static StashWall Create(Transform parent, Vector3 pos, float yaw)
+        /// <summary>Which section an item belongs in.</summary>
+        public static StashKind For(ItemData d)
         {
-            var go = new GameObject("Stash");
+            var def = d != null ? Db.Get(d.id) : null;
+            if (def == null) return StashKind.Gear;
+            switch (def.kind)
+            {
+                case ItemKind.Gun: case ItemKind.Sight: case ItemKind.Magazine: return StashKind.Weapons;
+                case ItemKind.Armor: case ItemKind.Backpack: return StashKind.Armor;
+                default: return StashKind.Gear;
+            }
+        }
+
+        public static StashSection Create(Transform parent, Vector3 pos, float yaw, StashKind kind)
+        {
+            var go = new GameObject("Stash_" + kind);
             go.transform.SetParent(parent, false);
-            go.transform.SetPositionAndRotation(pos, Quaternion.Euler(0, yaw, 0));
-            var s = go.AddComponent<StashWall>();
-            s.Build();
+            go.transform.localPosition = pos;
+            go.transform.localRotation = Quaternion.Euler(0, yaw, 0);
+            var s = go.AddComponent<StashSection>();
+            s.kind = kind;
+            if (kind == StashKind.Weapons) s.BuildWeapons(); else if (kind == StashKind.Armor) s.BuildArmor(); else s.BuildGear();
             return s;
         }
 
-        void Build()
+        void Backboard(string title)
         {
             var mb = new MB(2);
             mb.Sub(0).Box(new Vector3(0, 1.3f, 0.1f), new Vector3(5.2f, 2.6f, 0.08f), new Color(0.35f, 0.32f, 0.26f), 0.01f);
             for (int i = 0; i < 40; i++) for (int j = 0; j < 20; j++) if ((i + j) % 2 == 0) mb.Sub(1).Box(new Vector3(-2.5f + i * 0.128f, 0.1f + j * 0.128f, 0.055f), new Vector3(0.012f, 0.012f, 0.004f), Color.black);
-            mb.Sub(0).Box(new Vector3(1.75f, 0.45f, -0.15f), new Vector3(1.7f, 0.04f, 0.5f), new Color(0.3f, 0.3f, 0.3f), 0.01f);
-            mb.Sub(0).Box(new Vector3(1.75f, 1.05f, -0.15f), new Vector3(1.7f, 0.04f, 0.5f), new Color(0.3f, 0.3f, 0.3f), 0.01f);
-            mb.Sub(0).Box(new Vector3(1.75f, 1.65f, -0.15f), new Vector3(1.7f, 0.04f, 0.5f), new Color(0.3f, 0.3f, 0.3f), 0.01f);
-            mb.Build("Pegboard", transform, Mats.Lit("pegboard", Color.white, 0.1f, 0.3f, Mats.Wood, null, 0.3f, 0.1f), Mats.Polymer);
+            mb.Build("Pegboard", transform, Board, Mats.Polymer);
             var c = gameObject.AddComponent<BoxCollider>(); c.center = new Vector3(0, 1.3f, 0.1f); c.size = new Vector3(5.2f, 2.6f, 0.1f);
-            UI.Text(transform, "STASH", new Vector3(0, 2.75f, 0.05f), 0.16f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
-            // long guns hang vertically on the left, pistols middle, small items on shelves right
-            _rack = ItemContainer.Grid(transform, new Vector3(-1.3f, 1.35f, -0.05f), Quaternion.Euler(-90, 0, 0), 6, 1, new Vector2(0.42f, 1f), 1.2f, it => it is Gun, Quaternion.Euler(0, 0, 90));
-            _pistols = ItemContainer.Grid(transform, new Vector3(0.45f, 1.5f, -0.05f), Quaternion.Euler(-90, 0, 0), 2, 3, new Vector2(0.28f, 0.3f), 0.25f, it => !(it is Backpack));
-            _shelf = ItemContainer.Grid(transform, new Vector3(1.75f, 0.5f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.42f, 0.4f), 0.32f, it => !(it is Backpack));
-            var s2 = ItemContainer.Grid(transform, new Vector3(1.75f, 1.1f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.42f, 0.4f), 0.32f, it => !(it is Backpack));
-            var s3 = ItemContainer.Grid(transform, new Vector3(1.75f, 1.7f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.42f, 0.4f), 0.32f, it => !(it is Backpack));
-            _shelf.slots.AddRange(s2.slots); _shelf.slots.AddRange(s3.slots);
-            var panel = UI.Panel(transform, "StashPanel", new Vector3(-1.3f, 0.35f, -0.2f), Quaternion.Euler(-30, 0, 0), new Vector2(1.6f, 0.5f));
-            _info = UI.Text(panel, "", new Vector3(-0.75f, 0.17f, 0), 0.024f, Color.white, TextAnchor.UpperLeft);
-            _ammo = UI.Text(panel, "", new Vector3(0.05f, 0.17f, 0), 0.018f, UI.Dim, TextAnchor.UpperLeft);
-            UI.Button(panel, "NEXT PAGE", new Vector3(-0.45f, -0.17f, 0), new Vector2(0.4f, 0.09f), NextPage);
-            Load();
+            UI.Text(transform, title, new Vector3(0, 2.75f, 0.05f), 0.16f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
         }
 
-        IEnumerable<Slot> AllSlots() { foreach (var s in _rack.slots) yield return s; foreach (var s in _pistols.slots) yield return s; foreach (var s in _shelf.slots) yield return s; }
-
-        void Load()
+        void Shelf(MB mb, float x, float y, float w, float depth = 0.5f)
         {
-            var list = new List<ItemData>(Profile.Current.stash);
-            _overflow.Clear();
-            foreach (var d in list) Place(d);
-            Refresh();
+            mb.Sub(0).Box(new Vector3(x, y, -0.15f), new Vector3(w, 0.04f, depth), new Color(0.3f, 0.3f, 0.3f), 0.01f);
+            mb.Sub(0).Box(new Vector3(x - w / 2 + 0.03f, y - 0.08f, 0.0f), new Vector3(0.03f, 0.16f, 0.2f), new Color(0.25f, 0.25f, 0.25f), 0.005f);
+            mb.Sub(0).Box(new Vector3(x + w / 2 - 0.03f, y - 0.08f, 0.0f), new Vector3(0.03f, 0.16f, 0.2f), new Color(0.25f, 0.25f, 0.25f), 0.005f);
         }
 
-        void Place(ItemData d)
+        ItemContainer Group(ItemContainer c) { _groups.Add(c); return c; }
+
+        void Panel(Vector3 pos, Quaternion rot, Vector2 size)
+        {
+            var panel = UI.Panel(transform, "StashPanel", pos, rot, size);
+            _info = UI.Text(panel, "", new Vector3(-size.x / 2 + 0.05f, size.y / 2 - 0.08f, 0), 0.024f, Color.white, TextAnchor.UpperLeft);
+            if (kind == StashKind.Gear) _ammo = UI.Text(panel, "", new Vector3(0.05f, size.y / 2 - 0.08f, 0), 0.018f, UI.Dim, TextAnchor.UpperLeft);
+            UI.Button(panel, "NEXT PAGE", new Vector3(-size.x / 2 + 0.25f, -size.y / 2 + 0.08f, 0), new Vector2(0.4f, 0.09f), NextPage);
+        }
+
+        // ------------------------------------------------------------------------------- armory
+        void BuildWeapons()
+        {
+            Backboard("ARMORY");
+            var mb = new MB(1);
+            // rifle rack: rubber-coated pegs top and bottom
+            for (int i = 0; i < 7; i++)
+            {
+                float x = -2.26f + i * 0.42f;
+                mb.Box(new Vector3(x, 2.2f, -0.02f), new Vector3(0.12f, 0.03f, 0.18f), new Color(0.12f, 0.12f, 0.12f), 0.008f);
+                mb.Box(new Vector3(x, 0.4f, -0.08f), new Vector3(0.16f, 0.06f, 0.3f), new Color(0.12f, 0.12f, 0.12f), 0.01f);
+            }
+            Shelf(mb, 1.55f, 0.45f, 1.6f);
+            mb.Build("Racks", transform, Steel);
+            Group(ItemContainer.Grid(transform, new Vector3(-1.0f, 1.35f, -0.05f), Quaternion.Euler(-90, 0, 0), 7, 1, new Vector2(0.42f, 1f), 1.2f, it => it is Gun g && g.g.TwoHanded, Quaternion.Euler(0, 0, 90)));
+            Group(ItemContainer.Grid(transform, new Vector3(1.55f, 1.55f, -0.05f), Quaternion.Euler(-90, 0, 0), 4, 3, new Vector2(0.36f, 0.3f), 0.26f, it => (it is Gun g && !g.g.TwoHanded) || it is SightItem || it is Magazine));
+            Group(ItemContainer.Grid(transform, new Vector3(1.55f, 0.5f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.38f, 0.4f), 0.34f, it => it is Gun || it is SightItem || it is Magazine));
+            Panel(new Vector3(-1.0f, 0.2f, -0.45f), Quaternion.Euler(-30, 0, 0), new Vector2(1.6f, 0.36f));
+        }
+
+        // ------------------------------------------------------------------------------- armour room
+        void BuildArmor()
+        {
+            Backboard("ARMOR");
+            var mb = new MB(2);
+            Color steel = new Color(0.3f, 0.3f, 0.32f), form = new Color(0.16f, 0.16f, 0.17f);
+            for (int i = 0; i < 3; i++)
+            {
+                float x = -2.0f + i * 1.0f, z = -0.45f;
+                // armour stand: weighted base, pole, torso form and head form
+                mb.Sub(0).Cyl(new Vector3(x, 0f, z), new Vector3(x, 0.04f, z), 0.22f, 0.2f, 16, steel);
+                mb.Sub(0).Cyl(new Vector3(x, 0.04f, z), new Vector3(x, 1.02f, z), 0.022f, 0.022f, 8, steel, false);
+                mb.Sub(1).Box(new Vector3(x, 1.25f, z), new Vector3(0.3f, 0.42f, 0.18f), form, 0.06f, 2);
+                mb.Sub(1).Cyl(new Vector3(x, 1.46f, z), new Vector3(x, 1.58f, z), 0.04f, 0.04f, 10, form, false);
+                mb.Sub(1).Sphere(new Vector3(x, 1.68f, z), new Vector3(0.085f, 0.11f, 0.095f), 14, form);
+                var stand = new GameObject("Stand" + i).transform;
+                stand.SetParent(transform, false);
+                Group(Single(stand, new Vector3(x, 1.27f, z), it => it is ArmorItem a && a.ad.slot == ArmorSlot.Vest, 0.3f));
+                Group(Single(stand, new Vector3(x, 1.75f, z), it => it is ArmorItem a && a.ad.slot == ArmorSlot.Helmet, 0.2f));
+            }
+            Shelf(mb, 1.6f, 0.45f, 1.6f, 0.55f);
+            Shelf(mb, 1.6f, 1.25f, 1.6f, 0.55f);
+            mb.Build("Stands", transform, Steel, Mats.Rubber);
+            // backpacks and spare armour on the shelves
+            Group(ItemContainer.Grid(transform, new Vector3(1.6f, 0.52f, -0.15f), Quaternion.identity, 3, 1, new Vector2(0.52f, 0.5f), 0.46f, it => it is Backpack || it is ArmorItem));
+            Group(ItemContainer.Grid(transform, new Vector3(1.6f, 1.32f, -0.15f), Quaternion.identity, 3, 1, new Vector2(0.52f, 0.5f), 0.46f, it => it is Backpack || it is ArmorItem));
+            Panel(new Vector3(1.6f, 2.05f, 0.04f), Quaternion.identity, new Vector2(1.6f, 0.4f));
+        }
+
+        ItemContainer Single(Transform parent, Vector3 pos, System.Func<Item, bool> filter, float radius)
+        {
+            var c = ItemContainer.Grid(parent, pos, Quaternion.identity, 1, 1, Vector2.one * radius, 0f, filter, Quaternion.Euler(0, 180, 0));
+            foreach (var sl in c.slots) sl.radius = radius;
+            return c;
+        }
+
+        // ------------------------------------------------------------------------------- gear wall
+        void BuildGear()
+        {
+            Backboard("GEAR");
+            var mb = new MB(1);
+            Shelf(mb, 1.55f, 0.45f, 1.7f); Shelf(mb, 1.55f, 1.05f, 1.7f); Shelf(mb, 1.55f, 1.65f, 1.7f);
+            mb.Build("Shelves", transform, Steel);
+            System.Func<Item, bool> small = it => !(it is Backpack) && !(it is ArmorItem) && !(it is Gun g && g.g.TwoHanded);
+            Group(ItemContainer.Grid(transform, new Vector3(-1.2f, 1.55f, -0.05f), Quaternion.Euler(-90, 0, 0), 6, 3, new Vector2(0.3f, 0.3f), 0.24f, small));
+            for (int r = 0; r < 3; r++) Group(ItemContainer.Grid(transform, new Vector3(1.55f, 0.5f + r * 0.6f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.42f, 0.4f), 0.32f, small));
+            Panel(new Vector3(-1.2f, 0.35f, -0.2f), Quaternion.Euler(-30, 0, 0), new Vector2(1.7f, 0.5f));
+        }
+
+        // ------------------------------------------------------------------------------- contents
+        IEnumerable<Slot> AllSlots() { foreach (var g in _groups) foreach (var s in g.slots) yield return s; }
+
+        public void Place(ItemData d)
         {
             var it = ItemFactory.Spawn(d, transform.position + Vector3.up, transform.rotation);
             if (it == null) return;
             it.transform.SetParent(null, true);
             Slot target = null;
-            if (it is Gun g && g.g.TwoHanded) target = _rack.FirstFree(it);
-            if (target == null) target = _pistols.FirstFree(it);
-            if (target == null) target = _shelf.FirstFree(it);
+            foreach (var g in _groups) { target = g.FirstFree(it); if (target != null) break; }
             if (target == null) { _overflow.Add(d); Compat.Kill(it.gameObject); return; }
             target.Store(it, false);
         }
 
         void NextPage()
         {
-            if (_overflow.Count == 0) { RagoGame.I.Player.Toast("No more items"); return; }
+            if (_overflow.Count == 0) { RagoGame.I.Player.Toast("Nothing on the next page"); return; }
             // swap the visible items with the hidden ones
             var visible = new List<ItemData>();
             foreach (var s in AllSlots()) if (s.item != null) { visible.Add(s.item.Save()); var it = s.item; s.Release(it); Destroy(it.gameObject); }
@@ -425,17 +514,24 @@ namespace Rago
 
         void Update() { if (Time.frameCount % 30 == 0) Refresh(); }
 
-        void Refresh()
+        public void Refresh()
         {
             var prof = Profile.Current;
-            int count = _overflow.Count; foreach (var s in AllSlots()) if (s.item != null) count++;
-            _info.text = "<b>" + prof.name + "</b>\nCash  <color=#80ff80>$" + prof.money.ToString("N0") + "</color>\nItems  " + count + (_overflow.Count > 0 ? "  (+" + _overflow.Count + " hidden)" : "") +
-                "\nRaids " + prof.raids + "  Extracts " + prof.extracts + "  Kills " + prof.kills;
-            var sb = new System.Text.StringBuilder("AMMO RESERVE\n");
-            var cals = System.Enum.GetValues(typeof(Caliber));
-            int col = 0;
-            foreach (Caliber cc in cals) { if (prof.stashAmmo[(int)cc] <= 0) continue; sb.Append(Db.CalName(cc)).Append(": ").Append(prof.stashAmmo[(int)cc]).Append(++col % 2 == 0 ? "\n" : "    "); }
-            _ammo.text = sb.ToString();
+            if (prof == null || _info == null) return;
+            int count = 0, value = 0;
+            foreach (var s in AllSlots()) if (s.item != null) { count++; value += s.item.Value; }
+            foreach (var d in _overflow) { var def = Db.Get(d.id); if (def != null) value += def.price; }
+            string items = "Items  " + (count + _overflow.Count) + (_overflow.Count > 0 ? "  (+" + _overflow.Count + " on next page)" : "");
+            if (kind == StashKind.Gear)
+            {
+                _info.text = "<b>" + prof.name + "</b>\nCash  <color=#80ff80>$" + prof.money.ToString("N0") + "</color>\n" + items +
+                    "\nRaids " + prof.raids + "  Extracts " + prof.extracts + "  Kills " + prof.kills;
+                var sb = new System.Text.StringBuilder("AMMO RESERVE\n");
+                int col = 0;
+                foreach (Caliber cc in System.Enum.GetValues(typeof(Caliber))) { if (prof.stashAmmo[(int)cc] <= 0) continue; sb.Append(Db.CalName(cc)).Append(": ").Append(prof.stashAmmo[(int)cc]).Append(++col % 2 == 0 ? "\n" : "    "); }
+                _ammo.text = sb.ToString();
+            }
+            else _info.text = items + "\nWorth  <color=#80ff80>$" + value.ToString("N0") + "</color>" + (kind == StashKind.Armor ? "\nHang armour on the stands. Wear it: hold it to your head / chest and let go." : "");
         }
     }
 

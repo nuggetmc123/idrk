@@ -12,6 +12,7 @@ namespace Rago
         public bool chambered = true;
         public string sight = "";   // attached sight id
         public int count = 1;
+        public string contents = "";  // backpacks: JSON of the items inside
         public ItemData() { }
         public ItemData(string id) { this.id = id; }
         public ItemData Clone() => (ItemData)MemberwiseClone();
@@ -66,6 +67,13 @@ namespace Rago
 
         public virtual void OnGrab(Hand h)
         {
+            // picking something up from the world (not your own holsters/pouches): show what it is and what it's worth
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl != null && primaryHand == null && def != null && !(this is Magazine) && (slot == null || pl.Gear == null || !slot.transform.IsChildOf(pl.Gear.Root)))
+            {
+                string c = "#" + ColorUtility.ToHtmlStringRGB(ItemDef.RarityColor(def.rarity));
+                pl.Toast("<color=" + c + ">" + Label + "</color>  " + def.rarity + "  ~$" + Value.ToString("N0"));
+            }
             if (slot != null) slot.Release(this);
             if (primaryHand == null)
             {
@@ -194,7 +202,7 @@ namespace Rago
                 {
                     Sfx.Play(Synth.Heal(), transform.position, 0.6f, 1f, 0.5f, 6f);
                     if (sd.stopsBleed) pl.Vitals.StopBleeding();
-                    pl.Vitals.HealOverTime(sd.heal, def.id == "medkit" ? 4f : 0.5f);
+                    pl.Vitals.HealOverTime(sd.heal, sd.healTime);
                 }
                 h.Haptic(0.4f, 0.2f);
                 h.ForceRelease();

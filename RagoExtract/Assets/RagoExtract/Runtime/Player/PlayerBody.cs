@@ -25,6 +25,8 @@ namespace Rago
                 z.mult = HitZone.MultFor(z.part);
             }
             b.Rig.root.SetLayerRecursive(Layers.LocalBody);
+            p.Gear.OnGearChanged += b.ApplyGear;
+            b.ApplyGear();
             return b;
         }
 
@@ -35,6 +37,14 @@ namespace Rago
             if (t == r.spine || t == r.hips) return BodyPart.Stomach;
             if (t == r.uaL || t == r.uaR || t == r.faL || t == r.faR || t == r.handL || t == r.handR) return BodyPart.Arm;
             return BodyPart.Leg;
+        }
+
+        /// <summary>Shows the helmet and vest you're wearing on your body.</summary>
+        public void ApplyGear()
+        {
+            if (Rig == null || _p == null || _p.Gear == null) return;
+            ArmorBuilder.Dress(Rig, _p.Gear.Helmet, _p.Gear.Vest, null, true);
+            foreach (var g in Rig.gearVisuals) g.SetLayerRecursive(Layers.LocalBody);
         }
 
         public void Snap() { _yaw = _p.Head.eulerAngles.y; _lastRoot = _p.transform.position; }
@@ -81,6 +91,7 @@ namespace Rago
                 Physics.IgnoreCollision(_p.HandR.GetComponent<Collider>(), c);
             }
             Rig.root.SetLayerRecursive(Layers.LocalBody);
+            ApplyGear();
             Snap();
         }
     }
@@ -112,9 +123,8 @@ namespace Rago
             if (!Alive || God) return;
             if (RagoGame.I != null && RagoGame.I.SafeZone) return;
             float dmg = h.damage;
-            // armour: helmet + plate carrier
-            if (h.part == BodyPart.Head) dmg *= 0.7f;
-            if (h.part == BodyPart.Thorax) dmg *= 0.6f;
+            // armour you're wearing (found in raids)
+            dmg *= ArmorDef.Reduction(h.part, rig.Gear.Helmet, rig.Gear.Vest);
             Health -= dmg;
             rig.Hud.Damage(Mathf.Clamp01(dmg / 40f), h.dir);
             if (dmg > 12 && Random.value < 0.45f) Bleed = Mathf.Min(4f, Bleed + 0.6f);

@@ -21,6 +21,7 @@ namespace Rago
         public float snapAngle = 45f;
         public float volume = 1f;
         public int version = 1;
+        public bool freeArmor;   // set when you die: a basic helmet + vest wait in the Armor Room if you own none
 
         static string PathFile => Path.Combine(Application.persistentDataPath, "rago_profile.json");
 
@@ -48,6 +49,16 @@ namespace Rago
             if (loadout == null) loadout = new Loadout();
             if (loadout.pack == null) loadout.pack = new List<ItemData>();
             stash.RemoveAll(d => d == null || Db.Get(d.id) == null);
+            loadout.pack.RemoveAll(d => d == null || Db.Get(d.id) == null);
+            if (version < 2)
+            {
+                // older saves had a single bag type and armour built into the body
+                if (loadout.hasPack && string.IsNullOrEmpty(loadout.packId)) loadout.packId = "pack_assault";
+                version = 2;
+            }
+            if (loadout.hasPack && Db.Get<BackpackDef>(loadout.packId) == null) loadout.packId = "pack_assault";
+            if (!string.IsNullOrEmpty(loadout.helmet) && Db.Get<ArmorDef>(loadout.helmet) == null) loadout.helmet = "";
+            if (!string.IsNullOrEmpty(loadout.vest) && Db.Get<ArmorDef>(loadout.vest) == null) loadout.vest = "";
         }
 
         public static Profile NewProfile()
@@ -62,8 +73,15 @@ namespace Rago
                 util1 = new ItemData("bandage"),
                 util2 = new ItemData("medkit"),
                 hasPack = true,
-                pack = new List<ItemData> { new ItemData("bandage") }
+                packId = "pack_day",
+                pack = new List<ItemData> { new ItemData("bandage") },
+                helmet = "", vest = ""   // no armour to start: find it in raids
             };
+            p.version = 2;
+            // a beat-up helmet and a soft vest wait on the stands in the Armor Room
+            p.stash.Add(new ItemData("helm_bump"));
+            p.stash.Add(new ItemData("vest_soft"));
+            p.stash.Add(new ItemData("painkillers"));
             p.stash.Add(new ItemData("breacher"));
             p.stash.Add(new ItemData("vanguard"));
             p.stash.Add(new ItemData("micro_dot"));

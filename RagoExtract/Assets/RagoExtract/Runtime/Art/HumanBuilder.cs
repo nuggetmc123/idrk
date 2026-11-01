@@ -18,6 +18,7 @@ namespace Rago
         public readonly List<Rigidbody> bodies = new List<Rigidbody>();
         public readonly List<Collider> colliders = new List<Collider>();
         public readonly List<Renderer> headRenderers = new List<Renderer>();
+        public readonly List<GameObject> gearVisuals = new List<GameObject>(); // worn helmet / vest / backpack (ArmorBuilder.Dress)
         public float upperArm = 0.29f, foreArm = 0.27f, thigh = 0.45f, shin = 0.45f, spineLen = 0.36f, neckLen = 0.16f;
         public bool ragdoll;
         public Transform weaponR; // where an NPC rifle sits
@@ -95,7 +96,7 @@ namespace Rago
                     var s = rng.Pick(schemes);
                     p.top = s.Item1 * 1.1f; p.top2 = s.Item1; p.pants = s.Item1 * 0.95f; p.gear = s.Item2; p.gear2 = s.Item2 * 0.8f;
                     p.helmet = s.Item2 * 0.9f; p.accent = new Color(0.15f, 0.15f, 0.15f);
-                    p.helmetOn = true; p.mask = rng.Chance(0.6f); p.plate = true;
+                    p.helmetOn = false; p.mask = rng.Chance(0.6f); p.plate = false; // armour is found in raids and worn separately
                     break;
                 case Outfit.Raider:
                 case Outfit.RaiderHeavy:
@@ -107,7 +108,7 @@ namespace Rago
                     p.helmet = new Color(0.25f, 0.27f, 0.2f);
                     p.beanie = rng.Chance(0.4f); p.mask = rng.Chance(0.5f); p.gasMask = !p.beanie && rng.Chance(0.35f);
                     p.cap = !p.beanie && !p.gasMask && rng.Chance(0.5f);
-                    p.helmetOn = o == Outfit.RaiderHeavy; p.plate = o == Outfit.RaiderHeavy || rng.Chance(0.3f);
+                    p.helmetOn = false; p.plate = false; // raider armour is real, droppable gear (Npc.Spawn)
                     break;
                 case Outfit.Gunsmith:
                     p.top = new Color(0.32f, 0.3f, 0.28f); p.top2 = p.top; p.pants = new Color(0.2f, 0.22f, 0.28f); p.gear = new Color(0.35f, 0.24f, 0.14f); p.apron = true; p.cap = true; p.accent = new Color(0.5f, 0.3f, 0.1f);
@@ -232,7 +233,6 @@ namespace Rago
                 mb.Sub(HARD).Box(new Vector3(-0.1f, 0.15f, 0.02f), new Vector3(0.04f, 0.02f, 0.25f), p.gear2, 0.005f);
                 mb.Sub(HARD).Box(new Vector3(0.1f, 0.15f, 0.02f), new Vector3(0.04f, 0.02f, 0.25f), p.gear2, 0.005f);
             }
-            if (o == Outfit.Operator) mb.Sub(CLOTH).Box(new Vector3(0, 0.02f, -0.2f), new Vector3(0.28f, 0.34f, 0.16f), p.gear * 0.9f, 0.05f, 2); // backpack
             mb.Build("Mesh", r.chest, mats);
 
             // ---- neck: metal column

@@ -34,14 +34,40 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 
 ## How the game works
 
-- **Bunker** is your private base. It has your stash wall (gun rack and shelves, saved automatically), a raid kiosk, a shooting range with steel targets, a settings board and a lift to the Market.
+- **Bunker** is your private base. Everything you leave in it is saved automatically.
+  - **Main hall**: the Gear stash wall (meds, valuables, keys, junk, plus your cash and ammo), the raid kiosk, a settings board and the lift to the Market.
+  - **Armory** (through the north door): rifle rack, a pegboard for pistols, sights and mags, and a workbench.
+  - **Armor Room** (through the east door): armor stands for helmets and vests, plus shelves for backpacks.
+  - **Shooting range** (west tunnel) with steel targets.
+
+  Each stash section has a NEXT PAGE button when it's full.
 - **Market** is a shared safe zone where players meet, with proximity voice chat. It has 4 NPC traders:
   - **Viktor** (rifles and shotguns)
-  - **Mara** (sidearms, SMGs, holo sights, ammo)
-  - **Doc Hale** (meds)
-  - **Silas** the Fence (buys anything, sells vault keycards)
+  - **Mara** (sidearms, SMGs, holo sights, ammo, basic backpacks; also buys armor and bags)
+  - **Doc Hale** (meds; also buys valuables)
+  - **Silas** the Fence (buys **anything**, pays the best price for valuables, sells vault keycards)
 
-  Buy with the BUY buttons; your item appears on the PICKUP tray. Put items on the SELL tray to sell them.
+  Buy with the BUY buttons; your item appears on the PICKUP tray. Put items on the SELL tray to sell them. A backpack sells together with everything inside it.
+- **Armor**: you start with none on. It's only found in raids: armor cases (olive boxes with a yellow stripe), crates, Raiders (heavies always wear a helmet and vest, and drop them), and vaults (Epic and Vault tiers). New profiles get a bump helmet and soft vest on the stands in the Armor Room. If you die and own no armor at all, a fresh basic set is waiting there.
+
+  | Tier | Helmet (head damage stopped) | Vest (chest damage stopped, stomach 60% of that) |
+  |---|---|---|
+  | Common | Bump Helmet 15% | Soft Armor Vest 15% |
+  | Uncommon | Ballistic Helmet 28% | Plate Carrier 30% |
+  | Rare | FAST Rail Helmet 38% | Heavy Plate Carrier 42% |
+  | Epic | Assault Visor Helmet 50% | Assault Armor Rig 52% |
+  | Vault (vaults only) | Juggernaut Helmet 62% | Juggernaut Armor 65% |
+
+  To wear armor, hold it to your head (helmet) or chest (vest) and let go. To take it off, grab the top of your head or your collar. Armor you wear is lost if you die.
+- **Backpacks**: Daypack 2x2, Assault Pack 3x3, Raid Pack 4x3 and Tactical Pack 4x4. Swap bags by putting a different one on your left shoulder. A bag keeps its contents wherever it goes (stash, floor, trader).
+- **Meds**: Bandage (stops bleeding), Painkillers (quick +15), IFAK (+40 and stops bleeding), Field Medkit (+60), Trauma Kit (+90 and stops bleeding) and Adrenal Stim.
+- **Loot to sell**: everything can be sold, but some loot exists only to be sold, from junk to jackpot:
+  - **Junk** ($25-$300): tin can, scrap metal, cigarettes, Zippo lighter, battery pack.
+  - **Decent** ($650-$2,200): whiskey, smartphone, silver ring, military radio, gold chain, luxury watch, encrypted drive.
+  - **Good** ($4,500-$6,500): intel folder, graphics card, rugged laptop.
+  - **Jackpot** ($9,000-$45,000): cold wallet and gold idol, plus the vault-only gold bar, blue diamond and Crown Jewel.
+
+  Pick something up and its name, rarity and value pop up.
 - **Kiosk**: pick a map and queue. Each raid holds 4-10 players. The queue tries to reach 8, starts right away at 10, and once the queue timer hits **1 minute** it launches with whoever is queued.
 - **Raids**: three maps.
   - **Dockyard**: container yard, cranes, warehouses, Harbor Office vault.
@@ -69,11 +95,12 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Chest | Grab a fresh magazine for the gun in your other hand (from your ammo reserve) |
 | Right hip | Pistol holster |
 | Right shoulder / lower back | Long guns |
-| Left shoulder | Backpack: pull it off to open the 3x3 pockets |
+| Left shoulder | Backpack: pull it off to open its pockets |
+| Top of head / collar | Take off your helmet / vest. Hold armor to your head or chest and let go to wear it |
 | Med near chest + trigger | Heal (bandage stops bleeding, medkit heals over time, stim gives instant HP + stamina) |
 
 ### Desktop controls (no headset)
-WASD move · mouse look · Shift sprint · C crouch · E grab what you look at / drop · LMB fire / click · RMB aim · R reload · F rack / open / interact (hold F on a vault hack panel) · X drop mag · 1/2/3 primary / secondary / pistol · Tab backpack · G drop (into the open backpack)
+WASD move · mouse look · Shift sprint · C crouch · E grab what you look at / drop · LMB fire / click · RMB aim · R reload · F rack / open / interact (hold F on a vault hack panel) · X drop mag · 1/2/3 primary / secondary / pistol · Tab backpack · G drop (into the open backpack) · H wear held armor / take armor off
 
 ## Code layout
 ```

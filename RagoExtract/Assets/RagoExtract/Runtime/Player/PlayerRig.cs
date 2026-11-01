@@ -56,9 +56,9 @@ namespace Rago
             p.HandR = Hand.Create(p, false);
             p.Vitals = go.AddComponent<Vitals>();
             p.Vitals.rig = p;
-            p.Body = PlayerBody.Create(p);
             p.Gear = go.AddComponent<Gear>();
             p.Gear.Init(p);
+            p.Body = PlayerBody.Create(p);
             p.Hud = Hud.Create(p);
             // never collide with our own body parts
             Physics.IgnoreCollision(p.Cc, p.HandL.GetComponent<Collider>());
@@ -211,6 +211,7 @@ namespace Rago
             if (Desktop.Reload && gun != null) Gear.DesktopReload(gun);
             if (Desktop.Equip >= 0) Gear.DesktopEquip(Desktop.Equip);
             if (Desktop.Backpack) Gear.DesktopBackpack();
+            if (Desktop.Armor) Gear.DesktopArmor();
         }
 
         void DesktopInteract() { }

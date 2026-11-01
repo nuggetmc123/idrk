@@ -3,10 +3,36 @@ using UnityEngine;
 
 namespace Rago
 {
-    /// <summary>Your personal bunker: stash wall, raid kiosk, shooting range, settings, door to the Market.</summary>
+    /// <summary>Your personal bunker: main hall (gear stash, raid kiosk, settings), Armory (weapons),
+    /// Armor Room (armour stands + backpacks), shooting range and the lift to the Market.</summary>
     public class BunkerMap : MapBase
     {
-        public StashWall Stash;
+        public readonly List<StashSection> Stash = new List<StashSection>();
+
+        /// <summary>Everything in all stash rooms (saved to the profile when you leave).</summary>
+        public List<ItemData> SaveStash()
+        {
+            var l = new List<ItemData>();
+            foreach (var s in Stash) if (s != null) l.AddRange(s.Save());
+            return l;
+        }
+
+        void LoadStash()
+        {
+            if (Profile.Current == null) return;
+            foreach (var d in new List<ItemData>(Profile.Current.stash))
+            {
+                var k = StashSection.For(d);
+                foreach (var s in Stash) if (s.kind == k) { s.Place(d); break; }
+            }
+            // died and lost all your armour? a beat-up bump helmet and soft vest turn up on the stands, so you never raid naked
+            var prof = Profile.Current;
+            bool anyArmor = !string.IsNullOrEmpty(prof.loadout.helmet) || !string.IsNullOrEmpty(prof.loadout.vest) || prof.stash.Exists(d => Db.Get<ArmorDef>(d.id) != null);
+            if (!anyArmor && prof.freeArmor)
+                foreach (var s in Stash) if (s.kind == StashKind.Armor) { s.Place(new ItemData("helm_bump")); s.Place(new ItemData("vest_soft")); }
+            if (Application.isPlaying) prof.freeArmor = false;
+            foreach (var s in Stash) s.Refresh();
+        }
 
         public override void Build()
         {
@@ -23,13 +49,15 @@ namespace Rago
             // room
             b.Box(new Vector3(0, -0.1f, 0), new Vector3(W, 0.2f, D), floor, Color.white);
             b.Box(new Vector3(0, Ht + 0.1f, 0), new Vector3(W, 0.2f, D), conc, new Color(0.5f, 0.5f, 0.5f));
-            b.Wall(new Vector3(-W / 2, 0, D / 2), new Vector3(W / 2, 0, D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f));
+            // north wall opens into the Armory, east wall into the Armor Room
+            b.Wall(new Vector3(-W / 2, 0, D / 2), new Vector3(W / 2, 0, D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(W / 2, 2.4f, 0, 2.6f) });
             b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f));
-            b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f));
+            b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(D / 2 + 2f, 2.4f, 0, 2.6f) });
             // west wall opens into the range tunnel
             b.Wall(new Vector3(-W / 2, 0, -D / 2), new Vector3(-W / 2, 0, D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(D / 2, 3f, 0, 2.6f) });
             // two-tone paint band
-            foreach (var w in new[] { (new Vector3(0, 0.6f, D / 2 - 0.16f), new Vector3(W, 1.2f, 0.02f)), (new Vector3(0, 0.6f, -D / 2 + 0.16f), new Vector3(W, 1.2f, 0.02f)), (new Vector3(W / 2 - 0.16f, 0.6f, 0), new Vector3(0.02f, 1.2f, D)) })
+            foreach (var w in new[] { (new Vector3(-4.6f, 0.6f, D / 2 - 0.16f), new Vector3(6.8f, 1.2f, 0.02f)), (new Vector3(4.6f, 0.6f, D / 2 - 0.16f), new Vector3(6.8f, 1.2f, 0.02f)), (new Vector3(0, 0.6f, -D / 2 + 0.16f), new Vector3(W, 1.2f, 0.02f)),
+                                      (new Vector3(W / 2 - 0.16f, 0.6f, 2.6f), new Vector3(0.02f, 1.2f, 6.8f)), (new Vector3(W / 2 - 0.16f, 0.6f, -4.6f), new Vector3(0.02f, 1.2f, 2.8f)) })
                 b.Box(w.Item1, w.Item2, paint, Color.white, null, false);
             // pipes & cable trays
             for (int i = 0; i < 3; i++) b.Cyl(new Vector3(-W / 2, Ht - 0.25f - i * 0.12f, D / 2 - 0.4f), new Vector3(W / 2, Ht - 0.25f - i * 0.12f, D / 2 - 0.4f), 0.05f, 0.05f, 10, Maps.Metal, new Color(0.35f + i * 0.1f, 0.3f, 0.25f), false);
@@ -39,15 +67,49 @@ namespace Rago
                 b.Box(new Vector3(i * 5, Ht - 0.08f, 0), new Vector3(1.2f, 0.08f, 0.25f), Mats.Lit("lamp_on", new Color(1f, 0.95f, 0.8f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2f, 1.6f)), Color.white, null, false);
                 b.AddLight(new Vector3(i * 5, Ht - 0.4f, 0), new Color(1f, 0.88f, 0.7f), 9f, 1.4f, i == 0);
             }
-            // stash on the north wall
-            Stash = StashWall.Create(transform, new Vector3(-2, 0, D / 2 - 0.25f), 0);
-            // kiosk on the east side
-            Kiosk.Create(transform, new Vector3(W / 2 - 0.9f, 0, -1.5f), Quaternion.Euler(0, 90, 0));
+            var lampMat = Mats.Lit("lamp_on", new Color(1f, 0.95f, 0.8f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2f, 1.6f));
+            var wallTint = new Color(0.75f, 0.73f, 0.68f);
+            // ---- Armory (north): weapons stash, workbench, ammo crates
+            float ax = 6f, az0 = D / 2, az1 = D / 2 + 7f;
+            b.Box(new Vector3(0, -0.1f, (az0 + az1) / 2), new Vector3(ax * 2, 0.2f, az1 - az0), floor, Color.white);
+            b.Box(new Vector3(0, Ht + 0.1f, (az0 + az1) / 2), new Vector3(ax * 2, 0.2f, az1 - az0), conc, new Color(0.5f, 0.5f, 0.5f));
+            b.Wall(new Vector3(-ax, 0, az0), new Vector3(-ax, 0, az1), Ht, 0.3f, conc, wallTint);
+            b.Wall(new Vector3(-ax, 0, az1), new Vector3(ax, 0, az1), Ht, 0.3f, conc, wallTint);
+            b.Wall(new Vector3(ax, 0, az1), new Vector3(ax, 0, az0), Ht, 0.3f, conc, wallTint);
+            b.Box(new Vector3(0, 0.6f, az1 - 0.16f), new Vector3(ax * 2, 1.2f, 0.02f), paint, Color.white, null, false);
+            b.Box(new Vector3(0, Ht - 0.08f, (az0 + az1) / 2), new Vector3(1.2f, 0.08f, 0.25f), lampMat, Color.white, null, false);
+            b.AddLight(new Vector3(0, Ht - 0.4f, (az0 + az1) / 2), new Color(1f, 0.88f, 0.7f), 9f, 1.4f, true);
+            Stash.Add(StashSection.Create(transform, new Vector3(0, 0, az1 - 0.25f), 0, StashKind.Weapons));
+            b.Table(new Vector3(-ax + 0.6f, 0, (az0 + az1) / 2 + 0.5f), 90, new Vector2(2.4f, 0.9f), 0.9f);
+            b.Box(new Vector3(-ax + 0.17f, 1.5f, (az0 + az1) / 2 + 0.5f), new Vector3(0.05f, 1.0f, 2.4f), Mats.Lit("pegboard", Color.white, 0.1f, 0.3f, Mats.Wood, null, 0.3f, 0.1f), new Color(0.5f, 0.45f, 0.35f), null, false);
+            b.Crate(new Vector3(ax - 0.7f, 0, az0 + 1.2f), 5, new Vector3(0.9f, 0.5f, 0.6f));
+            b.Crate(new Vector3(ax - 0.7f, 0, az0 + 2.1f), -8, new Vector3(0.9f, 0.5f, 0.6f));
+            b.Crate(new Vector3(ax - 0.7f, 0.5f, az0 + 1.6f), 12, new Vector3(0.8f, 0.4f, 0.5f));
+            b.Sign(new Vector3(0, 2.95f, D / 2 - 0.2f), Quaternion.identity, "ARMORY", new Color(0.9f, 0.8f, 0.6f), 0.14f);
+
+            // ---- Armor Room (east): armour stands + backpack shelves
+            float rx0 = W / 2, rx1 = W / 2 + 7f, rz0 = -D / 2 - 1f, rz1 = D / 2 - 3f, rzc = (rz0 + rz1) / 2;
+            b.Box(new Vector3((rx0 + rx1) / 2, -0.1f, rzc), new Vector3(rx1 - rx0, 0.2f, rz1 - rz0), floor, Color.white);
+            b.Box(new Vector3((rx0 + rx1) / 2, Ht + 0.1f, rzc), new Vector3(rx1 - rx0, 0.2f, rz1 - rz0), conc, new Color(0.5f, 0.5f, 0.5f));
+            b.Wall(new Vector3(rx0, 0, rz1), new Vector3(rx1, 0, rz1), Ht, 0.3f, conc, wallTint);
+            b.Wall(new Vector3(rx1, 0, rz1), new Vector3(rx1, 0, rz0), Ht, 0.3f, conc, wallTint);
+            b.Wall(new Vector3(rx1, 0, rz0), new Vector3(rx0, 0, rz0), Ht, 0.3f, conc, wallTint);
+            b.Wall(new Vector3(rx0, 0, rz0), new Vector3(rx0, 0, -D / 2), Ht, 0.3f, conc, wallTint);
+            b.Box(new Vector3(rx1 - 0.16f, 0.6f, rzc), new Vector3(0.02f, 1.2f, rz1 - rz0), paint, Color.white, null, false);
+            b.Box(new Vector3((rx0 + rx1) / 2, Ht - 0.08f, rzc), new Vector3(0.25f, 0.08f, 1.2f), lampMat, Color.white, null, false);
+            b.AddLight(new Vector3((rx0 + rx1) / 2, Ht - 0.4f, rzc), new Color(1f, 0.9f, 0.78f), 9f, 1.4f, true);
+            Stash.Add(StashSection.Create(transform, new Vector3(rx1 - 0.4f, 0, rzc), 90, StashKind.Armor));
+            b.Box(new Vector3((rx0 + rx1) / 2, 0.45f, rz1 - 0.45f), new Vector3(2.2f, 0.06f, 0.4f), Maps.WoodPlank, new Color(0.55f, 0.45f, 0.33f), null, true, Synth.Surface.Wood); // bench
+            b.Box(new Vector3((rx0 + rx1) / 2, 0.21f, rz1 - 0.45f), new Vector3(2.0f, 0.42f, 0.3f), Maps.Metal, new Color(0.3f, 0.3f, 0.3f), null, false);
+            b.Sign(new Vector3(W / 2 - 0.2f, 2.95f, -2f), Quaternion.Euler(0, 90, 0), "ARMOR", new Color(0.9f, 0.8f, 0.6f), 0.14f);
+
+            // ---- main hall: gear stash on the north wall, kiosk on the east side
+            Stash.Add(StashSection.Create(transform, new Vector3(-4.6f, 0, D / 2 - 0.25f), 0, StashKind.Gear));
+            LoadStash();
+            Kiosk.Create(transform, new Vector3(W / 2 - 0.9f, 0, 4.2f), Quaternion.Euler(0, 90, 0));
             // workbench + props
-            b.Table(new Vector3(4.5f, 0, D / 2 - 0.8f), 0, new Vector2(2.4f, 0.9f), 0.9f);
-            b.Box(new Vector3(4.5f, 1.5f, D / 2 - 0.25f), new Vector3(2.4f, 1.0f, 0.05f), Mats.Lit("pegboard", Color.white, 0.1f, 0.3f, Mats.Wood, null, 0.3f, 0.1f), new Color(0.5f, 0.45f, 0.35f), null, false);
-            b.Crate(new Vector3(6.6f, 0, 3.5f), 10, new Vector3(1.0f, 0.6f, 0.6f));
-            b.Crate(new Vector3(6.4f, 0.6f, 3.6f), -5, new Vector3(0.8f, 0.5f, 0.5f));
+            b.Crate(new Vector3(3.6f, 0, D / 2 - 0.7f), 10, new Vector3(1.0f, 0.6f, 0.6f));
+            b.Crate(new Vector3(3.4f, 0.6f, D / 2 - 0.6f), -5, new Vector3(0.8f, 0.5f, 0.5f));
             b.Barrel(new Vector3(-6.8f, 0, -5f), new Color(0.2f, 0.3f, 0.2f));
             // bed + locker
             b.Box(new Vector3(-5.8f, 0.3f, -4.6f), new Vector3(2.0f, 0.15f, 0.9f), Maps.Metal, new Color(0.3f, 0.32f, 0.3f), null, true, Synth.Surface.Metal);
@@ -58,7 +120,7 @@ namespace Rago
             // travel
             HubProps.TravelDoor(b, transform, new Vector3(2.5f, 0, -D / 2 + 0.2f), 180, "MARKET  >", () => RagoGame.I.GoTo(Area.Market));
             b.Sign(new Vector3(2.5f, 3.1f, -D / 2 + 0.25f), Quaternion.Euler(0, 180, 0), "LIFT - MARKET", new Color(0.9f, 0.8f, 0.6f), 0.12f);
-            b.Sign(new Vector3(-2, 3.2f, D / 2 - 0.3f), Quaternion.identity, "RAGO EXTRACT", UI.Accent, 0.22f);
+            b.Sign(new Vector3(-4.6f, 3.2f, D / 2 - 0.3f), Quaternion.identity, "RAGO EXTRACT", UI.Accent, 0.22f);
             // shooting range tunnel (west)
             float L = 26;
             b.Box(new Vector3(-W / 2 - L / 2, -0.1f, 0), new Vector3(L, 0.2f, 3.4f), floor, Color.white);
@@ -74,8 +136,6 @@ namespace Rago
                 b.AddLight(new Vector3(x, 2.4f, 0), new Color(1f, 0.9f, 0.75f), 6f, 0.9f);
                 b.Sign(new Vector3(x + 0.5f, 2.3f, 1.55f), Quaternion.identity, (7 + i * 8) + "m", Color.white, 0.12f);
             }
-            // a couple of cheap guns on the bench to try
-            ItemFactory.Spawn("p9", new Vector3(-W / 2 - 0.8f, 1.12f, -0.6f), Quaternion.Euler(0, -90, 90));
             Spawn(new Vector3(0, 0.05f, -2f), 0);
         }
     }

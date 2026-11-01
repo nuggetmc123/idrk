@@ -28,6 +28,7 @@ namespace Rago
         public bool Alive => Health > 0;
         public int ActorId => 1000 + Id;
         public System.Action<Npc> OnDied;
+        public ArmorDef Helmet, Vest;
 
         Vector3 _home;
         readonly List<Vector3> _patrol = new List<Vector3>();
@@ -62,6 +63,11 @@ namespace Rago
                 z.part = PlayerBody.PartFor(c.transform, n.Rig);
                 z.mult = HitZone.MultFor(z.part);
             }
+            // real, droppable armour: heavies always wear a helmet + vest, regular raiders sometimes
+            var ar = new Rng(seed * 31 + 5);
+            if (heavy) { n.Helmet = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "helm_fast" : "helm_ballistic"); n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_heavy" : "vest_carrier"); }
+            else { if (ar.Chance(0.2f)) n.Helmet = Db.Get<ArmorDef>("helm_bump"); if (ar.Chance(0.3f)) n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_carrier" : "vest_soft"); }
+            ArmorBuilder.Dress(n.Rig, n.Helmet, n.Vest, null, false);
             n.Rig.root.SetLayerRecursive(Layers.Npc);
             string[] common = { "vostok74", "vostokm", "vanguard", "kestrel", "breacher", "wasp", "comrade", "bandit", "p9", "nomad" };
             string[] heavyGuns = { "sentinel", "grizzly", "lancer", "fennec", "vostokm", "riot", "hailstorm" };
@@ -433,8 +439,7 @@ namespace Rago
             if (!Alive) return;
             if (Puppet && !h.fromNet) return; // the host applies damage
             float dmg = h.damage;
-            if (Heavy && h.part == BodyPart.Head) dmg *= 0.65f;
-            if (Heavy && h.part == BodyPart.Thorax) dmg *= 0.7f;
+            dmg *= ArmorDef.Reduction(h.part, Helmet, Vest);
             Health -= dmg;
             _flinch = Mathf.Clamp01(_flinch + 0.6f);
             _flinchDir = h.dir.normalized;
@@ -469,11 +474,24 @@ namespace Rago
                 var it = ItemFactory.Spawn(def.id, Rig.chest.position + Vector3.up * 0.25f + Random.insideUnitSphere * 0.2f, Random.rotation);
                 if (it != null) { it.netId = 60000 + Id * 8 + 1 + i; NetGame.I?.Register(it); }
             }
+            // worn armour comes off as real items
+            if (Helmet != null) DropArmor(Helmet, Rig.head, 4, impulse);
+            if (Vest != null) DropArmor(Vest, Rig.chest, 5, impulse);
+            ArmorBuilder.Dress(Rig, null, null, null, false);
             // ammo for the dropped gun
             var ammo = ItemFactory.Spawn(Db.AmmoIdFor(Weapon.cal), Rig.hips.position + Vector3.up * 0.3f, Random.rotation);
             if (ammo != null) { ammo.netId = 60000 + Id * 8 + 7; NetGame.I?.Register(ammo); }
             if (!fromNet) NetGame.I?.NpcDied(Id, point, impulse);
             OnDied?.Invoke(this);
+        }
+
+        void DropArmor(ArmorDef d, Transform bone, int k, Vector3 impulse)
+        {
+            var it = ItemFactory.Spawn(d.id, bone.position + Vector3.up * 0.15f, bone.rotation);
+            if (it == null) return;
+            it.netId = 60000 + Id * 8 + k;
+            it.rb.SetVel(impulse * 0.015f + Vector3.up);
+            NetGame.I?.Register(it);
         }
     }
 }

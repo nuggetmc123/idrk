@@ -108,6 +108,8 @@ namespace Rago.EditorTools
         {
             var rig = HumanRig.Build(o, seed, parent);
             rig.root.name = name + " (dummy)";
+            if (o == Outfit.RaiderHeavy) ArmorBuilder.Dress(rig, Db.Get<ArmorDef>("helm_ballistic"), Db.Get<ArmorDef>("vest_carrier"), null, false);
+            if (o == Outfit.Operator) ArmorBuilder.Dress(rig, null, null, Db.Get<BackpackDef>(string.IsNullOrEmpty(Profile.Current.loadout.packId) ? "pack_day" : Profile.Current.loadout.packId), false);
             var head = pos + Vector3.up * 1.62f;
             for (int i = 0; i < 3; i++) rig.Pose(pos, yaw, head, Quaternion.Euler(4, yaw, 0), Vector3.zero, Quaternion.identity, Vector3.zero, Quaternion.identity, Vector3.zero, 0.016f, false);
         }

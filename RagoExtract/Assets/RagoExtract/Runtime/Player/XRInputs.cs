@@ -110,7 +110,7 @@ namespace Rago
         public static Vector2 Move;
         public static bool Sprint;
         public static bool RightGripToggle, LeftGripToggle;
-        public static bool Click, Reload, Interact, Drop, Backpack;
+        public static bool Click, Reload, Interact, Drop, Backpack, Armor;
         public static int Equip = -1;
         static bool _lt, _rp, _rs, _ok = true;
 
@@ -140,6 +140,7 @@ namespace Rago
             Interact = KeyDown(KeyCode.F);
             Drop = KeyDown(KeyCode.G);
             Backpack = KeyDown(KeyCode.Tab);
+            Armor = KeyDown(KeyCode.H);
             Equip = KeyDown(KeyCode.Alpha1) ? 0 : KeyDown(KeyCode.Alpha2) ? 1 : KeyDown(KeyCode.Alpha3) ? 2 : -1;
             Click = MouseDown(0);
 

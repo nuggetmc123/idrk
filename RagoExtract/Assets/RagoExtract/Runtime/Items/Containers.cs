@@ -147,6 +147,8 @@ namespace Rago
                 case ItemKind.Gun: it = Gun.Create((GunDef)def, d, pos, rot); break;
                 case ItemKind.Sight: it = SightItem.Create((SightDef)def, pos, rot); break;
                 case ItemKind.Med: it = Simple<MedItem>((SimpleDef)def, pos, rot); break;
+                case ItemKind.Armor: it = ArmorItem.Create((ArmorDef)def, pos, rot); break;
+                case ItemKind.Backpack: { var bp = Backpack.Create(pos, (BackpackDef)def); bp.Load(d); it = bp; break; }
                 default: it = Simple<LootItem>((SimpleDef)def, pos, rot); break;
             }
             if (RagoGame.I != null && RagoGame.I.MapRoot != null) it.transform.SetParent(RagoGame.I.MapRoot, true);
@@ -177,6 +179,14 @@ namespace Rago
                         mb.Sub(0).Box(new Vector3(0, 0, 0.036f), new Vector3(0.018f, 0.06f, 0.004f), w, 0.002f);
                         mb.Sub(1).Box(new Vector3(0, 0.07f, 0), new Vector3(0.08f, 0.02f, 0.02f), w, 0.005f);
                     }
+                    else if (d.shape == 3) { mb.Sub(0).Cyl(new Vector3(0, -0.035f, 0), new Vector3(0, 0.03f, 0), 0.022f, 0.022f, 14, c); mb.Sub(0).Cyl(new Vector3(0, 0.03f, 0), new Vector3(0, 0.045f, 0), 0.024f, 0.024f, 14, w); mb.Sub(0).Cyl(new Vector3(0, -0.01f, 0), new Vector3(0, 0.015f, 0), 0.0225f, 0.0225f, 14, w * 0.95f); }
+                    else if (d.shape == 4)
+                    {
+                        mb.Sub(2).Box(Vector3.zero, new Vector3(0.16f, 0.1f, 0.07f), c, 0.025f, 2);
+                        mb.Sub(0).Box(new Vector3(0, 0.0f, 0.036f), new Vector3(0.05f, 0.015f, 0.004f), new Color(0.8f, 0.1f, 0.1f), 0.002f);
+                        mb.Sub(0).Box(new Vector3(0, 0.0f, 0.036f), new Vector3(0.015f, 0.05f, 0.004f), new Color(0.8f, 0.1f, 0.1f), 0.002f);
+                        mb.Sub(1).Box(new Vector3(0, 0.052f, 0), new Vector3(0.12f, 0.006f, 0.01f), new Color(0.2f, 0.2f, 0.2f), 0.002f);
+                    }
                     else { mb.Sub(0).Cyl(new Vector3(0, -0.06f, 0), new Vector3(0, 0.05f, 0), 0.014f, 0.014f, 12, c); mb.Sub(1).Cyl(new Vector3(0, 0.05f, 0), new Vector3(0, 0.07f, 0), 0.004f, 0.001f, 8, w); mb.Sub(0).Box(new Vector3(0, -0.065f, 0), new Vector3(0.03f, 0.012f, 0.03f), new Color(0.9f, 0.9f, 0.9f), 0.003f); }
                     break;
                 case ItemKind.Ammo:
@@ -199,6 +209,68 @@ namespace Rago
                         case 4: mb.Sub(0).Box(Vector3.zero, new Vector3(0.27f, 0.04f, 0.11f), c, 0.004f); mb.Sub(1).Cyl(new Vector3(-0.06f, 0.021f, 0), new Vector3(-0.06f, 0.024f, 0), 0.04f, 0.04f, 16, new Color(0.15f, 0.15f, 0.15f)); mb.Sub(1).Cyl(new Vector3(0.06f, 0.021f, 0), new Vector3(0.06f, 0.024f, 0), 0.04f, 0.04f, 16, new Color(0.15f, 0.15f, 0.15f)); mb.Sub(1).Box(new Vector3(0, -0.012f, -0.05f), new Vector3(0.2f, 0.01f, 0.012f), new Color(0.85f, 0.7f, 0.2f)); break;
                         case 5: mb.Sub(0).Box(Vector3.zero, new Vector3(0.06f, 0.012f, 0.025f), new Color(0.1f, 0.1f, 0.1f), 0.004f); mb.Sub(1).Box(new Vector3(0.0f, 0.007f, 0), new Vector3(0.02f, 0.003f, 0.012f), c, 0.001f); break;
                         case 6: mb.Sub(1).Box(Vector3.zero, new Vector3(0.12f, 0.035f, 0.055f), c, 0.008f, 2); break;
+                        case 8: // scrap metal
+                            mb.Sub(1).Box(Vector3.zero, new Vector3(0.12f, 0.006f, 0.05f), c, 0.002f, 1, Quaternion.Euler(0, 0, 12));
+                            mb.Sub(1).Box(new Vector3(0.02f, 0.015f, 0.01f), new Vector3(0.07f, 0.005f, 0.06f), c * 0.8f, 0.002f, 1, Quaternion.Euler(20, 30, -15));
+                            mb.Sub(1).Cyl(new Vector3(-0.05f, 0, -0.02f), new Vector3(0.03f, 0.01f, -0.03f), 0.006f, 0.006f, 8, new Color(0.45f, 0.28f, 0.15f));
+                            break;
+                        case 9: // tin can
+                            mb.Sub(1).Cyl(new Vector3(0, -0.04f, 0), new Vector3(0, 0.04f, 0), 0.033f, 0.033f, 16, c);
+                            mb.Sub(0).Cyl(new Vector3(0, -0.025f, 0), new Vector3(0, 0.025f, 0), 0.0335f, 0.0335f, 16, new Color(0.75f, 0.2f, 0.12f), false);
+                            break;
+                        case 10: // cigarettes
+                            mb.Sub(0).Box(Vector3.zero, new Vector3(0.055f, 0.085f, 0.022f), w, 0.003f);
+                            mb.Sub(0).Box(new Vector3(0, 0.03f, 0), new Vector3(0.056f, 0.026f, 0.023f), c, 0.003f);
+                            break;
+                        case 11: // lighter
+                            mb.Sub(1).Box(Vector3.zero, new Vector3(0.038f, 0.056f, 0.013f), c, 0.004f, 1);
+                            mb.Sub(1).Box(new Vector3(0, 0.034f, 0), new Vector3(0.038f, 0.014f, 0.013f), c * 0.85f, 0.004f, 1);
+                            break;
+                        case 12: // battery pack
+                            mb.Sub(0).Box(Vector3.zero, new Vector3(0.1f, 0.06f, 0.05f), c, 0.006f, 1);
+                            mb.Sub(1).Cyl(new Vector3(-0.025f, 0.03f, 0), new Vector3(-0.025f, 0.042f, 0), 0.007f, 0.007f, 8, new Color(0.8f, 0.2f, 0.15f));
+                            mb.Sub(1).Cyl(new Vector3(0.025f, 0.03f, 0), new Vector3(0.025f, 0.042f, 0), 0.007f, 0.007f, 8, new Color(0.2f, 0.2f, 0.2f));
+                            break;
+                        case 13: // whiskey bottle
+                            mb.Sub(0).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(0.0f, -0.1f), new Vector2(0.036f, -0.1f), new Vector2(0.038f, -0.095f), new Vector2(0.038f, 0.02f), new Vector2(0.02f, 0.05f), new Vector2(0.012f, 0.06f), new Vector2(0.012f, 0.1f), new Vector2(0.0f, 0.1f) }, 14, c);
+                            mb.Sub(0).Cyl(new Vector3(0, -0.05f, 0), new Vector3(0, 0.0f, 0), 0.0385f, 0.0385f, 14, new Color(0.95f, 0.9f, 0.75f), false);
+                            mb.Sub(1).Cyl(new Vector3(0, 0.095f, 0), new Vector3(0, 0.115f, 0), 0.014f, 0.014f, 10, new Color(0.15f, 0.1f, 0.05f));
+                            break;
+                        case 14: // smartphone
+                            mb.Sub(0).Box(Vector3.zero, new Vector3(0.072f, 0.148f, 0.008f), c, 0.006f, 1);
+                            mb.Sub(0).Box(new Vector3(0, 0, 0.0042f), new Vector3(0.066f, 0.138f, 0.001f), new Color(0.05f, 0.08f, 0.15f), 0.002f);
+                            break;
+                        case 15: // military radio
+                            mb.Sub(0).Box(Vector3.zero, new Vector3(0.065f, 0.16f, 0.04f), c, 0.008f, 2);
+                            mb.Sub(1).Cyl(new Vector3(0.02f, 0.08f, 0), new Vector3(0.02f, 0.24f, 0), 0.005f, 0.003f, 8, new Color(0.15f, 0.15f, 0.15f));
+                            mb.Sub(1).Cyl(new Vector3(-0.015f, 0.08f, 0), new Vector3(-0.015f, 0.095f, 0), 0.008f, 0.008f, 10, new Color(0.15f, 0.15f, 0.15f));
+                            break;
+                        case 16: // silver ring
+                            for (int i = 0; i < 12; i++) mb.Sub(1).Sphere(new Vector3(Mathf.Cos(i * 0.5236f) * 0.011f, Mathf.Sin(i * 0.5236f) * 0.011f, 0), Vector3.one * 0.0035f, 8, c);
+                            mb.Sub(1).Sphere(new Vector3(0, 0.013f, 0), Vector3.one * 0.005f, 10, new Color(0.6f, 0.85f, 1f));
+                            break;
+                        case 17: // rugged laptop
+                            mb.Sub(0).Box(Vector3.zero, new Vector3(0.32f, 0.03f, 0.23f), c, 0.008f, 2);
+                            mb.Sub(0).Box(new Vector3(0, 0.017f, 0), new Vector3(0.3f, 0.005f, 0.21f), c * 0.7f, 0.003f);
+                            mb.Sub(1).Box(new Vector3(0.11f, 0.0f, 0.12f), new Vector3(0.05f, 0.026f, 0.015f), new Color(0.15f, 0.15f, 0.15f), 0.004f);
+                            break;
+                        case 18: // gold idol
+                            mb.Sub(1).Box(new Vector3(0, -0.07f, 0), new Vector3(0.07f, 0.02f, 0.07f), c, 0.004f);
+                            mb.Sub(1).Sphere(new Vector3(0, -0.025f, 0), new Vector3(0.032f, 0.045f, 0.028f), 12, c);
+                            mb.Sub(1).Sphere(new Vector3(0, 0.04f, 0), new Vector3(0.024f, 0.026f, 0.024f), 12, c);
+                            mb.Sub(0).Sphere(new Vector3(-0.009f, 0.045f, 0.021f), Vector3.one * 0.005f, 8, new Color(0.1f, 0.8f, 0.3f));
+                            mb.Sub(0).Sphere(new Vector3(0.009f, 0.045f, 0.021f), Vector3.one * 0.005f, 8, new Color(0.1f, 0.8f, 0.3f));
+                            break;
+                        case 19: // crown jewel
+                            mb.Sub(1).Tube(new Vector3(0, -0.02f, 0), new Vector3(0, 0.02f, 0), 0.06f, 0.054f, 20, new Color(1f, 0.75f, 0.25f));
+                            for (int i = 0; i < 6; i++)
+                            {
+                                float a = i * 1.047f;
+                                var pp = new Vector3(Mathf.Cos(a) * 0.057f, 0.02f, Mathf.Sin(a) * 0.057f);
+                                mb.Sub(1).Cyl(pp, pp + Vector3.up * 0.035f, 0.009f, 0.002f, 6, new Color(1f, 0.75f, 0.25f));
+                                mb.Sub(0).Sphere(new Vector3(Mathf.Cos(a + 0.52f) * 0.061f, 0.0f, Mathf.Sin(a + 0.52f) * 0.061f), Vector3.one * 0.007f, 8, i % 2 == 0 ? c : new Color(0.2f, 0.5f, 1f));
+                            }
+                            break;
                         default:
                             var prof = new List<Vector2> { new Vector2(0.0f, -0.02f), new Vector2(0.022f, 0.004f), new Vector2(0.016f, 0.012f), new Vector2(0.0f, 0.013f) };
                             mb.Sub(1).Lathe(Vector3.zero, Quaternion.identity, prof, 8, c);
@@ -206,7 +278,8 @@ namespace Rago
                     }
                     break;
             }
-            var mats = new[] { m0, d.kind == ItemKind.Valuable && (d.shape == 6 || d.shape == 0) ? Mats.Gold : d.shape == 7 ? Mats.Unlit("diamond", new Color(0.5f, 0.85f, 1f, 0.85f)) : m1, m2 };
+            bool gold = d.kind == ItemKind.Valuable && (d.shape == 6 || d.shape == 0 || d.shape == 18 || d.shape == 19);
+            var mats = new[] { m0, gold ? Mats.Gold : d.kind == ItemKind.Valuable && d.shape == 7 ? Mats.Unlit("diamond", new Color(0.5f, 0.85f, 1f, 0.85f)) : m1, m2 };
             var model = mb.Build("Model", go.transform, mats);
             var mesh = model.GetComponent<MeshFilter>().sharedMesh;
             var col = go.AddComponent<BoxCollider>();

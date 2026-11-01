@@ -111,7 +111,7 @@ namespace Rago
             {
                 if (!B.Rng.Chance(chance)) continue;
                 float r = B.Rng.Value;
-                var k = r < 0.5f ? LootCrate.Kind.Crate : r < 0.68f ? LootCrate.Kind.Medical : r < 0.84f ? LootCrate.Kind.Optics : r < 0.96f ? LootCrate.Kind.WeaponCase : LootCrate.Kind.Safe;
+                var k = r < 0.46f ? LootCrate.Kind.Crate : r < 0.62f ? LootCrate.Kind.Medical : r < 0.75f ? LootCrate.Kind.Optics : r < 0.86f ? LootCrate.Kind.ArmorCase : r < 0.96f ? LootCrate.Kind.WeaponCase : LootCrate.Kind.Safe;
                 AddCrate(p, B.Rng.Range(0f, 360f), k);
             }
         }
@@ -120,7 +120,7 @@ namespace Rago
     // ===================================================================================== loot crates
     public class LootCrate : MonoBehaviour
     {
-        public enum Kind { Crate, WeaponCase, Optics, Medical, Safe, Duffel }
+        public enum Kind { Crate, WeaponCase, Optics, Medical, Safe, Duffel, ArmorCase }
         public Kind kind;
         public int index;
         public bool opened;
@@ -143,6 +143,7 @@ namespace Rago
                 case Kind.Optics: size = new Vector3(0.4f, 0.2f, 0.32f); mat = Mats.Lit("case_optics", new Color(0.55f, 0.48f, 0.33f), 0.1f, 0.35f, Mats.Noise, null, 0.4f, 0.3f); col = Color.white; break;
                 case Kind.Medical: size = new Vector3(0.5f, 0.28f, 0.34f); mat = Mats.Lit("case_med", new Color(0.85f, 0.85f, 0.82f), 0.1f, 0.4f, Mats.Noise, null, 0.4f, 0.3f); col = Color.white; break;
                 case Kind.Safe: size = new Vector3(0.5f, 0.5f, 0.45f); mat = Mats.Lit("safe", new Color(0.2f, 0.22f, 0.24f), 0.8f, 0.4f, Mats.Metal, Mats.MetalN, 0.4f, 0.5f); col = Color.white; break;
+                case Kind.ArmorCase: size = new Vector3(0.72f, 0.4f, 0.5f); mat = Mats.Lit("case_armor", new Color(0.24f, 0.27f, 0.2f), 0.15f, 0.35f, Mats.Noise, null, 0.45f, 0.35f); col = Color.white; break;
                 case Kind.Duffel: size = new Vector3(0.36f, 0.28f, 0.6f); mat = Mats.Lit("duffel", new Color(0.15f, 0.15f, 0.14f), 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f); col = Color.white; break;
                 default: size = new Vector3(0.9f, 0.5f, 0.55f); mat = Mats.Lit("crate_mil", new Color(0.33f, 0.36f, 0.26f), 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
             }
@@ -161,6 +162,13 @@ namespace Rago
                 foreach (var sx in new[] { -1, 1 }) mb.Sub(0).Box(new Vector3(sx * (size.x * 0.5f + 0.012f), size.y * 0.5f, 0), new Vector3(0.025f, 0.05f, 0.18f), col * 0.6f, 0.005f);
             }
             if (kind == Kind.Medical) { mb.Sub(1).Box(new Vector3(0, size.y * 0.5f, size.z * 0.5f + 0.003f), new Vector3(0.1f, 0.03f, 0.004f), new Color(0.8f, 0.1f, 0.1f)); mb.Sub(1).Box(new Vector3(0, size.y * 0.5f, size.z * 0.5f + 0.003f), new Vector3(0.03f, 0.1f, 0.004f), new Color(0.8f, 0.1f, 0.1f)); }
+            if (kind == Kind.ArmorCase)
+            {
+                // yellow stencil band + shield mark so you can spot armour cases
+                mb.Sub(1).Box(new Vector3(0, size.y * 0.62f, size.z * 0.5f + 0.003f), new Vector3(size.x * 0.9f, 0.05f, 0.004f), new Color(0.85f, 0.65f, 0.12f), 0);
+                mb.Sub(1).Box(new Vector3(0, size.y * 0.32f, size.z * 0.5f + 0.003f), new Vector3(0.09f, 0.1f, 0.004f), new Color(0.85f, 0.65f, 0.12f), 0.02f);
+                foreach (var sx in new[] { -1, 1 }) mb.Sub(0).Box(new Vector3(sx * (size.x * 0.5f + 0.012f), size.y * 0.6f, 0), new Vector3(0.025f, 0.04f, 0.16f), col * 0.5f, 0.005f);
+            }
             mb.Build("Body", go.transform, mat, Mats.Lit("liner", Color.white, 0f, 0.1f, Mats.Fabric, null, 0.2f, 0f));
             // colliders for the walls
             AddBox(go.transform, new Vector3(0, t * 0.5f, 0), new Vector3(size.x, t, size.z));
@@ -180,8 +188,8 @@ namespace Rago
             var lc = c._lid.gameObject.AddComponent<BoxCollider>();
             lc.center = new Vector3(0, 0.015f, size.z * 0.5f); lc.size = new Vector3(size.x, 0.03f, size.z);
             // item cells
-            int cols = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics ? 2 : 3;
-            int rows = kind == Kind.WeaponCase ? 1 : 2;
+            int cols = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? 2 : 3;
+            int rows = kind == Kind.WeaponCase || kind == Kind.ArmorCase ? 1 : 2;
             float fit = kind == Kind.WeaponCase ? 1.1f : Mathf.Min(size.x / cols, size.z / rows) * 0.95f;
             c._box = ItemContainer.Grid(go.transform, new Vector3(0, 0.06f, 0), Quaternion.identity, cols, rows, new Vector2(size.x / cols, size.z / rows), fit,
                 null, kind == Kind.WeaponCase ? Quaternion.Euler(0, 0, 90) : Quaternion.identity);
@@ -217,8 +225,8 @@ namespace Rago
             Sfx.Play(kind == Kind.Safe ? Synth.SlideBack() : Synth.Grab(1), transform.position, 0.6f, kind == Kind.Safe ? 0.6f : 0.8f, 1f, 10f);
             foreach (var s in _box.slots) s.enabled = true;
             var rng = new Rng(_map.Seed * 7349 + index * 131);
-            var table = kind == Kind.WeaponCase ? Db.LootTable.WeaponCase : kind == Kind.Optics ? Db.LootTable.OpticsBox : kind == Kind.Medical ? Db.LootTable.Medical : kind == Kind.Safe ? Db.LootTable.Safe : Db.LootTable.Crate;
-            int n = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics ? rng.Range(1, 3) : rng.Range(1, 5);
+            var table = kind == Kind.WeaponCase ? Db.LootTable.WeaponCase : kind == Kind.Optics ? Db.LootTable.OpticsBox : kind == Kind.Medical ? Db.LootTable.Medical : kind == Kind.Safe ? Db.LootTable.Safe : kind == Kind.ArmorCase ? Db.LootTable.Armor : Db.LootTable.Crate;
+            int n = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? rng.Range(1, 3) : rng.Range(1, 5);
             for (int i = 0; i < n && i < _box.slots.Count; i++)
             {
                 var def = Db.Roll(table, rng);

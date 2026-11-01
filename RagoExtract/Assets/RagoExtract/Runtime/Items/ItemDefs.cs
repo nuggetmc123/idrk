@@ -4,7 +4,8 @@ using UnityEngine;
 namespace Rago
 {
     public enum Rarity { Common, Uncommon, Rare, Epic, Vault }
-    public enum ItemKind { Gun, Sight, Magazine, Ammo, Med, Valuable, Key }
+    public enum ItemKind { Gun, Sight, Magazine, Ammo, Med, Valuable, Key, Armor, Backpack }
+    public enum ArmorSlot { Helmet, Vest }
     public enum GunClass { Pistol, Revolver, SMG, Shotgun, Rifle, BattleRifle, DMR, Sniper, LMG }
     public enum FireAction { Semi, Auto, Burst, Bolt, Pump, Break, Revolver }
     public enum Caliber { C9mm, C45, C57, C556, C545, C762, C308, C338, C50BMG, C12g, C50AE, C357 }
@@ -61,9 +62,36 @@ namespace Rago
         public Finish finish;
     }
 
+    /// <summary>Wearable armor: a helmet protects your head, a vest your chest and stomach.</summary>
+    public class ArmorDef : ItemDef
+    {
+        public ArmorSlot slot;
+        public float protection;  // fraction of damage stopped (0..1)
+        public int style;         // visual variant
+        public Color color, trim;
+
+        /// <summary>Damage multiplier for a hit given the helmet and vest worn (null = none).</summary>
+        public static float Reduction(BodyPart part, ArmorDef helmet, ArmorDef vest)
+        {
+            if (part == BodyPart.Head && helmet != null) return 1f - helmet.protection;
+            if (part == BodyPart.Thorax && vest != null) return 1f - vest.protection;
+            if (part == BodyPart.Stomach && vest != null) return 1f - vest.protection * 0.6f;
+            return 1f;
+        }
+    }
+
+    /// <summary>A backpack: a grid of pockets you pull off your left shoulder.</summary>
+    public class BackpackDef : ItemDef
+    {
+        public int cols, rows;
+        public Color color;
+        public int style;
+    }
+
     public class SimpleDef : ItemDef
     {
         public float heal;
+        public float healTime = 0.5f;   // seconds the heal is spread over
         public bool stopsBleed;
         public Caliber ammoCal;
         public int ammoCount;
@@ -77,6 +105,8 @@ namespace Rago
         public static readonly List<GunDef> Guns = new List<GunDef>();
         public static readonly List<SightDef> Sights = new List<SightDef>();
         public static readonly List<SimpleDef> Misc = new List<SimpleDef>();
+        public static readonly List<ArmorDef> Armor = new List<ArmorDef>();
+        public static readonly List<BackpackDef> Packs = new List<BackpackDef>();
         static bool _init;
 
         public static T Get<T>(string id) where T : ItemDef
@@ -220,7 +250,13 @@ namespace Rago
             var bandage = M("bandage", "Bandage", ItemKind.Med, C, 120, 0, new Color(0.9f, 0.88f, 0.82f), "Stops bleeding. Hold it to your chest and squeeze trigger.");
             bandage.stopsBleed = true; bandage.heal = 5;
             var medkit = M("medkit", "Field Medkit", ItemKind.Med, U, 600, 1, new Color(0.75f, 0.12f, 0.1f), "Heals 60 HP over a few seconds and stops bleeding.");
-            medkit.heal = 60; medkit.stopsBleed = true;
+            medkit.heal = 60; medkit.stopsBleed = true; medkit.healTime = 4f;
+            var pills = M("painkillers", "Painkillers", ItemKind.Med, C, 180, 3, new Color(0.9f, 0.45f, 0.1f), "Quick 15 HP. Pop them at your mouth.");
+            pills.heal = 15; pills.healTime = 1f;
+            var ifak = M("ifak", "IFAK", ItemKind.Med, U, 900, 4, new Color(0.3f, 0.34f, 0.24f), "Individual first aid kit: 40 HP and stops bleeding.");
+            ifak.heal = 40; ifak.stopsBleed = true; ifak.healTime = 3f;
+            var trauma = M("trauma_kit", "Trauma Kit", ItemKind.Med, R, 2400, 1, new Color(0.15f, 0.35f, 0.75f), "Surgical trauma kit: heals 90 HP over a few seconds.");
+            trauma.heal = 90; trauma.stopsBleed = true; trauma.healTime = 5f;
             var stim = M("stim", "Adrenal Stim", ItemKind.Med, R, 1200, 2, new Color(0.2f, 0.75f, 0.9f), "Instant 30 HP and a burst of stamina.");
             stim.heal = 30;
 
@@ -231,6 +267,19 @@ namespace Rago
             Ammo("ammo_12g", Caliber.C12g, 24, 140); Ammo("ammo_50ae", Caliber.C50AE, 21, 260); Ammo("ammo_357", Caliber.C357, 24, 160);
 
             // ---------------- VALUABLES (sell to the Fence)
+            // junk & barter loot: sell it to the Fence (cheap scrap up to jackpots)
+            M("junk_scrap", "Scrap Metal", ItemKind.Valuable, C, 40, 8, new Color(0.45f, 0.42f, 0.38f), "Worth almost nothing. Almost.");
+            M("junk_tin", "Tin Can", ItemKind.Valuable, C, 25, 9, new Color(0.7f, 0.7f, 0.72f), "Empty. Someone ate the beans.");
+            M("junk_cigs", "Cigarettes", ItemKind.Valuable, C, 150, 10, new Color(0.85f, 0.15f, 0.12f), "Currency of the wasteland.");
+            M("junk_lighter", "Zippo Lighter", ItemKind.Valuable, C, 220, 11, new Color(0.75f, 0.75f, 0.78f), "Still sparks.");
+            M("junk_battery", "Battery Pack", ItemKind.Valuable, C, 300, 12, new Color(0.2f, 0.25f, 0.2f), "Always in demand.");
+            M("junk_whiskey", "Whiskey Bottle", ItemKind.Valuable, U, 650, 13, new Color(0.55f, 0.3f, 0.1f), "Aged twelve years. Mostly full.");
+            M("val_phone", "Smartphone", ItemKind.Valuable, U, 950, 14, new Color(0.08f, 0.08f, 0.1f), "Cracked screen, good parts.");
+            M("val_radio", "Military Radio", ItemKind.Valuable, U, 1400, 15, new Color(0.3f, 0.33f, 0.24f), "Encrypted handset.");
+            M("val_ring", "Silver Ring", ItemKind.Valuable, U, 1100, 16, new Color(0.85f, 0.85f, 0.9f), "Engraved. Not yours.");
+            M("val_laptop", "Rugged Laptop", ItemKind.Valuable, R, 6500, 17, new Color(0.25f, 0.27f, 0.25f), "Field laptop full of data.");
+            M("val_idol", "Gold Idol", ItemKind.Valuable, E, 16000, 18, new Color(1f, 0.75f, 0.25f), "A small golden statue. Huge payday.");
+            M("val_crown", "Crown Jewel", ItemKind.Valuable, V, 45000, 19, new Color(0.9f, 0.15f, 0.25f), "Vault-only. The best thing you can carry out.");
             M("val_chain", "Gold Chain", ItemKind.Valuable, C, 900, 0, new Color(1f, 0.78f, 0.3f), "Gaudy, heavy, worth something.");
             M("val_watch", "Luxury Watch", ItemKind.Valuable, U, 1800, 1, new Color(0.8f, 0.8f, 0.85f), "Still ticking.");
             M("val_drive", "Encrypted Drive", ItemKind.Valuable, U, 2200, 2, new Color(0.15f, 0.15f, 0.18f), "Someone wants what's on this.");
@@ -241,7 +290,38 @@ namespace Rago
             M("val_diamond", "Blue Diamond", ItemKind.Valuable, V, 24000, 7, new Color(0.4f, 0.75f, 1f), "Vault-only. Flawless.");
 
             // ---------------- KEYS
+            // ---------------- ARMOR (nobody starts with it: find it in raids)
+            var olive = new Color(0.33f, 0.36f, 0.26f); var tan = new Color(0.62f, 0.54f, 0.4f); var blk = new Color(0.13f, 0.13f, 0.14f); var gray = new Color(0.36f, 0.38f, 0.38f); var gold = new Color(0.85f, 0.65f, 0.2f);
+            A("helm_bump", "Bump Helmet", ArmorSlot.Helmet, 0.15f, 0, C, 400, tan, blk, "Light shell. Stops fragments and a little more.");
+            A("helm_ballistic", "Ballistic Helmet", ArmorSlot.Helmet, 0.28f, 1, U, 1300, olive, blk, "Standard combat helmet with ear protection.");
+            A("helm_fast", "FAST Rail Helmet", ArmorSlot.Helmet, 0.38f, 2, R, 3200, blk, gray, "High-cut helmet with rails and an NVG mount.");
+            A("helm_visor", "Assault Visor Helmet", ArmorSlot.Helmet, 0.5f, 3, E, 6500, gray, blk, "Heavy helmet with a ballistic face visor.");
+            A("helm_jugg", "Juggernaut Helmet", ArmorSlot.Helmet, 0.62f, 4, V, 15000, blk, gold, "Vault-only. Full-face heavy armor.");
+            A("vest_soft", "Soft Armor Vest", ArmorSlot.Vest, 0.15f, 0, C, 500, olive, blk, "Concealable soft armor.");
+            A("vest_carrier", "Plate Carrier", ArmorSlot.Vest, 0.3f, 1, U, 1800, tan, olive, "Front and back plates with mag pouches.");
+            A("vest_heavy", "Heavy Plate Carrier", ArmorSlot.Vest, 0.42f, 2, R, 4200, olive, blk, "Thicker plates and shoulder protection.");
+            A("vest_assault", "Assault Armor Rig", ArmorSlot.Vest, 0.52f, 3, E, 8000, blk, gray, "Full torso coverage with a groin flap.");
+            A("vest_jugg", "Juggernaut Armor", ArmorSlot.Vest, 0.65f, 4, V, 18000, blk, gold, "Vault-only. Walk through gunfire.");
+
+            // ---------------- BACKPACKS (bigger = more loot out of the raid)
+            P("pack_day", "Daypack", 2, 2, 0, C, 400, new Color(0.3f, 0.32f, 0.3f), "Small 2x2 pack.");
+            P("pack_assault", "Assault Pack", 3, 3, 1, U, 1500, new Color(0.32f, 0.34f, 0.26f), "3x3 military pack.");
+            P("pack_raid", "Raid Pack", 4, 3, 2, R, 3800, new Color(0.55f, 0.47f, 0.34f), "Big 4x3 pack.");
+            P("pack_tactical", "Tactical Pack", 4, 4, 3, E, 8000, new Color(0.14f, 0.14f, 0.15f), "Huge 4x4 frame pack.");
+
             M("key_vault", "Vault Keycard", ItemKind.Key, E, 14000, 0, new Color(0.85f, 0.15f, 0.12f), "Opens any raid vault instantly. Without it you must hack the panel.");
+        }
+
+        static ArmorDef A(string id, string name, ArmorSlot slot, float prot, int style, Rarity r, int price, Color col, Color trim, string desc)
+        {
+            var a = new ArmorDef { id = id, name = name, slot = slot, protection = prot, style = style, rarity = r, price = price, color = col, trim = trim, kind = ItemKind.Armor, desc = desc };
+            Armor.Add(a); All[id] = a; return a;
+        }
+
+        static BackpackDef P(string id, string name, int cols, int rows, int style, Rarity r, int price, Color col, string desc)
+        {
+            var b = new BackpackDef { id = id, name = name, cols = cols, rows = rows, style = style, rarity = r, price = price, color = col, kind = ItemKind.Backpack, desc = desc };
+            Packs.Add(b); All[id] = b; return b;
         }
 
         static void Ammo(string id, Caliber cal, int count, int price)
@@ -258,7 +338,7 @@ namespace Rago
         }
 
         // ------------------------------------------------------------ loot tables
-        public enum LootTable { Crate, WeaponCase, OpticsBox, Vault, NpcBody, Medical, Safe }
+        public enum LootTable { Crate, WeaponCase, OpticsBox, Vault, NpcBody, Medical, Safe, Armor }
 
         static float Weight(Rarity r, LootTable t)
         {
@@ -284,8 +364,10 @@ namespace Rago
                 case LootTable.Vault:
                     if (rng.Chance(0.55f)) pool.AddRange(Guns.FindAll(g => g.rarity >= Rarity.Epic));
                     else if (rng.Chance(0.35f)) pool.AddRange(Sights.FindAll(s => s.rarity >= Rarity.Rare));
+                    else if (rng.Chance(0.4f)) pool.AddRange(Armor.FindAll(a => a.rarity >= Rarity.Epic));
                     else pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Valuable && m.rarity >= Rarity.Rare));
                     break;
+                case LootTable.Armor: pool.AddRange(Armor); if (rng.Chance(0.35f)) pool.AddRange(Packs); break;
                 case LootTable.Medical: pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Med)); break;
                 case LootTable.Safe: pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Valuable || m.kind == ItemKind.Key)); break;
                 case LootTable.NpcBody:
@@ -295,7 +377,9 @@ namespace Rago
                     float roll = rng.Value;
                     if (roll < 0.35f) pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Ammo));
                     else if (roll < 0.55f) pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Med));
-                    else if (roll < 0.85f) pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Valuable || m.kind == ItemKind.Key));
+                    else if (roll < 0.76f) pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Valuable || m.kind == ItemKind.Key));
+                    else if (roll < 0.83f) pool.AddRange(Armor);
+                    else if (roll < 0.86f) pool.AddRange(Packs);
                     else if (roll < 0.93f) pool.AddRange(Sights);
                     else pool.AddRange(Guns.FindAll(g => g.cls == GunClass.Pistol || g.cls == GunClass.Revolver || g.cls == GunClass.SMG));
                     break;

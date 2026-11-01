@@ -49,6 +49,18 @@ namespace Rago
             if (heldR != _heldR) { _heldR = heldR; SetHeld(false, heldR); }
         }
 
+        string _gear = "";
+        /// <summary>Shows the helmet, vest and backpack this player is wearing.</summary>
+        public void ApplyGear(string key)
+        {
+            key = key ?? "";
+            if (key == _gear) return;
+            _gear = key;
+            var parts = key.Split('|');
+            string P(int i) => parts.Length > i ? parts[i] : "";
+            ArmorBuilder.Dress(_rig, Db.Get<ArmorDef>(P(0)), Db.Get<ArmorDef>(P(1)), Db.Get<BackpackDef>(P(2)), false);
+        }
+
         void SetHeld(bool left, string id)
         {
             ref GameObject slot = ref left ? ref _modelL : ref _modelR;
@@ -114,6 +126,7 @@ namespace Rago
             Destroy(_rig.root);
             _rig = HumanRig.Build(Outfit.Operator, (int)NetId * 31, transform);
             foreach (var c in _rig.colliders) { var z = c.gameObject.AddComponent<HitZone>(); z.owner = this; z.part = PlayerBody.PartFor(c.transform, _rig); z.mult = HitZone.MultFor(z.part); }
+            var g = _gear; _gear = null; ApplyGear(g);
         }
 
         void LateUpdate()

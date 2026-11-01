@@ -142,13 +142,13 @@ namespace Rago
             var bunker = Map as BunkerMap;
             var market = Map as MarketMap;
             var loose = new List<ItemData>();
-            if (bunker != null && bunker.Stash != null) prof.stash = bunker.Stash.Save();
+            if (bunker != null) prof.stash = bunker.SaveStash();
             if (market != null) foreach (var s in market.Stalls) s.SweepToStash(loose);
             // anything lying around the hub goes back to the stash
             if (MapRoot != null)
                 foreach (var it in new List<Item>(Item.All))
                 {
-                    if (it == null || it.Held || it.slot != null || it is Magazine || it is Backpack) continue;
+                    if (it == null || it.Held || it.slot != null || it is Magazine) continue;
                     if (!it.transform.IsChildOf(MapRoot) && it.transform.parent != null) continue;
                     loose.Add(it.Save());
                     Destroy(it.gameObject);
@@ -221,7 +221,7 @@ namespace Rago
             g.Player.Hud.Center(map.DisplayName.ToUpper() + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>", 6f);
         }
 
-        static int Value(Gear gear) { int v = 0; foreach (var d in gear.AllCarried()) { var def = Db.Get(d.id); if (def != null) v += def.price; } return v; }
+        static int Value(Gear gear) { int v = 0; foreach (var d in gear.AllCarried()) v += Backpack.DataValue(d); return v; }
 
         void OnDestroy() { if (I == this) I = null; }
 
@@ -266,8 +266,9 @@ namespace Rago
             if (!NetGame.Live)
                 foreach (var d in carried) ItemFactory.Spawn(d, pos + Vector3.up * 0.4f + Random.insideUnitSphere * 0.4f, Random.rotation);
             gear.ClearAll();
-            // everything is lost; a basic backpack and, if you're broke, a free sidearm
-            prof.loadout = new Loadout { hasPack = true };
+            // everything is lost (armour too); a basic day pack and, if you're broke, a free sidearm
+            prof.loadout = new Loadout { hasPack = true, packId = "pack_day" };
+            prof.freeArmor = true;
             bool hasGun = prof.stash.Exists(d => Db.Get<GunDef>(d.id) != null);
             if (!hasGun) prof.loadout.pistol = new ItemData("p9");
             if (prof.stashAmmo[(int)Caliber.C9mm] < 34) prof.stashAmmo[(int)Caliber.C9mm] = 34;

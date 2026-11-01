@@ -109,6 +109,14 @@ namespace Rago
         static void Q(BinaryWriter w, Quaternion q) { w.Write((short)(q.x * 32000)); w.Write((short)(q.y * 32000)); w.Write((short)(q.z * 32000)); w.Write((short)(q.w * 32000)); }
         static Quaternion Q(BinaryReader r) { var q = new Quaternion(r.ReadInt16() / 32000f, r.ReadInt16() / 32000f, r.ReadInt16() / 32000f, r.ReadInt16() / 32000f); float m = Mathf.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w); if (m < 0.001f) return Quaternion.identity; return new Quaternion(q.x / m, q.y / m, q.z / m, q.w / m); }
 
+        /// <summary>"helmet|vest|pack" ids of what the local player is wearing.</summary>
+        static string GearKey(PlayerRig p)
+        {
+            var g = p.Gear;
+            var pack = g.PackSlot.item as Backpack;
+            return (g.Helmet != null ? g.Helmet.id : "") + "|" + (g.Vest != null ? g.Vest.id : "") + "|" + (pack != null ? pack.def.id : "");
+        }
+
         void SendHello(ulong to)
         {
             var w = W(Msg.Hello);
@@ -134,6 +142,7 @@ namespace Rago
                 V3(w, p.HandR.transform.position); Q(w, p.HandR.transform.rotation);
                 V3(w, p.MoveVelocity);
                 w.Write(HeldId(p.HandL)); w.Write(HeldId(p.HandR));
+                w.Write(GearKey(p));
                 Send(false);
             }
             if (InRaid && NetHub.Backend.IsHost && NpcDirector.I != null)
@@ -276,6 +285,7 @@ namespace Rago
                                 var root = V3(r); var hp = V3(r); var hr = Q(r); var lp = V3(r); var lr = Q(r); var rpp = V3(r); var rr = Q(r); var vel = V3(r);
                                 string hl = r.ReadString(), hrr = r.ReadString();
                                 rp.ApplyPose(dead, root, hp, hr, lp, lr, rpp, rr, vel, hl, hrr);
+                                if (r.BaseStream.Position < r.BaseStream.Length) rp.ApplyGear(r.ReadString());
                                 break;
                             }
                         case Msg.Fire:
