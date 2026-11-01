@@ -74,7 +74,6 @@ namespace Rago
             palm.Sub(0).Box(new Vector3(0, 0, -0.01f), new Vector3(0.082f, 0.03f, 0.092f), body, 0.012f, 2);
             palm.Sub(2).Box(new Vector3(0, 0.004f, -0.018f), new Vector3(0.088f, 0.034f, 0.07f), glove, 0.012f, 2); // fingerless glove
             palm.Sub(1).Sphere(new Vector3(0, 0, -0.07f), Vector3.one * 0.03f, 12, HumanRig.JointCol); // wrist ball
-            palm.Sub(0).Cyl(new Vector3(0, 0, -0.085f), new Vector3(0, 0, -0.13f), 0.032f, 0.03f, 12, body); // forearm stub
             palm.Build("Palm", _visual, mats);
             for (int f = 0; f < 4; f++)
             {
@@ -430,6 +429,10 @@ namespace Rago
             }
             _thumb.localRotation = Quaternion.Euler(_curl * 25f, (left ? 1 : -1) * (45f - _curl * 20f), (left ? -1 : 1) * 30f);
         }
+
+        /// <summary>Where your body's forearm should end: the wrist of the hand you see (not the controller's centre).</summary>
+        public Vector3 WristPosition => _visual != null ? _visual.TransformPoint(0, 0, -0.07f) : transform.position;
+        public Quaternion WristRotation => _visual != null ? _visual.rotation : transform.rotation;
 
         public void SetVisible(bool v) { _visual.gameObject.SetActive(v); }
     }

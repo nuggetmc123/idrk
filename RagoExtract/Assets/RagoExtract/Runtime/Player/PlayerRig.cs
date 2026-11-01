@@ -87,6 +87,7 @@ namespace Rago
             HandTargets(out var lp, out var lr, out var rp, out var rr);
             HandL.RenderSnap(lp, lr);
             HandR.RenderSnap(rp, rr);
+            if (Body != null) Body.Repose();   // arms follow the snapped hands
             Gear.Tick();
         }
 

@@ -185,21 +185,25 @@ namespace Rago.Net
                 bool ok = await StartSession(null, new Dictionary<string, SessionProperty> { { "kind", "raid_" + map } }, QueueRules.Max);
                 if (!ok) { failed?.Invoke(_status); _queueing = false; return; }
                 float atTarget = -1f;
+                float queuedAt = Time.realtimeSinceStartup;
                 while (!_cancel && InSession)
                 {
                     if (_pendingStart != null) { var rs = _pendingStart; _pendingStart = null; _queueing = false; start?.Invoke(rs); return; }
                     var props = _runner.SessionInfo.Properties;
                     if (IsHost && (props == null || !props.ContainsKey("t0")))
-                        _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty> { { "kind", "raid_" + map }, { "t0", (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000) }, { "seed", UnityEngine.Random.Range(1, 999999) } });
+                        try { _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty> { { "kind", "raid_" + map }, { "t0", (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000) }, { "seed", UnityEngine.Random.Range(1, 999999) } }); }
+                        catch (Exception e) { Debug.LogWarning("[Rago] couldn't set the queue start time: " + e.Message); }
                     int t0 = props != null && props.TryGetValue("t0", out var tp) ? (int)tp : (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000);
                     float elapsed = (float)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000 - t0);
+                    // the session's start time may never sync (or the host changed): never wait longer than our own timer says
+                    elapsed = Mathf.Max(elapsed, Time.realtimeSinceStartup - queuedAt);
                     int players = _peers.Count + 1;
                     if (players >= QueueRules.Target) { if (atTarget < 0) atTarget = Time.realtimeSinceStartup; } else atTarget = -1;
                     status?.Invoke(new QueueStatus { players = players, max = QueueRules.Max, target = QueueRules.Target, elapsed = elapsed, maxWait = QueueRules.MaxWait, text = QueueRules.Describe(players, elapsed) });
                     if (IsHost && QueueRules.ShouldStart(players, elapsed, atTarget < 0 ? 0 : Time.realtimeSinceStartup - atTarget))
                     {
-                        _runner.SessionInfo.IsOpen = false;
-                        _runner.SessionInfo.IsVisible = false;
+                        try { _runner.SessionInfo.IsOpen = false; _runner.SessionInfo.IsVisible = false; }
+                        catch (Exception e) { Debug.LogWarning("[Rago] couldn't close the raid session: " + e.Message); }
                         int seed = props != null && props.TryGetValue("seed", out var sp) ? (int)sp : UnityEngine.Random.Range(1, 999999);
                         _nextSpawn = 1;
                         foreach (var p in _peers) SendSys(p, 1, map + "|" + seed + "|" + (_nextSpawn++ % 10) + "|" + players);

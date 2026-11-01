@@ -61,10 +61,25 @@ namespace Rago
             Vector3 root = _p.transform.position;
             Vector3 vel = (root - _lastRoot) / Mathf.Max(dt, 0.001f);
             _lastRoot = root;
-            bool hands = XRInputs.VR || true;
-            Rig.Pose(root, _yaw, _p.Head.position, _p.Head.rotation,
-                _p.HandL.transform.position, _p.HandL.transform.rotation,
-                _p.HandR.transform.position, _p.HandR.transform.rotation, vel, dt, hands);
+            _vel = vel;
+            PoseNow(dt);
+        }
+
+        Vector3 _vel;
+
+        void PoseNow(float dt)
+        {
+            // arms end at the wrists of the hands you see, so arm, hand and controller line up
+            Rig.Pose(_p.transform.position, _yaw, _p.Head.position, _p.Head.rotation,
+                _p.HandL.WristPosition, _p.HandL.WristRotation,
+                _p.HandR.WristPosition, _p.HandR.WristRotation, _vel, dt, true);
+        }
+
+        /// <summary>Called right before the frame is drawn (VR), after the hands snapped to the controllers.</summary>
+        public void Repose()
+        {
+            if (_p == null || Rig == null || Rig.root == null || Rig.ragdoll) return;
+            PoseNow(0f);
         }
 
         public void Die(Vector3 impulse, Vector3 point, Vector3 vel)
