@@ -63,6 +63,32 @@ namespace Rago
             }
         }
 
+        static Material _textMat;
+        /// <summary>
+        /// Material for 3D world text that is depth-tested (hidden behind walls). Unity's own font material draws
+        /// TextMesh on top of everything, so signs and labels showed through walls.
+        /// </summary>
+        public static Material TextMaterial
+        {
+            get
+            {
+                var f = DefaultFont;
+                if (f == null) return null;
+                if (_textMat == null)
+                {
+                    var baseMat = Resources.Load<Material>("Rago/M_Text");
+                    if (baseMat != null) _textMat = new Material(baseMat);
+                    else { var sh = Shader.Find("Rago/Text3D"); if (sh != null) _textMat = new Material(sh); }
+                    if (_textMat == null) return f.material; // shader missing: fall back to Unity's
+                    _textMat.name = "RagoText";
+                    _textMat.hideFlags = HideFlags.DontSave;
+                    Font.textureRebuilt += font => { if (font == _font && _textMat != null) _textMat.mainTexture = font.material.mainTexture; };
+                }
+                _textMat.mainTexture = f.material.mainTexture;
+                return _textMat;
+            }
+        }
+
         /// <summary>Destroy that also works in edit mode (used when the world is imported into the scene).</summary>
         public static void Kill(Object o)
         {

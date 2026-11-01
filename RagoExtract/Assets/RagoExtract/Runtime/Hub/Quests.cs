@@ -20,7 +20,7 @@ namespace Rago
         public static readonly BunkerJob[] All =
         {
             new BunkerJob { id = "storage", name = "Clear the Storage Room", room = "STORAGE ROOM",
-                desc = "There's an old storage room off your Armory,\nfull of rubble. Bring scrap to shore it up and\nbatteries for the lights.\nUnlocks: extra gun rack + extra gear wall.",
+                desc = "There's an old storage room off your Armory,\nfull of rubble. Bring scrap to shore it up and\nbatteries for the lights.\nUnlocks: two more racks with shelves.",
                 items = new[] { "junk_scrap", "junk_tin", "junk_battery" }, counts = new[] { 5, 3, 2 }, money = 4000 },
             new BunkerJob { id = "medbay", name = "Build a Med Bay", room = "MED BAY",
                 desc = "Doc Hale wants proper supplies before he'll\nkit out a med bay for you. Whiskey's for him.\nUnlocks: a med cabinet that restocks\nmeds after every raid.",

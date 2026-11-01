@@ -35,8 +35,8 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 ## How the game works
 
 - **Bunker** is your private base. Everything you leave in it is saved automatically.
-  - **Main hall**: the Gear stash wall (meds, valuables, keys, junk, plus your cash and ammo), the raid kiosk, a settings board and the lift to the Market.
-  - **Armory** (through the north door): rifle rack, a pegboard for pistols, sights and mags, and a workbench.
+  - **Main hall**: the raid terminal, a settings board and the lift to the Market.
+  - **Armory** (through the north door): rifle rack, a pegboard and shelves for pistols, sights, mags, meds, loot and keys, a panel with your cash and ammo reserve, and a workbench.
   - **Armor Room** (through the east door): armor stands for helmets and vests, plus shelves for backpacks.
   - **Shooting range** (west tunnel) with steel targets.
 
@@ -84,7 +84,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 
   | # | Job | Bring | Fee | Unlocks |
   |---|---|---|---|---|
-  | 1 | Clear the Storage Room | 5 Scrap Metal, 3 Tin Cans, 2 Battery Packs | $4,000 | **Storage Room** (off the Armory, west): extra gun rack + extra gear wall |
+  | 1 | Clear the Storage Room | 5 Scrap Metal, 3 Tin Cans, 2 Battery Packs | $4,000 | **Storage Room** (off the Armory, west): two more racks with shelves |
   | 2 | Build a Med Bay | 3 Bandages, 1 IFAK, 2 Whiskey Bottles | $10,000 | **Med Bay** (off the Armor Room, south): a med cabinet that restocks meds after every raid |
   | 3 | Wire up a Generator | 4 Battery Packs, 2 Military Radios, 1 Graphics Card | $22,000 | **Generator Room** (off the Armory, east): earns $1,500 every raid (holds up to $15,000); press COLLECT |
   | 4 | Dig a Trophy Vault | 1 Rugged Laptop, 2 Luxury Watches, 1 Gold Idol | $50,000 | **Trophy Vault** (off the Armory, north): more armor stands, gun racks and a trophy plinth |

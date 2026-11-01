@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Rago
 {
-    /// <summary>Your personal bunker: main hall (gear stash, raid kiosk, settings), Armory (weapons),
+    /// <summary>Your personal bunker: main hall (raid terminal, settings), Armory (weapons, meds, loot),
     /// Armor Room (armour stands + backpacks), shooting range and the lift to the Market.</summary>
     public class BunkerMap : MapBase
     {
@@ -60,7 +60,7 @@ namespace Rago
         {
             var b = B;
             var prof = Profile.Current;
-            // 1. STORAGE ROOM (west of the Armory): extra gun rack + gear wall
+            // 1. STORAGE ROOM (west of the Armory): two more racks with shelves
             if (BunkerJobs.Built(prof, "storage"))
             {
                 FloorCeiling(-13, -6, 6, 13, floor, conc, Ht);
@@ -68,7 +68,7 @@ namespace Rago
                 b.Box(new Vector3(-9.5f, 0.6f, 12.84f), new Vector3(7, 1.2f, 0.02f), paint, Color.white, null, false);
                 Lamp(new Vector3(-9.5f, 0, 9.5f), lampMat, new Color(1f, 0.88f, 0.7f), Ht);
                 Stash.Add(StashSection.Create(transform, new Vector3(-12.6f, 0, 9.4f), -90, StashKind.Weapons));
-                Stash.Add(StashSection.Create(transform, new Vector3(-9.4f, 0, 12.75f), 0, StashKind.Gear));
+                Stash.Add(StashSection.Create(transform, new Vector3(-9.4f, 0, 12.75f), 0, StashKind.Weapons));
                 b.Crate(new Vector3(-7f, 0, 6.8f), 12, new Vector3(0.9f, 0.6f, 0.6f));
                 b.Sign(new Vector3(-5.8f, 2.7f, 7.5f), Quaternion.Euler(0, -90, 0), "STORAGE", new Color(0.9f, 0.8f, 0.6f), 0.12f);
             }
@@ -227,8 +227,7 @@ namespace Rago
             b.Box(new Vector3((rx0 + rx1) / 2, 0.21f, rz1 - 0.45f), new Vector3(2.0f, 0.42f, 0.3f), Maps.Metal, new Color(0.3f, 0.3f, 0.3f), null, false);
             b.Sign(new Vector3(W / 2 - 0.2f, 2.95f, -2f), Quaternion.Euler(0, 90, 0), "ARMOR", new Color(0.9f, 0.8f, 0.6f), 0.14f);
 
-            // ---- main hall: gear stash on the north wall, kiosk on the east side
-            Stash.Add(StashSection.Create(transform, new Vector3(-4.6f, 0, D / 2 - 0.25f), 0, StashKind.Gear));
+            // ---- main hall: kiosk on the east side (meds, loot and keys live in the Armory now)
             BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
             LoadStash();
             RestockMedBay();

@@ -414,17 +414,12 @@ namespace Rago
         static Material Board => Mats.Lit("pegboard", Color.white, 0.1f, 0.3f, Mats.Wood, null, 0.3f, 0.1f);
         static Material Steel => Mats.Lit("shelf", new Color(0.3f, 0.32f, 0.35f), 0.7f, 0.4f, Mats.Metal, null, 0.4f, 0.5f);
 
-        /// <summary>Which section an item belongs in.</summary>
+        /// <summary>Which section an item belongs in: armour and bags go to the Armor Room, everything else to the Armory.</summary>
         public static StashKind For(ItemData d)
         {
             var def = d != null ? Db.Get(d.id) : null;
-            if (def == null) return StashKind.Gear;
-            switch (def.kind)
-            {
-                case ItemKind.Gun: case ItemKind.Sight: case ItemKind.Magazine: return StashKind.Weapons;
-                case ItemKind.Armor: case ItemKind.Backpack: return StashKind.Armor;
-                default: return StashKind.Gear;
-            }
+            if (def != null && (def.kind == ItemKind.Armor || def.kind == ItemKind.Backpack)) return StashKind.Armor;
+            return StashKind.Weapons;
         }
 
         public static StashSection Create(Transform parent, Vector3 pos, float yaw, StashKind kind)
@@ -458,12 +453,16 @@ namespace Rago
 
         ItemContainer Group(ItemContainer c) { _groups.Add(c); return c; }
 
+        WorldButton _next;
+
+        /// <summary>Info lettered straight onto the pegboard (no separate panel), plus a NEXT PAGE button that only shows up when there's more.</summary>
         void Panel(Vector3 pos, Quaternion rot, Vector2 size)
         {
-            var panel = UI.Panel(transform, "StashPanel", pos, rot, size);
-            _info = UI.Text(panel, "", new Vector3(-size.x / 2 + 0.05f, size.y / 2 - 0.08f, 0), 0.024f, Color.white, TextAnchor.UpperLeft);
-            if (kind == StashKind.Gear) _ammo = UI.Text(panel, "", new Vector3(0.05f, size.y / 2 - 0.08f, 0), 0.018f, UI.Dim, TextAnchor.UpperLeft);
-            UI.Button(panel, "NEXT PAGE", new Vector3(-size.x / 2 + 0.25f, -size.y / 2 + 0.08f, 0), new Vector2(0.4f, 0.09f), NextPage);
+            var paint = new Color(0.93f, 0.89f, 0.76f);
+            _info = UI.Text(transform, "", new Vector3(-2.48f, 2.53f, 0.05f), 0.05f, paint, TextAnchor.UpperLeft);
+            if (kind != StashKind.Armor) _ammo = UI.Text(transform, "", new Vector3(-0.3f, 2.53f, 0.05f), 0.042f, new Color(0.8f, 0.77f, 0.66f), TextAnchor.UpperLeft);
+            _next = UI.Button(transform, "NEXT PAGE >", new Vector3(2.2f, 2.45f, 0.062f), new Vector2(0.5f, 0.11f), NextPage);
+            _next.gameObject.SetActive(false);
         }
 
         // ------------------------------------------------------------------------------- armory
@@ -481,9 +480,9 @@ namespace Rago
             Shelf(mb, 1.55f, 0.45f, 1.6f);
             mb.Build("Racks", transform, Steel);
             Group(ItemContainer.Grid(transform, new Vector3(-1.0f, 1.35f, -0.05f), Quaternion.Euler(-90, 0, 0), 7, 1, new Vector2(0.42f, 1f), 1.2f, it => it is Gun g && g.g.TwoHanded, Quaternion.Euler(0, 0, 90)));
-            Group(ItemContainer.Grid(transform, new Vector3(1.55f, 1.55f, -0.05f), Quaternion.Euler(-90, 0, 0), 4, 3, new Vector2(0.36f, 0.3f), 0.26f, it => (it is Gun g && !g.g.TwoHanded) || it is SightItem || it is Magazine));
-            Group(ItemContainer.Grid(transform, new Vector3(1.55f, 0.5f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.38f, 0.4f), 0.34f, it => it is Gun || it is SightItem || it is Magazine));
-            Panel(new Vector3(-1.0f, 0.2f, -0.45f), Quaternion.Euler(-30, 0, 0), new Vector2(1.6f, 0.36f));
+            Group(ItemContainer.Grid(transform, new Vector3(1.55f, 1.55f, -0.05f), Quaternion.Euler(-90, 0, 0), 4, 3, new Vector2(0.36f, 0.3f), 0.26f, it => !(it is Backpack) && !(it is ArmorItem) && !(it is Gun g && g.g.TwoHanded)));   // pistols, sights, mags, meds, loot
+            Group(ItemContainer.Grid(transform, new Vector3(1.55f, 0.5f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.38f, 0.4f), 0.34f, it => !(it is Backpack) && !(it is ArmorItem)));
+            Panel(new Vector3(-1.0f, 0.26f, -0.45f), Quaternion.Euler(-30, 0, 0), new Vector2(1.9f, 0.5f));
         }
 
         // ------------------------------------------------------------------------------- armour room
@@ -586,20 +585,21 @@ namespace Rago
         {
             var prof = Profile.Current;
             if (prof == null || _info == null) return;
+            if (_next != null && _next.gameObject.activeSelf != (_overflow.Count > 0)) _next.gameObject.SetActive(_overflow.Count > 0);
             int count = 0, value = 0;
             foreach (var s in AllSlots()) if (s.item != null) { count++; value += s.item.Value; }
             foreach (var d in _overflow) { var def = Db.Get(d.id); if (def != null) value += def.price; }
             string items = "Items  " + (count + _overflow.Count) + (_overflow.Count > 0 ? "  (+" + _overflow.Count + " on next page)" : "");
-            if (kind == StashKind.Gear)
+            if (kind != StashKind.Armor)
             {
-                _info.text = "<b>" + prof.name + "</b>\nCash  <color=#80ff80>$" + prof.money.ToString("N0") + "</color>\n" + items +
+                _info.text = "<b>" + prof.name + "</b>\nCash  <color=#b8f0a0>$" + prof.money.ToString("N0") + "</color>\n" + items +
                     "\nRaids " + prof.raids + "  Extracts " + prof.extracts + "  Kills " + prof.kills;
                 var sb = new System.Text.StringBuilder("AMMO RESERVE\n");
                 int col = 0;
                 foreach (Caliber cc in System.Enum.GetValues(typeof(Caliber))) { if (prof.stashAmmo[(int)cc] <= 0) continue; sb.Append(Db.CalName(cc)).Append(": ").Append(prof.stashAmmo[(int)cc]).Append(++col % 2 == 0 ? "\n" : "    "); }
                 _ammo.text = sb.ToString();
             }
-            else _info.text = items + "\nWorth  <color=#80ff80>$" + value.ToString("N0") + "</color>" + (kind == StashKind.Armor ? "\nHang armour on the stands. Wear it: hold it to your head / chest and let go." : "");
+            else _info.text = items + "\nWorth  <color=#b8f0a0>$" + value.ToString("N0") + "</color>" + (kind == StashKind.Armor ? "\nWear armour: hold it to your head / chest and let go." : "");
         }
     }
 

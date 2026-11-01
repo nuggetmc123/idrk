@@ -122,7 +122,7 @@ namespace Rago
             go.transform.localPosition = localPos + new Vector3(0, 0, -0.002f);
             var tm = go.AddComponent<TextMesh>();
             var f = Compat.DefaultFont;
-            if (f != null) { tm.font = f; go.GetComponent<MeshRenderer>().sharedMaterial = f.material; }
+            if (f != null) { tm.font = f; go.GetComponent<MeshRenderer>().sharedMaterial = Compat.TextMaterial; }
             tm.text = text;
             tm.fontSize = 64;
             tm.characterSize = size * 0.1f;
@@ -271,6 +271,8 @@ namespace Rago
             _toast = UI.Text(cam, "", new Vector3(0, -0.12f, 0.6f), 0.02f, Color.white);
             _toast.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_toast);
             _center = UI.Text(cam, "", new Vector3(0, 0.06f, 0.8f), 0.04f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
+            // head-locked messages stay readable even with your face against a wall: keep Unity's always-on-top font material
+            foreach (var t in new[] { _toast, _center }) if (Compat.DefaultFont != null) t.GetComponent<MeshRenderer>().sharedMaterial = Compat.DefaultFont.material;
             _center.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_center);
             // wrist watch on the left hand
             _wrist = new GameObject("Wrist").transform;
