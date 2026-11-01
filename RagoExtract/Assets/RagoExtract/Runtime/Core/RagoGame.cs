@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Rago
 {
-    public enum Area { None, Bunker, Market, Raid }
+    public enum Area { None, Bunker, Market, Raid, Welcome }
 
     /// <summary>
     /// Rago Extract entry point. Created automatically when any scene starts, builds the player and the world,
@@ -74,7 +74,8 @@ namespace Rago
             Player.Gear.Ammo = prof.stashAmmo; // in the hub you shoot from your stash ammo
             if (NetHub.Backend != null) NetHub.Backend.Init(ok => { if (ok && NetHub.Voice != null) NetHub.Voice.Init(prof.DisplayName, null); });
             Vitals.OnLocalDeath = OnLocalDeath;
-            GoTo(Area.Bunker);
+            // first launch: the welcome screen, where you pick your (permanent) callsign
+            GoTo(prof.nameSet ? Area.Bunker : Area.Welcome);
         }
 
         public const string PreviewName = "Rago World (editor preview)";
@@ -113,6 +114,8 @@ namespace Rago
             Player.Frozen = true;
             float t = 0;
             while (!Player.Hud.FadeDone && t < 1.5f) { t += Time.deltaTime; yield return null; }
+            Player.Hud.Center("LOADING\n<size=40>" + (to == Area.Raid ? Maps.Name(rs.map) : to == Area.Welcome ? "Rago Extract" : to.ToString()) + "</size>", 60f);
+            yield return null;
             // leave the old area
             var from = Area;
             if (from == Area.Bunker || from == Area.Market) SaveHubState();
@@ -124,7 +127,7 @@ namespace Rago
             // build the new one
             MapRoot = new GameObject("World").transform;
             Area = to;
-            string id = to == Area.Bunker ? "bunker" : to == Area.Market ? "market" : rs.map;
+            string id = to == Area.Bunker ? "bunker" : to == Area.Market ? "market" : to == Area.Welcome ? "welcome" : rs.map;
             int seed = to == Area.Raid ? rs.seed : 1234;
             Map = Maps.Create(id, MapRoot, seed);
             SafeZone = Map.Safe;
@@ -164,6 +167,7 @@ namespace Rago
                 });
             }
             if (to == Area.Bunker && LastResult != null) { ResultsBoard.Show(MapRoot, LastResult); LastResult = null; }
+            if (to != Area.Raid) Player.Hud.Center("", 0.01f);
             Player.Frozen = false;
             Player.Hud.FadeTo(0f);
             _travelling = false;

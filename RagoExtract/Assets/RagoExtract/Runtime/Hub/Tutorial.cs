@@ -5,7 +5,7 @@ namespace Rago
 {
     // ======================================================================================= ID TERMINAL
     /// <summary>
-    /// Wall terminal in the bunker's main hall where you register (and later change) your callsign.
+    /// The terminal on the first-launch welcome screen where you register your callsign. It can never be changed afterwards.
     /// Names are 3-14 letters/numbers. Every operator also carries a 4-digit tag (REX#4821), so no two players
     /// ever show the same name; if two meet online with the same name and tag, one of them gets a new tag.
     /// </summary>
@@ -14,8 +14,8 @@ namespace Rago
         public const int MinLen = 3, MaxLen = 14;
         static readonly string[] Reserved = { "OPERATOR", "BRUNO", "VIKTOR", "MARA", "SILAS", "DOC", "HALE", "RAGO", "ADMIN", "MODERATOR", "RAIDER" };
         string _name = "";
-        bool _typing;
-        WorldButton _skip;
+        bool _typing, _locked;
+        string _armed;
         TextMesh _field, _tag, _msg, _title;
         float _blink;
         public static IdTerminal I;
@@ -63,15 +63,14 @@ namespace Rago
             UI.Button(s, "DEL", new Vector3(0.405f, 0.08f - 3 * 0.12f, 0), new Vector2(0.255f, 0.1f), Backspace, null, BtnStyle.Crt);
             UI.Text(s, "3-14 LETTERS / NUMBERS", new Vector3(-0.72f, -0.45f, 0), 0.026f, UI.CrtDim, TextAnchor.MiddleLeft);
             UI.Button(s, "CONFIRM", new Vector3(0.48f, -0.45f, 0), new Vector2(0.48f, 0.1f), Confirm, null, BtnStyle.Crt);
-            _skip = UI.Button(transform, "SKIP TRAINING", new Vector3(0.5f, 0.86f, -0.21f), new Vector2(0.4f, 0.07f), () => { if (Tutorial.I != null) Tutorial.I.Skip(); }, new Color(0.45f, 0.2f, 0.12f));
-            _skip.gameObject.SetActive(false);
             var p = Profile.Current;
             _name = p != null && p.nameSet ? p.name : "";
-            Refresh(p != null && p.nameSet ? "REGISTERED. TYPE A NEW CALLSIGN TO CHANGE IT." : "TYPE YOUR CALLSIGN AND PRESS CONFIRM.");
+            Refresh("CHOOSE CAREFULLY - YOUR CALLSIGN IS PERMANENT.");
         }
 
         void Type(char c)
         {
+            if (_locked) return;
             if (_name.Length >= MaxLen) { Refresh("MAX " + MaxLen + " CHARACTERS."); Sfx.UI(Synth.UiError(), 0.3f); return; }
             _name += char.ToUpperInvariant(c);
             Refresh(null);
@@ -79,6 +78,7 @@ namespace Rago
 
         void Backspace()
         {
+            if (_locked) return;
             if (_name.Length > 0) _name = _name.Substring(0, _name.Length - 1);
             Refresh(null);
         }
@@ -97,16 +97,28 @@ namespace Rago
         {
             var p = Profile.Current;
             if (p == null) return;
+            if (p.nameSet || _locked) return;   // a callsign is permanent
             string err = Validate(_name);
-            if (err != null) { Refresh(err); Sfx.UI(Synth.UiError(), 0.4f); return; }
+            if (err != null) { _armed = null; Refresh(err); Sfx.UI(Synth.UiError(), 0.4f); return; }
+            if (_armed != _name)
+            {
+                // first press: warn, second press: lock it in
+                _armed = _name;
+                Sfx.UI(Synth.Beep(), 0.5f);
+                Refresh("\"" + _name + "\" CAN NEVER BE CHANGED. PRESS CONFIRM AGAIN.");
+                return;
+            }
             p.name = _name;
             if (p.tag <= 0) p.tag = Profile.NewTagFor();
             p.nameSet = true;
             p.Save();
+            _locked = true;
             Sfx.UI(Synth.Ding(), 0.5f);
-            RagoGame.I?.Player?.Toast("Welcome, " + p.DisplayName);
-            Refresh("REGISTERED AS " + p.DisplayName + ".");
+            Refresh("WELCOME, " + p.DisplayName + ". DEPLOYING TO YOUR BUNKER...");
+            Invoke(nameof(GoToBunker), 2.5f);
         }
+
+        void GoToBunker() { if (RagoGame.I != null) RagoGame.I.GoTo(Area.Bunker); }
 
         void Refresh(string msg)
         {
@@ -122,7 +134,6 @@ namespace Rago
         {
             _blink += Time.deltaTime;
             Blink(Mathf.Repeat(_blink, 1f) < 0.5f);
-            if (_skip != null) { bool show = Tutorial.I != null; if (_skip.gameObject.activeSelf != show) _skip.gameObject.SetActive(show); }
             // desktop: look at the screen and just type (movement keys pause while you do)
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             bool looking = pl != null && !XRInputs.VR && Physics.Raycast(pl.Head.position, pl.Head.forward, out var hit, 3f, ~0, QueryTriggerInteraction.Collide) && hit.collider.transform.IsChildOf(transform);
@@ -136,6 +147,37 @@ namespace Rago
                 else if (c == '\n' || c == '\r') Confirm();
                 else if (char.IsLetterOrDigit(c) || c == '_') Type(c);
             }
+        }
+    }
+
+    // ======================================================================================= NAMEPLATE
+    /// <summary>Your permanent callsign, stamped on a steel plate in the bunker. The SKIP TRAINING button lives here too.</summary>
+    public class IdPlaque : MonoBehaviour
+    {
+        WorldButton _skip;
+        TextMesh _name;
+
+        public static IdPlaque Create(Transform parent, Vector3 pos, float yaw)
+        {
+            var go = new GameObject("IdPlaque");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = pos; go.transform.localRotation = Quaternion.Euler(0, yaw, 0);
+            var t = go.AddComponent<IdPlaque>();
+            var plate = UI.Panel(go.transform, "Plate", new Vector3(0, 1.6f, -0.03f), Quaternion.identity, new Vector2(1.5f, 0.62f), new Color(0.3f, 0.31f, 0.3f));
+            UI.Text(plate, "OPERATOR", new Vector3(0, 0.2f, 0), 0.05f, UI.Stencil, TextAnchor.MiddleCenter, FontStyle.Bold);
+            t._name = UI.Text(plate, "", new Vector3(0, 0.04f, 0), 0.12f, new Color(0.95f, 0.93f, 0.88f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            UI.Text(plate, "callsign registered - permanent", new Vector3(0, -0.11f, 0), 0.034f, UI.Dim, TextAnchor.MiddleCenter, FontStyle.Italic);
+            t._skip = UI.Button(plate, "SKIP TRAINING", new Vector3(0, -0.22f, 0), new Vector2(0.44f, 0.08f), () => { if (Tutorial.I != null) Tutorial.I.Skip(); }, new Color(0.45f, 0.2f, 0.12f));
+            t._skip.gameObject.SetActive(false);
+            return t;
+        }
+
+        void Update()
+        {
+            var p = Profile.Current;
+            if (_name != null && p != null && _name.text != p.DisplayName) _name.text = p.DisplayName;
+            bool show = Tutorial.I != null;
+            if (_skip != null && _skip.gameObject.activeSelf != show) _skip.gameObject.SetActive(show);
         }
     }
 
@@ -172,7 +214,7 @@ namespace Rago
 
     /// <summary>
     /// First-time training in the bunker: register a callsign, draw, shoot, reload, open your bag, put on armour,
-    /// see your stash and learn how raids and extracts work. Progress is saved; you can skip it at the ID terminal.
+    /// see your stash and learn how raids and extracts work. Progress is saved; you can skip it on the nameplate in the main hall.
     /// </summary>
     public class Tutorial : MonoBehaviour
     {
@@ -184,7 +226,7 @@ namespace Rago
         bool _shot, _reloaded, _finished;
         float _wait;
 
-        public static Tutorial Create(Transform parent, Vector3 terminal, Vector3 range, Vector3 armor, Vector3 armory, Vector3 raidTerminal, Vector3 lift)
+        public static Tutorial Create(Transform parent, Vector3 range, Vector3 armor, Vector3 armory, Vector3 raidTerminal, Vector3 lift)
         {
             var go = new GameObject("Training");
             go.transform.SetParent(parent, false);
@@ -192,9 +234,6 @@ namespace Rago
             t._marker = TutorialMarker.Create(go.transform);
             var p = Profile.Current;
             PlayerRig P() => RagoGame.I.Player;
-            t._steps.Add(new Step { at = terminal, done = () => p.nameSet,
-                vr = "Walk to the glowing marker: the ID TERMINAL. Type your callsign and press CONFIRM.",
-                desk = "WASD to walk to the glowing marker: the ID TERMINAL. Type your callsign, then Enter." });
             t._steps.Add(new Step { done = () => P().HandL.Held is Gun || P().HandR.Held is Gun,
                 vr = "Reach to your right hip and squeeze GRIP to draw your pistol.",
                 desk = "Press 3 to draw your pistol (1 / 2 are your rifles)." });
@@ -221,8 +260,8 @@ namespace Rago
 
         void OnEnable() { I = this; Gun.OnShot += Shot; Gun.OnReloaded += Reloaded; }
         void OnDisable() { if (I == this) I = null; Gun.OnShot -= Shot; Gun.OnReloaded -= Reloaded; var pl = RagoGame.I != null ? RagoGame.I.Player : null; if (pl != null && pl.Hud != null) pl.Hud.Objective(""); }
-        void Shot(Gun g) { if (Profile.Current != null && Profile.Current.tutorialStep == 2) _shot = true; }
-        void Reloaded(Gun g) { if (Profile.Current != null && Profile.Current.tutorialStep == 3) _reloaded = true; }
+        void Shot(Gun g) { if (Profile.Current != null && Profile.Current.tutorialStep == 1) _shot = true; }
+        void Reloaded(Gun g) { if (Profile.Current != null && Profile.Current.tutorialStep == 2) _reloaded = true; }
 
         public void Skip()
         {
@@ -230,7 +269,7 @@ namespace Rago
             if (p == null) return;
             p.tutorialDone = true; p.Save();
             _finished = true;
-            RagoGame.I?.Player?.Toast("Training skipped. Your callsign can be changed at the ID terminal any time.");
+            RagoGame.I?.Player?.Toast("Training skipped.");
             Destroy(gameObject);
         }
 

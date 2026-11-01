@@ -228,9 +228,9 @@ namespace Rago
             b.Sign(new Vector3(W / 2 - 0.2f, 2.95f, -2f), Quaternion.Euler(0, 90, 0), "ARMOR", new Color(0.9f, 0.8f, 0.6f), 0.14f);
 
             // ---- main hall: ID terminal (callsign) on the north wall where the gear wall was, kiosk on the east side
-            IdTerminal.Create(transform, new Vector3(-4.6f, 0, D / 2 - 0.2f), 0);
+            IdPlaque.Create(transform, new Vector3(-4.6f, 0, D / 2 - 0.2f), 0);
             if (Application.isPlaying && Profile.Current != null && !Profile.Current.tutorialDone)
-                Tutorial.Create(transform, new Vector3(-4.6f, 0, D / 2 - 1.3f), new Vector3(-W / 2 - 3f, 0, 0), new Vector3(W / 2 + 3.5f, 0, -2f),
+                Tutorial.Create(transform, new Vector3(-W / 2 - 3f, 0, 0), new Vector3(W / 2 + 3.5f, 0, -2f),
                     new Vector3(0, 0, D / 2 + 3f), new Vector3(W / 2 - 1.9f, 0, 4.2f), new Vector3(2.5f, 0, -D / 2 + 1.2f));
             BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
             LoadStash();
@@ -267,6 +267,40 @@ namespace Rago
                 b.Sign(new Vector3(x + 0.5f, 2.3f, 1.55f), Quaternion.identity, (7 + i * 8) + "m", Color.white, 0.12f);
             }
             Spawn(new Vector3(0, 0.05f, -2f), 0);
+        }
+    }
+
+    /// <summary>First launch: a dark registration room where you choose your callsign (once, forever).</summary>
+    public class WelcomeMap : MapBase
+    {
+        public override void Build()
+        {
+            IsRaid = false; Safe = true;
+            Ambience = Synth.Amb.Bunker;
+            NavBounds = new Bounds(Vector3.zero, new Vector3(12, 6, 12));
+            Lighting(new Color(1f, 0.9f, 0.75f), 0.02f, new Vector3(60, 30, 0), new Color(0.12f, 0.13f, 0.15f), new Color(0.1f, 0.1f, 0.1f), new Color(0.05f, 0.05f, 0.05f),
+                new Color(0.03f, 0.03f, 0.04f), 0f, new Color(0.03f, 0.03f, 0.04f), new Color(0.06f, 0.06f, 0.07f), 0f, 0.5f);
+            var b = B;
+            var conc = Maps.Concrete;
+            float W = 10, D = 10, Ht = 4.2f;
+            var tint = new Color(0.45f, 0.45f, 0.44f);
+            b.Box(new Vector3(0, -0.1f, 0), new Vector3(W, 0.2f, D), Maps.ConcreteDark, Color.white);
+            b.Box(new Vector3(0, Ht + 0.1f, 0), new Vector3(W, 0.2f, D), conc, new Color(0.3f, 0.3f, 0.3f));
+            b.Wall(new Vector3(-W / 2, 0, D / 2), new Vector3(W / 2, 0, D / 2), Ht, 0.3f, conc, tint);
+            b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), Ht, 0.3f, conc, tint);
+            b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), Ht, 0.3f, conc, tint);
+            b.Wall(new Vector3(-W / 2, 0, -D / 2), new Vector3(-W / 2, 0, D / 2), Ht, 0.3f, conc, tint);
+            // hazard line on the floor in front of the terminal, a hanging lamp over it
+            for (int i = 0; i < 10; i++) b.Box(new Vector3(-2.25f + i * 0.5f, 0.012f, 3.4f), new Vector3(0.25f, 0.01f, 0.12f), Maps.Metal, i % 2 == 0 ? new Color(0.95f, 0.75f, 0.1f) : new Color(0.08f, 0.08f, 0.08f), Quaternion.Euler(0, 35, 0), false);
+            b.Cyl(new Vector3(0, Ht, 3.2f), new Vector3(0, Ht - 0.9f, 3.2f), 0.01f, 0.01f, 6, Maps.Metal, Color.gray, false);
+            b.Cyl(new Vector3(0, Ht - 0.9f, 3.2f), new Vector3(0, Ht - 1.1f, 3.2f), 0.06f, 0.3f, 16, Maps.Metal, new Color(0.25f, 0.27f, 0.25f), false);
+            var lamp = b.AddLight(new Vector3(0, Ht - 1.2f, 3.0f), new Color(1f, 0.9f, 0.75f), 7f, 2f, true);
+            b.AddLight(new Vector3(0, 2.4f, 4.2f), new Color(0.4f, 1f, 0.5f), 3f, 0.5f);
+            b.Sign(new Vector3(0, 3.55f, D / 2 - 0.2f), Quaternion.identity, "RAGO EXTRACT", UI.Accent, 0.4f);
+            b.Sign(new Vector3(0, 3.1f, D / 2 - 0.2f), Quaternion.identity, "OPERATOR REGISTRATION", new Color(0.8f, 0.78f, 0.7f), 0.12f);
+            IdTerminal.Create(transform, new Vector3(0, 0, D / 2 - 0.2f), 0);
+            b.Sign(new Vector3(0, 2.8f, D / 2 - 0.2f), Quaternion.identity, "Your callsign is how other operators see you. It can never be changed.", new Color(0.75f, 0.73f, 0.68f), 0.05f);
+            Spawn(new Vector3(0, 0.05f, 2.4f), 0);
         }
     }
 

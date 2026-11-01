@@ -6,7 +6,7 @@ namespace Rago
     public static class Maps
     {
         public static readonly string[] RaidIds = { "dockyard", "pinewood", "oldtown" };
-        public static string Name(string id) => id == "dockyard" ? "Dockyard" : id == "pinewood" ? "Pinewood Outpost" : id == "oldtown" ? "Old Town" : id;
+        public static string Name(string id) => id == "welcome" ? "Rago Extract" : id == "dockyard" ? "Dockyard" : id == "pinewood" ? "Pinewood Outpost" : id == "oldtown" ? "Old Town" : id;
         public static string Blurb(string id) => id == "dockyard" ? "Container yard at dusk. Warehouses, cranes and the Harbor Office vault."
             : id == "pinewood" ? "Foggy forest and a military outpost with a bunker vault."
             : "Abandoned town at dawn. Streets, apartments and the old bank vault.";
@@ -20,6 +20,7 @@ namespace Rago
             {
                 case "bunker": m = go.AddComponent<BunkerMap>(); break;
                 case "market": m = go.AddComponent<MarketMap>(); break;
+                case "welcome": m = go.AddComponent<WelcomeMap>(); break;
                 case "pinewood": m = go.AddComponent<PinewoodMap>(); break;
                 case "oldtown": m = go.AddComponent<OldTownMap>(); break;
                 default: m = go.AddComponent<DockyardMap>(); break;
