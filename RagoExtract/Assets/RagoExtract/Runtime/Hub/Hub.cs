@@ -107,8 +107,8 @@ namespace Rago
                 _mapBtns[i].SetTextColor(sel ? new Color(0.02f, 0.08f, 0.03f) : UI.CrtGreen);
                 _mapBtns[i].SetText((sel ? "> " : "  ") + Maps.Name(Maps.RaidIds[i]).ToUpper());
             }
-            _mapInfo.text = UI.Wrap(Maps.Blurb(id).ToUpper(), 20);
-            _status.text = "> " + UI.Wrap(NetHub.StatusText.ToUpper(), 44).Replace("\n", "\n  ");
+            _mapInfo.text = "";
+            _status.text = NetHub.Online ? "" : "> " + UI.Wrap(NetHub.StatusText.ToUpper(), 44).Replace("\n", "\n  ");   // only shown when something is wrong
         }
 
         void ToggleQueue()
