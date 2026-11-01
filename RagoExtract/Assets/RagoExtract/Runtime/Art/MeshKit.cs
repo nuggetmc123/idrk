@@ -237,6 +237,25 @@ namespace Rago
             return this;
         }
 
+        /// <summary>Flat double-sided disc sector in the plane facing rot*forward (crash-test markers, decals).</summary>
+        public MB Sector(Vector3 c, Quaternion rot, float r, float a0, float a1, int seg, Color col)
+        {
+            Vector3 n = rot * Vector3.forward;
+            for (int side = 0; side < 2; side++)
+            {
+                Vector3 nn = side == 0 ? n : -n;
+                int ci = V(c, nn, new Vector2(0.5f, 0.5f), col);
+                int first = _v.Count;
+                for (int i = 0; i <= seg; i++)
+                {
+                    float a = Mathf.Lerp(a0, a1, (float)i / seg) * Mathf.Deg2Rad;
+                    V(c + rot * new Vector3(Mathf.Cos(a) * r, Mathf.Sin(a) * r, 0), nn, new Vector2(0.5f + Mathf.Cos(a) * 0.5f, 0.5f + Mathf.Sin(a) * 0.5f), col);
+                }
+                for (int i = 0; i < seg; i++) { if (side == 0) T(ci, first + i + 1, first + i); else T(ci, first + i, first + i + 1); }
+            }
+            return this;
+        }
+
         public MB Capsule(Vector3 a, Vector3 b, float r, int seg, Color col) => Capsule(a, b, r, r, seg, col);
 
         /// <summary>Tapered capsule (limbs). Hemispheres at both ends, cone between.</summary>

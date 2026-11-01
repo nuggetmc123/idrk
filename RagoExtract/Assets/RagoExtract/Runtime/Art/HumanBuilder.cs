@@ -32,14 +32,15 @@ namespace Rago
         {
             var r = new HumanRig();
             var rng = new Rng(seed);
+            _seed = seed;
             r.root = new GameObject("Human_" + outfit);
             r.root.transform.SetParent(parent, false);
 
             var pal = Palette(outfit, rng);
             r.hips = Bone(r, "Hips", r.root.transform, new Vector3(0, 0.98f, 0));
-            r.spine = Bone(r, "Spine", r.hips, new Vector3(0, 0.12f, 0));
-            r.chest = Bone(r, "Chest", r.spine, new Vector3(0, 0.24f, 0));
-            r.neck = Bone(r, "Neck", r.chest, new Vector3(0, 0.15f, 0));
+            r.spine = Bone(r, "Spine", r.hips, new Vector3(0, 0.10f, 0));
+            r.chest = Bone(r, "Chest", r.spine, new Vector3(0, 0.20f, 0));
+            r.neck = Bone(r, "Neck", r.chest, new Vector3(0, 0.12f, 0));
             r.head = Bone(r, "Head", r.neck, new Vector3(0, 0.1f, 0));
             r.uaL = Bone(r, "UpperArmL", r.chest, new Vector3(-0.19f, 0.1f, 0));
             r.uaR = Bone(r, "UpperArmR", r.chest, new Vector3(0.19f, 0.1f, 0));
@@ -127,108 +128,155 @@ namespace Rago
             return p;
         }
 
+        // sub-mesh slots for characters
+        const int CLOTH = 0, HARD = 1, PLASTIC = 2, JOINT = 3;
+        public static Material PlasticMat => Mats.Lit("dummy_plastic", Color.white, 0f, 0.62f, Mats.Noise, null, 0.22f, 0.18f);
+        public static Material JointMat => Mats.Lit("dummy_joint", Color.white, 0.75f, 0.55f, Mats.Metal, Mats.MetalN, 0.2f, 0.4f);
+        public static readonly Color JointCol = new Color(0.16f, 0.16f, 0.17f);
+        static readonly Color MarkYellow = new Color(1f, 0.58f, 0.01f), MarkBlack = new Color(0.04f, 0.04f, 0.04f);
+
+        /// <summary>Plastic shell colour of a ragdoll dummy. The player's colour is fixed by their profile seed so their VR hands match their body.</summary>
+        public static Color BodyColor(Outfit o, int seed)
+        {
+            // picked in sRGB; vertex colours are used as linear values, so convert to keep the plastic saturated
+            var rng = new Rng(seed * 7 + 3);
+            Color c;
+            switch (o)
+            {
+                case Outfit.Operator:
+                    c = rng.Pick(new[] { new Color(0.98f, 0.78f, 0.1f), new Color(0.97f, 0.5f, 0.1f), new Color(0.92f, 0.92f, 0.9f), new Color(0.12f, 0.6f, 0.68f), new Color(0.85f, 0.7f, 0.45f), new Color(0.32f, 0.6f, 0.26f) });
+                    break;
+                case Outfit.Raider:
+                case Outfit.RaiderHeavy:
+                    c = rng.Pick(new[] { new Color(0.22f, 0.22f, 0.23f), new Color(0.5f, 0.14f, 0.1f), new Color(0.34f, 0.34f, 0.28f), new Color(0.3f, 0.25f, 0.22f) });
+                    break;
+                default:
+                    c = new Color(0.94f, 0.93f, 0.9f);
+                    break;
+            }
+            return new Color(Mathf.Pow(c.r, 2.2f), Mathf.Pow(c.g, 2.2f), Mathf.Pow(c.b, 2.2f), 1f);
+        }
+
+        /// <summary>Yellow/black crash-test target sticker.</summary>
+        static void Marker(MB mb, Vector3 c, Vector3 normal, float r)
+        {
+            var rot = Quaternion.LookRotation(normal);
+            for (int q = 0; q < 4; q++) mb.Sub(PLASTIC).Sector(c + normal * 0.002f, rot, r, q * 90f, q * 90f + 90f, 6, q % 2 == 0 ? MarkYellow : MarkBlack);
+        }
+
+        static void Ball(MB mb, Vector3 c, float r) => mb.Sub(JOINT).Sphere(c, Vector3.one * r, 12, JointCol);
+
         static void BuildMeshes(HumanRig r, Outfit o, Pal p, Rng rng, bool local)
         {
-            var cloth = ClothMat; var hard = HardMat; var skin = SkinMat;
-            // ---- hips / pelvis + belt
-            var mb = new MB(2);
-            mb.Sub(0).Box(new Vector3(0, -0.02f, 0), new Vector3(0.33f, 0.2f, 0.2f), p.pants, 0.06f, 2);
-            mb.Sub(1).Box(new Vector3(0, 0.07f, 0), new Vector3(0.35f, 0.045f, 0.22f), p.gear2, 0.015f);
-            mb.Sub(1).Box(new Vector3(0, 0.07f, 0.112f), new Vector3(0.05f, 0.035f, 0.01f), new Color(0.55f, 0.55f, 0.55f), 0.004f);
-            if (o == Outfit.Operator || o == Outfit.RaiderHeavy || o == Outfit.Raider)
+            var mats = new[] { ClothMat, HardMat, PlasticMat, JointMat };
+            Color body = BodyColor(o, _seed);
+            Color bodyDark = body * 0.78f; bodyDark.a = 1;
+            bool soldier = o == Outfit.Operator || o == Outfit.Raider || o == Outfit.RaiderHeavy;
+
+            // ---- pelvis
+            var mb = new MB(4);
+            mb.Sub(PLASTIC).Box(new Vector3(0, -0.03f, 0), new Vector3(0.29f, 0.16f, 0.19f), body, 0.07f, 2);
+            Ball(mb, new Vector3(-0.1f, -0.07f, 0), 0.062f); Ball(mb, new Vector3(0.1f, -0.07f, 0), 0.062f);
+            Marker(mb, new Vector3(0.147f, -0.03f, 0), Vector3.right, 0.028f); Marker(mb, new Vector3(-0.147f, -0.03f, 0), Vector3.left, 0.028f);
+            if (soldier || p.apron)
             {
-                mb.Sub(1).Box(new Vector3(0.16f, 0.02f, -0.06f), new Vector3(0.06f, 0.09f, 0.08f), p.gear, 0.012f); // dump pouch
-                mb.Sub(1).Box(new Vector3(-0.17f, 0.03f, 0.03f), new Vector3(0.05f, 0.07f, 0.06f), p.gear, 0.01f);
+                mb.Sub(HARD).Box(new Vector3(0, 0.06f, 0), new Vector3(0.31f, 0.045f, 0.21f), p.gear2, 0.015f);
+                mb.Sub(HARD).Box(new Vector3(0, 0.06f, 0.107f), new Vector3(0.05f, 0.035f, 0.01f), new Color(0.55f, 0.55f, 0.55f), 0.004f);
             }
-            mb.Build("Mesh", r.hips, cloth, hard);
+            if (soldier)
+            {
+                mb.Sub(HARD).Box(new Vector3(0.15f, 0.02f, -0.06f), new Vector3(0.06f, 0.09f, 0.08f), p.gear, 0.012f);
+                mb.Sub(HARD).Box(new Vector3(-0.16f, 0.03f, 0.03f), new Vector3(0.05f, 0.07f, 0.06f), p.gear, 0.01f);
+            }
+            mb.Build("Mesh", r.hips, mats);
 
-            // ---- spine (stomach)
-            mb = new MB(2);
-            mb.Sub(0).Box(new Vector3(0, 0.12f, 0), new Vector3(0.31f, 0.26f, 0.19f), p.coat ? p.top : p.top2, 0.07f, 2);
-            if (p.apron) mb.Sub(1).Box(new Vector3(0, 0.05f, 0.1f), new Vector3(0.3f, 0.4f, 0.02f), p.gear, 0.01f);
-            if (p.coat) mb.Sub(0).Box(new Vector3(0, -0.06f, 0.0f), new Vector3(0.36f, 0.3f, 0.23f), p.top, 0.05f, 2);
-            mb.Build("Mesh", r.spine, cloth, hard);
+            // ---- abdomen: ribbed rubber insert, like a real crash dummy
+            mb = new MB(4);
+            mb.Sub(JOINT).Cyl(new Vector3(0, -0.01f, 0), new Vector3(0, 0.2f, 0), 0.105f, 0.11f, 16, bodyDark * 0.55f, false);
+            for (int i = 0; i < 4; i++) mb.Sub(JOINT).Cyl(new Vector3(0, 0.02f + i * 0.045f, 0), new Vector3(0, 0.045f + i * 0.045f, 0), 0.118f, 0.118f, 16, bodyDark * 0.45f, false);
+            if (p.apron) mb.Sub(CLOTH).Box(new Vector3(0, 0.05f, 0.12f), new Vector3(0.3f, 0.4f, 0.02f), p.gear, 0.01f);
+            if (p.coat) mb.Sub(CLOTH).Box(new Vector3(0, -0.04f, 0.0f), new Vector3(0.35f, 0.3f, 0.25f), p.top, 0.05f, 2);
+            mb.Build("Mesh", r.spine, mats);
 
-            // ---- chest: torso + plate carrier / chest rig
-            mb = new MB(2);
-            mb.Sub(0).Box(new Vector3(0, 0.07f, 0), new Vector3(0.38f, 0.26f, 0.22f), p.top, 0.08f, 2);
-            mb.Sub(0).Sphere(new Vector3(-0.17f, 0.12f, 0), new Vector3(0.075f, 0.07f, 0.08f), 10, p.top);
-            mb.Sub(0).Sphere(new Vector3(0.17f, 0.12f, 0), new Vector3(0.075f, 0.07f, 0.08f), 10, p.top);
+            // ---- chest shell + gear
+            mb = new MB(4);
+            mb.Sub(PLASTIC).Box(new Vector3(0, 0.08f, 0), new Vector3(0.35f, 0.25f, 0.21f), body, 0.085f, 2);
+            mb.Sub(PLASTIC).Box(new Vector3(0, 0.06f, 0.095f), new Vector3(0.2f, 0.13f, 0.03f), bodyDark, 0.03f, 2); // sternum plate
+            Ball(mb, new Vector3(-0.19f, 0.1f, 0), 0.058f); Ball(mb, new Vector3(0.19f, 0.1f, 0), 0.058f);
+            Ball(mb, new Vector3(0, 0.205f, 0), 0.045f);
+            if (!p.plate && !p.coat && !p.suit && !p.apron) { Marker(mb, new Vector3(0.09f, 0.13f, 0.106f), Vector3.forward, 0.026f); }
             if (p.suit)
             {
-                mb.Sub(0).Box(new Vector3(0, 0.07f, 0.112f), new Vector3(0.1f, 0.2f, 0.01f), Color.white * 0.9f, 0.01f);
-                mb.Sub(0).Box(new Vector3(0, 0.06f, 0.12f), new Vector3(0.03f, 0.17f, 0.01f), p.top2, 0.005f);
+                mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.0f), new Vector3(0.37f, 0.27f, 0.23f), p.top, 0.07f, 2);
+                mb.Sub(CLOTH).Box(new Vector3(0, 0.07f, 0.116f), new Vector3(0.08f, 0.2f, 0.01f), Color.white * 0.9f, 0.01f);
+                mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.123f), new Vector3(0.025f, 0.17f, 0.01f), p.top2, 0.005f);
             }
+            if (p.coat) mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.0f), new Vector3(0.37f, 0.27f, 0.23f), p.top, 0.07f, 2);
+            if (p.apron) { mb.Sub(CLOTH).Box(new Vector3(0, 0.02f, 0.11f), new Vector3(0.26f, 0.2f, 0.02f), p.gear, 0.01f); mb.Sub(CLOTH).Box(new Vector3(-0.09f, 0.17f, 0.04f), new Vector3(0.025f, 0.02f, 0.16f), p.gear * 0.8f, 0.005f); mb.Sub(CLOTH).Box(new Vector3(0.09f, 0.17f, 0.04f), new Vector3(0.025f, 0.02f, 0.16f), p.gear * 0.8f, 0.005f); }
             if (p.plate)
             {
-                mb.Sub(1).Box(new Vector3(0, 0.04f, 0.12f), new Vector3(0.3f, 0.33f, 0.06f), p.gear, 0.02f, 2);
-                mb.Sub(1).Box(new Vector3(0, 0.04f, -0.12f), new Vector3(0.3f, 0.33f, 0.05f), p.gear, 0.02f, 2);
-                mb.Sub(1).Box(new Vector3(-0.17f, 0.0f, 0), new Vector3(0.04f, 0.15f, 0.2f), p.gear2, 0.01f);
-                mb.Sub(1).Box(new Vector3(0.17f, 0.0f, 0), new Vector3(0.04f, 0.15f, 0.2f), p.gear2, 0.01f);
-                // shoulder straps
-                mb.Sub(1).Box(new Vector3(-0.1f, 0.19f, 0), new Vector3(0.06f, 0.03f, 0.25f), p.gear2, 0.01f);
-                mb.Sub(1).Box(new Vector3(0.1f, 0.19f, 0), new Vector3(0.06f, 0.03f, 0.25f), p.gear2, 0.01f);
-                // triple mag pouches + admin pouch
-                for (int i = 0; i < 3; i++) mb.Sub(1).Box(new Vector3(-0.09f + i * 0.09f, -0.06f, 0.165f), new Vector3(0.075f, 0.12f, 0.04f), p.gear2, 0.012f);
-                mb.Sub(1).Box(new Vector3(0, 0.12f, 0.16f), new Vector3(0.16f, 0.06f, 0.03f), p.gear2, 0.01f);
-                if (rng.Chance(0.6f)) mb.Sub(1).Box(new Vector3(0.11f, 0.15f, 0.17f), new Vector3(0.04f, 0.04f, 0.02f), p.accent, 0.005f); // patch
+                mb.Sub(HARD).Box(new Vector3(0, 0.04f, 0.12f), new Vector3(0.3f, 0.32f, 0.06f), p.gear, 0.02f, 2);
+                mb.Sub(HARD).Box(new Vector3(0, 0.04f, -0.12f), new Vector3(0.3f, 0.32f, 0.05f), p.gear, 0.02f, 2);
+                mb.Sub(HARD).Box(new Vector3(-0.165f, 0.0f, 0), new Vector3(0.04f, 0.15f, 0.2f), p.gear2, 0.01f);
+                mb.Sub(HARD).Box(new Vector3(0.165f, 0.0f, 0), new Vector3(0.04f, 0.15f, 0.2f), p.gear2, 0.01f);
+                mb.Sub(HARD).Box(new Vector3(-0.1f, 0.19f, 0), new Vector3(0.06f, 0.03f, 0.25f), p.gear2, 0.01f);
+                mb.Sub(HARD).Box(new Vector3(0.1f, 0.19f, 0), new Vector3(0.06f, 0.03f, 0.25f), p.gear2, 0.01f);
+                for (int i = 0; i < 3; i++) mb.Sub(HARD).Box(new Vector3(-0.09f + i * 0.09f, -0.06f, 0.165f), new Vector3(0.075f, 0.12f, 0.04f), p.gear2, 0.012f);
+                mb.Sub(HARD).Box(new Vector3(0, 0.12f, 0.16f), new Vector3(0.16f, 0.06f, 0.03f), p.gear2, 0.01f);
+                if (rng.Chance(0.6f)) mb.Sub(HARD).Box(new Vector3(0.11f, 0.15f, 0.17f), new Vector3(0.04f, 0.04f, 0.02f), p.accent, 0.005f);
             }
             else if (o == Outfit.Raider)
             {
-                // cheap chest rig with mags + red armband feel
-                mb.Sub(1).Box(new Vector3(0, -0.04f, 0.12f), new Vector3(0.28f, 0.14f, 0.05f), p.gear, 0.015f);
-                for (int i = 0; i < 4; i++) mb.Sub(1).Box(new Vector3(-0.1f + i * 0.067f, -0.02f, 0.15f), new Vector3(0.055f, 0.12f, 0.03f), p.gear2, 0.008f);
-                mb.Sub(1).Box(new Vector3(-0.1f, 0.15f, 0.02f), new Vector3(0.04f, 0.02f, 0.25f), p.gear2, 0.005f);
-                mb.Sub(1).Box(new Vector3(0.1f, 0.15f, 0.02f), new Vector3(0.04f, 0.02f, 0.25f), p.gear2, 0.005f);
+                mb.Sub(HARD).Box(new Vector3(0, -0.04f, 0.12f), new Vector3(0.28f, 0.14f, 0.05f), p.gear, 0.015f);
+                for (int i = 0; i < 4; i++) mb.Sub(HARD).Box(new Vector3(-0.1f + i * 0.067f, -0.02f, 0.15f), new Vector3(0.055f, 0.12f, 0.03f), p.gear2, 0.008f);
+                mb.Sub(HARD).Box(new Vector3(-0.1f, 0.15f, 0.02f), new Vector3(0.04f, 0.02f, 0.25f), p.gear2, 0.005f);
+                mb.Sub(HARD).Box(new Vector3(0.1f, 0.15f, 0.02f), new Vector3(0.04f, 0.02f, 0.25f), p.gear2, 0.005f);
             }
-            if (o == Outfit.Operator) mb.Sub(1).Box(new Vector3(0, 0.02f, -0.2f), new Vector3(0.28f, 0.34f, 0.16f), p.gear * 0.9f, 0.05f, 2); // backpack
-            mb.Build("Mesh", r.chest, cloth, hard);
+            if (o == Outfit.Operator) mb.Sub(CLOTH).Box(new Vector3(0, 0.02f, -0.2f), new Vector3(0.28f, 0.34f, 0.16f), p.gear * 0.9f, 0.05f, 2); // backpack
+            mb.Build("Mesh", r.chest, mats);
 
-            // ---- neck
-            mb = new MB(2);
-            mb.Sub(0).Cyl(new Vector3(0, -0.02f, 0), new Vector3(0, 0.1f, 0), 0.055f, 0.05f, 10, p.mask ? p.top2 * 0.6f : p.skin, false);
-            if (p.suit) mb.Sub(0).Cyl(new Vector3(0, -0.02f, 0), new Vector3(0, 0.03f, 0), 0.065f, 0.06f, 10, Color.white * 0.9f, false);
-            var neckGo = mb.Build("Mesh", r.neck, p.mask ? cloth : skin, hard);
+            // ---- neck: metal column
+            mb = new MB(4);
+            mb.Sub(JOINT).Cyl(new Vector3(0, -0.01f, 0), new Vector3(0, 0.1f, 0), 0.038f, 0.034f, 12, JointCol, false);
+            for (int i = 0; i < 3; i++) mb.Sub(JOINT).Cyl(new Vector3(0, 0.015f + i * 0.03f, 0), new Vector3(0, 0.025f + i * 0.03f, 0), 0.045f, 0.045f, 12, JointCol * 0.8f, false);
+            if (p.suit) mb.Sub(CLOTH).Cyl(new Vector3(0, -0.02f, 0), new Vector3(0, 0.03f, 0), 0.06f, 0.055f, 12, Color.white * 0.9f, false);
+            var neckGo = mb.Build("Mesh", r.neck, mats);
 
-            // ---- head
-            mb = new MB(3);
-            Color face = p.mask ? p.top2 * 0.55f : p.skin;
-            mb.Sub(2).Sphere(new Vector3(0, 0.07f, 0.005f), new Vector3(0.095f, 0.115f, 0.105f), 16, face);
-            mb.Sub(2).Box(new Vector3(0, 0.0f, 0.03f), new Vector3(0.14f, 0.08f, 0.13f), face, 0.04f, 2); // jaw
-            mb.Sub(2).Box(new Vector3(0, 0.06f, 0.105f), new Vector3(0.026f, 0.04f, 0.03f), face * 1.03f, 0.01f, 1); // nose
-            mb.Sub(2).Box(new Vector3(0, 0.1f, 0.09f), new Vector3(0.15f, 0.025f, 0.04f), face * 0.97f, 0.01f, 1); // brow
-            mb.Sub(2).Sphere(new Vector3(-0.098f, 0.065f, 0.0f), new Vector3(0.015f, 0.03f, 0.022f), 8, p.skin); // ears
-            mb.Sub(2).Sphere(new Vector3(0.098f, 0.065f, 0.0f), new Vector3(0.015f, 0.03f, 0.022f), 8, p.skin);
-            if (p.mask) mb.Sub(2).Box(new Vector3(0, 0.08f, 0.088f), new Vector3(0.16f, 0.04f, 0.03f), p.skin, 0.012f); // eye slot skin
-            mb.Sub(1).Sphere(new Vector3(-0.035f, 0.08f, 0.098f), new Vector3(0.013f, 0.009f, 0.006f), 8, new Color(0.05f, 0.05f, 0.05f));
-            mb.Sub(1).Sphere(new Vector3(0.035f, 0.08f, 0.098f), new Vector3(0.013f, 0.009f, 0.006f), 8, new Color(0.05f, 0.05f, 0.05f));
-            if (!p.helmetOn && !p.beanie && !p.cap && !p.gasMask) mb.Sub(0).Sphere(new Vector3(0, 0.1f, -0.005f), new Vector3(0.1f, 0.09f, 0.11f), 14, p.hair, 0f, 0.5f);
+            // ---- head: smooth egg with crash-test markers, gear on top
+            mb = new MB(4);
+            mb.Sub(PLASTIC).Sphere(new Vector3(0, 0.085f, 0.008f), new Vector3(0.088f, 0.112f, 0.1f), 20, body);
+            mb.Sub(PLASTIC).Box(new Vector3(0, 0.072f, 0.1f), new Vector3(0.018f, 0.032f, 0.02f), body, 0.008f, 1);          // nose ridge
+            mb.Sub(PLASTIC).Sphere(new Vector3(-0.032f, 0.098f, 0.093f), new Vector3(0.016f, 0.01f, 0.006f), 10, bodyDark * 0.5f); // eye sockets
+            mb.Sub(PLASTIC).Sphere(new Vector3(0.032f, 0.098f, 0.093f), new Vector3(0.016f, 0.01f, 0.006f), 10, bodyDark * 0.5f);
+            if (!p.helmetOn && !p.gasMask) { Marker(mb, new Vector3(0.088f, 0.09f, 0.005f), Vector3.right, 0.026f); Marker(mb, new Vector3(-0.088f, 0.09f, 0.005f), Vector3.left, 0.026f); }
             if (p.helmetOn)
             {
-                mb.Sub(1).Sphere(new Vector3(0, 0.1f, -0.005f), new Vector3(0.125f, 0.12f, 0.135f), 18, p.helmet, 0f, 0.55f);
-                mb.Sub(1).Box(new Vector3(0, 0.155f, 0.115f), new Vector3(0.05f, 0.035f, 0.02f), new Color(0.1f, 0.1f, 0.1f), 0.005f); // NVG shroud
-                mb.Sub(1).Box(new Vector3(-0.12f, 0.06f, 0.0f), new Vector3(0.04f, 0.07f, 0.07f), new Color(0.12f, 0.12f, 0.12f), 0.015f, 2); // ear pro
-                mb.Sub(1).Box(new Vector3(0.12f, 0.06f, 0.0f), new Vector3(0.04f, 0.07f, 0.07f), new Color(0.12f, 0.12f, 0.12f), 0.015f, 2);
-                mb.Sub(1).Box(new Vector3(-0.12f, 0.11f, 0.03f), new Vector3(0.012f, 0.025f, 0.09f), new Color(0.1f, 0.1f, 0.1f), 0.003f); // side rails
-                mb.Sub(1).Box(new Vector3(0.12f, 0.11f, 0.03f), new Vector3(0.012f, 0.025f, 0.09f), new Color(0.1f, 0.1f, 0.1f), 0.003f);
+                mb.Sub(HARD).Sphere(new Vector3(0, 0.105f, -0.002f), new Vector3(0.122f, 0.118f, 0.132f), 18, p.helmet, 0f, 0.55f);
+                mb.Sub(HARD).Box(new Vector3(0, 0.16f, 0.115f), new Vector3(0.05f, 0.035f, 0.02f), new Color(0.1f, 0.1f, 0.1f), 0.005f);
+                mb.Sub(HARD).Box(new Vector3(-0.112f, 0.07f, 0.0f), new Vector3(0.04f, 0.07f, 0.07f), new Color(0.12f, 0.12f, 0.12f), 0.015f, 2);
+                mb.Sub(HARD).Box(new Vector3(0.112f, 0.07f, 0.0f), new Vector3(0.04f, 0.07f, 0.07f), new Color(0.12f, 0.12f, 0.12f), 0.015f, 2);
+                mb.Sub(HARD).Box(new Vector3(-0.118f, 0.115f, 0.03f), new Vector3(0.012f, 0.025f, 0.09f), new Color(0.1f, 0.1f, 0.1f), 0.003f);
+                mb.Sub(HARD).Box(new Vector3(0.118f, 0.115f, 0.03f), new Vector3(0.012f, 0.025f, 0.09f), new Color(0.1f, 0.1f, 0.1f), 0.003f);
+                Marker(mb, new Vector3(0, 0.215f, 0.0f), Vector3.up, 0.024f);
             }
-            if (p.beanie) mb.Sub(0).Sphere(new Vector3(0, 0.1f, -0.005f), new Vector3(0.105f, 0.11f, 0.115f), 14, rng.Pick(new[] { new Color(0.15f, 0.15f, 0.15f), new Color(0.35f, 0.1f, 0.08f), new Color(0.25f, 0.27f, 0.2f) }), 0f, 0.55f);
+            if (p.beanie) mb.Sub(CLOTH).Sphere(new Vector3(0, 0.11f, 0.0f), new Vector3(0.096f, 0.1f, 0.107f), 14, rng.Pick(new[] { new Color(0.15f, 0.15f, 0.15f), new Color(0.35f, 0.1f, 0.08f), new Color(0.25f, 0.27f, 0.2f) }), 0f, 0.55f);
             if (p.cap)
             {
-                mb.Sub(0).Sphere(new Vector3(0, 0.11f, -0.005f), new Vector3(0.103f, 0.09f, 0.112f), 14, p.gear, 0f, 0.5f);
-                mb.Sub(0).Box(new Vector3(0, 0.115f, 0.12f), new Vector3(0.15f, 0.01f, 0.08f), p.gear, 0.004f, 1, Quaternion.Euler(-8, 0, 0));
+                mb.Sub(CLOTH).Sphere(new Vector3(0, 0.12f, 0.0f), new Vector3(0.095f, 0.085f, 0.105f), 14, p.gear, 0f, 0.5f);
+                mb.Sub(CLOTH).Box(new Vector3(0, 0.125f, 0.12f), new Vector3(0.14f, 0.01f, 0.08f), p.gear, 0.004f, 1, Quaternion.Euler(-8, 0, 0));
             }
+            if (p.mask && o != Outfit.Operator) mb.Sub(CLOTH).Sphere(new Vector3(0, 0.085f, 0.008f), new Vector3(0.094f, 0.118f, 0.106f), 18, p.top2 * 0.55f, 0.56f, 0.86f); // neck gaiter hugging the lower head
             if (p.gasMask)
             {
-                mb.Sub(1).Sphere(new Vector3(0, 0.05f, 0.06f), new Vector3(0.1f, 0.1f, 0.08f), 14, new Color(0.15f, 0.15f, 0.14f));
-                mb.Sub(1).Cyl(new Vector3(0, 0.0f, 0.12f), new Vector3(0, -0.03f, 0.17f), 0.035f, 0.035f, 12, new Color(0.25f, 0.27f, 0.2f));
-                mb.Sub(1).Sphere(new Vector3(-0.04f, 0.08f, 0.115f), new Vector3(0.028f, 0.028f, 0.01f), 10, new Color(0.2f, 0.25f, 0.3f));
-                mb.Sub(1).Sphere(new Vector3(0.04f, 0.08f, 0.115f), new Vector3(0.028f, 0.028f, 0.01f), 10, new Color(0.2f, 0.25f, 0.3f));
+                mb.Sub(HARD).Sphere(new Vector3(0, 0.06f, 0.06f), new Vector3(0.095f, 0.1f, 0.08f), 14, new Color(0.15f, 0.15f, 0.14f));
+                mb.Sub(HARD).Cyl(new Vector3(0, 0.01f, 0.12f), new Vector3(0, -0.02f, 0.17f), 0.035f, 0.035f, 12, new Color(0.25f, 0.27f, 0.2f));
+                mb.Sub(HARD).Sphere(new Vector3(-0.04f, 0.09f, 0.115f), new Vector3(0.028f, 0.028f, 0.01f), 10, new Color(0.2f, 0.25f, 0.3f));
+                mb.Sub(HARD).Sphere(new Vector3(0.04f, 0.09f, 0.115f), new Vector3(0.028f, 0.028f, 0.01f), 10, new Color(0.2f, 0.25f, 0.3f));
             }
-            var headGo = mb.Build("Mesh", r.head, cloth, hard, p.mask ? cloth : skin);
+            var headGo = mb.Build("Mesh", r.head, mats);
             if (local)
             {
-                // the player's own head would block the camera: render shadows only
+                // your own head would block the camera: render shadows only
                 foreach (var rr in new[] { headGo.GetComponent<Renderer>(), neckGo.GetComponent<Renderer>() })
                 {
                     rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
@@ -236,27 +284,31 @@ namespace Rago
                 }
             }
 
-            // ---- arms
+            // ---- arms: plastic segments between metal ball joints
             for (int s = 0; s < 2; s++)
             {
                 float side = s == 0 ? -1 : 1;
                 var ua = s == 0 ? r.uaL : r.uaR; var fa = s == 0 ? r.faL : r.faR; var hand = s == 0 ? r.handL : r.handR;
-                mb = new MB(2);
-                mb.Sub(0).Capsule(new Vector3(0, 0, 0.02f), new Vector3(0, 0, r.upperArm - 0.02f), 0.062f, 0.052f, 12, p.coat ? p.top : p.top);
-                if (o == Outfit.Operator) mb.Sub(1).Box(new Vector3(side * 0.05f, 0, 0.1f), new Vector3(0.012f, 0.06f, 0.07f), p.accent, 0.004f); // shoulder patch
-                if (o == Outfit.Raider && s == 0) mb.Sub(1).Cyl(new Vector3(0, 0, 0.12f), new Vector3(0, 0, 0.17f), 0.064f, 0.064f, 12, p.accent, false); // red armband
-                mb.Build("Mesh", ua, cloth, hard);
-                mb = new MB(2);
-                bool sleeves = !(o == Outfit.Gunsmith);
-                mb.Sub(sleeves ? 0 : 1).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.foreArm - 0.03f), 0.05f, 0.04f, 12, sleeves ? p.top2 : p.skin);
-                mb.Build("Mesh", fa, sleeves ? cloth : skin, skin);
+                mb = new MB(4);
+                mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.055f), new Vector3(0, 0, r.upperArm - 0.045f), 0.05f, 0.043f, 14, body);
+                if (o == Outfit.Operator) mb.Sub(HARD).Box(new Vector3(side * 0.047f, 0, 0.11f), new Vector3(0.008f, 0.055f, 0.065f), p.accent, 0.003f); // shoulder patch
+                if (o == Outfit.Raider || o == Outfit.RaiderHeavy) { if (s == 0) mb.Sub(CLOTH).Cyl(new Vector3(0, 0, 0.11f), new Vector3(0, 0, 0.16f), 0.054f, 0.052f, 14, p.accent, false); } // red armband
+                if (p.coat || p.suit) mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.02f), new Vector3(0, 0, r.upperArm - 0.03f), 0.058f, 0.05f, 12, p.top);
+                mb.Build("Mesh", ua, mats);
+                mb = new MB(4);
+                Ball(mb, Vector3.zero, 0.044f); // elbow
+                mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.05f), new Vector3(0, 0, r.foreArm - 0.04f), 0.041f, 0.034f, 14, body);
+                Ball(mb, new Vector3(0, 0, r.foreArm), 0.03f); // wrist
+                if (p.coat || p.suit) mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.02f), new Vector3(0, 0, r.foreArm - 0.05f), 0.048f, 0.042f, 12, p.coat ? p.top : p.top);
+                mb.Build("Mesh", fa, mats);
                 if (!local)
                 {
-                    mb = new MB(1);
-                    Color glove = o == Outfit.Operator || o == Outfit.Raider || o == Outfit.RaiderHeavy ? new Color(0.12f, 0.11f, 0.1f) : p.skin;
-                    mb.Box(new Vector3(0, -0.005f, 0.05f), new Vector3(0.08f, 0.035f, 0.1f), glove, 0.015f, 2);
-                    mb.Box(new Vector3(side * -0.04f, 0.0f, 0.04f), new Vector3(0.025f, 0.025f, 0.06f), glove, 0.01f, 1, Quaternion.Euler(0, side * -30, 0));
-                    mb.Build("Mesh", hand, o == Outfit.Operator || o == Outfit.Raider ? hard : skin);
+                    // mannequin mitten hand
+                    mb = new MB(4);
+                    mb.Sub(PLASTIC).Box(new Vector3(0, -0.004f, 0.055f), new Vector3(0.072f, 0.03f, 0.1f), body, 0.014f, 2);
+                    mb.Sub(PLASTIC).Box(new Vector3(side * -0.04f, -0.002f, 0.035f), new Vector3(0.022f, 0.022f, 0.055f), body, 0.009f, 1, Quaternion.Euler(0, side * -30, 0));
+                    if (soldier) mb.Sub(CLOTH).Box(new Vector3(0, -0.002f, 0.03f), new Vector3(0.078f, 0.034f, 0.05f), new Color(0.12f, 0.11f, 0.1f), 0.012f, 2); // half-glove
+                    mb.Build("Mesh", hand, mats);
                 }
             }
             // ---- legs
@@ -264,27 +316,34 @@ namespace Rago
             {
                 var th = s == 0 ? r.thL : r.thR; var sh = s == 0 ? r.shL : r.shR; var ft = s == 0 ? r.footL : r.footR;
                 float side = s == 0 ? -1 : 1;
-                mb = new MB(2);
-                mb.Sub(0).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.thigh - 0.03f), 0.085f, 0.065f, 12, p.coat ? p.top : p.pants);
-                if (o == Outfit.Operator || o == Outfit.RaiderHeavy) mb.Sub(1).Box(new Vector3(side * 0.08f, 0, 0.22f), new Vector3(0.03f, 0.1f, 0.12f), p.gear2, 0.01f); // thigh pouch
-                mb.Build("Mesh", th, cloth, hard);
-                mb = new MB(2);
-                mb.Sub(0).Capsule(new Vector3(0, 0, 0.02f), new Vector3(0, 0, r.shin - 0.06f), 0.062f, 0.05f, 12, p.pants);
-                if (o == Outfit.Operator) mb.Sub(1).Box(new Vector3(0, -0.055f, 0.04f), new Vector3(0.09f, 0.04f, 0.08f), p.gear2, 0.015f, 2); // knee pad
-                mb.Sub(1).Cyl(new Vector3(0, 0, r.shin - 0.12f), new Vector3(0, 0, r.shin), 0.058f, 0.058f, 12, p.boots, false); // boot shaft
-                mb.Build("Mesh", sh, cloth, hard);
-                mb = new MB(1);
-                // foot: built in foot space (+Z = down the leg). Boot points forward = -Y in the shin frame -> use rotation
-                mb.Box(new Vector3(0, -0.055f, 0.035f), new Vector3(0.1f, 0.2f, 0.07f), p.boots, 0.025f, 2);
-                mb.Box(new Vector3(0, -0.055f, 0.072f), new Vector3(0.105f, 0.21f, 0.012f), p.boots * 0.6f, 0.004f);
-                mb.Build("Mesh", ft, hard);
+                mb = new MB(4);
+                mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.06f), new Vector3(0, 0, r.thigh - 0.05f), 0.078f, 0.06f, 14, body);
+                if (soldier) mb.Sub(HARD).Box(new Vector3(side * 0.075f, 0, 0.22f), new Vector3(0.03f, 0.1f, 0.12f), p.gear2, 0.01f); // thigh pouch / holster
+                if (p.coat) mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.thigh * 0.6f), 0.09f, 0.085f, 12, p.top);
+                Marker(mb, new Vector3(side * 0.078f, 0, r.thigh * 0.45f), side * Vector3.right, 0.022f);
+                mb.Build("Mesh", th, mats);
+                mb = new MB(4);
+                Ball(mb, Vector3.zero, 0.058f); // knee
+                mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.06f), new Vector3(0, 0, r.shin - 0.05f), 0.055f, 0.044f, 14, body);
+                Ball(mb, new Vector3(0, 0, r.shin), 0.04f); // ankle
+                if (o == Outfit.Operator || o == Outfit.RaiderHeavy) mb.Sub(HARD).Box(new Vector3(0, -0.06f, 0.03f), new Vector3(0.09f, 0.04f, 0.09f), p.gear2, 0.015f, 2); // knee pad
+                if (soldier) mb.Sub(HARD).Cyl(new Vector3(0, 0, r.shin - 0.12f), new Vector3(0, 0, r.shin - 0.02f), 0.056f, 0.052f, 12, p.boots, false); // boot shaft
+                mb.Build("Mesh", sh, mats);
+                mb = new MB(4);
+                Color footCol = soldier ? p.boots : body;
+                mb.Sub(soldier ? HARD : PLASTIC).Box(new Vector3(0, -0.055f, 0.035f), new Vector3(0.095f, 0.2f, 0.07f), footCol, 0.028f, 2);
+                mb.Sub(JOINT).Box(new Vector3(0, -0.055f, 0.071f), new Vector3(0.1f, 0.205f, 0.01f), JointCol, 0.004f);
+                mb.Build("Mesh", ft, mats);
             }
         }
+
+        // the build seed, so BodyColor stays deterministic per character
+        [System.ThreadStatic] static int _seed;
 
         static void BuildPhysics(HumanRig r)
         {
             Cap(r, r.hips, new Vector3(0, -0.02f, 0), 0.16f, 0.32f, 0, 11f);
-            Cap(r, r.spine, new Vector3(0, 0.12f, 0), 0.15f, 0.3f, 1, 9f);
+            Cap(r, r.spine, new Vector3(0, 0.1f, 0), 0.15f, 0.26f, 1, 9f);
             Cap(r, r.chest, new Vector3(0, 0.07f, 0), 0.17f, 0.4f, 0, 14f);
             Cap(r, r.head, new Vector3(0, 0.06f, 0.01f), 0.11f, 0.26f, 1, 5f);
             foreach (var t in new[] { r.uaL, r.uaR }) Cap(r, t, new Vector3(0, 0, r.upperArm * 0.5f), 0.055f, r.upperArm, 2, 2.5f);
@@ -374,7 +433,7 @@ namespace Rago
             Vector3 toNeck = neckBase - hipsGuess;
             Vector3 spineUp = toNeck.sqrMagnitude > 0.0001f ? toNeck.normalized : Vector3.up;
             spineUp = Vector3.Slerp(Vector3.up, spineUp, 0.85f).normalized;
-            Vector3 hipsPos = neckBase - spineUp * 0.51f;
+            Vector3 hipsPos = neckBase - spineUp * 0.42f;
             hipsPos.y = Mathf.Clamp(hipsPos.y, rootPos.y + 0.35f, rootPos.y + 1.02f);
             Vector3 bodyFwd = Vector3.ProjectOnPlane(fwd, spineUp).normalized;
             if (bodyFwd.sqrMagnitude < 0.01f) bodyFwd = fwd;

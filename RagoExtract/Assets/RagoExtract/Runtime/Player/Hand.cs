@@ -63,17 +63,19 @@ namespace Rago
 
         void BuildVisual()
         {
+            // ragdoll test-dummy hand: plastic fingers on metal knuckle joints, fingerless tactical glove
             _visual = new GameObject("Visual").transform;
             _visual.SetParent(transform, false);
             float s = left ? -1 : 1;
-            Color glove = new Color(0.13f, 0.12f, 0.11f), knuckle = new Color(0.25f, 0.24f, 0.22f);
-            var mat = Mats.Lit("glove", Color.white, 0.05f, 0.3f, Mats.Fabric, Mats.FabricN, 0.4f, 0.1f);
-            var palm = new MB();
-            palm.Box(new Vector3(0, 0, -0.01f), new Vector3(0.085f, 0.03f, 0.095f), glove, 0.012f, 2);
-            palm.Box(new Vector3(0, 0.014f, 0.01f), new Vector3(0.07f, 0.008f, 0.03f), knuckle, 0.004f); // knuckle guard
-            palm.Cyl(new Vector3(0, 0, -0.065f), new Vector3(0, 0, -0.1f), 0.032f, 0.03f, 10, glove); // wrist cuff
-            palm.Build("Palm", _visual, mat);
-            // four fingers, 3 segments each
+            Color body = HumanRig.BodyColor(Outfit.Operator, Profile.Current != null ? Profile.Current.outfitSeed : 7);
+            Color glove = new Color(0.13f, 0.12f, 0.11f);
+            var mats = new[] { HumanRig.PlasticMat, HumanRig.JointMat, Mats.Lit("glove", Color.white, 0.05f, 0.3f, Mats.Fabric, Mats.FabricN, 0.4f, 0.1f) };
+            var palm = new MB(3);
+            palm.Sub(0).Box(new Vector3(0, 0, -0.01f), new Vector3(0.082f, 0.03f, 0.092f), body, 0.012f, 2);
+            palm.Sub(2).Box(new Vector3(0, 0.004f, -0.018f), new Vector3(0.088f, 0.034f, 0.07f), glove, 0.012f, 2); // fingerless glove
+            palm.Sub(1).Sphere(new Vector3(0, 0, -0.07f), Vector3.one * 0.03f, 12, HumanRig.JointCol); // wrist ball
+            palm.Sub(0).Cyl(new Vector3(0, 0, -0.085f), new Vector3(0, 0, -0.13f), 0.032f, 0.03f, 12, body); // forearm stub
+            palm.Build("Palm", _visual, mats);
             for (int f = 0; f < 4; f++)
             {
                 var segs = new Transform[3];
@@ -85,10 +87,11 @@ namespace Rago
                     var j = new GameObject("F" + f + k).transform;
                     j.SetParent(parent, false);
                     j.localPosition = k == 0 ? basePos : new Vector3(0, 0, lens[k - 1]);
-                    var mb = new MB();
-                    float w = 0.0095f - k * 0.0008f - (f == 3 ? 0.0012f : 0);
-                    mb.Capsule(Vector3.zero, new Vector3(0, 0, lens[k] - w), w, w * 0.92f, 8, glove);
-                    mb.Build("seg", j, mat);
+                    var mb = new MB(2);
+                    float w = 0.0092f - k * 0.0008f - (f == 3 ? 0.0012f : 0);
+                    mb.Sub(1).Sphere(Vector3.zero, Vector3.one * w * 0.95f, 8, HumanRig.JointCol); // knuckle joint
+                    mb.Sub(0).Capsule(new Vector3(0, 0, w * 0.9f), new Vector3(0, 0, lens[k] - w * 0.6f), w * 0.92f, w * 0.85f, 8, body);
+                    mb.Build("seg", j, mats[0], mats[1]);
                     segs[k] = j;
                     parent = j;
                 }
@@ -98,9 +101,10 @@ namespace Rago
             _thumb.SetParent(_visual, false);
             _thumb.localPosition = new Vector3(s * -0.04f, -0.008f, 0.0f);
             _thumb.localRotation = Quaternion.Euler(0, s * -45f, s * 30f);
-            var tb = new MB();
-            tb.Capsule(Vector3.zero, new Vector3(0, 0, 0.045f), 0.011f, 0.0095f, 8, glove);
-            tb.Build("thumb", _thumb, mat);
+            var tb = new MB(2);
+            tb.Sub(1).Sphere(Vector3.zero, Vector3.one * 0.011f, 8, HumanRig.JointCol);
+            tb.Sub(0).Capsule(new Vector3(0, 0, 0.01f), new Vector3(0, 0, 0.045f), 0.0105f, 0.009f, 8, body);
+            tb.Build("thumb", _thumb, mats[0], mats[1]);
             foreach (var r in _visual.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
