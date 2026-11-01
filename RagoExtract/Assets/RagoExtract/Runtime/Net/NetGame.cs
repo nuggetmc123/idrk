@@ -29,8 +29,18 @@ namespace Rago
         int _dropCounter;
         public bool InRaid;
         readonly HashSet<ulong> _helloSent = new HashSet<ulong>();
+        bool _wasHost;
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye }
+        /// <summary>Microphone audio from VoiceChat (8 kHz u-law frames).</summary>
+        public void SendVoice(byte[] frame)
+        {
+            if (!Live) return;
+            var w = W(Msg.Voice);
+            w.Write((short)frame.Length); w.Write(frame);
+            Send(false);
+        }
+
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice }
 
         public static void Ensure()
         {
@@ -47,6 +57,7 @@ namespace Rago
             if (b == null || !b.InSession) return;
             _active = true;
             InRaid = raid;
+            _wasHost = !raid || b.IsHost;
             b.OnData += OnData;
             b.OnPeerJoined += OnPeerJoined;
             b.OnPeerLeft += OnPeerLeft;
@@ -55,7 +66,7 @@ namespace Rago
             Vitals.OnLocalDamaged = null;
             Ballistics.OnHitActor = OnHitActor;
             SendHello(ulong.MaxValue);
-            if (NetHub.Voice != null && NetHub.Voice.Ready) NetHub.Voice.Join("rago_" + b.SessionId, true);
+            if (NetHub.Voice != null) NetHub.Voice.Join("rago_" + b.SessionId, true);
         }
 
         public void End()
@@ -127,6 +138,7 @@ namespace Rago
             }
             if (InRaid && NetHub.Backend.IsHost && NpcDirector.I != null)
             {
+                if (!_wasHost) { _wasHost = true; NpcDirector.I.BecomeAuthority(); } // host migrated to us: run the NPCs
                 _npcT -= Time.deltaTime;
                 if (_npcT <= 0) { _npcT = 0.1f; SendNpcStates(); }
             }
@@ -162,7 +174,7 @@ namespace Rago
             {
                 var w = W(Msg.NpcHit);
                 w.Write(npc.Id); w.Write(h.damage); w.Write((byte)h.part); V3(w, h.point); V3(w, h.dir); w.Write(h.force);
-                Send(true, 0); // to the host (server id 0)
+                Send(true, NetHub.Backend.HostId); // to the host
             }
         }
 
@@ -345,6 +357,13 @@ namespace Rago
                             {
                                 int id = r.ReadInt32(); var pt = V3(r); var imp = V3(r);
                                 NpcDirector.I?.Get(id)?.Die(pt, imp, true);
+                                break;
+                            }
+                        case Msg.Voice:
+                            {
+                                int n = r.ReadInt16();
+                                var frame = r.ReadBytes(n);
+                                if (Remotes.TryGetValue(from, out var rp) && rp != null) rp.PlayVoice(frame);
                                 break;
                             }
                         case Msg.Vault:

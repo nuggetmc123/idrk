@@ -48,8 +48,8 @@ namespace Rago
         }
     }
 
-    /// <summary>Transport + matchmaking backend. The real implementation (Netcode for GameObjects + Unity Lobby/Relay)
-    /// lives in the RagoExtract.Net assembly and registers itself when those packages are installed.</summary>
+    /// <summary>Transport + matchmaking backend. The real implementation (Photon Fusion 2, shared mode) lives in the
+    /// RagoExtract.Fusion assembly and registers itself once Fusion is imported from the Rago Extract tab.</summary>
     public interface INetBackend
     {
         string Status { get; }
@@ -57,6 +57,7 @@ namespace Rago
         bool InSession { get; }
         bool IsHost { get; }
         ulong LocalId { get; }
+        ulong HostId { get; }
         string SessionId { get; }
         IReadOnlyList<ulong> Peers { get; }
         void Init(Action<bool> done);
@@ -71,7 +72,7 @@ namespace Rago
         event Action OnDisconnected;
     }
 
-    /// <summary>Voice chat backend (Vivox). Implemented in RagoExtract.Voice when the Vivox package is present.</summary>
+    /// <summary>Voice chat backend. The built-in implementation (VoiceChat) streams your microphone over the game connection.</summary>
     public interface IVoiceBackend
     {
         bool Ready { get; }

@@ -1,0 +1,25 @@
+{
+    "name": "RagoExtract.Fusion",
+    "rootNamespace": "Rago.Net",
+    "references": [
+        "RagoExtract.Runtime",
+        "Fusion.Unity",
+        "Fusion.Runtime",
+        "Fusion.Common",
+        "Fusion.Realtime",
+        "Fusion.Sockets",
+        "Fusion.Log"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "RAGO_FUSION",
+        "!RAGO_DISABLE_NET"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

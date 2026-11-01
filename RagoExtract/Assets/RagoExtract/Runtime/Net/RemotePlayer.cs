@@ -76,6 +76,16 @@ namespace Rago
             }
         }
 
+        VoicePlayback _voice;
+        public float LastVoiceTime = -10f;
+
+        public void PlayVoice(byte[] frame)
+        {
+            if (_voice == null) _voice = VoicePlayback.Create(transform);
+            _voice.Push(frame);
+            LastVoiceTime = Time.time;
+        }
+
         public void MuzzleFlash(GunDef g)
         {
             if (_gunR != null && _gunR.muzzle != null) Fx.MuzzleFlash(_gunR.muzzle, g.TwoHanded ? 1.2f : 0.7f, g.suppressed);
@@ -117,12 +127,13 @@ namespace Rago
             float hy = _sHeadR.eulerAngles.y;
             if (Mathf.Abs(Mathf.DeltaAngle(_yaw, hy)) > 35f || _vel.sqrMagnitude > 0.3f) _yaw = Mathf.MoveTowardsAngle(_yaw, hy, dt * 220f);
             _rig.Pose(_sRoot, _yaw, _sHead, _sHeadR, _sHl, _sHlR, _sHr, _sHrR, _vel, dt);
+            if (_voice != null) _voice.transform.position = _sHead;
             var cam = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.Head : null;
             if (cam != null)
             {
                 _tag.transform.position = _sHead + Vector3.up * 0.35f;
                 _tag.transform.rotation = Quaternion.LookRotation(_tag.transform.position - cam.position);
-                bool talking = NetHub.Voice != null && NetHub.Voice.IsSpeaking(DisplayName);
+                bool talking = Time.time - LastVoiceTime < 0.35f;
                 _tag.text = (talking ? "<color=#7fff7f>(( </color>" : "") + DisplayName + (talking ? "<color=#7fff7f> ))</color>" : "");
                 float d = Vector3.Distance(cam.position, _sHead);
                 _tag.gameObject.SetActive(d < 25f);

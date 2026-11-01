@@ -60,7 +60,7 @@ namespace Rago
             _map = id;
             for (int i = 0; i < _mapBtns.Count; i++) _mapBtns[i].SetColor(Maps.RaidIds[i] == id ? new Color(0.55f, 0.35f, 0.1f) : new Color(0.16f, 0.17f, 0.18f));
             _mapInfo.text = Maps.Blurb(id);
-            _status.text = NetHub.Online ? "Online  -  " + NetHub.Backend.Status : "Offline  -  solo raids with AI (see Rago Extract > Setup to enable multiplayer)";
+            _status.text = NetHub.Online ? "Online  -  " + NetHub.Backend.Status : "Offline  -  solo raids with AI (Rago Extract > Multiplayer turns online play on)";
         }
 
         void ToggleQueue()
@@ -470,7 +470,7 @@ namespace Rago
             p.Save();
             _txt.text = "Name:  " + p.name + "\nGrip angle:  " + Hand.GripPitch + " deg\nTurning:  " + (PlayerRig.SmoothTurn ? "Smooth" : "Snap " + PlayerRig.SnapAngle) +
                 "\nVolume:  " + Mathf.RoundToInt(Sfx.MasterVolume * 100) + "%\nVoice:  " + (NetHub.Voice == null ? "not installed" : NetHub.Voice.Status + (NetHub.Voice.Muted ? " (muted)" : "")) +
-                "\nNetwork:  " + (NetHub.Backend == null ? "offline (install multiplayer in the Rago Extract tab)" : NetHub.Backend.Status);
+                "\nNetwork:  " + (NetHub.Backend == null ? "offline (Rago Extract > Multiplayer)" : NetHub.Backend.Status);
         }
     }
 

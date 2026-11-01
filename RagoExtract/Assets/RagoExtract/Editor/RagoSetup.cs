@@ -24,8 +24,6 @@ namespace Rago.EditorTools
         const string StateFile = "ProjectSettings/RagoExtractSetup.json";
         const string QueueFile = "Library/RagoPackageQueue.txt";
         public static readonly string[] VrPackages = { "com.unity.xr.management", "com.unity.xr.openxr" };
-        public static readonly string[] NetPackages = { "com.unity.netcode.gameobjects", "com.unity.services.lobby", "com.unity.services.relay" };
-        public static readonly string[] VoicePackages = { "com.unity.services.vivox" };
         public static string LastMessage = "";
         static AddRequest _add;
         static ListRequest _list;
@@ -77,10 +75,9 @@ namespace Rago.EditorTools
             if (first)
             {
                 s.autoPackagesQueued = true; Save(s);
-                Debug.Log("[Rago Extract] First open: importing VR (OpenXR), multiplayer (Netcode, Lobby, Relay) and voice chat (Vivox). Unity will recompile a few times - leave it open.");
                 RagoWindow.Open();
-                Step("Package import", () => Queue(VrPackages.Concat(NetPackages).Concat(VoicePackages)));
             }
+            Step("Multiplayer check", RagoMultiplayer.AutoEnable);
             Step("Package list", RefreshInstalled);
             Step("Package import", ResumeQueue);
             if (IsInstalled("com.unity.xr.openxr") && !s.xrConfigured && ConfigureXR()) { s.xrConfigured = true; Save(s); }
@@ -216,8 +213,6 @@ namespace Rago.EditorTools
                 {
                     LastMessage = "Could not install " + _current + ": " + err;
                     DropFromQueue(_current);
-                    // lobby/relay were merged into the Multiplayer Services package on newer Unity versions
-                    if (_current == "com.unity.services.lobby" || _current == "com.unity.services.relay") Queue(new[] { "com.unity.services.multiplayer" });
                 }
                 Debug.LogWarning("[Rago Extract] " + LastMessage);
             }
@@ -425,8 +420,7 @@ namespace Rago.EditorTools
             bool err = messages.Any(m => m.type == CompilerMessageType.Error);
             if (!err) return;
             string asm = Path.GetFileNameWithoutExtension(path);
-            if (asm == "RagoExtract.Net") { Debug.LogWarning("[Rago Extract] Multiplayer module failed to compile with the installed package versions - disabling it so the game still runs offline. Errors:\n" + string.Join("\n", messages.Where(m => m.type == CompilerMessageType.Error).Select(m => m.message))); AddDefine("RAGO_DISABLE_NET"); }
-            if (asm == "RagoExtract.Voice") { Debug.LogWarning("[Rago Extract] Voice module failed to compile - disabling voice chat. Errors:\n" + string.Join("\n", messages.Where(m => m.type == CompilerMessageType.Error).Select(m => m.message))); AddDefine("RAGO_DISABLE_VOICE"); }
+            if (asm == "RagoExtract.Fusion") { Debug.LogWarning("[Rago Extract] The Photon Fusion module didn't compile with your Fusion version - switching it off so the game still runs offline. Errors:\n" + string.Join("\n", messages.Where(m => m.type == CompilerMessageType.Error).Select(m => m.message))); AddDefine("RAGO_DISABLE_NET"); }
         }
 
         static readonly BuildTargetGroup[] Groups = { BuildTargetGroup.Android, BuildTargetGroup.Standalone };
@@ -470,6 +464,11 @@ namespace Rago.EditorTools
                 EditorUtility.DisplayDialog("Rago Extract", "Android Build Support is not installed.\n\nOpen Unity Hub > Installs > (your Unity version) > Add modules and tick:\n  - Android Build Support\n  - OpenJDK\n  - Android SDK & NDK Tools", "OK");
                 return;
             }
+            if (EditorUtility.scriptCompilationFailed)
+            {
+                EditorUtility.DisplayDialog("Rago Extract", "There are script errors (red messages in the Console). Fix or send them to me first - an APK can't be built until they're gone.", "OK");
+                return;
+            }
             CreateScene(false);
             ConfigureProject();
             if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
@@ -478,8 +477,7 @@ namespace Rago.EditorTools
             {
                 if (!IsInstalled("com.unity.xr.openxr"))
                 {
-                    if (!EditorUtility.DisplayDialog("Rago Extract", "VR (OpenXR) isn't imported yet. The APK would run flat on Quest.\n\nImport VR first?", "Import VR", "Build anyway")) { }
-                    else { Queue(VrPackages); return; }
+                    if (EditorUtility.DisplayDialog("Rago Extract", "VR isn't set up yet, so the APK would run flat on Quest.\n\nSet up VR first? (then press Build APK again when it's done)", "Set Up VR", "Build anyway")) { Queue(VrPackages); return; }
                 }
                 else ConfigureXR();
             }
