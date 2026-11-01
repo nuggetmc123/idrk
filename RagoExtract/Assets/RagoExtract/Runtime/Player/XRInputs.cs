@@ -111,6 +111,7 @@ namespace Rago
         public static bool Sprint;
         public static bool RightGripToggle, LeftGripToggle;
         public static bool Click, Reload, Interact, Drop, Backpack, Armor;
+        public static bool Typing;   // looking at a keyboard terminal: letters type instead of moving
         public static int Equip = -1;
         static bool _lt, _rp, _rs, _ok = true;
 
@@ -129,6 +130,17 @@ namespace Rago
             {
                 Yaw += Axis("Mouse X") * 2.2f;
                 Pitch = Mathf.Clamp(Pitch - Axis("Mouse Y") * 2.2f, -85, 85);
+            }
+            if (Typing)
+            {
+                Move = Vector2.zero; Sprint = false; Reload = Interact = Drop = Backpack = Armor = false; Equip = -1;
+                Click = MouseDown(0);
+                var rt = new HandInput { Tracked = true };
+                rt.Grip = RightGripToggle ? 1 : 0; rt.GripDown = false; rt.GripUp = false;
+                rt.Trigger = Mouse(0) && Cursor.lockState == CursorLockMode.Locked ? 1 : 0; rt.TriggerDown = MouseDown(0) && Cursor.lockState == CursorLockMode.Locked;
+                right = rt;
+                var lt2 = new HandInput { Tracked = true }; lt2.Grip = LeftGripToggle ? 1 : 0; left = lt2;
+                return;
             }
             Move = new Vector2((Key(KeyCode.D) ? 1 : 0) - (Key(KeyCode.A) ? 1 : 0), (Key(KeyCode.W) ? 1 : 0) - (Key(KeyCode.S) ? 1 : 0));
             Sprint = Key(KeyCode.LeftShift);

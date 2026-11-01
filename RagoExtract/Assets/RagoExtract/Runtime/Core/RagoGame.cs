@@ -29,11 +29,26 @@ namespace Rago
             new GameObject("RagoGame").AddComponent<RagoGame>();
         }
 
+        /// <summary>Reset statics so Play works even with "Enter Play Mode Options" (no domain reload) turned on.</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics()
+        {
+            I = null;
+            Item.All.Clear(); Slot.Active.Clear(); Elevator.All.Clear(); Backpack.AllBags.Clear();
+            Kiosk.AnyQueued = false;
+        }
+
         void Awake()
         {
             if (I != null && I != this) { Destroy(gameObject); return; }
             I = this;
             DontDestroyOnLoad(gameObject);
+            try { Boot2(); }
+            catch (System.Exception e) { Debug.LogError("[Rago Extract] startup failed - please send this error:\n" + e); }
+        }
+
+        void Boot2()
+        {
             DisableSceneCameras();
             Application.targetFrameRate = 90;
             QualitySettings.vSyncCount = 0;
@@ -57,7 +72,7 @@ namespace Rago
             NetGame.Ensure();
             Player.Gear.LoadLoadout(prof.loadout);
             Player.Gear.Ammo = prof.stashAmmo; // in the hub you shoot from your stash ammo
-            if (NetHub.Backend != null) NetHub.Backend.Init(ok => { if (ok && NetHub.Voice != null) NetHub.Voice.Init(prof.name, null); });
+            if (NetHub.Backend != null) NetHub.Backend.Init(ok => { if (ok && NetHub.Voice != null) NetHub.Voice.Init(prof.DisplayName, null); });
             Vitals.OnLocalDeath = OnLocalDeath;
             GoTo(Area.Bunker);
         }
@@ -157,6 +172,7 @@ namespace Rago
         public void SaveHubState()
         {
             var prof = Profile.Current;
+            if (prof == null || Player == null || Player.Gear == null) return; // the game didn't finish starting: nothing to save
             var bunker = Map as BunkerMap;
             var market = Map as MarketMap;
             var loose = new List<ItemData>();

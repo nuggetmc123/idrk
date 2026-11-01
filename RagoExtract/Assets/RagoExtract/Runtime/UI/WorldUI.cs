@@ -246,7 +246,7 @@ namespace Rago
         Material _fadeM, _damageM, _suppM;
         float _fadeTarget = 0, _fadeCur = 1, _dmg, _sup;
         bool _blocked;
-        TextMesh _toast, _center;
+        TextMesh _toast, _center, _objective;
         float _toastT, _centerT;
         TextMesh _wristHp, _wristInfo, _wristAmmo;
         Transform _wrist;
@@ -271,9 +271,10 @@ namespace Rago
             _toast = UI.Text(cam, "", new Vector3(0, -0.12f, 0.6f), 0.02f, Color.white);
             _toast.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_toast);
             _center = UI.Text(cam, "", new Vector3(0, 0.06f, 0.8f), 0.04f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
-            // head-locked messages stay readable even with your face against a wall: keep Unity's always-on-top font material
-            foreach (var t in new[] { _toast, _center }) if (Compat.DefaultFont != null) t.GetComponent<MeshRenderer>().sharedMaterial = Compat.DefaultFont.material;
             _center.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_center);
+            // training objective, low in your view
+            _objective = UI.Text(cam, "", new Vector3(0, -0.2f, 0.75f), 0.022f, new Color(1f, 0.86f, 0.5f), TextAnchor.MiddleCenter);
+            _objective.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_objective);
             // wrist watch on the left hand
             _wrist = new GameObject("Wrist").transform;
             _wrist.SetParent(_p.HandL.transform, false);
@@ -293,7 +294,8 @@ namespace Rago
 
         Material TextOverlay(TextMesh t)
         {
-            var src = t.GetComponent<MeshRenderer>().sharedMaterial;
+            // HUD text must draw over everything: start from Unity's own font material (no depth test), not the world-text one
+            var src = Compat.DefaultFont != null ? Compat.DefaultFont.material : t.GetComponent<MeshRenderer>().sharedMaterial;
             if (src == null) return null;
             var m = new Material(src);
             m.renderQueue = 4000;
@@ -321,6 +323,7 @@ namespace Rago
         public void Suppress(float a) { _sup = Mathf.Clamp01(_sup + a); }
         public void Toast(string s) { _toast.text = s; _toastT = 2.5f; }
         public void Center(string s, float time = 3f) { _center.text = s; _centerT = time; }
+        public void Objective(string s) { if (_objective != null) _objective.text = s ?? ""; }
 
         public void Tick(float dt)
         {

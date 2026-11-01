@@ -64,7 +64,7 @@ namespace Rago
             Physics.IgnoreCollision(p.Cc, p.HandL.GetComponent<Collider>());
             Physics.IgnoreCollision(p.Cc, p.HandR.GetComponent<Collider>());
             Physics.IgnoreCollision(p.HandL.GetComponent<Collider>(), p.HandR.GetComponent<Collider>());
-            foreach (var c in p.Body.Rig.colliders)
+            if (p.Body != null && p.Body.Rig != null) foreach (var c in p.Body.Rig.colliders)
             {
                 Physics.IgnoreCollision(p.Cc, c);
                 Physics.IgnoreCollision(p.HandL.GetComponent<Collider>(), c);
@@ -296,7 +296,7 @@ namespace Rago
                 var c = _ov[i];
                 if (c == Cc) continue;
                 if (c.attachedRigidbody != null && (c.attachedRigidbody == HandL.rb || c.attachedRigidbody == HandR.rb)) continue;
-                if (Body.Rig.colliders.Contains(c)) continue;
+                if (Body != null && Body.Rig != null && Body.Rig.colliders.Contains(c)) continue;
                 if (c.GetComponentInParent<Item>() != null) continue;
                 return false;
             }

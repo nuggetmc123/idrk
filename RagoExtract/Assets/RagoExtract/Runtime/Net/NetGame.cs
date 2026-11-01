@@ -120,7 +120,7 @@ namespace Rago
         void SendHello(ulong to)
         {
             var w = W(Msg.Hello);
-            w.Write(Profile.Current.name);
+            w.Write(Profile.Current.DisplayName);
             w.Write(Profile.Current.outfitSeed);
             Send(true, to);
         }
@@ -273,6 +273,14 @@ namespace Rago
                         case Msg.Hello:
                             {
                                 string name = r.ReadString(); int seed = r.ReadInt32();
+                                var me = Profile.Current;
+                                if (me != null && name == me.DisplayName && from != NetHub.Backend.LocalId && NetHub.Backend.LocalId > from)
+                                {
+                                    // two operators with the same callsign + tag: the newer one (higher id) gets a fresh tag
+                                    me.tag = Profile.NewTagFor(me.tag); me.Save();
+                                    RagoGame.I?.Player?.Toast("Another operator is " + name + " - your tag is now #" + me.tag.ToString("0000"));
+                                    SendHello(ulong.MaxValue);
+                                }
                                 var rp = GetRemote(from, seed);
                                 rp.DisplayName = name;
                                 if (_helloSent.Add(from)) SendHello(from); // introduce ourselves back

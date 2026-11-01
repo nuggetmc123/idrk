@@ -22,6 +22,12 @@ namespace Rago
         public float volume = 1f;
         public int version = 1;
         public bool freeArmor;
+        // callsign: name + a 4-digit tag, so no two operators ever show the same name (Discord-style)
+        public int tag;
+        public bool nameSet, tutorialDone;
+        public int tutorialStep;
+        public string DisplayName => tag > 0 ? name + "#" + tag.ToString("0000") : name;
+        public static int NewTagFor(int avoid = -1) { int t; do t = Random.Range(1000, 10000); while (t == avoid); return t; }
         // bunker expansions (Foreman jobs in the Market)
         public int bunkerLevel;                              // how many expansions are built
         public List<int> jobProgress = new List<int>();      // items turned in for the current job, per requirement
@@ -53,6 +59,7 @@ namespace Rago
             if (stash == null) stash = new List<ItemData>();
             if (loadout == null) loadout = new Loadout();
             if (jobProgress == null) jobProgress = new List<int>();
+            if (tag <= 0) tag = NewTagFor();
             if (loadout.pack == null) loadout.pack = new List<ItemData>();
             stash.RemoveAll(d => d == null || Db.Get(d.id) == null);
             loadout.pack.RemoveAll(d => d == null || Db.Get(d.id) == null);
@@ -65,6 +72,12 @@ namespace Rago
             if (loadout.hasPack && Db.Get<BackpackDef>(loadout.packId) == null) loadout.packId = "pack_assault";
             if (!string.IsNullOrEmpty(loadout.helmet) && Db.Get<ArmorDef>(loadout.helmet) == null) loadout.helmet = "";
             if (!string.IsNullOrEmpty(loadout.vest) && Db.Get<ArmorDef>(loadout.vest) == null) loadout.vest = "";
+            if (version < 3)
+            {
+                // players from before the training existed don't have to sit through it
+                if (raids > 0 || extracts > 0) tutorialDone = true;
+                version = 3;
+            }
         }
 
         public static Profile NewProfile()
@@ -83,7 +96,8 @@ namespace Rago
                 pack = new List<ItemData> { new ItemData("bandage") },
                 helmet = "", vest = ""   // no armour to start: find it in raids
             };
-            p.version = 2;
+            p.version = 3;
+            p.tag = NewTagFor();
             // a beat-up helmet and a soft vest wait on the stands in the Armor Room
             p.stash.Add(new ItemData("helm_bump"));
             p.stash.Add(new ItemData("vest_soft"));

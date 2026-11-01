@@ -227,7 +227,11 @@ namespace Rago
             b.Box(new Vector3((rx0 + rx1) / 2, 0.21f, rz1 - 0.45f), new Vector3(2.0f, 0.42f, 0.3f), Maps.Metal, new Color(0.3f, 0.3f, 0.3f), null, false);
             b.Sign(new Vector3(W / 2 - 0.2f, 2.95f, -2f), Quaternion.Euler(0, 90, 0), "ARMOR", new Color(0.9f, 0.8f, 0.6f), 0.14f);
 
-            // ---- main hall: kiosk on the east side (meds, loot and keys live in the Armory now)
+            // ---- main hall: ID terminal (callsign) on the north wall where the gear wall was, kiosk on the east side
+            IdTerminal.Create(transform, new Vector3(-4.6f, 0, D / 2 - 0.2f), 0);
+            if (Application.isPlaying && Profile.Current != null && !Profile.Current.tutorialDone)
+                Tutorial.Create(transform, new Vector3(-4.6f, 0, D / 2 - 1.3f), new Vector3(-W / 2 - 3f, 0, 0), new Vector3(W / 2 + 3.5f, 0, -2f),
+                    new Vector3(0, 0, D / 2 + 3f), new Vector3(W / 2 - 1.9f, 0, 4.2f), new Vector3(2.5f, 0, -D / 2 + 1.2f));
             BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
             LoadStash();
             RestockMedBay();

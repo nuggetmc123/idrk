@@ -592,7 +592,7 @@ namespace Rago
             string items = "Items  " + (count + _overflow.Count) + (_overflow.Count > 0 ? "  (+" + _overflow.Count + " on next page)" : "");
             if (kind != StashKind.Armor)
             {
-                _info.text = "<b>" + prof.name + "</b>\nCash  <color=#b8f0a0>$" + prof.money.ToString("N0") + "</color>\n" + items +
+                _info.text = "<b>" + prof.DisplayName + "</b>\nCash  <color=#b8f0a0>$" + prof.money.ToString("N0") + "</color>\n" + items +
                     "\nRaids " + prof.raids + "  Extracts " + prof.extracts + "  Kills " + prof.kills;
                 var sb = new System.Text.StringBuilder("AMMO RESERVE\n");
                 int col = 0;
@@ -632,7 +632,7 @@ namespace Rago
             var p = Profile.Current;
             p.gripPitch = Hand.GripPitch; p.smoothTurn = PlayerRig.SmoothTurn; p.snapAngle = PlayerRig.SnapAngle; p.volume = Sfx.MasterVolume;
             p.Save();
-            _txt.text = "Name:  " + p.name + "\nGrip angle:  " + Hand.GripPitch + " deg\nTurning:  " + (PlayerRig.SmoothTurn ? "Smooth" : "Snap " + PlayerRig.SnapAngle) +
+            _txt.text = "Name:  " + p.DisplayName + "\nGrip angle:  " + Hand.GripPitch + " deg\nTurning:  " + (PlayerRig.SmoothTurn ? "Smooth" : "Snap " + PlayerRig.SnapAngle) +
                 "\nVolume:  " + Mathf.RoundToInt(Sfx.MasterVolume * 100) + "%\nVoice:  " + (NetHub.Voice == null ? "not installed" : NetHub.Voice.Status + (NetHub.Voice.Muted ? " (muted)" : "")) +
                 "\nNetwork:  " + (NetHub.Backend == null ? "offline (Rago Extract > Multiplayer)" : NetHub.Backend.Status);
         }

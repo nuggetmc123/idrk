@@ -94,6 +94,7 @@ namespace Rago
 
         public void InsertMag(Magazine m, bool sound = true)
         {
+            if (primaryHand != null) OnReloaded?.Invoke(this);
             if (Internal)
             {
                 int take = Mathf.Min(m.rounds, g.magSize - internalRounds);
@@ -163,8 +164,11 @@ namespace Rago
 
         bool CanFire => chambered && !needsCycle && !slideLocked;
 
+        public static System.Action<Gun> OnShot, OnReloaded;   // local player's guns (used by the training)
+
         void Fire()
         {
+            OnShot?.Invoke(this);
             chambered = false;
             _hasSpent = true;
             Vector3 dir = rig.muzzle.forward;

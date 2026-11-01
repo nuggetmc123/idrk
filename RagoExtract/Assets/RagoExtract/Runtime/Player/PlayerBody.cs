@@ -16,7 +16,8 @@ namespace Rago
             DontDestroyOnLoad(go);
             var b = go.AddComponent<PlayerBody>();
             b._p = p;
-            b.Rig = HumanRig.Build(Outfit.Operator, Profile.Current != null ? Profile.Current.outfitSeed : 7, go.transform, true);
+            try { b.Rig = HumanRig.Build(Outfit.Operator, Profile.Current != null ? Profile.Current.outfitSeed : 7, go.transform, true); }
+            catch (System.Exception e) { Debug.LogError("[Rago Extract] building your player body failed - please send this error:\n" + e); return b; }
             foreach (var c in b.Rig.colliders)
             {
                 var z = c.gameObject.AddComponent<HitZone>();
@@ -51,7 +52,7 @@ namespace Rago
 
         void LateUpdate()
         {
-            if (_p == null || Rig.ragdoll) return;
+            if (_p == null || Rig == null || Rig.root == null || Rig.ragdoll) return;
             float dt = Time.deltaTime;
             // body yaw follows the head but only turns once you look far enough away (like a real torso)
             float headYaw = _p.Head.eulerAngles.y;
