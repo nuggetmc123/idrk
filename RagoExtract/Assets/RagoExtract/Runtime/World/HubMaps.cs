@@ -174,12 +174,12 @@ namespace Rago
             b.Box(new Vector3(0, Ht + 0.1f, 0), new Vector3(W, 0.2f, D), conc, new Color(0.5f, 0.5f, 0.5f));
             // north wall opens into the Armory, east wall into the Armor Room
             b.Wall(new Vector3(-W / 2, 0, D / 2), new Vector3(W / 2, 0, D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(W / 2, 2.4f, 0, 2.6f) });
-            b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f));
+            b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(W / 2 - 2.5f, 1.8f, 0, 2.4f) }); // lift
             b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(D / 2 + 2f, 2.4f, 0, 2.6f) });
             // west wall opens into the range tunnel
             b.Wall(new Vector3(-W / 2, 0, -D / 2), new Vector3(-W / 2, 0, D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(D / 2, 3f, 0, 2.6f) });
             // two-tone paint band
-            foreach (var w in new[] { (new Vector3(-4.6f, 0.6f, D / 2 - 0.16f), new Vector3(6.8f, 1.2f, 0.02f)), (new Vector3(4.6f, 0.6f, D / 2 - 0.16f), new Vector3(6.8f, 1.2f, 0.02f)), (new Vector3(0, 0.6f, -D / 2 + 0.16f), new Vector3(W, 1.2f, 0.02f)),
+            foreach (var w in new[] { (new Vector3(-4.6f, 0.6f, D / 2 - 0.16f), new Vector3(6.8f, 1.2f, 0.02f)), (new Vector3(4.6f, 0.6f, D / 2 - 0.16f), new Vector3(6.8f, 1.2f, 0.02f)), (new Vector3(-3.2f, 0.6f, -D / 2 + 0.16f), new Vector3(9.6f, 1.2f, 0.02f)), (new Vector3(5.85f, 0.6f, -D / 2 + 0.16f), new Vector3(4.3f, 1.2f, 0.02f)),
                                       (new Vector3(W / 2 - 0.16f, 0.6f, 2.6f), new Vector3(0.02f, 1.2f, 6.8f)), (new Vector3(W / 2 - 0.16f, 0.6f, -4.6f), new Vector3(0.02f, 1.2f, 2.8f)) })
                 b.Box(w.Item1, w.Item2, paint, Color.white, null, false);
             // pipes & cable trays
@@ -242,10 +242,11 @@ namespace Rago
             b.Box(new Vector3(-5.8f, 0.45f, -4.6f), new Vector3(1.9f, 0.15f, 0.85f), Mats.Lit("mattress", new Color(0.35f, 0.38f, 0.3f), 0, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0), Color.white, null, false, Synth.Surface.Dirt, 0.05f);
             SettingsBoard.Create(transform, new Vector3(-3.5f, 1.5f, -D / 2 + 0.2f), 180);
             // supply crate with a free stim + bandages each visit so you can always heal up
-            var supply = AddCrate(new Vector3(2f, 0, -4.8f), 0, LootCrate.Kind.Medical);
+            var supply = AddCrate(new Vector3(5.8f, 0, -4.9f), 0, LootCrate.Kind.Medical);
             // travel
-            HubProps.TravelDoor(b, transform, new Vector3(2.5f, 0, -D / 2 + 0.2f), 180, "MARKET  >", () => RagoGame.I.GoTo(Area.Market));
-            b.Sign(new Vector3(2.5f, 3.1f, -D / 2 + 0.25f), Quaternion.Euler(0, 180, 0), "LIFT - MARKET", new Color(0.9f, 0.8f, 0.6f), 0.12f);
+            // the lift up to the Market: press CALL, walk in, the doors close behind you
+            Elevator.Create(b, transform, new Vector3(2.5f, 0, -D / 2), 180, "Bunker", "Market", true, () => RagoGame.I.GoTo(Area.Market));
+            b.Sign(new Vector3(2.5f, 3.15f, -D / 2 + 0.3f), Quaternion.Euler(0, 180, 0), "LIFT - MARKET", new Color(0.9f, 0.8f, 0.6f), 0.12f);
             b.Sign(new Vector3(-4.6f, 3.2f, D / 2 - 0.3f), Quaternion.identity, "RAGO EXTRACT", UI.Accent, 0.22f);
             // shooting range tunnel (west)
             float L = 26;
@@ -289,7 +290,7 @@ namespace Rago
             Color wc = new Color(0.45f, 0.5f, 0.52f);
             b.Wall(new Vector3(-W / 2, 0, D / 2), new Vector3(W / 2, 0, D / 2), H, 0.3f, corr, wc, null, Synth.Surface.Metal);
             b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), H, 0.3f, corr, wc, new List<Vector4> { new Vector4(W / 2, 10f, 0, 7f) }, Synth.Surface.Metal);
-            b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), H, 0.3f, corr, wc, null, Synth.Surface.Metal);
+            b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), H, 0.3f, corr, wc, new List<Vector4> { new Vector4(D / 2 + 10f, 1.8f, 0, 2.4f) }, Synth.Surface.Metal); // lift
             b.Wall(new Vector3(-W / 2, 0, -D / 2), new Vector3(-W / 2, 0, D / 2), H, 0.3f, corr, wc, null, Synth.Surface.Metal);
             // big door half open + outside darkness
             b.Box(new Vector3(-3, 3.5f, -D / 2 - 0.3f), new Vector3(9f, 7f, 0.15f), corr, wc * 0.8f, null, true, Synth.Surface.Metal);
@@ -342,7 +343,8 @@ namespace Rago
             for (int i = 0; i < 10; i++) b.Crate(new Vector3(b.Rng.Range(-25f, 25f), 0, b.Rng.Range(-16f, -8f)), b.Rng.Range(0, 90f), new Vector3(1f, 0.8f, 1f));
             b.Sign(new Vector3(0, 9f, D / 2 - 0.3f), Quaternion.identity, "THE MARKET", UI.Accent, 0.8f);
             b.Sign(new Vector3(0, 8f, D / 2 - 0.3f), Quaternion.identity, "safe zone - weapons cold", UI.Dim, 0.25f);
-            HubProps.TravelDoor(b, transform, new Vector3(W / 2 - 0.3f, 0, -10), 90, "<  BUNKER", () => RagoGame.I.GoTo(Area.Bunker));
+            Elevator.Create(b, transform, new Vector3(W / 2, 0, -10), 90, "Market", "Bunker", false, () => RagoGame.I.GoTo(Area.Bunker));
+            b.Sign(new Vector3(W / 2 - 0.3f, 3.15f, -10), Quaternion.Euler(0, 90, 0), "LIFT - BUNKER", new Color(0.9f, 0.8f, 0.6f), 0.18f);
             for (int i = 0; i < 8; i++) { float a = i / 8f * Mathf.PI * 2; Spawn(new Vector3(Mathf.Cos(a) * 4, 0.05f, -8 + Mathf.Sin(a) * 3), 0); }
         }
     }

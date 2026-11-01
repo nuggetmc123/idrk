@@ -24,7 +24,12 @@ namespace Rago.EditorTools
         static RagoWorldImport()
         {
             EditorSceneManager.sceneOpened += (s, m) => Schedule();
-            EditorApplication.playModeStateChanged += st => { if (st == PlayModeStateChange.EnteredEditMode) Schedule(); };
+            EditorApplication.playModeStateChanged += st =>
+            {
+                // the preview is only for looking at in the editor: remove it before Play (the game builds the real world), put it back after
+                if (st == PlayModeStateChange.ExitingEditMode) Clear();
+                if (st == PlayModeStateChange.EnteredEditMode) Schedule();
+            };
             Schedule();
         }
 

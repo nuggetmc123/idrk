@@ -455,6 +455,7 @@ namespace Rago
             return Clip("cash", d, true, 0.5f);
         });
         public static AudioClip QueueFound() => One("qfound", () => { var d = Buf(1.1f); Tone(d, 0, 523, 0.5f, 0.6f); Tone(d, 0.15f, 659, 0.5f, 0.6f); Tone(d, 0.3f, 784, 0.8f, 0.7f); return Clip("q", d, true, 0.5f); });
+        public static AudioClip Ding() => One("ding", () => { var d = Buf(1.4f); Tone(d, 0, 1318, 1.2f, 0.45f); Tone(d, 0, 2637, 0.5f, 0.12f); Tone(d, 0.28f, 1046, 1.1f, 0.45f); Tone(d, 0.28f, 2093, 0.4f, 0.1f); return Clip("ding", d, true, 0.45f); });
         public static AudioClip Beep() => One("beep", () => { var d = Buf(0.15f); Tone(d, 0, 1000, 0.12f, 1, 0.05f); return Clip("beep", d, true, 0.4f); });
         public static AudioClip HitMarker() => One("hitmark", () => { var d = Buf(0.08f); MetalClick(d, 0, 1f, 5200, 0.006f); Tone(d, 0, 3000, 0.04f, 0.3f, 0); return Clip("hit", d, true, 0.35f); });
         public static AudioClip Extracted() => One("extracted", () => { var d = Buf(2f); Tone(d, 0, 392, 1.6f, 0.5f); Tone(d, 0, 494, 1.6f, 0.4f); Tone(d, 0, 587, 1.6f, 0.4f); Tone(d, 0.3f, 784, 1.5f, 0.35f); return Clip("ext", d, true, 0.5f); });

@@ -20,6 +20,7 @@ namespace Rago
         public bool SafeZone;
         public RaidResult LastResult;
         bool _travelling;
+        public bool ElevatorArrival;   // set by a lift: the next arrival starts inside the destination lift
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
@@ -63,11 +64,20 @@ namespace Rago
 
         public const string PreviewName = "Rago World (editor preview)";
 
+        /// <summary>
+        /// Deletes the editor's preview copy of the world. It is marked "don't save", so after entering Play it no longer
+        /// counts as part of the scene - it has to be found by name, otherwise it lingers (you'd see bunker signs in the Market).
+        /// </summary>
+        public static void RemoveEditorPreview()
+        {
+            foreach (var go in Resources.FindObjectsOfTypeAll<GameObject>())
+                if (go != null && go.transform.parent == null && go.name == PreviewName) Destroy(go);
+        }
+
         void DisableSceneCameras()
         {
             // the editor's imported world preview is replaced by the real, generated world when the game runs
-            foreach (var t in Resources.FindObjectsOfTypeAll<Transform>())
-                if (t != null && t.parent == null && t.name == PreviewName && t.gameObject.scene.IsValid()) Destroy(t.gameObject);
+            RemoveEditorPreview();
             foreach (var c in Resources.FindObjectsOfTypeAll<Camera>())
                 if (c != null && c.gameObject.scene.IsValid() && c.transform.root.GetComponent<PlayerRig>() == null) c.gameObject.SetActive(false);
             foreach (var l in Resources.FindObjectsOfTypeAll<AudioListener>())
@@ -83,6 +93,7 @@ namespace Rago
         IEnumerator Travel(Area to, RaidStart rs)
         {
             _travelling = true;
+            RemoveEditorPreview();
             Player.Hud.FadeTo(1f);
             Player.Frozen = true;
             float t = 0;
@@ -120,6 +131,13 @@ namespace Rago
             Synth.MagIn(); Synth.MagOut(); Synth.SlideForward(); Synth.SlideBack();
             var spawn = Map.PlayerSpawns.Count > 0 ? Map.PlayerSpawns[(rs != null ? rs.spawnIndex : Random.Range(0, Map.PlayerSpawns.Count)) % Map.PlayerSpawns.Count] : new Pose(Vector3.up * 0.1f, Quaternion.identity);
             Player.Teleport(spawn.position, spawn.rotation.eulerAngles.y);
+            if (ElevatorArrival)
+            {
+                ElevatorArrival = false;
+                Elevator lift = null;
+                foreach (var el in Elevator.All) if (el != null && el.transform.IsChildOf(MapRoot)) { lift = el; break; }
+                if (lift != null && to != Area.Raid) { Player.Teleport(lift.ArrivePosition, lift.ArriveYaw); lift.Arrive(); }
+            }
             if (to == Area.Market && NetHub.Online)
             {
                 Player.Toast("Connecting to the Market...");

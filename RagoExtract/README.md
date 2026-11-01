@@ -41,7 +41,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   - **Shooting range** (west tunnel) with steel targets.
 
   Each stash section has a NEXT PAGE button when it's full.
-- **Getting to the Market**: in your bunker, go to the lift door on the south wall (behind you when you spawn, signed LIFT - MARKET) and step into the **glowing yellow circle** in front of it. Stand there for 1.5 seconds and you ride up. In the Market, the same kind of circle by the east-wall door takes you back to your bunker. You can also point at the door's blue button and click it.
+- **Getting to the Market**: take the lift. In your bunker it's on the south wall (behind you when you spawn, under LIFT - MARKET). Press **CALL** on the panel next to it: the bell rings and the doors slide open. Walk in, and the doors close behind you and the lift goes up (or press GO UP inside). You arrive inside the Market's lift, which opens onto the Market. To go back, use the lift on the Market's east wall (LIFT - BUNKER) the same way.
 - **Market** is a shared safe zone where players meet, with proximity voice chat. It has 4 NPC traders:
   - **Viktor** (rifles and shotguns)
   - **Mara** (sidearms, SMGs, holo sights, ammo, basic backpacks; also buys armor and bags)
