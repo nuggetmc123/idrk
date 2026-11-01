@@ -336,7 +336,7 @@ namespace Rago
         class Stored { public Item it; public Slot slot; public Vector3 size; public float x, z, bottom; }
         readonly List<Stored> _stored = new List<Stored>();
 
-        const float Wall = 0.02f;
+        const float Wall = ArmorBuilder.BagWall;
         Vector3 In => bd.inner;
 
         public static Backpack Create(Vector3 pos, BackpackDef d)
@@ -346,22 +346,23 @@ namespace Rago
             go.transform.position = pos;
             var bp = go.AddComponent<Backpack>();
             bp.bd = d; bp.def = d;
-            Vector3 n = d.inner;
+            Vector3 n = d.inner, o = ArmorBuilder.BagOuter(d);
             float W = n.x + Wall * 2, H = n.y, D = n.z + Wall * 2;
             ArmorBuilder.OpenBag(d).Build("Model", go.transform, ArmorBuilder.BagMats);
             // flap: hinged on the back rim, closed on the ground, flips open when you hold the bag
             bp._lid = new GameObject("Flap").transform;
             bp._lid.SetParent(go.transform, false);
-            bp._lid.localPosition = new Vector3(0, H + ArmorBuilder.BagCollar, -D / 2 - 0.02f);
+            bp._lid.localPosition = ArmorBuilder.BagHinge(d);
             ArmorBuilder.BagFlap(d).Build("FlapMesh", bp._lid, ArmorBuilder.BagMats);
             // colliders on the walls only, so your hand can reach in and grab what's inside
-            AddCol(go, new Vector3(0, -Wall * 0.5f, 0), new Vector3(W, Wall, D));
-            AddCol(go, new Vector3(-W / 2 + Wall / 2, H / 2, 0), new Vector3(Wall, H, D));
-            AddCol(go, new Vector3(W / 2 - Wall / 2, H / 2, 0), new Vector3(Wall, H, D));
-            AddCol(go, new Vector3(0, H / 2, -D / 2 + Wall / 2), new Vector3(W, H, Wall));
-            AddCol(go, new Vector3(0, H / 2, D / 2 + 0.015f), new Vector3(W, H, Wall + 0.06f));
+            float cw = o.x * 0.94f, cd = o.z * 0.9f, t = 0.02f;
+            AddCol(go, new Vector3(0, -t * 0.5f - 0.02f, 0), new Vector3(cw, t + 0.04f, cd));
+            AddCol(go, new Vector3(-cw / 2 + t / 2, H / 2, 0), new Vector3(t, H, cd));
+            AddCol(go, new Vector3(cw / 2 - t / 2, H / 2, 0), new Vector3(t, H, cd));
+            AddCol(go, new Vector3(0, H / 2, -cd / 2 + t / 2), new Vector3(cw, H, t + 0.03f));
+            AddCol(go, new Vector3(0, H * 0.4f, cd / 2 + 0.02f), new Vector3(cw, H * 0.8f, t + 0.06f));
             go.AddComponent<SurfaceTag>().surface = Synth.Surface.Dirt;
-            bp.localBounds = new Bounds(new Vector3(0, H / 2, 0), new Vector3(W, H, D));
+            bp.localBounds = new Bounds(new Vector3(0, H / 2, 0), new Vector3(o.x, H + 0.08f, o.z));
             bp._space = new GameObject("Compartment").transform;
             bp._space.SetParent(go.transform, false);
             // rifle straps on the sides: the gun rides vertically, muzzle up
@@ -370,7 +371,7 @@ namespace Rago
                 float sx = i == 0 ? 1 : -1;
                 var sgo = new GameObject("SideStrap" + i);
                 sgo.transform.SetParent(go.transform, false);
-                sgo.transform.localPosition = new Vector3(sx * (W / 2 + 0.045f), H * 0.5f + 0.12f, 0);
+                sgo.transform.localPosition = new Vector3(sx * (o.x / 2 + 0.04f), H * 0.62f, 0);
                 var sl = sgo.AddComponent<Slot>();
                 sl.radius = 0.22f; sl.fit = 0f;
                 sl.storeRot = Quaternion.Euler(-90, 0, 0);
@@ -589,7 +590,7 @@ namespace Rago
             if (Mathf.Abs(_lidOpen - target) > 0.001f)
             {
                 _lidOpen = Mathf.MoveTowards(_lidOpen, target, Time.deltaTime * 4f);
-                _lid.localRotation = Quaternion.Euler(-165f * Mathf.SmoothStep(0, 1, _lidOpen), 0, 0);
+                _lid.localRotation = Quaternion.Euler(-200f * Mathf.SmoothStep(0, 1, _lidOpen), 0, 0);
             }
         }
 
@@ -601,7 +602,7 @@ namespace Rago
             if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
             rot = Quaternion.LookRotation(fwd.normalized, Vector3.up);
             var n = In;
-            Vector3 grip = new Vector3(primaryHand.left ? -n.x * 0.3f : n.x * 0.3f, n.y + 0.01f, -n.z / 2 - Wall);
+            Vector3 grip = new Vector3(0, n.y + 0.02f, -ArmorBuilder.BagOuter(bd).z / 2 - 0.01f); // by the haul loop
             pos = a.position - rot * grip;
         }
 

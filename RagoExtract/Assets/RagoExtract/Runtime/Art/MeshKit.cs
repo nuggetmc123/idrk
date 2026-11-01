@@ -48,6 +48,34 @@ namespace Rago
             return this;
         }
 
+        /// <summary>
+        /// Smooth curved surface from a (nu x nv) grid of points p(u, v) with shared, smoothed normals.
+        /// wrapU closes the surface around u (rings). flip makes it face the other way (insides of bags, tubes).
+        /// </summary>
+        public MB Patch(int nu, int nv, System.Func<int, int, Vector3> p, Color col, bool wrapU = false, bool flip = false, float uvU = 2f, float uvV = 2f)
+        {
+            int cols = nu + 1, start = _v.Count;
+            for (int v = 0; v <= nv; v++)
+                for (int u = 0; u <= nu; u++)
+                {
+                    int uu = wrapU ? u % nu : u;
+                    Vector3 P = p(uu, v);
+                    Vector3 du = p(wrapU ? (u + 1) % nu : Mathf.Min(u + 1, nu), v) - p(wrapU ? (uu - 1 + nu) % nu : Mathf.Max(u - 1, 0), v);
+                    Vector3 dv = p(uu, Mathf.Min(v + 1, nv)) - p(uu, Mathf.Max(v - 1, 0));
+                    Vector3 n = Vector3.Cross(dv, du);
+                    if (n.sqrMagnitude < 1e-14f) n = Vector3.up;
+                    if (flip) n = -n;
+                    V(P, n.normalized, new Vector2(u / (float)nu * uvU, v / (float)nv * uvV), col);
+                }
+            for (int v = 0; v < nv; v++)
+                for (int u = 0; u < nu; u++)
+                {
+                    int a = start + v * cols + u, b = a + 1, c = a + cols + 1, d = a + cols;
+                    if (!flip) { T(a, d, c); T(a, c, b); } else { T(a, c, d); T(a, b, c); }
+                }
+            return this;
+        }
+
         /// <summary>Box with optional chamfered/rounded edges (bevel in metres, segs 0=hard,1=chamfer,2=round).</summary>
         public MB Box(Vector3 center, Vector3 size, Color col, float bevel = 0f, int segs = 1, Quaternion? rot = null)
         {

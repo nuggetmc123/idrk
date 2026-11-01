@@ -95,92 +95,181 @@ namespace Rago
             return mb;
         }
 
-        /// <summary>Backpack worn on the back (chest-bone space). Size follows the bag's compartment.</summary>
+        // =========================================================================================== BACKPACKS
+        // Soft military rucksacks. One shared body builder is used for the bag you hold open in front of you
+        // (mouth up, back panel towards -z) and for the bag worn on a character's back (flap closed).
+        public const float BagWall = 0.014f;
+        public const float BagCollar = 0.09f;   // fabric throat above the rim; the flap is hinged at its back
+        public static Material[] BagMats => new[] { Cloth, Mats.Lit("pack_strap", Color.white, 0f, 0.2f, Mats.Fabric, null, 0.3f, 0f), Fit };
+
+        /// <summary>Vertex colours are linear: convert the palette colours so gear doesn't come out pastel.</summary>
+        static Color Lin(Color c) => new Color(Mathf.Pow(Mathf.Clamp01(c.r), 2.2f), Mathf.Pow(Mathf.Clamp01(c.g), 2.2f), Mathf.Pow(Mathf.Clamp01(c.b), 2.2f), 1f);
+
+        /// <summary>Outer size of the bag body (the inside compartment is d.inner).</summary>
+        public static Vector3 BagOuter(BackpackDef d) => new Vector3(d.inner.x * 1.16f + BagWall * 2, d.inner.y, d.inner.z * 1.16f + BagWall * 2);
+        /// <summary>Where the flap is hinged (back of the collar), in bag space.</summary>
+        public static Vector3 BagHinge(BackpackDef d) => new Vector3(0, d.inner.y + BagCollar * 0.75f, -BagOuter(d).z * 0.5f + 0.004f);
+
+        // rounded-rectangle ("squircle") cross-section, angle t from +x towards +z
+        static Vector3 Sq(float t, float a, float b)
+        {
+            float c = Mathf.Cos(t), s = Mathf.Sin(t);
+            return new Vector3(a * Mathf.Sign(c) * Mathf.Pow(Mathf.Abs(c), 0.4f), 0, b * Mathf.Sign(s) * Mathf.Pow(Mathf.Abs(s), 0.4f));
+        }
+
+        static void BagBody(MB mb, BackpackDef d, bool open, int cloth, int strap)
+        {
+            Vector3 n = d.inner;
+            float H = n.y, a = n.x * 0.58f + BagWall, b = n.z * 0.58f + BagWall;
+            Color c = Lin(d.color), c2 = Lin(d.color * 0.82f), c3 = Lin(d.color * 0.68f), dk = Lin(new Color(0.15f, 0.15f, 0.14f)), liner = Lin(new Color(0.11f, 0.11f, 0.1f));
+            const int NU = 44;
+            // body profile: rounded bottom, belly bulge, slightly narrower mouth
+            float[] ys = { -0.04f, -0.036f, -0.022f, 0f, H * 0.3f, H * 0.6f, H * 0.84f, H };
+            float[] sc = { 0.08f, 0.6f, 0.88f, 0.97f, 1.03f, 1.04f, 1.0f, 0.96f };
+            System.Func<int, int, Vector3> outer = (u, v) =>
+            {
+                float t = u / (float)NU * Mathf.PI * 2f;
+                var q = Sq(t, a * sc[v], b * sc[v]);
+                if (q.z < 0) q.z *= 0.9f;                       // back panel stays flatter
+                else if (v >= 3 && v < 7) q.z *= 1.05f;          // front bellies out
+                float wr = v >= 3 ? 0.0022f * Mathf.Sin(t * 9f + v * 1.7f) : 0f; // soft fabric wrinkles
+                q += new Vector3(Mathf.Cos(t), 0, Mathf.Sin(t)) * wr;
+                q.y = ys[v];
+                return q;
+            };
+            mb.Sub(cloth).Patch(NU, ys.Length - 1, outer, c, true, false, 5f, 2f);
+            // rim piping
+            mb.Sub(strap).Patch(NU, 8, (u, v) =>
+            {
+                var r = outer(u, 7); var rad = new Vector3(r.x, 0, r.z).normalized; float ph = v / 8f * Mathf.PI * 2f;
+                return r + rad * (0.009f * Mathf.Cos(ph)) + Vector3.up * (0.009f * Mathf.Sin(ph));
+            }, dk, true);
+            if (open)
+            {
+                // inside: dark liner, same shape inset by the wall, plus the floor
+                float ka = (a - BagWall) / a, kb = (b - BagWall) / b;
+                System.Func<int, int, Vector3> inner = (u, v) => { var q = outer(u, v + 3); q.x *= ka; q.z *= kb; return q; };
+                mb.Sub(cloth).Patch(NU, 4, inner, liner, true, true, 5f, 2f);
+                mb.Sub(cloth).Patch(NU, 1, (u, v) => v == 0 ? new Vector3(0, 0.002f, 0) : inner(u, 0) + Vector3.up * 0.002f, liner, true, true);
+            }
+            // cinch collar: open = loose and flared, closed = drawn tight under the flap
+            float ch = BagCollar;
+            float[] cy = { H, H + ch * 0.45f, H + ch };
+            float[] cs = open ? new[] { 0.96f, 0.99f, 1.03f } : new[] { 0.96f, 0.86f, 0.62f };
+            System.Func<int, int, Vector3> collar = (u, v) =>
+            {
+                float t = u / (float)NU * Mathf.PI * 2f;
+                var q = Sq(t, a * cs[v], b * cs[v]);
+                if (q.z < 0) q.z *= 0.9f;
+                q += new Vector3(Mathf.Cos(t), 0, Mathf.Sin(t)) * ((0.003f + v * 0.004f) * Mathf.Sin(t * 14f + v));
+                q.y = cy[v];
+                return q;
+            };
+            mb.Sub(cloth).Patch(NU, 2, collar, c3, true, false, 5f, 1f);
+            mb.Sub(cloth).Patch(NU, 2, collar, liner, true, true, 5f, 1f);
+            mb.Sub(strap).Patch(NU, 6, (u, v) =>
+            {
+                var r = collar(u, 2); var rad = new Vector3(r.x, 0, r.z).normalized; float ph = v / 6f * Mathf.PI * 2f;
+                return r + rad * (0.0045f * Mathf.Cos(ph)) + Vector3.up * (0.0045f * Mathf.Sin(ph));
+            }, dk, true);
+            mb.Sub(strap).Box(collar(NU / 4, 2) + new Vector3(0.03f, -0.015f, 0.008f), new Vector3(0.018f, 0.028f, 0.014f), dk, 0.005f); // cord lock
+
+            // front pocket (pillow) with a zip, MOLLE rows on tactical bags
+            float fz = b * 1.02f;
+            Vector3 pc = new Vector3(0, H * 0.36f, fz + 0.026f);
+            Vector3 ps = new Vector3(a * 1.42f, H * 0.5f, 0.06f);
+            mb.Sub(cloth).Box(pc, ps, c2, 0.028f, 2);
+            mb.Sub(strap).Cyl(pc + new Vector3(-ps.x * 0.4f, ps.y * 0.42f, 0.03f), pc + new Vector3(ps.x * 0.4f, ps.y * 0.42f, 0.03f), 0.0035f, 0.0035f, 6, dk, false);
+            mb.Sub(strap).Box(pc + new Vector3(ps.x * 0.38f, ps.y * 0.36f, 0.033f), new Vector3(0.012f, 0.03f, 0.005f), dk, 0.002f);
+            if (d.style >= 1) for (int k = 0; k < 3; k++)
+                    mb.Sub(strap).Box(pc + new Vector3(0, -ps.y * 0.3f + k * ps.y * 0.2f, 0.031f), new Vector3(ps.x * 0.86f, 0.012f, 0.004f), dk, 0.001f);
+            if (d.style >= 3) // admin pouch above the main pocket
+            {
+                mb.Sub(cloth).Box(new Vector3(0, H * 0.74f, fz + 0.016f), new Vector3(a * 0.95f, H * 0.2f, 0.04f), c2, 0.018f, 2);
+                mb.Sub(strap).Box(new Vector3(0, H * 0.79f, fz + 0.038f), new Vector3(0.06f, 0.035f, 0.004f), Lin(new Color(0.55f, 0.5f, 0.4f)), 0.002f); // name tape
+            }
+            // side bottle pouches
+            if (d.style >= 2) foreach (var sx in new[] { -1, 1 })
+                {
+                    float r = Mathf.Min(0.05f, b * 0.45f);
+                    mb.Sub(cloth).Cyl(new Vector3(sx * (a + r * 0.55f), H * 0.05f, 0), new Vector3(sx * (a + r * 0.55f), H * 0.4f, 0), r, r, 14, c2, true);
+                    mb.Sub(strap).Cyl(new Vector3(sx * (a + r * 0.55f), H * 0.33f, 0), new Vector3(sx * (a + r * 0.55f), H * 0.345f, 0), r + 0.003f, r + 0.003f, 14, dk, false);
+                }
+            // compression straps round the sides: this is where the rifles get strapped
+            foreach (var sx in new[] { -1, 1 })
+                foreach (var hy in new[] { 0.5f, 0.82f })
+                {
+                    mb.Sub(strap).Box(new Vector3(sx * (a * 1.02f + 0.003f), H * hy, 0), new Vector3(0.008f, 0.022f, b * 1.75f), dk, 0.003f);
+                    mb.Sub(2).Box(new Vector3(sx * (a * 1.02f + 0.008f), H * hy, b * 0.45f), new Vector3(0.01f, 0.03f, 0.03f), dk, 0.004f); // buckle
+                }
+            // back: padded shoulder straps (S-curve), haul loop, hip belt on the big ones
+            float bz = -b * 0.9f;
+            foreach (var sx in new[] { -1, 1 })
+            {
+                float x = sx * a * 0.42f;
+                mb.Sub(cloth).Box(new Vector3(x, H * 0.82f, bz - 0.03f), new Vector3(0.062f, H * 0.3f, 0.024f), c3, 0.011f, 2, Quaternion.Euler(18, 0, 0));
+                mb.Sub(cloth).Box(new Vector3(x, H * 0.5f, bz - 0.045f), new Vector3(0.062f, H * 0.34f, 0.024f), c3, 0.011f, 2);
+                mb.Sub(strap).Box(new Vector3(x, H * 0.24f, bz - 0.03f), new Vector3(0.028f, H * 0.22f, 0.008f), dk, 0.003f, 1, Quaternion.Euler(-20, 0, 0));
+            }
+            mb.Sub(strap).Patch(10, 6, (u, v) =>
+            {
+                float t = u / 10f * Mathf.PI; float ph = v / 6f * Mathf.PI * 2f;
+                var cen = new Vector3(Mathf.Cos(t) * 0.035f, H + 0.005f + Mathf.Sin(t) * 0.03f, bz - 0.012f);
+                var rad = new Vector3(Mathf.Cos(t), Mathf.Sin(t), 0);
+                return cen + rad * (0.006f * Mathf.Cos(ph)) + Vector3.forward * (0.006f * Mathf.Sin(ph));
+            }, dk);
+            if (d.style >= 4)
+            {
+                mb.Sub(cloth).Box(new Vector3(0, H * 0.06f, bz - 0.05f), new Vector3(a * 2.3f, 0.09f, 0.03f), c3, 0.014f, 2); // hip belt
+                // rolled sleeping mat strapped under the bag
+                float rr = Mathf.Min(0.065f, H * 0.12f);
+                mb.Sub(cloth).Cyl(new Vector3(-a * 0.95f, -0.04f - rr, 0), new Vector3(a * 0.95f, -0.04f - rr, 0), rr, rr, 16, Lin(new Color(0.22f, 0.24f, 0.2f)), true);
+                foreach (var sx in new[] { -0.55f, 0.55f }) mb.Sub(strap).Cyl(new Vector3(sx * a, -0.04f - rr, 0), new Vector3(sx * a + 0.025f, -0.04f - rr, 0), rr + 0.004f, rr + 0.004f, 16, dk, false);
+            }
+            if (d.style >= 5)
+            {
+                // hauling frame
+                var fr = Lin(new Color(0.32f, 0.32f, 0.34f));
+                foreach (var sx in new[] { -1, 1 }) mb.Sub(2).Cyl(new Vector3(sx * a * 0.85f, -0.12f, bz - 0.07f), new Vector3(sx * a * 0.85f, H + 0.16f, bz - 0.07f), 0.011f, 0.011f, 8, fr, true);
+                foreach (var hy in new[] { -0.1f, H + 0.15f }) mb.Sub(2).Cyl(new Vector3(-a * 0.85f, hy, bz - 0.07f), new Vector3(a * 0.85f, hy, bz - 0.07f), 0.011f, 0.011f, 8, fr, true);
+            }
+        }
+
+        static void BagFlapInto(MB mb, BackpackDef d, int cloth, int strap)
+        {
+            var o = BagOuter(d);
+            float W = o.x * 1.04f, D = o.z * 1.06f;
+            Color c2 = Lin(d.color * 0.82f), dk = Lin(new Color(0.15f, 0.15f, 0.14f));
+            // padded lid with a zip pocket, two buckle straps hanging off the front edge
+            mb.Sub(cloth).Box(new Vector3(0, 0.022f, D * 0.5f), new Vector3(W, 0.06f, D), c2, 0.028f, 2);
+            mb.Sub(strap).Cyl(new Vector3(-W * 0.32f, 0.053f, D * 0.62f), new Vector3(W * 0.32f, 0.053f, D * 0.62f), 0.0035f, 0.0035f, 6, dk, false);
+            mb.Sub(strap).Box(new Vector3(W * 0.3f, 0.054f, D * 0.66f), new Vector3(0.012f, 0.005f, 0.028f), dk, 0.002f);
+            foreach (var sx in new[] { -1, 1 })
+            {
+                mb.Sub(strap).Box(new Vector3(sx * W * 0.24f, 0.05f, D * 0.6f), new Vector3(0.026f, 0.006f, D * 0.8f), dk, 0.002f);
+                mb.Sub(strap).Box(new Vector3(sx * W * 0.24f, -0.02f, D + 0.006f), new Vector3(0.026f, 0.1f, 0.006f), dk, 0.002f);
+                mb.Sub(2).Box(new Vector3(sx * W * 0.24f, -0.06f, D + 0.012f), new Vector3(0.034f, 0.026f, 0.012f), dk, 0.004f);
+            }
+        }
+
+        /// <summary>An open rucksack (origin = centre of the inside floor, mouth up, back panel towards -z).</summary>
+        public static MB OpenBag(BackpackDef d) { var mb = new MB(3); BagBody(mb, d, true, 0, 1); return mb; }
+
+        /// <summary>The bag's padded flap, hinged at the back of the collar (origin on the hinge, lid extends towards +z).</summary>
+        public static MB BagFlap(BackpackDef d) { var mb = new MB(3); BagFlapInto(mb, d, 0, 1); return mb; }
+
+        /// <summary>Backpack worn on a character's back (chest-bone space), flap closed.</summary>
         public static MB Pack(BackpackDef d)
         {
             var mb = new MB(4);
-            float w = d.inner.x * 0.9f, h = d.inner.z * 1.2f + 0.12f, depth = d.inner.y * 0.75f + 0.04f;
-            Color c = Lin(d.color), c2 = Lin(d.color * 0.8f);
-            float y = 0.21f - h * 0.5f;
-            mb.Sub(2).Box(new Vector3(0, y, -0.12f - depth * 0.5f), new Vector3(w, h, depth), c, 0.04f, 2);
-            mb.Sub(2).Box(new Vector3(0, y - h * 0.2f, -0.12f - depth - 0.02f), new Vector3(w * 0.8f, h * 0.45f, 0.04f), c2, 0.02f, 1);
-            mb.Sub(1).Box(new Vector3(-w * 0.3f, y, -0.11f), new Vector3(0.04f, h * 0.9f, 0.015f), Dark, 0.004f);
-            mb.Sub(1).Box(new Vector3(w * 0.3f, y, -0.11f), new Vector3(0.04f, h * 0.9f, 0.015f), Dark, 0.004f);
-            if (d.style >= 2) mb.Sub(1).Box(new Vector3(0, y + h * 0.5f + 0.02f, -0.12f - depth * 0.5f), new Vector3(w * 0.9f, 0.03f, depth * 0.6f), Dark, 0.01f); // frame top / bedroll strap
-            if (d.style >= 3) { mb.Sub(2).Box(new Vector3(-w * 0.5f - 0.025f, y, -0.12f - depth * 0.5f), new Vector3(0.05f, h * 0.6f, depth * 0.7f), c2, 0.015f); mb.Sub(2).Box(new Vector3(w * 0.5f + 0.025f, y, -0.12f - depth * 0.5f), new Vector3(0.05f, h * 0.6f, depth * 0.7f), c2, 0.015f); }
+            var o = BagOuter(d);
+            float top = 0.2f, y0 = top - (d.inner.y + BagCollar * 0.75f);
+            mb.Push(new Vector3(0, y0, -0.13f - o.z * 0.5f), Quaternion.Euler(0, 180, 0));
+            BagBody(mb, d, false, 2, 2);
+            mb.Push(BagHinge(d), Quaternion.Euler(8, 0, 0));
+            BagFlapInto(mb, d, 2, 2);
+            mb.Pop(); mb.Pop();
             return mb;
-        }
-
-        public const float BagWall = 0.02f;
-        public static Material[] BagMats => new[] { Cloth, Mats.Lit("pack_strap", Color.white, 0f, 0.2f, Mats.Fabric, null, 0.3f, 0f) };
-
-        /// <summary>Vertex colours are linear: convert the sRGB-ish palette colours so bags don't come out pastel.</summary>
-        static Color Lin(Color c) => new Color(Mathf.Pow(c.r, 2.2f), Mathf.Pow(c.g, 2.2f), Mathf.Pow(c.b, 2.2f), 1f);
-        public const float BagCollar = 0.1f;   // fabric throat above the rim, the flap is hinged on top of it
-
-        /// <summary>An open rucksack (origin = centre of the inside floor, mouth up, back panel towards -z).</summary>
-        public static MB OpenBag(BackpackDef d)
-        {
-            const float Wall = BagWall;
-            Vector3 n = d.inner;
-            float W = n.x + Wall * 2, H = n.y, D = n.z + Wall * 2;
-            Color c = Lin(d.color), c2 = Lin(d.color * 0.8f), dk = Lin(new Color(0.15f, 0.15f, 0.14f)), liner = Lin(new Color(0.1f, 0.1f, 0.1f));
-            var mb = new MB(2);
-            // soft body: floor + four padded walls, bulging slightly
-            mb.Sub(0).Box(new Vector3(0, -Wall * 0.5f, 0), new Vector3(W, Wall + 0.01f, D), c, 0.012f, 2);
-            mb.Sub(0).Box(new Vector3(-W / 2 + Wall / 2, H / 2, 0), new Vector3(Wall + 0.008f, H, D), c, 0.012f, 2);
-            mb.Sub(0).Box(new Vector3(W / 2 - Wall / 2, H / 2, 0), new Vector3(Wall + 0.008f, H, D), c, 0.012f, 2);
-            mb.Sub(0).Box(new Vector3(0, H / 2, -D / 2 + Wall / 2), new Vector3(W, H, Wall + 0.012f), c, 0.012f, 2);
-            mb.Sub(0).Box(new Vector3(0, H / 2, D / 2 - Wall / 2), new Vector3(W, H, Wall + 0.008f), c, 0.012f, 2);
-            // seams: piping down the corners and round the bottom
-            foreach (var sx in new[] { -1, 1 }) foreach (var sz in new[] { -1, 1 })
-                {
-                    mb.Sub(1).Cyl(new Vector3(sx * W / 2, -0.008f, sz * D / 2), new Vector3(sx * W / 2, H, sz * D / 2), 0.011f, 0.011f, 8, dk, false);
-                }
-            foreach (var sz in new[] { -1, 1 }) mb.Sub(1).Cyl(new Vector3(-W / 2, -0.01f, sz * D / 2), new Vector3(W / 2, -0.01f, sz * D / 2), 0.01f, 0.01f, 8, dk, false);
-            foreach (var sx in new[] { -1, 1 }) mb.Sub(1).Cyl(new Vector3(sx * W / 2, -0.01f, -D / 2), new Vector3(sx * W / 2, -0.01f, D / 2), 0.01f, 0.01f, 8, dk, false);
-            // dark liner so the inside reads as a deep space
-            mb.Sub(1).Box(new Vector3(0, 0.002f, 0), new Vector3(n.x, 0.004f, n.z), liner, 0);
-            mb.Sub(1).Box(new Vector3(-n.x / 2 + 0.002f, H / 2 + 0.02f, 0), new Vector3(0.004f, H + 0.03f, n.z), liner, 0);
-            mb.Sub(1).Box(new Vector3(n.x / 2 - 0.002f, H / 2 + 0.02f, 0), new Vector3(0.004f, H + 0.03f, n.z), liner, 0);
-            mb.Sub(1).Box(new Vector3(0, H / 2 + 0.02f, -n.z / 2 + 0.002f), new Vector3(n.x, H + 0.03f, 0.004f), liner, 0);
-            mb.Sub(1).Box(new Vector3(0, H / 2 + 0.02f, n.z / 2 - 0.002f), new Vector3(n.x, H + 0.03f, 0.004f), liner, 0);
-            // cinch collar: a fabric throat that flares out above the rim, with a drawcord and cord lock
-            float ch = BagCollar, fl = 0.04f; Color cc = Lin(d.color * 0.62f);
-            mb.Sub(0).Box(new Vector3(0, H + ch / 2, -D / 2 - fl / 2), new Vector3(W + fl, ch, 0.008f), cc, 0.003f, 1, Quaternion.Euler(-24, 0, 0));
-            mb.Sub(0).Box(new Vector3(0, H + ch / 2, D / 2 + fl / 2), new Vector3(W + fl, ch, 0.008f), cc, 0.003f, 1, Quaternion.Euler(24, 0, 0));
-            mb.Sub(0).Box(new Vector3(-W / 2 - fl / 2, H + ch / 2, 0), new Vector3(0.008f, ch, D + fl), cc, 0.003f, 1, Quaternion.Euler(0, 0, 24));
-            mb.Sub(0).Box(new Vector3(W / 2 + fl / 2, H + ch / 2, 0), new Vector3(0.008f, ch, D + fl), cc, 0.003f, 1, Quaternion.Euler(0, 0, -24));
-            foreach (var sz in new[] { -1, 1 }) mb.Sub(1).Cyl(new Vector3(-W / 2 - fl, H + ch - 0.006f, sz * (D / 2 + fl)), new Vector3(W / 2 + fl, H + ch - 0.006f, sz * (D / 2 + fl)), 0.005f, 0.005f, 6, dk, false);
-            foreach (var sx in new[] { -1, 1 }) mb.Sub(1).Cyl(new Vector3(sx * (W / 2 + fl), H + ch - 0.006f, -D / 2 - fl), new Vector3(sx * (W / 2 + fl), H + ch - 0.006f, D / 2 + fl), 0.005f, 0.005f, 6, dk, false);
-            mb.Sub(1).Box(new Vector3(W * 0.2f, H + ch - 0.02f, D / 2 + fl + 0.01f), new Vector3(0.02f, 0.03f, 0.014f), dk, 0.005f);
-            // front pocket with zip, shoulder straps + grab handle on the back panel
-            mb.Sub(0).Box(new Vector3(0, H * 0.4f, D / 2 + 0.028f), new Vector3(W * 0.78f, H * 0.68f, 0.05f), c2, 0.02f, 2);
-            mb.Sub(1).Cyl(new Vector3(-W * 0.32f, H * 0.72f, D / 2 + 0.054f), new Vector3(W * 0.32f, H * 0.72f, D / 2 + 0.054f), 0.004f, 0.004f, 6, dk, false);
-            mb.Sub(1).Box(new Vector3(W * 0.3f, H * 0.68f, D / 2 + 0.058f), new Vector3(0.012f, 0.03f, 0.006f), dk, 0.002f); // zip pull
-            foreach (var sx in new[] { -1, 1 }) mb.Sub(1).Box(new Vector3(sx * W * 0.26f, H * 0.5f, -D / 2 - 0.016f), new Vector3(0.055f, H + 0.06f, 0.02f), dk, 0.008f, 2);
-            mb.Sub(1).Cyl(new Vector3(-0.05f, H + 0.01f, -D / 2 - 0.02f), new Vector3(0.05f, H + 0.01f, -D / 2 - 0.02f), 0.01f, 0.01f, 8, dk, true);
-            if (d.sides > 0 || d.style >= 2) foreach (var sx in new[] { -1, 1 }) for (int k = 0; k < 2; k++) // compression straps where the rifles ride
-                        mb.Sub(1).Box(new Vector3(sx * (W / 2 + 0.008f), H * (0.25f + k * 0.45f), 0), new Vector3(0.008f, 0.022f, D * 0.92f), dk, 0.003f);
-            if (d.style >= 3) for (int k = 0; k < 3; k++) mb.Sub(1).Box(new Vector3(0, H * (0.18f + k * 0.18f), D / 2 + 0.055f), new Vector3(W * 0.7f, 0.009f, 0.004f), dk, 0.001f); // MOLLE
-            if (d.style >= 4) foreach (var sx in new[] { -1, 1 }) mb.Sub(1).Cyl(new Vector3(sx * (W / 2 - 0.02f), -0.02f, -D / 2 - 0.035f), new Vector3(sx * (W / 2 - 0.02f), H + 0.14f, -D / 2 - 0.035f), 0.012f, 0.012f, 8, Lin(new Color(0.3f, 0.3f, 0.32f)), true); // frame
-            if (d.style >= 5) mb.Sub(1).Cyl(new Vector3(-W / 2 + 0.02f, H + 0.14f, -D / 2 - 0.035f), new Vector3(W / 2 - 0.02f, H + 0.14f, -D / 2 - 0.035f), 0.012f, 0.012f, 8, Lin(new Color(0.3f, 0.3f, 0.32f)), true);
-            return mb;
-        }
-
-        /// <summary>The bag's soft flap, hinged at the back of the collar (origin on the hinge).</summary>
-        public static MB BagFlap(BackpackDef d)
-        {
-            const float Wall = BagWall;
-            Vector3 n = d.inner;
-            float W = n.x + Wall * 2 + 0.03f, D = n.z + Wall * 2 + 0.03f;
-            Color c2 = Lin(d.color * 0.8f), dk = Lin(new Color(0.15f, 0.15f, 0.14f));
-            var lid = new MB(2);
-            lid.Sub(0).Box(new Vector3(0, 0, D * 0.45f), new Vector3(W, 0.03f, D * 0.9f), c2, 0.014f, 2);           // padded flap
-            lid.Sub(0).Box(new Vector3(0, -0.02f, D * 0.92f), new Vector3(W * 0.96f, 0.05f, 0.04f), c2, 0.02f, 2, Quaternion.Euler(30, 0, 0)); // rolled lip
-            lid.Sub(1).Box(new Vector3(0, 0.016f, D * 0.45f), new Vector3(W * 0.6f, 0.004f, D * 0.5f), dk, 0.002f);  // lid pocket zip panel
-            foreach (var sx in new[] { -1, 1 }) lid.Sub(1).Box(new Vector3(sx * W * 0.25f, -0.03f, D * 0.95f), new Vector3(0.03f, 0.07f, 0.012f), dk, 0.004f); // buckle straps
-            return lid;
         }
 
         public static Material[] Materials => new[] { Shell, Fit, Cloth, Visor };

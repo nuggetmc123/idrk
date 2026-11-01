@@ -306,12 +306,12 @@ namespace Rago
             A("vest_jugg", "Juggernaut Armor", ArmorSlot.Vest, 0.65f, 4, V, 18000, blk, gold, "Vault-only. Walk through gunfire.");
 
             // ---------------- BACKPACKS (bigger = more loot out of the raid)
-            P("pack_day", "Daypack", new Vector3(0.32f, 0.2f, 0.24f), 1, 0, C, 400, new Color(0.3f, 0.32f, 0.3f), "Small pack. Meds, junk and a pistol. One rifle strap.");
-            P("pack_assault", "Assault Pack", new Vector3(0.4f, 0.24f, 0.3f), 1, 1, U, 1500, new Color(0.32f, 0.34f, 0.26f), "Military pack. Fits a helmet or a folded vest. One rifle strap.");
-            P("pack_raid", "Raid Pack", new Vector3(0.48f, 0.28f, 0.34f), 2, 2, R, 3800, new Color(0.55f, 0.47f, 0.34f), "Big pack with two rifle straps. Fits an SMG.");
-            P("pack_tactical", "Tactical Pack", new Vector3(0.54f, 0.3f, 0.38f), 2, 3, R, 5600, new Color(0.14f, 0.14f, 0.15f), "Frame pack with MOLLE and two rifle straps.");
-            P("pack_expedition", "Expedition Pack", new Vector3(0.64f, 0.34f, 0.44f), 2, 4, E, 11000, new Color(0.22f, 0.3f, 0.4f), "Huge expedition pack. Armor, SMGs and a lot of loot.");
-            P("pack_mule", "Mule Hauler", new Vector3(0.76f, 0.38f, 0.5f), 2, 5, V, 22000, new Color(0.45f, 0.38f, 0.16f), "Vault-only. A hauling frame the size of a crate.");
+            P("pack_day", "Daypack", new Vector3(0.26f, 0.32f, 0.17f), 1, 0, C, 400, new Color(0.3f, 0.32f, 0.3f), "Small pack. Meds, junk and a pistol. One rifle strap.");
+            P("pack_assault", "Assault Pack", new Vector3(0.3f, 0.4f, 0.22f), 1, 1, U, 1500, new Color(0.32f, 0.34f, 0.26f), "Military pack. Fits a helmet or a folded vest. One rifle strap.");
+            P("pack_raid", "Raid Pack", new Vector3(0.34f, 0.46f, 0.25f), 2, 2, R, 3800, new Color(0.55f, 0.47f, 0.34f), "Big pack with two rifle straps. An SMG fits standing up.");
+            P("pack_tactical", "Tactical Pack", new Vector3(0.38f, 0.52f, 0.27f), 2, 3, R, 5600, new Color(0.14f, 0.14f, 0.15f), "Frame pack with MOLLE and two rifle straps.");
+            P("pack_expedition", "Expedition Pack", new Vector3(0.42f, 0.62f, 0.3f), 2, 4, E, 11000, new Color(0.22f, 0.3f, 0.4f), "Tall expedition pack with a hip belt and sleeping mat. Armor, SMGs and a lot of loot.");
+            P("pack_mule", "Mule Hauler", new Vector3(0.5f, 0.74f, 0.34f), 2, 5, V, 22000, new Color(0.45f, 0.38f, 0.16f), "Vault-only. Hauling frame pack - even a rifle fits inside.");
 
             M("key_vault", "Vault Keycard", ItemKind.Key, E, 14000, 0, new Color(0.85f, 0.15f, 0.12f), "Opens any raid vault instantly. Without it you must hack the panel.");
         }

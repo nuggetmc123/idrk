@@ -59,16 +59,16 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   | Vault (vaults only) | Juggernaut Helmet 62% | Juggernaut Armor 65% |
 
   To wear armor, hold it to your head (helmet) or chest (vest) and let go. To take it off, grab the top of your head or your collar. Armor you wear is lost if you die.
-- **Backpacks**: grab a bag (or pull yours off your left shoulder) and its flap opens onto one big open compartment. Drop things in where you want them and they stack up: meds, loot, helmets, vests, pistols and SMGs. Things a bit too big get squeezed in; if something doesn't fit, it falls out and you're told why. Long guns go on the **rifle straps on the sides** of the bag (let go of the rifle next to the side).
+- **Backpacks** are soft military rucksacks (like Ghost of Tabor) that you can see on players' and raiders' backs. Grab a bag (or pull yours off your left shoulder) and the flap flips back onto one big open compartment. Drop things in where you want them and they stack up: meds, loot, helmets, vests, pistols and SMGs. Things a bit too big get squeezed in; if something doesn't fit, it falls out and you're told why. Long guns go on the **rifle straps on the sides** of the bag (let go of the rifle next to the side).
 
   | Bag | Space | Rifle straps | Where |
   |---|---|---|---|
-  | Daypack | 15 L | 1 | Mara, raids |
-  | Assault Pack | 29 L | 1 | Mara, raids |
-  | Raid Pack | 46 L | 2 | raids |
-  | Tactical Pack | 62 L | 2 | raids |
-  | Expedition Pack | 96 L | 2 | raids (rare), vaults |
-  | Mule Hauler | 144 L | 2 | vaults only (even fits a rifle inside) |
+  | Daypack | 14 L | 1 | Mara, raids |
+  | Assault Pack | 26 L | 1 | Mara, raids |
+  | Raid Pack | 39 L | 2 | raids (an SMG fits standing up) |
+  | Tactical Pack | 53 L | 2 | raids |
+  | Expedition Pack | 78 L | 2 | raids (rare), vaults |
+  | Mule Hauler | 126 L | 2 | vaults only (even fits a rifle inside) |
 
   Swap bags by putting a different one on your left shoulder. A bag keeps everything in it and on its straps wherever it goes (stash, floor, trader, your body).
 - **Meds**: Bandage (stops bleeding), Painkillers (quick +15), IFAK (+40 and stops bleeding), Field Medkit (+60), Trauma Kit (+90 and stops bleeding) and Adrenal Stim.
