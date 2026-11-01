@@ -55,6 +55,13 @@ namespace Rago
             }
         }
 
+        /// <summary>Destroy that also works in edit mode (used when the world is imported into the scene).</summary>
+        public static void Kill(Object o)
+        {
+            if (o == null) return;
+            if (Application.isPlaying) Object.Destroy(o); else Object.DestroyImmediate(o);
+        }
+
         public static T GetOrAdd<T>(this GameObject go) where T : Component
         {
             var c = go.GetComponent<T>();

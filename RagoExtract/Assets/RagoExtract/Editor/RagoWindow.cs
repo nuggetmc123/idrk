@@ -9,6 +9,7 @@ namespace Rago.EditorTools
     {
         Vector2 _scroll;
         double _nextRefresh;
+        int _mapIdx = -1;
 
         [MenuItem("Rago Extract/Open Rago Extract Tab", priority = 0)]
         public static void Open()
@@ -21,6 +22,7 @@ namespace Rago.EditorTools
         [MenuItem("Rago Extract/1. Import VR (OpenXR + Quest)", priority = 20)] static void MenuVr() => RagoSetup.Queue(RagoSetup.VrPackages);
         [MenuItem("Rago Extract/2. Import Multiplayer + Voice", priority = 21)] static void MenuNet() { RagoSetup.Queue(RagoSetup.NetPackages); RagoSetup.Queue(RagoSetup.VoicePackages); }
         [MenuItem("Rago Extract/3. Configure Project", priority = 22)] static void MenuCfg() { RagoSetup.ConfigureProject(); RagoSetup.CreateScene(true); RagoSetup.ConfigureXR(); }
+        [MenuItem("Rago Extract/Import World Into Scene", priority = 23)] static void MenuWorld() { RagoSetup.CreateScene(true); RagoWorldImport.Import(RagoWorldImport.CurrentMap); }
         [MenuItem("Rago Extract/4. Build APK (Quest)", priority = 40)] static void MenuApk() => RagoSetup.BuildApk(false);
         [MenuItem("Rago Extract/5. Build And Run On Quest", priority = 41)] static void MenuRun() => RagoSetup.BuildApk(true);
         [MenuItem("Rago Extract/Build Windows (PC VR)", priority = 42)] static void MenuWin() => RagoSetup.BuildWindows();
@@ -68,8 +70,10 @@ namespace Rago.EditorTools
             Row("Voice code compiled", Type.GetType("Rago.Voice.VivoxVoice, RagoExtract.Voice") != null);
             Row("Linked to a Unity Cloud project", !string.IsNullOrEmpty(CloudProjectSettings.projectId));
             Row("Build target is Android", EditorUserBuildSettings.activeBuildTarget == BuildTarget.Android);
+            Row("World imported into the scene", RagoWorldImport.Find() != null);
             if (RagoSetup.Busy) EditorGUILayout.HelpBox("Importing packages... Unity will recompile a few times. Leave the editor open.", MessageType.Info);
             if (!string.IsNullOrEmpty(RagoSetup.LastMessage)) EditorGUILayout.HelpBox(RagoSetup.LastMessage, MessageType.None);
+            if (!string.IsNullOrEmpty(RagoWorldImport.LastMessage)) EditorGUILayout.HelpBox(RagoWorldImport.LastMessage, MessageType.None);
             GUILayout.Space(10);
 
             // ---------------------------------------------------------------- import
@@ -85,6 +89,23 @@ namespace Rago.EditorTools
                 EditorGUILayout.HelpBox("A multiplayer/voice module was switched off because it didn't compile with your package versions (the game still runs offline). Check the Console, update packages, then retry.", MessageType.Warning);
                 if (GUILayout.Button("Retry multiplayer + voice modules")) { RagoSetup.RemoveDefine("RAGO_DISABLE_NET"); RagoSetup.RemoveDefine("RAGO_DISABLE_VOICE"); }
             }
+            GUILayout.Space(10);
+
+            // ---------------------------------------------------------------- world
+            GUILayout.Label("World", _h2);
+            if (_mapIdx < 0) _mapIdx = Mathf.Max(0, Array.IndexOf(RagoWorldImport.MapIds, RagoWorldImport.CurrentMap));
+            _mapIdx = EditorGUILayout.Popup("Map", _mapIdx, RagoWorldImport.MapNames);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Import World Into Scene", GUILayout.Height(28)))
+                {
+                    RagoSetup.CreateScene(false);
+                    if (UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene().path != RagoSetup.ScenePath) UnityEditor.SceneManagement.EditorSceneManager.OpenScene(RagoSetup.ScenePath);
+                    RagoWorldImport.Import(RagoWorldImport.MapIds[_mapIdx]);
+                }
+                if (GUILayout.Button("Clear", GUILayout.Width(60), GUILayout.Height(28))) RagoWorldImport.Clear();
+            }
+            RagoWorldImport.AutoImport = EditorGUILayout.ToggleLeft("Auto-import the world when the scene opens", RagoWorldImport.AutoImport);
             GUILayout.Space(10);
 
             // ---------------------------------------------------------------- build

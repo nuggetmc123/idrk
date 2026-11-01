@@ -181,7 +181,7 @@ namespace Rago
             for (int i = 0; i < Mathf.Min(6, _t.stock.Count); i++)
             {
                 var it = ItemFactory.Spawn(rng.Pick(_t.stock), transform.TransformPoint(new Vector3(-1.4f + i * 0.56f, 1.25f + (i % 2) * 0.6f, 1.75f)), transform.rotation * Quaternion.Euler(0, 90, 0));
-                if (it != null) { it.transform.SetParent(transform, true); Destroy(it.rb); foreach (var c in it.GetComponentsInChildren<Collider>()) Destroy(c); Destroy(it); }
+                if (it != null) { it.transform.SetParent(transform, true); var rb = it.rb; foreach (var c in it.GetComponentsInChildren<Collider>()) Compat.Kill(c); Compat.Kill(it); Compat.Kill(rb); }
             }
             // menu panel standing on the counter, angled towards the customer
             _panel = UI.Panel(transform, "Menu", new Vector3(0.35f, 1.55f, 0.05f), Quaternion.Euler(-12, 0, 0), new Vector2(1.5f, 0.95f));
@@ -220,7 +220,7 @@ namespace Rago
 
         void Refresh()
         {
-            foreach (var r in _rows) Destroy(r);
+            foreach (var r in _rows) Compat.Kill(r);
             _rows.Clear();
             int pages = Mathf.Max(1, Mathf.CeilToInt(_t.stock.Count / (float)PerPage));
             _page = Mathf.Clamp(_page, 0, pages - 1);
@@ -398,7 +398,7 @@ namespace Rago
             if (it is Gun g && g.g.TwoHanded) target = _rack.FirstFree(it);
             if (target == null) target = _pistols.FirstFree(it);
             if (target == null) target = _shelf.FirstFree(it);
-            if (target == null) { _overflow.Add(d); Destroy(it.gameObject); return; }
+            if (target == null) { _overflow.Add(d); Compat.Kill(it.gameObject); return; }
             target.Store(it, false);
         }
 

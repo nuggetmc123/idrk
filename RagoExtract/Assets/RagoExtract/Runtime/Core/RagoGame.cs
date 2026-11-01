@@ -61,8 +61,13 @@ namespace Rago
             GoTo(Area.Bunker);
         }
 
+        public const string PreviewName = "Rago World (editor preview)";
+
         void DisableSceneCameras()
         {
+            // the editor's imported world preview is replaced by the real, generated world when the game runs
+            foreach (var t in Resources.FindObjectsOfTypeAll<Transform>())
+                if (t != null && t.parent == null && t.name == PreviewName && t.gameObject.scene.IsValid()) Destroy(t.gameObject);
             foreach (var c in Resources.FindObjectsOfTypeAll<Camera>())
                 if (c != null && c.gameObject.scene.IsValid() && c.transform.root.GetComponent<PlayerRig>() == null) c.gameObject.SetActive(false);
             foreach (var l in Resources.FindObjectsOfTypeAll<AudioListener>())

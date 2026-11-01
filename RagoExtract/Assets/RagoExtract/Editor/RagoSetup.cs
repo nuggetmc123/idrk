@@ -31,38 +31,59 @@ namespace Rago.EditorTools
         static ListRequest _list;
         static string _current;
         static readonly HashSet<string> _installed = new HashSet<string>();
-        public static bool Busy => _add != null || File.Exists(QueueFile);
+        public static bool Busy => _add != null || _batch != null || File.Exists(QueueFile);
 
         [Serializable] class State { public bool configured; public bool sceneCreated; public bool autoPackagesQueued; public bool xrConfigured; public int version = 1; }
 
         static State Load() { try { return File.Exists(StateFile) ? JsonUtility.FromJson<State>(File.ReadAllText(StateFile)) ?? new State() : new State(); } catch { return new State(); } }
         static void Save(State s) { try { File.WriteAllText(StateFile, JsonUtility.ToJson(s, true)); } catch { } }
 
+        static double _runAt;
+        static readonly Dictionary<string, int> _attempts = new Dictionary<string, int>();
+        static double _retryAt;
+        static Request _batch;
+        static string[] _batchPkgs;
+
         static RagoSetup()
         {
             CompilationPipeline.assemblyCompilationFinished += OnAssemblyCompiled;
-            EditorApplication.delayCall += OnEditorReady;
+            // wait until Unity has finished importing/compiling before touching the project
+            _runAt = EditorApplication.timeSinceStartup + 1.5;
+            EditorApplication.update -= WaitThenRun;
+            EditorApplication.update += WaitThenRun;
         }
 
+        static void WaitThenRun()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling || EditorApplication.isUpdating) return;
+            if (EditorApplication.timeSinceStartup < _runAt) return;
+            EditorApplication.update -= WaitThenRun;
+            OnEditorReady();
+        }
+
+        static bool Step(string what, Action a)
+        {
+            try { a(); return true; }
+            catch (Exception e) { LastMessage = what + " failed: " + e.Message; Debug.LogWarning("[Rago Extract] " + LastMessage + "\n" + e); return false; }
+        }
+
+        /// <summary>Runs every time the editor loads; each step only runs until it has succeeded once.</summary>
         static void OnEditorReady()
         {
-            if (EditorApplication.isPlayingOrWillChangePlaymode) return;
             var s = Load();
-            if (!s.configured) { ConfigureProject(); s.configured = true; Save(s); }
-            if (!s.sceneCreated || !File.Exists(ScenePath)) { CreateScene(true); s.sceneCreated = true; Save(s); }
-            if (!s.autoPackagesQueued)
+            bool first = !s.autoPackagesQueued;
+            if (!s.configured && Step("Project setup", ConfigureProject)) { s.configured = true; Save(s); }
+            if ((!s.sceneCreated || !File.Exists(ScenePath)) && Step("Scene setup", () => CreateScene(true))) { s.sceneCreated = true; Save(s); }
+            if (first)
             {
                 s.autoPackagesQueued = true; Save(s);
-                Queue(VrPackages.Concat(NetPackages).Concat(VoicePackages));
+                Debug.Log("[Rago Extract] First open: importing VR (OpenXR), multiplayer (Netcode, Lobby, Relay) and voice chat (Vivox). Unity will recompile a few times - leave it open.");
                 RagoWindow.Open();
-                Debug.Log("[Rago Extract] First open: importing VR (OpenXR) + multiplayer (Netcode, Lobby, Relay) + voice (Vivox) packages. This takes a few minutes.");
+                Step("Package import", () => Queue(VrPackages.Concat(NetPackages).Concat(VoicePackages)));
             }
-            RefreshInstalled();
-            ResumeQueue();
-            if (IsInstalled("com.unity.xr.openxr") && !s.xrConfigured)
-            {
-                if (ConfigureXR()) { s.xrConfigured = true; Save(s); }
-            }
+            Step("Package list", RefreshInstalled);
+            Step("Package import", ResumeQueue);
+            if (IsInstalled("com.unity.xr.openxr") && !s.xrConfigured && ConfigureXR()) { s.xrConfigured = true; Save(s); }
         }
 
         // ------------------------------------------------------------------------------------------ packages
@@ -83,49 +104,123 @@ namespace Rago.EditorTools
 
         public static bool IsInstalled(string pkg)
         {
-            if (_installed.Count > 0) return _installed.Contains(pkg);
+            if (_installed.Contains(pkg)) return true;
             try { return File.ReadAllText("Packages/manifest.json").Contains("\"" + pkg + "\""); } catch { return false; }
         }
 
+        /// <summary>Adds packages (latest version compatible with this editor). Tries one batch first, then one by one with retries.</summary>
         public static void Queue(IEnumerable<string> pkgs)
         {
-            var existing = File.Exists(QueueFile) ? File.ReadAllLines(QueueFile).ToList() : new List<string>();
+            var existing = File.Exists(QueueFile) ? File.ReadAllLines(QueueFile).Where(l => !string.IsNullOrWhiteSpace(l)).ToList() : new List<string>();
             foreach (var p in pkgs) if (!existing.Contains(p) && !IsInstalled(p)) existing.Add(p);
             Directory.CreateDirectory("Library");
-            if (existing.Count == 0) { LastMessage = "Already installed."; if (File.Exists(QueueFile)) File.Delete(QueueFile); return; }
+            if (existing.Count == 0) { LastMessage = "Already installed."; if (File.Exists(QueueFile)) File.Delete(QueueFile); OnPackagesDone(); return; }
             File.WriteAllLines(QueueFile, existing);
+            if (_add == null && _batch == null && TryBatch(existing.ToArray())) return;
+            ResumeQueue();
+        }
+
+        static bool TryBatch(string[] pkgs)
+        {
+            // Client.AddAndRemove (Unity 2021.2+) installs everything in one resolve = one recompile
+            var mi = typeof(Client).GetMethod("AddAndRemove", new[] { typeof(string[]), typeof(string[]) });
+            if (mi == null || pkgs.Length < 2) return false;
+            try
+            {
+                _batch = mi.Invoke(null, new object[] { pkgs, null }) as Request;
+                if (_batch == null) return false;
+                _batchPkgs = pkgs;
+                LastMessage = "Importing " + pkgs.Length + " packages (" + string.Join(", ", pkgs.Select(p => p.Replace("com.unity.", ""))) + ")...";
+                Debug.Log("[Rago Extract] " + LastMessage);
+                EditorApplication.update -= PollBatch;
+                EditorApplication.update += PollBatch;
+                return true;
+            }
+            catch (Exception e) { Debug.LogWarning("[Rago Extract] batch import unavailable: " + e.Message); _batch = null; return false; }
+        }
+
+        static void PollBatch()
+        {
+            if (_batch == null) { EditorApplication.update -= PollBatch; return; }
+            if (!_batch.IsCompleted) return;
+            EditorApplication.update -= PollBatch;
+            bool ok = _batch.Status == StatusCode.Success;
+            if (ok)
+            {
+                foreach (var p in _batchPkgs) _installed.Add(p);
+                LastMessage = "Imported: " + string.Join(", ", _batchPkgs.Select(p => p.Replace("com.unity.", "")));
+                Debug.Log("[Rago Extract] " + LastMessage);
+            }
+            else Debug.LogWarning("[Rago Extract] Batch import failed (" + (_batch.Error != null ? _batch.Error.message : "?") + ") - installing packages one by one instead.");
+            _batch = null;
             ResumeQueue();
         }
 
         static void ResumeQueue()
         {
-            if (_add != null || !File.Exists(QueueFile)) return;
+            if (_add != null || _batch != null || !File.Exists(QueueFile)) return;
             var q = File.ReadAllLines(QueueFile).Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
             while (q.Count > 0 && IsInstalled(q[0])) q.RemoveAt(0);
             if (q.Count == 0) { File.Delete(QueueFile); LastMessage = "All packages installed."; OnPackagesDone(); return; }
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.timeSinceStartup < _retryAt)
+            {
+                // try again shortly
+                EditorApplication.update -= RetryTick;
+                EditorApplication.update += RetryTick;
+                return;
+            }
             _current = q[0];
-            q.RemoveAt(0);
-            if (q.Count > 0) File.WriteAllLines(QueueFile, q); else File.Delete(QueueFile);
+            File.WriteAllLines(QueueFile, q); // keep it in the queue until it's actually installed
             LastMessage = "Installing " + _current + " ...";
             Debug.Log("[Rago Extract] " + LastMessage);
-            _add = Client.Add(_current); // latest version compatible with this editor
+            _add = Client.Add(_current);
             EditorApplication.update -= PollAdd;
             EditorApplication.update += PollAdd;
+        }
+
+        static void RetryTick()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.timeSinceStartup < _retryAt) return;
+            EditorApplication.update -= RetryTick;
+            ResumeQueue();
+        }
+
+        static void DropFromQueue(string pkg)
+        {
+            if (!File.Exists(QueueFile)) return;
+            var q = File.ReadAllLines(QueueFile).Where(l => !string.IsNullOrWhiteSpace(l) && l != pkg).ToList();
+            if (q.Count > 0) File.WriteAllLines(QueueFile, q); else File.Delete(QueueFile);
         }
 
         static void PollAdd()
         {
             if (_add == null || !_add.IsCompleted) return;
             EditorApplication.update -= PollAdd;
-            if (_add.Status == StatusCode.Success) { LastMessage = "Installed " + _add.Result.name + " " + _add.Result.version; _installed.Add(_add.Result.name); }
+            if (_add.Status == StatusCode.Success)
+            {
+                LastMessage = "Installed " + _add.Result.name + " " + _add.Result.version;
+                _installed.Add(_add.Result.name);
+                DropFromQueue(_current);
+            }
             else
             {
-                LastMessage = "Could not install " + _current + ": " + (_add.Error != null ? _add.Error.message : "unknown error");
+                _attempts.TryGetValue(_current, out int n);
+                _attempts[_current] = ++n;
+                string err = _add.Error != null ? _add.Error.message : "unknown error";
+                if (n < 3)
+                {
+                    LastMessage = "Retrying " + _current + " (" + err + ")";
+                    _retryAt = EditorApplication.timeSinceStartup + 4;
+                }
+                else
+                {
+                    LastMessage = "Could not install " + _current + ": " + err;
+                    DropFromQueue(_current);
+                    // lobby/relay were merged into the Multiplayer Services package on newer Unity versions
+                    if (_current == "com.unity.services.lobby" || _current == "com.unity.services.relay") Queue(new[] { "com.unity.services.multiplayer" });
+                }
                 Debug.LogWarning("[Rago Extract] " + LastMessage);
-                // lobby/relay were merged into the Multiplayer Services package on newer Unity versions
-                if (_current == "com.unity.services.lobby" || _current == "com.unity.services.relay") Queue(new[] { "com.unity.services.multiplayer" });
             }
-            Debug.Log("[Rago Extract] " + LastMessage);
             _add = null;
             ResumeQueue(); // after a domain reload the static constructor resumes the queue anyway
         }
@@ -139,30 +234,31 @@ namespace Rago.EditorTools
         // ------------------------------------------------------------------------------------------ project
         public static void ConfigureProject()
         {
-            PlayerSettings.companyName = "Rago";
-            PlayerSettings.productName = "Rago Extract";
-            PlayerSettings.colorSpace = ColorSpace.Linear;
-            PlayerSettings.runInBackground = true;
-            PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
-            PlayerSettings.Android.minSdkVersion = (AndroidSdkVersions)29;
-            PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
-            PlayerSettings.Android.forceInternetPermission = true;
-            PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
-            PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
-            PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { UnityEngine.Rendering.GraphicsDeviceType.OpenGLES3 });
+            // each setting is applied on its own so one failure (e.g. Android module not installed yet) can't stop the rest
+            Try(() => { PlayerSettings.companyName = "Rago"; PlayerSettings.productName = "Rago Extract"; });
+            Try(() => PlayerSettings.colorSpace = ColorSpace.Linear);
+            Try(() => PlayerSettings.runInBackground = true);
+            Try(() => PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft);
+            Try(() => PlayerSettings.Android.minSdkVersion = (AndroidSdkVersions)29);
+            Try(() => PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto);
+            Try(() => PlayerSettings.Android.forceInternetPermission = true);
+            Try(() => PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64);
+            Try(() => { PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false); PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { UnityEngine.Rendering.GraphicsDeviceType.OpenGLES3 }); });
 #if UNITY_2021_2_OR_NEWER
-            PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.rago.extract");
-            PlayerSettings.SetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
+            Try(() => PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.rago.extract"));
+            Try(() => PlayerSettings.SetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Android, ScriptingImplementation.IL2CPP));
 #else
-            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.rago.extract");
-            PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
+            Try(() => PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.rago.extract"));
+            Try(() => PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP));
 #endif
-            EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC;
-            SetInputHandlingBoth();
-            SetupLayers();
-            AssetDatabase.SaveAssets();
-            LastMessage = "Project configured (Android/Quest player settings, layers, input).";
+            Try(() => EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC);
+            Try(SetInputHandlingBoth);
+            Try(SetupLayers);
+            Try(AssetDatabase.SaveAssets);
+            LastMessage = "Project configured (Quest player settings, layers, input).";
         }
+
+        static void Try(Action a) { try { a(); } catch (Exception e) { Debug.LogWarning("[Rago Extract] setting skipped: " + e.Message); } }
 
         /// <summary>Old + new input both enabled, so desktop testing (legacy Input) and OpenXR (Input System) work together.</summary>
         static void SetInputHandlingBoth()
@@ -211,7 +307,11 @@ namespace Rago.EditorTools
                 EditorSceneManager.SaveScene(scene, ScenePath);
             }
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
-            if (open && !EditorApplication.isPlayingOrWillChangePlaymode) EditorSceneManager.OpenScene(ScenePath);
+            if (open && !EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                if (EditorSceneManager.GetActiveScene().path != ScenePath) EditorSceneManager.OpenScene(ScenePath);
+                if (RagoWorldImport.Find() == null) RagoWorldImport.Import(RagoWorldImport.CurrentMap);
+            }
         }
 
         // ------------------------------------------------------------------------------------------ XR (reflection)
