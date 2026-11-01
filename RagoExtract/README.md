@@ -59,7 +59,18 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   | Vault (vaults only) | Juggernaut Helmet 62% | Juggernaut Armor 65% |
 
   To wear armor, hold it to your head (helmet) or chest (vest) and let go. To take it off, grab the top of your head or your collar. Armor you wear is lost if you die.
-- **Backpacks**: Daypack 2x2, Assault Pack 3x3, Raid Pack 4x3 and Tactical Pack 4x4. Swap bags by putting a different one on your left shoulder. A bag keeps its contents wherever it goes (stash, floor, trader).
+- **Backpacks**: grab a bag (or pull yours off your left shoulder) and its flap opens onto one big open compartment. Drop things in where you want them and they stack up: meds, loot, helmets, vests, pistols and SMGs. Things a bit too big get squeezed in; if something doesn't fit, it falls out and you're told why. Long guns go on the **rifle straps on the sides** of the bag (let go of the rifle next to the side).
+
+  | Bag | Space | Rifle straps | Where |
+  |---|---|---|---|
+  | Daypack | 15 L | 1 | Mara, raids |
+  | Assault Pack | 29 L | 1 | Mara, raids |
+  | Raid Pack | 46 L | 2 | raids |
+  | Tactical Pack | 62 L | 2 | raids |
+  | Expedition Pack | 96 L | 2 | raids (rare), vaults |
+  | Mule Hauler | 144 L | 2 | vaults only (even fits a rifle inside) |
+
+  Swap bags by putting a different one on your left shoulder. A bag keeps everything in it and on its straps wherever it goes (stash, floor, trader, your body).
 - **Meds**: Bandage (stops bleeding), Painkillers (quick +15), IFAK (+40 and stops bleeding), Field Medkit (+60), Trauma Kit (+90 and stops bleeding) and Adrenal Stim.
 - **Loot to sell**: everything can be sold, but some loot exists only to be sold, from junk to jackpot:
   - **Junk** ($25-$300): tin can, scrap metal, cigarettes, Zippo lighter, battery pack.
@@ -95,12 +106,12 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Chest | Grab a fresh magazine for the gun in your other hand (from your ammo reserve) |
 | Right hip | Pistol holster |
 | Right shoulder / lower back | Long guns |
-| Left shoulder | Backpack: pull it off to open its pockets |
+| Left shoulder | Backpack: pull it off and it opens. Let go of things inside it to pack them, or next to its sides to strap a rifle on |
 | Top of head / collar | Take off your helmet / vest. Hold armor to your head or chest and let go to wear it |
 | Med near chest + trigger | Heal (bandage stops bleeding, medkit heals over time, stim gives instant HP + stamina) |
 
 ### Desktop controls (no headset)
-WASD move · mouse look · Shift sprint · C crouch · E grab what you look at / drop · LMB fire / click · RMB aim · R reload · F rack / open / interact (hold F on a vault hack panel) · X drop mag · 1/2/3 primary / secondary / pistol · Tab backpack · G drop (into the open backpack) · H wear held armor / take armor off
+WASD move · mouse look · Shift sprint · C crouch · E grab what you look at / drop · LMB fire / click · RMB aim · R reload · F rack / open / interact (hold F on a vault hack panel) · X drop mag · 1/2/3 primary / secondary / pistol · Tab backpack · G drop (into the open backpack; rifles go on its side straps) · H wear held armor / take armor off
 
 ## Code layout
 ```

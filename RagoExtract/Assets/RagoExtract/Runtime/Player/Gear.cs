@@ -152,7 +152,7 @@ namespace Rago
             bool packOnMe = Pack != null && (Pack.slot == PackSlot || Pack.primaryHand == _p.HandL || Pack.primaryHand == _p.HandR);
             l.hasPack = packOnMe;
             l.packId = packOnMe ? Pack.def.id : "";
-            l.pack = packOnMe ? Pack.Container.Save() : new List<ItemData>();
+            l.pack = packOnMe ? Pack.SaveContents() : new List<ItemData>();
             l.helmet = Helmet != null ? Helmet.id : "";
             l.vest = Vest != null ? Vest.id : "";
             // items held in hands go to the best matching slot
@@ -318,51 +318,223 @@ namespace Rago
     [System.Serializable]
     public class ItemList { public List<ItemData> items = new List<ItemData>(); }
 
-    /// <summary>A backpack: pull it off your left shoulder and it opens into a grid of pockets (size depends on the bag).
-    /// It keeps its contents wherever it goes - on your back, in the stash, on the ground or on a body.</summary>
+    /// <summary>
+    /// A backpack. Pull it off your left shoulder (or pick it up) and the flap opens onto one big open compartment:
+    /// drop things in and they stack up where you let go - meds, loot, helmets, vests, pistols and SMGs.
+    /// Things that are a bit too big get squeezed in; things that don't fit at all fall out.
+    /// Long guns strap onto the sides. The bag keeps its contents wherever it goes (back, stash, floor, body, trader).
+    /// </summary>
     public class Backpack : Item
     {
-        public ItemContainer Container;
         public BackpackDef bd;
-        const float Cell = 0.11f;
+        public readonly List<Slot> Sides = new List<Slot>();
+        public static readonly List<Backpack> AllBags = new List<Backpack>();
+        Transform _space, _lid;
+        float _lidOpen;
+        bool _filling;
+
+        class Stored { public Item it; public Slot slot; public Vector3 size; public float x, z, bottom; }
+        readonly List<Stored> _stored = new List<Stored>();
+
+        const float Wall = 0.02f;
+        Vector3 In => bd.inner;
 
         public static Backpack Create(Vector3 pos, BackpackDef d)
         {
-            if (d == null) d = Db.Packs.Count > 0 ? Db.Packs[0] : new BackpackDef { id = "pack_day", name = "Day Pack", kind = ItemKind.Backpack, cols = 2, rows = 2, color = new Color(0.3f, 0.32f, 0.26f) };
+            if (d == null) d = Db.Packs.Count > 0 ? Db.Packs[0] : new BackpackDef { id = "pack_day", name = "Daypack", kind = ItemKind.Backpack, inner = new Vector3(0.32f, 0.2f, 0.24f), sides = 1, color = new Color(0.3f, 0.32f, 0.26f) };
             var go = new GameObject(d.name);
             go.transform.position = pos;
             var bp = go.AddComponent<Backpack>();
             bp.bd = d; bp.def = d;
-            float w = d.cols * Cell + 0.04f, dep = d.rows * Cell + 0.04f;
-            var mb = new MB(2);
-            Color c = d.color, c2 = d.color * 0.85f, dk = new Color(0.18f, 0.18f, 0.16f);
-            c2.a = 1;
-            mb.Sub(0).Box(new Vector3(0, -0.02f, 0), new Vector3(w, 0.12f, dep), c, 0.04f, 2);
-            mb.Sub(0).Box(new Vector3(0, -0.02f, dep * 0.5f + 0.015f), new Vector3(w * 0.82f, 0.09f, 0.04f), c2, 0.02f, 1);
-            mb.Sub(1).Box(new Vector3(w * 0.28f, -0.085f, 0), new Vector3(0.04f, 0.01f, dep - 0.02f), dk, 0.004f);
-            mb.Sub(1).Box(new Vector3(-w * 0.28f, -0.085f, 0), new Vector3(0.04f, 0.01f, dep - 0.02f), dk, 0.004f);
-            if (d.style >= 2)
-            {
-                mb.Sub(0).Box(new Vector3(w * 0.5f + 0.025f, -0.025f, 0), new Vector3(0.05f, 0.09f, dep * 0.6f), c2, 0.015f);
-                mb.Sub(0).Box(new Vector3(-w * 0.5f - 0.025f, -0.025f, 0), new Vector3(0.05f, 0.09f, dep * 0.6f), c2, 0.015f);
-            }
-            if (d.style >= 3) for (int i = 0; i < 3; i++) mb.Sub(1).Box(new Vector3(0, -0.045f + i * 0.025f, dep * 0.5f + 0.037f), new Vector3(w * 0.7f, 0.008f, 0.004f), dk, 0.001f);
-            // interior floor (dark) to read as an open bag
-            mb.Sub(1).Box(new Vector3(0, 0.041f, 0), new Vector3(w - 0.04f, 0.002f, dep - 0.04f), dk * 0.6f, 0);
-            mb.Build("Model", go.transform, Mats.Lit("pack_cloth", Color.white, 0f, 0.15f, Mats.Fabric, Mats.FabricN, 0.4f, 0.05f), Mats.Lit("pack_strap", Color.white, 0f, 0.2f, Mats.Fabric, null, 0.3f, 0f));
-            var col = go.AddComponent<BoxCollider>();
-            col.center = new Vector3(0, -0.02f, 0); col.size = new Vector3(w, 0.12f, dep);
+            Vector3 n = d.inner;
+            float W = n.x + Wall * 2, H = n.y, D = n.z + Wall * 2;
+            ArmorBuilder.OpenBag(d).Build("Model", go.transform, ArmorBuilder.BagMats);
+            // flap: hinged on the back rim, closed on the ground, flips open when you hold the bag
+            bp._lid = new GameObject("Flap").transform;
+            bp._lid.SetParent(go.transform, false);
+            bp._lid.localPosition = new Vector3(0, H + ArmorBuilder.BagCollar, -D / 2 - 0.02f);
+            ArmorBuilder.BagFlap(d).Build("FlapMesh", bp._lid, ArmorBuilder.BagMats);
+            // colliders on the walls only, so your hand can reach in and grab what's inside
+            AddCol(go, new Vector3(0, -Wall * 0.5f, 0), new Vector3(W, Wall, D));
+            AddCol(go, new Vector3(-W / 2 + Wall / 2, H / 2, 0), new Vector3(Wall, H, D));
+            AddCol(go, new Vector3(W / 2 - Wall / 2, H / 2, 0), new Vector3(Wall, H, D));
+            AddCol(go, new Vector3(0, H / 2, -D / 2 + Wall / 2), new Vector3(W, H, Wall));
+            AddCol(go, new Vector3(0, H / 2, D / 2 + 0.015f), new Vector3(W, H, Wall + 0.06f));
             go.AddComponent<SurfaceTag>().surface = Synth.Surface.Dirt;
-            bp.localBounds = new Bounds(col.center, col.size);
-            bp.Container = ItemContainer.Grid(go.transform, new Vector3(0, 0.07f, 0), Quaternion.identity, d.cols, d.rows, new Vector2(Cell, Cell), 0.1f,
-                it => !(it is Backpack) && !(it is Gun g && g.g.TwoHanded));
-            bp.SetupPhysics(1f + d.cols * d.rows * 0.08f);
+            bp.localBounds = new Bounds(new Vector3(0, H / 2, 0), new Vector3(W, H, D));
+            bp._space = new GameObject("Compartment").transform;
+            bp._space.SetParent(go.transform, false);
+            // rifle straps on the sides: the gun rides vertically, muzzle up
+            for (int i = 0; i < Mathf.Clamp(d.sides, 0, 2); i++)
+            {
+                float sx = i == 0 ? 1 : -1;
+                var sgo = new GameObject("SideStrap" + i);
+                sgo.transform.SetParent(go.transform, false);
+                sgo.transform.localPosition = new Vector3(sx * (W / 2 + 0.045f), H * 0.5f + 0.12f, 0);
+                var sl = sgo.AddComponent<Slot>();
+                sl.radius = 0.22f; sl.fit = 0f;
+                sl.storeRot = Quaternion.Euler(-90, 0, 0);
+                sl.filter = it => it is Gun g && g.g.TwoHanded && (bp.Open || bp._filling);
+                bp.Sides.Add(sl);
+            }
+            bp.SetupPhysics(1f + n.x * n.y * n.z * 20f);
             return bp;
         }
 
+        static void AddCol(GameObject go, Vector3 c, Vector3 s) { var b = go.AddComponent<BoxCollider>(); b.center = c; b.size = s; }
+
+        protected override void Awake() { base.Awake(); AllBags.Add(this); }
+        protected override void OnDestroy() { base.OnDestroy(); AllBags.Remove(this); }
+
+        /// <summary>True when the bag is full-size (not shrunk onto your shoulder or a stash shelf).</summary>
+        public bool Open => transform.lossyScale.x > 0.9f;
+
         public override bool SnapGrip => false;
-        public override int Value => (def != null ? def.price : 0) + (Container != null ? Container.TotalValue() : 0);
-        public override string Label => def.name + "  (" + bd.cols + "x" + bd.rows + ")";
+        // your other hand reaches into the bag you're holding instead of snatching the bag itself
+        public override bool CanGrab(Hand h) => !(Held && primaryHand != h);
+        public override int Value => (def != null ? def.price : 0) + ContentsValue();
+        public override string Label => def.name + "  (" + bd.Liters + " L" + (bd.sides > 0 ? ", " + bd.sides + " rifle strap" + (bd.sides > 1 ? "s" : "") : "") + ")";
+
+        public int ContentsValue()
+        {
+            int v = 0;
+            foreach (var s in _stored) if (s.it != null) v += s.it.Value;
+            foreach (var s in Sides) if (s.item != null) v += s.item.Value;
+            return v;
+        }
+
+        // ------------------------------------------------------------------------------- packing
+        static readonly Quaternion[] Orient = BuildOrient();
+        static Quaternion[] BuildOrient()
+        {
+            var axes = new[] { Vector3.right, Vector3.up, Vector3.forward };
+            var l = new List<Quaternion>();
+            for (int f = 0; f < 3; f++) for (int u = 0; u < 3; u++) if (f != u) l.Add(Quaternion.LookRotation(axes[f], axes[u]));
+            return l.ToArray();
+        }
+
+        static float MinScale(Item it) => it is Gun ? 0.8f : 0.55f;
+
+        static bool CanGoInside(Item it) => !(it is Backpack) && it.rb != null;
+
+        /// <summary>Find room for an item: (orientation, scale, x, z, bottom). Prefers the spot nearest `want` and an orientation close to `cur`.</summary>
+        bool FindSpot(Item it, Vector2 want, Quaternion cur, Stored ignore, out Quaternion rot, out float scale, out Vector3 size, out float x, out float z, out float bottom)
+        {
+            rot = Quaternion.identity; scale = 1; size = Vector3.zero; x = z = bottom = 0;
+            var b = it.localBounds.size;
+            if (b.sqrMagnitude < 1e-6f) b = Vector3.one * 0.05f;
+            float best = -1;
+            foreach (var q in Orient)
+            {
+                Vector3 e = Abs(q * b);
+                float sc = Mathf.Min(1f, In.x / e.x, (In.y + 0.04f) / e.y, In.z / e.z);
+                float score = sc * 10f - e.y * sc * 2f - Quaternion.Angle(q, cur) / 900f;
+                if (sc >= MinScale(it) && score > best) { best = score; rot = q; scale = sc; size = e * sc; }
+            }
+            if (best < 0) return false;
+            // try the spot you let go first, then every other spot nearest to it
+            float step = 0.025f;
+            float hx = (In.x - size.x) / 2f, hz = (In.z - size.z) / 2f;
+            var cands = new List<Vector2>();
+            cands.Add(new Vector2(Mathf.Clamp(want.x, -hx, hx), Mathf.Clamp(want.y, -hz, hz)));
+            for (float cx = -hx; cx <= hx + 1e-4f; cx += step) for (float cz = -hz; cz <= hz + 1e-4f; cz += step) cands.Add(new Vector2(cx, cz));
+            var w0 = cands[0];
+            cands.Sort(1, cands.Count - 1, Comparer<Vector2>.Create((a, c) => (a - w0).sqrMagnitude.CompareTo((c - w0).sqrMagnitude)));
+            foreach (var p in cands)
+            {
+                float bot = BaseAt(p.x, p.y, size, ignore);
+                if (bot + size.y <= In.y + 0.04f) { x = p.x; z = p.y; bottom = bot; return true; }
+            }
+            return false;
+        }
+
+        static Vector3 Abs(Vector3 v) => new Vector3(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
+
+        float BaseAt(float x, float z, Vector3 size, Stored ignore)
+        {
+            float top = 0;
+            foreach (var s in _stored)
+            {
+                if (s == ignore || s.it == null) continue;
+                if (Mathf.Abs(s.x - x) * 2f < s.size.x + size.x - 0.004f && Mathf.Abs(s.z - z) * 2f < s.size.z + size.z - 0.004f)
+                    top = Mathf.Max(top, s.bottom + s.size.y);
+            }
+            return top;
+        }
+
+        /// <summary>Put an item into the main compartment, as close as possible to where it is now. False if it doesn't fit.</summary>
+        public bool Add(Item it, bool sound = true) => AddAt(it, null, sound);
+
+        bool AddAt(Item it, Vector3? worldPos, bool sound)
+        {
+            if (it == null || it == this || !CanGoInside(it)) return false;
+            // long guns go on the side straps first
+            if (it is Gun g && g.g.TwoHanded) foreach (var s in Sides) if (s.Accepts(it)) { s.Store(it, sound); return true; }
+            Vector3 lp = worldPos.HasValue ? _space.InverseTransformPoint(worldPos.Value) : Vector3.zero;
+            Quaternion cur = Quaternion.Inverse(_space.rotation) * it.transform.rotation;
+            if (!FindSpot(it, new Vector2(lp.x, lp.z), cur, null, out var rot, out var sc, out var size, out var x, out var z, out var bottom)) return false;
+            var sgo = new GameObject("In_" + it.name);
+            sgo.transform.SetParent(_space, false);
+            var sl = sgo.AddComponent<Slot>();
+            sl.showGhost = false; sl.radius = 0f;
+            sl.storeRot = rot;
+            float m = Mathf.Max(it.localBounds.size.x, Mathf.Max(it.localBounds.size.y, it.localBounds.size.z));
+            sl.fit = sc < 0.999f ? m * sc : 0f;
+            var st = new Stored { it = it, slot = sl, size = size, x = x, z = z, bottom = bottom };
+            _stored.Add(st);
+            sgo.transform.localPosition = new Vector3(x, bottom + size.y / 2f, z);
+            sl.Store(it, false);
+            sl.onChanged = s => { if (s.item == null) OnTakenOut(st); };
+            if (sound) Sfx.Play(Synth.Grab(2), transform.position, 0.4f, 0.8f, 0.5f, 6f);
+            return true;
+        }
+
+        void OnTakenOut(Stored st)
+        {
+            _stored.Remove(st);
+            if (st.slot != null) Compat.Kill(st.slot.gameObject);
+            // everything that was resting on it settles down
+            _stored.Sort((a, b) => a.bottom.CompareTo(b.bottom));
+            var settled = new List<Stored>(_stored);
+            _stored.Clear();
+            foreach (var s in settled)
+            {
+                if (s.it == null) continue;
+                s.bottom = BaseAt(s.x, s.z, s.size, null);
+                if (s.slot != null) s.slot.transform.localPosition = new Vector3(s.x, s.bottom + s.size.y / 2f, s.z);
+                _stored.Add(s);
+            }
+        }
+
+        /// <summary>Called for any item let go of in the world: if it was released inside an open bag, it goes in.</summary>
+        public static bool TryDropInto(Item it)
+        {
+            if (it == null || it is Backpack) return false;
+            var c = it.transform.TransformPoint(it.localBounds.center);
+            Backpack best = null; float bd = 1e9f;
+            foreach (var b in AllBags)
+            {
+                if (b == null || !b.Open || !b.Held) continue; // the flap has to be open: hold the bag
+                var lp = b._space.InverseTransformPoint(c);
+                var n = b.In;
+                if (Mathf.Abs(lp.x) > n.x / 2 + 0.06f || Mathf.Abs(lp.z) > n.z / 2 + 0.06f || lp.y < -0.06f || lp.y > n.y + 0.22f) continue;
+                float d = new Vector2(lp.x, lp.z).sqrMagnitude;
+                if (d < bd) { bd = d; best = b; }
+            }
+            if (best == null) return false;
+            if (best.AddAt(it, c, true)) return true;
+            RagoGame.I?.Player?.Toast(it is Gun gg && gg.g.TwoHanded ? "Too long - strap it to the side of the bag" : "Doesn't fit in the " + best.def.name);
+            return false;
+        }
+
+        // ------------------------------------------------------------------------------- save / load
+        public static string Pack(List<ItemData> items) => items == null || items.Count == 0 ? "" : JsonUtility.ToJson(new ItemList { items = items });
+        public static List<ItemData> Unpack(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return new List<ItemData>();
+            try { var l = JsonUtility.FromJson<ItemList>(json); if (l != null && l.items != null) return l.items; } catch { }
+            return new List<ItemData>();
+        }
 
         /// <summary>Sell value of an item, including everything inside it if it's a backpack.</summary>
         public static int DataValue(ItemData d)
@@ -374,18 +546,18 @@ namespace Rago
             return v;
         }
 
-        public static string Pack(List<ItemData> items) => items == null || items.Count == 0 ? "" : JsonUtility.ToJson(new ItemList { items = items });
-        public static List<ItemData> Unpack(string json)
+        public List<ItemData> SaveContents()
         {
-            if (string.IsNullOrEmpty(json)) return new List<ItemData>();
-            try { var l = JsonUtility.FromJson<ItemList>(json); if (l != null && l.items != null) return l.items; } catch { }
-            return new List<ItemData>();
+            var l = new List<ItemData>();
+            foreach (var s in Sides) if (s.item != null) l.Add(s.item.Save());
+            foreach (var s in _stored) if (s.it != null) l.Add(s.it.Save());
+            return l;
         }
 
         public override ItemData Save()
         {
             var d = base.Save();
-            d.contents = Pack(Container.Save());
+            d.contents = Pack(SaveContents());
             return d;
         }
 
@@ -394,28 +566,43 @@ namespace Rago
         public void Fill(List<ItemData> items)
         {
             if (items == null) return;
-            foreach (var d in items)
-            {
-                var it = ItemFactory.Spawn(d, transform.position, Quaternion.identity);
-                if (it != null && !Container.Add(it)) it.Drop(Vector3.zero, Vector3.zero); // doesn't fit: falls out
-            }
+            // biggest things first so they end up at the bottom
+            var spawned = new List<Item>();
+            foreach (var d in items) { var it = ItemFactory.Spawn(d, transform.position + Vector3.up * 0.3f, transform.rotation); if (it != null) spawned.Add(it); }
+            spawned.Sort((a, b) => (b.localBounds.size.x * b.localBounds.size.y * b.localBounds.size.z).CompareTo(a.localBounds.size.x * a.localBounds.size.y * a.localBounds.size.z));
+            _filling = true;
+            foreach (var it in spawned)
+                if (!AddAt(it, null, false)) it.Drop(Vector3.zero, Vector3.zero); // doesn't fit: falls out
+            _filling = false;
         }
 
+        // ------------------------------------------------------------------------------- holding
         public override void OnGrab(Hand h)
         {
             base.OnGrab(h);
             Sfx.Play(Synth.Zipper(), transform.position, 0.5f, 1f, 0.5f, 6f);
         }
 
+        public override void AnyUpdate()
+        {
+            float target = Held && Open ? 1f : 0f;
+            if (Mathf.Abs(_lidOpen - target) > 0.001f)
+            {
+                _lidOpen = Mathf.MoveTowards(_lidOpen, target, Time.deltaTime * 4f);
+                _lid.localRotation = Quaternion.Euler(-165f * Mathf.SmoothStep(0, 1, _lidOpen), 0, 0);
+            }
+        }
+
         public override void GetHeldPose(out Vector3 pos, out Quaternion rot)
         {
-            // hold the bag open in front of you, level, with pockets facing up
+            // hold the bag open in front of you by its near rim, level, mouth up
             var a = primaryHand.Anchor;
             Vector3 fwd = a.forward; fwd.y = 0;
             if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
             rot = Quaternion.LookRotation(fwd.normalized, Vector3.up);
-            float side = bd.cols * Cell * 0.5f - 0.04f, fw = bd.rows * Cell * 0.5f;
-            pos = a.position + rot * new Vector3(primaryHand.left ? side : -side, -0.04f, fw);
+            var n = In;
+            Vector3 grip = new Vector3(primaryHand.left ? -n.x * 0.3f : n.x * 0.3f, n.y + 0.01f, -n.z / 2 - Wall);
+            pos = a.position - rot * grip;
         }
 
         protected override bool TrySlot(Hand h)
@@ -427,7 +614,7 @@ namespace Rago
                 if (g.Pack != this) { g.Pack = this; g.Changed(); }
                 return true;
             }
-            // stash, crate and body slots accept a bag too
+            // stash, crate and trader slots accept a bag too
             return base.TrySlot(h);
         }
     }

@@ -80,12 +80,14 @@ namespace Rago
         }
     }
 
-    /// <summary>A backpack: a grid of pockets you pull off your left shoulder.</summary>
+    /// <summary>A backpack: an open main compartment (pull it off your left shoulder to open it) plus side straps for long guns.</summary>
     public class BackpackDef : ItemDef
     {
-        public int cols, rows;
+        public Vector3 inner;   // open compartment, metres: width (x), height (y), depth (z)
+        public int sides;       // long-gun straps on the sides (0-2)
         public Color color;
         public int style;
+        public int Liters => Mathf.RoundToInt(inner.x * inner.y * inner.z * 1000f);
     }
 
     public class SimpleDef : ItemDef
@@ -304,10 +306,12 @@ namespace Rago
             A("vest_jugg", "Juggernaut Armor", ArmorSlot.Vest, 0.65f, 4, V, 18000, blk, gold, "Vault-only. Walk through gunfire.");
 
             // ---------------- BACKPACKS (bigger = more loot out of the raid)
-            P("pack_day", "Daypack", 2, 2, 0, C, 400, new Color(0.3f, 0.32f, 0.3f), "Small 2x2 pack.");
-            P("pack_assault", "Assault Pack", 3, 3, 1, U, 1500, new Color(0.32f, 0.34f, 0.26f), "3x3 military pack.");
-            P("pack_raid", "Raid Pack", 4, 3, 2, R, 3800, new Color(0.55f, 0.47f, 0.34f), "Big 4x3 pack.");
-            P("pack_tactical", "Tactical Pack", 4, 4, 3, E, 8000, new Color(0.14f, 0.14f, 0.15f), "Huge 4x4 frame pack.");
+            P("pack_day", "Daypack", new Vector3(0.32f, 0.2f, 0.24f), 1, 0, C, 400, new Color(0.3f, 0.32f, 0.3f), "Small pack. Meds, junk and a pistol. One rifle strap.");
+            P("pack_assault", "Assault Pack", new Vector3(0.4f, 0.24f, 0.3f), 1, 1, U, 1500, new Color(0.32f, 0.34f, 0.26f), "Military pack. Fits a helmet or a folded vest. One rifle strap.");
+            P("pack_raid", "Raid Pack", new Vector3(0.48f, 0.28f, 0.34f), 2, 2, R, 3800, new Color(0.55f, 0.47f, 0.34f), "Big pack with two rifle straps. Fits an SMG.");
+            P("pack_tactical", "Tactical Pack", new Vector3(0.54f, 0.3f, 0.38f), 2, 3, R, 5600, new Color(0.14f, 0.14f, 0.15f), "Frame pack with MOLLE and two rifle straps.");
+            P("pack_expedition", "Expedition Pack", new Vector3(0.64f, 0.34f, 0.44f), 2, 4, E, 11000, new Color(0.22f, 0.3f, 0.4f), "Huge expedition pack. Armor, SMGs and a lot of loot.");
+            P("pack_mule", "Mule Hauler", new Vector3(0.76f, 0.38f, 0.5f), 2, 5, V, 22000, new Color(0.45f, 0.38f, 0.16f), "Vault-only. A hauling frame the size of a crate.");
 
             M("key_vault", "Vault Keycard", ItemKind.Key, E, 14000, 0, new Color(0.85f, 0.15f, 0.12f), "Opens any raid vault instantly. Without it you must hack the panel.");
         }
@@ -318,9 +322,9 @@ namespace Rago
             Armor.Add(a); All[id] = a; return a;
         }
 
-        static BackpackDef P(string id, string name, int cols, int rows, int style, Rarity r, int price, Color col, string desc)
+        static BackpackDef P(string id, string name, Vector3 inner, int sides, int style, Rarity r, int price, Color col, string desc)
         {
-            var b = new BackpackDef { id = id, name = name, cols = cols, rows = rows, style = style, rarity = r, price = price, color = col, kind = ItemKind.Backpack, desc = desc };
+            var b = new BackpackDef { id = id, name = name, inner = inner, sides = sides, style = style, rarity = r, price = price, color = col, kind = ItemKind.Backpack, desc = desc };
             Packs.Add(b); All[id] = b; return b;
         }
 
@@ -364,7 +368,7 @@ namespace Rago
                 case LootTable.Vault:
                     if (rng.Chance(0.55f)) pool.AddRange(Guns.FindAll(g => g.rarity >= Rarity.Epic));
                     else if (rng.Chance(0.35f)) pool.AddRange(Sights.FindAll(s => s.rarity >= Rarity.Rare));
-                    else if (rng.Chance(0.4f)) pool.AddRange(Armor.FindAll(a => a.rarity >= Rarity.Epic));
+                    else if (rng.Chance(0.4f)) { pool.AddRange(Armor.FindAll(a => a.rarity >= Rarity.Epic)); pool.AddRange(Packs.FindAll(b => b.rarity >= Rarity.Epic)); }
                     else pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Valuable && m.rarity >= Rarity.Rare));
                     break;
                 case LootTable.Armor: pool.AddRange(Armor); if (rng.Chance(0.35f)) pool.AddRange(Packs); break;

@@ -204,7 +204,7 @@ namespace Rago
                 {
                     var it = HandR.Held;
                     HandR.ForceRelease(true);
-                    if (!bp.Container.Add(it, true)) it.Drop(Vector3.zero, Vector3.zero);
+                    if (!bp.Add(it, true)) { it.Drop(Vector3.zero, Vector3.zero); Toast("Doesn't fit in the " + bp.def.name); }
                 }
                 Desktop.RightGripToggle = false;
             }

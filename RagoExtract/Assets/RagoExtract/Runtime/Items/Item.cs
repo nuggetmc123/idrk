@@ -118,6 +118,7 @@ namespace Rago
                 return;
             }
             primaryHand = null;
+            if (Backpack.TryDropInto(this)) return;   // let go inside an open bag: it goes in
             if (TrySlot(h)) return;
             if (TryAttach()) return;
             Drop(vel, angVel);
