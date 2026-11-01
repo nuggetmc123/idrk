@@ -1,9 +1,9 @@
 #if RAGO_FUSION
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 using Fusion;
-using Fusion.Photon.Realtime;
 using Fusion.Sockets;
 using UnityEngine;
 
@@ -66,6 +66,47 @@ namespace Rago.Net
             done?.Invoke(_ready);
         }
 
+        // ------------------------------------------------------------------------------------ app id
+        // Fusion's app-settings type has moved between versions (Fusion.Realtime vs a separate Photon.Realtime
+        // assembly), so it's reached by name here: this compiles against every Fusion 2 version.
+        static void UseAppId(ref StartGameArgs args, string appId)
+        {
+            if (string.IsNullOrEmpty(appId)) return;   // fall back to whatever is in PhotonAppSettings
+            try
+            {
+                Type t = null;
+                foreach (var a in AppDomain.CurrentDomain.GetAssemblies()) { t = a.GetType("Fusion.Photon.Realtime.PhotonAppSettings", false); if (t != null) break; }
+                if (t == null) { Debug.LogWarning("[Rago] PhotonAppSettings not found; using the project's Photon settings"); return; }
+                var global = Get(null, t, "Global");
+                var settings = Get(global, t, "AppSettings");
+                if (settings == null) return;
+                var copy = settings.GetType().GetMethod("GetCopy", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null)?.Invoke(settings, null) ?? settings;
+                if (!Set(copy, "AppIdFusion", appId)) { Debug.LogWarning("[Rago] couldn't set AppIdFusion; using the project's Photon settings"); return; }
+                object boxed = args;
+                if (Set(boxed, "CustomPhotonAppSettings", copy)) args = (StartGameArgs)boxed;
+            }
+            catch (Exception e) { Debug.LogWarning("[Rago] couldn't apply the Photon App ID (using the project's Photon settings): " + e.Message); }
+        }
+
+        const BindingFlags Any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+
+        static object Get(object o, Type t, string name)
+        {
+            var p = t.GetProperty(name, Any); if (p != null) return p.GetValue(o);
+            var f = t.GetField(name, Any); return f?.GetValue(o);
+        }
+
+        static bool Set(object o, string name, object value)
+        {
+            if (o == null) return false;
+            var t = o.GetType();
+            var f = t.GetField(name, Any);
+            if (f != null && f.FieldType.IsInstanceOfType(value)) { f.SetValue(o, value); return true; }
+            var p = t.GetProperty(name, Any);
+            if (p != null && p.CanWrite && p.PropertyType.IsInstanceOfType(value)) { p.SetValue(o, value); return true; }
+            return false;
+        }
+
         // ------------------------------------------------------------------------------------ sessions
         async Task<bool> StartSession(string name, Dictionary<string, SessionProperty> props, int maxPlayers)
         {
@@ -77,17 +118,15 @@ namespace Rago.Net
             _runner.AddCallbacks(this);
             var smType = Type.GetType("Fusion.NetworkSceneManagerDefault, Fusion.Unity");
             var sceneManager = smType != null ? go.AddComponent(smType) as INetworkSceneManager : null;
-            var app = PhotonAppSettings.Global.AppSettings.GetCopy();
-            app.AppIdFusion = AppId();
             var args = new StartGameArgs
             {
                 GameMode = GameMode.Shared,
                 SessionName = name,
                 PlayerCount = maxPlayers,
                 SessionProperties = props,
-                CustomPhotonAppSettings = app,
                 SceneManager = sceneManager,
             };
+            UseAppId(ref args, AppId());
             var res = await _runner.StartGame(args);
             if (!res.Ok)
             {
