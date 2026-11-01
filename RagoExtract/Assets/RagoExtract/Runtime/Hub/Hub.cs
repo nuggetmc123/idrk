@@ -29,38 +29,85 @@ namespace Rago
             return k;
         }
 
+        Material _beacon;
+        Light _beaconLight;
+
         void Build()
         {
-            // terminal body
+            // Rugged field terminal: olive steel cabinet, hooded CRT, sloped console with a big push key.
+            Color olive = UI.Lin(new Color(0.3f, 0.33f, 0.24f)), oliveDk = UI.Lin(new Color(0.22f, 0.24f, 0.18f)), blk = UI.Lin(new Color(0.08f, 0.08f, 0.08f)), steel = UI.Lin(new Color(0.42f, 0.43f, 0.44f));
             var mb = new MB(3);
-            mb.Sub(0).Box(new Vector3(0, 0.6f, 0.15f), new Vector3(1.6f, 1.2f, 0.5f), new Color(0.2f, 0.21f, 0.22f), 0.03f, 2);
-            mb.Sub(0).Box(new Vector3(0, 1.75f, 0.2f), new Vector3(1.7f, 1.2f, 0.25f), new Color(0.16f, 0.17f, 0.18f), 0.03f, 2);
-            mb.Sub(1).Box(new Vector3(0, 2.42f, 0.18f), new Vector3(1.7f, 0.12f, 0.3f), Color.white, 0.02f);
-            mb.Sub(2).Box(new Vector3(0, 1.21f, -0.05f), new Vector3(1.5f, 0.03f, 0.25f), new Color(0.1f, 0.1f, 0.1f), 0.01f);
-            mb.Build("Terminal", transform, Mats.Lit("kiosk_body", Color.white, 0.6f, 0.45f, Mats.Metal, null, 0.4f, 0.5f), Mats.Lit("kiosk_light", UI.Accent, 0, 0.5f, null, null, 0, 0, false, 0.5f, UI.Accent * 2f), Mats.Polymer);
-            var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 1.2f, 0.2f); col.size = new Vector3(1.6f, 2.4f, 0.5f);
-            var screen = UI.Panel(transform, "Screen", new Vector3(0, 1.75f, 0.06f), Quaternion.identity, new Vector2(1.55f, 1.05f), new Color(0.03f, 0.04f, 0.05f, 1f));
-            _title = UI.Text(screen, "RAID DEPLOYMENT", new Vector3(0, 0.43f, 0), 0.06f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
+            mb.Sub(0).Box(new Vector3(0, 0.52f, 0.2f), new Vector3(1.3f, 1.04f, 0.6f), olive, 0.03f, 2);                    // pedestal
+            mb.Sub(0).Box(new Vector3(0, 0.05f, 0.2f), new Vector3(1.4f, 0.1f, 0.7f), oliveDk, 0.02f, 1);                   // plinth
+            mb.Sub(0).Box(new Vector3(0, 1.12f, -0.02f), new Vector3(1.3f, 0.08f, 0.5f), olive, 0.02f, 2, Quaternion.Euler(-35, 0, 0)); // console slope
+            mb.Sub(0).Box(new Vector3(0, 1.82f, 0.24f), new Vector3(1.5f, 1.05f, 0.42f), olive, 0.035f, 2);                 // screen housing
+            mb.Sub(0).Box(new Vector3(0, 2.38f, 0.02f), new Vector3(1.56f, 0.06f, 0.5f), oliveDk, 0.015f, 1, Quaternion.Euler(-8, 0, 0)); // sun hood
+            foreach (var sx in new[] { -1, 1 })
+            {
+                mb.Sub(0).Box(new Vector3(sx * 0.77f, 2.05f, 0.02f), new Vector3(0.04f, 0.6f, 0.46f), oliveDk, 0.01f);   // hood cheeks
+                mb.Sub(2).Cyl(new Vector3(sx * 0.7f, 0.65f, -0.12f), new Vector3(sx * 0.7f, 0.95f, -0.12f), 0.018f, 0.018f, 8, steel); // grab handles
+                foreach (var y in new[] { 0.65f, 0.95f }) mb.Sub(2).Box(new Vector3(sx * 0.7f, y, -0.1f), new Vector3(0.03f, 0.03f, 0.05f), steel, 0.005f);
+            }
+            for (int i = 0; i < 10; i++)                                                                                    // hazard band on the plinth
+                mb.Sub(1).Box(new Vector3(-0.63f + i * 0.14f, 0.07f, -0.152f), new Vector3(0.06f, 0.1f, 0.006f), i % 2 == 0 ? UI.Lin(new Color(0.95f, 0.75f, 0.1f)) : blk, 0f, 0, Quaternion.Euler(0, 0, 35));
+            for (int i = 0; i < 6; i++) mb.Sub(1).Box(new Vector3(0, 0.35f + i * 0.045f, -0.102f), new Vector3(0.5f, 0.018f, 0.006f), blk, 0.002f); // vent slats
+            foreach (var p in new[] { new Vector3(-0.6f, 0.95f, -0.102f), new Vector3(0.6f, 0.95f, -0.102f), new Vector3(-0.6f, 0.15f, -0.102f), new Vector3(0.6f, 0.15f, -0.102f) })
+                mb.Sub(2).Cyl(p, p + new Vector3(0, 0, -0.006f), 0.012f, 0.01f, 8, steel);                                   // bolts
+            mb.Sub(1).Cyl(new Vector3(0.45f, 0.1f, 0.5f), new Vector3(0.45f, -0.05f, 0.5f), 0.04f, 0.04f, 10, blk);        // conduit into the floor
+            mb.Sub(2).Cyl(new Vector3(0.62f, 2.42f, 0.2f), new Vector3(0.62f, 2.5f, 0.2f), 0.05f, 0.05f, 12, steel);         // beacon base
+            mb.Build("Terminal", transform, Mats.Lit("kiosk_olive", Color.white, 0.35f, 0.3f, Mats.Metal, Mats.MetalN, 0.55f, 0.6f), Mats.Lit("kiosk_paint", Color.white, 0.1f, 0.35f, Mats.Noise, null, 0.4f, 0.3f), Mats.Lit("kiosk_steel", Color.white, 0.85f, 0.5f, Mats.Metal, null, 0.3f, 0.3f));
+            // amber beacon (flashes while you're queued)
+            var dome = new MB().Sphere(new Vector3(0.62f, 2.5f, 0.2f), new Vector3(0.05f, 0.07f, 0.05f), 12, Color.white, 0f, 0.5f).Build("Beacon", transform, Mats.Lit("kiosk_beacon", new Color(1f, 0.55f, 0.1f), 0, 0.8f));
+            _beacon = new Material(dome.GetComponent<MeshRenderer>().sharedMaterial); dome.GetComponent<MeshRenderer>().sharedMaterial = _beacon;
+            _beaconLight = new GameObject("BeaconLight").AddComponent<Light>(); _beaconLight.transform.SetParent(transform, false); _beaconLight.transform.localPosition = new Vector3(0.62f, 2.55f, 0.1f);
+            _beaconLight.type = LightType.Point; _beaconLight.color = new Color(1f, 0.55f, 0.15f); _beaconLight.range = 3f; _beaconLight.intensity = 0f;
+            var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 1.2f, 0.22f); col.size = new Vector3(1.4f, 2.4f, 0.6f);
+            // stencilled markings
+            UI.Text(transform, "RDT-7", new Vector3(-0.58f, 0.85f, -0.105f), 0.07f, UI.Stencil, TextAnchor.MiddleLeft, FontStyle.Bold);
+            UI.Text(transform, "RAID DEPLOYMENT TERMINAL", new Vector3(-0.58f, 0.76f, -0.105f), 0.03f, UI.Stencil, TextAnchor.MiddleLeft);
+            UI.Text(transform, "NO WEAPONS ON THE CONSOLE", new Vector3(0.58f, 0.25f, -0.105f), 0.016f, UI.Lin(new Color(0.85f, 0.85f, 0.8f)), TextAnchor.MiddleRight);
+
+            // the screen: green phosphor
+            var screen = UI.Panel(transform, "Screen", new Vector3(0, 1.84f, 0.0f), Quaternion.identity, new Vector2(1.24f, 0.8f), null, true, Skin.Crt);
+            _title = UI.Text(screen, "RDT-7 // DEPLOYMENT", new Vector3(-0.58f, 0.335f, 0), 0.05f, UI.CrtGreen, TextAnchor.MiddleLeft, FontStyle.Bold);
+            UI.Text(screen, "SELECT AREA:", new Vector3(-0.58f, 0.255f, 0), 0.036f, UI.CrtDim, TextAnchor.MiddleLeft);
             for (int i = 0; i < Maps.RaidIds.Length; i++)
             {
                 string id = Maps.RaidIds[i];
-                var b = UI.Button(screen, Maps.Name(id), new Vector3(-0.5f + i * 0.5f, 0.27f, 0), new Vector2(0.46f, 0.11f), () => Select(id));
+                var b = UI.Button(screen, Maps.Name(id).ToUpper(), new Vector3(-0.31f, 0.16f - i * 0.13f, 0), new Vector2(0.52f, 0.11f), () => Select(id), null, BtnStyle.Crt);
                 _mapBtns.Add(b);
             }
-            _mapInfo = UI.Text(screen, "", new Vector3(0, 0.12f, 0), 0.028f, UI.Dim);
-            _status = UI.Text(screen, "", new Vector3(0, -0.07f, 0), 0.034f, Color.white);
-            _queueBtn = UI.Button(screen, "QUEUE FOR RAID", new Vector3(0, -0.3f, 0), new Vector2(0.7f, 0.15f), ToggleQueue, new Color(0.2f, 0.45f, 0.25f));
-            UI.Text(screen, "Raids: 4-10 operators  |  aims for 8  |  launches at 1:00 with whoever is in queue", new Vector3(0, -0.46f, 0), 0.018f, UI.Dim);
+            _mapInfo = UI.Text(screen, "", new Vector3(0.02f, 0.215f, 0), 0.04f, UI.CrtDim, TextAnchor.UpperLeft);
+            _status = UI.Text(screen, "", new Vector3(-0.58f, -0.2f, 0), 0.036f, UI.CrtGreen, TextAnchor.UpperLeft);
+            UI.Text(screen, "4-10 OPERATORS  /  TARGET 8  /  AUTO-LAUNCH AT 01:00", new Vector3(-0.58f, -0.355f, 0), 0.03f, UI.CrtDim, TextAnchor.MiddleLeft);
+            // the console: one big push key
+            var console = new GameObject("Console").transform; console.SetParent(transform, false);
+            console.localPosition = new Vector3(0, 1.165f, -0.05f); console.localRotation = Quaternion.Euler(55, 0, 0);
+            _queueBtn = UI.Button(console, "QUEUE", new Vector3(0.1f, 0, 0), new Vector2(0.34f, 0.15f), ToggleQueue, new Color(0.2f, 0.42f, 0.2f), BtnStyle.Key);
+            UI.Text(console, "PRESS TO\nDEPLOY", new Vector3(-0.3f, 0, -0.002f), 0.03f, UI.Stencil, TextAnchor.MiddleCenter, FontStyle.Bold);
             Select(_map);
+        }
+
+        void Update()
+        {
+            float on = _queued && Mathf.Repeat(Time.time, 0.8f) < 0.4f ? 1f : 0f;
+            if (_beacon != null) _beacon.SetColor("_EmissionColor", new Color(3f, 1.4f, 0.2f) * on);
+            if (_beaconLight != null) _beaconLight.intensity = on * 1.5f;
         }
 
         void Select(string id)
         {
             if (_queued) return;
             _map = id;
-            for (int i = 0; i < _mapBtns.Count; i++) _mapBtns[i].SetColor(Maps.RaidIds[i] == id ? new Color(0.55f, 0.35f, 0.1f) : new Color(0.16f, 0.17f, 0.18f));
-            _mapInfo.text = Maps.Blurb(id);
-            _status.text = NetHub.Online ? "Online  -  " + NetHub.Backend.Status : "Offline  -  solo raids with AI (Rago Extract > Multiplayer turns online play on)";
+            for (int i = 0; i < _mapBtns.Count; i++)
+            {
+                bool sel = Maps.RaidIds[i] == id;
+                _mapBtns[i].SetColor(sel ? new Color(0.3f, 0.85f, 0.4f) : new Color(0.03f, 0.1f, 0.05f));
+                _mapBtns[i].SetTextColor(sel ? new Color(0.02f, 0.08f, 0.03f) : UI.CrtGreen);
+                _mapBtns[i].SetText((sel ? "> " : "  ") + Maps.Name(Maps.RaidIds[i]).ToUpper());
+            }
+            _mapInfo.text = UI.Wrap(Maps.Blurb(id).ToUpper(), 20);
+            _status.text = "> " + (NetHub.Online ? "ONLINE - " + NetHub.Backend.Status.ToUpper() : "OFFLINE - SOLO RAID WITH AI\n  (RAGO EXTRACT > MULTIPLAYER TURNS ONLINE ON)");
         }
 
         void ToggleQueue()
@@ -68,7 +115,7 @@ namespace Rago
             if (_queued) { Cancel(); return; }
             if (AnyQueued) return;
             _queued = true; AnyQueued = true;
-            _queueBtn.SetText("CANCEL"); _queueBtn.SetColor(new Color(0.55f, 0.15f, 0.12f));
+            _queueBtn.SetText("CANCEL"); _queueBtn.SetColor(new Color(0.6f, 0.14f, 0.1f));
             Sfx.UI(Synth.Beep(), 0.5f);
             // save the loadout before matchmaking so a crash can't eat gear
             RagoGame.I.SaveHubState();
@@ -81,22 +128,22 @@ namespace Rago
             if (NetHub.Online) NetHub.Backend.CancelQueue();
             if (_offline != null) StopCoroutine(_offline);
             _queued = false; AnyQueued = false;
-            _queueBtn.SetText("QUEUE FOR RAID"); _queueBtn.SetColor(new Color(0.2f, 0.45f, 0.25f));
-            _status.text = "Queue cancelled";
+            _queueBtn.SetText("QUEUE"); _queueBtn.SetColor(new Color(0.2f, 0.42f, 0.2f));
+            _status.text = "> QUEUE CANCELLED";
         }
 
         void OnStatus(QueueStatus s)
         {
             if (!_queued) return;
-            _status.text = s.text ?? QueueRules.Describe(s.players, s.elapsed);
+            _status.text = "> " + UI.Wrap((s.text ?? QueueRules.Describe(s.players, s.elapsed)).ToUpper(), 44);
         }
 
         void OnFailed(string why)
         {
-            _status.text = "Matchmaking failed: " + why;
+            _status.text = "> MATCHMAKING FAILED: " + (why ?? "").ToUpper();
             Sfx.UI(Synth.UiError(), 0.4f);
             _queued = false; AnyQueued = false;
-            _queueBtn.SetText("QUEUE FOR RAID"); _queueBtn.SetColor(new Color(0.2f, 0.45f, 0.25f));
+            _queueBtn.SetText("QUEUE"); _queueBtn.SetColor(new Color(0.2f, 0.42f, 0.2f));
         }
 
         void OnStart(RaidStart rs)
@@ -113,7 +160,7 @@ namespace Rago
             const float soloWait = 5f;
             while (t < soloWait)
             {
-                _status.text = "Searching for operators  1/" + QueueRules.Max + "\n<size=24>Offline - no other players. Deploying solo in " + Mathf.CeilToInt(soloWait - t) + "s</size>";
+                _status.text = "> SEARCHING FOR OPERATORS  1/" + QueueRules.Max + "\n> OFFLINE - DEPLOYING SOLO IN " + Mathf.CeilToInt(soloWait - t) + "S";
                 t += Time.deltaTime;
                 yield return null;
             }
@@ -174,9 +221,15 @@ namespace Rago
             mb.Build("Stall", transform, wood, Mats.Lit("stall_metal", Color.white, 0.6f, 0.4f, Mats.Metal, null, 0.4f, 0.4f), Mats.Lit("awning", Color.white, 0f, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0f));
             AddCol(new Vector3(0, 0.5f, 0), new Vector3(3.2f, 1.04f, 0.7f));
             AddCol(new Vector3(0, 1.2f, 1.9f), new Vector3(3.6f, 2.4f, 0.4f));
-            var sign = new GameObject("Sign").transform; sign.SetParent(transform, false); sign.localPosition = new Vector3(0, 2.85f, -0.75f);
-            UI.Text(sign, _t.name.ToUpper(), new Vector3(0, 0.08f, 0), 0.12f, _t.color * 1.5f, TextAnchor.MiddleCenter, FontStyle.Bold);
-            UI.Text(sign, _t.title, new Vector3(0, -0.08f, 0), 0.05f, UI.Dim);
+            // hand-painted plank sign hanging from the awning on two chains
+            var sb = new MB(2);
+            sb.Sub(0).Box(new Vector3(0, 2.72f, -0.72f), new Vector3(2.1f, 0.42f, 0.035f), UI.Lin(new Color(0.42f, 0.3f, 0.2f)), 0.01f, 1);
+            sb.Sub(0).Box(new Vector3(0, 2.72f, -0.737f), new Vector3(2.0f, 0.004f, 0.002f), UI.Lin(new Color(0.3f, 0.21f, 0.14f)), 0f); // plank seam
+            foreach (var x in new[] { -0.85f, 0.85f }) sb.Sub(1).Cyl(new Vector3(x, 2.93f, -0.72f), new Vector3(x, 3.05f, -0.68f), 0.006f, 0.006f, 6, UI.Lin(new Color(0.3f, 0.3f, 0.3f)));
+            sb.Build("SignBoard", transform, Mats.Lit("sign_wood", Color.white, 0f, 0.25f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f), Mats.Lit("sign_chain", Color.white, 0.9f, 0.4f, Mats.Metal, null, 0.3f, 0.2f));
+            var sign = new GameObject("Sign").transform; sign.SetParent(transform, false); sign.localPosition = new Vector3(0, 2.72f, -0.74f);
+            UI.Text(sign, _t.name.ToUpper(), new Vector3(0, 0.06f, 0), 0.17f, Color.Lerp(_t.color, new Color(0.95f, 0.9f, 0.8f), 0.45f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            UI.Text(sign, _t.title, new Vector3(0, -0.12f, 0), 0.055f, new Color(0.9f, 0.86f, 0.76f));
             // decorative wares on the back shelf
             var rng = new Rng(seed);
             for (int i = 0; i < Mathf.Min(6, _t.stock.Count); i++)
@@ -185,20 +238,23 @@ namespace Rago
                 if (it != null) { it.transform.SetParent(transform, true); var rb = it.rb; foreach (var c in it.GetComponentsInChildren<Collider>()) Compat.Kill(c); Compat.Kill(it); Compat.Kill(rb); }
             }
             // menu panel standing on the counter, angled towards the customer
-            _panel = UI.Panel(transform, "Menu", new Vector3(0.35f, 1.55f, 0.05f), Quaternion.Euler(-12, 0, 0), new Vector2(1.5f, 0.95f));
-            _money = UI.Text(_panel, "", new Vector3(0.68f, 0.41f, 0), 0.03f, new Color(0.5f, 1f, 0.5f), TextAnchor.MiddleRight);
-            UI.Text(_panel, _t.name + " - BUY", new Vector3(-0.7f, 0.41f, 0), 0.035f, UI.Accent, TextAnchor.MiddleLeft, FontStyle.Bold);
-            UI.Button(_panel, "<", new Vector3(-0.55f, -0.4f, 0), new Vector2(0.12f, 0.09f), () => { _page = Mathf.Max(0, _page - 1); Refresh(); });
-            UI.Button(_panel, ">", new Vector3(-0.4f, -0.4f, 0), new Vector2(0.12f, 0.09f), () => { _page++; Refresh(); });
+            // chalkboard price list propped on the counter
+            _panel = UI.Panel(transform, "Menu", new Vector3(0.35f, 1.58f, 0.08f), Quaternion.Euler(-10, 0, 0), new Vector2(1.5f, 0.95f), null, true, Skin.Chalk);
+            _money = UI.Text(_panel, "", new Vector3(0.7f, 0.41f, 0), 0.032f, UI.ChalkDim, TextAnchor.MiddleRight);
+            UI.Text(_panel, _t.name + "'s", new Vector3(-0.7f, 0.405f, 0), 0.06f, UI.ChalkYellow, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic);
+            UI.Text(_panel, "~ for sale ~", new Vector3(-0.22f, 0.4f, 0), 0.032f, UI.ChalkDim, TextAnchor.MiddleLeft, FontStyle.Italic);
+            UI.Button(_panel, "prev", new Vector3(-0.55f, -0.41f, 0), new Vector2(0.16f, 0.07f), () => { _page = Mathf.Max(0, _page - 1); Refresh(); }, null, BtnStyle.Tag);
+            UI.Button(_panel, "next", new Vector3(-0.35f, -0.41f, 0), new Vector2(0.16f, 0.07f), () => { _page++; Refresh(); }, null, BtnStyle.Tag);
             // trays on the counter
             _delivery = ItemContainer.Grid(transform, new Vector3(-1.1f, 1.08f, -0.05f), Quaternion.identity, 2, 2, new Vector2(0.36f, 0.3f), 0.3f);
             TrayVisual(new Vector3(-1.1f, 1.05f, -0.05f), "PICKUP", new Color(0.3f, 0.6f, 1f));
             _sell = ItemContainer.Grid(transform, new Vector3(1.15f, 1.08f, -0.05f), Quaternion.identity, 2, 2, new Vector2(0.36f, 0.3f), 0.3f, it => _t.buys == null || _t.buys(it.def));
             TrayVisual(new Vector3(1.15f, 1.05f, -0.05f), "SELL", new Color(1f, 0.6f, 0.2f));
             _sell.onChanged = Refresh;
-            var sp = UI.Panel(transform, "SellPanel", new Vector3(1.15f, 1.3f, 0.32f), Quaternion.Euler(-20, 0, 0), new Vector2(0.7f, 0.22f));
-            _sellLabel = UI.Text(sp, "", new Vector3(0, 0.05f, 0), 0.022f, Color.white);
-            UI.Button(sp, "SELL ITEMS", new Vector3(0, -0.055f, 0), new Vector2(0.4f, 0.08f), Sell, new Color(0.55f, 0.35f, 0.1f));
+            // a receipt pad on a clipboard for selling
+            var sp = UI.Panel(transform, "SellPanel", new Vector3(1.15f, 1.32f, 0.34f), Quaternion.Euler(-25, 0, 0), new Vector2(0.66f, 0.24f), null, true, Skin.Paper);
+            _sellLabel = UI.Text(sp, "", new Vector3(0, 0.035f, 0), 0.028f, UI.PaperInk);
+            UI.Button(sp, "SELL", new Vector3(0, -0.06f, 0), new Vector2(0.3f, 0.08f), Sell, null, BtnStyle.Stamp);
             // the trader
             _npcPos = transform.TransformPoint(new Vector3(-0.2f, 0, 1.0f));
             _npc = HumanRig.Build(_t.outfit, seed, transform);
@@ -235,18 +291,20 @@ namespace Rago
                 row.SetParent(_panel, false);
                 row.localPosition = new Vector3(0, 0.3f - i * 0.11f, 0);
                 _rows.Add(row.gameObject);
-                UI.Text(row, def.name, new Vector3(-0.7f, 0.015f, 0), 0.026f, ItemDef.RarityColor(def.rarity), TextAnchor.MiddleLeft, FontStyle.Bold);
-                string sub = def is GunDef g ? Db.CalName(g.cal) + "  " + g.magSize + "rd  " + g.action + (g.optics ? "  rail" : "") : def.rarity.ToString();
-                UI.Text(row, sub, new Vector3(-0.7f, -0.025f, 0), 0.016f, UI.Dim, TextAnchor.MiddleLeft);
+                // chalk lettering: rarity shows as a coloured chalk dot, prices in yellow chalk
+                UI.Text(row, "*", new Vector3(-0.71f, 0.014f, 0), 0.05f, Color.Lerp(ItemDef.RarityColor(def.rarity), UI.Chalk, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
+                UI.Text(row, def.name, new Vector3(-0.67f, 0.02f, 0), 0.046f, UI.Chalk, TextAnchor.MiddleLeft, FontStyle.Bold);
+                string sub = def is GunDef g ? Db.CalName(g.cal) + ", " + g.magSize + " rd, " + g.action.ToString().ToLower() + (g.optics ? ", rail" : "") : def.rarity.ToString().ToLower();
+                UI.Text(row, sub, new Vector3(-0.67f, -0.032f, 0), 0.03f, UI.ChalkDim, TextAnchor.MiddleLeft, FontStyle.Italic);
                 int price = Price(def);
-                UI.Text(row, "$" + price.ToString("N0"), new Vector3(0.38f, 0, 0), 0.026f, new Color(0.6f, 1f, 0.6f), TextAnchor.MiddleRight);
+                UI.Text(row, "$" + price.ToString("N0"), new Vector3(0.45f, 0, 0), 0.048f, UI.ChalkYellow, TextAnchor.MiddleRight, FontStyle.Bold);
                 var d2 = def;
-                UI.Button(row, "BUY", new Vector3(0.58f, 0, 0), new Vector2(0.18f, 0.08f), () => Buy(d2));
+                UI.Button(row, "buy", new Vector3(0.61f, 0, 0), new Vector2(0.17f, 0.085f), () => Buy(d2), null, BtnStyle.Tag);
             }
-            _money.text = "$" + Profile.Current.money.ToString("N0");
+            _money.text = "your cash  $" + Profile.Current.money.ToString("N0");
             int v = 0, n = 0;
             foreach (var s in _sell.slots) if (s.item != null) { v += SellValue(s.item); n++; }
-            _sellLabel.text = n == 0 ? "Put items on the SELL tray" : n + " item(s) for <color=#80ff80>$" + v.ToString("N0") + "</color>";
+            _sellLabel.text = n == 0 ? "Put items on the SELL tray" : n + " item(s) for <color=#1d6b2a>$" + v.ToString("N0") + "</color>";
         }
 
         int Price(ItemDef d) => Mathf.RoundToInt(d.price * (d.rarity >= Rarity.Rare ? 1.6f : 1.25f) / 10f) * 10;

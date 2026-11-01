@@ -324,10 +324,7 @@ namespace Rago
             // Bruno the Foreman: bunker expansion jobs
             Foreman = QuestStall.Create(transform, new Vector3(15, 0, 4), 0, 211);
             b.AddLight(new Vector3(15, 3.6f, 3.4f), new Color(1f, 0.8f, 0.55f), 7f, 1.2f);
-            // central kiosk
-            Kiosk.Create(transform, new Vector3(0, 0, -2), Quaternion.identity);
-            Kiosk.Create(transform, new Vector3(-16, 0, -6), Quaternion.Euler(0, -80, 0));
-            b.Sign(new Vector3(0, 4.2f, -2.2f), Quaternion.identity, "RAID KIOSK", UI.Accent, 0.3f);
+            // (raids are queued from the terminal in your bunker - the Market is just for trading and meeting up)
             // fire barrels + benches + trucks
             foreach (var p in new[] { new Vector3(-10, 0, 0), new Vector3(10, 0, -4), new Vector3(-22, 0, -10), new Vector3(22, 0, -12) })
             {

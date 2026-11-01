@@ -124,18 +124,26 @@ namespace Rago
             mb.Build("Stall", transform, wood, Mats.Lit("stall_metal", Color.white, 0.6f, 0.4f, Mats.Metal, null, 0.4f, 0.4f), Mats.Lit("awning", Color.white, 0f, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0f));
             AddCol(new Vector3(0, 0.5f, 0), new Vector3(3.4f, 1.04f, 0.7f));
             AddCol(new Vector3(0, 1.4f, 2.0f), new Vector3(3.8f, 2.4f, 0.12f));
-            var sign = new GameObject("Sign").transform; sign.SetParent(transform, false); sign.localPosition = new Vector3(0, 2.85f, -0.75f);
-            UI.Text(sign, "BRUNO", new Vector3(0, 0.08f, 0), 0.12f, Hivis * 1.3f, TextAnchor.MiddleCenter, FontStyle.Bold);
-            UI.Text(sign, "Foreman - bunker expansions", new Vector3(0, -0.08f, 0), 0.05f, UI.Dim);
+            // spray-painted plywood sign zip-tied to the awning
+            var sb = new MB(2);
+            sb.Sub(0).Box(new Vector3(0, 2.72f, -0.72f), new Vector3(2.0f, 0.44f, 0.025f), UI.Lin(new Color(0.72f, 0.6f, 0.42f)), 0.004f);
+            for (int i = 0; i < 2; i++) sb.Sub(1).Box(new Vector3(0, 2.52f + i * 0.4f, -0.734f), new Vector3(2.0f, 0.03f, 0.002f), UI.Lin(new Color(0.95f, 0.7f, 0.1f)), 0f);
+            sb.Build("SignBoard", transform, Mats.Lit("sign_ply", Color.white, 0f, 0.3f, Mats.Wood, null, 0.5f, 0.2f), Mats.Lit("sign_spray", Color.white, 0f, 0.3f, Mats.Noise, null, 0.3f, 0.1f));
+            var sign = new GameObject("Sign").transform; sign.SetParent(transform, false); sign.localPosition = new Vector3(0, 2.72f, -0.735f);
+            UI.Text(sign, "BRUNO", new Vector3(0, 0.06f, 0), 0.17f, new Color(0.12f, 0.12f, 0.12f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            UI.Text(sign, "foreman - bunker work", new Vector3(0, -0.12f, 0), 0.055f, new Color(0.75f, 0.2f, 0.1f), TextAnchor.MiddleCenter, FontStyle.Bold);
 
             // job board on the counter
-            _panel = UI.Panel(transform, "Jobs", new Vector3(0.3f, 1.62f, 0.05f), Quaternion.Euler(-12, 0, 0), new Vector2(1.7f, 1.1f));
-            _title = UI.Text(_panel, "", new Vector3(-0.8f, 0.48f, 0), 0.034f, Hivis, TextAnchor.MiddleLeft, FontStyle.Bold);
-            _money = UI.Text(_panel, "", new Vector3(0.8f, 0.48f, 0), 0.028f, new Color(0.5f, 1f, 0.5f), TextAnchor.MiddleRight);
-            _desc = UI.Text(_panel, "", new Vector3(-0.8f, 0.4f, 0), 0.019f, UI.Dim, TextAnchor.UpperLeft);
-            _reqs = UI.Text(_panel, "", new Vector3(-0.8f, 0.12f, 0), 0.024f, Color.white, TextAnchor.UpperLeft);
-            _list = UI.Text(_panel, "", new Vector3(0.22f, 0.12f, 0), 0.02f, UI.Dim, TextAnchor.UpperLeft);
-            _build = UI.Button(_panel, "PAY & BUILD", new Vector3(0.45f, -0.45f, 0), new Vector2(0.6f, 0.1f), Build, new Color(0.6f, 0.35f, 0.05f));
+            // work order on a clipboard, propped on the counter
+            _panel = UI.Panel(transform, "Jobs", new Vector3(0.3f, 1.64f, 0.08f), Quaternion.Euler(-12, 0, 0), new Vector2(1.5f, 1.0f), null, true, Skin.Paper);
+            UI.Text(_panel, "WORK ORDER", new Vector3(-0.69f, 0.44f, 0), 0.032f, UI.PaperDim, TextAnchor.MiddleLeft, FontStyle.Bold);
+            _title = UI.Text(_panel, "", new Vector3(-0.69f, 0.38f, 0), 0.056f, UI.PaperInk, TextAnchor.MiddleLeft, FontStyle.Bold);
+            _money = UI.Text(_panel, "", new Vector3(0.69f, 0.44f, 0), 0.034f, UI.PaperDim, TextAnchor.MiddleRight);
+            _desc = UI.Text(_panel, "", new Vector3(-0.69f, 0.33f, 0), 0.036f, UI.PaperDim, TextAnchor.UpperLeft, FontStyle.Italic);
+            _reqs = UI.Text(_panel, "", new Vector3(-0.69f, 0.17f, 0), 0.044f, UI.PaperInk, TextAnchor.UpperLeft);
+            _list = UI.Text(_panel, "", new Vector3(0.22f, 0.17f, 0), 0.034f, UI.PaperDim, TextAnchor.UpperLeft);
+            UI.Text(_panel, "signed:  Bruno", new Vector3(-0.69f, -0.41f, 0), 0.04f, UI.PaperDim, TextAnchor.MiddleLeft, FontStyle.Italic);
+            _build = UI.Button(_panel, "APPROVED - BUILD IT", new Vector3(0.38f, -0.4f, 0), new Vector2(0.6f, 0.11f), Build, null, BtnStyle.Stamp);
 
             // turn-in tray: only takes what the current job still needs
             _tray = ItemContainer.Grid(transform, new Vector3(-1.2f, 1.08f, -0.05f), Quaternion.identity, 2, 2, new Vector2(0.36f, 0.3f), 0.3f,
@@ -146,9 +154,9 @@ namespace Rago
             tgo.transform.localPosition = new Vector3(-1.2f, 1.05f, -0.05f);
             UI.Text(transform, "TURN IN", new Vector3(-1.2f, 1.07f, -0.41f), 0.025f, Hivis).transform.localRotation = Quaternion.Euler(60, 0, 0);
             _tray.onChanged = Refresh;
-            var tp = UI.Panel(transform, "TurnInPanel", new Vector3(-1.2f, 1.3f, 0.32f), Quaternion.Euler(-20, 0, 0), new Vector2(0.7f, 0.22f));
-            UI.Text(tp, "Put the job's items on the tray", new Vector3(0, 0.05f, 0), 0.018f, Color.white);
-            UI.Button(tp, "TURN IN ITEMS", new Vector3(0, -0.055f, 0), new Vector2(0.42f, 0.08f), TurnIn, new Color(0.6f, 0.35f, 0.05f));
+            var tp = UI.Panel(transform, "TurnInPanel", new Vector3(-1.2f, 1.32f, 0.34f), Quaternion.Euler(-25, 0, 0), new Vector2(0.66f, 0.24f), null, true, Skin.Paper);
+            UI.Text(tp, "Put the job's items on the tray", new Vector3(0, 0.035f, 0), 0.026f, UI.PaperInk);
+            UI.Button(tp, "TURN IN", new Vector3(0, -0.06f, 0), new Vector2(0.3f, 0.08f), TurnIn, null, BtnStyle.Stamp);
 
             // Bruno: hi-vis vest and cap
             _npcPos = transform.TransformPoint(new Vector3(-0.2f, 0, 1.0f));
@@ -166,14 +174,14 @@ namespace Rago
             var p = Profile.Current;
             if (p == null || _title == null) return;
             var j = BunkerJobs.Current(p);
-            _money.text = "$" + p.money.ToString("N0");
+            _money.text = "your cash  $" + p.money.ToString("N0");
             // all jobs with their status
             var sb = new System.Text.StringBuilder("BUNKER PLANS\n");
             for (int i = 0; i < BunkerJobs.All.Length; i++)
             {
                 var job = BunkerJobs.All[i];
-                string mark = i < p.bunkerLevel ? "<color=#7fff7f>BUILT</color>" : i == p.bunkerLevel ? "<color=#ffa030>IN PROGRESS</color>" : "locked";
-                sb.Append(i + 1).Append(". ").Append(job.room).Append("\n    ").Append(mark).Append('\n');
+                string mark = i < p.bunkerLevel ? "<color=#1d6b2a>done</color>" : i == p.bunkerLevel ? "<color=#b05a00>in progress</color>" : "later";
+                sb.Append(i < p.bunkerLevel ? "[x] " : "[ ] ").Append(job.room).Append("\n      ").Append(mark).Append('\n');
             }
             _list.text = sb.ToString();
             if (j == null)
@@ -186,16 +194,16 @@ namespace Rago
             }
             _title.text = "JOB " + (p.bunkerLevel + 1) + ": " + j.name.ToUpper();
             _desc.text = j.desc;
-            var r = new System.Text.StringBuilder("NEEDED\n");
+            var r = new System.Text.StringBuilder("BRING ME\n");
             for (int i = 0; i < j.items.Length; i++)
             {
                 var def = Db.Get(j.items[i]);
                 int have = BunkerJobs.Progress(p, i);
                 bool ok = have >= j.counts[i];
-                r.Append(ok ? "<color=#7fff7f>" : "").Append(def != null ? def.name : j.items[i]).Append("  ").Append(have).Append('/').Append(j.counts[i]).Append(ok ? "</color>" : "").Append('\n');
+                r.Append(ok ? "[x] <color=#1d6b2a>" : "[ ] ").Append(def != null ? def.name : j.items[i]).Append("   ").Append(have).Append('/').Append(j.counts[i]).Append(ok ? "</color>" : "").Append('\n');
             }
             bool cash = p.money >= j.money;
-            r.Append(cash ? "<color=#7fff7f>" : "<color=#ff8080>").Append("Fee  $").Append(j.money.ToString("N0")).Append("</color>");
+            r.Append(cash ? "[x] <color=#1d6b2a>" : "[ ] <color=#a01818>").Append("Fee  $").Append(j.money.ToString("N0")).Append("</color>");
             int onTray = 0; foreach (var s in _tray.slots) if (s.item != null) onTray++;
             if (onTray > 0) r.Append("\n\n").Append(onTray).Append(" item(s) on the tray");
             _reqs.text = r.ToString();

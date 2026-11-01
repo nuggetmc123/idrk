@@ -48,7 +48,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   - **Doc Hale** (meds; also buys valuables)
   - **Silas** the Fence (buys **anything**, pays the best price for valuables, sells vault keycards)
 
-  Buy with the BUY buttons; your item appears on the PICKUP tray. Put items on the SELL tray to sell them. A backpack sells together with everything inside it.
+  Each trader has a chalkboard price list: pull the paper **buy** tag next to an item and it appears on the PICKUP tray. Put items on the SELL tray to sell them. A backpack sells together with everything inside it.
 - **Armor**: you start with none on. It's only found in raids: armor cases (olive boxes with a yellow stripe), crates, Raiders (heavies always wear a helmet and vest, and drop them), and vaults (Epic and Vault tiers). New profiles get a bump helmet and soft vest on the stands in the Armor Room. If you die and own no armor at all, a fresh basic set is waiting there.
 
   | Tier | Helmet (head damage stopped) | Vest (chest damage stopped, stomach 60% of that) |
@@ -80,7 +80,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   - **Jackpot** ($9,000-$45,000): cold wallet and gold idol, plus the vault-only gold bar, blue diamond and Crown Jewel.
 
   Pick something up and its name, rarity and value pop up.
-- **Bruno the Foreman** (Market, right of the raid kiosk) gives you **bunker expansion jobs**. Each job needs certain items plus a cash fee. Put the items on his TURN IN tray and press TURN IN ITEMS. When everything is in, press PAY & BUILD. The new room opens in your bunker; until then its doorway is a sealed, hazard-striped door.
+- **Bruno the Foreman** (Market, right side) gives you **bunker expansion jobs**. Each job needs certain items plus a cash fee. Put the items on his TURN IN tray and press TURN IN ITEMS. When everything is in, press PAY & BUILD. The new room opens in your bunker; until then its doorway is a sealed, hazard-striped door.
 
   | # | Job | Bring | Fee | Unlocks |
   |---|---|---|---|---|
@@ -90,7 +90,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   | 4 | Dig a Trophy Vault | 1 Rugged Laptop, 2 Luxury Watches, 1 Gold Idol | $50,000 | **Trophy Vault** (off the Armory, north): more armor stands, gun racks and a trophy plinth |
 
   Turned-in items are saved, so you can bring them over several raids.
-- **Kiosk**: pick a map and queue. Each raid holds 4-10 players. The queue tries to reach 8, starts right away at 10, and once the queue timer hits **1 minute** it launches with whoever is queued.
+- **Raid terminal** (in your bunker, east wall; there are no raid terminals in the Market): pick a map on the green screen and press the big **QUEUE** key. Each raid holds 4-10 players. The queue tries to reach 8, starts right away at 10, and once the queue timer hits **1 minute** it launches with whoever is queued.
 - **Raids**: three maps.
   - **Dockyard**: container yard, cranes, warehouses, Harbor Office vault.
   - **Pinewood Outpost**: forest, military outpost, bunker vault.
