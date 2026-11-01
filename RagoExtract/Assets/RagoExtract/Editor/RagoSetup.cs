@@ -420,7 +420,14 @@ namespace Rago.EditorTools
             bool err = messages.Any(m => m.type == CompilerMessageType.Error);
             if (!err) return;
             string asm = Path.GetFileNameWithoutExtension(path);
-            if (asm == "RagoExtract.Fusion") { Debug.LogWarning("[Rago Extract] The Photon Fusion module didn't compile with your Fusion version - switching it off so the game still runs offline. Errors:\n" + string.Join("\n", messages.Where(m => m.type == CompilerMessageType.Error).Select(m => m.message))); AddDefine("RAGO_DISABLE_NET"); }
+            if (asm == "RagoExtract.Fusion")
+            {
+                string errors = string.Join("\n", messages.Where(m => m.type == CompilerMessageType.Error).Select(m => m.message));
+                Debug.LogWarning("[Rago Extract] The Photon Fusion module didn't compile with your Fusion version - switching it off so the game still runs offline. Errors:\n" + errors);
+                // remember the errors (shown in the Multiplayer window) and which version of the code failed, so an update retries automatically
+                try { File.WriteAllText(RagoMultiplayer.ErrorsFile, errors); File.WriteAllText(RagoMultiplayer.DisabledHashFile, RagoMultiplayer.ModuleHash()); } catch { }
+                AddDefine("RAGO_DISABLE_NET");
+            }
         }
 
         static readonly BuildTargetGroup[] Groups = { BuildTargetGroup.Android, BuildTargetGroup.Standalone };

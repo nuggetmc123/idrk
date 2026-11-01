@@ -15,6 +15,30 @@ namespace Rago.EditorTools
         public const string SdkPage = "https://doc.photonengine.com/fusion/current/getting-started/sdk-download";
         public const string DashboardPage = "https://dashboard.photonengine.com";
         public static string ImportStatus = "";
+        public const string ErrorsFile = "Library/RagoFusionErrors.txt", DisabledHashFile = "Library/RagoFusionDisabled.txt";
+        const string ModuleDir = "Assets/RagoExtract/Fusion";
+
+        /// <summary>Fingerprint of the multiplayer module's code, so we can tell when it has been updated.</summary>
+        public static string ModuleHash()
+        {
+            long h = 17;
+            if (Directory.Exists(ModuleDir))
+                foreach (var f in Directory.GetFiles(ModuleDir, "*.cs", SearchOption.AllDirectories).OrderBy(x => x))
+                    foreach (char c in File.ReadAllText(f)) h = h * 31 + c;
+            return h.ToString();
+        }
+
+        public static string LastErrors => File.Exists(ErrorsFile) ? File.ReadAllText(ErrorsFile) : "";
+
+        /// <summary>Clear the "switched off after a compile error" flag and let Unity try compiling the module again.</summary>
+        public static void Retry()
+        {
+            try { if (File.Exists(DisabledHashFile)) File.Delete(DisabledHashFile); } catch { }
+            RagoSetup.RemoveDefine("RAGO_DISABLE_NET");
+            if (FusionInstalled && !string.IsNullOrEmpty(AppId)) RagoSetup.AddDefine(Define);
+            ImportStatus = "Retrying - Unity is recompiling the multiplayer code...";
+            AssetDatabase.Refresh();
+        }
         static double _watchUntil, _nextPoll;
         static string _seenPath; static long _seenSize = -1;
 
@@ -39,6 +63,12 @@ namespace Rago.EditorTools
         /// <summary>Runs on every editor load: once Fusion is in the project and an App ID is saved, switch the module on.</summary>
         public static void AutoEnable()
         {
+            // switched off after a compile error, but the code has been updated since (e.g. a new zip): try again by itself
+            if (RagoSetup.HasDefine("RAGO_DISABLE_NET"))
+            {
+                string was = File.Exists(DisabledHashFile) ? File.ReadAllText(DisabledHashFile).Trim() : "";
+                if (was != ModuleHash()) { Debug.Log("[Rago Extract] The multiplayer code was updated - switching it back on and recompiling."); Retry(); return; }
+            }
             if (FusionInstalled && !string.IsNullOrEmpty(AppId) && !RagoSetup.HasDefine(Define)) { RagoSetup.AddDefine(Define); ImportStatus = "Done! Photon Fusion 2 is installed."; }
             if (FusionInstalled && string.IsNullOrEmpty(ImportStatus)) ImportStatus = "Done! Photon Fusion 2 is installed.";
         }
@@ -140,6 +170,7 @@ namespace Rago.EditorTools
     public class RagoMultiplayerWindow : EditorWindow
     {
         string _appId;
+        Vector2 _scroll;
         double _nextRefresh;
 
         public static void Open()
@@ -212,7 +243,21 @@ namespace Rago.EditorTools
                 }
             }
             if (RagoSetup.HasDefine("RAGO_DISABLE_NET"))
-                EditorGUILayout.HelpBox("The multiplayer module didn't compile with this Fusion version and was switched off (the game still runs offline). Press Finish to try again; if it fails again, send me the red Console errors.", MessageType.Warning);
+            {
+                EditorGUILayout.HelpBox("The multiplayer code didn't compile with your Fusion version, so it was switched off (the game still runs offline). Press TRY AGAIN. If it comes back, press COPY ERRORS and send them to me.", MessageType.Warning);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("TRY AGAIN", GUILayout.Height(26))) RagoMultiplayer.Retry();
+                    if (GUILayout.Button("COPY ERRORS", GUILayout.Height(26), GUILayout.Width(130))) { EditorGUIUtility.systemCopyBuffer = RagoMultiplayer.LastErrors; ShowNotification(new GUIContent("Errors copied")); }
+                }
+                var errs = RagoMultiplayer.LastErrors;
+                if (!string.IsNullOrEmpty(errs))
+                {
+                    _scroll = EditorGUILayout.BeginScrollView(_scroll, GUILayout.Height(90));
+                    EditorGUILayout.SelectableLabel(errs, EditorStyles.wordWrappedMiniLabel, GUILayout.ExpandHeight(true));
+                    EditorGUILayout.EndScrollView();
+                }
+            }
             GUILayout.Space(16);
 
             if (GUILayout.Button("Finish setup now (apply App ID + rebuild world)", GUILayout.Height(30))) RagoMultiplayer.Finish(_appId);
