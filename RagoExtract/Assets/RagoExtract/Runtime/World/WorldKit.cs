@@ -10,20 +10,26 @@ namespace Rago
     public class WorldBuilder
     {
         public readonly Transform Root;
-        readonly Dictionary<Material, MB> _batches = new Dictionary<Material, MB>();
+        // batches are split per material AND per 100 m cell, so huge maps can be frustum-culled chunk by chunk
+        public const float Cell = 100f;
+        readonly Dictionary<(Material, int, int), MB> _batches = new Dictionary<(Material, int, int), MB>();
         readonly Dictionary<Synth.Surface, Transform> _colRoots = new Dictionary<Synth.Surface, Transform>();
         public Rng Rng;
 
         public WorldBuilder(Transform root, int seed) { Root = root; Rng = new Rng(seed); }
 
-        MB Batch(Material m)
+        MB Batch(Material m) => Batch(m, new Vector3(float.NaN, 0, 0));
+
+        MB Batch(Material m, Vector3 at)
         {
-            if (!_batches.TryGetValue(m, out var mb)) { mb = new MB(); _batches[m] = mb; }
+            int cx = float.IsNaN(at.x) ? int.MinValue : Mathf.FloorToInt(at.x / Cell), cz = float.IsNaN(at.x) ? int.MinValue : Mathf.FloorToInt(at.z / Cell);
+            var key = (m, cx, cz);
+            if (!_batches.TryGetValue(key, out var mb)) { mb = new MB(); _batches[key] = mb; }
             if (mb.VertexCount > 55000)
             {
                 Flush(m, mb);
                 mb = new MB();
-                _batches[m] = mb;
+                _batches[key] = mb;
             }
             return mb;
         }
@@ -53,13 +59,13 @@ namespace Rago
         public void Box(Vector3 c, Vector3 size, Material m, Color tint, Quaternion? rot = null, bool col = true, Synth.Surface s = Synth.Surface.Concrete, float bevel = 0f)
         {
             var r = rot ?? Quaternion.identity;
-            Batch(m).Box(c, size, tint, bevel, bevel > 0 ? 1 : 0, r);
+            Batch(m, c).Box(c, size, tint, bevel, bevel > 0 ? 1 : 0, r);
             if (col) Collider(c, size, r, s);
         }
 
         public void Cyl(Vector3 a, Vector3 b, float r1, float r2, int seg, Material m, Color tint, bool col = true, Synth.Surface s = Synth.Surface.Concrete)
         {
-            Batch(m).Cyl(a, b, r1, r2, seg, tint, true);
+            Batch(m, (a + b) * 0.5f).Cyl(a, b, r1, r2, seg, tint, true);
             if (col)
             {
                 var go = new GameObject("c");
@@ -73,7 +79,7 @@ namespace Rago
 
         public void Sphere(Vector3 c, Vector3 radii, int seg, Material m, Color tint, bool col = true, Synth.Surface s = Synth.Surface.Concrete)
         {
-            Batch(m).Sphere(c, radii, seg, tint);
+            Batch(m, c).Sphere(c, radii, seg, tint);
             if (col)
             {
                 var go = new GameObject("c");
@@ -84,6 +90,7 @@ namespace Rago
         }
 
         public MB Raw(Material m) => Batch(m);
+        public MB Raw(Material m, Vector3 at) => Batch(m, at);
 
         void Flush(Material m, MB mb)
         {
@@ -94,7 +101,7 @@ namespace Rago
 
         public void Finish()
         {
-            foreach (var kv in _batches) Flush(kv.Key, kv.Value);
+            foreach (var kv in _batches) Flush(kv.Key.Item1, kv.Value);
             _batches.Clear();
         }
 

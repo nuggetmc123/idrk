@@ -111,7 +111,8 @@ namespace Rago
         public static bool Sprint;
         public static bool RightGripToggle, LeftGripToggle;
         public static bool Click, Reload, Interact, Drop, Backpack, Armor;
-        public static bool Typing;   // looking at a keyboard terminal: letters type instead of moving
+        public static bool Typing;
+        public static bool MapKey, Jump;   // looking at a keyboard terminal: letters type instead of moving
         public static int Equip = -1;
         static bool _lt, _rp, _rs, _ok = true;
 
@@ -133,7 +134,7 @@ namespace Rago
             }
             if (Typing)
             {
-                Move = Vector2.zero; Sprint = false; Reload = Interact = Drop = Backpack = Armor = false; Equip = -1;
+                Move = Vector2.zero; Sprint = false; Reload = Interact = Drop = Backpack = Armor = MapKey = Jump = false; Equip = -1;
                 Click = MouseDown(0);
                 var rt = new HandInput { Tracked = true };
                 rt.Grip = RightGripToggle ? 1 : 0; rt.GripDown = false; rt.GripUp = false;
@@ -153,6 +154,8 @@ namespace Rago
             Drop = KeyDown(KeyCode.G);
             Backpack = KeyDown(KeyCode.Tab);
             Armor = KeyDown(KeyCode.H);
+            MapKey = KeyDown(KeyCode.M);
+            Jump = KeyDown(KeyCode.Space);
             Equip = KeyDown(KeyCode.Alpha1) ? 0 : KeyDown(KeyCode.Alpha2) ? 1 : KeyDown(KeyCode.Alpha3) ? 2 : -1;
             Click = MouseDown(0);
 

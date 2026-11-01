@@ -128,6 +128,7 @@ namespace Rago
             int seed = to == Area.Raid ? rs.seed : 1234;
             Map = Maps.Create(id, MapRoot, seed);
             SafeZone = Map.Safe;
+            if (Player.Cam != null) Player.Cam.farClipPlane = to == Area.Raid ? 650f : 900f; // huge raid maps: fog hides the far edge
             Sfx.SetAmbience(Synth.Ambience(Map.Ambience), to == Area.Bunker ? 0.25f : 0.4f);
             yield return null;
             if (to == Area.Raid)
@@ -224,7 +225,7 @@ namespace Rago
     public class RaidManager : MonoBehaviour
     {
         public static RaidManager I;
-        public float TimeLeft = 25 * 60f;
+        public float TimeLeft = 40 * 60f;   // the maps are huge now
         public bool Done;
         RagoGame _g;
         MapBase _map;
@@ -250,6 +251,7 @@ namespace Rago
             I._startValue = Value(g.Player.Gear);
             bool online = rs.online && NetGame.I != null && NetHub.Backend != null && NetHub.Backend.InSession;
             if (online) NetGame.I.Begin(true);
+            FieldMap.Create(map, map.DisplayName);   // photographed now, while the screen is still black
             var dir = NpcDirector.Create(map.transform);
             dir.SpawnSquads(map.NpcSpawns, rs.seed, online && !NetHub.Backend.IsHost);
             g.Player.Hud.Center(map.DisplayName.ToUpper() + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>", 6f);

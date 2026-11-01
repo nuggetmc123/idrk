@@ -253,6 +253,17 @@ namespace Rago
             Vector3 vel = (fwd * move.y + right * move.x) * speed;
             MoveVelocity = Vector3.Lerp(MoveVelocity, vel, dt * 10f);
             if (Cc.isGrounded && _vy < 0) _vy = -1f;
+            // jump: A (right) or X (left) on a hand that isn't holding a gun - on a gun hand that button drops the mag
+            bool jump = XRInputs.VR
+                ? (XRInputs.Right.PrimaryDown && !(HandR.Held is Gun && !HandR.HeldAsSecondary)) || (XRInputs.Left.PrimaryDown && !(HandL.Held is Gun && !HandL.HeldAsSecondary))
+                : Desktop.Jump;
+            if (jump && Cc.isGrounded && !Frozen && !Dead && Vitals.Stamina > 6f)
+            {
+                _vy = 4.4f;                                   // about 1 m of air
+                Vitals.Stamina -= 8f;
+                Crouched = false; if (!XRInputs.VR) Desktop.Crouch = false;
+                Sfx.Play(Synth.Footstep(Synth.Surface.Dirt, Random.Range(0, 4)), transform.position, 0.4f, 0.9f, 1f, 20f);
+            }
             _vy += Physics.gravity.y * dt;
             Vector3 step = (MoveVelocity + Vector3.up * _vy) * dt;
             Cc.Move(step);

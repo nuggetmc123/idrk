@@ -101,11 +101,6 @@ namespace Rago
             b.Sign(new Vector3(-20, 9.2f, -60.2f), Quaternion.identity, "HARBOR OFFICE", new Color(0.9f, 0.85f, 0.7f), 0.5f);
             AddVault(new Vector3(-20, 0, -44f), 0);
             // fences + barriers + props
-            b.Fence(new Vector3(-85, 0, 88), new Vector3(68, 0, 88));
-            b.Fence(new Vector3(-85, 0, -88), new Vector3(68, 0, -88));
-            // west fence with a gate onto the road to the workers' village
-            b.Fence(new Vector3(-85, 0, -88), new Vector3(-85, 0, -6));
-            b.Fence(new Vector3(-85, 0, 6), new Vector3(-85, 0, 88));
             for (int i = 0; i < 14; i++) b.JerseyBarrier(new Vector3(b.Rng.Range(-75f, 60f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Range(0, 180f));
             for (int i = 0; i < 30; i++) b.Barrel(new Vector3(b.Rng.Range(-75f, 65f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Pick(new[] { new Color(0.15f, 0.3f, 0.6f), new Color(0.6f, 0.15f, 0.1f), new Color(0.2f, 0.35f, 0.2f) }));
             for (int i = 0; i < 22; i++) b.Crate(new Vector3(b.Rng.Range(-75f, 65f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Range(0, 90f), new Vector3(1.2f, 1.0f, 1.2f));
@@ -131,16 +126,16 @@ namespace Rago
             Squad(new Vector3(25, 0, 20), 3); Squad(new Vector3(40, 0, -30), 2); Squad(new Vector3(-55, 0, 45), 3, true);
             Squad(new Vector3(-55, 0, -60), 2); Squad(new Vector3(-20, 0, -48), 3, true); Squad(new Vector3(60, 0, 60), 2); Squad(new Vector3(-40, 0, 0), 2);
             // ---- Workers' Village (west): a street of houses you can search room by room
-            b.Ground(new Vector3(-135, 0, 0), new Vector2(100, 120), Maps.GroundGrass, Synth.Surface.Grass, -0.01f);
+            b.Ground(new Vector3(-137.5f, 0, 0), new Vector2(95, 180), Maps.GroundGrass, Synth.Surface.Grass, -0.01f);
             var village = Neighborhood(new Vector3(-88, 0, 0), 180, 6, 13.5f, false);
             ScatterLoot(village, 0.85f);
-            b.Fence(new Vector3(-85, 0, -58), new Vector3(-183, 0, -58));
-            b.Fence(new Vector3(-85, 0, 58), new Vector3(-183, 0, 58));
-            b.Fence(new Vector3(-183, 0, -58), new Vector3(-183, 0, 58));
             for (int i = 0; i < 26; i++) { var tp = new Vector3(b.Rng.Range(-180f, -90f), 0, b.Rng.Chance(0.5f) ? b.Rng.Range(28f, 55f) : b.Rng.Range(-55f, -28f)); b.Pine(tp, b.Rng.Range(7f, 11f)); }
             AddExtract(new Vector3(-176, 0, 0), "Village Road");
             Squad(new Vector3(-120, 0, 8), 3); Squad(new Vector3(-150, 0, -10), 2); Squad(new Vector3(-105, 0, -12), 2, true);
             Spawn(new Vector3(-178, 0.1f, 22), 90);
+            // ---- the open country around the docks: 1 km x 1 km
+            Outskirts(new Rect(-185, -90, 255, 180), 500, new[] { "Lighthouse Road", "Old Quarry", "Ferry Landing" }, false, true, Maps.GroundGrass, 9);
+            NavBounds = new Bounds(new Vector3(-57, 5, 0), new Vector3(260, 40, 190));
         }
 
         List<Vector3> Warehouse(Vector3 pos, float yaw, Vector2 size)
@@ -208,7 +203,8 @@ namespace Rago
             float river = Mathf.Abs(z + 15 + Mathf.Sin(x * 0.04f) * 8f);
             float riverCut = Mathf.Clamp01(1 - river / 7f) * 3.2f;
             float north = Mathf.Clamp01((92f - z) / 14f);   // flattens into the hamlet's valley in the north
-            return h * flat * north - riverCut;
+            float edge = Mathf.Clamp01((92f - Mathf.Abs(x)) / 14f) * Mathf.Clamp01((92f + z) / 14f); // and into the outskirts everywhere else
+            return h * flat * north * edge - riverCut * edge;
         }
 
         public override void Build()
@@ -303,6 +299,8 @@ namespace Rago
             AddExtract(new Vector3(0, 0, 170), "North Hamlet");
             Squad(new Vector3(-30, 0, 132), 3); Squad(new Vector3(40, 0, 135), 2); Squad(new Vector3(0, 0, 150), 2, true);
             Spawn(new Vector3(-85, 0.2f, 172), 135);
+            // ---- endless forest around the valley: 1 km x 1 km
+            Outskirts(new Rect(-95, -95, 190, 274), 500, new[] { "Ranger Station", "Dam Spillway", "Mountain Pass" }, true, false, Maps.GroundGrass, 9);
         }
     }
 
@@ -385,13 +383,12 @@ namespace Rago
             b.Box(new Vector3(0, 0.01f, 109), new Vector3(9, 0.02f, 40), Maps.Asphalt, Color.white, null, false);
             var suburb = Neighborhood(new Vector3(-67, 0, 128), 0, 10, 13.4f, false);
             ScatterLoot(suburb, 0.85f);
-            b.Fence(new Vector3(-90, 0, 180), new Vector3(90, 0, 180));
-            b.Fence(new Vector3(-90, 0, 90), new Vector3(-90, 0, 180));
-            b.Fence(new Vector3(90, 0, 90), new Vector3(90, 0, 180));
             for (int i = 0; i < 30; i++) { var tp = new Vector3(b.Rng.Range(-86f, 86f), 0, b.Rng.Range(150f, 177f)); if (Mathf.Abs(tp.x) < 9f || Vector2.Distance(new Vector2(tp.x, tp.z), new Vector2(60, 168)) < 5f) continue; b.Pine(tp, b.Rng.Range(7f, 10f)); }
             AddExtract(new Vector3(0, 0, 168), "Suburbs");
             Squad(new Vector3(-40, 0, 128), 3); Squad(new Vector3(30, 0, 132), 2); Squad(new Vector3(0, 0, 150), 2, true);
             Spawn(new Vector3(60, 0.1f, 168), 180);
+            // ---- farmland and villages around the town: 1 km x 1 km
+            Outskirts(new Rect(-90, -90, 180, 271), 500, new[] { "Highway Bridge", "Rail Depot", "County Road" }, false, false, Maps.GroundGrass, 9);
         }
 
         void Bank(Vector3 c)

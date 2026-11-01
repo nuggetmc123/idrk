@@ -16,6 +16,8 @@ namespace Rago
         public readonly List<Extraction> Extracts = new List<Extraction>();
         public readonly List<Vault> Vaults = new List<Vault>();
         public Bounds NavBounds = new Bounds(Vector3.zero, new Vector3(200, 60, 200));
+        public readonly List<Bounds> ExtraNav = new List<Bounds>();   // outskirts locations get their own small navmesh
+        public float Half;                                              // map half-size (for the field map)
         public Synth.Amb Ambience = Synth.Amb.Wind;
         public bool IsRaid = true;
         public bool Safe;
@@ -69,14 +71,25 @@ namespace Rago
                 settings.agentRadius = 0.35f;
                 settings.agentClimb = 0.4f;
                 settings.agentSlope = 42f;
+                settings.overrideVoxelSize = true; settings.voxelSize = 0.15f;   // a bit coarser: big maps bake much faster
                 var data = NavMeshBuilder.BuildNavMeshData(settings, sources, NavBounds, Vector3.zero, Quaternion.identity);
                 if (data != null) _nav = NavMesh.AddNavMeshData(data);
+                foreach (var nb in ExtraNav)
+                {
+                    var src = new List<NavMeshBuildSource>();
+                    NavMeshBuilder.CollectSources(nb, mask, NavMeshCollectGeometry.PhysicsColliders, 0, new List<NavMeshBuildMarkup>(), src);
+                    var d2 = NavMeshBuilder.BuildNavMeshData(settings, src, nb, Vector3.zero, Quaternion.identity);
+                    if (d2 != null) _extraNav.Add(NavMesh.AddNavMeshData(d2));
+                }
             }
             catch (System.Exception e) { Debug.LogWarning("[Rago] NavMesh build failed (NPCs will hold position): " + e.Message); }
         }
 
+        readonly List<NavMeshDataInstance> _extraNav = new List<NavMeshDataInstance>();
+
         protected virtual void OnDestroy()
         {
+            foreach (var n in _extraNav) if (n.valid) NavMesh.RemoveNavMeshData(n);
             if (_nav.valid) NavMesh.RemoveNavMeshData(_nav);
         }
 
@@ -172,6 +185,199 @@ namespace Rago
             // street lights + a few wrecks on the road
             for (int i = 0; i <= lots; i += 2) b.LightPole(P(i * lotW, 0, 4.2f), 6f, new Color(1f, 0.82f, 0.6f), false);
             for (int i = 0; i < lots / 2; i++) if (b.Rng.Chance(0.5f)) b.CarWreck(P(b.Rng.Range(4f, len - 4f), 0, b.Rng.Range(-2f, 2f)), yaw + b.Rng.Range(-20f, 20f), b.Rng.Pick(paint) * 0.55f);
+            return pts;
+        }
+
+        // ================================================================================== outskirts
+        /// <summary>
+        /// Turns a map into a huge one: open country out to +-half around the existing core, with roads out to
+        /// far-flung locations (farms, army camps, gas stations, warehouses, cabins, little streets), each with loot,
+        /// raiders and its own navmesh, extracts at the far ones, forest everywhere and a fenced border.
+        /// </summary>
+        protected void Outskirts(Rect core, float half, string[] extractNames, bool wooden, bool seaEast, Material ground, int pois = 8)
+        {
+            var b = B;
+            Half = half;
+            float y = -0.02f;
+            // ground around the core
+            b.Ground(new Vector3((-half + core.xMin) / 2, 0, 0), new Vector2(core.xMin + half, half * 2), ground, Synth.Surface.Grass, y);
+            if (seaEast) b.Water(new Vector3((core.xMax + half) / 2 + 30, -1.6f, 0), new Vector2(half - core.xMax + 60, half * 2));
+            else b.Ground(new Vector3((core.xMax + half) / 2, 0, 0), new Vector2(half - core.xMax, half * 2), ground, Synth.Surface.Grass, y);
+            b.Ground(new Vector3(core.center.x, 0, (-half + core.yMin) / 2), new Vector2(core.width, core.yMin + half), ground, Synth.Surface.Grass, y);
+            b.Ground(new Vector3(core.center.x, 0, (core.yMax + half) / 2), new Vector2(core.width, half - core.yMax), ground, Synth.Surface.Grass, y);
+            var roadMat = wooden ? Maps.GroundDirt : Maps.Asphalt;
+            // pick locations on a ring around the core
+            var spots = new List<Vector3>();
+            int tries = 0;
+            while (spots.Count < pois && tries++ < 400)
+            {
+                float ang = b.Rng.Range(0f, Mathf.PI * 2f);   // spacing below keeps them spread around the core
+                float r = b.Rng.Range(0.5f, 0.82f) * half;
+                var p = new Vector3(Mathf.Cos(ang) * r, 0, Mathf.Sin(ang) * r);
+                if (Mathf.Abs(p.x) > half - 45 || Mathf.Abs(p.z) > half - 45) continue;
+                if (p.x > core.xMin - 45 && p.x < core.xMax + 45 && p.z > core.yMin - 45 && p.z < core.yMax + 45) continue;
+                if (seaEast && p.x > core.xMax - 20) continue;
+                bool clash = false; foreach (var o in spots) if ((o - p).sqrMagnitude < (tries > 250 ? 80 * 80 : 120 * 120)) clash = true;
+                if (clash) continue;
+                spots.Add(p);
+            }
+            var roads = new List<(Vector3, Vector3)>();
+            int kind = b.Rng.Range(0, 6);
+            foreach (var p in spots)
+            {
+                // road from the core edge out to the location
+                var edge = new Vector3(Mathf.Clamp(p.x, core.xMin + 5, core.xMax - 5), 0, Mathf.Clamp(p.z, core.yMin + 5, core.yMax - 5));
+                Road(edge, p, roadMat); roads.Add((edge, p));
+                float yaw = Mathf.Atan2(edge.x - p.x, edge.z - p.z) * Mathf.Rad2Deg; // locations face their road
+                var pts = new List<Vector3>();
+                switch (kind++ % 6)
+                {
+                    case 0: pts = Farm(p, yaw); break;
+                    case 1: pts = ArmyCamp(p, yaw); break;
+                    case 2: pts = GasStation(p, yaw); break;
+                    case 3: pts = Warehouse(p, yaw); break;
+                    case 4: pts = Cabins(p, yaw, wooden); break;
+                    default: pts = Neighborhood(p + Quaternion.Euler(0, yaw + 90, 0) * new Vector3(-27, 0, 0), yaw + 90, 4, 13.5f, wooden); break;
+                }
+                ScatterLoot(pts, 0.85f);
+                Squad(p + new Vector3(b.Rng.Range(-8f, 8f), 0, b.Rng.Range(-8f, 8f)), b.Rng.Range(2, 4), kind % 6 == 2);
+                ExtraNav.Add(new Bounds(p + Vector3.up * 5, new Vector3(80, 30, 80)));
+            }
+            // extracts at the far ends of the farthest locations
+            var far = new List<Vector3>(spots);
+            far.Sort((a1, a2) => a2.sqrMagnitude.CompareTo(a1.sqrMagnitude));
+            for (int i = 0; i < extractNames.Length && i < far.Count; i++)
+            {
+                var dir = new Vector3(far[i].x, 0, far[i].z).normalized;
+                var e = far[i] + dir * 32f;
+                e.x = Mathf.Clamp(e.x, -half + 15, half - 15); e.z = Mathf.Clamp(e.z, -half + 15, half - 15);
+                Road(far[i], e, roadMat); roads.Add((far[i], e));
+                AddExtract(e, extractNames[i]);
+            }
+            // forest + rocks everywhere else
+            int trees = wooden ? 700 : 420;
+            for (int i = 0; i < trees; i++)
+            {
+                var t = new Vector3(b.Rng.Range(-half + 6, half - 6), 0, b.Rng.Range(-half + 6, half - 6));
+                if (t.x > core.xMin - 6 && t.x < core.xMax + 6 && t.z > core.yMin - 6 && t.z < core.yMax + 6) continue;
+                if (seaEast && t.x > core.xMax - 4) continue;
+                if (Near(t, spots, 42f) || NearRoad(t, roads, 6f)) continue;
+                b.Pine(t, b.Rng.Range(8f, 15f));
+            }
+            for (int i = 0; i < 90; i++)
+            {
+                var t = new Vector3(b.Rng.Range(-half + 6, half - 6), 0, b.Rng.Range(-half + 6, half - 6));
+                if (t.x > core.xMin - 6 && t.x < core.xMax + 6 && t.z > core.yMin - 6 && t.z < core.yMax + 6) continue;
+                if ((seaEast && t.x > core.xMax - 4) || Near(t, spots, 42f) || NearRoad(t, roads, 6f)) continue;
+                b.Rock(t, b.Rng.Range(1f, 3.5f));
+            }
+            // border: fence, plus invisible walls so nobody walks off the edge of the world
+            var corners = new[] { new Vector3(-half, 0, -half), new Vector3(half, 0, -half), new Vector3(half, 0, half), new Vector3(-half, 0, half) };
+            for (int i = 0; i < 4; i++)
+            {
+                var a1 = corners[i]; var a2 = corners[(i + 1) % 4];
+                if (!(seaEast && i == 1)) b.Fence(a1, a2, 3f);
+                var mid = (a1 + a2) / 2; var d = a2 - a1;
+                b.Collider(mid + Vector3.up * 10, new Vector3(1, 20, d.magnitude), Quaternion.LookRotation(d.normalized), Synth.Surface.Concrete);
+            }
+            // spawns along the edges
+            Spawn(new Vector3(0, 0.1f, -half + 20), 0); Spawn(new Vector3(-half + 20, 0.1f, 0), 90);
+            Spawn(new Vector3(0, 0.1f, half - 20), 180); if (!seaEast) Spawn(new Vector3(half - 20, 0.1f, 0), -90);
+        }
+
+        static bool Near(Vector3 p, List<Vector3> spots, float r) { foreach (var s in spots) if ((s - p).sqrMagnitude < r * r) return true; return false; }
+
+        static bool NearRoad(Vector3 p, List<(Vector3, Vector3)> roads, float r)
+        {
+            foreach (var (a, c) in roads)
+            {
+                var ab = c - a; float t = Mathf.Clamp01(Vector3.Dot(p - a, ab) / Mathf.Max(0.01f, ab.sqrMagnitude));
+                if ((a + ab * t - p).sqrMagnitude < r * r) return true;
+            }
+            return false;
+        }
+
+        void Road(Vector3 a, Vector3 c, Material m)
+        {
+            var d = c - a; d.y = 0; float len = d.magnitude;
+            if (len < 1) return;
+            // split long roads so each piece lands in its own world chunk
+            int pieces = Mathf.CeilToInt(len / 60f);
+            for (int i = 0; i < pieces; i++)
+            {
+                var p0 = a + d * (i / (float)pieces); var p1 = a + d * ((i + 1) / (float)pieces);
+                B.Box((p0 + p1) / 2 + Vector3.up * 0.015f, new Vector3(7, 0.02f, len / pieces + 0.2f), m, Color.white, Quaternion.LookRotation(d.normalized), false);
+            }
+        }
+
+        List<Vector3> Farm(Vector3 p, float yaw)
+        {
+            var b = B; var q = Quaternion.Euler(0, yaw, 0);
+            Vector3 P(float x, float z) => p + q * new Vector3(x, 0, z);
+            var pts = b.Building(P(-6, 4), yaw, new Vector2(16, 11), 1, Maps.WoodPlank, new Color(0.55f, 0.2f, 0.15f), Maps.WoodPlank, Maps.WoodPlank, 0, true, false, 5f);
+            pts.AddRange(b.Building(P(14, 2), yaw, new Vector2(9, 8), 2, Maps.Plaster, new Color(0.88f, 0.84f, 0.74f), Maps.WoodPlank, Maps.ConcreteDark, 0, true));
+            foreach (var x in new[] { -20f, -26f }) { b.Cyl(P(x, 6), P(x, 6) + Vector3.up * 11, 2.3f, 2.3f, 16, Maps.Metal, new Color(0.75f, 0.76f, 0.78f), true, Synth.Surface.Metal); b.Sphere(P(x, 6) + Vector3.up * 11, new Vector3(2.3f, 1.4f, 2.3f), 14, Maps.Metal, new Color(0.7f, 0.7f, 0.72f), false); }
+            for (int i = 0; i < 8; i++) b.Cyl(P(b.Rng.Range(-14f, 6f), b.Rng.Range(-14f, -8f)) + Vector3.up * 0.6f, P(b.Rng.Range(-14f, 6f), b.Rng.Range(-14f, -8f)) + Vector3.up * 0.6f + q * Vector3.right * 1.4f, 0.6f, 0.6f, 12, Maps.GroundDirt, new Color(0.85f, 0.72f, 0.35f), true, Synth.Surface.Dirt); // hay
+            var wood = Maps.WoodPlank;
+            foreach (var (a, c) in new[] { (P(-30, -20), P(26, -20)), (P(26, -20), P(26, 18)), (P(26, 18), P(-30, 18)) })
+            { var d = c - a; b.Box((a + c) / 2 + Vector3.up * 0.6f, new Vector3(0.12f, 0.12f, d.magnitude), wood, new Color(0.5f, 0.4f, 0.3f), Quaternion.LookRotation(d.normalized), false); }
+            b.CarWreck(P(4, -12), yaw + 30, new Color(0.25f, 0.4f, 0.25f));
+            AddCrate(P(-10, -4), b.Rng.Range(0f, 360f), LootCrate.Kind.Crate);
+            return pts;
+        }
+
+        List<Vector3> ArmyCamp(Vector3 p, float yaw)
+        {
+            var b = B; var q = Quaternion.Euler(0, yaw, 0);
+            Vector3 P(float x, float z) => p + q * new Vector3(x, 0, z);
+            var pts = new List<Vector3>();
+            b.Sandbags(P(-16, -16), P(-3, -16)); b.Sandbags(P(3, -16), P(16, -16)); b.Sandbags(P(16, -16), P(16, 16)); b.Sandbags(P(16, 16), P(-16, 16)); b.Sandbags(P(-16, 16), P(-16, -16));
+            var olive = new Color(0.33f, 0.36f, 0.26f);
+            b.Tent(P(-8, 6), yaw, new Vector3(5, 2.6f, 7), olive); b.Tent(P(0, 8), yaw, new Vector3(5, 2.6f, 7), olive); b.Tent(P(8, 6), yaw, new Vector3(5, 2.6f, 7), olive);
+            b.ShippingContainer(P(-10, -8), yaw + 90, new Color(0.3f, 0.35f, 0.25f), true); b.ShippingContainer(P(10, -6), yaw, new Color(0.35f, 0.3f, 0.22f));
+            b.Watchtower(P(14, 14), 5f);
+            b.JerseyBarrier(P(-1.5f, -19), yaw); b.JerseyBarrier(P(1.5f, -21), yaw + 20);
+            AddCrate(P(-8, 6), 0, LootCrate.Kind.WeaponCase); AddCrate(P(0, 8), 0, LootCrate.Kind.ArmorCase); AddCrate(P(8, 6), 0, LootCrate.Kind.Medical);
+            AddCrate(P(-10, -8), yaw, LootCrate.Kind.Crate); AddCrate(P(4, -4), 30, LootCrate.Kind.Optics);
+            return pts;
+        }
+
+        List<Vector3> GasStation(Vector3 p, float yaw)
+        {
+            var b = B; var q = Quaternion.Euler(0, yaw, 0);
+            Vector3 P(float x, float z) => p + q * new Vector3(x, 0, z);
+            b.Box(P(0, -6) + Vector3.up * 0.02f, new Vector3(30, 0.03f, 20), Maps.Asphalt, Color.white, q, false);
+            b.Box(P(-4, -8) + Vector3.up * 5, new Vector3(14, 0.4f, 9), Maps.Metal, new Color(0.85f, 0.85f, 0.85f), q, true, Synth.Surface.Metal);
+            foreach (var o in new[] { new Vector3(-10, 0, -11.5f), new Vector3(2, 0, -11.5f), new Vector3(-10, 0, -4.5f), new Vector3(2, 0, -4.5f) }) b.Box(p + q * o + Vector3.up * 2.5f, new Vector3(0.4f, 5, 0.4f), Maps.Metal, new Color(0.8f, 0.2f, 0.15f), q, true, Synth.Surface.Metal);
+            for (int i = 0; i < 2; i++) b.Box(P(-7 + i * 6, -8) + Vector3.up * 0.8f, new Vector3(0.8f, 1.6f, 0.5f), Maps.Metal, new Color(0.85f, 0.2f, 0.15f), q, true, Synth.Surface.Metal);
+            var pts = b.Building(P(6, 6), yaw, new Vector2(12, 8), 1, Maps.Plaster, new Color(0.9f, 0.88f, 0.8f), Maps.Tiles, Maps.ConcreteDark, 0, true);
+            b.CarWreck(P(-4, -14), yaw + 80, new Color(0.5f, 0.12f, 0.1f));
+            AddCrate(P(9, 6), 0, LootCrate.Kind.Medical);
+            return pts;
+        }
+
+        List<Vector3> Warehouse(Vector3 p, float yaw)
+        {
+            var b = B; var q = Quaternion.Euler(0, yaw, 0);
+            Vector3 P(float x, float z) => p + q * new Vector3(x, 0, z);
+            var pts = b.Building(P(0, 4), yaw, new Vector2(24, 16), 1, Maps.Corrugated, new Color(0.55f, 0.6f, 0.62f), Maps.ConcreteDark, Maps.Metal, 0, false, false, 6f);
+            for (int i = 0; i < 3; i++) b.Shelf(P(-8 + i * 8, 8), yaw, 4f);
+            b.ShippingContainer(P(-16, -10), yaw + 90, new Color(0.5f, 0.15f, 0.12f)); b.ShippingContainer(P(16, -8), yaw, new Color(0.15f, 0.3f, 0.5f), true);
+            b.ShippingContainer(P(16, -8) + Vector3.up * 2.6f, yaw + 3, new Color(0.2f, 0.4f, 0.25f));
+            AddCrate(P(-6, 0), 0, LootCrate.Kind.WeaponCase); AddCrate(P(16, -8), yaw, LootCrate.Kind.Crate);
+            return pts;
+        }
+
+        List<Vector3> Cabins(Vector3 p, float yaw, bool wooden)
+        {
+            var b = B; var pts = new List<Vector3>();
+            for (int i = 0; i < 4; i++)
+            {
+                var o = p + Quaternion.Euler(0, yaw + i * 90 + b.Rng.Range(-20f, 20f), 0) * new Vector3(0, 0, 12);
+                pts.AddRange(b.Building(o, yaw + i * 90 + 180, new Vector2(7, 6), 1, Maps.WoodPlank, new Color(0.6f, 0.47f, 0.35f) * b.Rng.Range(0.85f, 1.1f), Maps.WoodPlank, Maps.WoodPlank, 0, true));
+            }
+            b.Cyl(p, p + Vector3.up * 0.4f, 1.2f, 1.2f, 14, Maps.Concrete, new Color(0.5f, 0.5f, 0.5f), true); // fire pit
+            AddCrate(p + new Vector3(2, 0, 2), 0, LootCrate.Kind.Duffel);
             return pts;
         }
 

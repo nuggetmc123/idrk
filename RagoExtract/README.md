@@ -98,9 +98,13 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   - **Pinewood Outpost**: forest, military outpost, bunker vault, and the **North Hamlet** of wooden houses past the forest.
   - **Old Town**: streets, apartments, bank vault, and the **Suburbs** at the north end of the main street.
 
+  **Every map is huge: 1 km x 1 km.** Around each town there's open country with roads out to far-off locations: farms (barn, farmhouse, silos), army camps (tents, sandbags, a watchtower, weapon/armor cases), gas stations, warehouses, cabin clusters and little streets. Each has loot, raiders and its own extract; there are 6-7 extracts per map. A border fence surrounds it all.
+
+  **Field map:** press the **LEFT MENU** button (VR) or **M** (desktop). It's a real top-down photo of the map taken when the raid starts, printed on paper, with every extract circled in green and a red arrow showing where you are and which way you're facing. In VR it floats just above your left hand, turned toward your eyes.
+
   The village, hamlet and suburbs are streets of houses you can walk into and search room by room (stairs, furniture, loot crates inside), and each has its own extract.
 
-  Each raid lasts 25 minutes. To leave, reach an extract (green smoke), step into the zone and use the **laptop** on the supply crate (grab it, click its CALL key, or press F on desktop). A **10-second** countdown runs on the laptop and your HUD. Stay in the zone until it hits zero; leaving the zone cancels the call. If you die, you lose what you brought and your body drops it for others to loot.
+  Each raid lasts 40 minutes. To leave, reach an extract (green smoke), step into the zone and use the **laptop** on the supply crate (grab it, click its CALL key, or press F on desktop). A **10-second** countdown runs on the laptop and your HUD. Stay in the zone until it hits zero; leaving the zone cancels the call. If you die, you lose what you brought and your body drops it for others to loot.
 - **Raiders**: squad NPCs that patrol, hear gunshots and footsteps, notice you over time, take cover, peek, fire bursts with human-like aim, flinch when hit, ragdoll on death and drop their gun and loot.
 - **Guns**: 50 original guns (pistols, revolvers, SMGs, shotguns, rifles, DMRs, snipers, LMGs) in 5 rarity tiers.
   - Common ones turn up everywhere and Rare/Epic ones are hard to find.
@@ -113,6 +117,8 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | | |
 |---|---|
 | Left stick | Move. Click to sprint (uses stamina) |
+| A / X (on a hand without a gun) | Jump. With a gun in your right hand, use X. On the gun's hand, A/X still drops the mag |
+| Left MENU button | Open / close the field map (in raids) |
 | Right stick | Snap or smooth turn. Click to crouch toggle (real crouching also works) |
 | Grip | Grab, two-hand a gun (grab the handguard), pull a slide or charging handle |
 | Trigger | Fire. Point at buttons and pull the trigger to click |
@@ -126,7 +132,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Med near chest + trigger | Heal (bandage stops bleeding, medkit heals over time, stim gives instant HP + stamina) |
 
 ### Desktop controls (no headset)
-WASD move · mouse look · Shift sprint · C crouch · E grab what you look at / drop · LMB fire / click · RMB aim · R reload · F rack / open / interact (hold F on a vault hack panel) · X drop mag · 1/2/3 primary / secondary / pistol · Tab backpack · G drop (into the open backpack; rifles go on its side straps) · H wear held armor / take armor off
+WASD move · mouse look · Shift sprint · Space jump · M field map · C crouch · E grab what you look at / drop · LMB fire / click · RMB aim · R reload · F rack / open / interact (hold F on a vault hack panel) · X drop mag · 1/2/3 primary / secondary / pistol · Tab backpack · G drop (into the open backpack; rifles go on its side straps) · H wear held armor / take armor off
 
 ## Code layout
 ```
