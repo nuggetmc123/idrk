@@ -133,8 +133,33 @@ namespace Rago
         }
 
         // ------------------------------------------------------------------------------------------ travel
-        public void GoTo(Area a) { if (!_travelling) StartCoroutine(Travel(a, null)); }
-        public void StartRaid(RaidStart rs) { if (!_travelling) StartCoroutine(Travel(Area.Raid, rs)); }
+        public void GoTo(Area a) { if (!_travelling) StartCoroutine(Safe(Travel(a, null))); }
+        public void StartRaid(RaidStart rs) { if (!_travelling) StartCoroutine(Safe(Travel(Area.Raid, rs))); }
+
+        /// <summary>Runs a travel step by step; if any step throws, the screen fades back in instead of staying black.</summary>
+        IEnumerator Safe(IEnumerator inner)
+        {
+            while (true)
+            {
+                object cur;
+                try { if (!inner.MoveNext()) yield break; cur = inner.Current; }
+                catch (System.Exception e)
+                {
+                    Debug.LogError("[Rago Extract] loading failed: " + e);
+                    _travelling = false;
+                    if (Player != null)
+                    {
+                        Player.Frozen = false;
+                        Player.Hud.Center("", 0.01f);
+                        Player.Hud.Queue("");
+                        Player.Hud.FadeTo(0f);
+                        Player.Toast("Loading hit an error: " + e.GetType().Name + " - " + e.Message);
+                    }
+                    yield break;
+                }
+                yield return cur;
+            }
+        }
 
         IEnumerator Travel(Area to, RaidStart rs)
         {
@@ -155,8 +180,6 @@ namespace Rago
             Kiosk.AnyQueued = false;
             if (MapRoot != null) { Fx.ClearMapEffects(); Destroy(MapRoot.gameObject); }
             yield return null;
-            // free the old map's meshes, materials and textures before building the next one
-            yield return Resources.UnloadUnusedAssets();
             System.GC.Collect();
             // build the new one
             MapRoot = new GameObject("World").transform;
@@ -176,7 +199,7 @@ namespace Rago
                 Player.Cam.layerCullDistances = cull;
                 Player.Cam.layerCullSpherical = true;
             }
-            Sfx.SetAmbience(Synth.Ambience(Map.Ambience), to == Area.Bunker ? 0.25f : 0.4f);
+            Sfx.SetAmbience(Synth.Ambience(Map.Ambience), to == Area.Bunker || to == Area.Welcome ? 0.06f : 0.12f);   // quiet background air / wind
             yield return null;
             if (to == Area.Raid)
             {

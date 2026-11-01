@@ -92,7 +92,8 @@ namespace Rago
                 AsyncOperation op = null;
                 try { op = NavMeshBuilder.UpdateNavMeshDataAsync(data, settings, src, bounds); }
                 catch (System.Exception e) { Debug.LogWarning("[Rago] NavMesh part failed: " + e.Message); continue; }
-                while (op != null && !op.isDone) yield return null;
+                float waited = 0;
+                while (op != null && !op.isDone && waited < 15f) { waited += Time.unscaledDeltaTime; yield return null; }   // never hold the loading screen forever
                 if (this == null) yield break;   // left the map while baking
                 var inst = NavMesh.AddNavMeshData(data);
                 if (i == 0) _nav = inst; else _extraNav.Add(inst);
