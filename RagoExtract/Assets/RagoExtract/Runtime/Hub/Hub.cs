@@ -580,6 +580,68 @@ namespace Rago
         }
     }
 
+    /// <summary>A glowing circle in front of a lift door: stand in it for a moment and you travel. Works in VR and on desktop.</summary>
+    public class TravelZone : MonoBehaviour
+    {
+        const float Radius = 1.0f, Hold = 1.5f;
+        System.Action _go;
+        string _dest;
+        float _t;
+        bool _armed, _done;
+        Transform _ring;
+        TextMesh _txt;
+        float _age; bool _hinted; static int _hints;
+
+        public static TravelZone Create(Transform parent, Vector3 pos, Quaternion rot, string dest, System.Action go)
+        {
+            var g = new GameObject("TravelZone_" + dest);
+            g.transform.SetParent(parent, false);
+            g.transform.localPosition = pos; g.transform.localRotation = rot;
+            var z = g.AddComponent<TravelZone>();
+            z._go = go; z._dest = dest;
+            var mb = new MB();
+            mb.Sector(new Vector3(0, 0.015f, 0), Quaternion.Euler(90, 0, 0), Radius, 0, 360, 40, Color.white);
+            mb.Build("Disc", g.transform, Mats.Unlit("travel_disc", new Color(1f, 0.75f, 0.15f, 0.25f), null, Mats.BlendKind.Alpha));
+            z._ring = new GameObject("Ring").transform; z._ring.SetParent(g.transform, false);
+            var ring = new MB();
+            for (int i = 0; i < 24; i++) { float a = i / 24f * 360f; ring.Box(Quaternion.Euler(0, a, 0) * new Vector3(0, 0.02f, Radius), new Vector3(0.14f, 0.01f, 0.05f), Color.white, 0f, 0, Quaternion.Euler(0, a, 0)); }
+            ring.Build("Ring", z._ring, Mats.Unlit("travel_ring", new Color(1f, 0.8f, 0.2f, 0.9f), Mats.Glow, Mats.BlendKind.Additive));
+            var lbl = new GameObject("Label").transform; lbl.SetParent(g.transform, false); lbl.localPosition = new Vector3(0, 2.2f, 0.9f);
+            z._txt = UI.Text(lbl, "", Vector3.zero, 0.07f, new Color(1f, 0.8f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            var light = new GameObject("Glow").AddComponent<Light>(); light.transform.SetParent(g.transform, false); light.transform.localPosition = Vector3.up * 0.6f;
+            light.type = LightType.Point; light.color = new Color(1f, 0.75f, 0.3f); light.range = 3f; light.intensity = 0.8f;
+            return z;
+        }
+
+        void Update()
+        {
+            var p = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (p == null || _done) return;
+            Vector3 d = p.transform.position - transform.position; d.y = 0;
+            bool inside = d.magnitude < Radius && Mathf.Abs(p.transform.position.y - transform.position.y) < 1.5f;
+            if (!inside) _armed = true;                    // you have to step in, not just arrive standing in it
+            _t = inside && _armed && !p.Dead ? _t + Time.deltaTime : 0f;
+            _ring.localRotation = Quaternion.Euler(0, Time.time * (inside ? 120f : 25f), 0);
+            float pulse = 1f + Mathf.Sin(Time.time * 3f) * 0.04f;
+            _ring.localScale = new Vector3(pulse, 1, pulse);
+            if (_txt != null)
+            {
+                _txt.text = _t > 0 ? "GOING TO " + _dest.ToUpper() + "  " + Mathf.CeilToInt(Hold - _t) : "LIFT: " + _dest.ToUpper() + "\n<color=#cccccc>step into the circle</color>";
+                var cam = p.Head;
+                _txt.transform.rotation = Quaternion.LookRotation(_txt.transform.position - cam.position);
+            }
+            if (_t > 0 && Time.frameCount % 20 == 0) p.Toast("Going to the " + _dest + "...");
+            if (_t >= Hold) { _done = true; Sfx.UI(Synth.UiClick(), 0.5f); _go?.Invoke(); }
+            // the first few times you're in a hub, point out the lift
+            _age += Time.deltaTime;
+            if (!_hinted && _age > 2.5f && _hints < 3)
+            {
+                _hinted = true; _hints++;
+                p.Toast("To go to the " + _dest + ": walk into the glowing yellow circle by the lift door");
+            }
+        }
+    }
+
     public static class HubProps
     {
         public static void TravelDoor(WorldBuilder b, Transform parent, Vector3 pos, float yaw, string label, System.Action go)
@@ -593,6 +655,8 @@ namespace Rago
             root.SetParent(parent, false);
             root.SetPositionAndRotation(pos + q * new Vector3(1.6f, 1.3f, -0.1f), q);
             UI.Button(root, label, Vector3.zero, new Vector2(0.6f, 0.2f), go, new Color(0.15f, 0.3f, 0.5f));
+            // walk-in lift zone in front of the door: stand in the yellow circle to travel
+            TravelZone.Create(parent, pos + q * new Vector3(0, 0, -1.3f), q, label.Replace(">", "").Replace("<", "").Trim(), go);
         }
 
         public static void SteelTarget(Transform parent, Vector3 pos, float size)

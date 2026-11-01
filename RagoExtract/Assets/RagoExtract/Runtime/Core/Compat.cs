@@ -9,6 +9,14 @@ namespace Rago
     /// </summary>
     public static class Compat
     {
+        /// <summary>Unit-length rotation (identity if it's zero / NaN), safe for Rigidbody.MoveRotation.</summary>
+        public static Quaternion SafeRot(Quaternion q)
+        {
+            float m = Mathf.Sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+            if (m < 1e-5f || float.IsNaN(m) || float.IsInfinity(m)) return Quaternion.identity;
+            return new Quaternion(q.x / m, q.y / m, q.z / m, q.w / m);
+        }
+
         public static Vector3 Vel(this Rigidbody rb)
         {
 #if UNITY_6000_0_OR_NEWER

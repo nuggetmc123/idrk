@@ -134,7 +134,7 @@ namespace Rago
         {
             Input = input;
             TrackedPosition = targetPos;
-            TrackedRotation = targetRot;
+            TrackedRotation = Compat.SafeRot(targetRot);
             Anchor.localRotation = Quaternion.Euler(GripPitch, 0, 0);
 
             if (rig.Dead) { if (Held != null) ForceRelease(); return; }
@@ -170,7 +170,7 @@ namespace Rago
             if (rig == null) return;
             float dt = Time.fixedDeltaTime;
             Vector3 tp = TrackedPosition;
-            Quaternion tr = TrackedRotation;
+            Quaternion tr = Compat.SafeRot(TrackedRotation);
             // weight: heavy long guns held one-handed sag and lag (ragdoll feel)
             var held = Held != null && !HeldAsSecondary ? Held : null;
             float heavy = 0f;
@@ -178,7 +178,7 @@ namespace Rago
             _sag = Vector3.Lerp(_sag, Vector3.down * heavy * 0.06f, dt * 6f);
             tp += _sag;
             tp += tr * _recoilPos * 0.04f;
-            tr = tr * Quaternion.Euler(_recoilRot * 0.05f);
+            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot * 0.05f));
 
             if (!XRInputs.VR || rig.Dead)
             {
@@ -209,8 +209,8 @@ namespace Rago
             if (held != null && held.Held && held.primaryHand == this)
             {
                 held.GetHeldPose(out var p, out var r);
-                held.rb.MovePosition(p);
-                held.rb.MoveRotation(r);
+                if (!float.IsNaN(p.x)) held.rb.MovePosition(p);
+                held.rb.MoveRotation(Compat.SafeRot(r));
             }
         }
 
