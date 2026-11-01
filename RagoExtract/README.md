@@ -20,7 +20,7 @@ Three buttons:
 
 | Button | What it does |
 |---|---|
-| **Set Up VR** | Imports XR Plug-in Management + OpenXR and switches on OpenXR for Quest (Android) and PC VR, with Meta Quest support and the Touch controller profiles |
+| **Set Up VR** | Switches on OpenXR for Quest (Android) and PC VR, with Meta Quest support and the Touch controller profiles. XR Plug-in Management and OpenXR are already in the project's package list, so Unity downloads them once while the project first opens and this button takes seconds |
 | **Multiplayer** | Opens the Photon setup window: 1) get a free Photon App ID, 2) paste it, 3) import Photon Fusion 2, then **Finish setup now** |
 | **Build APK** | Switches to Android and builds `Builds/RagoExtract.apk` (asks to set up VR first if you haven't) |
 

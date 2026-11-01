@@ -213,7 +213,14 @@ namespace Rago.Net
             try { _runner.SendReliableDataToPlayer(p, GameKey, packet); } catch (Exception e) { Debug.LogWarning("[Rago] send failed: " + e.Message); }
         }
 
-        public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data)
+        // Fusion 2.0.x (current) passes the bytes as ReadOnlySpan<byte>; older 2.0 builds used ArraySegment<byte>.
+        public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> span)
+        {
+            var arr = span.ToArray();
+            HandleReliable(player, new ArraySegment<byte>(arr));
+        }
+
+        void HandleReliable(PlayerRef player, ArraySegment<byte> data)
         {
             if (data.Array == null || data.Count < 1) return;
             byte channel = data.Array[data.Offset];
