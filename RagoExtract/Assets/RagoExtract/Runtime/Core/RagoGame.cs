@@ -81,12 +81,12 @@ namespace Rago
             DisableSceneCameras();
             Application.targetFrameRate = 90;
             QualitySettings.vSyncCount = 0;
-            ConfigureFramePacing();
             QualitySettings.shadowDistance = 35f;
             QualitySettings.shadowCascades = 1;
             QualitySettings.pixelLightCount = 3;
             QualitySettings.antiAliasing = 4;
             QualitySettings.lodBias = 1.5f;
+            ConfigureFramePacing();   // after the defaults, so the lighter Quest settings aren't overwritten
             if (!XRInputs.VR) Time.fixedDeltaTime = 1f / 72f;
             Physics.defaultSolverIterations = 10;
             Physics.defaultSolverVelocityIterations = 4;
@@ -155,6 +155,9 @@ namespace Rago
             Kiosk.AnyQueued = false;
             if (MapRoot != null) { Fx.ClearMapEffects(); Destroy(MapRoot.gameObject); }
             yield return null;
+            // free the old map's meshes, materials and textures before building the next one
+            yield return Resources.UnloadUnusedAssets();
+            System.GC.Collect();
             // build the new one
             MapRoot = new GameObject("World").transform;
             Area = to;
@@ -162,12 +165,22 @@ namespace Rago
             int seed = to == Area.Raid ? rs.seed : 1234;
             Map = Maps.Create(id, MapRoot, seed);
             SafeZone = Map.Safe;
-            if (Player.Cam != null) Player.Cam.farClipPlane = to == Area.Raid ? 650f : 900f; // huge raid maps: fog hides the far edge
+            if (Player.Cam != null)
+            {
+                // raids: don't draw what the fog has already hidden (past ~2.2/density the fog is over 99% thick)
+                float far = to == Area.Raid ? 650f : 900f;
+                if (to == Area.Raid && RenderSettings.fog && RenderSettings.fogDensity > 0) far = Mathf.Clamp(2.2f / RenderSettings.fogDensity, 160f, 650f);
+                Player.Cam.farClipPlane = far;
+                var cull = new float[32];
+                if (Layers.Items > 0) cull[Layers.Items] = 70f;   // small loose items vanish past 70 m
+                Player.Cam.layerCullDistances = cull;
+                Player.Cam.layerCullSpherical = true;
+            }
             Sfx.SetAmbience(Synth.Ambience(Map.Ambience), to == Area.Bunker ? 0.25f : 0.4f);
             yield return null;
             if (to == Area.Raid)
             {
-                Map.BakeNavMesh();
+                yield return Map.BakeNavMeshAsync();
                 RaidManager.Begin(this, Map, rs);
             }
             else
@@ -199,6 +212,15 @@ namespace Rago
                 });
             }
             if (to == Area.Bunker && LastResult != null) { ResultsBoard.Show(MapRoot, LastResult); LastResult = null; }
+            // still black: look all the way round once so every shader the new area uses is compiled now, not as
+            // stutters when you first turn your head; then wait for the frame rate to settle before fading in
+            float spawnYaw = Player.LastTeleportYaw; Vector3 spawnPos = Player.LastTeleportPos;
+            for (int k = 1; k <= 4; k++) { Player.Teleport(spawnPos, spawnYaw + k * 90f); yield return null; yield return null; }   // the last turn (360) puts you back facing the right way
+            System.GC.Collect();
+            yield return null;
+            float budget = XRInputs.VR ? 1.6f / Mathf.Max(60f, 1f / Mathf.Max(0.001f, Time.fixedDeltaTime)) : 1f / 30f;
+            int smooth = 0; float waited = 0;
+            while (smooth < 20 && waited < 4f) { waited += Time.unscaledDeltaTime; smooth = Time.unscaledDeltaTime < budget ? smooth + 1 : 0; yield return null; }
             if (to != Area.Raid) Player.Hud.Center("", 0.01f);
             Player.Hud.Queue("");
             Player.Frozen = false;

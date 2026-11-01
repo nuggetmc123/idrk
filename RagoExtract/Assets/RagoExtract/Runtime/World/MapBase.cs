@@ -59,30 +59,44 @@ namespace Rago
             DynamicGI.UpdateEnvironment();
         }
 
-        public void BakeNavMesh()
+        /// <summary>
+        /// Bakes the raiders' navmesh over many frames (the main area plus each outskirts location), so the game - and
+        /// the headset - keeps running while it builds instead of freezing for seconds.
+        /// </summary>
+        public System.Collections.IEnumerator BakeNavMeshAsync()
         {
+            var jobs = new List<(Bounds, List<NavMeshBuildSource>)>();
+            NavMeshBuildSettings settings;
             try
             {
-                var sources = new List<NavMeshBuildSource>();
                 int mask = ~0;
                 foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) mask &= ~(1 << l);
-                NavMeshBuilder.CollectSources(NavBounds, mask, NavMeshCollectGeometry.PhysicsColliders, 0, new List<NavMeshBuildMarkup>(), sources);
-                var settings = NavMesh.GetSettingsByID(0);
+                settings = NavMesh.GetSettingsByID(0);
                 settings.agentRadius = 0.35f;
                 settings.agentClimb = 0.4f;
                 settings.agentSlope = 42f;
                 settings.overrideVoxelSize = true; settings.voxelSize = 0.15f;   // a bit coarser: big maps bake much faster
-                var data = NavMeshBuilder.BuildNavMeshData(settings, sources, NavBounds, Vector3.zero, Quaternion.identity);
-                if (data != null) _nav = NavMesh.AddNavMeshData(data);
-                foreach (var nb in ExtraNav)
+                var all = new List<Bounds> { NavBounds }; all.AddRange(ExtraNav);
+                foreach (var nb in all)
                 {
                     var src = new List<NavMeshBuildSource>();
                     NavMeshBuilder.CollectSources(nb, mask, NavMeshCollectGeometry.PhysicsColliders, 0, new List<NavMeshBuildMarkup>(), src);
-                    var d2 = NavMeshBuilder.BuildNavMeshData(settings, src, nb, Vector3.zero, Quaternion.identity);
-                    if (d2 != null) _extraNav.Add(NavMesh.AddNavMeshData(d2));
+                    jobs.Add((nb, src));
                 }
             }
-            catch (System.Exception e) { Debug.LogWarning("[Rago] NavMesh build failed (NPCs will hold position): " + e.Message); }
+            catch (System.Exception e) { Debug.LogWarning("[Rago] NavMesh build failed (NPCs will hold position): " + e.Message); yield break; }
+            for (int i = 0; i < jobs.Count; i++)
+            {
+                var (bounds, src) = jobs[i];
+                var data = new NavMeshData();
+                AsyncOperation op = null;
+                try { op = NavMeshBuilder.UpdateNavMeshDataAsync(data, settings, src, bounds); }
+                catch (System.Exception e) { Debug.LogWarning("[Rago] NavMesh part failed: " + e.Message); continue; }
+                while (op != null && !op.isDone) yield return null;
+                if (this == null) yield break;   // left the map while baking
+                var inst = NavMesh.AddNavMeshData(data);
+                if (i == 0) _nav = inst; else _extraNav.Add(inst);
+            }
         }
 
         readonly List<NavMeshDataInstance> _extraNav = new List<NavMeshDataInstance>();

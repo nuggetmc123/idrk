@@ -96,8 +96,11 @@ namespace Rago
             Head.localRotation = XRInputs.HeadRot;
         }
 
+        public Vector3 LastTeleportPos; public float LastTeleportYaw;
+
         public void Teleport(Vector3 pos, float yaw)
         {
+            LastTeleportPos = pos; LastTeleportYaw = yaw;
             Cc.enabled = false;
             transform.position = pos;
             transform.rotation = Quaternion.Euler(0, yaw, 0);

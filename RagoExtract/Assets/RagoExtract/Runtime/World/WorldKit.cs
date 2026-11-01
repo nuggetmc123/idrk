@@ -287,7 +287,7 @@ namespace Rago
                     float t = (i + 0.5f) / n * len + off;
                     if (t > len) continue;
                     Vector3 c = a + dir * t + Vector3.up * (0.12f + r * 0.2f);
-                    Box(c, new Vector3(0.45f, 0.2f, 0.56f), m, new Color(0.62f, 0.56f, 0.42f) * Rng.Range(0.85f, 1.05f), q * Quaternion.Euler(0, Rng.Range(-4f, 4f), 0), false, Synth.Surface.Dirt, 0.07f);
+                    Box(c, new Vector3(0.45f, 0.2f, 0.56f), m, new Color(0.62f, 0.56f, 0.42f) * Rng.Range(0.85f, 1.05f), q * Quaternion.Euler(0, Rng.Range(-4f, 4f), 0), false, Synth.Surface.Dirt);   // plain boxes: thousands of bags, so no bevels
                 }
             Collider(a + d * 0.5f + Vector3.up * rows * 0.1f, new Vector3(0.5f, rows * 0.2f + 0.05f, len), q, Synth.Surface.Dirt);
         }
