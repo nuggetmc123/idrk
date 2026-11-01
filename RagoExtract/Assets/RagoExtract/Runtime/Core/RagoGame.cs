@@ -19,7 +19,7 @@ namespace Rago
         public Area Area;
         public bool SafeZone;
         public RaidResult LastResult;
-        bool _travelling;
+        bool _travelling; float _travelStart;
         public bool ElevatorArrival;   // set by a lift: the next arrival starts inside the destination lift
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -66,6 +66,7 @@ namespace Rago
             }
             catch { }
             Time.fixedDeltaTime = 1f / Mathf.Clamp(hz, 60f, 120f);
+            Time.maximumDeltaTime = 1f / 20f;   // after a slow frame, never run a pile of catch-up physics steps (that snowballs into stutter)
             if (Application.platform == RuntimePlatform.Android)
             {
                 QualitySettings.shadows = ShadowQuality.HardOnly;
@@ -146,24 +147,37 @@ namespace Rago
                 catch (System.Exception e)
                 {
                     Debug.LogError("[Rago Extract] loading failed: " + e);
-                    _travelling = false;
-                    if (Player != null)
-                    {
-                        Player.Frozen = false;
-                        Player.Hud.Center("", 0.01f);
-                        Player.Hud.Queue("");
-                        Player.Hud.FadeTo(0f);
-                        Player.Toast("Loading hit an error: " + e.GetType().Name + " - " + e.Message);
-                    }
+                    RecoverFromLoading("Loading hit an error: " + e.GetType().Name + " - " + e.Message);
                     yield break;
                 }
+                if (_travelling == false && _recovered) yield break;   // the watchdog already gave up on this load
                 yield return cur;
             }
         }
 
+        bool _recovered;
+
+        /// <summary>Never leave the player on a black screen: unfreeze, fade back in and say what happened.</summary>
+        void RecoverFromLoading(string why)
+        {
+            _travelling = false; _recovered = true;
+            if (Player == null) return;
+            Player.Frozen = false;
+            Player.Hud.Center("", 0.01f);
+            Player.Hud.Queue("");
+            Player.Hud.FadeTo(0f);
+            Player.Toast(why);
+        }
+
+        void Update()
+        {
+            // watchdog: no load may keep the screen black for more than a minute
+            if (_travelling && Time.unscaledTime - _travelStart > 60f) { Debug.LogError("[Rago Extract] loading took over 60 s - fading back in"); RecoverFromLoading("Loading took too long"); }
+        }
+
         IEnumerator Travel(Area to, RaidStart rs)
         {
-            _travelling = true;
+            _travelling = true; _recovered = false; _travelStart = Time.unscaledTime;
             RemoveEditorPreview();
             ConfigureFramePacing();   // the headset may have come up after boot
             Player.Hud.FadeTo(1f);
@@ -188,6 +202,10 @@ namespace Rago
             int seed = to == Area.Raid ? rs.seed : 1234;
             Map = Maps.Create(id, MapRoot, seed);
             SafeZone = Map.Safe;
+            // raids: the world is merged into big 100 m chunks, so a per-pixel lamp would redraw a whole chunk. Lamps are
+            // cheap vertex lights there, and on Quest the sun casts no shadows in raids (hubs keep both).
+            if (to == Area.Raid) foreach (var l in MapRoot.GetComponentsInChildren<Light>(true)) if (l.type != LightType.Directional) l.renderMode = LightRenderMode.ForceVertex;
+            if (Application.platform == RuntimePlatform.Android) QualitySettings.shadows = to == Area.Raid ? ShadowQuality.Disable : ShadowQuality.HardOnly;
             if (Player.Cam != null)
             {
                 // raids: don't draw what the fog has already hidden (past ~2.2/density the fog is over 99% thick)

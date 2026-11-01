@@ -233,6 +233,7 @@ namespace Rago.EditorTools
             Try(() => { PlayerSettings.companyName = "Rago"; PlayerSettings.productName = "Rago Extract"; });
             Try(() => PlayerSettings.colorSpace = ColorSpace.Linear);
             Try(() => PlayerSettings.runInBackground = true);
+            Try(() => PlayerSettings.gcIncremental = true);   // garbage collection spread over frames: no GC hitches in VR
             Try(() => PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft);
             Try(() => PlayerSettings.Android.minSdkVersion = (AndroidSdkVersions)29);
             Try(() => PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto);

@@ -266,6 +266,7 @@ namespace Rago
             var cam = _p.Head;
             var quad = new MB().Quad(new Vector3(-1, -1, 0), new Vector3(1, -1, 0), new Vector3(1, 1, 0), new Vector3(-1, 1, 0), Color.white, Vector2.one).ToMesh("hudquad");
             _fade = Overlay(cam, quad, 0.08f, "hud_fade", new Color(0, 0, 0, 1), null, out _fadeM, 100);
+            _fade.transform.localScale = Vector3.one * 0.08f * 8f;   // the black covers far past the edge of any headset's view (about +-84 degrees)
             _damage = Overlay(cam, quad, 0.09f, "hud_dmg", new Color(0.6f, 0, 0, 0), Mats.Vignette, out _damageM, 90);
             _supp = Overlay(cam, quad, 0.095f, "hud_sup", new Color(0, 0, 0, 0), Mats.Vignette, out _suppM, 80);
             _toast = UI.Text(cam, "", new Vector3(0, -0.12f, 0.6f), 0.02f, Color.white);
