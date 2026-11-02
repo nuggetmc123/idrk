@@ -101,7 +101,7 @@ namespace Rago
             var office = b.Building(new Vector3(-20, 0, -55), 0, new Vector2(14, 10), 3, Maps.Plaster, new Color(0.75f, 0.72f, 0.62f), Maps.Tiles, Maps.Concrete, 3, true, true, 3.2f, 2);
             interior.AddRange(office);
             b.Sign(new Vector3(-20, 9.2f, -60.2f), Quaternion.identity, "HARBOR OFFICE", new Color(0.9f, 0.85f, 0.7f), 0.5f);
-            AddVault(new Vector3(-20, 0, -50f), 0);   // its door is the doorway in the office's back wall
+            AddVault(new Vector3(-20, 0, -50f), 0, true);   // its door is the doorway in the office's back wall
             // fences + barriers + props
             // scattered props: only where they fit (not inside the warehouses, the office, the vault or the container stacks)
             for (int i = 0; i < 14; i++) { float yw = b.Rng.Range(0, 180f); if (b.Spot(() => new Vector3(b.Rng.Range(-75f, 60f), 0, b.Rng.Range(-80f, 80f)), new Vector3(0.8f, 0.9f, 3.1f), yw, out var sp)) b.JerseyBarrier(sp, yw); }
@@ -262,7 +262,7 @@ namespace Rago
             // command bunker with vault
             var cb = b.Building(o + new Vector3(0, 0, 9), 0, new Vector2(12.5f, 8), 1, Maps.ConcreteDark, new Color(0.62f, 0.64f, 0.6f), Maps.Concrete, Maps.ConcreteDark, 0, false, false, 3.2f, 2);
             pts.AddRange(cb);
-            AddVault(o + new Vector3(0, 0, 13f), 0);   // its door is the doorway in the bunker's back wall
+            AddVault(o + new Vector3(0, 0, 13f), 0, true);   // its door is the doorway in the bunker's back wall
             // supply crates around the yard, only where they fit (not in the bunker, the vault, the tents or the towers)
             for (int i = 0; i < 8; i++) { float yw = b.Rng.Range(0, 90f); if (b.Spot(() => o + new Vector3(b.Rng.Range(-20f, 20f), 0, b.Rng.Range(-18f, 18f)), new Vector3(1.25f, 0.9f, 1.25f), yw, out var sp)) b.Crate(sp, yw, new Vector3(1.2f, 0.9f, 1.2f)); }
             // cabins
@@ -404,7 +404,8 @@ namespace Rago
             foreach (var x in new[] { -6f, -2f, 2f, 6f }) b.Cyl(c + new Vector3(x, 0.16f, -9.6f), c + new Vector3(x, 6.4f, -9.6f), 0.35f, 0.32f, 14, Maps.Plaster, new Color(0.9f, 0.88f, 0.82f));
             b.Table(c + new Vector3(-4, 0.16f, -4), 0, new Vector2(6, 0.8f), 1.1f);
             // the vault fills the back of the hall: its back wall sits just inside the bank's back wall (inner face z = +4.875)
-            AddVault(c + new Vector3(0, 0.16f, 4.875f - 5.2f - 0.02f), 0);
+            // brick like the bank, up to the floor above (3.1 m), which is its ceiling
+            AddVault(c + new Vector3(0, 0.16f, 4.875f - 5.2f - 0.02f), 0, false, Maps.Brick, new Color(0.85f, 0.8f, 0.75f), 3.1f, false);
             pts.RemoveAll(p => Mathf.Abs(p.x - c.x) < 4.4f && p.z > c.z - 2.2f && p.y < c.y + 2.5f);   // not inside / in front of the vault
             ScatterLoot(pts, 0.9f);
         }

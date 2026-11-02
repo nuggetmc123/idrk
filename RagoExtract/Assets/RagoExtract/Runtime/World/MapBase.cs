@@ -122,9 +122,11 @@ namespace Rago
             return e;
         }
 
-        public Vault AddVault(Vector3 pos, float yaw)
+        /// <param name="attached">the vault is built onto the back of a building whose wall (with the doorway cut in it) is the vault front</param>
+        /// <param name="wall">inside a building: build the vault walls from the building's own wall material, up to its ceiling</param>
+        public Vault AddVault(Vector3 pos, float yaw, bool attached = false, Material wall = null, Color? tint = null, float height = 2.9f, bool ceiling = true)
         {
-            var v = Vault.Create(this, Vaults.Count, pos, yaw);
+            var v = Vault.Create(this, Vaults.Count, pos, yaw, attached, wall, tint, height, ceiling);
             Vaults.Add(v);
             return v;
         }
@@ -928,7 +930,7 @@ namespace Rago
         void OnDestroy() { _all.Remove(this); if (_alarm != null) _alarm.Stop(); }
 
         /// <summary>Builds a 6x5m vault room. pos = centre of the doorway, the room extends along +Z (local).</summary>
-        public static Vault Create(MapBase map, int id, Vector3 pos, float yaw)
+        public static Vault Create(MapBase map, int id, Vector3 pos, float yaw, bool attached = false, Material wallMat = null, Color? wallTint = null, float height = 2.9f, bool ceiling = true)
         {
             var go = new GameObject("Vault_" + id);
             go.transform.SetParent(map.transform, false);
@@ -941,18 +943,33 @@ namespace Rago
             Vector3 P(float x, float y, float z) => pos + q * new Vector3(x, y, z);
             var steel = Mats.Lit("vault_steel", new Color(0.42f, 0.44f, 0.46f), 0.85f, 0.55f, Mats.Metal, Mats.MetalN, 0.25f, 0.4f, true, 1f);
             var conc = Mats.Lit("vault_conc", Color.white, 0f, 0.3f, Mats.Concrete, null, 0.4f, 0.1f, true, 0.6f);
-            // room walls (2.9 m tall with a thin ceiling, so it fits under the floor above when it's inside a building)
-            B.Wall(P(-3, 0, 0), P(-3, 0, 5), 2.9f, 0.4f, conc, new Color(0.7f, 0.7f, 0.72f));
-            B.Wall(P(3, 0, 5), P(3, 0, 0), 2.9f, 0.4f, conc, new Color(0.7f, 0.7f, 0.72f));
-            B.Wall(P(-3, 0, 5), P(3, 0, 5), 2.9f, 0.4f, conc, new Color(0.7f, 0.7f, 0.72f));
-            B.Wall(P(-3, 0, 0), P(3, 0, 0), 2.9f, 0.5f, steel, Color.white, new List<Vector4> { new Vector4(3f, 1.8f, 0f, 2.3f) }, Synth.Surface.Metal);
-            B.Box(P(0, 2.97f, 2.5f), new Vector3(6.4f, 0.14f, 5.4f), conc, new Color(0.6f, 0.6f, 0.62f), q);
-            B.Box(P(0, 0.06f, 2.5f), new Vector3(5.6f, 0.12f, 4.6f), Mats.Lit("vault_floor", Color.white, 0.3f, 0.5f, Mats.Tiles, Mats.TilesN, 0.3f, 0.2f, true, 0.5f), new Color(0.5f, 0.52f, 0.55f), q);
+            // room walls: concrete on their own, or the host building's own wall material so the vault matches the room
+            var wm = wallMat != null ? wallMat : conc;
+            Color wt = wallTint ?? new Color(0.7f, 0.7f, 0.72f);
+            float z0 = attached ? 0.13f : 0f;   // attached: start behind the building's wall (its outer face)
+            B.Wall(P(-3, 0, z0), P(-3, 0, 5), height, 0.4f, wm, wt);
+            B.Wall(P(3, 0, 5), P(3, 0, z0), height, 0.4f, wm, wt);
+            B.Wall(P(-3, 0, 5), P(3, 0, 5), height, 0.4f, wm, wt);
+            float face;   // where the front of the vault is (local z)
+            if (attached) face = -0.125f;   // the building's wall, with the doorway already in it, is the front
+            else
+            {
+                // front wall in the same material as the room, the full height, with the doorway
+                B.Wall(P(-3, 0, 0), P(3, 0, 0), height, 0.4f, wm, wt, new List<Vector4> { new Vector4(3f, 1.8f, 0f, 2.3f) });
+                face = -0.2f;
+            }
+            // steel frame around the round door
+            var frameCol = new Color(0.36f, 0.38f, 0.4f);
+            B.Box(P(-0.96f, 1.21f, face - 0.03f), new Vector3(0.12f, 2.42f, 0.06f), steel, frameCol, q, false);
+            B.Box(P(0.96f, 1.21f, face - 0.03f), new Vector3(0.12f, 2.42f, 0.06f), steel, frameCol, q, false);
+            B.Box(P(0, 2.36f, face - 0.03f), new Vector3(2.04f, 0.12f, 0.06f), steel, frameCol, q, false);
+            if (ceiling) B.Box(P(0, height + 0.07f, 2.5f + z0 * 0.5f), new Vector3(6.4f, 0.14f, 5.4f - z0), conc, new Color(0.6f, 0.6f, 0.62f), q);
+            B.Box(P(0, 0.06f, 2.5f + z0 * 0.5f), new Vector3(5.6f, 0.12f, 4.6f - z0), Mats.Lit("vault_floor", Color.white, 0.3f, 0.5f, Mats.Tiles, Mats.TilesN, 0.3f, 0.2f, true, 0.5f), new Color(0.5f, 0.52f, 0.55f), q);
             B.AddLight(P(0, 2.6f, 2.5f), new Color(1f, 0.95f, 0.85f), 7f, 1.3f);
             // door (round, swings open)
             v._door = new GameObject("DoorHinge").transform;
             v._door.SetParent(go.transform, false);
-            v._door.localPosition = new Vector3(-0.95f, 1.15f, -0.2f);
+            v._door.localPosition = new Vector3(-0.95f, 1.15f, face - 0.06f);
             var dm = new MB(2);
             dm.Sub(0).Cyl(new Vector3(0.95f, 0, 0.0f), new Vector3(0.95f, 0, -0.35f), 1.15f, 1.15f, 28, Color.white);
             dm.Sub(1).Cyl(new Vector3(0.95f, 0, -0.36f), new Vector3(0.95f, 0, -0.42f), 0.35f, 0.3f, 18, Color.white);
@@ -963,9 +980,9 @@ namespace Rago
             // card reader outside, right of the door (keycard only - no hacking)
             var reader = new GameObject("Reader").AddComponent<KeycardReader>();
             reader.transform.SetParent(go.transform, false);
-            reader.transform.localPosition = new Vector3(1.6f, 1.3f, -0.3f);
+            reader.transform.localPosition = new Vector3(1.6f, 1.3f, face - 0.1f);
             reader.vault = v; reader.Build();
-            v._status = UI.Text(go.transform, "VAULT LOCKED", new Vector3(0, 2.55f, -0.3f), 0.07f, new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            v._status = UI.Text(go.transform, "VAULT LOCKED", new Vector3(0, 2.6f, face - 0.1f), 0.07f, new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
             v._status.transform.localRotation = Quaternion.Euler(0, 0, 0);
             // racks inside
             B.Box(P(0, 1.0f, 4.6f), new Vector3(4.5f, 2f, 0.3f), steel, new Color(0.3f, 0.32f, 0.34f), q, true, Synth.Surface.Metal);
