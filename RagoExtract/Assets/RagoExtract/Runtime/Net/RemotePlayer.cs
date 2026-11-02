@@ -10,6 +10,7 @@ namespace Rago
         HumanRig _rig;
         TextMesh _tag;
         GameObject _dot;
+        Vector3 _stepLast; float _stepDist; bool _stepLeft;
         Vector3 _root, _head, _hl, _hr, _vel;
         Quaternion _headR = Quaternion.identity, _hlR = Quaternion.identity, _hrR = Quaternion.identity;
         Vector3 _sRoot, _sHead, _sHl, _sHr;
@@ -141,6 +142,7 @@ namespace Rago
             _sHl = Vector3.Lerp(_sHl, _hl, k); _sHr = Vector3.Lerp(_sHr, _hr, k);
             _sHeadR = Quaternion.Slerp(_sHeadR, _headR, k); _sHlR = Quaternion.Slerp(_sHlR, _hlR, k); _sHrR = Quaternion.Slerp(_sHrR, _hrR, k);
             if (_dead) return;
+            Footsteps.Track(ref _stepLast, ref _stepDist, ref _stepLeft, _sRoot, _sHeadR * Vector3.forward, dt, 0.4f);
             float hy = _sHeadR.eulerAngles.y;
             if (Mathf.Abs(Mathf.DeltaAngle(_yaw, hy)) > 35f || _vel.sqrMagnitude > 0.3f) _yaw = Mathf.MoveTowardsAngle(_yaw, hy, dt * 220f);
             _rig.Pose(_sRoot, _yaw, _sHead, _sHeadR, _sHl, _sHlR, _sHr, _sHrR, _vel, dt);

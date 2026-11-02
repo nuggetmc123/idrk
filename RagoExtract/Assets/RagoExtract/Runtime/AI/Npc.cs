@@ -34,6 +34,7 @@ namespace Rago
         Vector3 _home;
         readonly List<Vector3> _patrol = new List<Vector3>();
         int _patrolIdx;
+        Vector3 _stepLast; float _stepDist; bool _stepLeft;
         float _think, _awareness, _waitT, _lastSeenT, _burstT, _reloadT, _coverT, _searchT, _flinch, _stagger, _blind;
         /// <summary>Flashbanged: can't see or shoot, and staggers about for a bit.</summary>
         public void Flash(float seconds) { _blind = Mathf.Max(_blind, seconds); _stagger = Mathf.Max(_stagger, seconds * 0.6f); }
@@ -200,6 +201,7 @@ namespace Rago
             float dt = Time.deltaTime;
             _flinch = Mathf.MoveTowards(_flinch, 0, dt * 3f);
             _stagger -= dt;
+            if (Alive) Footsteps.Track(ref _stepLast, ref _stepDist, ref _stepLeft, transform.position, transform.forward, dt, 0.45f);
             _blind -= dt;
             if (Puppet) { PuppetUpdate(dt); return; }
             _think -= dt;

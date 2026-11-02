@@ -193,4 +193,44 @@ namespace Rago
     }
 
     public interface IBreakable { void Damage(float d, Vector3 p); }
+
+    /// <summary>Footsteps for anyone walking around (you, raiders, other players): left-right steps on the right surface.</summary>
+    public static class Footsteps
+    {
+        static int _mask;
+        public static Synth.Surface SurfaceUnder(Vector3 pos)
+        {
+            if (_mask == 0)
+            {
+                _mask = ~0;
+                foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) _mask &= ~(1 << l);
+            }
+            if (Physics.Raycast(pos + Vector3.up * 0.3f, Vector3.down, out var h, 1f, _mask, QueryTriggerInteraction.Ignore))
+            {
+                var s = SurfaceTag.Of(h.collider);
+                return s == Synth.Surface.Flesh ? Synth.Surface.Concrete : s;
+            }
+            return Synth.Surface.Concrete;
+        }
+
+        /// <summary>Call every frame with the walker's feet position; plays a step every stride.</summary>
+        public static void Track(ref Vector3 last, ref float dist, ref bool leftFoot, Vector3 feet, Vector3 forward, float dt, float volume)
+        {
+            Vector3 d = feet - last; d.y = 0;
+            last = feet;
+            float moved = d.magnitude;
+            if (moved > 2f) { dist = 0; return; }   // teleported
+            float speed = moved / Mathf.Max(dt, 0.001f);
+            if (speed < 0.3f) { dist = Mathf.Min(dist, 0.5f); return; }
+            dist += moved;
+            bool run = speed > 2.6f;
+            if (dist < (run ? 1.1f : 0.72f)) return;
+            dist = 0;
+            leftFoot = !leftFoot;
+            forward.y = 0; forward = forward.sqrMagnitude > 0.01f ? forward.normalized : Vector3.forward;
+            Vector3 side = Vector3.Cross(Vector3.up, forward) * (leftFoot ? -0.12f : 0.12f);
+            Sfx.Play(Synth.Footstep(SurfaceUnder(feet), Random.Range(0, 8), run), feet + side + Vector3.up * 0.05f,
+                volume * (run ? 1.3f : 1f) * Random.Range(0.85f, 1.1f), Random.Range(0.94f, 1.06f), 1f, run ? 30f : 22f);
+        }
+    }
 }

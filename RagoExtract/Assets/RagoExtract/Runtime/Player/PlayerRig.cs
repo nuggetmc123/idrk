@@ -27,7 +27,8 @@ namespace Rago
         public static float MoveSpeed = 1.6f, SprintSpeed = 4.0f;   // a brisk walk and a real run
         float _vy, _snapCooldown, _stepDist, _deathT;
         bool _sprintLatch;
-        float _sprintRamp;
+        float _sprintRamp, _fallSpeed, _lastPlanar;
+        bool _wasGrounded = true, _leftFoot;
         Vector3 _lastHead;
         float _crouchOffset;
         public bool Frozen;
@@ -332,7 +333,7 @@ namespace Rago
                 _vy = 4.4f;                                   // about 1 m of air
                 Vitals.Stamina -= 8f;
                 Crouched = false; if (!XRInputs.VR) Desktop.Crouch = false;
-                Sfx.Play(Synth.Footstep(Synth.Surface.Dirt, Random.Range(0, 4)), transform.position, 0.4f, 0.9f, 1f, 20f);
+                Sfx.Play(Synth.Footstep(GroundSurface(), Random.Range(0, 8), true), transform.position, 0.35f, 0.95f, 1f, 20f);   // push off
             }
             _vy += Physics.gravity.y * dt;
             Vector3 step = (MoveVelocity + Vector3.up * _vy) * dt;
@@ -349,16 +350,29 @@ namespace Rago
             }
             if (Sprinting) Vitals.Stamina -= dt * 14f;
 
-            // footsteps
+            // footsteps: left, right, left... from each foot, heel-then-toe, heavier when running
             float planar = MoveVelocity.magnitude;
             _stepDist += planar * dt;
-            if (Cc.isGrounded && _stepDist > Mathf.Lerp(0.72f, 1.1f, _sprintRamp))   // a real step length
+            bool grounded = Cc.isGrounded;
+            if (!grounded) _fallSpeed = Mathf.Max(_fallSpeed, -_vy);
+            if (grounded && !_wasGrounded && _fallSpeed > 2.5f)
+            {
+                // landing from a jump or a drop
+                Sfx.Play(Synth.Land(GroundSurface()), transform.position, Mathf.Clamp(0.25f + _fallSpeed * 0.06f, 0.3f, 0.75f), Random.Range(0.94f, 1.04f), 1f, 30f);
+                Noise.Emit(transform.position, 6f, 0);
+                _stepDist = 0;
+            }
+            if (grounded) _fallSpeed = 0;
+            _wasGrounded = grounded;
+            if (grounded && _stepDist > Mathf.Lerp(0.72f, 1.1f, _sprintRamp))   // a real step length
             {
                 _stepDist = 0;
-                var surf = GroundSurface();
-                Sfx.Play(Synth.Footstep(surf, Random.Range(0, 4)), transform.position, Sprinting ? 0.55f : Crouched ? 0.15f : 0.35f, 1f + Random.Range(-0.08f, 0.08f), 1f, 25f);
+                PlayStep(planar > 2.6f, Crouched ? 0.12f : Mathf.Lerp(0.3f, 0.5f, _sprintRamp));
                 if (!Crouched) Noise.Emit(transform.position, Sprinting ? 5f : 1.8f, 0);   // scavs barely hear footsteps
             }
+            // stopping short from a walk or run: one scuff
+            if (grounded && _lastPlanar > 1.2f && planar < 0.35f && !Crouched) { PlayStep(_lastPlanar > 2.6f, 0.22f); _stepDist = 0; }
+            _lastPlanar = planar;
 
             // turning
             if (XRInputs.VR)
@@ -394,12 +408,16 @@ namespace Rago
             return true;
         }
 
-        Synth.Surface GroundSurface()
+        void PlayStep(bool run, float vol)
         {
-            if (Physics.Raycast(transform.position + Vector3.up * 0.3f, Vector3.down, out var h, 1f, ~0, QueryTriggerInteraction.Ignore))
-                return SurfaceTag.Of(h.collider);
-            return Synth.Surface.Concrete;
+            _leftFoot = !_leftFoot;
+            Vector3 fwd = Head.forward; fwd.y = 0; fwd = fwd.sqrMagnitude > 0.01f ? fwd.normalized : transform.forward;
+            Vector3 side = Vector3.Cross(Vector3.up, fwd) * (_leftFoot ? -0.12f : 0.12f);
+            Sfx.Play(Synth.Footstep(GroundSurface(), Random.Range(0, 8), run), transform.position + side + Vector3.up * 0.05f,
+                vol * Random.Range(0.85f, 1.1f), Random.Range(0.94f, 1.06f), 0.8f, 25f);
         }
+
+        Synth.Surface GroundSurface() => Footsteps.SurfaceUnder(transform.position);
 
         public bool ShoulderNear(Vector3 p)
         {

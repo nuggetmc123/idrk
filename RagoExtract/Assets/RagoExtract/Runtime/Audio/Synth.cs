@@ -268,51 +268,143 @@ namespace Rago
         // ------------------------------------------------------------------ world
         public enum Surface { Concrete, Dirt, Grass, Metal, Wood, Flesh, Water }
 
-        public static AudioClip Footstep(Surface s, int v) => Get("step_" + s, k =>
+        /// <summary>
+        /// A real footstep: heel strike, then the toe rolling down ~70 ms later (shorter and harder when running), with the
+        /// surface's own texture (grit, crunch, swish, hollow boards, clang, splash) and a little clothing/gear rustle.
+        /// 8 variants per surface, separate sets for walking and running.
+        /// </summary>
+        public static AudioClip Footstep(Surface s, int v, bool run = false) => Get("step2_" + s + (run ? "_run" : ""), k =>
         {
-            var d = Buf(0.25f);
+            var rnd = new System.Random(k * 977 + (int)s * 131 + (run ? 7 : 0));
+            float R() => (float)rnd.NextDouble();
+            float len = s == Surface.Water ? 0.5f : s == Surface.Metal ? 0.45f : 0.36f;
+            var d = Buf(len);
+            float heel = run ? 1.25f : 1f, toeAt = (run ? 0.04f : 0.065f) + R() * 0.025f, toe = run ? 0.75f : 0.55f;
+            void Grit(float at, float dur, float gain, float lo, float hi, float density)
+            {
+                // sparse little impulses through a band-pass: gravel, crunch, twigs
+                var bp = new BP(lo, hi);
+                int st = (int)(at * SR), e = Mathf.Min(d.Length, st + (int)(dur * SR));
+                for (int i = st; i < e; i++)
+                {
+                    float t = (i - st) / (float)(e - st);
+                    float imp = rnd.NextDouble() < density ? (float)(rnd.NextDouble() * 2 - 1) * 3f : 0f;
+                    d[i] += bp.P(imp + N() * 0.15f) * gain * (1 - t) * (1 - t);
+                }
+            }
+            void Click(float at, float gain, float hz, float decay)
+            {
+                var lp = new LP(hz);
+                int st = (int)(at * SR);
+                for (int i = st; i < d.Length; i++) { float t = (i - st) / (float)SR; d[i] += lp.P(N()) * Mathf.Exp(-t / decay) * gain; }
+            }
             switch (s)
             {
                 case Surface.Metal:
-                    Thump(d, 0, 0.6f, 140, 0.03f);
-                    MetalClick(d, 0.005f, 0.5f, 900 + k * 80, 0.05f);
-                    break;
-                case Surface.Grass:
-                case Surface.Dirt:
                     {
-                        var bp = new BP(s == Surface.Grass ? 2500 : 900, s == Surface.Grass ? 7000 : 4000);
+                        Thump(d, 0, 0.7f * heel, 120, 0.035f);
+                        float[] modes = { 410 + R() * 60, 1120 + R() * 140, 2230 + R() * 200, 3480 + R() * 300 };
+                        for (int m = 0; m < modes.Length; m++)
+                        {
+                            float ph = R() * 6.28f, g = (0.22f / (m + 1)) * heel, dec = 0.22f / (1 + m * 0.6f);
+                            for (int i = 0; i < d.Length; i++) { float t = i / (float)SR; ph += modes[m] / SR * 6.283f; d[i] += Mathf.Sin(ph) * Mathf.Exp(-t / dec) * g; }
+                        }
+                        Click(0, 0.5f * heel, 5000, 0.008f);
+                        Thump(d, toeAt, 0.35f * toe, 150, 0.025f);
+                        Click(toeAt, 0.3f * toe, 4000, 0.006f);
+                        Grit(0.005f, 0.08f, 0.15f, 2500, 8000, 0.02f);
+                        break;
+                    }
+                case Surface.Grass:
+                    {
+                        // a soft thud under a swish of blades, and the odd twig
+                        Thump(d, 0, 0.45f * heel, 85, 0.03f);
+                        var bp = new BP(2200, 7500);
                         for (int i = 0; i < d.Length; i++)
                         {
                             float t = i / (float)SR;
-                            float env = Mathf.Exp(-t / 0.06f) * Mathf.Clamp01(t / 0.008f);
-                            float crackle = _r.NextDouble() < 0.06 ? 1.5f : 0.5f;
-                            d[i] = bp.P(N()) * env * crackle;
+                            float env = Mathf.Clamp01(t / 0.02f) * Mathf.Exp(-t / (run ? 0.07f : 0.1f));
+                            d[i] += bp.P(N()) * env * 0.55f * heel;
                         }
-                        Thump(d, 0, 0.4f, 80, 0.03f);
+                        Grit(0.01f, 0.12f, 0.35f, 1800, 6000, 0.012f);
+                        Thump(d, toeAt, 0.25f * toe, 95, 0.025f);
+                        break;
+                    }
+                case Surface.Dirt:
+                    {
+                        // crunchy gravel under the heel, then the toe
+                        Thump(d, 0, 0.55f * heel, 90, 0.03f);
+                        Grit(0, run ? 0.09f : 0.12f, 0.75f * heel, 900, 5500, 0.08f);
+                        Click(0, 0.25f * heel, 2500, 0.012f);
+                        Grit(toeAt, 0.08f, 0.5f * toe, 1200, 6000, 0.07f);
+                        Thump(d, toeAt, 0.3f * toe, 100, 0.02f);
                         break;
                     }
                 case Surface.Wood:
-                    Thump(d, 0, 0.8f, 180 + k * 15, 0.04f);
-                    Friction(d, 0.0f, 0.03f, 0.3f, 600, 2500);
-                    break;
-                case Surface.Water:
-                    Friction(d, 0, 0.18f, 1f, 400, 2500);
-                    break;
-                default:
                     {
-                        var lp = new LP(2600);
+                        // hollow boards: a resonant knock, sometimes a creak
+                        float body = 170 + R() * 70;
+                        Thump(d, 0, 0.85f * heel, body, 0.07f);
+                        Thump(d, 0, 0.35f * heel, body * 2.3f, 0.03f);
+                        Click(0, 0.4f * heel, 3000, 0.01f);
+                        Thump(d, toeAt, 0.45f * toe, body * 1.1f, 0.05f);
+                        Click(toeAt, 0.25f * toe, 2500, 0.008f);
+                        if (R() < 0.45f)
+                        {
+                            float f0 = 260 + R() * 200, ph = 0;
+                            int st = (int)((toeAt + 0.02f) * SR), e = Mathf.Min(d.Length, st + (int)(0.16f * SR));
+                            for (int i = st; i < e; i++) { float t = (i - st) / (float)(e - st); ph += (f0 + t * 140) / SR * 6.283f; d[i] += Mathf.Sin(ph) * Mathf.Sin(t * Mathf.PI) * 0.08f * (1 + 0.5f * Mathf.Sin(t * 80)); }
+                        }
+                        break;
+                    }
+                case Surface.Water:
+                    {
+                        // splash: a slap, spray, then a few bubbles
+                        var bp = new BP(400, 3500);
                         for (int i = 0; i < d.Length; i++)
                         {
                             float t = i / (float)SR;
-                            d[i] = lp.P(N()) * Mathf.Exp(-t / 0.025f);
+                            d[i] += bp.P(N()) * (Mathf.Exp(-t / 0.05f) * 1.1f + Mathf.Exp(-Mathf.Abs(t - 0.09f) / 0.04f) * 0.5f) * heel;
                         }
-                        Thump(d, 0, 0.6f, 100, 0.025f);
-                        Friction(d, 0.02f, 0.05f, 0.15f, 3000, 8000);
+                        for (int b2 = 0; b2 < 4; b2++)
+                        {
+                            float at = 0.05f + R() * 0.25f, f0 = 500 + R() * 900, ph = 0;
+                            int st = (int)(at * SR), e = Mathf.Min(d.Length, st + (int)(0.05f * SR));
+                            for (int i = st; i < e; i++) { float t = (i - st) / (float)(e - st); ph += (f0 * (1 + t * 0.8f)) / SR * 6.283f; d[i] += Mathf.Sin(ph) * (1 - t) * 0.12f; }
+                        }
+                        break;
+                    }
+                default:
+                    {
+                        // concrete / asphalt / tile: rubber sole slap, a little grit, then the toe
+                        Thump(d, 0, 0.6f * heel, 105, 0.025f);
+                        Click(0, 0.75f * heel, 3200 + R() * 800, 0.014f);
+                        Grit(0.004f, 0.05f, 0.3f, 3000, 9000, 0.03f);
+                        Thump(d, toeAt, 0.3f * toe, 120, 0.02f);
+                        Click(toeAt, 0.4f * toe, 4200, 0.009f);
+                        if (run || R() < 0.4f) Grit(toeAt + 0.01f, 0.06f, 0.18f, 2500, 7000, 0.04f);   // scuff
                         break;
                     }
             }
-            return Clip("step", d, true, 0.6f);
-        }, 4)[v % 4];
+            // clothing / gear: a faint rustle and, now and then, a tiny jingle
+            Friction(d, 0.0f, run ? 0.12f : 0.16f, run ? 0.07f : 0.04f, 900, 4000);
+            if (R() < (run ? 0.6f : 0.3f)) MetalClick(d, 0.02f + R() * 0.06f, run ? 0.08f : 0.05f, 3500 + R() * 2500, 0.02f);
+            return Clip("step", d, true, run ? 0.75f : 0.6f);
+        }, 8)[v % 8];
+
+        /// <summary>Landing from a jump or a drop: both feet, heavier, with a gear rattle.</summary>
+        public static AudioClip Land(Surface s) => One("land_" + s, () =>
+        {
+            var a = Footstep(s, 1, true); var b = Footstep(s, 4, true);
+            var d = Buf(0.5f);
+            var da = new float[a.samples]; a.GetData(da, 0);
+            var db = new float[b.samples]; b.GetData(db, 0);
+            int off = (int)(0.035f * SR);
+            for (int i = 0; i < d.Length; i++) { float x = 0; if (i < da.Length) x += da[i]; if (i - off >= 0 && i - off < db.Length) x += db[i - off] * 0.8f; d[i] = x; }
+            Thump(d, 0, 0.5f, 70, 0.06f);
+            MetalClick(d, 0.03f, 0.1f, 4200, 0.03f);
+            return Clip("land", d, true, 0.8f);
+        });
 
         public static AudioClip Impact(Surface s, int v) => Get("impact_" + s, k =>
         {
