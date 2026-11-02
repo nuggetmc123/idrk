@@ -24,10 +24,10 @@ namespace Rago
         public bool Crouched;
         public static bool SmoothTurn = false;
         public static float SnapAngle = 45f;
-        public static float MoveSpeed = 1.6f, SprintSpeed = 4.0f;   // a brisk walk and a real run
+        public static float MoveSpeed = 2.3f, SprintSpeed = 4.6f;
         float _vy, _snapCooldown, _stepDist, _deathT;
         bool _sprintLatch;
-        float _sprintRamp, _fallSpeed, _lastPlanar;
+        float _fallSpeed, _lastPlanar;
         bool _wasGrounded = true, _leftFoot;
         Vector3 _lastHead;
         float _crouchOffset;
@@ -305,24 +305,10 @@ namespace Rago
             // stick movement relative to head yaw
             Vector3 fwd = Head.forward; fwd.y = 0; fwd.Normalize();
             Vector3 right = Vector3.Cross(Vector3.up, fwd);
-            // more like a real body: you build up to a sprint over about a second, back-pedalling and side-stepping are
-            // slower than walking forward, uphill is slower, and you carry momentum (no instant starts and stops)
-            _sprintRamp = Mathf.MoveTowards(_sprintRamp, Sprinting ? 1f : 0f, dt * (Sprinting ? 1.1f : 3f));
-            float speed = Mathf.Lerp(MoveSpeed, SprintSpeed * (Vitals.StimBoost > 0 ? 1.15f : 1f), _sprintRamp);
-            if (Crouched || headH < 1.25f) speed = Mathf.Min(speed, MoveSpeed * 0.55f);
+            float speed = Sprinting ? SprintSpeed * (Vitals.StimBoost > 0 ? 1.15f : 1f) : MoveSpeed * (Crouched || headH < 1.25f ? 0.55f : 1f);
             speed *= Vitals.LegPenalty;
-            float stick = Mathf.Clamp01(move.magnitude);
-            Vector2 dir2 = stick > 0.001f ? move / Mathf.Max(stick, 1f) : Vector2.zero;
-            float dirFactor = dir2.y >= 0 ? Mathf.Lerp(0.8f, 1f, dir2.y / Mathf.Max(0.001f, dir2.magnitude)) : Mathf.Lerp(0.8f, 0.6f, -dir2.y / Mathf.Max(0.001f, dir2.magnitude));
-            Vector3 vel = (fwd * dir2.y + right * dir2.x) * speed * dirFactor;
-            // slopes: slower going up, a touch faster going down
-            if (vel.sqrMagnitude > 0.01f && Cc.isGrounded && Physics.Raycast(transform.position + Vector3.up * 0.3f, Vector3.down, out var gh, 0.7f, ~0, QueryTriggerInteraction.Ignore))
-            {
-                float up = Vector3.Dot(Vector3.ProjectOnPlane(vel.normalized, gh.normal).normalized, Vector3.up);
-                vel *= up > 0 ? Mathf.Lerp(1f, 0.6f, up / 0.6f) : Mathf.Lerp(1f, 1.1f, -up / 0.6f);
-            }
-            float accel = Cc.isGrounded ? (vel.sqrMagnitude > MoveVelocity.sqrMagnitude ? 4.5f : 7.5f) : 1.2f;   // m/s per second; little air control
-            MoveVelocity = Vector3.MoveTowards(MoveVelocity, vel, accel * dt);
+            Vector3 vel = (fwd * move.y + right * move.x) * speed;
+            MoveVelocity = Vector3.Lerp(MoveVelocity, vel, dt * 10f);
             if (Cc.isGrounded && _vy < 0) _vy = -1f;
             // jump: A (right) or X (left) on a hand that isn't holding a gun - on a gun hand that button drops the mag
             bool jump = XRInputs.VR
@@ -364,14 +350,14 @@ namespace Rago
             }
             if (grounded) _fallSpeed = 0;
             _wasGrounded = grounded;
-            if (grounded && _stepDist > Mathf.Lerp(0.72f, 1.1f, _sprintRamp))   // a real step length
+            if (grounded && _stepDist > (Sprinting ? 1.5f : 1.1f))
             {
                 _stepDist = 0;
-                PlayStep(planar > 2.6f, Crouched ? 0.12f : Mathf.Lerp(0.3f, 0.5f, _sprintRamp));
+                PlayStep(Sprinting, Crouched ? 0.12f : Sprinting ? 0.5f : 0.33f);
                 if (!Crouched) Noise.Emit(transform.position, Sprinting ? 5f : 1.8f, 0);   // scavs barely hear footsteps
             }
             // stopping short from a walk or run: one scuff
-            if (grounded && _lastPlanar > 1.2f && planar < 0.35f && !Crouched) { PlayStep(_lastPlanar > 2.6f, 0.22f); _stepDist = 0; }
+            if (grounded && _lastPlanar > 1.2f && planar < 0.35f && !Crouched) { PlayStep(_lastPlanar > 3.4f, 0.22f); _stepDist = 0; }
             _lastPlanar = planar;
 
             // turning

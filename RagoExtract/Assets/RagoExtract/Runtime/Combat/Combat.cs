@@ -223,8 +223,8 @@ namespace Rago
             float speed = moved / Mathf.Max(dt, 0.001f);
             if (speed < 0.3f) { dist = Mathf.Min(dist, 0.5f); return; }
             dist += moved;
-            bool run = speed > 2.6f;
-            if (dist < (run ? 1.1f : 0.72f)) return;
+            bool run = speed > 3.4f;
+            if (dist < (run ? 1.5f : 1.1f)) return;
             dist = 0;
             leftFoot = !leftFoot;
             forward.y = 0; forward = forward.sqrMagnitude > 0.01f ? forward.normalized : Vector3.forward;
