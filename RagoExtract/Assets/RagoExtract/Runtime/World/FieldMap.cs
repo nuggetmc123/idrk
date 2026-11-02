@@ -5,7 +5,7 @@ namespace Rago
 {
     /// <summary>
     /// The raid's field map: a real top-down photo of the map taken when the raid starts, printed on a sheet of paper,
-    /// with every extract marked in green and a red arrow for you. Open it with the LEFT MENU button (VR) or M (desktop):
+    /// with every extract marked in green and a red arrow for you. Open it with Y (VR) or M (desktop):
     /// in VR it floats just above your left hand, turned towards your eyes; on desktop it comes up in front of you.
     /// </summary>
     public class FieldMap : MonoBehaviour
@@ -109,7 +109,8 @@ namespace Rago
                 var rg = ring.Build("Ring", _sheet, green);
                 rg.transform.localPosition = p + new Vector3(0, 0, -0.003f);
                 bool right = p.x < h * 0.4f;
-                UI.Text(_sheet, e.Name.ToUpper(), p + new Vector3(right ? 0.022f : -0.022f, 0, -0.003f), 0.017f, new Color(0.05f, 0.35f, 0.1f), right ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight, FontStyle.Bold);
+                int om = Mathf.RoundToInt(e.OpensAt / 60f);
+                UI.Text(_sheet, e.Name.ToUpper() + "  (opens " + om + " min)", p + new Vector3(right ? 0.022f : -0.022f, 0, -0.003f), 0.017f, new Color(0.05f, 0.35f, 0.1f), right ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight, FontStyle.Bold);
             }
             // you
             _arrow = new GameObject("You").transform; _arrow.SetParent(_sheet, false);
@@ -127,8 +128,9 @@ namespace Rago
         {
             var p = RagoGame.I != null ? RagoGame.I.Player : null;
             if (p == null || _sheet == null) return;
-            if (!_hinted && Time.timeSinceLevelLoad > 0) { _hinted = true; p.Toast(XRInputs.VR ? "Your map: press the LEFT MENU button" : "Your map: press M"); }
-            bool toggle = XRInputs.VR ? XRInputs.Left.MenuDown : Desktop.MapKey;
+            if (!_hinted && Time.timeSinceLevelLoad > 0) { _hinted = true; p.Toast(XRInputs.VR ? "Your map: press Y" : "Your map: press M"); }
+            // Y on the left controller (unless the left hand is holding a gun - then Y works the gun)
+            bool toggle = XRInputs.VR ? XRInputs.Left.SecondaryDown && !(p.HandL.Held is Gun && !p.HandL.HeldAsSecondary) : Desktop.MapKey;
             if (toggle) { _open = !_open; _sheet.gameObject.SetActive(_open); Sfx.Play(Synth.Grab(1), p.Head.position, 0.3f, 1.4f, 0f, 3f); }
             if (!_open) return;
             if (p.Dead) { _open = false; _sheet.gameObject.SetActive(false); return; }

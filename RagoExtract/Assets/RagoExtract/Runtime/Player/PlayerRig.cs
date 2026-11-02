@@ -61,6 +61,7 @@ namespace Rago
             p.Gear.Init(p);
             p.Body = PlayerBody.Create(p);
             p.Hud = Hud.Create(p);
+            GameMenu.Init();   // the LEFT MENU button menu: party, friends, recent players, settings
             // never collide with our own body parts
             Physics.IgnoreCollision(p.Cc, p.HandL.GetComponent<Collider>());
             Physics.IgnoreCollision(p.Cc, p.HandR.GetComponent<Collider>());

@@ -46,18 +46,28 @@ namespace Rago.Net
         static ulong Id(PlayerRef p) => (ulong)p.PlayerId;
 
         // ------------------------------------------------------------------------------------ party
-        // A party is its own small Photon session ("rago_party_CODE") that members sit in while they're in their
-        // bunkers. When the leader queues, everyone is told the name of a fresh raid session to join, so the party
-        // lands in the same raid (random players can still fill the free spots). Back in the bunker, everyone
-        // rejoins the party session automatically.
+        // A party is its own small Photon session ("rago_party_<leader>") that members sit in while they're in
+        // their bunkers. Invites:
+        //  - in the bunker, players who aren't in a party sit in Photon's session lobby, which lists every party with
+        //    an "inv" property naming who's invited - so an invite reaches them without being in the same session.
+        //  - in a raid, an invite is sent straight to that player (you're in the same session); it takes effect when
+        //    you're both back in your bunkers.
+        // When the leader queues, everyone is told the name of a fresh raid session to join, so the party lands in
+        // the same raid (random players can still fill the free spots) and shares one spawn spot.
         string _partyCode;
         bool _inPartySession, _wasLeader;
         readonly Dictionary<ulong, string> _names = new Dictionary<ulong, string>();
         readonly Dictionary<ulong, string> _peerParty = new Dictionary<ulong, string>();
         readonly List<string> _members = new List<string>();
+        readonly List<string> _sessionPlayers = new List<string>();
+        readonly List<PartyInvite> _invites = new List<PartyInvite>();
+        readonly List<string> _invited = new List<string>();     // leader: callsigns invited to this party
         string _pendingRaidSession; int _pendingPartySize = 1; int _queuePartySize = 1;
+        string _sessionKind = "";
+        NetworkRunner _lobby;
         public string PartyCode => _partyCode;
         public bool PartyLeader => _partyCode != null && (_inPartySession ? IsHost : _wasLeader);
+        public IReadOnlyList<PartyInvite> Invites { get { _invites.RemoveAll(i => Time.realtimeSinceStartup - i.time > 300f); return _invites; } }
         public IReadOnlyList<string> PartyMembers
         {
             get
@@ -69,64 +79,188 @@ namespace Rago.Net
                 return _members;
             }
         }
+        public IReadOnlyList<string> SessionPlayers
+        {
+            get { _sessionPlayers.Clear(); if (InSession) foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) _sessionPlayers.Add(n); return _sessionPlayers; }
+        }
+        public bool IsTeammate(ulong peer) => _partyCode != null && _peerParty.TryGetValue(peer, out var pc) && pc == _partyCode;
         public event Action OnPartyChanged;
         public event Action<string> OnPartyQueue;
         public event Action OnPartyQueueCancelled;
+        public event Action<string> OnMetPlayer;
+
+        /// <summary>A session property's text, whichever way this Fusion version stores it.</summary>
+        static string Str(object prop)
+        {
+            if (prop == null) return "";
+            var t = prop.GetType();
+            var pv = t.GetProperty("PropertyValue") ?? t.GetProperty("Value");
+            if (pv != null) { var v = pv.GetValue(prop); return v != null ? v.ToString() : ""; }
+            var f = t.GetField("PropertyValue") ?? t.GetField("Value");
+            if (f != null) { var v = f.GetValue(prop); return v != null ? v.ToString() : ""; }
+            return prop.ToString();
+        }
 
         static string MyName() => Profile.Current != null ? Profile.Current.DisplayName : "Operator";
-        static string PartySession(string code) => "rago_party_" + code;
-        const string CodeChars = "ACDEFHJKMNPRTUVWXY3479";
-
-        public async void CreateParty(Action<bool> done)
+        static string Key(string callsign) => (callsign ?? "").Trim().ToLowerInvariant();
+        static string PartySession(string id)
         {
-            if (!_ready || _queueing) { done?.Invoke(false); return; }
-            var r = new System.Random();
-            string code = "";
-            for (int i = 0; i < 4; i++) code += CodeChars[r.Next(CodeChars.Length)];
-            bool ok = await EnterParty(code, true);
-            done?.Invoke(ok);
+            var sb = new System.Text.StringBuilder("rago_party_");
+            foreach (char c in Key(id)) sb.Append(char.IsLetterOrDigit(c) ? c : '_');
+            return sb.ToString();
         }
 
-        public async void JoinParty(string code, Action<bool> done)
+        /// <summary>Invite someone by callsign. Not in a party yet? You become the leader of a new one.</summary>
+        public async void InviteToParty(string callsign)
         {
-            if (!_ready || _queueing || string.IsNullOrEmpty(code)) { done?.Invoke(false); return; }
-            bool ok = await EnterParty(code.ToUpperInvariant(), false);
-            done?.Invoke(ok);
+            if (!_ready || string.IsNullOrWhiteSpace(callsign)) return;
+            if (Key(callsign) == Key(MyName())) return;
+            // in a raid (or the Market) with them: tell them directly
+            if (InSession && !_inPartySession)
+            {
+                ulong to = 0; bool found = false;
+                foreach (var kv in _names) if (Key(kv.Value) == Key(callsign) && _peers.Contains(kv.Key)) { to = kv.Key; found = true; }
+                if (_partyCode == null) { _partyCode = MyName(); _wasLeader = true; OnPartyChanged?.Invoke(); }
+                if (found) SendSys(to, 8, MyName() + "|" + _partyCode);
+                else Remember(callsign);   // not here: send it from the bunker later
+                return;
+            }
+            if (_partyCode == null) { if (!await EnterParty(MyName(), true)) return; }
+            else if (!_inPartySession) { if (!await EnterParty(_partyCode, true)) return; }
+            if (IsHost) { Remember(callsign); PublishInvites(); }
+            else foreach (var p in _peers) SendSys(p, 7, callsign);   // members ask the leader to invite
         }
+
+        void Remember(string callsign)
+        {
+            _invited.RemoveAll(x => Key(x) == Key(callsign));
+            _invited.Add(callsign.Trim());
+            while (_invited.Count > 12) _invited.RemoveAt(0);
+        }
+
+        void PublishInvites()
+        {
+            if (!_inPartySession || !IsHost || _runner == null) return;
+            try
+            {
+                _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty>
+                    { { "kind", "party" }, { "lead", MyName() }, { "inv", string.Join(",", _invited.ConvertAll(Key)) } });
+            }
+            catch (Exception e) { Debug.LogWarning("[Rago] couldn't publish party invites: " + e.Message); }
+        }
+
+        public async void AcceptInvite(PartyInvite inv)
+        {
+            if (inv == null || !_ready) return;
+            _invites.Remove(inv);
+            if (_queueing) return;
+            if (InSession && !_inPartySession)
+            {
+                // accepted inside a raid: you'll join them when you're both back in your bunkers
+                _partyCode = inv.party; _wasLeader = false;
+                OnPartyChanged?.Invoke();
+                return;
+            }
+            _partyCode = null;
+            bool ok = await EnterParty(inv.party, false);
+            if (!ok) ok = await EnterParty(inv.party, true);   // the leader isn't back yet: open it for them
+            OnPartyChanged?.Invoke();
+        }
+
+        public void DeclineInvite(PartyInvite inv) { _invites.Remove(inv); OnPartyChanged?.Invoke(); }
 
         public async void LeaveParty()
         {
-            _partyCode = null; _wasLeader = false;
+            _partyCode = null; _wasLeader = false; _invited.Clear();
             if (_inPartySession) { _inPartySession = false; await Shutdown(); }
             _status = _ready ? "Online (Photon)" : _status;
             OnPartyChanged?.Invoke();
+            RejoinParty();   // back to listening for invites
         }
 
         public async void RejoinParty()
         {
-            if (_partyCode == null || !_ready || _queueing || InSession) return;
-            await EnterParty(_partyCode, true);
+            if (!_ready || _queueing) return;
+            if (InSession && !_inPartySession) return;   // in the Market / a raid: wait for the bunker
+            if (_partyCode != null)
+            {
+                if (_inPartySession) return;
+                await EnterParty(_partyCode, true);
+                if (_wasLeader && _invited.Count > 0) PublishInvites();
+            }
+            else await EnterLobby();
         }
 
-        async Task<bool> EnterParty(string code, bool create)
+        async Task<bool> EnterParty(string id, bool create)
         {
-            _status = (create ? "Starting" : "Joining") + " party " + code + "...";
+            _status = (create ? "Starting" : "Joining") + " party...";
             _names.Clear();
-            bool ok = await StartSession(PartySession(code), new Dictionary<string, SessionProperty> { { "kind", "party" } }, QueueRules.Max, create);
-            if (ok && !create && _peers.Count == 0)
-            {
-                // nobody there: the code is wrong (or the party broke up)
-                ok = false;
-                await Shutdown();
-                _status = "No party with code " + code;
-            }
-            if (!ok) { OnPartyChanged?.Invoke(); return false; }   // keeps the code you had (a rejoin can be retried)
-            _partyCode = code; _inPartySession = true;
+            bool ok = await StartSession(PartySession(id), new Dictionary<string, SessionProperty> { { "kind", "party" }, { "lead", id } }, QueueRules.Max, create);
+            if (ok && !create && _peers.Count == 0) { ok = false; await Shutdown(); }   // nobody there
+            if (!ok) { OnPartyChanged?.Invoke(); return false; }
+            _partyCode = id; _inPartySession = true;
             _wasLeader = IsHost;
-            _status = "Party " + code;
+            _status = "Party (" + (_peers.Count + 1) + ")";
             foreach (var p in _peers) SendSys(p, 3, MyName());
             OnPartyChanged?.Invoke();
             return true;
+        }
+
+        // ---- the session lobby: lets you receive bunker invites while you're not in any session
+        async Task EnterLobby()
+        {
+            if (_lobby != null || InSession) return;
+            try
+            {
+                var go = new GameObject("FusionLobby");
+                DontDestroyOnLoad(go);
+                var r = go.AddComponent<NetworkRunner>();
+                r.AddCallbacks(this);
+                _lobby = r;
+                var m = typeof(NetworkRunner).GetMethod("JoinSessionLobby", BindingFlags.Public | BindingFlags.Instance);
+                if (m == null) { Debug.LogWarning("[Rago] this Fusion version has no session lobby: bunker invites need a raid together first"); return; }
+                var ps = m.GetParameters();
+                var args = new object[ps.Length];
+                var app = MakeAppSettings(AppId());
+                for (int i = 0; i < ps.Length; i++)
+                {
+                    var pt = ps[i].ParameterType;
+                    if (pt.IsEnum && pt.Name == "SessionLobby") args[i] = Enum.Parse(pt, "Shared");
+                    else if (app != null && pt.IsInstanceOfType(app)) args[i] = app;
+                    else args[i] = ps[i].HasDefaultValue ? ps[i].DefaultValue : (pt.IsValueType ? Activator.CreateInstance(pt) : null);
+                }
+                if (m.Invoke(r, args) is Task t) await t;
+                if (_status.StartsWith("Starting") || _status.StartsWith("Joining") || _status.StartsWith("Party")) _status = "Online (Photon)";
+            }
+            catch (Exception e) { Debug.LogWarning("[Rago] couldn't join the session lobby: " + e.Message); }
+        }
+
+        async Task LeaveLobby()
+        {
+            var r = _lobby; _lobby = null;
+            if (r == null) return;
+            try { await r.Shutdown(); } catch { }
+            if (r != null) Destroy(r.gameObject);
+        }
+
+        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
+        {
+            if (runner != _lobby || sessionList == null) return;
+            string me = Key(MyName());
+            bool changed = false;
+            foreach (var si in sessionList)
+            {
+                var props = si.Properties;
+                if (props == null || !props.TryGetValue("kind", out var k) || Str(k) != "party") continue;
+                if (!props.TryGetValue("inv", out var inv) || !props.TryGetValue("lead", out var lead)) continue;
+                string invited = Str(inv), leader = Str(lead);
+                if (string.IsNullOrEmpty(invited) || Array.IndexOf(invited.Split(','), me) < 0) continue;
+                if (_invites.Exists(x => Key(x.party) == Key(leader))) continue;
+                _invites.Add(new PartyInvite { from = leader, party = leader, time = Time.realtimeSinceStartup });
+                changed = true;
+                RagoGame.I?.Player?.Toast(leader + " invited you to their party - press the menu button to accept");
+            }
+            if (changed) OnPartyChanged?.Invoke();
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -155,21 +289,29 @@ namespace Rago.Net
         // assembly), so it's reached by name here: this compiles against every Fusion 2 version.
         static void UseAppId(ref StartGameArgs args, string appId)
         {
-            if (string.IsNullOrEmpty(appId)) return;   // fall back to whatever is in PhotonAppSettings
+            var copy = MakeAppSettings(appId);
+            if (copy == null) return;
+            object boxed = args;
+            if (Set(boxed, "CustomPhotonAppSettings", copy)) args = (StartGameArgs)boxed;
+        }
+
+        /// <summary>A copy of the project's Photon app settings with our App ID in it (null = use the project's own).</summary>
+        static object MakeAppSettings(string appId)
+        {
+            if (string.IsNullOrEmpty(appId)) return null;   // fall back to whatever is in PhotonAppSettings
             try
             {
                 Type t = null;
                 foreach (var a in AppDomain.CurrentDomain.GetAssemblies()) { t = a.GetType("Fusion.Photon.Realtime.PhotonAppSettings", false); if (t != null) break; }
-                if (t == null) { Debug.LogWarning("[Rago] PhotonAppSettings not found; using the project's Photon settings"); return; }
+                if (t == null) { Debug.LogWarning("[Rago] PhotonAppSettings not found; using the project's Photon settings"); return null; }
                 var global = Get(null, t, "Global");
                 var settings = Get(global, t, "AppSettings");
-                if (settings == null) return;
+                if (settings == null) return null;
                 var copy = settings.GetType().GetMethod("GetCopy", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null)?.Invoke(settings, null) ?? settings;
-                if (!Set(copy, "AppIdFusion", appId)) { Debug.LogWarning("[Rago] couldn't set AppIdFusion; using the project's Photon settings"); return; }
-                object boxed = args;
-                if (Set(boxed, "CustomPhotonAppSettings", copy)) args = (StartGameArgs)boxed;
+                if (!Set(copy, "AppIdFusion", appId)) { Debug.LogWarning("[Rago] couldn't set AppIdFusion; using the project's Photon settings"); return null; }
+                return copy;
             }
-            catch (Exception e) { Debug.LogWarning("[Rago] couldn't apply the Photon App ID (using the project's Photon settings): " + e.Message); }
+            catch (Exception e) { Debug.LogWarning("[Rago] couldn't apply the Photon App ID (using the project's Photon settings): " + e.Message); return null; }
         }
 
         const BindingFlags Any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
@@ -195,7 +337,9 @@ namespace Rago.Net
         async Task<bool> StartSession(string name, Dictionary<string, SessionProperty> props, int maxPlayers, bool allowCreate = true)
         {
             await Shutdown();
+            await LeaveLobby();
             _inPartySession = false;
+            _sessionKind = props != null && props.TryGetValue("kind", out var kp) ? Str(kp) : "";
             var go = new GameObject("FusionRunner");
             DontDestroyOnLoad(go);
             _runner = go.AddComponent<NetworkRunner>();
@@ -255,6 +399,8 @@ namespace Rago.Net
             if (!_ready) { done?.Invoke(false); return; }
             _status = "Joining the Market...";
             bool ok = await StartSession("RagoMarket", new Dictionary<string, SessionProperty> { { "kind", "market" } }, 20);
+            _names.Clear();
+            if (ok) foreach (var p in _peers) SendSys(p, 3, MyName());
             _status = ok ? "Market (" + (_peers.Count + 1) + " players)" : _status;
             done?.Invoke(ok);
         }
@@ -284,8 +430,8 @@ namespace Rago.Net
                 }
                 // random join of an open queue for this map, or create one (a party gets its own session that randoms can still fill)
                 bool ok = await StartSession(sessionName, new Dictionary<string, SessionProperty> { { "kind", "raid_" + map } }, QueueRules.Max);
-                _peerParty.Clear();
-                if (ok && _partyCode != null) foreach (var p in _peers) SendSys(p, 4, _partyCode);
+                _peerParty.Clear(); _names.Clear();
+                if (ok) foreach (var p in _peers) { SendSys(p, 3, MyName()); if (_partyCode != null) SendSys(p, 4, _partyCode); }
                 if (!ok) { failed?.Invoke(_status); _queueing = false; return; }
                 float atTarget = -1f;
                 float queuedAt = Time.realtimeSinceStartup;
@@ -398,7 +544,25 @@ namespace Rago.Net
                     var p = text.Split('|');
                     if (p.Length >= 4) _pendingStart = new RaidStart { map = p[0], seed = int.Parse(p[1]), spawnIndex = int.Parse(p[2]), players = int.Parse(p[3]), online = true, partySlot = p.Length >= 5 ? int.Parse(p[4]) : 0 };
                 }
-                else if (code == 3) { _names[Id(player)] = text; OnPartyChanged?.Invoke(); }                 // party member's callsign
+                else if (code == 3)
+                {
+                    // someone's callsign (sent to everyone in a session)
+                    _names[Id(player)] = text;
+                    if (_sessionKind.StartsWith("raid")) OnMetPlayer?.Invoke(text);
+                    OnPartyChanged?.Invoke();
+                }
+                else if (code == 7 && _inPartySession && IsHost) { Remember(text); PublishInvites(); }      // a member asks the leader to invite someone
+                else if (code == 8)
+                {
+                    // invited in a raid: "from|party"
+                    var p = text.Split('|');
+                    if (p.Length >= 2 && !_invites.Exists(x => Key(x.party) == Key(p[1])) && Key(p[1]) != Key(_partyCode))
+                    {
+                        _invites.Add(new PartyInvite { from = p[0], party = p[1], time = Time.realtimeSinceStartup });
+                        RagoGame.I?.Player?.Toast(p[0] + " invited you to their party - press the menu button to accept");
+                        OnPartyChanged?.Invoke();
+                    }
+                }
                 else if (code == 4) { _peerParty[Id(player)] = text; }                                         // which party a raid peer is in
                 else if (code == 5 && _queueing && text == _partyCode) { _cancel = true; OnPartyQueueCancelled?.Invoke(); }   // leader cancelled
                 else if (code == 6 && _inPartySession && !_queueing)
@@ -420,8 +584,8 @@ namespace Rago.Net
             RefreshPeers();
             if (player != runner.LocalPlayer)
             {
-                if (_inPartySession) SendSys(Id(player), 3, MyName());
-                else if (_queueing && _partyCode != null) SendSys(Id(player), 4, _partyCode);
+                SendSys(Id(player), 3, MyName());
+                if (!_inPartySession && _queueing && _partyCode != null) SendSys(Id(player), 4, _partyCode);
                 OnPeerJoined?.Invoke(Id(player));
             }
             if (_inPartySession) OnPartyChanged?.Invoke();
@@ -459,7 +623,6 @@ namespace Rago.Net
         public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
         public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
         public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
-        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
         public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
         public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
         public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }

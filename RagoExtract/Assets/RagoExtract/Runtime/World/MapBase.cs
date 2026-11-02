@@ -674,7 +674,13 @@ namespace Rago
     {
         public string Name;
         public float Radius = 2.6f;
+        public float OpensAt;   // seconds into the raid when this extract unlocks (5-10 min, the same for everyone)
         float _t; float _beep;
+        bool _announced;
+        Light _light;
+        public bool IsOpen => RaidManager.I == null || RaidManager.I.Elapsed >= OpensAt;
+        public float OpensIn => RaidManager.I == null ? 0f : Mathf.Max(0f, OpensAt - RaidManager.I.Elapsed);
+        static string Clock(float s) { int t = Mathf.CeilToInt(s); return (t / 60) + ":" + (t % 60).ToString("00"); }
         public const float Time_ = 10f;
         ParticleSystem _smoke;
         bool _calling;
@@ -693,7 +699,7 @@ namespace Rago
             mb.Sub(0).Cyl(Vector3.zero, Vector3.up * 0.06f, e.Radius, e.Radius, 32, new Color(0.2f, 1f, 0.35f), false);
             mb.Sub(1).Cyl(new Vector3(0, 0, 0), new Vector3(0, 0.3f, 0), 0.03f, 0.03f, 8, Color.white);
             mb.Build("Marker", go.transform, Mats.Unlit("extract_ring", new Color(0.2f, 1f, 0.35f, 0.15f), Mats.Glow, Mats.BlendKind.Additive), Mats.Lit("flare", new Color(1f, 0.2f, 0.2f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(4f, 0.6f, 0.4f)));
-            var l = go.AddComponent<Light>(); l.type = LightType.Point; l.color = new Color(0.4f, 1f, 0.5f); l.range = 8f; l.intensity = 1.5f;
+            var l = go.AddComponent<Light>(); l.type = LightType.Point; l.color = new Color(0.4f, 1f, 0.5f); l.range = 8f; l.intensity = 1.5f; e._light = l;
             var sgo = new GameObject("Smoke");
             sgo.transform.SetParent(go.transform, false);
             e._smoke = sgo.AddComponent<ParticleSystem>();
@@ -763,6 +769,7 @@ namespace Rago
             var raid = RaidManager.I;
             if (p == null || raid == null || raid.Done || !p.Vitals.Alive) return;
             if (_calling) return;
+            if (!IsOpen) { p.Toast(Name + " is locked - it opens in " + Clock(OpensIn)); Sfx.UI(Synth.UiError(), 0.3f); return; }
             if (!PlayerInZone(p)) { p.Toast("Get inside the green zone first"); Sfx.UI(Synth.UiError(), 0.3f); return; }
             _calling = true; _t = 0; _beep = 0;
             Sfx.Play(Synth.QueueFound(), _laptop.position, 0.5f, 1f, 0.6f, 15f);
@@ -775,6 +782,17 @@ namespace Rago
             var raid = RaidManager.I;
             if (p == null || raid == null || !p.Vitals.Alive || raid.Done) return;
             bool inside = PlayerInZone(p);
+            // locked until its timer runs out: red light, no smoke, the laptop counts down
+            bool open = IsOpen;
+            if (_smoke != null) { var em = _smoke.emission; em.enabled = open; }
+            if (_light != null) _light.color = open ? new Color(0.4f, 1f, 0.5f) : new Color(1f, 0.25f, 0.15f);
+            if (!open)
+            {
+                SetScreen("LOCKED", "OPENS IN " + Clock(OpensIn));
+                if (inside) p.Hud.Center(Name + " opens in " + Clock(OpensIn), 0.2f);
+                return;
+            }
+            if (!_announced) { _announced = true; if (RaidManager.I.Elapsed > 2f) p.Toast("Extract open: " + Name); }
             // desktop: look at the laptop and press F
             if (!_calling && !XRInputs.VR && Desktop.Interact && Physics.Raycast(p.Head.position, p.Head.forward, out var hit, 3f, ~0, QueryTriggerInteraction.Collide) && hit.collider.transform.IsChildOf(_laptop)) Call();
             if (_calling)

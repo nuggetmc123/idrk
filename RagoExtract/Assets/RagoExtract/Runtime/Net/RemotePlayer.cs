@@ -9,6 +9,7 @@ namespace Rago
         public string DisplayName = "Operator";
         HumanRig _rig;
         TextMesh _tag;
+        GameObject _dot;
         Vector3 _root, _head, _hl, _hr, _vel;
         Quaternion _headR = Quaternion.identity, _hlR = Quaternion.identity, _hrR = Quaternion.identity;
         Vector3 _sRoot, _sHead, _sHl, _sHr;
@@ -36,6 +37,9 @@ namespace Rago
                 z.mult = HitZone.MultFor(z.part);
             }
             rp._tag = UI.Text(go.transform, "", Vector3.zero, 0.05f, new Color(0.7f, 0.9f, 1f));
+            // teammate marker: a green dot over their head, seen through walls and kept a readable size at any distance
+            rp._dot = new MB().Sphere(Vector3.zero, Vector3.one * 0.5f, 10, Color.white).Build("TeamDot", go.transform, Mats.Unlit("team_dot", new Color(0.2f, 1f, 0.35f, 0.95f), null, Mats.BlendKind.Alpha, false, 50, true));
+            rp._dot.SetActive(false);
             return rp;
         }
 
@@ -145,6 +149,14 @@ namespace Rago
             if (cam != null)
             {
                 _tag.transform.position = _sHead + Vector3.up * 0.35f;
+                bool mate = NetHub.Backend != null && NetHub.Backend.IsTeammate(NetId);
+                if (_dot.activeSelf != mate) _dot.SetActive(mate);
+                if (mate)
+                {
+                    float dist = Vector3.Distance(cam.position, _sHead);
+                    _dot.transform.position = _sHead + Vector3.up * (0.5f + dist * 0.004f);
+                    _dot.transform.localScale = Vector3.one * Mathf.Clamp(dist * 0.012f, 0.06f, 1.2f);
+                }
                 _tag.transform.rotation = Quaternion.LookRotation(_tag.transform.position - cam.position);
                 bool talking = Time.time - LastVoiceTime < 0.35f;
                 _tag.text = (talking ? "<color=#7fff7f>(( </color>" : "") + DisplayName + (talking ? "<color=#7fff7f> ))</color>" : "");

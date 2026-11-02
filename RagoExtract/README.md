@@ -94,7 +94,13 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   | 4 | Dig a Trophy Vault | 1 Rugged Laptop, 2 Luxury Watches, 1 Gold Idol | $50,000 | **Trophy Vault** (off the Armory, north): more armor stands, gun racks and a trophy plinth |
 
   Turned-in items are saved, so you can bring them over several raids.
-- **Party (play with friends)**: the PARTY board is on your bunker's east wall, next to the raid terminal. Press **CREATE PARTY** to get a 4-character code and tell it to your friends; they type it on the board's keypad and press **JOIN**. The board lists everyone in the party by callsign. Everyone stays in their own bunker. The **leader** picks a map and presses QUEUE on the raid terminal, and every member's terminal follows automatically: the whole party goes into the same raid (random players can still fill the free spots) and spawns together, side by side. The raid waits for the whole party, still launching at 1:00 at the latest. If the leader cancels, everyone's queue cancels. After a raid (or a trip to the Market) you rejoin your party automatically when you're back in the bunker. Parties need multiplayer set up (Rago Extract > Multiplayer).
+- **Menu, friends and parties**: press the **LEFT MENU button** (the three lines; **N** on desktop) anywhere, in the bunker or in a raid. The menu opens in front of you:
+  - **PARTY**: who's in your party, invites you've received (ACCEPT / DECLINE), LEAVE PARTY.
+  - **FRIENDS**: **+ ADD FRIEND** and type their full callsign with the tag (like `GHOST#0193`), then INVITE or REMOVE.
+  - **RECENT**: everyone in your current raid, then people you've raided with before: INVITE them or **+ FRIEND** them.
+  - **SETTINGS**: grip angle, turning, volume, microphone (this replaces the old settings board).
+
+  Your first invite starts a party with you as the leader. Invites sent from your bunker reach friends who are in their bunkers; invites sent in a raid reach people in that raid, and you team up when you're both back in your bunkers. Everyone stays in their own bunker; the **leader** picks a map and presses QUEUE on the raid terminal and every member's terminal follows. The whole party goes into the same raid (random players can still fill the free spots) and **spawns together**, side by side. In the raid, teammates have a **green dot** over their heads that you can see through walls. The raid waits for the whole party (still launching at 1:00 at the latest), and if the leader cancels, everyone's queue cancels. Parties need multiplayer set up (Rago Extract > Multiplayer).
 - **Raid terminal** (in your bunker, east wall; there are no raid terminals in the Market): pick a map on the green screen and press the big **QUEUE** key. Each raid holds 4-10 players. The queue tries to reach 8, starts right away at 10, and once the queue timer hits **1 minute** it launches with whoever is queued. While you're queued, the top-left of your view shows **FINDING RAID** with a timer, then **RAID FOUND** and **JOINING RAID** (with its own timer, which runs until you are in the raid) when a match is ready.
 - **Raids**: three maps.
   - **Dockyard**: container yard, cranes, warehouses, Harbor Office vault, and the **Workers' Village** through the west gate.
@@ -105,11 +111,11 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 
   **Spawns:** you start out near the border, with every player in a raid at a different spot (10 per map, 6 on Dockyard because of the sea). About half are small lootable places: a tool shed, a hunter's cabin, a supply tent or an open shipping container, each with a few crates to search before you move out. The rest are out in the open behind a wrecked car, a rock pile or an old sandbag nest. No raider squad starts within 110 m of a spawn.
 
-  **Field map:** press the **LEFT MENU** button (VR) or **M** (desktop). It's a real top-down photo of the map taken when the raid starts, printed on paper, with every extract circled in green and a red arrow showing where you are and which way you're facing. In VR it floats just above your left hand, turned toward your eyes.
+  **Field map:** press **Y** (VR, when your left hand isn't holding a gun) or **M** (desktop). It's a real top-down photo of the map taken when the raid starts, printed on paper, with every extract circled in green and a red arrow showing where you are and which way you're facing. In VR it floats just above your left hand, turned toward your eyes.
 
   The village, hamlet and suburbs are streets of houses you can walk into and search room by room (stairs, furniture, loot crates inside), and each has its own extract.
 
-  Each raid lasts 40 minutes. To leave, reach an extract (green smoke), step into the zone and use the **laptop** on the supply crate (grab it, click its CALL key, or press F on desktop). A **10-second** countdown runs on the laptop and your HUD. Stay in the zone until it hits zero; leaving the zone cancels the call. If you die, you lose what you brought and your body drops it for others to loot.
+  Each raid lasts 40 minutes. To leave, reach an extract (green smoke), step into the zone and use the **laptop** on the supply crate (grab it, click its CALL key, or press F on desktop). A **10-second** countdown runs on the laptop and your HUD. **Extracts are locked at the start:** each one opens at its own random time between 5 and 10 minutes into the raid (the same for everyone in the raid). A locked extract has a red light and no smoke, its laptop counts down to when it opens, and the field map shows when each one opens. Stay in the zone until it hits zero; leaving the zone cancels the call. If you die, you lose what you brought and your body drops it for others to loot.
 - **Raiders**: up to 16 per raid, spread over the whole map in small squads. They patrol slowly, moving to a new spot about every 30 seconds, notice you over time when they can see you, take cover, peek, fire bursts with human-like aim, flinch when hit, ragdoll on death and drop their gun and loot. A gunshot only brings raiders over if they're close (about 30 m); farther away they just stop and look toward the sound, and only come for you if they spot you. Footsteps are very quiet: walking, a raider only hears you if you're right next to them (about 2 m), sprinting about 5 m, and crouch-walking makes no sound. A vault alarm pulls in everyone nearby.
 - **Woods**: pines with layered needle branches, leafy oaks and birches, bushes you can walk through and hide in, and patches of tall grass and ferns, all swaying in the wind. Raids have no draw-distance limit, only a light haze, so you can see across the whole map.
 - **Guns**: 50 original guns (pistols, revolvers, SMGs, shotguns, rifles, DMRs, snipers, LMGs) in 5 rarity tiers.
@@ -124,7 +130,8 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 |---|---|
 | Left stick | Move. Click to sprint (uses stamina) |
 | A / X (on a hand without a gun) | Jump. With a gun in your right hand, use X. On the gun's hand, A/X still drops the mag |
-| Left MENU button | Open / close the field map (in raids) |
+| Left MENU button (three lines) | Open / close the menu: party, friends, recent players, settings |
+| Y (left hand not holding a gun) | Open / close the field map (in raids) |
 | Right stick | Snap or smooth turn. Click to crouch toggle (real crouching also works) |
 | Grip | Grab, two-hand a gun (grab the handguard), pull a slide or charging handle |
 | Grip on a wall, ledge, ladder, fence or rock (empty hand) | Climb: the hand locks on and pulling down lifts you. Let go above a ledge to climb onto it |
@@ -140,7 +147,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Med near chest + trigger | Heal (bandage stops bleeding, medkit heals over time, stim gives instant HP + stamina) |
 
 ### Desktop controls (no headset)
-WASD move · mouse look · Shift sprint · Space jump · M field map · C crouch · E grab what you look at / drop · LMB fire / click · RMB aim · R reload · F rack / open / interact (hold F on a vault hack panel) · X drop mag · 1/2/3 primary / secondary / pistol · Tab backpack · G drop (into the open backpack; rifles go on its side straps) · H wear held armor / take armor off
+WASD move · mouse look · Shift sprint · Space jump · M field map · N menu (party, friends, settings) · C crouch · E grab what you look at / drop · LMB fire / click · RMB aim · R reload · F rack / open / interact (hold F on a vault hack panel) · X drop mag · 1/2/3 primary / secondary / pistol · Tab backpack · G drop (into the open backpack; rifles go on its side straps) · H wear held armor / take armor off
 
 ## Code layout
 ```

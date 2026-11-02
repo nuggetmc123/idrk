@@ -73,18 +73,31 @@ namespace Rago
         event Action<ulong> OnPeerLeft;
         event Action OnDisconnected;
 
-        // ---- party: play with friends. A party is a 4-character code; everyone in it waits together in their own
-        // bunkers, the leader queues, and the whole party lands in the same raid at the same spawn.
-        string PartyCode { get; }               // null when not in a party
+        // ---- party: play with friends. Invite people by callsign (friends, or players you've raided with); they
+        // accept from their menu. The party waits together in their own bunkers, the leader queues, and the whole
+        // party lands in the same raid at the same spawn.
+        string PartyCode { get; }               // the party's id (its leader's callsign); null when not in a party
         bool PartyLeader { get; }
         IReadOnlyList<string> PartyMembers { get; }
-        void CreateParty(Action<bool> done);
-        void JoinParty(string code, Action<bool> done);
+        IReadOnlyList<PartyInvite> Invites { get; }
+        void InviteToParty(string callsign);    // from the bunker or from inside a raid
+        void AcceptInvite(PartyInvite inv);
+        void DeclineInvite(PartyInvite inv);
         void LeaveParty();
-        void RejoinParty();                     // back in the bunker after a raid / the Market
+        void RejoinParty();                     // back in the bunker: rejoin your party, or listen for invites
+        bool IsTeammate(ulong peer);            // in your party (raid: green dot over their head)
+        IReadOnlyList<string> SessionPlayers { get; }   // callsigns of everyone else in your current session
         event Action OnPartyChanged;
         event Action<string> OnPartyQueue;      // the leader started queueing for this map: follow them
         event Action OnPartyQueueCancelled;
+        event Action<string> OnMetPlayer;       // someone in your raid told you their callsign (recent players)
+    }
+
+    public class PartyInvite
+    {
+        public string from;       // who invited you
+        public string party;      // the party's id (its leader)
+        public float time;
     }
 
     /// <summary>Voice chat backend. The built-in implementation (VoiceChat) streams your microphone over the game connection.</summary>

@@ -682,7 +682,6 @@ namespace Rago
             UI.Button(p, "Snap 30/45/90", new Vector3(-0.2f, -0.17f, 0), new Vector2(0.4f, 0.08f), () => { PlayerRig.SnapAngle = PlayerRig.SnapAngle < 40 ? 45 : PlayerRig.SnapAngle < 60 ? 90 : 30; s.Apply(); });
             UI.Button(p, "Volume", new Vector3(0.25f, -0.17f, 0), new Vector2(0.3f, 0.08f), () => { Sfx.MasterVolume = Sfx.MasterVolume >= 1f ? 0.25f : Sfx.MasterVolume + 0.25f; AudioListener.volume = Sfx.MasterVolume; s.Apply(); });
             UI.Button(p, "Mute mic", new Vector3(-0.2f, -0.29f, 0), new Vector2(0.4f, 0.08f), () => { if (NetHub.Voice != null) NetHub.Voice.SetMuted(!NetHub.Voice.Muted); s.Apply(); });
-            UI.Button(p, "New name", new Vector3(0.25f, -0.29f, 0), new Vector2(0.3f, 0.08f), () => { Profile.Current.name = "Operator-" + Random.Range(100, 999); s.Apply(); });
             s.Apply();
             return s;
         }

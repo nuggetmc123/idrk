@@ -180,6 +180,7 @@ namespace Rago
             _travelling = true; _recovered = false; _travelStart = Time.unscaledTime;
             RemoveEditorPreview();
             ConfigureFramePacing();   // the headset may have come up after boot
+            GameMenu.Close();
             Player.Hud.FadeTo(1f);
             Player.Frozen = true;
             float t = 0;
@@ -255,8 +256,8 @@ namespace Rago
                 foreach (var el in Elevator.All) if (el != null && el.transform.IsChildOf(MapRoot)) { lift = el; break; }
                 if (lift != null && to != Area.Raid) { Player.Teleport(lift.ArrivePosition, lift.ArriveYaw); lift.Arrive(); }
             }
-            // back in your bunker: rejoin your party (it pauses while you're in the Market or a raid)
-            if (to == Area.Bunker && NetHub.Online && NetHub.Backend.PartyCode != null) NetHub.Backend.RejoinParty();
+            // back in your bunker: rejoin your party (it pauses while you're in the Market or a raid), or listen for invites
+            if (to == Area.Bunker && NetHub.Online) NetHub.Backend.RejoinParty();
             if (to == Area.Market && NetHub.Online)
             {
                 Player.Toast("Connecting to the Market...");
@@ -345,6 +346,7 @@ namespace Rago
         MapBase _map;
         RaidStart _rs;
         float _start;
+        public float Elapsed => Time.time - _start;
         int _startValue;
 
         public static void Begin(RagoGame g, MapBase map, RaidStart rs)
@@ -365,6 +367,9 @@ namespace Rago
             I._startValue = Value(g.Player.Gear);
             bool online = rs.online && NetGame.I != null && NetHub.Backend != null && NetHub.Backend.InSession;
             if (online) NetGame.I.Begin(true);
+            // every extract opens 5-10 minutes into the raid (from the raid seed, so it's the same for everyone)
+            var er = new Rng(rs.seed * 7 + 13);
+            foreach (var ex in map.Extracts) if (ex != null) ex.OpensAt = er.Range(300f, 600f);
             FieldMap.Create(map, map.DisplayName);   // photographed now, while the screen is still black
             var dir = NpcDirector.Create(map.transform);
             dir.SpawnSquads(map.NpcSpawns, rs.seed, online && !NetHub.Backend.IsHost, map.PlayerSpawns);

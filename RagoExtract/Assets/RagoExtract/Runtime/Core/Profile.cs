@@ -26,6 +26,8 @@ namespace Rago
         public int tag;
         public bool nameSet, tutorialDone;
         public int tutorialStep;
+        public List<string> friends = new List<string>();   // callsigns you added (menu > FRIENDS)
+        public List<string> recent = new List<string>();    // people you've raided with, newest first
         public string DisplayName => tag > 0 ? name + "#" + tag.ToString("0000") : name;
         public static int NewTagFor(int avoid = -1) { int t; do t = Random.Range(1000, 10000); while (t == avoid); return t; }
         // bunker expansions (Foreman jobs in the Market)
