@@ -124,9 +124,79 @@ namespace Rago
             Drop(vel, angVel);
         }
 
+        /// <summary>
+        /// Mounted on / inserted into something (a sight on a rail, a mag in a gun): no interpolation, so it rides
+        /// exactly with its parent instead of being drawn where its own physics body last was (that made it float).
+        /// </summary>
+        public void SetMounted(bool mounted)
+        {
+            if (rb == null) return;
+            rb.isKinematic = true;
+            rb.interpolation = mounted ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
+            rb.SetVel(Vector3.zero);
+        }
+
+        static readonly RaycastHit[] _floorHits = new RaycastHit[16];
+        static int _worldMask = 0;
+        static int WorldMask
+        {
+            get
+            {
+                if (_worldMask == 0)
+                {
+                    _worldMask = ~0;
+                    foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) _worldMask &= ~(1 << l);
+                }
+                return _worldMask;
+            }
+        }
+
+        /// <summary>Highest static floor surface under p within the given range (or NaN).</summary>
+        static float FloorBelow(Vector3 from, float range)
+        {
+            int n = Physics.RaycastNonAlloc(from, Vector3.down, _floorHits, range, WorldMask, QueryTriggerInteraction.Ignore);
+            float best = float.NaN;
+            for (int i = 0; i < n; i++)
+            {
+                var h = _floorHits[i];
+                if (h.collider.attachedRigidbody != null || h.normal.y < 0.5f) continue;
+                if (float.IsNaN(best) || h.point.y > best) best = h.point.y;
+            }
+            return best;
+        }
+
+        Vector3 _lastFree; bool _trackFree;
+
+        protected virtual void FixedUpdate()
+        {
+            // anti-tunnelling: a loose item that went through a floor in one step (pushed out the wrong way after being
+            // let go inside it, or just very fast) is put back on top of that floor
+            if (rb == null || rb.isKinematic || primaryHand != null || slot != null) { _trackFree = false; return; }
+            Vector3 now = rb.position;
+            if (_trackFree && now.y < _lastFree.y - 0.01f)
+            {
+                Vector3 d = now - _lastFree;
+                float len = d.magnitude;
+                if (len > 0.001f && Physics.Raycast(_lastFree, d / len, out var hit, len + 0.05f, WorldMask, QueryTriggerInteraction.Ignore)
+                    && hit.normal.y > 0.5f && hit.collider.attachedRigidbody == null && !hit.collider.transform.IsChildOf(transform))
+                {
+                    float half = Mathf.Max(0.02f, localBounds.extents.y);
+                    rb.position = hit.point + Vector3.up * (half + 0.02f);
+                    rb.SetVel(Vector3.zero);
+                    now = rb.position;
+                }
+            }
+            _lastFree = now; _trackFree = true;
+        }
+
         public void Drop(Vector3 vel, Vector3 angVel)
         {
             transform.SetParent(RagoGame.I != null ? RagoGame.I.MapRoot : null, true);
+            // let go partly inside a floor or table: lift it out first, or physics pushes it down through
+            float half = Mathf.Max(0.02f, localBounds.extents.y);
+            float floor = FloorBelow(transform.position + Vector3.up * 0.4f, 0.4f + half + 0.05f);
+            if (!float.IsNaN(floor) && transform.position.y - half < floor) transform.position += Vector3.up * (floor - (transform.position.y - half) + 0.01f);
+            _trackFree = false;
             rb.isKinematic = false;
             SetCollidersTrigger(false);
             rb.SetVel(vel);

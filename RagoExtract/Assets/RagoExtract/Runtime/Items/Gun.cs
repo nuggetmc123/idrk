@@ -109,7 +109,7 @@ namespace Rago
             mag = m;
             m.inGun = this;
             if (m.primaryHand != null) m.primaryHand.ForceRelease(true);
-            m.rb.isKinematic = true;
+            m.SetMounted(true);
             m.SetCollidersTrigger(true);
             m.transform.SetParent(rig.magwell, false);
             m.transform.localPosition = Vector3.zero;
@@ -128,6 +128,7 @@ namespace Rago
             mag = null;
             m.inGun = null;
             m.transform.SetParent(RagoGame.I != null ? RagoGame.I.MapRoot : null, true);
+            m.SetMounted(false);
             m.rb.isKinematic = false;
             m.SetCollidersTrigger(false);
             m.rb.SetVel(primaryHand != null ? primaryHand.Velocity + transform.TransformDirection(Vector3.down) * 0.8f : Vector3.down);
@@ -394,7 +395,7 @@ namespace Rago
 
         public override void OnGrab(Hand h)
         {
-            if (inGun != null) { var g = inGun; g.mag = null; inGun = null; Sfx.Play(Synth.MagOut(), transform.position, 0.6f, 1f, 0.5f, 8f); }
+            if (inGun != null) { var g = inGun; g.mag = null; inGun = null; SetMounted(false); Sfx.Play(Synth.MagOut(), transform.position, 0.6f, 1f, 0.5f, 8f); }
             _despawn = -1;
             base.OnGrab(h);
         }
@@ -404,10 +405,11 @@ namespace Rago
             // auto-insert when brought to the magwell of a gun held in the other hand
             var other = h.Other;
             var gun = other != null ? other.Held as Gun : null;
-            if (gun == null) return;
-            if (!gun.Accepts(this)) return;
-            if (Vector3.Distance(transform.position, gun.rig.magwell.position) < (gun.Internal ? 0.12f : 0.09f))   // forgiving: near the magwell is enough
-                gun.InsertMag(this);
+            if (gun == null || cal != gun.g.cal) return;
+            if (Vector3.Distance(transform.position, gun.rig.magwell.position) > (gun.Internal ? 0.12f : 0.1f)) return;   // forgiving: near the magwell is enough
+            // a mag already in: swap - the old one drops out as the new one goes in
+            if (!gun.Internal && gun.mag != null && gun.mag != this) gun.EjectMag();
+            if (gun.Accepts(this)) { gun.InsertMag(this); other.Haptic(0.5f, 0.06f); }
         }
 
         protected override bool TrySlot(Hand h)
@@ -462,7 +464,7 @@ namespace Rago
             if (g.sight != null && g.sight != this) return;
             onGun = g;
             g.sight = this;
-            rb.isKinematic = true;
+            SetMounted(true);
             SetCollidersTrigger(true);
             transform.SetParent(g.rig.rail, false);
             transform.localPosition = Vector3.zero;
@@ -472,7 +474,7 @@ namespace Rago
 
         public override void OnGrab(Hand h)
         {
-            if (onGun != null) { onGun.sight = null; onGun = null; Sfx.Play(Synth.MagOut(), transform.position, 0.5f, 1.4f, 0.5f, 8f); }
+            if (onGun != null) { onGun.sight = null; onGun = null; SetMounted(false); Sfx.Play(Synth.MagOut(), transform.position, 0.5f, 1.4f, 0.5f, 8f); }
             base.OnGrab(h);
         }
 

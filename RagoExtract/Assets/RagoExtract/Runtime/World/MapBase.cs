@@ -143,17 +143,26 @@ namespace Rago
             {
                 if (c == null) continue;
                 var p = c.transform.position;
-                int n = Physics.RaycastNonAlloc(p + Vector3.up * 0.7f, Vector3.down, hits, 2.2f, mask, QueryTriggerInteraction.Ignore);
+                // probe the centre and the four corners of the crate's footprint: it rests on the highest support, so a
+                // crate half over a stair hole or a floor edge can't end up sunk into the floor
+                Vector3 hs = (c.Size.sqrMagnitude > 0 ? c.Size : new Vector3(0.6f, 0.4f, 0.5f)) * 0.45f;
+                var r = c.transform.rotation;
                 float best = float.NegativeInfinity;
-                for (int i = 0; i < n; i++)
+                foreach (var o in new[] { Vector3.zero, new Vector3(hs.x, 0, hs.z), new Vector3(-hs.x, 0, hs.z), new Vector3(hs.x, 0, -hs.z), new Vector3(-hs.x, 0, -hs.z) })
                 {
-                    var t = hits[i].collider.transform;
-                    if (t.IsChildOf(c.transform)) continue;
-                    var other = t.GetComponentInParent<LootCrate>();
-                    if (other != null && other != c) continue;   // stacked spots: ignore other crates, settle on the floor
-                    if (hits[i].point.y > best) best = hits[i].point.y;
+                    int n = Physics.RaycastNonAlloc(p + r * o + Vector3.up * 0.7f, Vector3.down, hits, 2.2f, mask, QueryTriggerInteraction.Ignore);
+                    float top = float.NegativeInfinity;
+                    for (int i = 0; i < n; i++)
+                    {
+                        var t = hits[i].collider.transform;
+                        if (t.IsChildOf(c.transform)) continue;
+                        var other = t.GetComponentInParent<LootCrate>();
+                        if (other != null && other != c) continue;   // stacked spots: ignore other crates, settle on the floor
+                        if (hits[i].point.y > top) top = hits[i].point.y;
+                    }
+                    if (top > best) best = top;
                 }
-                if (best > float.NegativeInfinity) { p.y = best + 0.003f; c.transform.position = p; }
+                if (best > float.NegativeInfinity) { p.y = best + 0.004f; c.transform.position = p; }
             }
             Physics.SyncTransforms();
         }
@@ -551,6 +560,7 @@ namespace Rago
         public Kind kind;
         public int index;
         public bool opened;
+        public Vector3 Size;
         Transform _lid;
         ItemContainer _box;
         MapBase _map;
@@ -574,6 +584,7 @@ namespace Rago
                 case Kind.Duffel: size = new Vector3(0.36f, 0.28f, 0.6f); mat = Mats.Lit("duffel", new Color(0.15f, 0.15f, 0.14f), 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f); col = Color.white; break;
                 default: size = new Vector3(0.9f, 0.5f, 0.55f); mat = Mats.Lit("crate_mil", new Color(0.33f, 0.36f, 0.26f), 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
             }
+            c.Size = size;
             // body (open top)
             var mb = new MB(2);
             float t = 0.025f;
