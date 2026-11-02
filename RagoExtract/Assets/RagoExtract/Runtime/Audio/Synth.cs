@@ -385,6 +385,62 @@ namespace Rago
             return Clip("whizz", d, true, 0.8f);
         }, 3)[v % 3];
 
+        // ------------------------------------------------------------------ grenades
+        /// <summary>Frag grenade: a hard crack, a deep boom and a long rumbling tail.</summary>
+        public static AudioClip Explosion() => One("explosion", () =>
+        {
+            var d = Buf(3.2f);
+            var lp = new LP(180); var lp2 = new LP(900); var lp3 = new LP(60);
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)SR;
+                float crack = N() * Mathf.Exp(-t * 60f) * 1.2f;
+                float boom = lp.P(N()) * Mathf.Exp(-t * 3.2f) * 5.5f;
+                float body = lp2.P(N()) * Mathf.Exp(-t * 9f) * 1.6f;
+                float rumble = lp3.P(N()) * Mathf.Exp(-t * 1.1f) * 4f * Mathf.Clamp01(t * 8f);
+                float sub = Mathf.Sin(t * 2 * Mathf.PI * (48f - t * 10f)) * Mathf.Exp(-t * 4f) * 0.8f;
+                d[i] = crack + boom + body + rumble + sub;
+            }
+            return Clip("explosion", d);
+        });
+
+        /// <summary>Flashbang: a very sharp, bright bang with a short ring.</summary>
+        public static AudioClip FlashBang() => One("flashbang", () =>
+        {
+            var d = Buf(1.6f);
+            var lp = new LP(2500); var lp2 = new LP(250);
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)SR;
+                d[i] = N() * Mathf.Exp(-t * 35f) * 1.5f + lp.P(N()) * Mathf.Exp(-t * 7f) * 1.2f + lp2.P(N()) * Mathf.Exp(-t * 2.5f) * 2.5f
+                     + Mathf.Sin(t * 2 * Mathf.PI * 3100f) * Mathf.Exp(-t * 3f) * 0.12f;
+            }
+            return Clip("flashbang", d);
+        });
+
+        /// <summary>The high whine in your ears after a flashbang.</summary>
+        public static AudioClip Ringing() => One("ringing", () =>
+        {
+            var d = Buf(4.5f);
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)SR;
+                float env = Mathf.Clamp01(t * 6f) * Mathf.Exp(-t * 0.7f);
+                d[i] = (Mathf.Sin(t * 2 * Mathf.PI * 3900f) + Mathf.Sin(t * 2 * Mathf.PI * 4170f) * 0.4f) * env * 0.5f;
+            }
+            return Clip("ringing", d, true, 0.6f);
+        });
+
+        /// <summary>Grenade pin pulled: a metal ping and the spoon click.</summary>
+        public static AudioClip PinPull() => One("pinpull", () =>
+        {
+            var d = Buf(0.35f);
+            MetalClick(d, 0, 0.9f, 3600, 0.02f);
+            MetalClick(d, 0.06f, 0.5f, 5200, 0.05f);
+            Friction(d, 0.0f, 0.06f, 0.2f, 2000, 6000);
+            return Clip("pinpull", d);
+        });
+
         public static AudioClip BodyFall() => One("bodyfall", () =>
         {
             var d = Buf(0.6f);

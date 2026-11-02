@@ -92,6 +92,37 @@ namespace Rago
             ps.Emit(ep, 1);
         }
 
+        // ---------------------------------------------------------------- grenades
+        /// <summary>Frag: fireball, sparks, a dust ring and a column of smoke. Flashbang: a blinding white pop and a puff.</summary>
+        public static void Explosion(Vector3 p, bool flash)
+        {
+            var I2 = I;
+            var lgo = new GameObject("BlastLight");
+            lgo.transform.position = p + Vector3.up * 0.4f;
+            var l = lgo.AddComponent<Light>(); l.type = LightType.Point; l.range = flash ? 22f : 16f; l.intensity = flash ? 9f : 6f;
+            l.color = flash ? new Color(1f, 1f, 1f) : new Color(1f, 0.6f, 0.25f);
+            Destroy(lgo, flash ? 0.12f : 0.18f);
+            if (flash)
+            {
+                for (int i = 0; i < 3; i++) Emit(I2._flashSprite, p + Vector3.up * 0.2f, Vector3.zero, 2.5f + i, 0.12f, new Color(1, 1, 1, 1));
+                for (int i = 0; i < 4; i++) Emit(I2._smoke, p + Vector3.up * 0.1f, (Vector3.up + Random.insideUnitSphere * 0.6f) * 0.6f, Random.Range(0.4f, 0.8f), Random.Range(1.5f, 2.5f), new Color(0.85f, 0.85f, 0.85f, 0.45f));
+                for (int i = 0; i < 12; i++) Emit(I2._sparks, p, Random.insideUnitSphere * 5f, 0.012f, 0.15f, new Color(1, 1, 0.9f));
+                return;
+            }
+            for (int i = 0; i < 4; i++) Emit(I2._flashSprite, p + Vector3.up * 0.4f + Random.insideUnitSphere * 0.4f, Vector3.zero, Random.Range(2.2f, 3.6f), 0.16f, new Color(1f, 0.65f, 0.3f, 1f));
+            for (int i = 0; i < 40; i++) Emit(I2._sparks, p + Vector3.up * 0.2f, (Random.insideUnitSphere + Vector3.up * 0.4f) * Random.Range(6f, 16f), Random.Range(0.012f, 0.025f), Random.Range(0.2f, 0.6f), new Color(1f, 0.75f, 0.35f));
+            for (int i = 0; i < 26; i++) Emit(I2._debris, p + Vector3.up * 0.1f, (Random.insideUnitSphere + Vector3.up * 0.8f) * Random.Range(3f, 9f), Random.Range(0.015f, 0.04f), Random.Range(0.6f, 1.4f), new Color(0.28f, 0.24f, 0.2f));
+            for (int i = 0; i < 14; i++)
+            {
+                var r = Random.insideUnitCircle.normalized;
+                Emit(I2._dust, p + Vector3.up * 0.15f, new Vector3(r.x, 0.15f, r.y) * Random.Range(3f, 6f), Random.Range(0.6f, 1.2f), Random.Range(1.2f, 2.4f), new Color(0.5f, 0.45f, 0.38f, 0.6f));
+            }
+            for (int i = 0; i < 10; i++) Emit(I2._smoke, p + Vector3.up * (0.3f + i * 0.15f), (Vector3.up * Random.Range(0.8f, 2f) + Random.insideUnitSphere * 0.6f), Random.Range(0.8f, 1.6f), Random.Range(2.5f, 4.5f), new Color(0.22f, 0.21f, 0.2f, 0.65f));
+            // scorch mark
+            if (Physics.Raycast(p + Vector3.up * 0.3f, Vector3.down, out var g, 2f, ~0, QueryTriggerInteraction.Ignore) && g.collider.attachedRigidbody == null)
+                I2.PlaceDecal(I2._bloodDecals, ref I2._bloodIdx, 90, Mats.Unlit("fx_scorch", new Color(0.05f, 0.05f, 0.05f, 0.85f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -40), g.point, g.normal, Random.Range(1.4f, 2f), null);
+        }
+
         // ---------------------------------------------------------------- muzzle
         public static void MuzzleFlash(Transform muzzle, float scale, bool suppressed)
         {

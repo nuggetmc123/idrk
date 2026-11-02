@@ -79,6 +79,7 @@ namespace Rago
         readonly List<Bullet> _bullets = new List<Bullet>();
         static readonly RaycastHit[] _hits = new RaycastHit[16];
         public static System.Action<HitInfo, HitZone> OnHitActor; // hook for netcode / hit markers
+        public static void ReportHit(HitInfo h, HitZone z) => OnHitActor?.Invoke(h, z);   // grenades / knives
         public static int BulletMask = ~0;
 
         public static void Fire(Vector3 origin, Vector3 dir, GunDef gun, int shooter, Transform ignore, IDamageable ignoreOwner, bool visualOnly, bool tracer)

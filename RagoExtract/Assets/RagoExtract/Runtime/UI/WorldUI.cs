@@ -242,8 +242,9 @@ namespace Rago
     public class Hud : MonoBehaviour
     {
         PlayerRig _p;
-        MeshRenderer _fade, _damage, _supp;
-        Material _fadeM, _damageM, _suppM;
+        MeshRenderer _fade, _damage, _supp, _flashR;
+        Material _fadeM, _damageM, _suppM, _flashM;
+        float _flash;
         float _fadeTarget = 0, _fadeCur = 1, _dmg, _sup;
         bool _blocked;
         TextMesh _toast, _center, _objective, _queue;
@@ -269,6 +270,9 @@ namespace Rago
             _fade.transform.localScale = Vector3.one * 0.08f * 8f;   // the black covers far past the edge of any headset's view (about +-84 degrees)
             _damage = Overlay(cam, quad, 0.09f, "hud_dmg", new Color(0.6f, 0, 0, 0), Mats.Vignette, out _damageM, 90);
             _supp = Overlay(cam, quad, 0.095f, "hud_sup", new Color(0, 0, 0, 0), Mats.Vignette, out _suppM, 80);
+            _flashR = Overlay(cam, quad, 0.085f, "hud_flash", new Color(1, 1, 1, 0), null, out _flashM, 95);
+            _flashR.transform.localScale = Vector3.one * 0.085f * 8f;
+            _flashR.enabled = false;
             _toast = UI.Text(cam, "", new Vector3(0, -0.12f, 0.6f), 0.02f, Color.white);
             _toast.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_toast);
             _center = UI.Text(cam, "", new Vector3(0, 0.06f, 0.8f), 0.04f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -325,6 +329,13 @@ namespace Rago
         public void SetBlocked(bool b) { _blocked = b; }
         public void Damage(float a, Vector3 dir) { _dmg = Mathf.Clamp01(_dmg + a * 0.9f + 0.25f); }
         public void Suppress(float a) { _sup = Mathf.Clamp01(_sup + a); }
+        /// <summary>Flashbanged: white-out that fades over a few seconds, with a ringing in your ears.</summary>
+        public void Flashbang(float strength)
+        {
+            if (strength <= 0.02f) return;
+            _flash = Mathf.Max(_flash, 1f + strength * 3.5f);
+            Sfx.UI(Synth.Ringing(), Mathf.Clamp01(strength) * 0.6f);
+        }
         public void Toast(string s) { _toast.text = s; _toastT = 2.5f; }
         public void Center(string s, float time = 3f) { _center.text = s; _centerT = time; }
         /// <summary>Top-left matchmaking line (FINDING RAID 0:12 / RAID FOUND / JOINING RAID); empty hides it.</summary>
@@ -344,6 +355,10 @@ namespace Rago
             _damageM.SetColor("_Color", new Color(0.55f, 0, 0, Mathf.Max(_dmg, low)));
             _damage.enabled = Mathf.Max(_dmg, low) > 0.01f;
             _sup = Mathf.MoveTowards(_sup, 0, dt * 0.7f);
+            _flash = Mathf.MoveTowards(_flash, 0, dt);
+            float fa = Mathf.Clamp01(_flash);
+            _flashR.enabled = fa > 0.01f;
+            if (_flashR.enabled) _flashM.SetColor("_Color", new Color(1, 1, 1, fa));
             _suppM.SetColor("_Color", new Color(0, 0, 0, _sup * 0.75f));
             _supp.enabled = _sup > 0.01f;
             _toastT -= dt; if (_toastT <= 0) _toast.text = "";

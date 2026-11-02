@@ -40,7 +40,7 @@ namespace Rago
             Send(false);
         }
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice }
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast }
 
         public static void Ensure()
         {
@@ -162,6 +162,14 @@ namespace Rago
         {
             var w = W(Msg.Fire);
             w.Write(g.g.id); V3(w, origin); V3(w, dir);
+            Send(true);
+        }
+
+        /// <summary>A grenade we threw went off: everyone else shows it (and works out their own flash).</summary>
+        public void SendBlast(Vector3 p, bool flash)
+        {
+            var w = W(Msg.Blast);
+            V3(w, p); w.Write(flash);
             Send(true);
         }
 
@@ -294,6 +302,12 @@ namespace Rago
                                 string hl = r.ReadString(), hrr = r.ReadString();
                                 rp.ApplyPose(dead, root, hp, hr, lp, lr, rpp, rr, vel, hl, hrr);
                                 if (r.BaseStream.Position < r.BaseStream.Length) rp.ApplyGear(r.ReadString());
+                                break;
+                            }
+                        case Msg.Blast:
+                            {
+                                var bp = V3(r); bool fl = r.ReadBoolean();
+                                Blast.Detonate(bp, fl, (int)from + 1, false);
                                 break;
                             }
                         case Msg.Fire:

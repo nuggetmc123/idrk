@@ -34,7 +34,9 @@ namespace Rago
         Vector3 _home;
         readonly List<Vector3> _patrol = new List<Vector3>();
         int _patrolIdx;
-        float _think, _awareness, _waitT, _lastSeenT, _burstT, _reloadT, _coverT, _searchT, _flinch, _stagger;
+        float _think, _awareness, _waitT, _lastSeenT, _burstT, _reloadT, _coverT, _searchT, _flinch, _stagger, _blind;
+        /// <summary>Flashbanged: can't see or shoot, and staggers about for a bit.</summary>
+        public void Flash(float seconds) { _blind = Mathf.Max(_blind, seconds); _stagger = Mathf.Max(_stagger, seconds * 0.6f); }
         int _burst, _rounds;
         Vector3 _lastKnown, _flinchDir;
         Vector3 _netPos, _netAim; float _netYaw; bool _netInit;
@@ -109,6 +111,7 @@ namespace Rago
         // ------------------------------------------------------------------------------- perception
         void Perceive(float dt)
         {
+            if (_blind > 0) return;   // flashbanged
             var best = new Target();
             float bestScore = 0;
             Vector3 eye = Rig.head.position + Vector3.up * 0.08f;
@@ -197,6 +200,7 @@ namespace Rago
             float dt = Time.deltaTime;
             _flinch = Mathf.MoveTowards(_flinch, 0, dt * 3f);
             _stagger -= dt;
+            _blind -= dt;
             if (Puppet) { PuppetUpdate(dt); return; }
             _think -= dt;
             if (_think <= 0) { _think = 0.2f; Perceive(0.2f); Decide(); }
@@ -339,7 +343,7 @@ namespace Rago
                 return;
             }
             if (_crouch && State == NpcState.Cover) return;
-            if (_awareness < 1f) return;
+            if (_awareness < 1f || _blind > 0) return;
             _burstT -= dt;
             if (_burstT > 0) return;
             if (_rounds <= 0) { _reloadT = Heavy ? 2.6f : 3.2f; Sfx.Play(Synth.MagOut(), GunModel.magwell.position, 0.6f, 1f, 1f, 15f); if (FindCover(_target.aim.position, out var c)) { Go(c, 3.8f); State = NpcState.Cover; _coverT = 4f; } return; }

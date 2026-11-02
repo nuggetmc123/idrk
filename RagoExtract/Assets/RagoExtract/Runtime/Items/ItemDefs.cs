@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Rago
 {
     public enum Rarity { Common, Uncommon, Rare, Epic, Vault }
-    public enum ItemKind { Gun, Sight, Magazine, Ammo, Med, Valuable, Key, Armor, Backpack }
+    public enum ItemKind { Gun, Sight, Magazine, Ammo, Med, Valuable, Key, Armor, Backpack, Throwable, Melee }
     public enum ArmorSlot { Helmet, Vest }
     public enum GunClass { Pistol, Revolver, SMG, Shotgun, Rifle, BattleRifle, DMR, Sniper, LMG }
     public enum FireAction { Semi, Auto, Burst, Bolt, Pump, Break, Revolver }
@@ -260,6 +260,13 @@ namespace Rago
             var trauma = M("trauma_kit", "Trauma Kit", ItemKind.Med, R, 2400, 1, new Color(0.15f, 0.35f, 0.75f), "Surgical trauma kit: heals 90 HP over a few seconds.");
             trauma.heal = 90; trauma.stopsBleed = true; trauma.healTime = 5f;
             var stim = M("stim", "Adrenal Stim", ItemKind.Med, R, 1200, 2, new Color(0.2f, 0.75f, 0.9f), "Instant 30 HP and a burst of stamina.");
+            // throwables + knives
+            M("frag", "M67 Frag Grenade", ItemKind.Throwable, U, 900, 0, new Color(0.3f, 0.34f, 0.22f), "Pull the trigger to pull the pin, then throw. Goes off 3.6 s later. Lethal within a few metres.");
+            M("flash", "M84 Flashbang", ItemKind.Throwable, U, 650, 1, new Color(0.55f, 0.57f, 0.58f), "Pull the pin and throw. Blinds and deafens anyone looking at it - raiders can't see or shoot for a few seconds.");
+            var knife = M("knife", "Combat Knife", ItemKind.Melee, C, 450, 0, new Color(0.15f, 0.15f, 0.15f), "Swing or stab. The harder you swing, the deeper it goes.");
+            knife.heal = 45f;
+            var hunt = M("knife_hunt", "Hunting Knife", ItemKind.Melee, U, 1100, 1, new Color(0.42f, 0.28f, 0.16f), "Longer, heavier blade. Hits harder.");
+            hunt.heal = 62f;
             stim.heal = 30;
 
             // ---------------- AMMO (adds to your reserve when stashed / picked up)
@@ -375,7 +382,7 @@ namespace Rago
                 case LootTable.Medical: pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Med)); break;
                 case LootTable.Safe: pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Valuable || m.kind == ItemKind.Key)); break;
                 case LootTable.NpcBody:
-                    pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Med || m.kind == ItemKind.Ammo || (m.kind == ItemKind.Valuable && m.rarity <= Rarity.Uncommon)));
+                    pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Med || m.kind == ItemKind.Ammo || m.kind == ItemKind.Throwable || m.kind == ItemKind.Melee || (m.kind == ItemKind.Valuable && m.rarity <= Rarity.Uncommon)));
                     break;
                 default:
                     float roll = rng.Value;
@@ -384,7 +391,8 @@ namespace Rago
                     else if (roll < 0.76f) pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Valuable || m.kind == ItemKind.Key));
                     else if (roll < 0.83f) pool.AddRange(Armor);
                     else if (roll < 0.86f) pool.AddRange(Packs);
-                    else if (roll < 0.93f) pool.AddRange(Sights);
+                    else if (roll < 0.91f) pool.AddRange(Sights);
+                    else if (roll < 0.96f) pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Throwable || m.kind == ItemKind.Melee));
                     else pool.AddRange(Guns.FindAll(g => g.cls == GunClass.Pistol || g.cls == GunClass.Revolver || g.cls == GunClass.SMG));
                     break;
             }

@@ -149,6 +149,8 @@ namespace Rago
                 case ItemKind.Gun: it = Gun.Create((GunDef)def, d, pos, rot); break;
                 case ItemKind.Sight: it = SightItem.Create((SightDef)def, pos, rot); break;
                 case ItemKind.Med: it = Simple<MedItem>((SimpleDef)def, pos, rot); break;
+                case ItemKind.Throwable: it = Grenade.Create((SimpleDef)def, pos, rot); break;
+                case ItemKind.Melee: it = Knife.Create((SimpleDef)def, pos, rot); break;
                 case ItemKind.Armor: it = ArmorItem.Create((ArmorDef)def, pos, rot); break;
                 case ItemKind.Backpack: { var bp = Backpack.Create(pos, (BackpackDef)def); bp.Load(d); it = bp; break; }
                 default: it = Simple<LootItem>((SimpleDef)def, pos, rot); break;
