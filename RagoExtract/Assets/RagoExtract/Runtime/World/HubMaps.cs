@@ -173,11 +173,11 @@ namespace Rago
             b.Box(new Vector3(0, -0.1f, 0), new Vector3(W, 0.2f, D), floor, Color.white);
             b.Box(new Vector3(0, Ht + 0.1f, 0), new Vector3(W, 0.2f, D), conc, new Color(0.5f, 0.5f, 0.5f));
             // north wall opens into the Armory, east wall into the Armor Room
-            b.Wall(new Vector3(-W / 2, 0, D / 2), new Vector3(W / 2, 0, D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(W / 2, 2.4f, 0, 2.6f) });
-            b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(W / 2 - 2.5f, 1.8f, 0, 2.4f) }); // lift
-            b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(D / 2 + 2f, 2.4f, 0, 2.6f) });
+            b.Wall(new Vector3(-W / 2, 0, D / 2), new Vector3(W / 2, 0, D / 2), Ht, 0.3f, conc, new Color(0.6f, 0.61f, 0.6f), new List<Vector4> { new Vector4(W / 2, 2.4f, 0, 2.6f) });
+            b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), Ht, 0.3f, conc, new Color(0.6f, 0.61f, 0.6f), new List<Vector4> { new Vector4(W / 2 - 2.5f, 1.8f, 0, 2.4f) }); // lift
+            b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), Ht, 0.3f, conc, new Color(0.6f, 0.61f, 0.6f), new List<Vector4> { new Vector4(D / 2 + 2f, 2.4f, 0, 2.6f) });
             // west wall opens into the range tunnel
-            b.Wall(new Vector3(-W / 2, 0, -D / 2), new Vector3(-W / 2, 0, D / 2), Ht, 0.3f, conc, new Color(0.75f, 0.73f, 0.68f), new List<Vector4> { new Vector4(D / 2, 3f, 0, 2.6f) });
+            b.Wall(new Vector3(-W / 2, 0, -D / 2), new Vector3(-W / 2, 0, D / 2), Ht, 0.3f, conc, new Color(0.6f, 0.61f, 0.6f), new List<Vector4> { new Vector4(D / 2, 3f, 0, 2.6f) });
             // two-tone paint band
             foreach (var w in new[] { (new Vector3(-4.6f, 0.6f, D / 2 - 0.16f), new Vector3(6.8f, 1.2f, 0.02f)), (new Vector3(4.6f, 0.6f, D / 2 - 0.16f), new Vector3(6.8f, 1.2f, 0.02f)), (new Vector3(-3.2f, 0.6f, -D / 2 + 0.16f), new Vector3(9.6f, 1.2f, 0.02f)), (new Vector3(5.85f, 0.6f, -D / 2 + 0.16f), new Vector3(4.3f, 1.2f, 0.02f)),
                                       (new Vector3(W / 2 - 0.16f, 0.6f, 2.6f), new Vector3(0.02f, 1.2f, 6.8f)), (new Vector3(W / 2 - 0.16f, 0.6f, -4.6f), new Vector3(0.02f, 1.2f, 2.8f)) })
@@ -191,7 +191,7 @@ namespace Rago
                 b.AddLight(new Vector3(i * 5, Ht - 0.4f, 0), new Color(1f, 0.88f, 0.7f), 9f, 1.4f, i == 0);
             }
             var lampMat = Mats.Lit("lamp_on", new Color(1f, 0.95f, 0.8f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2f, 1.6f));
-            var wallTint = new Color(0.75f, 0.73f, 0.68f);
+            var wallTint = new Color(0.6f, 0.61f, 0.6f);
             // ---- Armory (north): weapons stash, workbench, ammo crates
             float ax = 6f, az0 = D / 2, az1 = D / 2 + 7f;
             b.Box(new Vector3(0, -0.1f, (az0 + az1) / 2), new Vector3(ax * 2, 0.2f, az1 - az0), floor, Color.white);
@@ -266,7 +266,103 @@ namespace Rago
                 b.AddLight(new Vector3(x, 2.4f, 0), new Color(1f, 0.9f, 0.75f), 6f, 0.9f);
                 b.Sign(new Vector3(x + 0.5f, 2.3f, 1.55f), Quaternion.identity, (7 + i * 8) + "m", Color.white, 0.12f);
             }
+            DressBunker(W, D, Ht, ax, az0, az1, rx0, rx1, rz0, rz1, L);
             Spawn(new Vector3(0, 0.05f, -2f), 0);
+        }
+
+        /// <summary>
+        /// Makes the bunker read as a real underground shelter: raw concrete with heavy ceiling beams and wall columns,
+        /// strip lights in metal housings and caged bulkhead lamps, a ventilation duct, conduit and an electrical panel,
+        /// hazard stripes at every doorway, a floor drain, an extinguisher, exit and sector stencils. Visual only (apart
+        /// from the columns), kept clear of the terminal, stash, lift and doorways.
+        /// </summary>
+        void DressBunker(float W, float D, float Ht, float ax, float az0, float az1, float rx0, float rx1, float rz0, float rz1, float L)
+        {
+            var b = B;
+            var conc = Maps.Concrete;
+            Color beamCol = new Color(0.5f, 0.51f, 0.5f), colCol = new Color(0.56f, 0.57f, 0.56f);
+            var metal = Mats.Lit("bunker_metal", Color.white, 0.7f, 0.45f, Mats.Metal, null, 0.35f, 0.4f);
+            var galv = Mats.Lit("bunker_galv", new Color(0.62f, 0.64f, 0.66f), 0.8f, 0.5f, Mats.Metal, null, 0.3f, 0.3f);
+            var glow = Mats.Lit("bulkhead_glow", new Color(1f, 0.92f, 0.75f), 0, 0.6f, null, null, 0, 0, false, 0.5f, new Color(1.6f, 1.4f, 1.0f));
+            var yellow = Mats.Lit("hazard_y", new Color(0.85f, 0.68f, 0.08f), 0f, 0.3f, Mats.Noise, null, 0.5f, 0.3f);
+            var black = Mats.Lit("hazard_k", new Color(0.08f, 0.08f, 0.08f), 0f, 0.3f, Mats.Noise, null, 0.5f, 0.3f);
+            // ---- main hall: beams across the ceiling, columns where they meet the walls, a caged lamp on each column
+            float[] beamsX = { -6.5f, -2.5f, 2.5f, 6.5f };
+            foreach (float x in beamsX)
+            {
+                b.Box(new Vector3(x, Ht - 0.18f, 0), new Vector3(0.36f, 0.36f, D), conc, beamCol, null, false);
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    if (side < 0 && Mathf.Abs(x - 2.5f) < 1.5f) continue;   // the lift
+                    float wz = side * (D / 2 - 0.15f) - side * 0.15f;
+                    b.Box(new Vector3(x, Ht / 2, wz), new Vector3(0.36f, Ht, 0.3f), conc, colCol, null, true);
+                    BulkheadLamp(new Vector3(x, 2.35f, wz - side * 0.2f), side < 0 ? 180f : 0f, metal, glow);   // facing into the room
+                }
+            }
+            // strip lights get metal housings
+            for (int i = -1; i <= 1; i++) b.Box(new Vector3(i * 5, Ht - 0.025f, 0), new Vector3(1.4f, 0.05f, 0.36f), metal, new Color(0.35f, 0.36f, 0.37f), null, false);
+            // ventilation duct with flanges, under the beams
+            float dz = -2.6f, dy = Ht - 0.62f;
+            b.Box(new Vector3(0, dy, dz), new Vector3(W - 0.4f, 0.4f, 0.6f), galv, Color.white, null, false);
+            for (float x = -W / 2 + 1f; x < W / 2 - 0.5f; x += 2f) b.Box(new Vector3(x, dy, dz), new Vector3(0.06f, 0.48f, 0.68f), galv, new Color(0.8f, 0.8f, 0.8f), null, false);
+            b.Box(new Vector3(-4f, dy - 0.24f, dz), new Vector3(0.5f, 0.06f, 0.4f), metal, new Color(0.25f, 0.25f, 0.25f), null, false);   // vent grille
+            b.Box(new Vector3(3.5f, dy - 0.24f, dz), new Vector3(0.5f, 0.06f, 0.4f), metal, new Color(0.25f, 0.25f, 0.25f), null, false);
+            // electrical panel + conduit on the west wall (left of the range tunnel)
+            float wx = -W / 2 + 0.17f;
+            b.Box(new Vector3(wx + 0.06f, 1.55f, -4.2f), new Vector3(0.14f, 0.8f, 0.6f), metal, new Color(0.42f, 0.44f, 0.42f), null, false);
+            b.Box(new Vector3(wx + 0.14f, 1.75f, -4.2f), new Vector3(0.02f, 0.12f, 0.2f), yellow, Color.white, null, false);   // warning label
+            b.Cyl(new Vector3(wx + 0.04f, 1.95f, -4.05f), new Vector3(wx + 0.04f, Ht - 0.3f, -4.05f), 0.025f, 0.025f, 6, metal, new Color(0.5f, 0.5f, 0.5f), false);
+            b.Cyl(new Vector3(wx + 0.04f, 1.95f, -4.35f), new Vector3(wx + 0.04f, Ht - 0.3f, -4.35f), 0.025f, 0.025f, 6, metal, new Color(0.5f, 0.5f, 0.5f), false);
+            b.Sign(new Vector3(wx + 0.02f, 2.6f, -3.0f), Quaternion.Euler(0, -90, 0), "SECTOR B-2", new Color(0.85f, 0.85f, 0.8f), 0.16f);
+            // fire extinguisher by the lift, exit sign over it
+            float sz = -D / 2 + 0.2f;
+            b.Cyl(new Vector3(4.3f, 0.45f, sz + 0.1f), new Vector3(4.3f, 1.0f, sz + 0.1f), 0.08f, 0.08f, 12, Mats.Lit("extinguisher", new Color(0.75f, 0.08f, 0.06f), 0.3f, 0.6f), Color.white, false);
+            b.Cyl(new Vector3(4.3f, 1.0f, sz + 0.1f), new Vector3(4.3f, 1.08f, sz + 0.1f), 0.03f, 0.025f, 8, metal, new Color(0.15f, 0.15f, 0.15f), false);
+            b.Box(new Vector3(4.3f, 1.3f, sz + 0.02f), new Vector3(0.3f, 0.2f, 0.01f), Mats.Lit("ext_sign", new Color(0.8f, 0.1f, 0.08f), 0, 0.3f), Color.white, null, false);
+            b.Box(new Vector3(2.5f, 2.72f, sz + 0.06f), new Vector3(0.5f, 0.18f, 0.08f), Mats.Lit("exit_sign", new Color(0.1f, 0.6f, 0.25f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(0.2f, 1.4f, 0.5f)), Color.white, null, false);
+            // hazard stripes at every doorway, a floor drain
+            HazardStripe(new Vector3(2.5f, 0.004f, -D / 2 + 0.35f), 0f, 2.2f, yellow, black);
+            HazardStripe(new Vector3(0, 0.004f, D / 2 - 0.35f), 0f, 2.6f, yellow, black);
+            HazardStripe(new Vector3(W / 2 - 0.35f, 0.004f, -2f), 90f, 2.6f, yellow, black);
+            HazardStripe(new Vector3(-W / 2 + 0.35f, 0.004f, 0f), 90f, 3.2f, yellow, black);
+            b.Box(new Vector3(-2.6f, 0.004f, 1.2f), new Vector3(0.45f, 0.008f, 0.45f), metal, new Color(0.2f, 0.2f, 0.2f), null, false);
+            for (int i = 0; i < 5; i++) b.Box(new Vector3(-2.6f - 0.18f + i * 0.09f, 0.009f, 1.2f), new Vector3(0.025f, 0.004f, 0.4f), metal, new Color(0.1f, 0.1f, 0.1f), null, false);
+            // ---- armory: two beams, columns, lamp housing
+            foreach (float z in new[] { az0 + 2f, az1 - 2f })
+            {
+                b.Box(new Vector3(0, Ht - 0.18f, z), new Vector3(ax * 2, 0.36f, 0.36f), conc, beamCol, null, false);
+                b.Box(new Vector3(ax - 0.3f, Ht / 2, z), new Vector3(0.3f, Ht, 0.36f), conc, colCol, null, true);
+                b.Box(new Vector3(-ax + 0.3f, Ht - 0.5f, z), new Vector3(0.3f, 1f, 0.36f), conc, colCol, null, false);   // short haunch over the workbench
+            }
+            b.Box(new Vector3(0, Ht - 0.025f, (az0 + az1) / 2), new Vector3(1.4f, 0.05f, 0.36f), metal, new Color(0.35f, 0.36f, 0.37f), null, false);
+            // ---- armor room: beams and a lamp housing
+            foreach (float z in new[] { rz0 + 2.5f, rz1 - 2.5f })
+                b.Box(new Vector3((rx0 + rx1) / 2, Ht - 0.18f, z), new Vector3(rx1 - rx0, 0.36f, 0.36f), conc, beamCol, null, false);
+            b.Box(new Vector3((rx0 + rx1) / 2, Ht - 0.025f, (rz0 + rz1) / 2), new Vector3(0.36f, 0.05f, 1.4f), metal, new Color(0.35f, 0.36f, 0.37f), null, false);
+            // ---- range tunnel: beams every few metres
+            for (float x = -W / 2 - 3f; x > -W / 2 - L + 1f; x -= 4f)
+                b.Box(new Vector3(x, 2.52f, 0), new Vector3(0.3f, 0.16f, 3.4f), conc, beamCol, null, false);
+        }
+
+        void BulkheadLamp(Vector3 at, float yaw, Material metal, Material glow)
+        {
+            var b = B;
+            var q = Quaternion.Euler(0, yaw, 0);
+            b.Box(at + q * new Vector3(0, 0, 0.03f), new Vector3(0.2f, 0.26f, 0.06f), metal, new Color(0.3f, 0.32f, 0.3f), q, false);
+            b.Sphere(at + q * new Vector3(0, 0, -0.03f), new Vector3(0.07f, 0.1f, 0.06f), 8, glow, Color.white, false);
+            foreach (float x in new[] { -0.06f, 0f, 0.06f }) b.Box(at + q * new Vector3(x, 0, -0.07f), new Vector3(0.012f, 0.22f, 0.012f), metal, new Color(0.2f, 0.2f, 0.2f), q, false);
+            b.Box(at + q * new Vector3(0, 0, -0.07f), new Vector3(0.16f, 0.012f, 0.012f), metal, new Color(0.2f, 0.2f, 0.2f), q, false);
+        }
+
+        void HazardStripe(Vector3 center, float yaw, float length, Material yellow, Material black)
+        {
+            var q = Quaternion.Euler(0, yaw, 0);
+            int n = Mathf.Max(2, Mathf.RoundToInt(length / 0.25f));
+            for (int i = 0; i < n; i++)
+            {
+                var c = center + q * new Vector3(-length / 2 + (i + 0.5f) * length / n, 0, 0);
+                B.Box(c, new Vector3(length / n, 0.008f, 0.3f), i % 2 == 0 ? yellow : black, Color.white, q, false);   // alternating blocks, edge to edge
+            }
         }
     }
 

@@ -290,12 +290,15 @@ namespace Rago
             var b = B;
             Half = half;
             float y = -0.02f;
+            // it's an island: flat land out to `land`, then an irregular coastline, beaches and open sea (see Coast)
+            float land = half - 70f, slab = land - 40f;   // flat ground slabs out to `slab`; the shore mesh carries the grass on to the coast
             // ground around the core
-            b.Ground(new Vector3((-half + core.xMin) / 2, 0, 0), new Vector2(core.xMin + half, half * 2), ground, Synth.Surface.Grass, y);
-            if (seaEast) b.Water(new Vector3((core.xMax + half) / 2 + 30, -1.6f, 0), new Vector2(half - core.xMax + 60, half * 2));
-            else b.Ground(new Vector3((core.xMax + half) / 2, 0, 0), new Vector2(half - core.xMax, half * 2), ground, Synth.Surface.Grass, y);
-            b.Ground(new Vector3(core.center.x, 0, (-half + core.yMin) / 2), new Vector2(core.width, core.yMin + half), ground, Synth.Surface.Grass, y);
-            b.Ground(new Vector3(core.center.x, 0, (core.yMax + half) / 2), new Vector2(core.width, half - core.yMax), ground, Synth.Surface.Grass, y);
+            b.Ground(new Vector3((-slab + core.xMin) / 2, 0, 0), new Vector2(core.xMin + slab, slab * 2), ground, Synth.Surface.Grass, y);
+            if (seaEast) b.Water(new Vector3((core.xMax + half) / 2 + 30, -1.6f, 0), new Vector2(half - core.xMax + 60, land * 2));
+            else b.Ground(new Vector3((core.xMax + slab) / 2, 0, 0), new Vector2(slab - core.xMax, slab * 2), ground, Synth.Surface.Grass, y);
+            b.Ground(new Vector3(core.center.x, 0, (-slab + core.yMin) / 2), new Vector2(core.width, core.yMin + slab), ground, Synth.Surface.Grass, y);
+            b.Ground(new Vector3(core.center.x, 0, (core.yMax + slab) / 2), new Vector2(core.width, slab - core.yMax), ground, Synth.Surface.Grass, y);
+            Coast(core, half, land, seaEast, ground);
             var roadMat = wooden ? Maps.GroundDirt : Maps.Asphalt;
             // pick locations on a ring around the core
             var spots = new List<Vector3>();
@@ -305,7 +308,7 @@ namespace Rago
                 float ang = b.Rng.Range(0f, Mathf.PI * 2f);   // spacing below keeps them spread around the core
                 float r = b.Rng.Range(0.5f, 0.82f) * half;
                 var p = new Vector3(Mathf.Cos(ang) * r, 0, Mathf.Sin(ang) * r);
-                if (Mathf.Abs(p.x) > half - 45 || Mathf.Abs(p.z) > half - 45) continue;
+                if (Mathf.Abs(p.x) > land - 35 || Mathf.Abs(p.z) > land - 35 || !OnLand(p, 45f)) continue;
                 if (p.x > core.xMin - 45 && p.x < core.xMax + 45 && p.z > core.yMin - 45 && p.z < core.yMax + 45) continue;
                 if (seaEast && p.x > core.xMax - 20) continue;
                 bool clash = false; foreach (var o in spots) if ((o - p).sqrMagnitude < (tries > 250 ? 80 * 80 : 120 * 120)) clash = true;
@@ -345,7 +348,8 @@ namespace Rago
             {
                 var dir = new Vector3(picks[i].x, 0, picks[i].z).normalized;
                 var e = picks[i] + dir * 32f;
-                e.x = Mathf.Clamp(e.x, -half + 15, half - 15); e.z = Mathf.Clamp(e.z, -half + 15, half - 15);
+                e.x = Mathf.Clamp(e.x, -land + 12, land - 12); e.z = Mathf.Clamp(e.z, -land + 12, land - 12);
+                for (int k = 0; k < 40 && !OnLand(e, 12f); k++) e -= dir * 4f;   // walk it back from the shore onto land
                 Road(picks[i], e, roadMat); roads.Add((picks[i], e));
                 AddExtract(e, extractNames[i]);
             }
@@ -353,10 +357,10 @@ namespace Rago
             int trees = wooden ? 700 : 420;
             for (int i = 0; i < trees; i++)
             {
-                var t = new Vector3(b.Rng.Range(-half + 6, half - 6), 0, b.Rng.Range(-half + 6, half - 6));
+                var t = new Vector3(b.Rng.Range(-land + 3, land - 3), 0, b.Rng.Range(-land + 3, land - 3));
                 if (t.x > core.xMin - 6 && t.x < core.xMax + 6 && t.z > core.yMin - 6 && t.z < core.yMax + 6) continue;
                 if (seaEast && t.x > core.xMax - 4) continue;
-                if (Near(t, spots, 42f) || NearRoad(t, roads, 6f)) continue;
+                if (Near(t, spots, 42f) || NearRoad(t, roads, 6f) || !OnLand(t)) continue;
                 // mixed woods: mostly pines in pine country, mostly leafy trees (some birches) elsewhere
                 float pineShare = wooden ? 0.65f : 0.3f;
                 if (b.Rng.Value < pineShare) b.Pine(t, b.Rng.Range(8f, 15f));
@@ -367,19 +371,19 @@ namespace Rago
             // bushes you can walk through (and hide in)
             for (int i = 0; i < 520; i++)
             {
-                var t = new Vector3(b.Rng.Range(-half + 6, half - 6), y, b.Rng.Range(-half + 6, half - 6));
+                var t = new Vector3(b.Rng.Range(-land + 3, land - 3), y, b.Rng.Range(-land + 3, land - 3));
                 if (t.x > core.xMin - 4 && t.x < core.xMax + 4 && t.z > core.yMin - 4 && t.z < core.yMax + 4) continue;
                 if (seaEast && t.x > core.xMax - 4) continue;
-                if (Near(t, spots, 30f) || NearRoad(t, roads, 4f)) continue;
+                if (Near(t, spots, 30f) || NearRoad(t, roads, 4f) || !OnLand(t)) continue;
                 b.Bush(t, b.Rng.Range(1.1f, 2.2f));
             }
             // patches of tall grass and ferns on the ground
             for (int i = 0; i < 260; i++)
             {
-                var c = new Vector3(b.Rng.Range(-half + 6, half - 6), y, b.Rng.Range(-half + 6, half - 6));
+                var c = new Vector3(b.Rng.Range(-land + 3, land - 3), y, b.Rng.Range(-land + 3, land - 3));
                 if (c.x > core.xMin - 4 && c.x < core.xMax + 4 && c.z > core.yMin - 4 && c.z < core.yMax + 4) continue;
                 if (seaEast && c.x > core.xMax - 4) continue;
-                if (Near(c, spots, 25f) || NearRoad(c, roads, 3f)) continue;
+                if (Near(c, spots, 25f) || NearRoad(c, roads, 3f) || !OnLand(c, 10f)) continue;
                 int n = b.Rng.Range(8, 16);
                 for (int k = 0; k < n; k++)
                 {
@@ -390,17 +394,16 @@ namespace Rago
             }
             for (int i = 0; i < 90; i++)
             {
-                var t = new Vector3(b.Rng.Range(-half + 6, half - 6), 0, b.Rng.Range(-half + 6, half - 6));
+                var t = new Vector3(b.Rng.Range(-land + 3, land - 3), 0, b.Rng.Range(-land + 3, land - 3));
                 if (t.x > core.xMin - 6 && t.x < core.xMax + 6 && t.z > core.yMin - 6 && t.z < core.yMax + 6) continue;
-                if ((seaEast && t.x > core.xMax - 4) || Near(t, spots, 42f) || NearRoad(t, roads, 6f)) continue;
+                if ((seaEast && t.x > core.xMax - 4) || Near(t, spots, 42f) || NearRoad(t, roads, 6f) || !OnLand(t)) continue;
                 b.Rock(t, b.Rng.Range(1f, 3.5f));
             }
-            // border: fence, plus invisible walls so nobody walks off the edge of the world
+            // the edge of the world is out in the shallows: invisible walls (no fence - it's an island)
             var corners = new[] { new Vector3(-half, 0, -half), new Vector3(half, 0, -half), new Vector3(half, 0, half), new Vector3(-half, 0, half) };
             for (int i = 0; i < 4; i++)
             {
                 var a1 = corners[i]; var a2 = corners[(i + 1) % 4];
-                if (!(seaEast && i == 1)) b.Fence(a1, a2, 3f);
                 var mid = (a1 + a2) / 2; var d = a2 - a1;
                 b.Collider(mid + Vector3.up * 10, new Vector3(1, 20, d.magnitude), Quaternion.LookRotation(d.normalized), Synth.Surface.Concrete);
             }
@@ -412,14 +415,127 @@ namespace Rago
             for (int i = 0; i < 70 && sites < 10; i++)
             {
                 float ang = (sites + i * 0.37f) / 10f * Mathf.PI * 2f;
-                var hp = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (half * b.Rng.Range(0.8f, 0.9f));
-                hp.x = Mathf.Clamp(hp.x, -half + 30, half - 30); hp.z = Mathf.Clamp(hp.z, -half + 30, half - 30);
+                var hp = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (land * b.Rng.Range(0.84f, 0.93f));
+                hp.x = Mathf.Clamp(hp.x, -land + 20, land - 20); hp.z = Mathf.Clamp(hp.z, -land + 20, land - 20);
                 if (seaEast && hp.x > core.xMax - 25) continue;
-                if (Near(hp, spots, 75f) || NearRoad(hp, roads, 10f)) continue;
+                if (Near(hp, spots, 75f) || NearRoad(hp, roads, 10f) || !OnLand(hp, 25f)) continue;
                 bool crowded = false; foreach (var sp in PlayerSpawns) if ((sp.position - hp).sqrMagnitude < 120 * 120) crowded = true;
                 if (crowded) continue;
                 if (sites % 2 == 0) LootSpawn(hp, sites / 2 % 4, wooden); else OpenSpawn(hp, sites / 2 % 3);
                 sites++;
+            }
+        }
+
+        // ================================================================================== the coast
+        float _coastA, _coastB;
+
+        /// <summary>Is (p.x, p.z) on dry land, at least `margin` metres in from the shoreline?</summary>
+        protected bool OnLand(Vector3 p, float margin = 6f) => Half <= 0 || IslandD(p.x, p.z) < ShoreAt(p.x, p.z, Half - 70f) - margin;
+
+        /// <summary>Rounded-square distance from the middle (a superellipse): the island's shape.</summary>
+        static float IslandD(float x, float z) => Mathf.Pow(Mathf.Pow(Mathf.Abs(x), 6f) + Mathf.Pow(Mathf.Abs(z), 6f), 1f / 6f);
+
+        /// <summary>Where the grass ends and the beach starts, in that direction: an irregular coastline.</summary>
+        float ShoreAt(float x, float z, float land)
+        {
+            float ang = Mathf.Atan2(z, x);
+            float n = Mathf.PerlinNoise(Mathf.Cos(ang) * 1.7f + _coastA, Mathf.Sin(ang) * 1.7f + _coastB);
+            float n2 = Mathf.PerlinNoise(Mathf.Cos(ang) * 5f + _coastB, Mathf.Sin(ang) * 5f + _coastA);
+            return land + 10f + n * 20f + n2 * 6f;
+        }
+
+        /// <summary>
+        /// Beaches and open sea all round: past the flat land, grass runs out to an irregular shoreline, then sand slopes
+        /// gently into the sea (dry sand, wet sand at the waterline). The sea runs to the horizon; you can wade into the
+        /// shallows up to the invisible edge but the water there is never over your head. Rocks, driftwood and a few old
+        /// wooden jetties line the shore.
+        /// </summary>
+        void Coast(Rect core, float half, float land, bool seaEast, Material grass)
+        {
+            var b = B;
+            _coastA = b.Rng.Range(0f, 100f); _coastB = b.Rng.Range(0f, 100f);
+            const float Water = -1.6f;
+            float ext = half + 60f;
+            bool InCore(float x, float z) => x > core.xMin - 1 && x < core.xMax + 1 && z > core.yMin - 1 && z < core.yMax + 1;
+            bool EastSea(float x) => seaEast && x > core.xMax - 1;
+            float Sand(float x, float z)
+            {
+                if (InCore(x, z) || EastSea(x)) return -8f;
+                float d = IslandD(x, z), e = ShoreAt(x, z, land);
+                if (d < e) return Mathf.Max(-8f, -0.06f - (e - d) * 0.05f);   // tucked under the grass
+                float t = Mathf.Clamp01((d - e) / 70f);
+                return -0.06f - 2.84f * t * t * (3f - 2f * t);
+            }
+            float Grass(float x, float z)
+            {
+                if (InCore(x, z) || EastSea(x)) return -8f;
+                if (Mathf.Abs(x) < land - 41f && Mathf.Abs(z) < land - 41f) return -0.4f;   // under the flat ground slabs
+                float d = IslandD(x, z), e = ShoreAt(x, z, land);
+                return d < e ? -0.02f : -0.02f - (d - e) * 0.3f;   // dives under the sand at the shoreline
+            }
+            Color SandCol(float x, float z)
+            {
+                float h = Sand(x, z);
+                Color dry = new Color(0.9f, 0.82f, 0.64f), wet = new Color(0.6f, 0.53f, 0.41f), bed = new Color(0.4f, 0.38f, 0.32f);
+                float jitter = 0.94f + 0.08f * Mathf.PerlinNoise(x * 0.11f, z * 0.11f);
+                Color c = h > Water + 0.25f ? dry : h > Water - 0.2f ? Color.Lerp(wet, dry, Mathf.InverseLerp(Water - 0.2f, Water + 0.25f, h)) : bed;
+                c *= jitter; c.a = 1f;
+                return c;
+            }
+            var sandMat = Mats.Lit("beach_sand", Color.white, 0f, 0.2f, Mats.Noise, null, 0.15f, 0f, true, 2.2f);
+            int res = Mathf.RoundToInt(ext * 2f / 5f);
+            b.Terrain(new Vector3(-ext, 0, -ext), ext * 2f, res, Grass, grass, (x, z) => new Color(0.97f, 0.97f, 0.97f, 1f), Synth.Surface.Grass);
+            b.Terrain(new Vector3(-ext, 0, -ext), ext * 2f, res, Sand, sandMat, SandCol, Synth.Surface.Dirt);
+            // the open sea: a ring around the island out to the horizon (the Dockyard keeps its own harbour water to the east)
+            float far = 1800f, inner = land, eastStart = seaEast ? half + 60f : land;
+            b.Water(new Vector3((-far - inner) / 2f, Water, 0), new Vector2(far - inner, far * 2f), 3.2f);
+            b.Water(new Vector3((eastStart + far) / 2f, Water, 0), new Vector2(far - eastStart, far * 2f), 3.2f);
+            b.Water(new Vector3((-inner + eastStart) / 2f, Water, (inner + far) / 2f), new Vector2(eastStart + inner, far - inner), 3.2f);
+            b.Water(new Vector3((-inner + eastStart) / 2f, Water, (-inner - far) / 2f), new Vector2(eastStart + inner, far - inner), 3.2f);
+            // along the shore: rocks, driftwood and a few old jetties
+            Vector3 OnShore(float ang, float offset)
+            {
+                var u = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang));
+                float e = ShoreAt(u.x * 100f, u.z * 100f, land);
+                float r = (e + offset) / Mathf.Max(0.001f, IslandD(u.x, u.z));
+                var p = u * r;
+                p.y = Mathf.Max(Sand(p.x, p.z), offset < 0 ? -0.02f : -8f);
+                return p;
+            }
+            bool Blocked(Vector3 p) => EastSea(p.x + 15f) || Mathf.Abs(p.x) > half - 2f || Mathf.Abs(p.z) > half - 2f;
+            for (int i = 0; i < 150; i++)
+            {
+                var p = OnShore(b.Rng.Range(0f, Mathf.PI * 2f), b.Rng.Range(-4f, 30f));
+                if (Blocked(p)) continue;
+                b.Rock(p, b.Rng.Range(0.6f, 2.8f) * (b.Rng.Chance(0.15f) ? 1.8f : 1f));
+            }
+            var drift = Mats.Lit("driftwood", Color.white, 0f, 0.15f, Mats.Bark, null, 0.3f, 0f, true, 1.5f);
+            for (int i = 0; i < 45; i++)
+            {
+                var p = OnShore(b.Rng.Range(0f, Mathf.PI * 2f), b.Rng.Range(3f, 16f));
+                if (Blocked(p) || p.y < Water + 0.15f) continue;
+                float yaw = b.Rng.Range(0f, Mathf.PI * 2f), len = b.Rng.Range(1.5f, 4.5f), r = b.Rng.Range(0.08f, 0.2f);
+                var d = new Vector3(Mathf.Cos(yaw), 0, Mathf.Sin(yaw)) * len * 0.5f;
+                b.Cyl(p - d + Vector3.up * r * 0.6f, p + d + Vector3.up * r * 0.6f, r, r * 0.8f, 7, drift, new Color(0.75f, 0.7f, 0.62f), true, Synth.Surface.Wood);
+            }
+            var plank = Maps.WoodPlank;
+            for (int j = 0; j < 3; j++)
+            {
+                float ang = (j / 3f + b.Rng.Range(0.05f, 0.25f)) * Mathf.PI * 2f;
+                var start = OnShore(ang, 2f);
+                if (Blocked(start + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * 40f)) continue;
+                var dir = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang));
+                float deckY = 0.35f, len = 34f;
+                var q = Quaternion.LookRotation(dir, Vector3.up);
+                var mid = start + dir * (len * 0.5f); mid.y = deckY;
+                b.Box(mid, new Vector3(2.6f, 0.14f, len), plank, new Color(0.55f, 0.47f, 0.38f), q, true, Synth.Surface.Wood);
+                for (float t = 1f; t < len; t += 3.4f)
+                    foreach (float sx in new[] { -1.2f, 1.2f })
+                    {
+                        var pp = start + dir * t + Vector3.Cross(Vector3.up, dir) * sx;
+                        float bottom = Mathf.Min(Sand(pp.x, pp.z), -0.5f) - 0.6f;
+                        b.Cyl(new Vector3(pp.x, bottom, pp.z), new Vector3(pp.x, deckY + 0.6f, pp.z), 0.11f, 0.1f, 8, plank, new Color(0.4f, 0.33f, 0.27f), false);
+                    }
             }
         }
 

@@ -609,7 +609,7 @@ namespace Rago
         }
 
         /// <summary>Water surface at center.y: you can fall in (and drown); bullets splash on it.</summary>
-        public void Water(Vector3 center, Vector2 size)
+        public void Water(Vector3 center, Vector2 size, float killDepth = 1.2f)
         {
             var m = Mats.Lit("water", new Color(0.06f, 0.14f, 0.18f), 0.3f, 0.96f, null, null, 0, 0, true, 0.2f);
             Box(center + Vector3.down * 0.05f, new Vector3(size.x, 0.1f, size.y), m, Color.white, null, false);
@@ -618,7 +618,7 @@ namespace Rago
             go.transform.position = center + Vector3.down * 1.5f;
             var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(size.x, 3f, size.y); bc.isTrigger = true;
             go.AddComponent<SurfaceTag>().surface = Synth.Surface.Water;
-            go.AddComponent<KillVolume>().killY = center.y - 1.2f;
+            go.AddComponent<KillVolume>().killY = center.y - killDepth;
             Box(center + Vector3.down * 4.5f, new Vector3(size.x, 1f, size.y), Mats.Lit("seabed", new Color(0.1f, 0.12f, 0.1f), 0, 0.1f), Color.white, null, true, Synth.Surface.Dirt);
         }
 
