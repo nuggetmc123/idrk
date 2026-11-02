@@ -28,6 +28,8 @@ namespace Rago
         public static float GripPitch = 0f; // tweakable grip angle (bunker settings)
 
         Transform _visual;
+        /// <summary>The hand model you see (it's rotated / offset from the controller to wrap around the grip).</summary>
+        public Transform Visual => _visual != null ? _visual : transform;
         readonly List<Transform[]> _fingers = new List<Transform[]>();
         Transform _thumb;
         BoxCollider _col;

@@ -285,9 +285,12 @@ namespace Rago
             _objective.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_objective);
             // wrist watch on the left hand
             _wrist = new GameObject("Wrist").transform;
-            _wrist.SetParent(_p.HandL.transform, false);
-            _wrist.localPosition = new Vector3(0.0f, 0.03f, -0.07f);
-            _wrist.localRotation = Quaternion.LookRotation(Vector3.down, Vector3.right);
+            // on the hand model you see (not the controller), on the back of the wrist (+Y of the hand model is the back
+            // of the hand), screen facing out, reading along the forearm like a real watch (text runs towards the fingers,
+            // top of the display on the little-finger side, away from you when you raise your wrist) - always lined up
+            _wrist.SetParent(_p.HandL.Visual, false);
+            _wrist.localPosition = new Vector3(0.0f, 0.036f, -0.08f);
+            _wrist.localRotation = Quaternion.LookRotation(Vector3.down, Vector3.left);
             var w = new MB(2);
             w.Sub(0).Box(Vector3.zero, new Vector3(0.075f, 0.05f, 0.012f), Color.white, 0.006f, 2);
             w.Sub(1).Box(new Vector3(0, 0, -0.0065f), new Vector3(0.068f, 0.043f, 0.001f), Color.white, 0);
