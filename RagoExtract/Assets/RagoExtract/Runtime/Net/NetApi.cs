@@ -18,6 +18,7 @@ namespace Rago
         public int spawnIndex;
         public int players;
         public bool online;
+        public int partySlot;   // 0 = first of your party at that spawn spot, 1 = next to them, ...
     }
 
     /// <summary>
@@ -32,9 +33,10 @@ namespace Rago
         public const float TargetGrace = 5f;   // once 8+ are in, wait a few seconds for stragglers
 
         /// <summary>Should the host start the raid now?</summary>
-        public static bool ShouldStart(int players, float elapsed, float timeAtTarget)
+        public static bool ShouldStart(int players, float elapsed, float timeAtTarget, int partySize = 1)
         {
             if (players >= Max) return true;
+            if (players < partySize && elapsed < MaxWait) return false;   // wait for the rest of the party (up to the 1:00 limit)
             if (players >= Target && timeAtTarget >= TargetGrace) return true;
             if (elapsed >= MaxWait && players >= 1) return true;
             return false;
@@ -70,6 +72,19 @@ namespace Rago
         event Action<ulong> OnPeerJoined;
         event Action<ulong> OnPeerLeft;
         event Action OnDisconnected;
+
+        // ---- party: play with friends. A party is a 4-character code; everyone in it waits together in their own
+        // bunkers, the leader queues, and the whole party lands in the same raid at the same spawn.
+        string PartyCode { get; }               // null when not in a party
+        bool PartyLeader { get; }
+        IReadOnlyList<string> PartyMembers { get; }
+        void CreateParty(Action<bool> done);
+        void JoinParty(string code, Action<bool> done);
+        void LeaveParty();
+        void RejoinParty();                     // back in the bunker after a raid / the Market
+        event Action OnPartyChanged;
+        event Action<string> OnPartyQueue;      // the leader started queueing for this map: follow them
+        event Action OnPartyQueueCancelled;
     }
 
     /// <summary>Voice chat backend. The built-in implementation (VoiceChat) streams your microphone over the game connection.</summary>

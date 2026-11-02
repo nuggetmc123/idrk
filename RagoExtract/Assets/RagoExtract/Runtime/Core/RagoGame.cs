@@ -240,6 +240,13 @@ namespace Rago
             Synth.MagIn(); Synth.MagOut(); Synth.SlideForward(); Synth.SlideBack();
             // each player in a raid gets a different spawn spot; the raid seed shuffles which one
             var spawn = Map.PlayerSpawns.Count > 0 ? Map.PlayerSpawns[(rs != null ? rs.spawnIndex + Mathf.Abs(rs.seed) : Random.Range(0, Map.PlayerSpawns.Count)) % Map.PlayerSpawns.Count] : new Pose(Vector3.up * 0.1f, Quaternion.identity);
+            // party members share a spawn spot: stand them side by side
+            if (rs != null && rs.partySlot > 0)
+            {
+                int k = rs.partySlot;
+                var side = spawn.rotation * Vector3.right * ((k % 2 == 1 ? 1 : -1) * ((k + 1) / 2) * 1.1f);
+                spawn.position += side;
+            }
             Player.Teleport(spawn.position, spawn.rotation.eulerAngles.y);
             if (ElevatorArrival)
             {
@@ -248,6 +255,8 @@ namespace Rago
                 foreach (var el in Elevator.All) if (el != null && el.transform.IsChildOf(MapRoot)) { lift = el; break; }
                 if (lift != null && to != Area.Raid) { Player.Teleport(lift.ArrivePosition, lift.ArriveYaw); lift.Arrive(); }
             }
+            // back in your bunker: rejoin your party (it pauses while you're in the Market or a raid)
+            if (to == Area.Bunker && NetHub.Online && NetHub.Backend.PartyCode != null) NetHub.Backend.RejoinParty();
             if (to == Area.Market && NetHub.Online)
             {
                 Player.Toast("Connecting to the Market...");

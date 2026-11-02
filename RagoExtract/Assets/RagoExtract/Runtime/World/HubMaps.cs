@@ -236,6 +236,7 @@ namespace Rago
             LoadStash();
             RestockMedBay();
             Kiosk.Create(transform, new Vector3(W / 2 - 0.9f, 0, 4.2f), Quaternion.Euler(0, 90, 0));
+            PartyBoard.Create(transform, new Vector3(W / 2 - 0.12f, 1.6f, 1.55f), Quaternion.Euler(0, 90, 0));   // play with friends
             // workbench + props
             b.Crate(new Vector3(3.6f, 0, D / 2 - 0.7f), 10, new Vector3(1.0f, 0.6f, 0.6f));
             b.Crate(new Vector3(3.4f, 0.6f, D / 2 - 0.6f), -5, new Vector3(0.8f, 0.5f, 0.5f));

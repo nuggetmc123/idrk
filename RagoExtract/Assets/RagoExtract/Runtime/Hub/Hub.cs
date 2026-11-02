@@ -117,6 +117,17 @@ namespace Rago
             if (_joining) return;   // raid already found: on the way in
             if (_queued) { Cancel(); return; }
             if (AnyQueued) return;
+            if (NetHub.Online && NetHub.Backend.PartyCode != null && !NetHub.Backend.PartyLeader)
+            {
+                RagoGame.I.Player.Toast("Only your party leader can start the queue - you'll follow them in");
+                Sfx.UI(Synth.UiError(), 0.3f);
+                return;
+            }
+            StartQueue();
+        }
+
+        void StartQueue()
+        {
             _queued = true; AnyQueued = true; _joining = false; _queueStart = Time.time;
             HudQueue("FINDING RAID", true);
             _queueBtn.SetText("CANCEL"); _queueBtn.SetColor(new Color(0.6f, 0.14f, 0.1f));
@@ -188,7 +199,35 @@ namespace Rago
             OnStart(new RaidStart { map = _map, seed = Random.Range(1, 1000000), spawnIndex = Random.Range(0, 10), players = 1, online = false });
         }
 
-        void OnDestroy() { if (_queued) { AnyQueued = false; if (!_joining) { HudQueue(""); if (NetHub.Online) NetHub.Backend.CancelQueue(); } } }
+        void OnDestroy()
+        {
+            if (NetHub.Backend != null) { NetHub.Backend.OnPartyQueue -= OnPartyQueue; NetHub.Backend.OnPartyQueueCancelled -= OnPartyCancelled; }
+            if (_queued) { AnyQueued = false; if (!_joining) { HudQueue(""); if (NetHub.Online) NetHub.Backend.CancelQueue(); } }
+        }
+
+        void Start()
+        {
+            if (NetHub.Backend != null) { NetHub.Backend.OnPartyQueue += OnPartyQueue; NetHub.Backend.OnPartyQueueCancelled += OnPartyCancelled; }
+        }
+
+        // your party leader pressed QUEUE: follow them into the same raid
+        void OnPartyQueue(string map)
+        {
+            if (_queued || this == null) return;
+            Select(map);
+            RagoGame.I.Player.Toast("Your party leader started the queue: " + Maps.Name(map));
+            StartQueue();
+        }
+
+        void OnPartyCancelled()
+        {
+            if (!_queued || _joining || this == null) return;
+            if (_offline != null) StopCoroutine(_offline);
+            _queued = false; AnyQueued = false;
+            _queueBtn.SetText("QUEUE"); _queueBtn.SetColor(new Color(0.2f, 0.42f, 0.2f));
+            HudQueue("");
+            RagoGame.I.Player.Toast("Your party leader cancelled the queue");
+        }
     }
 
     // ======================================================================================= TRADERS
