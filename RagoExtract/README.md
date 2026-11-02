@@ -133,7 +133,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 ### VR controls
 | | |
 |---|---|
-| Left stick | Move. Click to sprint (uses stamina) |
+| Left stick | Move (how far you push it sets your pace: walk 1.6 m/s; backing up and side-stepping are slower). Click to sprint (builds up to 4 m/s, uses stamina) |
 | A / X (on a hand without a gun) | Jump. With a gun in your right hand, use X. On the gun's hand, A/X still drops the mag |
 | Left MENU button (three lines) | Open / close the menu: party, friends, recent players, settings |
 | Y (left hand not holding a gun) | Open / close the field map (in raids) |
