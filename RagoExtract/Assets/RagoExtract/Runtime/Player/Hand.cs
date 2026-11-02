@@ -166,6 +166,7 @@ namespace Rago
             }
             UpdateHints();
             UpdateLaser(input);
+            UpdateRemote(input);
             UpdateFingers(input);
         }
 
@@ -339,7 +340,10 @@ namespace Rago
             // 3. gear on your body (holsters, back, pouches)
             var fromBody = rig.Gear.TakeFromBody(this);
             if (fromBody != null) { Grab(fromBody); return; }
-            // 4. nothing to pick up: grab the world itself and climb (walls, ledges, ladders, fences, rocks)
+            // 4. pointing at something further away: pull it into your hand (or open the crate you point at)
+            if (_remote != null && _remote.primaryHand == null) { StartPull(_remote); return; }
+            if (_remoteCrate != null && !_remoteCrate.opened) { _remoteCrate.Open(); Haptic(0.3f, 0.04f); return; }
+            // 5. nothing to pick up: grab the world itself and climb (walls, ledges, ladders, fences, rocks)
             if (XRInputs.VR && CanClimbHere(p)) { Climbing = true; ClimbAnchor = TrackedPosition; ClimbStart = Time.time; Haptic(0.35f, 0.05f); }
         }
 
@@ -463,6 +467,107 @@ namespace Rago
         /// <summary>Where your body's forearm should end: the wrist of the hand you see (not the controller's centre).</summary>
         public Vector3 WristPosition => _visual != null ? _visual.TransformPoint(0, 0, -0.07f) : transform.position;
         public Quaternion WristRotation => _visual != null ? _visual.rotation : transform.rotation;
+
+        // ---------------------------------------------------------------------------------- distance grab
+        // Point an empty hand at an item up to 3.5 m away: it gets a glowing marker (and a little buzz). Squeeze grip
+        // and it flies into your hand. Point at a closed crate and squeeze to open it.
+        Item _remote, _pulling;
+        LootCrate _remoteCrate;
+        float _pullT;
+        GameObject _remoteMark;
+        static readonly RaycastHit[] _rhits = new RaycastHit[24];
+        static int _remoteMask;
+        const float RemoteRange = 3.5f;
+
+        void UpdateRemote(HandInput input)
+        {
+            if (_pulling != null) { PullStep(input); return; }
+            Item best = null; LootCrate crate = null;
+            bool can = XRInputs.VR && Held == null && Racking == null && _interact == null && !Climbing && _hoverBtn == null && !rig.Dead;
+            if (can)
+            {
+                if (_remoteMask == 0)
+                {
+                    _remoteMask = ~0;
+                    foreach (int l in new[] { Layers.Hands, Layers.LocalBody, Layers.Player }) if (l > 0) _remoteMask &= ~(1 << l);
+                }
+                Vector3 dir = transform.rotation * Quaternion.Euler(30, 0, 0) * Vector3.forward;   // same natural pointing angle as the laser
+                Vector3 origin = Anchor.position + dir * 0.05f;
+                int n = Physics.SphereCastNonAlloc(origin, 0.09f, dir, _rhits, RemoteRange, _remoteMask, QueryTriggerInteraction.Collide);
+                System.Array.Sort(_rhits, 0, n, RemoteCmp.Inst);
+                for (int i = 0; i < n; i++)
+                {
+                    var c = _rhits[i].collider;
+                    if (c == null || c == _col) continue;
+                    var it = c.GetComponentInParent<Item>();
+                    if (it != null)
+                    {
+                        if (_rhits[i].distance < 0.2f) break;   // within normal reach: a normal grab handles it
+                        if (it.primaryHand != null || !it.CanGrab(this)) continue;
+                        if (it.slot != null && it.slot.transform.IsChildOf(rig.Gear.Root)) continue;   // your own holsters/pouches
+                        if (it is Magazine mm && mm.inGun != null) continue;
+                        if (it is SightItem si && si.onGun != null) continue;
+                        best = it; break;
+                    }
+                    var lc = c.GetComponentInParent<LootCrate>();
+                    if (lc != null) { if (!lc.opened) { crate = lc; break; } continue; }   // an open crate: look for the loot inside it
+                    if (c.isTrigger || c.GetComponentInParent<HitZone>() != null) continue;
+                    break;   // a wall or floor blocks the view
+                }
+            }
+            if ((best != null && best != _remote) || (crate != null && crate != _remoteCrate)) Haptic(0.12f, 0.015f);
+            _remote = best; _remoteCrate = crate;
+            if (_remoteMark == null)
+                _remoteMark = new MB().Sphere(Vector3.zero, Vector3.one * 0.5f, 10, Color.white).Build("RemoteMark", null, Mats.Unlit("remote_mark", new Color(1f, 0.85f, 0.4f, 0.55f), Mats.Glow, Mats.BlendKind.Additive, false, 60, true));
+            Vector3 at = best != null ? best.transform.TransformPoint(best.localBounds.center) : crate != null ? crate.transform.position + Vector3.up * 0.4f : Vector3.zero;
+            bool show = best != null || crate != null;
+            if (_remoteMark.activeSelf != show) _remoteMark.SetActive(show);
+            if (show)
+            {
+                _remoteMark.transform.position = at;
+                float pulse = 0.09f + Mathf.Sin(Time.time * 8f) * 0.015f;
+                _remoteMark.transform.localScale = Vector3.one * pulse;
+            }
+        }
+
+        class RemoteCmp : IComparer<RaycastHit> { public static readonly RemoteCmp Inst = new RemoteCmp(); public int Compare(RaycastHit a, RaycastHit b) => a.distance.CompareTo(b.distance); }
+
+        void StartPull(Item it)
+        {
+            if (it.slot != null) it.slot.Release(it);
+            it.rb.isKinematic = true;
+            it.SetCollidersTrigger(true);
+            it.transform.SetParent(null, true);
+            _pulling = it; _pullT = 0f;
+            if (_remoteMark != null) _remoteMark.SetActive(false);
+            Sfx.Play(Synth.Grab(1), it.transform.position, 0.35f, 1.3f, 0.5f, 8f);
+            Haptic(0.25f, 0.04f);
+        }
+
+        void PullStep(HandInput input)
+        {
+            var it = _pulling;
+            if (it == null || it.primaryHand != null) { _pulling = null; return; }
+            if (!input.GripHeld)
+            {
+                // let go mid-flight: it drops where it is
+                _pulling = null;
+                it.Drop(Vector3.zero, Vector3.zero);
+                return;
+            }
+            _pullT += Time.deltaTime;
+            Vector3 target = Anchor.position;
+            float dist = Vector3.Distance(it.transform.position, target);
+            float step = Mathf.Max(7f, dist * 9f) * Time.deltaTime;
+            it.transform.position = Vector3.MoveTowards(it.transform.position, target, step);
+            it.transform.rotation = Quaternion.Slerp(it.transform.rotation, Anchor.rotation, Time.deltaTime * 10f);
+            if (dist < 0.12f || _pullT > 0.7f)
+            {
+                _pulling = null;
+                Grab(it);
+                Haptic(0.35f, 0.05f);
+            }
+        }
 
         public void SetVisible(bool v) { _visual.gameObject.SetActive(v); }
     }

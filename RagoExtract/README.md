@@ -139,6 +139,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Y (left hand not holding a gun) | Open / close the field map (in raids) |
 | Right stick | Snap or smooth turn. Click to crouch toggle (real crouching also works) |
 | Grip | Grab, two-hand a gun (grab the handguard), pull a slide or charging handle |
+| Grip while pointing an empty hand at something up to 3.5 m away | Distance grab: the item glows when you point at it; squeeze and it flies into your hand. Point at a closed crate and squeeze to open it |
 | Grip on a wall, ledge, ladder, fence or rock (empty hand) | Climb: the hand locks on and pulling down lifts you. Let go above a ledge to climb onto it |
 | Grip at either hip or your chest (gun in the other hand) | Pull a fresh magazine for that gun. Put a mag back the same way to return its rounds |
 | Trigger | Fire. Point at buttons and pull the trigger to click |

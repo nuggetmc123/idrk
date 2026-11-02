@@ -549,7 +549,15 @@ namespace Rago
                 if (!B.Rng.Chance(chance)) continue;
                 float r = B.Rng.Value;
                 var k = r < 0.46f ? LootCrate.Kind.Crate : r < 0.62f ? LootCrate.Kind.Medical : r < 0.75f ? LootCrate.Kind.Optics : r < 0.86f ? LootCrate.Kind.ArmorCase : r < 0.96f ? LootCrate.Kind.WeaponCase : LootCrate.Kind.Safe;
-                AddCrate(p, B.Rng.Range(0f, 360f), k);
+                float yaw = B.Rng.Range(0f, 360f);
+                // small cases sit on a stand at about waist height, so you don't have to kneel on the floor to loot them
+                if (k == LootCrate.Kind.Medical || k == LootCrate.Kind.Optics || k == LootCrate.Kind.WeaponCase)
+                {
+                    Vector2 foot = k == LootCrate.Kind.WeaponCase ? new Vector2(0.62f, 1.35f) : new Vector2(0.7f, 0.55f);
+                    B.Table(p, yaw, foot, 0.62f);
+                    AddCrate(p + Vector3.up * 0.66f, yaw, k);
+                }
+                else AddCrate(p, yaw, k);
             }
         }
     }
