@@ -477,6 +477,19 @@ namespace Rago
             return Clip("whizz", d, true, 0.8f);
         }, 3)[v % 3];
 
+        /// <summary>Builds the everyday sounds up front (during the first loading screen) so they never hitch the game.</summary>
+        public static void Prewarm()
+        {
+            foreach (Surface s in System.Enum.GetValues(typeof(Surface)))
+            {
+                if (s == Surface.Flesh) continue;
+                Footstep(s, 0, false); Footstep(s, 0, true); Land(s);
+                Impact(s, 0);
+            }
+            Impact(Surface.Flesh, 0);
+            BulletCrack(0); Grab(0); Beep(); UiError(); HitMarker(); MagIn(); MagOut(); SlideBack(); SlideForward(); DryFire(); Zipper(); BodyFall();
+        }
+
         // ------------------------------------------------------------------ grenades
         /// <summary>Frag grenade: a hard crack, a deep boom and a long rumbling tail.</summary>
         public static AudioClip Explosion() => One("explosion", () =>

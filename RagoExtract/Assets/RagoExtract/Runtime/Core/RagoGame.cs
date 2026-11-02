@@ -20,6 +20,7 @@ namespace Rago
         public bool SafeZone;
         public RaidResult LastResult;
         bool _travelling; float _travelStart;
+        static bool _soundsReady;
         public bool ElevatorArrival;   // set by a lift: the next arrival starts inside the destination lift
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -94,6 +95,10 @@ namespace Rago
             Layers.Init();
             Db.Init();
             Mats.Init();
+            // first launch on a headset compiles every shader the first time it's drawn, which shows up as hitches and
+            // lag once you're in: do it all now, during startup (cached afterwards), plus the leaf textures
+            try { Mats.Foliage("_warm", Mats.LeafCard, Color.white); Shader.WarmupAllShaders(); }
+            catch (System.Exception e) { Debug.LogWarning("[Rago Extract] shader warm-up skipped: " + e.Message); }
             var prof = Profile.LoadOrCreate();
             Hand.GripPitch = prof.gripPitch;
             PlayerRig.SmoothTurn = prof.smoothTurn;
@@ -187,6 +192,8 @@ namespace Rago
             while (!Player.Hud.FadeDone && t < 1.5f) { t += Time.deltaTime; yield return null; }
             Player.Hud.Center("LOADING\n<size=40>" + (to == Area.Raid ? Maps.Name(rs.map) : to == Area.Welcome ? "Rago Extract" : to.ToString()) + "</size>", 60f);
             yield return null;
+            // first load: make the sounds you'll hear all the time now (footsteps, impacts...) rather than mid-game
+            if (!_soundsReady) { _soundsReady = true; try { Synth.Prewarm(); } catch (System.Exception e) { Debug.LogWarning("[Rago Extract] sound warm-up: " + e.Message); } yield return null; }
             // leave the old area
             var from = Area;
             if (from == Area.Bunker || from == Area.Market) SaveHubState();

@@ -234,6 +234,8 @@ namespace Rago.EditorTools
             Try(() => PlayerSettings.colorSpace = ColorSpace.Linear);
             Try(() => PlayerSettings.runInBackground = true);
             Try(() => PlayerSettings.gcIncremental = true);   // garbage collection spread over frames: no GC hitches in VR
+            // no "Made with Unity" splash (allowed on every plan from Unity 6 on): straight into the game
+            Try(() => { PlayerSettings.SplashScreen.show = false; PlayerSettings.SplashScreen.showUnityLogo = false; });
             Try(() => PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft);
             Try(() => PlayerSettings.Android.minSdkVersion = (AndroidSdkVersions)29);
             Try(() => PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto);

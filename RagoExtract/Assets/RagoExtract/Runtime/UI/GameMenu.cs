@@ -283,7 +283,12 @@ namespace Rago
             if (NetHub.Voice != null) Btn(NetHub.Voice.Muted ? "UNMUTE" : "MUTE", 0.32f, y, 0.24f, () => { NetHub.Voice.SetMuted(!NetHub.Voice.Muted); SaveSettings(); });
             y -= 0.1f;
             Line("Network:  " + (NetHub.Backend == null ? "offline" : NetHub.Backend.Status), y, 0.024f, UI.Dim); y -= 0.05f;
-            Line("Callsign:  " + (p != null ? p.DisplayName : ""), y, 0.024f, UI.Dim);
+            Line("Callsign:  " + (p != null ? p.DisplayName : ""), y, 0.024f, UI.Dim); y -= 0.06f;
+            if (ErrorLog.Recent.Count > 0)
+            {
+                Line("Recent errors (send these if something breaks):", y, 0.022f, new Color(1f, 0.5f, 0.4f)); y -= 0.04f;
+                for (int i = Mathf.Max(0, ErrorLog.Recent.Count - 3); i < ErrorLog.Recent.Count; i++) { Line(UI.Wrap(ErrorLog.Recent[i], 70), y, 0.017f, new Color(1f, 0.75f, 0.7f)); y -= 0.05f; }
+            }
         }
 
         static void SaveSettings()
