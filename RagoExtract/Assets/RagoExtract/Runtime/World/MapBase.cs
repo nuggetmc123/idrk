@@ -129,6 +129,35 @@ namespace Rago
             return v;
         }
 
+        /// <summary>
+        /// Drop every loot crate onto whatever is really under it (floor, table, terrain), so none start sunk into a floor:
+        /// crate spots are written as "floor level" but floors have thickness and terrain has bumps.
+        /// </summary>
+        public void SettleCrates()
+        {
+            Physics.SyncTransforms();
+            int mask = ~0;
+            foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) mask &= ~(1 << l);
+            var hits = new RaycastHit[24];
+            foreach (var c in Crates)
+            {
+                if (c == null) continue;
+                var p = c.transform.position;
+                int n = Physics.RaycastNonAlloc(p + Vector3.up * 0.7f, Vector3.down, hits, 2.2f, mask, QueryTriggerInteraction.Ignore);
+                float best = float.NegativeInfinity;
+                for (int i = 0; i < n; i++)
+                {
+                    var t = hits[i].collider.transform;
+                    if (t.IsChildOf(c.transform)) continue;
+                    var other = t.GetComponentInParent<LootCrate>();
+                    if (other != null && other != c) continue;   // stacked spots: ignore other crates, settle on the floor
+                    if (hits[i].point.y > best) best = hits[i].point.y;
+                }
+                if (best > float.NegativeInfinity) { p.y = best + 0.003f; c.transform.position = p; }
+            }
+            Physics.SyncTransforms();
+        }
+
         public void Spawn(Vector3 p, float yaw) => PlayerSpawns.Add(new Pose(p, Quaternion.Euler(0, yaw, 0)));
         public void Squad(Vector3 p, int n, bool heavy = false) => NpcSpawns.Add(new NpcSpawn { pos = p, count = n, heavy = heavy });
 
@@ -281,7 +310,36 @@ namespace Rago
                 if (t.x > core.xMin - 6 && t.x < core.xMax + 6 && t.z > core.yMin - 6 && t.z < core.yMax + 6) continue;
                 if (seaEast && t.x > core.xMax - 4) continue;
                 if (Near(t, spots, 42f) || NearRoad(t, roads, 6f)) continue;
-                b.Pine(t, b.Rng.Range(8f, 15f));
+                // mixed woods: mostly pines in pine country, mostly leafy trees (some birches) elsewhere
+                float pineShare = wooden ? 0.65f : 0.3f;
+                if (b.Rng.Value < pineShare) b.Pine(t, b.Rng.Range(8f, 15f));
+                else b.LeafyTree(t, b.Rng.Range(7f, 13f), b.Rng.Value < 0.25f);
+                // undergrowth at the foot of some trees
+                if (b.Rng.Value < 0.35f) { var o = b.Rng.InCircle() * 3f; b.Fern(t + new Vector3(o.x, y, o.y), b.Rng.Range(0.6f, 1.0f)); }
+            }
+            // bushes you can walk through (and hide in)
+            for (int i = 0; i < 520; i++)
+            {
+                var t = new Vector3(b.Rng.Range(-half + 6, half - 6), y, b.Rng.Range(-half + 6, half - 6));
+                if (t.x > core.xMin - 4 && t.x < core.xMax + 4 && t.z > core.yMin - 4 && t.z < core.yMax + 4) continue;
+                if (seaEast && t.x > core.xMax - 4) continue;
+                if (Near(t, spots, 30f) || NearRoad(t, roads, 4f)) continue;
+                b.Bush(t, b.Rng.Range(1.1f, 2.2f));
+            }
+            // patches of tall grass and ferns on the ground
+            for (int i = 0; i < 260; i++)
+            {
+                var c = new Vector3(b.Rng.Range(-half + 6, half - 6), y, b.Rng.Range(-half + 6, half - 6));
+                if (c.x > core.xMin - 4 && c.x < core.xMax + 4 && c.z > core.yMin - 4 && c.z < core.yMax + 4) continue;
+                if (seaEast && c.x > core.xMax - 4) continue;
+                if (Near(c, spots, 25f) || NearRoad(c, roads, 3f)) continue;
+                int n = b.Rng.Range(8, 16);
+                for (int k = 0; k < n; k++)
+                {
+                    var o = b.Rng.InCircle() * 5f;
+                    var p = c + new Vector3(o.x, 0, o.y);
+                    if (b.Rng.Value < 0.82f) b.GrassTuft(p, b.Rng.Range(0.45f, 0.85f)); else b.Fern(p, b.Rng.Range(0.5f, 0.9f));
+                }
             }
             for (int i = 0; i < 90; i++)
             {

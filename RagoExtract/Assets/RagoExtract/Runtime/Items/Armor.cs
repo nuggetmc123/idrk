@@ -294,7 +294,14 @@ namespace Rago
                 rig.gearVisuals.Add(g);
                 if (local) rig.headRenderers.Add(g.GetComponent<Renderer>());
             }
-            if (vest != null) rig.gearVisuals.Add(Attach(Vest(vest), rig.chest, "Vest", false));
+            if (vest != null)
+            {
+                // your own vest sits right under your chin in VR and blocks the view: like your helmet, you only see its
+                // shadow (everyone else sees it normally, and it shows again on your body if you die)
+                var g = Attach(Vest(vest), rig.chest, "Vest", local);
+                rig.gearVisuals.Add(g);
+                if (local) rig.headRenderers.Add(g.GetComponent<Renderer>());
+            }
             if (pack != null) rig.gearVisuals.Add(Attach(Pack(pack), rig.chest, "Pack", false));
         }
     }

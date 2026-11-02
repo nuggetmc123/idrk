@@ -144,6 +144,7 @@ namespace Rago
         public bool Chance(float p) => Value < p;
         public T Pick<T>(IList<T> list) => list[Range(0, list.Count)];
         public Vector2 InCircle() { float a = Value * Mathf.PI * 2f, r = Mathf.Sqrt(Value); return new Vector2(Mathf.Cos(a) * r, Mathf.Sin(a) * r); }
+        public Vector3 InSphere() { for (int i = 0; i < 12; i++) { var p = new Vector3(Value * 2 - 1, Value * 2 - 1, Value * 2 - 1); if (p.sqrMagnitude <= 1f) return p; } return Vector3.zero; }
         public Quaternion Yaw() => Quaternion.Euler(0, Value * 360f, 0);
     }
 

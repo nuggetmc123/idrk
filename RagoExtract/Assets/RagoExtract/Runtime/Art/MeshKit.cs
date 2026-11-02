@@ -49,6 +49,21 @@ namespace Rago
         }
 
         /// <summary>
+        /// A foliage card: bottom edge (bl, br) to top edge (tl, tr), UVs 0..1 (v runs bottom to top), vertex colour = tint
+        /// and vertex alpha = how much that edge sways in the wind (0 = fixed, 1 = free).
+        /// </summary>
+        public MB Card(Vector3 bl, Vector3 br, Vector3 tr, Vector3 tl, Color tint, float swayBottom, float swayTop)
+        {
+            Vector3 n = Vector3.Cross(tl - bl, br - bl).normalized;
+            Color cb = tint; cb.a = swayBottom; Color ct = tint; ct.a = swayTop;
+            float us = UvScale; UvScale = 1f;
+            int i0 = V(bl, n, new Vector2(0, 0), cb), i1 = V(br, n, new Vector2(1, 0), cb), i2 = V(tr, n, new Vector2(1, 1), ct), i3 = V(tl, n, new Vector2(0, 1), ct);
+            UvScale = us;
+            T(i0, i3, i2); T(i0, i2, i1);
+            return this;
+        }
+
+        /// <summary>
         /// Smooth curved surface from a (nu x nv) grid of points p(u, v) with shared, smoothed normals.
         /// wrapU closes the surface around u (rings). flip makes it face the other way (insides of bags, tubes).
         /// </summary>

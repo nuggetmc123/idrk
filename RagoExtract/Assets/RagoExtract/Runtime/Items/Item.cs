@@ -219,7 +219,7 @@ namespace Rago
         {
             var sd = def as SimpleDef;
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
-            if (sd != null && sd.kind == ItemKind.Ammo && pl != null && pl.Gear.NearChestPouch(transform.position))
+            if (sd != null && sd.kind == ItemKind.Ammo && pl != null && pl.Gear.NearMagPouch(transform.position))
             {
                 pl.Gear.AddAmmo(sd.ammoCal, sd.ammoCount);
                 Sfx.Play(Synth.Zipper(), transform.position, 0.5f, 1.2f, 0.5f, 6f);

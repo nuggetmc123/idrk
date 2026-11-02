@@ -90,7 +90,7 @@ namespace Rago
         }
 
         // ------------------------------------------------------------ magazines
-        public bool Accepts(Magazine m) => m != null && m.cal == g.cal && (Internal || m.style == rig.magStyle) && (Internal || mag == null);
+        public bool Accepts(Magazine m) => m != null && m.cal == g.cal && (Internal || mag == null);   // any mag of the right calibre fits (it's reshaped to this gun's mag)
 
         public void InsertMag(Magazine m, bool sound = true)
         {
@@ -105,6 +105,7 @@ namespace Rago
                 if (m.rounds <= 0) { m.primaryHand?.ForceRelease(); Destroy(m.gameObject); }
                 return;
             }
+            if (m.style != rig.magStyle || m.capacity != g.magSize) m.Restyle(this);
             mag = m;
             m.inGun = this;
             if (m.primaryHand != null) m.primaryHand.ForceRelease(true);
@@ -349,6 +350,7 @@ namespace Rago
             var m = go.AddComponent<Magazine>();
             m.cal = forGun.g.cal; m.style = forGun.rig.magStyle; m.capacity = forGun.g.magSize; m.rounds = Mathf.Min(rounds, m.capacity); m.gunId = forGun.g.id;
             var model = GunBuilder.BuildMag(m.style, go.transform, forGun.g.furniture, out var size);
+            m._model = model;
             var mesh = model.GetComponent<MeshFilter>().sharedMesh;
             var col = go.AddComponent<BoxCollider>();
             col.center = mesh.bounds.center; col.size = mesh.bounds.size;
@@ -361,10 +363,33 @@ namespace Rago
         public override string Label => Db.CalName(cal) + "  " + rounds + "/" + capacity;
         public override int Value => 0;
 
+        GameObject _model;
+
         public override bool CanGrab(Hand h)
         {
-            // pulling a magazine out of a gun by hand is allowed on detachable guns
+            // a mag in a gun someone is holding stays in: drop it with the mag release (A / X). Otherwise your support hand
+            // would pull it out every time it came near the magwell. Mags in guns lying around can be pulled out by hand.
+            if (inGun != null && inGun.Held) return false;
             return true;
+        }
+
+        /// <summary>Reshape a same-calibre mag from another gun to fit this one (extra rounds go back to your reserve).</summary>
+        public void Restyle(Gun gun)
+        {
+            if (_model != null) Destroy(_model);
+            _model = GunBuilder.BuildMag(gun.rig.magStyle, transform, gun.g.furniture, out _);
+            var mesh = _model.GetComponent<MeshFilter>().sharedMesh;
+            var col = GetComponent<BoxCollider>();
+            if (col != null) { col.center = mesh.bounds.center; col.size = mesh.bounds.size; }
+            localBounds = mesh.bounds;
+            style = gun.rig.magStyle; gunId = gun.g.id;
+            capacity = gun.g.magSize;
+            if (rounds > capacity)
+            {
+                var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+                if (pl != null) pl.Gear.Ammo[(int)cal] += rounds - capacity;
+                rounds = capacity;
+            }
         }
 
         public override void OnGrab(Hand h)
@@ -381,14 +406,14 @@ namespace Rago
             var gun = other != null ? other.Held as Gun : null;
             if (gun == null) return;
             if (!gun.Accepts(this)) return;
-            if (Vector3.Distance(transform.position, gun.rig.magwell.position) < (gun.Internal ? 0.08f : 0.055f))
+            if (Vector3.Distance(transform.position, gun.rig.magwell.position) < (gun.Internal ? 0.12f : 0.09f))   // forgiving: near the magwell is enough
                 gun.InsertMag(this);
         }
 
         protected override bool TrySlot(Hand h)
         {
             var pl = RagoGame.I.Player;
-            if (pl != null && pl.Gear.NearChestPouch(transform.position))
+            if (pl != null && pl.Gear.NearMagPouch(transform.position))
             {
                 // put it back in the pouch: rounds return to your reserve
                 pl.Gear.AddAmmo(cal, rounds);

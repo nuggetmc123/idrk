@@ -19,6 +19,10 @@ namespace Rago
         public HandInput Input;
         public Vector3 Velocity { get; private set; }
         public Vector3 TrackedPosition { get; private set; }
+        /// <summary>Gripping the world to climb: the hand stays at ClimbAnchor and your body moves instead.</summary>
+        public bool Climbing { get; private set; }
+        public Vector3 ClimbAnchor { get; private set; }
+        public float ClimbStart { get; private set; }
         public Quaternion TrackedRotation { get; private set; }
         public Hand Other => left ? rig.HandR : rig.HandL;
         public static float GripPitch = 0f; // tweakable grip angle (bunker settings)
@@ -152,6 +156,7 @@ namespace Rago
             }
             else if (input.GripDown && Held == null && _interact == null) TryGrab();
             else if (!input.GripHeld && (Held != null || _interact != null)) Release();
+            if (Climbing && (!input.GripHeld || Held != null)) { Climbing = false; rig.OnClimbReleased(this); }
 
             if (Held != null)
             {
@@ -333,8 +338,33 @@ namespace Rago
             if (bestI != null) { bestI.OnGrab(this); _interact = bestI; return; }
             // 3. gear on your body (holsters, back, pouches)
             var fromBody = rig.Gear.TakeFromBody(this);
-            if (fromBody != null) Grab(fromBody);
+            if (fromBody != null) { Grab(fromBody); return; }
+            // 4. nothing to pick up: grab the world itself and climb (walls, ledges, ladders, fences, rocks)
+            if (XRInputs.VR && CanClimbHere(p)) { Climbing = true; ClimbAnchor = TrackedPosition; ClimbStart = Time.time; Haptic(0.35f, 0.05f); }
         }
+
+        static int _worldMask = 0;
+        bool CanClimbHere(Vector3 p)
+        {
+            if (p.y < rig.transform.position.y + 0.55f) return false;   // not the floor at your feet
+            if (_worldMask == 0)
+            {
+                _worldMask = ~0;
+                foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) _worldMask &= ~(1 << l);
+            }
+            int n = Physics.OverlapSphereNonAlloc(p, 0.07f, _overlap, _worldMask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var c = _overlap[i];
+                if (c == null || c == _col || c.attachedRigidbody != null && !c.attachedRigidbody.isKinematic) continue;   // not loose physics props
+                if (c.GetComponentInParent<Item>() != null || c.GetComponentInParent<LootCrate>() != null) continue;
+                if (c.transform.IsChildOf(rig.transform)) continue;
+                return true;
+            }
+            return false;
+        }
+
+        public void StopClimbing() { if (Climbing) { Climbing = false; rig.OnClimbReleased(this); } }
 
         Interactable _interact;
 

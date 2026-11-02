@@ -30,6 +30,7 @@ namespace Rago
             m.Init(seed);
             m.Build();
             m.B.Finish();
+            try { m.SettleCrates(); } catch (System.Exception e) { Debug.LogWarning("[Rago] crate settle skipped: " + e.Message); }
             return m;
         }
 

@@ -10,7 +10,7 @@ namespace Rago
     /// </summary>
     public static class Mats
     {
-        static Material _lit, _unlit, _holo, _sky;
+        static Material _lit, _unlit, _holo, _sky, _foliage;
         static readonly Dictionary<string, Material> _cache = new Dictionary<string, Material>();
         public static Texture2D Grime, Noise, Concrete, ConcreteN, Metal, MetalN, Wood, WoodN, Ground, Grass, Dirt, Asphalt, AsphaltN,
             Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster;
@@ -30,6 +30,127 @@ namespace Rago
             if (_holo == null) _holo = new Material(FindShader("Rago/HoloReticle", "Sprites/Default"));
             if (_sky == null) _sky = new Material(FindShader("Rago/Sky", "Skybox/Procedural"));
             BuildTextures();
+        }
+
+        // ---------------------------------------------------------------- foliage
+        public static Texture2D LeafCard, NeedleCard, GrassCard, FernCard;
+        static bool _foliageInit;
+
+        /// <summary>Alpha-cutout, two-sided, wind-swayed material for leaf / needle / grass cards.</summary>
+        public static Material Foliage(string key, Texture2D tex, Color tint, float wind = 1f, float cutoff = 0.45f)
+        {
+            Init(); InitFoliage();
+            if (_cache.TryGetValue(key, out var m) && m != null) return m;
+            if (_foliage == null) _foliage = Resources.Load<Material>("Rago/M_Foliage");
+            if (_foliage == null) { var sh = Shader.Find("Rago/Foliage") ?? Shader.Find("Legacy Shaders/Transparent/Cutout/Diffuse"); _foliage = new Material(sh); }
+            m = new Material(_foliage);
+            m.name = key;
+            m.SetColor("_Color", tint);
+            m.SetTexture("_MainTex", tex);
+            m.SetFloat("_Cutoff", cutoff);
+            m.SetFloat("_Wind", wind);
+            m.renderQueue = 2450;
+            m.enableInstancing = true;
+            _cache[key] = m;
+            return m;
+        }
+
+        static void InitFoliage()
+        {
+            if (_foliageInit) return;
+            _foliageInit = true;
+            var r = new System.Random(77);
+            float R() => (float)r.NextDouble();
+            // broad-leaf cluster: ~46 pointed leaves fanning out from the middle, each with a midrib, on a few twigs
+            int nl = 46;
+            var lc = new Vector2[nl]; var la = new float[nl]; var ll = new float[nl]; var lw = new float[nl]; var lcol = new Color[nl];
+            for (int i = 0; i < nl; i++)
+            {
+                float ang = R() * Mathf.PI * 2, rad = Mathf.Sqrt(R()) * 0.36f;
+                lc[i] = new Vector2(0.5f + Mathf.Cos(ang) * rad, 0.5f + Mathf.Sin(ang) * rad);
+                la[i] = ang + (R() - 0.5f) * 1.2f;
+                ll[i] = 0.075f + R() * 0.05f; lw[i] = ll[i] * (0.38f + R() * 0.12f);
+                float g = R();
+                lcol[i] = new Color(0.17f + g * 0.12f, 0.33f + g * 0.17f, 0.09f + g * 0.06f);
+            }
+            LeafCard = Tex(256, true, (x, y, u, v) =>
+            {
+                var p = new Vector2(u, v);
+                Color c = new Color(0.17f, 0.29f, 0.12f, 0);
+                // twigs: thin lines from the middle out
+                for (int i = 0; i < nl; i += 3)
+                {
+                    Vector2 a = new Vector2(0.5f, 0.5f), b = lc[i], ab = b - a;
+                    float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Mathf.Max(1e-5f, ab.sqrMagnitude));
+                    if ((a + ab * t - p).magnitude < 0.0045f) c = new Color(0.22f, 0.16f, 0.1f, 1);
+                }
+                for (int i = 0; i < nl; i++)
+                {
+                    Vector2 d = p - lc[i];
+                    float ca = Mathf.Cos(-la[i]), sa = Mathf.Sin(-la[i]);
+                    float lx = d.x * ca - d.y * sa, ly = d.x * sa + d.y * ca;
+                    float k = lx / ll[i];
+                    if (k < -1 || k > 1) continue;
+                    float half = lw[i] * Mathf.Sqrt(1 - k * k) * (1 - 0.35f * Mathf.Max(0, k));   // pointed tip
+                    if (Mathf.Abs(ly) > half) continue;
+                    float shade = 0.85f + 0.3f * (ly / Mathf.Max(1e-4f, half)) * 0.5f + (1 - Mathf.Abs(k)) * 0.1f;
+                    Color lcI = lcol[i] * shade;
+                    if (Mathf.Abs(ly) < 0.0035f) lcI *= 0.78f;   // midrib
+                    c = new Color(lcI.r, lcI.g, lcI.b, 1);
+                }
+                return c;
+            });
+            // pine branch: a twig up the middle with rows of needles slanting up and out
+            NeedleCard = Tex(256, true, (x, y, u, v) =>
+            {
+                float side = Mathf.Abs(u - 0.5f);
+                float taper = Mathf.Clamp01(1 - v * 0.85f);
+                if (side < 0.012f * taper + 0.003f && v > 0.02f && v < 0.97f) return new Color(0.27f, 0.2f, 0.13f, 1);
+                float v0 = v - side * 0.85f;
+                if (v0 < 0.02f) return new Color(0.17f, 0.29f, 0.12f, 0);
+                float row = v0 / 0.014f;
+                float fr = row - Mathf.Floor(row);
+                float len = 0.47f * (1 - v0 * 0.55f) * (0.85f + 0.3f * MathX.Noise(Mathf.Floor(row) * 3.1f, u > 0.5f ? 1 : 2, 7));
+                if (fr < 0.62f && side < len)
+                {
+                    float g = 0.75f + 0.25f * Mathf.Sin(row * 2.3f);
+                    return new Color(0.11f * g, 0.25f * g, 0.13f * g, 1);
+                }
+                return new Color(0.17f, 0.29f, 0.12f, 0);
+            });
+            // grass tuft: 34 tapered, curving blades from the bottom
+            int nb = 34;
+            var bx = new float[nb]; var bh = new float[nb]; var bl = new float[nb]; var bw = new float[nb]; var bc = new Color[nb];
+            for (int i = 0; i < nb; i++)
+            {
+                bx[i] = 0.2f + R() * 0.6f; bh[i] = 0.45f + R() * 0.52f; bl[i] = (R() - 0.5f) * 0.5f; bw[i] = 0.012f + R() * 0.012f;
+                float g = R(); bc[i] = new Color(0.26f + g * 0.14f, 0.38f + g * 0.16f, 0.12f + g * 0.05f);
+            }
+            GrassCard = Tex(128, true, (x, y, u, v) =>
+            {
+                for (int i = 0; i < nb; i++)
+                {
+                    if (v > bh[i]) continue;
+                    float t = v / bh[i];
+                    float cx = bx[i] + bl[i] * t * t;
+                    if (Mathf.Abs(u - cx) < bw[i] * (1 - t)) { var c = bc[i] * (0.6f + 0.5f * t); return new Color(c.r, c.g, c.b, 1); }
+                }
+                return new Color(0.17f, 0.29f, 0.12f, 0);
+            });
+            // fern frond: a curved stem with paired leaflets getting smaller towards the tip
+            FernCard = Tex(128, true, (x, y, u, v) =>
+            {
+                float stemX = 0.5f + (v - 0.1f) * (v - 0.1f) * 0.25f;
+                float side = Mathf.Abs(u - stemX);
+                if (v < 0.06f || v > 0.96f) return new Color(0.17f, 0.29f, 0.12f, 0);
+                if (side < 0.008f) return new Color(0.2f, 0.32f, 0.12f, 1);
+                float reach = 0.4f * Mathf.Sin(Mathf.Clamp01((v - 0.06f) / 0.9f) * Mathf.PI) + 0.03f;
+                float v0 = v - side * 0.35f;
+                float row = v0 / 0.05f, fr = row - Mathf.Floor(row);
+                float w = 0.32f * (1 - side / Mathf.Max(0.01f, reach));
+                if (side < reach && Mathf.Abs(fr - 0.5f) < w) { float g = 0.8f + 0.2f * Mathf.Sin(row); return new Color(0.16f * g, 0.36f * g, 0.13f * g, 1); }
+                return new Color(0.17f, 0.29f, 0.12f, 0);
+            });
         }
 
         static Shader FindShader(string a, string b)

@@ -23,7 +23,7 @@ namespace Rago
         public ArmorDef Helmet, Vest;
         public System.Action OnGearChanged;
         public int[] Ammo = new int[System.Enum.GetValues(typeof(Caliber)).Length];
-        float _yaw;
+        float _yaw, _magHintT;
 
         public void Init(PlayerRig p)
         {
@@ -41,6 +41,17 @@ namespace Rago
             hb.Box(new Vector3(0, -0.05f, 0.03f), new Vector3(0.05f, 0.18f, 0.12f), new Color(0.12f, 0.12f, 0.11f), 0.012f, 2);
             var hv = hb.Build("HolsterMesh", Pistol.transform, Mats.Polymer);
             hv.transform.localRotation = Quaternion.Inverse(Pistol.transform.localRotation);
+            // double mag pouches on the front of each hip (pull a mag with either hand)
+            foreach (var sx in new[] { -1f, 1f })
+            {
+                var pb = new MB();
+                pb.Box(new Vector3(-0.022f, 0, 0), new Vector3(0.04f, 0.11f, 0.03f), new Color(0.2f, 0.22f, 0.16f), 0.006f, 1);
+                pb.Box(new Vector3(0.022f, 0, 0), new Vector3(0.04f, 0.11f, 0.03f), new Color(0.2f, 0.22f, 0.16f), 0.006f, 1);
+                var pv = pb.Build(sx < 0 ? "MagPouchL" : "MagPouchR", Root, Mats.Lit("pouch", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f));
+                pv.transform.localPosition = new Vector3(sx * 0.15f, -0.74f, 0.13f);
+                pv.transform.localRotation = Quaternion.Euler(0, sx * 25f, 0);
+                pv.layer = Layers.LocalBody > 0 ? Layers.LocalBody : 0;
+            }
         }
 
         Slot MakeSlot(string name, Vector3 local, Quaternion storeRot, System.Func<Item, bool> filter, float radius, float fit)
@@ -74,6 +85,10 @@ namespace Rago
         Vector3 ChestCenter => Root.TransformPoint(new Vector3(0f, -0.4f, 0.08f));
 
         public bool NearChestPouch(Vector3 p) => Vector3.Distance(p, ChestPouch) < 0.17f;
+        // mag pouches on the front of both hips (either hand, either side) plus the chest one
+        Vector3 HipMagL => Root.TransformPoint(new Vector3(-0.15f, -0.74f, 0.13f));
+        Vector3 HipMagR => Root.TransformPoint(new Vector3(0.15f, -0.74f, 0.13f));
+        public bool NearMagPouch(Vector3 p) => NearChestPouch(p) || Vector3.Distance(p, HipMagL) < 0.16f || Vector3.Distance(p, HipMagR) < 0.16f;
 
         // ---------------------------------------------------------------------- armour
         /// <summary>Wear an armour item released near your head (helmet) or chest (vest). Swaps out what you had on.</summary>
@@ -116,10 +131,14 @@ namespace Rago
         {
             Vector3 p = h.Anchor.position;
             // magazine pouch
-            if (NearChestPouch(p))
+            if (NearMagPouch(p))
             {
                 var gun = h.Other.Held as Gun;
-                if (gun != null && !h.Other.HeldAsSecondary)
+                if (gun == null || h.Other.HeldAsSecondary)
+                {
+                    if (Time.time > _magHintT) { _magHintT = Time.time + 3f; _p.Toast("Hold a gun in your other hand to pull a mag for it"); }
+                }
+                else
                 {
                     int have = Ammo[(int)gun.g.cal];
                     if (have <= 0) { _p.Toast("No " + Db.CalName(gun.g.cal) + " left"); Sfx.UI(Synth.UiError(), 0.3f); return null; }

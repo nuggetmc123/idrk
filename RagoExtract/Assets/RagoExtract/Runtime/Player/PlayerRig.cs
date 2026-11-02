@@ -97,6 +97,32 @@ namespace Rago
             Head.localRotation = XRInputs.HeadRot;
         }
 
+        bool _wasClimbing; float _climbStartY;
+
+        /// <summary>
+        /// Let go of a climb: if your chest is up past a ledge in front of you, mantle onto it (step up and forward),
+        /// so climbing onto a wall top, a container or a roof edge just works.
+        /// </summary>
+        public void OnClimbReleased(Hand h)
+        {
+            if (HandL.Climbing || HandR.Climbing || !_wasClimbing) return;
+            _wasClimbing = false;
+            if (transform.position.y < _climbStartY + 0.25f) return;   // didn't actually climb up: no mantle
+            Vector3 fwd = Head.forward; fwd.y = 0; if (fwd.sqrMagnitude < 0.01f) return; fwd.Normalize();
+            Vector3 feet = transform.position;
+            Vector3 probe = Head.position + fwd * 0.55f + Vector3.up * 0.2f;
+            if (Physics.Raycast(probe, Vector3.down, out var hit, 2.2f, ~0, QueryTriggerInteraction.Ignore) && hit.collider.attachedRigidbody == null)
+            {
+                float rise = hit.point.y - feet.y;
+                if (rise > 0.3f && rise < 1.9f && hit.normal.y > 0.6f)
+                {
+                    Cc.Move(Vector3.up * (rise + 0.05f));
+                    Cc.Move(fwd * 0.6f);
+                    _vy = 0f;
+                }
+            }
+        }
+
         public Vector3 LastTeleportPos; public float LastTeleportYaw;
 
         public void Teleport(Vector3 pos, float yaw)
@@ -152,9 +178,11 @@ namespace Rago
         {
             if (XRInputs.VR)
             {
-                lp = Origin.TransformPoint(XRInputs.Left.Position);
+                // the stick-click crouch lowers your view, so it lowers your hands by the same amount
+                Vector3 down = Vector3.down * _crouchOffset;
+                lp = Origin.TransformPoint(XRInputs.Left.Position) + down;
                 lr = Origin.rotation * XRInputs.Left.Rotation;
-                rp = Origin.TransformPoint(XRInputs.Right.Position);
+                rp = Origin.TransformPoint(XRInputs.Right.Position) + down;
                 rr = Origin.rotation * XRInputs.Right.Rotation;
                 return;
             }
@@ -241,6 +269,20 @@ namespace Rago
             if (XRInputs.VR && XRInputs.Right.StickClickDown) Crouched = !Crouched;
             if (!XRInputs.VR) Crouched = Desktop.Crouch;
             _crouchOffset = Mathf.MoveTowards(_crouchOffset, Crouched && XRInputs.VR ? 0.55f : 0f, dt * 2.5f);
+
+            // climbing: a hand gripping the world stays put and the body follows it (pull down to go up)
+            Hand climb = HandL.Climbing && HandR.Climbing ? (HandL.ClimbStart > HandR.ClimbStart ? HandL : HandR) : HandL.Climbing ? HandL : HandR.Climbing ? HandR : null;
+            if (climb != null)
+            {
+                Vector3 off = climb.ClimbAnchor - climb.TrackedPosition;
+                off = Vector3.ClampMagnitude(off, 0.6f);
+                if (!_wasClimbing) _climbStartY = transform.position.y;
+                if (off.sqrMagnitude > 1e-6f) Cc.Move(off);
+                _vy = 0f; MoveVelocity = Vector3.zero; _wasClimbing = true;
+                if ((climb.ClimbAnchor - climb.TrackedPosition).sqrMagnitude > 0.8f * 0.8f) climb.StopClimbing();   // stretched too far: let go
+                Vitals.Stamina = Mathf.Max(0f, Vitals.Stamina - dt * 3f);
+                return;
+            }
 
             // room scale: move the capsule under the head
             Vector3 headW = Head.position;

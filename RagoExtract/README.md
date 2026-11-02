@@ -110,6 +110,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 
   Each raid lasts 40 minutes. To leave, reach an extract (green smoke), step into the zone and use the **laptop** on the supply crate (grab it, click its CALL key, or press F on desktop). A **10-second** countdown runs on the laptop and your HUD. Stay in the zone until it hits zero; leaving the zone cancels the call. If you die, you lose what you brought and your body drops it for others to loot.
 - **Raiders**: up to 16 per raid, spread over the whole map in small squads. They patrol slowly, moving to a new spot about every 30 seconds, notice you over time when they can see you, take cover, peek, fire bursts with human-like aim, flinch when hit, ragdoll on death and drop their gun and loot. A gunshot only brings raiders over if they're close (about 30 m); farther away they just stop and look toward the sound, and only come for you if they spot you. Footsteps are very quiet: walking, a raider only hears you if you're right next to them (about 2 m), sprinting about 5 m, and crouch-walking makes no sound. A vault alarm pulls in everyone nearby.
+- **Woods**: pines with layered needle branches, leafy oaks and birches, bushes you can walk through and hide in, and patches of tall grass and ferns, all swaying in the wind. Raids have no draw-distance limit, only a light haze, so you can see across the whole map.
 - **Guns**: 50 original guns (pistols, revolvers, SMGs, shotguns, rifles, DMRs, snipers, LMGs) in 5 rarity tiers.
   - Common ones turn up everywhere and Rare/Epic ones are hard to find.
   - 7 **Vault** guns spawn only inside vaults. Open a vault with a Vault Keycard, or grab the hack panel and hold on for 30 seconds while the alarm draws every Raider nearby.
@@ -125,6 +126,8 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Left MENU button | Open / close the field map (in raids) |
 | Right stick | Snap or smooth turn. Click to crouch toggle (real crouching also works) |
 | Grip | Grab, two-hand a gun (grab the handguard), pull a slide or charging handle |
+| Grip on a wall, ledge, ladder, fence or rock (empty hand) | Climb: the hand locks on and pulling down lifts you. Let go above a ledge to climb onto it |
+| Grip at either hip or your chest (gun in the other hand) | Pull a fresh magazine for that gun. Put a mag back the same way to return its rounds |
 | Trigger | Fire. Point at buttons and pull the trigger to click |
 | A / X | Drop magazine |
 | B / Y | Rack / release slide. Switches fire mode when a round is chambered |

@@ -208,9 +208,14 @@ namespace Rago
             if (Application.platform == RuntimePlatform.Android) QualitySettings.shadows = to == Area.Raid ? ShadowQuality.Disable : ShadowQuality.HardOnly;
             if (Player.Cam != null)
             {
-                // raids: don't draw what the fog has already hidden (past ~2.2/density the fog is over 99% thick)
-                float far = to == Area.Raid ? 650f : 900f;
-                if (to == Area.Raid && RenderSettings.fog && RenderSettings.fogDensity > 0) far = Mathf.Clamp(2.2f / RenderSettings.fogDensity, 160f, 650f);
+                // raids: you can see the whole 1 km map - no draw-distance cut-off, and only a light haze instead of
+                // thick fog (the far corner of the map is still about two-thirds visible)
+                float far = 900f;
+                if (to == Area.Raid)
+                {
+                    far = 1600f;
+                    if (RenderSettings.fog) RenderSettings.fogDensity = Mathf.Min(RenderSettings.fogDensity, 0.00045f);
+                }
                 Player.Cam.farClipPlane = far;
                 var cull = new float[32];
                 if (Layers.Items > 0) cull[Layers.Items] = 70f;   // small loose items vanish past 70 m

@@ -301,19 +301,145 @@ namespace Rago
             Box(pos + Vector3.up * 0.82f + q * new Vector3(0, 0, 0), new Vector3(0.27f, 0.1f, 3.02f), Mats.Lit("paint_stripe", new Color(0.9f, 0.7f, 0.1f), 0, 0.3f), Color.white, q, false);
         }
 
+        // =========================================================================== foliage
+        // Leaves, needles, grass and ferns are alpha-cutout cards (Rago/Foliage: two-sided, swaying in the wind).
+        // Trees keep a collider on the trunk only; bushes, grass and ferns have none, so you walk straight through them.
+        static Material NeedleMat => Mats.Foliage("fol_needle", Mats.NeedleCard, Color.white, 0.6f, 0.35f);
+        static Material LeafMat => Mats.Foliage("fol_leaf", Mats.LeafCard, Color.white, 1f);
+        static Material GrassMat => Mats.Foliage("fol_grass", Mats.GrassCard, Color.white, 1.5f, 0.4f);
+        static Material FernMat => Mats.Foliage("fol_fern", Mats.FernCard, Color.white, 1.1f);
+        static Material BarkMat => Mats.Lit("bark", Color.white, 0, 0.1f, Mats.Bark, null, 0.3f, 0f, true, 1.5f);
+        static Material CanopyCore => Mats.Lit("canopy_core", Color.white, 0, 0.05f, Mats.Leaves, null, 0.2f, 0f, true, 0.8f);
+
+        /// <summary>A clump of leaves: <paramref name="planes"/> crossed cards plus one lying flat, centred on c.</summary>
+        void LeafClump(MB mb, Vector3 c, float size, Color tint, int planes = 3, float sway = 1f)
+        {
+            float h = size * 0.5f;
+            float rot = Rng.Range(0f, 180f);
+            for (int k = 0; k < planes; k++)
+            {
+                var q = Quaternion.Euler(Rng.Range(-15f, 15f), rot + k * 180f / planes, Rng.Range(-15f, 15f));
+                Vector3 r = q * Vector3.right * h, u = q * Vector3.up * h;
+                mb.Card(c - r - u, c + r - u, c + r + u, c - r + u, tint * Rng.Range(0.85f, 1.1f), sway * 0.5f, sway);
+            }
+            var qf = Quaternion.Euler(Rng.Range(-20f, 20f), Rng.Range(0f, 360f), 0);
+            Vector3 a = qf * new Vector3(-h, 0, -h), b = qf * new Vector3(h, 0, -h), cc = qf * new Vector3(h, 0, h), d = qf * new Vector3(-h, 0, h);
+            mb.Card(c + a, c + b, c + cc, c + d, tint, sway * 0.5f, sway);
+        }
+
+        /// <summary>A pine: bark trunk, a dark inner cone for body, and tiers of drooping needle branches.</summary>
         public void Pine(Vector3 pos, float h)
         {
-            var bark = Mats.Lit("bark", Color.white, 0, 0.1f, Mats.Bark, null, 0.3f, 0f, true, 1.5f);
-            var leaves = Mats.Lit("pine", Color.white, 0, 0.15f, Mats.Leaves, null, 0.3f, 0f, true, 0.8f);
-            Cyl(pos - Vector3.up * 0.3f, pos + Vector3.up * h * 0.95f, h * 0.022f, h * 0.008f, 8, bark, new Color(0.55f, 0.45f, 0.38f), true, Synth.Surface.Wood);
-            int layers = 4;
-            Color tint = Color.Lerp(new Color(0.75f, 0.85f, 0.7f), new Color(0.6f, 0.65f, 0.5f), Rng.Value);
-            for (int i = 0; i < layers; i++)
+            Cyl(pos - Vector3.up * 0.3f, pos + Vector3.up * h * 0.97f, h * 0.022f, h * 0.007f, 8, BarkMat, new Color(0.55f, 0.45f, 0.38f), true, Synth.Surface.Wood);
+            Color tint = Color.Lerp(new Color(0.85f, 0.95f, 0.8f), new Color(0.7f, 0.78f, 0.62f), Rng.Value);
+            // inner body: two slim dark cones, so the tree isn't see-through between branches
+            for (int i = 0; i < 2; i++)
             {
-                float t = (float)i / layers;
-                float y0 = h * (0.28f + t * 0.62f), y1 = y0 + h * 0.3f;
-                float r = h * 0.22f * (1f - t * 0.75f);
-                Raw(leaves).Cyl(pos + Vector3.up * y0, pos + Vector3.up * y1, r, 0.02f, 9, tint * (0.85f + t * 0.25f), true, Rng.Value * 6f);
+                float y0 = h * (0.3f + i * 0.33f), y1 = y0 + h * 0.4f, r = h * 0.09f * (1f - i * 0.45f);
+                Raw(CanopyCore, pos).Cyl(pos + Vector3.up * y0, pos + Vector3.up * y1, r, 0.02f, 7, tint * 0.55f, true, Rng.Value * 6f);
+            }
+            var mb = Raw(NeedleMat, pos);
+            int tiers = 8;
+            for (int i = 0; i < tiers; i++)
+            {
+                float t = (float)i / (tiers - 1);
+                float y = h * (0.26f + t * 0.68f);
+                float reach = h * 0.25f * (1f - t * 0.82f) + 0.35f;
+                int n = Mathf.RoundToInt(Mathf.Lerp(9, 5, t));
+                float off = Rng.Range(0f, 360f);
+                for (int j = 0; j < n; j++)
+                {
+                    float ang = (off + j * 360f / n + Rng.Range(-15f, 15f)) * Mathf.Deg2Rad;
+                    Vector3 dir = new Vector3(Mathf.Sin(ang), 0, Mathf.Cos(ang));
+                    Vector3 p0 = pos + Vector3.up * y;
+                    Vector3 tip = p0 + dir * reach + Vector3.down * reach * Rng.Range(0.25f, 0.45f);
+                    Vector3 side = Vector3.Cross(Vector3.up, dir).normalized * reach * 0.6f + Vector3.up * reach * 0.06f;
+                    mb.Card(p0 - side * 0.35f, p0 + side * 0.35f, tip + side, tip - side, tint * Rng.Range(0.85f, 1.05f), 0.05f, 0.8f);
+                }
+            }
+            // a spiky top
+            Vector3 top = pos + Vector3.up * h * 0.97f;
+            for (int k = 0; k < 2; k++)
+            {
+                Vector3 r = Quaternion.Euler(0, k * 90f + Rng.Range(0f, 90f), 0) * Vector3.right * h * 0.06f;
+                mb.Card(top - r - Vector3.up * h * 0.12f, top + r - Vector3.up * h * 0.12f, top + r + Vector3.up * h * 0.05f, top - r + Vector3.up * h * 0.05f, tint, 0.2f, 0.6f);
+            }
+        }
+
+        /// <summary>A broad-leaf tree (oak / birch look): trunk, a few limbs and a round crown of leaf clumps.</summary>
+        public void LeafyTree(Vector3 pos, float h, bool birch = false)
+        {
+            Color barkC = birch ? new Color(0.85f, 0.83f, 0.78f) : new Color(0.45f, 0.36f, 0.3f);
+            float tr = h * (birch ? 0.022f : 0.035f);
+            Cyl(pos - Vector3.up * 0.3f, pos + Vector3.up * h * 0.62f, tr, tr * 0.6f, 8, BarkMat, barkC, true, Synth.Surface.Wood);
+            Vector3 crown = pos + Vector3.up * h * 0.66f;
+            Vector3 rad = new Vector3(h * (birch ? 0.22f : 0.33f), h * (birch ? 0.3f : 0.25f), h * (birch ? 0.22f : 0.33f));
+            // limbs from the trunk up into the crown (visual only)
+            int limbs = 4;
+            for (int i = 0; i < limbs; i++)
+            {
+                float ang = (i * 90f + Rng.Range(-25f, 25f)) * Mathf.Deg2Rad;
+                Vector3 from = pos + Vector3.up * h * Rng.Range(0.42f, 0.58f);
+                Vector3 to = crown + new Vector3(Mathf.Sin(ang) * rad.x * 0.7f, rad.y * Rng.Range(0f, 0.4f), Mathf.Cos(ang) * rad.z * 0.7f);
+                Raw(BarkMat, pos).Cyl(from, to, tr * 0.45f, tr * 0.15f, 6, barkC, false);
+            }
+            Color tint = birch ? new Color(1.05f, 1.1f, 0.75f) : Color.Lerp(new Color(0.95f, 1f, 0.85f), new Color(0.8f, 0.85f, 0.6f), Rng.Value);
+            Raw(CanopyCore, pos).Sphere(crown, rad * 0.5f, 8, tint * 0.72f);
+            var mb = Raw(LeafMat, pos);
+            int clumps = Mathf.RoundToInt(Mathf.Lerp(20, 32, Mathf.InverseLerp(6f, 16f, h)));
+            for (int i = 0; i < clumps; i++)
+            {
+                Vector3 d = Rng.InSphere();
+                if (d.sqrMagnitude < 0.0001f) d = Vector3.up;
+                d = d.normalized * Mathf.Lerp(0.35f, 1f, Mathf.Sqrt(Rng.Value));
+                if (d.y < -0.5f) d.y = -0.5f;
+                Vector3 c = crown + Vector3.Scale(d, rad);
+                LeafClump(mb, c, h * Rng.Range(0.24f, 0.32f), tint);
+            }
+        }
+
+        /// <summary>A leafy bush you can walk (and hide) in: no collider.</summary>
+        public void Bush(Vector3 pos, float size)
+        {
+            var mb = Raw(LeafMat, pos);
+            Color tint = Color.Lerp(new Color(0.85f, 0.95f, 0.7f), new Color(0.7f, 0.8f, 0.55f), Rng.Value);
+            Raw(CanopyCore, pos).Sphere(pos + Vector3.up * size * 0.3f, new Vector3(size * 0.26f, size * 0.2f, size * 0.26f), 6, tint * 0.7f);
+            int n = 4 + Rng.Range(0, 3);
+            for (int i = 0; i < n; i++)
+            {
+                var o = Rng.InCircle() * size * 0.45f;
+                LeafClump(mb, pos + new Vector3(o.x, size * Rng.Range(0.3f, 0.6f), o.y), size * Rng.Range(0.55f, 0.75f), tint, 3, 0.7f);
+            }
+        }
+
+        /// <summary>A grass tuft: three crossed cards standing on the ground. No collider.</summary>
+        public void GrassTuft(Vector3 pos, float size)
+        {
+            var mb = Raw(GrassMat, pos);
+            Color tint = Color.Lerp(new Color(0.95f, 1f, 0.8f), new Color(0.85f, 0.8f, 0.55f), Rng.Value);
+            float rot = Rng.Range(0f, 180f);
+            for (int k = 0; k < 3; k++)
+            {
+                Vector3 r = Quaternion.Euler(0, rot + k * 60f, 0) * Vector3.right * size * 0.5f;
+                Vector3 up = Vector3.up * size + new Vector3(Rng.Range(-0.1f, 0.1f), 0, Rng.Range(-0.1f, 0.1f)) * size;
+                mb.Card(pos - r, pos + r, pos + r + up, pos - r + up, tint, 0f, 1f);
+            }
+        }
+
+        /// <summary>A fern: fronds arching out from one point. No collider.</summary>
+        public void Fern(Vector3 pos, float size)
+        {
+            var mb = Raw(FernMat, pos);
+            Color tint = Color.Lerp(Color.white, new Color(0.8f, 0.9f, 0.65f), Rng.Value);
+            int n = 5 + Rng.Range(0, 3);
+            float rot = Rng.Range(0f, 360f);
+            for (int k = 0; k < n; k++)
+            {
+                float ang = (rot + k * 360f / n) * Mathf.Deg2Rad;
+                Vector3 dir = new Vector3(Mathf.Sin(ang), 0, Mathf.Cos(ang));
+                Vector3 side = Vector3.Cross(Vector3.up, dir) * size * 0.22f;
+                Vector3 tip = pos + dir * size * 0.9f + Vector3.up * size * Rng.Range(0.35f, 0.6f);
+                mb.Card(pos - side * 0.3f, pos + side * 0.3f, tip + side, tip - side, tint, 0f, 1f);
             }
         }
 
