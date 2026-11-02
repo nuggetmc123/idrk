@@ -150,7 +150,7 @@ namespace Rago
                 float best = float.NegativeInfinity;
                 foreach (var o in new[] { Vector3.zero, new Vector3(hs.x, 0, hs.z), new Vector3(-hs.x, 0, hs.z), new Vector3(hs.x, 0, -hs.z), new Vector3(-hs.x, 0, -hs.z) })
                 {
-                    int n = Physics.RaycastNonAlloc(p + r * o + Vector3.up * 0.7f, Vector3.down, hits, 2.2f, mask, QueryTriggerInteraction.Ignore);
+                    int n = Physics.RaycastNonAlloc(p + r * o + Vector3.up * 1.5f, Vector3.down, hits, 3.0f, mask, QueryTriggerInteraction.Ignore);
                     float top = float.NegativeInfinity;
                     for (int i = 0; i < n; i++)
                     {
@@ -158,6 +158,7 @@ namespace Rago
                         if (t.IsChildOf(c.transform)) continue;
                         var other = t.GetComponentInParent<LootCrate>();
                         if (other != null && other != c) continue;   // stacked spots: ignore other crates, settle on the floor
+                        if (hits[i].normal.y < 0.5f || hits[i].point.y > p.y + 1.4f) continue;   // not walls, not a shelf or ceiling far above
                         if (hits[i].point.y > top) top = hits[i].point.y;
                     }
                     if (top > best) best = top;

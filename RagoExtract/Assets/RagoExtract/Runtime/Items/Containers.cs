@@ -13,6 +13,7 @@ namespace Rago
         public Quaternion storeRot = Quaternion.identity;
         public System.Action<Slot> onChanged;
         public bool showGhost = true;
+        public bool restOnBase;           // containers / shelves: the item sits ON the slot point instead of being centred on it
         public static readonly List<Slot> Active = new List<Slot>();
         GameObject _ghost;
         float _ghostT;
@@ -52,6 +53,13 @@ namespace Rago
             it.transform.localScale = Vector3.one * scale;
             it.transform.localRotation = storeRot;
             it.transform.localPosition = -(storeRot * b.center) * scale;
+            if (restOnBase)
+            {
+                // lift it so its lowest point sits on the container floor (centred, a tall item poked out the bottom)
+                var m = Matrix4x4.Rotate(storeRot);
+                float extY = Mathf.Abs(m.m10) * b.extents.x + Mathf.Abs(m.m11) * b.extents.y + Mathf.Abs(m.m12) * b.extents.z;
+                it.transform.localPosition += Vector3.up * (extY * scale + 0.004f);
+            }
             if (sound) Sfx.Play(Synth.Grab(2), transform.position, 0.35f, 0.9f, 0.5f, 6f);
             onChanged?.Invoke(this);
             NetEvents.ItemStored(it);
@@ -115,6 +123,7 @@ namespace Rago
                     s.radius = Mathf.Min(spacing.x, spacing.y) * 0.6f;
                     s.filter = filter;
                     s.storeRot = storeRot ?? Quaternion.identity;
+                    s.restOnBase = true;
                     s.onChanged = _ => c.onChanged?.Invoke();
                     c.slots.Add(s);
                 }
@@ -156,6 +165,7 @@ namespace Rago
                 default: it = Simple<LootItem>((SimpleDef)def, pos, rot); break;
             }
             if (RagoGame.I != null && RagoGame.I.MapRoot != null) it.transform.SetParent(RagoGame.I.MapRoot, true);
+            it.Unsink();   // spawned at floor level: start on the floor, not half inside it (physics would push it through)
             return it;
         }
 

@@ -165,6 +165,16 @@ namespace Rago
             return best;
         }
 
+        /// <summary>If this item's bottom is inside the floor (or table) under it, lift it out so it rests on top.</summary>
+        public void Unsink()
+        {
+            float half = Mathf.Max(0.02f, localBounds.extents.y * transform.lossyScale.y);
+            Physics.SyncTransforms();
+            float floor = FloorBelow(transform.position + Vector3.up * 0.6f, 0.6f + half + 0.1f);
+            if (!float.IsNaN(floor) && transform.position.y - half < floor) transform.position += Vector3.up * (floor - (transform.position.y - half) + 0.01f);
+            _trackFree = false;
+        }
+
         Vector3 _lastFree; bool _trackFree;
 
         protected virtual void FixedUpdate()
