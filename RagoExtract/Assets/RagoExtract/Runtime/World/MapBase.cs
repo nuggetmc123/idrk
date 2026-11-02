@@ -166,6 +166,41 @@ namespace Rago
                 if (best > float.NegativeInfinity) { p.y = best + 0.004f; c.transform.position = p; }
             }
             Physics.SyncTransforms();
+            // no crate inside a wall, furniture, stairs or another crate: move it to the nearest clear spot, or drop it
+            var cols = new Collider[16];
+            for (int ci = Crates.Count - 1; ci >= 0; ci--)
+            {
+                var c = Crates[ci];
+                if (c == null) continue;
+                if (!Blocked(c, c.transform.position, cols, mask)) continue;
+                Vector3 start = c.transform.position;
+                bool placed = false;
+                for (float r = 0.4f; r <= 1.6f && !placed; r += 0.4f)
+                    for (int a = 0; a < 8 && !placed; a++)
+                    {
+                        float ang = a * 45f * Mathf.Deg2Rad;
+                        Vector3 cand = start + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * r;
+                        if (!Physics.Raycast(cand + Vector3.up * 1.5f, Vector3.down, out var gh, 3f, mask, QueryTriggerInteraction.Ignore) || gh.normal.y < 0.7f) continue;
+                        if (Mathf.Abs(gh.point.y - start.y) > 0.8f) continue;   // stay on the same floor
+                        cand.y = gh.point.y + 0.004f;
+                        if (Blocked(c, cand, cols, mask)) continue;
+                        c.transform.position = cand;
+                        Physics.SyncTransforms();
+                        placed = true;
+                    }
+                if (!placed) { Crates.RemoveAt(ci); Destroy(c.gameObject); Physics.SyncTransforms(); }
+            }
+        }
+
+        /// <summary>Would crate c overlap anything solid (except the floor it stands on) at position p?</summary>
+        static bool Blocked(LootCrate c, Vector3 p, Collider[] cols, int mask)
+        {
+            Vector3 size = c.Size.sqrMagnitude > 0 ? c.Size : new Vector3(0.6f, 0.4f, 0.5f);
+            Vector3 he = new Vector3(size.x * 0.47f, size.y * 0.45f, size.z * 0.47f);
+            Vector3 center = p + Vector3.up * (size.y * 0.5f + 0.03f);
+            int n = Physics.OverlapBoxNonAlloc(center, he, cols, c.transform.rotation, mask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++) if (!cols[i].transform.IsChildOf(c.transform)) return true;
+            return false;
         }
 
         public void Spawn(Vector3 p, float yaw) => PlayerSpawns.Add(new Pose(p, Quaternion.Euler(0, yaw, 0)));
@@ -686,6 +721,17 @@ namespace Rago
                 NetGame.I?.Register(it);
                 _box.slots[i].Store(it, false);
             }
+            // vaults open with a keycard only: safes often have one
+            if (kind == Kind.Safe && rng.Chance(0.35f))
+            {
+                var free = _box.FirstFree(null);
+                foreach (var sl in _box.slots) if (sl.item == null) { free = sl; break; }
+                if (free != null)
+                {
+                    var key = ItemFactory.Spawn(new ItemData("key_vault"), free.transform.position, transform.rotation);
+                    if (key != null) { key.netId = 10000 + index * 16 + 15; NetGame.I?.Register(key); free.Store(key, false); }
+                }
+            }
         }
     }
 
@@ -862,7 +908,7 @@ namespace Rago
 
     // ===================================================================================== vault
     /// <summary>
-    /// Vault: open it instantly with a Vault Keycard (bring the card to the reader), or grab the hack panel
+    /// Vault: open it with a Vault Keycard (bring the card to the reader). Keycards turn up in safes and loot.
     /// and hold on for 30 seconds while the alarm pulls every NPC nearby. Holds the vault-only guns.
     /// </summary>
     public class Vault : MonoBehaviour
@@ -895,13 +941,13 @@ namespace Rago
             Vector3 P(float x, float y, float z) => pos + q * new Vector3(x, y, z);
             var steel = Mats.Lit("vault_steel", new Color(0.42f, 0.44f, 0.46f), 0.85f, 0.55f, Mats.Metal, Mats.MetalN, 0.25f, 0.4f, true, 1f);
             var conc = Mats.Lit("vault_conc", Color.white, 0f, 0.3f, Mats.Concrete, null, 0.4f, 0.1f, true, 0.6f);
-            // room walls
-            B.Wall(P(-3, 0, 0), P(-3, 0, 5), 3f, 0.4f, conc, new Color(0.7f, 0.7f, 0.72f));
-            B.Wall(P(3, 0, 5), P(3, 0, 0), 3f, 0.4f, conc, new Color(0.7f, 0.7f, 0.72f));
-            B.Wall(P(-3, 0, 5), P(3, 0, 5), 3f, 0.4f, conc, new Color(0.7f, 0.7f, 0.72f));
-            B.Wall(P(-3, 0, 0), P(3, 0, 0), 3f, 0.5f, steel, Color.white, new List<Vector4> { new Vector4(3f, 1.8f, 0f, 2.3f) }, Synth.Surface.Metal);
-            B.Box(P(0, 3f, 2.5f), new Vector3(6.4f, 0.3f, 5.4f), conc, new Color(0.6f, 0.6f, 0.62f), q);
-            B.Box(P(0, 0.03f, 2.5f), new Vector3(6f, 0.06f, 5f), Mats.Lit("vault_floor", Color.white, 0.3f, 0.5f, Mats.Tiles, Mats.TilesN, 0.3f, 0.2f, true, 0.5f), new Color(0.5f, 0.52f, 0.55f), q);
+            // room walls (2.9 m tall with a thin ceiling, so it fits under the floor above when it's inside a building)
+            B.Wall(P(-3, 0, 0), P(-3, 0, 5), 2.9f, 0.4f, conc, new Color(0.7f, 0.7f, 0.72f));
+            B.Wall(P(3, 0, 5), P(3, 0, 0), 2.9f, 0.4f, conc, new Color(0.7f, 0.7f, 0.72f));
+            B.Wall(P(-3, 0, 5), P(3, 0, 5), 2.9f, 0.4f, conc, new Color(0.7f, 0.7f, 0.72f));
+            B.Wall(P(-3, 0, 0), P(3, 0, 0), 2.9f, 0.5f, steel, Color.white, new List<Vector4> { new Vector4(3f, 1.8f, 0f, 2.3f) }, Synth.Surface.Metal);
+            B.Box(P(0, 2.97f, 2.5f), new Vector3(6.4f, 0.14f, 5.4f), conc, new Color(0.6f, 0.6f, 0.62f), q);
+            B.Box(P(0, 0.06f, 2.5f), new Vector3(5.6f, 0.12f, 4.6f), Mats.Lit("vault_floor", Color.white, 0.3f, 0.5f, Mats.Tiles, Mats.TilesN, 0.3f, 0.2f, true, 0.5f), new Color(0.5f, 0.52f, 0.55f), q);
             B.AddLight(P(0, 2.6f, 2.5f), new Color(1f, 0.95f, 0.85f), 7f, 1.3f);
             // door (round, swings open)
             v._door = new GameObject("DoorHinge").transform;
@@ -914,16 +960,12 @@ namespace Rago
             var door = dm.Build("Door", v._door, Mats.Lit("vault_door", new Color(0.55f, 0.57f, 0.6f), 0.9f, 0.6f, Mats.Metal, Mats.MetalN, 0.15f, 0.35f), Mats.Chrome);
             var dc = door.AddComponent<BoxCollider>(); dc.center = new Vector3(0.95f, 0, -0.17f); dc.size = new Vector3(2f, 2.3f, 0.36f);
             door.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
-            // card reader + hack panel outside, right of the door
+            // card reader outside, right of the door (keycard only - no hacking)
             var reader = new GameObject("Reader").AddComponent<KeycardReader>();
             reader.transform.SetParent(go.transform, false);
             reader.transform.localPosition = new Vector3(1.6f, 1.3f, -0.3f);
             reader.vault = v; reader.Build();
-            var hack = new GameObject("HackPanel").AddComponent<HackPanel>();
-            hack.transform.SetParent(go.transform, false);
-            hack.transform.localPosition = new Vector3(1.6f, 0.95f, -0.3f);
-            hack.vault = v; hack.Build();
-            v._status = UI.Text(go.transform, "VAULT LOCKED", new Vector3(0, 2.6f, -0.3f), 0.07f, new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            v._status = UI.Text(go.transform, "VAULT LOCKED", new Vector3(0, 2.55f, -0.3f), 0.07f, new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
             v._status.transform.localRotation = Quaternion.Euler(0, 0, 0);
             // racks inside
             B.Box(P(0, 1.0f, 4.6f), new Vector3(4.5f, 2f, 0.3f), steel, new Color(0.3f, 0.32f, 0.34f), q, true, Synth.Surface.Metal);

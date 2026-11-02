@@ -125,7 +125,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 - **Woods**: pines with layered needle branches, leafy oaks and birches, bushes you can walk through and hide in, and patches of tall grass and ferns, all swaying in the wind. Raids have no draw-distance limit, only a light haze, so you can see across the whole map.
 - **Guns**: 50 original guns (pistols, revolvers, SMGs, shotguns, rifles, DMRs, snipers, LMGs) in 5 rarity tiers.
   - Common ones turn up everywhere and Rare/Epic ones are hard to find.
-  - 7 **Vault** guns spawn only inside vaults. Open a vault with a Vault Keycard, or grab the hack panel and hold on for 30 seconds while the alarm draws every Raider nearby.
+  - 7 **Vault** guns spawn only inside vaults. Open a vault with a Vault Keycard: hold it to the card reader next to the vault door. Keycards are rare loot, and safes often have one.
 - **Holo sights** (6 types) are found in optics boxes. Bring a sight to a gun's top rail and let go to mount it. The reticle is projected at infinity, like a real holo sight.
 - **Effects**: muzzle flash with light, muzzle smoke, ejected brass, tracers, sparks, dust and debris, and bullet holes. Blood comes as spray, mist, wound decals, splatter on walls and floors, drips while bleeding, and pools under bodies.
 - **Sound**: every sound is synthesized in code. This includes layered gunshots with echo tails, suppressed shots, reload mechanics, footsteps per surface, impacts, bullet cracks, alarms and ambience.
@@ -153,7 +153,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Med near chest + trigger | Heal (bandage stops bleeding, medkit heals over time, stim gives instant HP + stamina) |
 
 ### Desktop controls (no headset)
-WASD move · mouse look · Shift sprint · Space jump · M field map · N menu (party, friends, settings) · C crouch · E grab what you look at / drop · LMB fire / click · RMB aim · R reload · F rack / open / interact (hold F on a vault hack panel) · X drop mag · 1/2/3 primary / secondary / pistol · Tab backpack · G drop (into the open backpack; rifles go on its side straps) · H wear held armor / take armor off
+WASD move · mouse look · Shift sprint · Space jump · M field map · N menu (party, friends, settings) · C crouch · E grab what you look at / drop · LMB fire / click · RMB aim · R reload · F rack / open / interact · X drop mag · 1/2/3 primary / secondary / pistol · Tab backpack · G drop (into the open backpack; rifles go on its side straps) · H wear held armor / take armor off
 
 ## Code layout
 ```

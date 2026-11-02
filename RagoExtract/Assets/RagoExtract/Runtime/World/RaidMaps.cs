@@ -98,15 +98,17 @@ namespace Rago
             var wh2 = Warehouse(new Vector3(-55, 0, -60), 0, new Vector2(26, 20));
             interior.AddRange(wh1); interior.AddRange(wh2);
             // harbor office + vault
-            var office = b.Building(new Vector3(-20, 0, -55), 0, new Vector2(14, 10), 3, Maps.Plaster, new Color(0.75f, 0.72f, 0.62f), Maps.Tiles, Maps.Concrete, 3, true, true);
+            var office = b.Building(new Vector3(-20, 0, -55), 0, new Vector2(14, 10), 3, Maps.Plaster, new Color(0.75f, 0.72f, 0.62f), Maps.Tiles, Maps.Concrete, 3, true, true, 3.2f, 2);
             interior.AddRange(office);
             b.Sign(new Vector3(-20, 9.2f, -60.2f), Quaternion.identity, "HARBOR OFFICE", new Color(0.9f, 0.85f, 0.7f), 0.5f);
-            AddVault(new Vector3(-20, 0, -44f), 0);
+            AddVault(new Vector3(-20, 0, -50f), 0);   // its door is the doorway in the office's back wall
             // fences + barriers + props
-            for (int i = 0; i < 14; i++) b.JerseyBarrier(new Vector3(b.Rng.Range(-75f, 60f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Range(0, 180f));
-            for (int i = 0; i < 30; i++) b.Barrel(new Vector3(b.Rng.Range(-75f, 65f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Pick(new[] { new Color(0.15f, 0.3f, 0.6f), new Color(0.6f, 0.15f, 0.1f), new Color(0.2f, 0.35f, 0.2f) }));
-            for (int i = 0; i < 22; i++) b.Crate(new Vector3(b.Rng.Range(-75f, 65f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Range(0, 90f), new Vector3(1.2f, 1.0f, 1.2f));
-            for (int i = 0; i < 6; i++) b.CarWreck(new Vector3(b.Rng.Range(-70f, -10f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Range(0, 360f), b.Rng.Pick(cc));
+            // scattered props: only where they fit (not inside the warehouses, the office, the vault or the container stacks)
+            for (int i = 0; i < 14; i++) { float yw = b.Rng.Range(0, 180f); if (b.Spot(() => new Vector3(b.Rng.Range(-75f, 60f), 0, b.Rng.Range(-80f, 80f)), new Vector3(0.8f, 0.9f, 3.1f), yw, out var sp)) b.JerseyBarrier(sp, yw); }
+            var barrelCols = new[] { new Color(0.15f, 0.3f, 0.6f), new Color(0.6f, 0.15f, 0.1f), new Color(0.2f, 0.35f, 0.2f) };
+            for (int i = 0; i < 30; i++) if (b.Spot(() => new Vector3(b.Rng.Range(-75f, 65f), 0, b.Rng.Range(-80f, 80f)), new Vector3(0.7f, 0.95f, 0.7f), 0, out var sp)) b.Barrel(sp, b.Rng.Pick(barrelCols));
+            for (int i = 0; i < 22; i++) { float yw = b.Rng.Range(0, 90f); if (b.Spot(() => new Vector3(b.Rng.Range(-75f, 65f), 0, b.Rng.Range(-80f, 80f)), new Vector3(1.25f, 1.0f, 1.25f), yw, out var sp)) b.Crate(sp, yw, new Vector3(1.2f, 1.0f, 1.2f)); }
+            for (int i = 0; i < 6; i++) { float yw = b.Rng.Range(0, 360f); if (b.Spot(() => new Vector3(b.Rng.Range(-70f, -10f), 0, b.Rng.Range(-80f, 80f)), new Vector3(2.1f, 1.4f, 4.5f), yw, out var sp)) b.CarWreck(sp, yw, b.Rng.Pick(cc)); }
             for (int i = -3; i <= 3; i++) b.LightPole(new Vector3(-34, 0, i * 25), 8, new Color(1f, 0.6f, 0.25f), i % 2 == 0);
             for (int i = 0; i < 4; i++) b.LightPole(new Vector3(66, 0, -70 + i * 45), 8, new Color(1f, 0.6f, 0.25f), true);
             // loot
@@ -254,14 +256,15 @@ namespace Rago
                 b.Tent(tp, 0, new Vector3(4.5f, 2.6f, 6f), new Color(0.38f, 0.42f, 0.3f));
                 pts.Add(tp + new Vector3(0, 0.05f, 0));
             }
-            b.Sandbags(o + new Vector3(-6, 0, 18), o + new Vector3(6, 0, 18));
+            b.Sandbags(o + new Vector3(-14, 0, 17), o + new Vector3(-7, 0, 17));   // beside the vault, not through it
             b.Sandbags(o + new Vector3(10, 0, 4), o + new Vector3(16, 0, 4));
             b.Sandbags(o + new Vector3(-16, 0, 6), o + new Vector3(-10, 0, 6));
-            for (int i = 0; i < 8; i++) b.Crate(o + new Vector3(b.Rng.Range(-20f, 20f), 0, b.Rng.Range(-18f, 18f)), b.Rng.Range(0, 90f), new Vector3(1.2f, 0.9f, 1.2f));
             // command bunker with vault
-            var cb = b.Building(o + new Vector3(0, 0, 9), 0, new Vector2(12.5f, 8), 1, Maps.ConcreteDark, new Color(0.62f, 0.64f, 0.6f), Maps.Concrete, Maps.ConcreteDark, 0, false);
+            var cb = b.Building(o + new Vector3(0, 0, 9), 0, new Vector2(12.5f, 8), 1, Maps.ConcreteDark, new Color(0.62f, 0.64f, 0.6f), Maps.Concrete, Maps.ConcreteDark, 0, false, false, 3.2f, 2);
             pts.AddRange(cb);
-            AddVault(o + new Vector3(0, 0, 13f), 0);
+            AddVault(o + new Vector3(0, 0, 13f), 0);   // its door is the doorway in the bunker's back wall
+            // supply crates around the yard, only where they fit (not in the bunker, the vault, the tents or the towers)
+            for (int i = 0; i < 8; i++) { float yw = b.Rng.Range(0, 90f); if (b.Spot(() => o + new Vector3(b.Rng.Range(-20f, 20f), 0, b.Rng.Range(-18f, 18f)), new Vector3(1.25f, 0.9f, 1.25f), yw, out var sp)) b.Crate(sp, yw, new Vector3(1.2f, 0.9f, 1.2f)); }
             // cabins
             for (int i = 0; i < 4; i++)
             {
@@ -358,8 +361,8 @@ namespace Rago
                 Vector3 p = alongZ ? new Vector3(lane * 34 + b.Rng.Range(-2.5f, 2.5f), 0, t) : new Vector3(t, 0, lane * 34 + b.Rng.Range(-2.5f, 2.5f));
                 b.CarWreck(p, (alongZ ? 0 : 90) + b.Rng.Range(-25f, 25f), b.Rng.Pick(carCols));
             }
-            for (int i = 0; i < 16; i++) b.JerseyBarrier(new Vector3(b.Rng.Range(-2, 3) * 34 + b.Rng.Range(-3f, 3f), 0, b.Rng.Range(-80f, 80f)), b.Rng.Range(60f, 120f));
-            for (int i = 0; i < 18; i++) b.Barrel(new Vector3(b.Rng.Range(-80f, 80f), 0.16f, b.Rng.Range(-80f, 80f)), new Color(0.3f, 0.32f, 0.3f));
+            for (int i = 0; i < 16; i++) { float yw = b.Rng.Range(60f, 120f); if (b.Spot(() => new Vector3(b.Rng.Range(-2, 3) * 34 + b.Rng.Range(-3f, 3f), 0, b.Rng.Range(-80f, 80f)), new Vector3(0.8f, 0.9f, 3.1f), yw, out var sp)) b.JerseyBarrier(sp, yw); }
+            for (int i = 0; i < 18; i++) if (b.Spot(() => new Vector3(b.Rng.Range(-80f, 80f), 0, b.Rng.Range(-80f, 80f)), new Vector3(0.7f, 0.95f, 0.7f), 0, out var sp)) b.Barrel(sp, new Color(0.3f, 0.32f, 0.3f));   // on the street or the pavement, whichever it is
             for (int i = -2; i <= 2; i++) for (int k = -2; k <= 2; k += 2) b.LightPole(new Vector3(i * 34 + 5, 0.16f, k * 34 + 10), 6.5f, new Color(1f, 0.8f, 0.55f), (i + k) % 2 == 0, 12f);
             // checkpoint
             b.Sandbags(new Vector3(-6, 0, -85), new Vector3(6, 0, -85));
@@ -400,7 +403,9 @@ namespace Rago
             b.Sign(c + new Vector3(0, 7.2f, -9.4f), Quaternion.identity, "FIRST NATIONAL BANK", new Color(0.95f, 0.85f, 0.55f), 0.45f);
             foreach (var x in new[] { -6f, -2f, 2f, 6f }) b.Cyl(c + new Vector3(x, 0.16f, -9.6f), c + new Vector3(x, 6.4f, -9.6f), 0.35f, 0.32f, 14, Maps.Plaster, new Color(0.9f, 0.88f, 0.82f));
             b.Table(c + new Vector3(-4, 0.16f, -4), 0, new Vector2(6, 0.8f), 1.1f);
-            AddVault(c + new Vector3(0, 0.16f, 5.2f - 5.2f + 0.2f), 0);
+            // the vault fills the back of the hall: its back wall sits just inside the bank's back wall (inner face z = +4.875)
+            AddVault(c + new Vector3(0, 0.16f, 4.875f - 5.2f - 0.02f), 0);
+            pts.RemoveAll(p => Mathf.Abs(p.x - c.x) < 4.4f && p.z > c.z - 2.2f && p.y < c.y + 2.5f);   // not inside / in front of the vault
             ScatterLoot(pts, 0.9f);
         }
 

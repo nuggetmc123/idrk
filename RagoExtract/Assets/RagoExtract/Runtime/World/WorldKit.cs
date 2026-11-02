@@ -153,7 +153,7 @@ namespace Rago
         }
 
         /// <summary>Hollow building with doors, windows, floors, stairs and a flat roof. Returns interior floor points for props/loot.</summary>
-        public List<Vector3> Building(Vector3 pos, float yaw, Vector2 size, int floors, Material wall, Color tint, Material floorMat, Material trim, int doorSide = 0, bool windows = true, bool roofAccess = false, float floorH = 3.2f)
+        public List<Vector3> Building(Vector3 pos, float yaw, Vector2 size, int floors, Material wall, Color tint, Material floorMat, Material trim, int doorSide = 0, bool windows = true, bool roofAccess = false, float floorH = 3.2f, int vaultSide = -1)
         {
             var interior = new List<Vector3>();
             Quaternion q = Quaternion.Euler(0, yaw, 0);
@@ -168,7 +168,8 @@ namespace Rago
                     Vector3 a = corners[side], b = corners[(side + 1) % 4];
                     float len = (b - a).magnitude;
                     var ops = new List<Vector4>();
-                    if (f == 0 && (side == doorSide || (size.x > 12 && side == (doorSide + 2) % 4))) ops.Add(new Vector4(len * 0.5f, 1.7f, 0, 2.4f));
+                    if (f == 0 && side == vaultSide) ops.Add(new Vector4(len * 0.5f, 1.8f, 0, 2.3f));   // exactly the vault's doorway
+                    else if (f == 0 && (side == doorSide || (size.x > 12 && side == (doorSide + 2) % 4))) ops.Add(new Vector4(len * 0.5f, 1.7f, 0, 2.4f));
                     if (windows)
                     {
                         int nw = Mathf.FloorToInt(len / 3.2f);
@@ -185,26 +186,44 @@ namespace Rago
                 if (f == 0) Box(P(0, 0.05f, 0), new Vector3(size.x, 0.1f, size.y), floorMat, Color.white, q, true, Synth.Surface.Wood);
                 else
                 {
-                    float holeX = hx - 1.3f;
+                    // the stair hole is exactly where the stairs come up: from the top step to the back wall
+                    float holeX = hx - 1.3f, zTop = StairTopZ(size, hz);
                     Box(P(-1.3f, y, 0), new Vector3(size.x - 2.6f, 0.2f, size.y), floorMat, Color.white, q, true, Synth.Surface.Wood);
-                    Box(P(holeX, y, -hz * 0.5f - 1.2f), new Vector3(2.6f, 0.2f, hz - 2.4f + 0.001f), floorMat, Color.white, q, true, Synth.Surface.Wood);
+                    Box(P(holeX, y, (-hz + zTop) * 0.5f), new Vector3(2.6f, 0.2f, zTop + hz), floorMat, Color.white, q, true, Synth.Surface.Wood);
                 }
                 // stairs up to next floor (ramp collider + visual steps) along the +x wall
                 if (f < floors - 1 || roofAccess)
                 {
                     float sx = hx - 1.3f;
-                    float run = Mathf.Min(size.y - 2f, 5.2f);
-                    Vector3 s0 = new Vector3(sx, y, hz - 0.6f), s1 = new Vector3(sx, y + floorH, hz - 0.6f - run);
+                    Vector3 s0 = new Vector3(sx, y, hz - 0.6f), s1 = new Vector3(sx, y + floorH, StairTopZ(size, hz));
                     Stairs(P(s0.x, s0.y, s0.z), P(s1.x, s1.y, s1.z), 1.3f, trim);
                 }
-                for (int k = 0; k < 3; k++) interior.Add(P(Rng.Range(-hx + 1f, hx - 2.5f), y + 0.12f, Rng.Range(-hz + 1f, hz - 1f)));
+                // loot spots: clear of the stairs / stair hole (+x side), the doorway and the vault door
+                for (int k = 0; k < 3; k++)
+                {
+                    for (int tries = 0; tries < 12; tries++)
+                    {
+                        float lx = Rng.Range(-hx + 1f, hx - 3.4f), lz = Rng.Range(-hz + 1f, hz - 1f);
+                        if (f == 0 && DoorZone(doorSide, lx, lz, hx, hz)) continue;
+                        if (f == 0 && vaultSide >= 0 && DoorZone(vaultSide, lx, lz, hx, hz)) continue;
+                        interior.Add(P(lx, y + 0.12f, lz));
+                        break;
+                    }
+                }
                 // ceiling light
                 var lamp = P(0, y + floorH - 0.15f, 0);
                 Box(lamp, new Vector3(0.9f, 0.06f, 0.2f), Mats.Lit("lamp_on", new Color(1f, 0.95f, 0.8f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2f, 1.6f)), Color.white, q, false);
             }
-            // roof
+            // roof (with a hole over the stairs when they go up to it)
             float top = floors * floorH;
-            Box(P(0, top, 0), new Vector3(size.x + 0.3f, 0.25f, size.y + 0.3f), trim, Color.white, q, true);
+            if (roofAccess)
+            {
+                float zTop = StairTopZ(size, hz);
+                // the two pieces meet exactly at x = hx - 2.6 (no overlap: overlapping faces flicker)
+                Box(P((-hx - 0.15f + hx - 2.6f) * 0.5f, top, 0), new Vector3(size.x - 2.45f, 0.25f, size.y + 0.3f), trim, Color.white, q, true);
+                Box(P(hx - 1.225f, top, (-hz - 0.15f + zTop) * 0.5f), new Vector3(2.75f, 0.25f, zTop + hz + 0.15f), trim, Color.white, q, true);
+            }
+            else Box(P(0, top, 0), new Vector3(size.x + 0.3f, 0.25f, size.y + 0.3f), trim, Color.white, q, true);
             // parapet
             Wall(P(-hx, top, -hz), P(hx, top, -hz), 0.9f, 0.2f, wall, tint * 0.9f);
             Wall(P(hx, top, -hz), P(hx, top, hz), 0.9f, 0.2f, wall, tint * 0.9f);
@@ -213,6 +232,51 @@ namespace Rago
             // base trim
             Box(P(0, 0.15f, 0), new Vector3(size.x + 0.08f, 0.3f, size.y + 0.08f), trim, Color.white * 0.8f, q, false);
             return interior;
+        }
+
+        // =========================================================================== free-spot checks for scattered props
+        /// <summary>Ground height under p (the first walkable surface below p + 1.2 m), or p.y if there is none.</summary>
+        public float GroundAt(Vector3 p)
+        {
+            Physics.SyncTransforms();
+            return Physics.Raycast(p + Vector3.up * 1.2f, Vector3.down, out var h, 3f, ~0, QueryTriggerInteraction.Ignore) && h.normal.y > 0.6f ? h.point.y : p.y;
+        }
+
+        /// <summary>Is there room for a prop of this size here (nothing solid in the way, apart from the ground)?</summary>
+        public bool Clear(Vector3 p, Vector3 size, float yaw)
+        {
+            Physics.SyncTransforms();
+            var he = new Vector3(size.x * 0.5f, size.y * 0.5f, size.z * 0.5f);
+            return !Physics.CheckBox(p + Vector3.up * (he.y + 0.06f), he, Quaternion.Euler(0, yaw, 0), ~0, QueryTriggerInteraction.Ignore);
+        }
+
+        /// <summary>Pick a random spot (from pick) with room for a prop, standing on the ground; false after 10 tries.</summary>
+        public bool Spot(System.Func<Vector3> pick, Vector3 size, float yaw, out Vector3 spot)
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                var p = pick();
+                p.y = GroundAt(p);
+                if (Clear(p, size, yaw)) { spot = p; return true; }
+            }
+            spot = Vector3.zero;
+            return false;
+        }
+
+        /// <summary>Where a building's stairs reach the next floor (local z), so the stair hole can match them exactly.</summary>
+        static float StairTopZ(Vector2 size, float hz) => hz - 0.6f - Mathf.Min(size.y - 2f, 5.2f);
+
+        /// <summary>Is (x, z) in the 1.8 m in front of the doorway on that side (0 = -z, 1 = +x, 2 = +z, 3 = -x)?</summary>
+        static bool DoorZone(int side, float x, float z, float hx, float hz)
+        {
+            switch (side)
+            {
+                case 0: return Mathf.Abs(x) < 1.5f && z < -hz + 1.9f;
+                case 1: return Mathf.Abs(z) < 1.5f && x > hx - 1.9f;
+                case 2: return Mathf.Abs(x) < 1.5f && z > hz - 1.9f;
+                case 3: return Mathf.Abs(z) < 1.5f && x < -hx + 1.9f;
+                default: return false;
+            }
         }
 
         public void Stairs(Vector3 bottom, Vector3 top, float width, Material m)
