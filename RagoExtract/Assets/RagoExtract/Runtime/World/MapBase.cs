@@ -237,9 +237,10 @@ namespace Rago
         }
 
         /// <summary>Would crate c overlap anything solid (except the floor it stands on) at position p?</summary>
-        static bool Blocked(LootCrate c, Vector3 p, Collider[] cols, int mask)
+        bool Blocked(LootCrate c, Vector3 p, Collider[] cols, int mask)
         {
             Vector3 size = c.Size.sqrMagnitude > 0 ? c.Size : new Vector3(0.6f, 0.4f, 0.5f);
+            if (B != null && B.InDoorway(p, c.transform.rotation, size.x * 0.5f, size.z * 0.5f, 0.7f)) return true;   // keep doorways walkable
             Vector3 he = new Vector3(size.x * 0.47f, size.y * 0.45f, size.z * 0.47f);
             Vector3 center = p + Vector3.up * (size.y * 0.5f + 0.03f);
             int n = Physics.OverlapBoxNonAlloc(center, he, cols, c.transform.rotation, mask, QueryTriggerInteraction.Ignore);
@@ -303,7 +304,7 @@ namespace Rago
                             b.Box(H(-hx + 0.55f, y + 0.25f, 0), new Vector3(0.9f, 0.5f, 2.1f), fabricMat, fc, hq, true, Synth.Surface.Dirt, 0.06f);
                             b.Box(H(-hx + 0.25f, y + 0.6f, 0), new Vector3(0.3f, 0.5f, 2.1f), fabricMat, fc * 0.9f, hq, false, Synth.Surface.Dirt, 0.06f);
                         }
-                        b.Table(H(-hx * 0.15f, y, hz - 0.75f), hy, new Vector2(1.4f, 0.8f), 0.78f);
+                        if (b.Table(H(-hx * 0.15f, y, hz - 0.75f), hy, new Vector2(1.4f, 0.8f), 0.78f))
                         { var dp = H(-hx * 0.15f, y + 0.84f, hz - 0.75f); pts.Add(dp); b.DeskSpots[dp] = true; b.SpotYaw[dp] = hy; }   // loot can sit on the table
                         if (w > 8.5f) b.Shelf(H(-hx + 1.7f, y, -hz + 0.4f), hy, 1.4f);
                         b.Box(H(-0.5f, y + 0.012f, 0), new Vector3(2.4f, 0.01f, 1.7f), fabricMat, b.Rng.Pick(fabric) * 0.8f, hq, false); // rug

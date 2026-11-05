@@ -714,7 +714,8 @@ namespace Rago
 
     public static class HubProps
     {
-        public static void SteelTarget(Transform parent, Vector3 pos, float size)
+        /// <summary>Hanging steel plate; yaw turns its face (default faces along z) towards the shooter.</summary>
+        public static void SteelTarget(Transform parent, Vector3 pos, float size, float yaw = 0f)
         {
             var anchor = new GameObject("TargetAnchor");
             anchor.transform.SetParent(parent, false);
@@ -722,6 +723,7 @@ namespace Rago
             var arb = anchor.AddComponent<Rigidbody>(); arb.isKinematic = true;
             var plate = new MB().Box(Vector3.zero, new Vector3(size, size * 1.3f, 0.02f), new Color(0.85f, 0.85f, 0.82f), 0.004f).Build("Plate", parent, Mats.Lit("steel_target", Color.white, 0.6f, 0.4f, Mats.Metal, null, 0.3f, 0.6f));
             plate.transform.position = pos + Vector3.down * size * 0.9f;
+            plate.transform.rotation = Quaternion.Euler(0, yaw, 0);   // the hinge axis turns with it, so it swings back away from the shooter
             var bc = plate.AddComponent<BoxCollider>(); bc.size = new Vector3(size, size * 1.3f, 0.02f);
             plate.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
             var rb = plate.AddComponent<Rigidbody>(); rb.mass = 6f; rb.SetDamping(0.3f, 1.5f);

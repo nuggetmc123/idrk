@@ -136,6 +136,8 @@ namespace Rago
             float cursor = 0;
             foreach (var o in ops)
             {
+                if (o.z < 0.4f && o.w - o.z > 1.6f)   // a doorway you walk through: keep furniture out of it
+                    Doors.Add(new DoorGap { c = a + dir * o.x, along = dir, across = Vector3.Cross(dir, Vector3.up), halfW = o.y * 0.5f });
                 float o0 = Mathf.Clamp(o.x - o.y * 0.5f, 0, len), o1 = Mathf.Clamp(o.x + o.y * 0.5f, 0, len);
                 if (o0 > cursor) Seg(a, dir, rot, cursor, o0, 0, height, thick, m, tint, s);
                 if (o.z > 0.01f) Seg(a, dir, rot, o0, o1, 0, o.z, thick, m, tint, s);           // below window
@@ -226,9 +228,11 @@ namespace Rago
                     float dz = Rng.Range(-hz + 1.6f, hz - 1.6f);
                     if (!(f == 0 && (DoorZone(doorSide, -hx + 0.6f, dz, hx, hz) || (vaultSide >= 0 && DoorZone(vaultSide, -hx + 0.6f, dz, hx, hz)))))
                     {
-                        Table(P(-hx + 0.62f, y + 0.1f, dz), yaw + 90, new Vector2(1.5f, 0.7f), 0.76f);
+                        if (Table(P(-hx + 0.62f, y + 0.1f, dz), yaw + 90, new Vector2(1.5f, 0.7f), 0.76f))
+                        {
                         var dp = P(-hx + 0.62f, y + 0.1f + 0.8f, dz);
                         interior.Add(dp); DeskSpots[dp] = true; SpotYaw[dp] = yaw + 90;
+                        }
                     }
                 }
                 // ceiling light
@@ -285,6 +289,27 @@ namespace Rago
         }
 
         /// <summary>Loot spots that are desk tops, and the yaw each loot spot faces (set by Building).</summary>
+        public struct DoorGap { public Vector3 c, along, across; public float halfW; }
+        /// <summary>Every doorway cut by Wall(): shelves, tables, crates and loot keep out of them.</summary>
+        public readonly List<DoorGap> Doors = new List<DoorGap>();
+
+        /// <summary>Would a footprint (half sizes hx, hz, rotated by q, standing at pos) sit in a doorway or the walking
+        /// space just in front of or behind one?</summary>
+        public bool InDoorway(Vector3 pos, Quaternion q, float hx, float hz, float clear = 0.9f)
+        {
+            Vector3 ax = q * Vector3.right, az = q * Vector3.forward;
+            foreach (var d in Doors)
+            {
+                if (pos.y < d.c.y - 0.5f || pos.y > d.c.y + 1.8f) continue;   // another floor
+                Vector3 rel = pos - d.c; rel.y = 0;
+                float ca = Vector3.Dot(rel, d.along), cn = Vector3.Dot(rel, d.across);
+                float ea = Mathf.Abs(Vector3.Dot(ax, d.along)) * hx + Mathf.Abs(Vector3.Dot(az, d.along)) * hz;
+                float en = Mathf.Abs(Vector3.Dot(ax, d.across)) * hx + Mathf.Abs(Vector3.Dot(az, d.across)) * hz;
+                if (Mathf.Abs(ca) < d.halfW + 0.15f + ea && Mathf.Abs(cn) < clear + en) return true;
+            }
+            return false;
+        }
+
         public readonly Dictionary<Vector3, bool> DeskSpots = new Dictionary<Vector3, bool>();
         public readonly Dictionary<Vector3, float> SpotYaw = new Dictionary<Vector3, float>();
 
@@ -351,6 +376,7 @@ namespace Rago
         {
             var m = Mats.Lit("crate_wood", Color.white, 0f, 0.25f, Mats.Wood, null, 0.4f, 0.1f, true, 1.2f);
             Quaternion q = Quaternion.Euler(0, yaw, 0);
+            if (collider && InDoorway(pos, q, size.x / 2, size.z / 2, 0.7f)) return;   // never a crate in a doorway
             Box(pos + Vector3.up * size.y * 0.5f, size, m, new Color(0.75f, 0.6f, 0.42f), q, collider, Synth.Surface.Wood, 0.01f);
             Box(pos + Vector3.up * size.y * 0.5f, size + new Vector3(0.02f, -size.y * 0.7f, 0.02f), m, new Color(0.5f, 0.38f, 0.25f), q, false);
         }
@@ -590,22 +616,34 @@ namespace Rago
             Collider(a + d * 0.5f + Vector3.up * h * 0.5f, new Vector3(0.1f, h, len), q, Synth.Surface.Metal);
         }
 
-        public void Shelf(Vector3 pos, float yaw, float w = 2f)
+        /// <summary>Shelving unit. Slides along itself to stay out of doorways, or is left out; returns where it went (null if left out).</summary>
+        public Vector3? Shelf(Vector3 pos, float yaw, float w = 2f)
         {
             var m = Mats.Lit("shelf", new Color(0.3f, 0.32f, 0.35f), 0.7f, 0.4f, Mats.Metal, null, 0.4f, 0.5f);
             Quaternion q = Quaternion.Euler(0, yaw, 0);
+            if (InDoorway(pos, q, w / 2, 0.3f))
+            {
+                bool ok = false;
+                foreach (float sl in new[] { 0.6f, -0.6f, 1.2f, -1.2f })
+                    if (!InDoorway(pos + q * new Vector3(sl, 0, 0), q, w / 2, 0.3f)) { pos += q * new Vector3(sl, 0, 0); ok = true; break; }
+                if (!ok) return null;
+            }
             for (int i = 0; i < 4; i++) Box(pos + q * new Vector3(0, 0.1f + i * 0.6f, 0), new Vector3(w, 0.04f, 0.6f), m, Color.white, q, true, Synth.Surface.Metal);
             foreach (var sx in new[] { -w / 2, w / 2 }) foreach (var sz in new[] { -0.28f, 0.28f }) Box(pos + q * new Vector3(sx, 1f, sz), new Vector3(0.05f, 2f, 0.05f), m, Color.white, q, false);
             for (int i = 0; i < 6; i++) Box(pos + q * new Vector3(Rng.Range(-w / 2 + 0.3f, w / 2 - 0.3f), 0.25f + Rng.Range(0, 3) * 0.6f, 0), new Vector3(Rng.Range(0.2f, 0.5f), Rng.Range(0.15f, 0.35f), Rng.Range(0.2f, 0.45f)), Mats.Lit("cardboard", Color.white, 0, 0.2f, Mats.Noise, null, 0.4f, 0f), new Color(0.65f, 0.5f, 0.33f), q, false);
+            return pos;
         }
 
-        public void Table(Vector3 pos, float yaw, Vector2 size, float h = 0.78f)
+        /// <summary>Table; left out (returns false) if it would block a doorway.</summary>
+        public bool Table(Vector3 pos, float yaw, Vector2 size, float h = 0.78f)
         {
             var m = Mats.Lit("table", Color.white, 0f, 0.35f, Mats.Wood, Mats.WoodN, 0.4f, 0.2f, true, 1f);
             Quaternion q = Quaternion.Euler(0, yaw, 0);
+            if (InDoorway(pos, q, size.x / 2, size.y / 2)) return false;
             Box(pos + Vector3.up * h, new Vector3(size.x, 0.05f, size.y), m, new Color(0.55f, 0.42f, 0.3f), q, true, Synth.Surface.Wood, 0.01f);
             foreach (var sx in new[] { -1, 1 }) foreach (var sz in new[] { -1, 1 })
                     Box(pos + q * new Vector3(sx * (size.x / 2 - 0.06f), h / 2, sz * (size.y / 2 - 0.06f)), new Vector3(0.05f, h, 0.05f), m, new Color(0.4f, 0.3f, 0.22f), q, false);
+            return true;
         }
 
         public void Tent(Vector3 pos, float yaw, Vector3 size, Color col)

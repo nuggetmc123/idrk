@@ -69,7 +69,7 @@ namespace Rago
                 Lamp(new Vector3(-9.5f, 0, 9.5f), lampMat, new Color(1f, 0.88f, 0.7f), Ht);
                 Stash.Add(StashSection.Create(transform, new Vector3(-12.6f, 0, 9.4f), -90, StashKind.Weapons));
                 Stash.Add(StashSection.Create(transform, new Vector3(-9.4f, 0, 12.75f), 0, StashKind.Weapons));
-                b.Crate(new Vector3(-7f, 0, 6.8f), 12, new Vector3(0.9f, 0.6f, 0.6f));
+                b.Crate(new Vector3(-9.5f, 0, 6.6f), 12, new Vector3(0.9f, 0.6f, 0.6f));
                 b.Sign(new Vector3(-5.8f, 2.7f, 7.5f), Quaternion.Euler(0, -90, 0), "STORAGE", new Color(0.9f, 0.8f, 0.6f), 0.12f);
             }
             else SealedDoor.Create(b, transform, new Vector3(-6, 0, 7.5f), -90, "STORAGE ROOM", 1);
@@ -206,9 +206,9 @@ namespace Rago
             Stash.Add(StashSection.Create(transform, new Vector3(0, 0, az1 - 0.25f), 0, StashKind.Weapons));
             b.Table(new Vector3(-ax + 0.6f, 0, (az0 + az1) / 2 + 0.5f), 90, new Vector2(2.4f, 0.9f), 0.9f);
             b.Box(new Vector3(-ax + 0.17f, 1.5f, (az0 + az1) / 2 + 0.5f), new Vector3(0.05f, 1.0f, 2.4f), Mats.Lit("pegboard", Color.white, 0.1f, 0.3f, Mats.Wood, null, 0.3f, 0.1f), new Color(0.5f, 0.45f, 0.35f), null, false);
-            b.Crate(new Vector3(ax - 0.7f, 0, az0 + 1.2f), 5, new Vector3(0.9f, 0.5f, 0.6f));
-            b.Crate(new Vector3(ax - 0.7f, 0, az0 + 2.1f), -8, new Vector3(0.9f, 0.5f, 0.6f));
-            b.Crate(new Vector3(ax - 0.7f, 0.5f, az0 + 1.6f), 12, new Vector3(0.8f, 0.4f, 0.5f));
+            b.Crate(new Vector3(ax - 1.0f, 0, az0 + 0.9f), 5, new Vector3(0.9f, 0.5f, 0.6f));
+            b.Crate(new Vector3(ax - 1.0f, 0, az0 + 1.5f), -8, new Vector3(0.9f, 0.5f, 0.6f));
+            b.Crate(new Vector3(ax - 1.0f, 0.5f, az0 + 1.2f), 12, new Vector3(0.8f, 0.4f, 0.5f));
             b.Sign(new Vector3(0, 2.95f, D / 2 - 0.2f), Quaternion.identity, "ARMORY", new Color(0.9f, 0.8f, 0.6f), 0.14f);
 
             // ---- Armor Room (east): armour stands + backpack shelves
@@ -262,7 +262,7 @@ namespace Rago
             for (int i = 0; i < 3; i++)
             {
                 float x = -W / 2 - 7 - i * 8;
-                HubProps.SteelTarget(transform, new Vector3(x, 2.4f, -0.8f + i * 0.8f), 0.35f + i * 0.08f);
+                HubProps.SteelTarget(transform, new Vector3(x, 2.4f, -0.8f + i * 0.8f), 0.35f + i * 0.08f, 90f);   // face the firing line (+x)
                 b.AddLight(new Vector3(x, 2.4f, 0), new Color(1f, 0.9f, 0.75f), 6f, 0.9f);
                 b.Sign(new Vector3(x + 0.5f, 2.3f, 1.55f), Quaternion.identity, (7 + i * 8) + "m", Color.white, 0.12f);
             }
@@ -331,7 +331,8 @@ namespace Rago
             foreach (float z in new[] { az0 + 2f, az1 - 2f })
             {
                 b.Box(new Vector3(0, Ht - 0.18f, z), new Vector3(ax * 2, 0.36f, 0.36f), conc, beamCol, null, false);
-                b.Box(new Vector3(ax - 0.3f, Ht / 2, z), new Vector3(0.3f, Ht, 0.36f), conc, colCol, null, true);
+                if (Mathf.Abs(z - 11f) > 1.6f) b.Box(new Vector3(ax - 0.3f, Ht / 2, z), new Vector3(0.3f, Ht, 0.36f), conc, colCol, null, true);
+                else b.Box(new Vector3(ax - 0.3f, Ht - 0.5f, z), new Vector3(0.3f, 1f, 0.36f), conc, colCol, null, false);   // over the Generator Room doorway: just a haunch
                 b.Box(new Vector3(-ax + 0.3f, Ht - 0.5f, z), new Vector3(0.3f, 1f, 0.36f), conc, colCol, null, false);   // short haunch over the workbench
             }
             b.Box(new Vector3(0, Ht - 0.025f, (az0 + az1) / 2), new Vector3(1.4f, 0.05f, 0.36f), metal, new Color(0.35f, 0.36f, 0.37f), null, false);

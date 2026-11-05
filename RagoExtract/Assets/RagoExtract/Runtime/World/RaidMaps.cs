@@ -170,8 +170,8 @@ namespace Rago
                 for (int k = 0; k < 2; k++)
                 {
                     var sp = pos + new Vector3(-hx + 5 + r * (size.x - 10) / 2, 0, -hz + 5 + k * (size.y - 10));
-                    b.Shelf(sp, 0, 4f);
-                    pts.Add(sp + new Vector3(0, 0.75f, 0));
+                    var at = b.Shelf(sp, 0, 4f);
+                    if (at.HasValue) pts.Add(at.Value + new Vector3(0, 0.75f, 0));
                 }
             for (int i = 0; i < 4; i++) pts.Add(pos + new Vector3(b.Rng.Range(-hx + 2, hx - 2), 0.05f, b.Rng.Range(-hz + 2, hz - 2)));
             b.AddLight(pos + new Vector3(0, h - 1.2f, 0), new Color(1f, 0.85f, 0.6f), 18f, 1.2f);
@@ -499,7 +499,7 @@ namespace Rago
                     string type = types[i * NZ + j];
                     BuildRoom(c, type, i, j, conc, wallCol, paint, metal, lamp, pts);
                     // raiders in about a third of the rooms
-                    if (type != "vault" && b.Rng.Chance(0.34f)) Squad(c + new Vector3(b.Rng.Range(-3f, 3f), 0, b.Rng.Range(-3f, 3f)), b.Rng.Range(2, 4), type == "armory" || type == "generator");
+                    if (type != "vault" && b.Rng.Chance(0.34f)) Squad(c + new Vector3(b.Rng.Range(-1f, 1f), 0, -4.2f), b.Rng.Range(2, 4), type == "armory" || type == "generator");
                 }
             ScatterLoot(pts, 0.9f);
             // hazard stripes at the corridor junctions
@@ -515,7 +515,6 @@ namespace Rago
             AddExtract(new Vector3(0, 0, 24), "Freight Elevator");
             AddExtract(new Vector3(-48, 0, -8), "Vent Shaft");
             AddExtract(new Vector3(48, 0, 8), "Drainage Tunnel");
-            b.Sign(new Vector3(0, 2.9f, 21.8f), Quaternion.Euler(0, 180, 0), "FREIGHT ELEVATOR", new Color(0.9f, 0.85f, 0.6f), 0.18f);
         }
 
         void BuildRoom(Vector3 c, string type, int gi, int gj, Material conc, Color wallCol, Material paint, Material metal, Material lamp, List<Vector3> pts)
@@ -566,36 +565,36 @@ namespace Rago
                     for (int k = 0; k < 3; k++)
                     {
                         var dp = c + new Vector3(-3.5f + k * 3.5f, 0, -1f);
-                        b.Table(dp, 0, new Vector2(1.6f, 0.8f), 0.76f);
+                        if (!b.Table(dp, 0, new Vector2(1.6f, 0.8f), 0.76f)) continue;
                         b.Box(dp + new Vector3(0, 0.25f, -0.7f), new Vector3(0.5f, 0.5f, 0.5f), metal, new Color(0.2f, 0.2f, 0.22f), null, true, Synth.Surface.Metal);   // chair
                         b.Box(dp + new Vector3(0.3f, 0.95f, 0.2f), new Vector3(0.5f, 0.35f, 0.05f), metal, new Color(0.1f, 0.1f, 0.11f), null, false);   // monitor
                         DeskSpot(dp + new Vector3(-0.35f, 0, -0.05f), 0);
                     }
-                    for (int k = 0; k < 3; k++) b.Box(c + new Vector3(-h + 0.45f, 0.65f, -3f + k * 1.0f), new Vector3(0.6f, 1.3f, 0.9f), metal, new Color(0.38f, 0.4f, 0.38f), null, true, Synth.Surface.Metal);   // filing cabinets
+                    for (int k = 0; k < 3; k++) b.Box(c + new Vector3(-h + 0.45f, 0.65f, -4.6f + k * 1.0f), new Vector3(0.6f, 1.3f, 0.9f), metal, new Color(0.38f, 0.4f, 0.38f), null, true, Synth.Surface.Metal);   // filing cabinets
                     break;
                 case "storage":
-                    b.Shelf(c + new Vector3(0, 0, -h + 0.5f), 0, 3.2f); b.Shelf(c + new Vector3(0, 0, h - 0.5f), 180, 3.2f);
+                    b.Shelf(c + new Vector3(-3.4f, 0, -h + 0.5f), 0, 3.2f); b.Shelf(c + new Vector3(3.4f, 0, h - 0.5f), 180, 3.2f);
                     b.Shelf(c + new Vector3(-2.2f, 0, 1.0f), 90, 2.6f); b.Shelf(c + new Vector3(2.2f, 0, 1.0f), 90, 2.6f);
                     b.Crate(c + new Vector3(-4.2f, 0, 3.6f), 10, new Vector3(1.0f, 0.8f, 1.0f)); b.Crate(c + new Vector3(4.0f, 0, -3.4f), -8, new Vector3(1.2f, 0.9f, 1.0f));
                     break;
                 case "lab":
                     foreach (float z in new[] { -2.2f, 1.6f })
                     {
-                        b.Table(c + new Vector3(0, 0, z), 0, new Vector2(5f, 0.9f), 0.9f);
+                        if (!b.Table(c + new Vector3(0, 0, z), 0, new Vector2(5f, 0.9f), 0.9f)) continue;
                         DeskSpot(c + new Vector3(-1.4f, 0.12f, z), 0); DeskSpot(c + new Vector3(1.4f, 0.12f, z), 0);
                         for (int k = 0; k < 3; k++) b.Cyl(c + new Vector3(-1.8f + k * 1.8f, 0.93f, z + 0.25f), c + new Vector3(-1.8f + k * 1.8f, 1.13f, z + 0.25f), 0.05f, 0.04f, 10, Mats.Lit("lab_glass", new Color(0.6f, 0.8f, 0.85f), 0.1f, 0.9f), Color.white, false);
                     }
-                    b.Box(c + new Vector3(h - 0.5f, 0.45f, 0), new Vector3(0.7f, 0.9f, 2.4f), metal, new Color(0.75f, 0.76f, 0.78f), null, true, Synth.Surface.Metal);   // sink unit
+                    b.Box(c + new Vector3(h - 0.5f, 0.45f, 3.9f), new Vector3(0.7f, 0.9f, 2.4f), metal, new Color(0.75f, 0.76f, 0.78f), null, true, Synth.Surface.Metal);   // sink unit
                     break;
                 case "barracks":
-                    for (int k = 0; k < 3; k++)
+                    foreach (float bz in new[] { -4.3f, -2.1f, 2.1f, 4.3f })
                         foreach (float sx in new[] { -1f, 1f })
                         {
-                            var bp = c + new Vector3(sx * (h - 0.6f), 0, -3.5f + k * 3.2f);
+                            var bp = c + new Vector3(sx * (h - 0.6f), 0, bz);
                             for (int lvl = 0; lvl < 2; lvl++) b.Box(bp + Vector3.up * (0.45f + lvl * 1.05f), new Vector3(0.9f, 0.12f, 2.0f), metal, new Color(0.32f, 0.35f, 0.3f), null, true, Synth.Surface.Metal);
                             foreach (float cz in new[] { -0.95f, 0.95f }) foreach (float cx in new[] { -0.42f, 0.42f }) b.Box(bp + new Vector3(cx, 0.85f, cz), new Vector3(0.05f, 1.7f, 0.05f), metal, new Color(0.25f, 0.25f, 0.25f), null, false);
                         }
-                    b.Table(c, 0, new Vector2(1.6f, 0.9f), 0.76f); DeskSpot(c, 0);
+                    if (b.Table(c, 0, new Vector2(1.6f, 0.9f), 0.76f)) DeskSpot(c, 0);
                     break;
                 case "server":
                     for (int r = 0; r < 3; r++)
@@ -610,10 +609,10 @@ namespace Rago
                     b.Box(c + new Vector3(0, 1.1f, 0), new Vector3(4.5f, 2.2f, 2.4f), metal, new Color(0.35f, 0.4f, 0.32f), null, true, Synth.Surface.Metal);
                     b.Cyl(c + new Vector3(-1.5f, 2.2f, 0), c + new Vector3(-1.5f, Ht, 0), 0.3f, 0.3f, 12, metal, new Color(0.3f, 0.3f, 0.3f), false);   // exhaust
                     b.Box(c + new Vector3(3.6f, 0.75f, -3.5f), new Vector3(1.2f, 1.5f, 0.6f), metal, new Color(0.4f, 0.42f, 0.4f), null, true, Synth.Surface.Metal);   // control cabinet
-                    b.Table(c + new Vector3(-3.8f, 0, 3.6f), 90, new Vector2(1.6f, 0.8f), 0.9f); DeskSpot(c + new Vector3(-3.8f, 0.12f, 3.6f), 90);
+                    if (b.Table(c + new Vector3(-3.8f, 0, 3.6f), 90, new Vector2(1.6f, 0.8f), 0.9f)) DeskSpot(c + new Vector3(-3.8f, 0.12f, 3.6f), 90);
                     break;
                 case "armory":
-                    for (int k = 0; k < 3; k++) b.Box(c + new Vector3(-3f + k * 3f, 1.0f, h - 0.4f), new Vector3(2.4f, 2.0f, 0.4f), metal, new Color(0.3f, 0.32f, 0.3f), null, true, Synth.Surface.Metal);   // weapon racks
+                    foreach (float rx in new[] { -3.5f, 3.5f }) b.Box(c + new Vector3(rx, 1.0f, h - 0.4f), new Vector3(2.4f, 2.0f, 0.4f), metal, new Color(0.3f, 0.32f, 0.3f), null, true, Synth.Surface.Metal);   // weapon racks
                     b.Table(c + new Vector3(0, 0, -1f), 0, new Vector2(3f, 1f), 0.9f);
                     AddCrate(c + new Vector3(-0.8f, 0.94f, -1f), 0, LootCrate.Kind.WeaponCase, 0.85f, true);
                     AddCrate(c + new Vector3(0.9f, 0.94f, -1f), 0, LootCrate.Kind.Optics, 0.7f, true);
