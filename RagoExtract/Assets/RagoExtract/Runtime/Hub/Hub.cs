@@ -41,39 +41,49 @@ namespace Rago
 
         void Build()
         {
-            // Rugged field terminal: olive steel cabinet, hooded CRT, sloped console with a big push key.
-            Color olive = UI.Lin(new Color(0.3f, 0.33f, 0.24f)), oliveDk = UI.Lin(new Color(0.22f, 0.24f, 0.18f)), blk = UI.Lin(new Color(0.08f, 0.08f, 0.08f)), steel = UI.Lin(new Color(0.42f, 0.43f, 0.44f));
+            // Deployment station: a steel frame built around the big map screen, a header sign on top and a sloped
+            // desk below with the QUEUE key.
+            Color gun = UI.Lin(new Color(0.2f, 0.21f, 0.22f)), gunLt = UI.Lin(new Color(0.32f, 0.33f, 0.34f)), olive = UI.Lin(new Color(0.28f, 0.31f, 0.23f)),
+                  blk = UI.Lin(new Color(0.05f, 0.05f, 0.055f)), steel = UI.Lin(new Color(0.45f, 0.46f, 0.47f)), yel = UI.Lin(new Color(0.95f, 0.75f, 0.1f));
             var mb = new MB(3);
-            mb.Sub(0).Box(new Vector3(0, 0.52f, 0.2f), new Vector3(1.3f, 1.04f, 0.6f), olive, 0.03f, 2);                    // pedestal
-            mb.Sub(0).Box(new Vector3(0, 0.05f, 0.2f), new Vector3(1.4f, 0.1f, 0.7f), oliveDk, 0.02f, 1);                   // plinth
-            mb.Sub(0).Box(new Vector3(0, 1.12f, -0.02f), new Vector3(1.3f, 0.08f, 0.5f), olive, 0.02f, 2, Quaternion.Euler(-35, 0, 0)); // console slope
-            mb.Sub(0).Box(new Vector3(0, 2.0f, 0.24f), new Vector3(2.32f, 1.48f, 0.42f), olive, 0.035f, 2);                  // big map-screen housing
-            mb.Sub(0).Box(new Vector3(0, 2.77f, 0.02f), new Vector3(2.38f, 0.06f, 0.5f), oliveDk, 0.015f, 1, Quaternion.Euler(-8, 0, 0)); // sun hood
+            mb.Sub(0).Box(new Vector3(0, 0.025f, 0.15f), new Vector3(2.56f, 0.05f, 0.8f), gun, 0.01f, 1);                    // base plate
+            for (int i = 0; i < 18; i++)                                                                                     // hazard edge on the base
+                mb.Sub(1).Box(new Vector3(-1.19f + i * 0.14f, 0.026f, -0.235f), new Vector3(0.06f, 0.052f, 0.03f), i % 2 == 0 ? yel : blk, 0f, 0, Quaternion.Euler(0, 35, 0));
             foreach (var sx in new[] { -1, 1 })
             {
-                mb.Sub(0).Box(new Vector3(sx * 1.18f, 2.25f, 0.02f), new Vector3(0.04f, 1.0f, 0.46f), oliveDk, 0.01f);   // hood cheeks
-                mb.Sub(2).Cyl(new Vector3(sx * 0.7f, 0.65f, -0.12f), new Vector3(sx * 0.7f, 0.95f, -0.12f), 0.018f, 0.018f, 8, steel); // grab handles
-                foreach (var y in new[] { 0.65f, 0.95f }) mb.Sub(2).Box(new Vector3(sx * 0.7f, y, -0.1f), new Vector3(0.03f, 0.03f, 0.05f), steel, 0.005f);
+                mb.Sub(0).Box(new Vector3(sx * 1.2f, 1.47f, 0.12f), new Vector3(0.12f, 2.84f, 0.2f), gunLt, 0.015f, 2);      // posts
+                mb.Sub(0).Box(new Vector3(sx * 1.2f, 0.09f, 0.12f), new Vector3(0.24f, 0.08f, 0.36f), gun, 0.01f);            // post feet
+                foreach (var y in new[] { 0.4f, 1.47f, 2.55f })
+                    mb.Sub(2).Cyl(new Vector3(sx * 1.2f, y, 0.019f), new Vector3(sx * 1.2f, y, 0.012f), 0.014f, 0.012f, 8, steel); // bolts
             }
-            for (int i = 0; i < 10; i++)                                                                                    // hazard band on the plinth
-                mb.Sub(1).Box(new Vector3(-0.63f + i * 0.14f, 0.07f, -0.152f), new Vector3(0.06f, 0.1f, 0.006f), i % 2 == 0 ? UI.Lin(new Color(0.95f, 0.75f, 0.1f)) : blk, 0f, 0, Quaternion.Euler(0, 0, 35));
-            for (int i = 0; i < 6; i++) mb.Sub(1).Box(new Vector3(0, 0.35f + i * 0.045f, -0.102f), new Vector3(0.5f, 0.018f, 0.006f), blk, 0.002f); // vent slats
-            foreach (var p in new[] { new Vector3(-0.6f, 0.95f, -0.102f), new Vector3(0.6f, 0.95f, -0.102f), new Vector3(-0.6f, 0.15f, -0.102f), new Vector3(0.6f, 0.15f, -0.102f) })
-                mb.Sub(2).Cyl(p, p + new Vector3(0, 0, -0.006f), 0.012f, 0.01f, 8, steel);                                   // bolts
-            mb.Sub(1).Cyl(new Vector3(0.45f, 0.1f, 0.5f), new Vector3(0.45f, -0.05f, 0.5f), 0.04f, 0.04f, 10, blk);        // conduit into the floor
-            mb.Sub(2).Cyl(new Vector3(0.95f, 2.8f, 0.2f), new Vector3(0.95f, 2.88f, 0.2f), 0.05f, 0.05f, 12, steel);         // beacon base
-            mb.Build("Terminal", transform, Mats.Lit("kiosk_olive", Color.white, 0.35f, 0.3f, Mats.Metal, Mats.MetalN, 0.55f, 0.6f), Mats.Lit("kiosk_paint", Color.white, 0.1f, 0.35f, Mats.Noise, null, 0.4f, 0.3f), Mats.Lit("kiosk_steel", Color.white, 0.85f, 0.5f, Mats.Metal, null, 0.3f, 0.3f));
+            mb.Sub(0).Box(new Vector3(0, 2.0f, 0.1f), new Vector3(2.28f, 1.44f, 0.14f), blk, 0.02f, 1);                      // screen bezel
+            mb.Sub(0).Box(new Vector3(0, 2.83f, 0.12f), new Vector3(2.52f, 0.16f, 0.3f), olive, 0.02f, 2);                   // header sign
+            mb.Sub(1).Box(new Vector3(0, 2.745f, 0.05f), new Vector3(2.28f, 0.015f, 0.12f), yel, 0.002f);                    // trim under the header
+            mb.Sub(0).Box(new Vector3(0, 0.55f, 0.2f), new Vector3(1.5f, 1.0f, 0.3f), olive, 0.02f, 2);                      // lower cabinet
+            for (int i = 0; i < 6; i++) mb.Sub(1).Box(new Vector3(0, 0.3f + i * 0.05f, 0.048f), new Vector3(0.6f, 0.02f, 0.006f), blk, 0.002f); // vent slats
+            mb.Sub(0).Box(new Vector3(0, 1.08f, -0.1f), new Vector3(1.7f, 0.06f, 0.5f), gun, 0.015f, 1, Quaternion.Euler(-35, 0, 0)); // sloped desk
+            mb.Sub(1).Box(new Vector3(0, 1.235f, 0.12f), new Vector3(1.7f, 0.03f, 0.06f), blk, 0.005f);                      // desk back lip
+            mb.Sub(1).Cyl(new Vector3(0.5f, 0.06f, 0.4f), new Vector3(0.5f, -0.05f, 0.4f), 0.04f, 0.04f, 10, blk);          // conduit into the floor
+            mb.Sub(2).Cyl(new Vector3(0.95f, 2.91f, 0.12f), new Vector3(0.95f, 2.97f, 0.12f), 0.05f, 0.05f, 12, steel);      // beacon base
+            mb.Build("Terminal", transform, Mats.Lit("kiosk_frame", Color.white, 0.55f, 0.4f, Mats.Metal, Mats.MetalN, 0.55f, 0.6f), Mats.Lit("kiosk_paint", Color.white, 0.1f, 0.35f, Mats.Noise, null, 0.4f, 0.3f), Mats.Lit("kiosk_steel", Color.white, 0.85f, 0.5f, Mats.Metal, null, 0.3f, 0.3f));
             // amber beacon (flashes while you're queued)
-            var dome = new MB().Sphere(new Vector3(0.95f, 2.88f, 0.2f), new Vector3(0.05f, 0.07f, 0.05f), 12, Color.white, 0f, 0.5f).Build("Beacon", transform, Mats.Lit("kiosk_beacon", new Color(1f, 0.55f, 0.1f), 0, 0.8f));
+            var dome = new MB().Sphere(new Vector3(0.95f, 2.98f, 0.12f), new Vector3(0.05f, 0.07f, 0.05f), 12, Color.white, 0f, 0.5f).Build("Beacon", transform, Mats.Lit("kiosk_beacon", new Color(1f, 0.55f, 0.1f), 0, 0.8f));
             _beacon = new Material(dome.GetComponent<MeshRenderer>().sharedMaterial); dome.GetComponent<MeshRenderer>().sharedMaterial = _beacon;
-            _beaconLight = new GameObject("BeaconLight").AddComponent<Light>(); _beaconLight.transform.SetParent(transform, false); _beaconLight.transform.localPosition = new Vector3(0.95f, 2.93f, 0.1f);
+            _beaconLight = new GameObject("BeaconLight").AddComponent<Light>(); _beaconLight.transform.SetParent(transform, false); _beaconLight.transform.localPosition = new Vector3(0.95f, 3.03f, 0.02f);
             _beaconLight.type = LightType.Point; _beaconLight.color = new Color(1f, 0.55f, 0.15f); _beaconLight.range = 3f; _beaconLight.intensity = 0f;
-            var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 1.2f, 0.27f); col.size = new Vector3(1.4f, 2.4f, 0.4f); // behind the screen, so the laser reaches the map buttons
-            var ped = gameObject.AddComponent<BoxCollider>(); ped.center = new Vector3(0, 0.52f, 0.2f); ped.size = new Vector3(1.3f, 1.04f, 0.6f);
+            // colliders: the screen one sits behind the map so the laser reaches the map's location buttons
+            void Col(Vector3 c, Vector3 sz) { var bc = gameObject.AddComponent<BoxCollider>(); bc.center = c; bc.size = sz; }
+            Col(new Vector3(0, 2.0f, 0.14f), new Vector3(2.28f, 1.44f, 0.06f));
+            Col(new Vector3(0, 2.83f, 0.12f), new Vector3(2.52f, 0.16f, 0.3f));
+            Col(new Vector3(-1.2f, 1.47f, 0.12f), new Vector3(0.12f, 2.84f, 0.2f));
+            Col(new Vector3(1.2f, 1.47f, 0.12f), new Vector3(0.12f, 2.84f, 0.2f));
+            Col(new Vector3(0, 0.55f, 0.2f), new Vector3(1.5f, 1.0f, 0.3f));
+            Col(new Vector3(0, 1.0f, -0.05f), new Vector3(1.7f, 0.14f, 0.45f));
+            Col(new Vector3(0, 0.025f, 0.15f), new Vector3(2.56f, 0.05f, 0.8f));
             // stencilled markings
-            UI.Text(transform, "RDT-7", new Vector3(-0.58f, 0.85f, -0.105f), 0.07f, UI.Stencil, TextAnchor.MiddleLeft, FontStyle.Bold);
-            UI.Text(transform, "RAID DEPLOYMENT TERMINAL", new Vector3(-0.58f, 0.76f, -0.105f), 0.03f, UI.Stencil, TextAnchor.MiddleLeft);
-            UI.Text(transform, "NO WEAPONS ON THE CONSOLE", new Vector3(0.58f, 0.25f, -0.105f), 0.016f, UI.Lin(new Color(0.85f, 0.85f, 0.8f)), TextAnchor.MiddleRight);
+            UI.Text(transform, "RAID DEPLOYMENT", new Vector3(0, 2.83f, -0.035f), 0.075f, UI.Stencil, TextAnchor.MiddleCenter, FontStyle.Bold);
+            UI.Text(transform, "RDT-8", new Vector3(-1.1f, 2.83f, -0.035f), 0.045f, UI.Stencil, TextAnchor.MiddleLeft, FontStyle.Bold);
+            UI.Text(transform, "NO WEAPONS ON THE DESK", new Vector3(0.7f, 0.2f, 0.044f), 0.018f, UI.Lin(new Color(0.85f, 0.85f, 0.8f)), TextAnchor.MiddleRight);
 
             // the screen: a big map of the raid locations - point at one and pull the trigger to pick it
             WorldMapBoard.Create(transform, new Vector3(0, 2.0f, 0.0f), Quaternion.identity, 0.82f);
@@ -82,7 +92,7 @@ namespace Rago
             _mapInfo.gameObject.SetActive(false); _status.gameObject.SetActive(false);
             // the console: one big push key
             var console = new GameObject("Console").transform; console.SetParent(transform, false);
-            console.localPosition = new Vector3(0, 1.165f, -0.05f); console.localRotation = Quaternion.Euler(55, 0, 0);
+            console.localPosition = new Vector3(0, 1.124f, -0.131f); console.localRotation = Quaternion.Euler(55, 0, 0);
             _queueBtn = UI.Button(console, "QUEUE", new Vector3(0.1f, 0, 0), new Vector2(0.34f, 0.15f), ToggleQueue, new Color(0.2f, 0.42f, 0.2f), BtnStyle.Key);
             UI.Text(console, "PRESS TO\nDEPLOY", new Vector3(-0.3f, 0, -0.002f), 0.03f, UI.Stencil, TextAnchor.MiddleCenter, FontStyle.Bold);
             Select(_map);

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Rago
 {
     /// <summary>
-    /// A big wall map next to the raid terminal: the three islands in the sea and the hatch down to the Underground
+    /// The raid terminal's screen: a big map of the three islands in the sea and the hatch down to the Underground
     /// Sector. Point at a location and pull the trigger (click on desktop) to pick it; the terminal follows, and a
     /// ring marks the one that's selected. Then press QUEUE on the terminal.
     /// </summary>
