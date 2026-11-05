@@ -32,21 +32,27 @@ namespace Rago
         public const float MaxWait = 60f;      // "if the timer goes to 1 minute just put them in"
         public const float TargetGrace = 5f;   // once 8+ are in, wait a few seconds for stragglers
 
+        // per map: the Underground Sector is a tight 6-player raid with squads of up to 2
+        public static int MaxFor(string map) => map == "underground" ? 6 : Max;
+        public static int TargetFor(string map) => map == "underground" ? 6 : Target;
+        public static int PartyMaxFor(string map) => map == "underground" ? 2 : Max;
+
         /// <summary>Should the host start the raid now?</summary>
-        public static bool ShouldStart(int players, float elapsed, float timeAtTarget, int partySize = 1)
+        public static bool ShouldStart(int players, float elapsed, float timeAtTarget, int partySize = 1, string map = null)
         {
-            if (players >= Max) return true;
+            int max = MaxFor(map), target = TargetFor(map);
+            if (players >= max) return true;
             if (players < partySize && elapsed < MaxWait) return false;   // wait for the rest of the party (up to the 1:00 limit)
-            if (players >= Target && timeAtTarget >= TargetGrace) return true;
+            if (players >= target && timeAtTarget >= TargetGrace) return true;
             if (elapsed >= MaxWait && players >= 1) return true;
             return false;
         }
 
-        public static string Describe(int players, float elapsed)
+        public static string Describe(int players, float elapsed, string map = null)
         {
             float left = Mathf.Max(0, MaxWait - elapsed);
-            if (players >= Target) return "Raid found! Launching...";
-            return "Searching for operators  " + players + "/" + Max + "   (launch in " + Mathf.CeilToInt(left) + "s)";
+            if (players >= TargetFor(map)) return "Raid found! Launching...";
+            return "Searching for operators  " + players + "/" + MaxFor(map) + "   (launch in " + Mathf.CeilToInt(left) + "s)";
         }
     }
 

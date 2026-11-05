@@ -24,9 +24,9 @@ namespace Rago
         /// <summary>Spawn squads at the given points. Deterministic so every client builds the same NPC set.</summary>
         public const int MaxNpcs = 16;   // raiders per raid (spread over the whole map)
 
-        public void SpawnSquads(List<MapBase.NpcSpawn> spawns, int seed, bool puppets, List<Pose> avoid = null)
+        public void SpawnSquads(List<MapBase.NpcSpawn> spawns, int seed, bool puppets, List<Pose> avoid = null, float safeRadius = 110f)
         {
-            const float SafeRadius = 110f;   // no raiders this close to a spawn hut
+            float SafeRadius = safeRadius;   // no raiders this close to a spawn spot
             if (avoid != null) spawns = spawns.FindAll(s => { foreach (var a in avoid) { var d = a.position - s.pos; d.y = 0; if (d.sqrMagnitude < SafeRadius * SafeRadius) return false; } return true; });
             var rng = new Rng(seed * 13 + 5);
             int id = 0;

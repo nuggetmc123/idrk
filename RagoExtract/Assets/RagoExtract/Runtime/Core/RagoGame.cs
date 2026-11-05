@@ -219,7 +219,8 @@ namespace Rago
                 // raids: you can see the whole 1 km map - no draw-distance cut-off, and only a light haze instead of
                 // thick fog (the far corner of the map is still about two-thirds visible)
                 float far = 900f;
-                if (to == Area.Raid)
+                if (to == Area.Raid && Map.KeepFog) far = 220f;   // indoors: its own murky air
+                else if (to == Area.Raid)
                 {
                     far = 1600f;
                     if (RenderSettings.fog) RenderSettings.fogDensity = Mathf.Min(RenderSettings.fogDensity, 0.00045f);
@@ -379,7 +380,7 @@ namespace Rago
             foreach (var ex in map.Extracts) if (ex != null) ex.OpensAt = er.Range(300f, 600f);
             FieldMap.Create(map, map.DisplayName);   // photographed now, while the screen is still black
             var dir = NpcDirector.Create(map.transform);
-            dir.SpawnSquads(map.NpcSpawns, rs.seed, online && !NetHub.Backend.IsHost, map.PlayerSpawns);
+            dir.SpawnSquads(map.NpcSpawns, rs.seed, online && !NetHub.Backend.IsHost, map.PlayerSpawns, map.NpcSafeRadius);
             g.Player.Hud.Center(map.DisplayName.ToUpper() + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>", 6f);
         }
 

@@ -42,6 +42,10 @@ namespace Rago
             cam.targetTexture = rt;
             bool fog = RenderSettings.fog;
             RenderSettings.fog = false;
+            // indoor maps: take the photo without the ceiling (its material is named *_ceiling)
+            var hidden = new List<Renderer>();
+            foreach (var r in transform.parent.GetComponentsInChildren<Renderer>())
+                if (r.enabled && r.sharedMaterial != null && r.sharedMaterial.name.EndsWith("_ceiling")) { r.enabled = false; hidden.Add(r); }
             Texture2D tex = null;
             try
             {
@@ -66,6 +70,7 @@ namespace Rago
             }
             catch (System.Exception e) { Debug.LogWarning("[Rago Extract] field map photo failed: " + e.Message); }
             RenderSettings.fog = fog;
+            foreach (var r in hidden) if (r != null) r.enabled = true;
             cam.targetTexture = null;
             rt.Release();
             Destroy(rt);

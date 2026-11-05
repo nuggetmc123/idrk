@@ -412,7 +412,7 @@ namespace Rago.Net
             _queueing = true; _cancel = false; _pendingStart = null; _raidMap = map;
             try
             {
-                status?.Invoke(new QueueStatus { players = 1, max = QueueRules.Max, text = "Finding a raid..." });
+                status?.Invoke(new QueueStatus { players = 1, max = QueueRules.MaxFor(map), text = "Finding a raid..." });
                 string sessionName = null; _queuePartySize = 1;
                 if (_pendingRaidSession != null)
                 {
@@ -429,7 +429,7 @@ namespace Rago.Net
                     await Task.Delay(400);   // let the message go out before leaving the party session
                 }
                 // random join of an open queue for this map, or create one (a party gets its own session that randoms can still fill)
-                bool ok = await StartSession(sessionName, new Dictionary<string, SessionProperty> { { "kind", "raid_" + map } }, QueueRules.Max);
+                bool ok = await StartSession(sessionName, new Dictionary<string, SessionProperty> { { "kind", "raid_" + map } }, QueueRules.MaxFor(map));
                 _peerParty.Clear(); _names.Clear();
                 if (ok) foreach (var p in _peers) { SendSys(p, 3, MyName()); if (_partyCode != null) SendSys(p, 4, _partyCode); }
                 if (!ok) { failed?.Invoke(_status); _queueing = false; return; }
@@ -447,9 +447,9 @@ namespace Rago.Net
                     // the session's start time may never sync (or the host changed): never wait longer than our own timer says
                     elapsed = Mathf.Max(elapsed, Time.realtimeSinceStartup - queuedAt);
                     int players = _peers.Count + 1;
-                    if (players >= QueueRules.Target) { if (atTarget < 0) atTarget = Time.realtimeSinceStartup; } else atTarget = -1;
-                    status?.Invoke(new QueueStatus { players = players, max = QueueRules.Max, target = QueueRules.Target, elapsed = elapsed, maxWait = QueueRules.MaxWait, text = QueueRules.Describe(players, elapsed) });
-                    if (IsHost && QueueRules.ShouldStart(players, elapsed, atTarget < 0 ? 0 : Time.realtimeSinceStartup - atTarget, _queuePartySize))
+                    if (players >= QueueRules.TargetFor(map)) { if (atTarget < 0) atTarget = Time.realtimeSinceStartup; } else atTarget = -1;
+                    status?.Invoke(new QueueStatus { players = players, max = QueueRules.MaxFor(map), target = QueueRules.TargetFor(map), elapsed = elapsed, maxWait = QueueRules.MaxWait, text = QueueRules.Describe(players, elapsed, map) });
+                    if (IsHost && QueueRules.ShouldStart(players, elapsed, atTarget < 0 ? 0 : Time.realtimeSinceStartup - atTarget, _queuePartySize, map))
                     {
                         try { _runner.SessionInfo.IsOpen = false; _runner.SessionInfo.IsVisible = false; }
                         catch (Exception e) { Debug.LogWarning("[Rago] couldn't close the raid session: " + e.Message); }

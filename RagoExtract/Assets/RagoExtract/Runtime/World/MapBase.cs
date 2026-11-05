@@ -9,6 +9,8 @@ namespace Rago
     {
         public string Id, DisplayName;
         public int Seed;
+        public float NpcSafeRadius = 110f;   // no raiders this close to a player spawn
+        public bool KeepFog;                 // indoor maps keep their own fog (raids otherwise get a light haze and see the whole island)
         public WorldBuilder B;
         public readonly List<Pose> PlayerSpawns = new List<Pose>();
         public readonly List<NpcSpawn> NpcSpawns = new List<NpcSpawn>();
@@ -108,11 +110,51 @@ namespace Rago
             if (_nav.valid) NavMesh.RemoveNavMeshData(_nav);
         }
 
-        public LootCrate AddCrate(Vector3 pos, float yaw, LootCrate.Kind kind)
+        public LootCrate AddCrate(Vector3 pos, float yaw, LootCrate.Kind kind) => AddCrate(pos, yaw, (LootCrate.Kind?)kind, 0.6f, false);
+
+        /// <summary>
+        /// In a raid this only registers a possible crate spot: the map layout is the same every raid, but which spots
+        /// get a crate - and what kind - is picked fresh from the raid's seed (FinalizeLoot). In the hubs it's immediate.
+        /// </summary>
+        public LootCrate AddCrate(Vector3 pos, float yaw, LootCrate.Kind? kind, float chance, bool desk)
         {
-            var c = LootCrate.Create(this, Crates.Count, pos, yaw, kind);
+            if (IsRaid && !_lootPlaced) { _spots.Add(new LootSpot { pos = pos, yaw = yaw, kind = kind, chance = chance, desk = desk }); return null; }
+            var c = LootCrate.Create(this, Crates.Count, pos, yaw, kind ?? LootCrate.Kind.Crate);
             Crates.Add(c);
             return c;
+        }
+
+        struct LootSpot { public Vector3 pos; public float yaw; public LootCrate.Kind? kind; public float chance; public bool desk; }
+        readonly List<LootSpot> _spots = new List<LootSpot>();
+        bool _lootPlaced;
+        public int LootSeed;
+
+        /// <summary>After the map is built: pick this raid's crates from all the possible spots.</summary>
+        public void FinalizeLoot()
+        {
+            if (_lootPlaced) return;
+            _lootPlaced = true;
+            var rng = new Rng(LootSeed * 92821 + 17);
+            foreach (var s in _spots)
+            {
+                if (!rng.Chance(s.chance)) continue;
+                LootCrate.Kind k;
+                if (s.kind.HasValue) k = s.kind.Value;
+                else if (s.desk)
+                {
+                    // on a desk: the small cases
+                    float r = rng.Value;
+                    k = r < 0.35f ? LootCrate.Kind.Medical : r < 0.65f ? LootCrate.Kind.Optics : r < 0.85f ? LootCrate.Kind.WeaponCase : LootCrate.Kind.Duffel;
+                }
+                else
+                {
+                    // on the floor against a wall: crates, armour cases, the odd safe
+                    float r = rng.Value;
+                    k = r < 0.55f ? LootCrate.Kind.Crate : r < 0.72f ? LootCrate.Kind.ArmorCase : r < 0.86f ? LootCrate.Kind.Duffel : r < 0.95f ? LootCrate.Kind.WeaponCase : LootCrate.Kind.Safe;
+                }
+                AddCrate(s.pos, s.yaw, k);
+            }
+            _spots.Clear();
         }
 
         public Extraction AddExtract(Vector3 pos, string name)
@@ -240,7 +282,7 @@ namespace Rago
                     bool brick = !wooden && b.Rng.Chance(0.4f);
                     var wall = wooden ? Maps.WoodPlank : brick ? Maps.Brick : Maps.Plaster;
                     Color tint = wooden ? new Color(0.62f, 0.5f, 0.38f) * b.Rng.Range(0.85f, 1.1f) : brick ? Color.white : b.Rng.Pick(paint);
-                    pts.AddRange(b.Building(hp, hy, new Vector2(w, d), floors, wall, tint, Maps.WoodPlank, wooden ? Maps.WoodPlank : Maps.ConcreteDark, 0, true));
+                    pts.AddRange(b.Building(hp, hy, new Vector2(w, d), floors, wall, tint, Maps.WoodPlank, wooden ? Maps.WoodPlank : Maps.ConcreteDark, 0, true, desk: false));   // houses have their own furniture
                     // furniture against the walls (loot points stay in the middle of the rooms)
                     float hx = w / 2, hz = d / 2;
                     Vector3 H(float lx, float ly, float lz) => hp + hq * new Vector3(lx, ly, lz);
@@ -262,6 +304,7 @@ namespace Rago
                             b.Box(H(-hx + 0.25f, y + 0.6f, 0), new Vector3(0.3f, 0.5f, 2.1f), fabricMat, fc * 0.9f, hq, false, Synth.Surface.Dirt, 0.06f);
                         }
                         b.Table(H(-hx * 0.15f, y, hz - 0.75f), hy, new Vector2(1.4f, 0.8f), 0.78f);
+                        { var dp = H(-hx * 0.15f, y + 0.84f, hz - 0.75f); pts.Add(dp); b.DeskSpots[dp] = true; b.SpotYaw[dp] = hy; }   // loot can sit on the table
                         if (w > 8.5f) b.Shelf(H(-hx + 1.7f, y, -hz + 0.4f), hy, 1.4f);
                         b.Box(H(-0.5f, y + 0.012f, 0), new Vector3(2.4f, 0.01f, 1.7f), fabricMat, b.Rng.Pick(fabric) * 0.8f, hq, false); // rug
                     }
@@ -695,22 +738,17 @@ namespace Rago
         }
 
         /// <summary>Scatter random loot crates around interior points.</summary>
+        /// <summary>
+        /// Register a building's loot spots: on the floor against a wall, or on a desk. Each raid picks a different
+        /// selection of them (about one in three floor spots, half the desks).
+        /// </summary>
         protected void ScatterLoot(List<Vector3> pts, float chance)
         {
             foreach (var p in pts)
             {
-                if (!B.Rng.Chance(chance)) continue;
-                float r = B.Rng.Value;
-                var k = r < 0.46f ? LootCrate.Kind.Crate : r < 0.62f ? LootCrate.Kind.Medical : r < 0.75f ? LootCrate.Kind.Optics : r < 0.86f ? LootCrate.Kind.ArmorCase : r < 0.96f ? LootCrate.Kind.WeaponCase : LootCrate.Kind.Safe;
-                float yaw = B.Rng.Range(0f, 360f);
-                // small cases sit on a stand at about waist height, so you don't have to kneel on the floor to loot them
-                if (k == LootCrate.Kind.Medical || k == LootCrate.Kind.Optics || k == LootCrate.Kind.WeaponCase)
-                {
-                    Vector2 foot = k == LootCrate.Kind.WeaponCase ? new Vector2(0.62f, 1.35f) : new Vector2(0.7f, 0.55f);
-                    B.Table(p, yaw, foot, 0.62f);
-                    AddCrate(p + Vector3.up * 0.66f, yaw, k);
-                }
-                else AddCrate(p, yaw, k);
+                bool desk = B.DeskSpots.ContainsKey(p);
+                float yaw = B.SpotYaw.TryGetValue(p, out var y) ? y : B.Rng.Range(0f, 360f);
+                AddCrate(p, yaw, null, desk ? chance * 0.6f : chance * 0.4f, desk);
             }
         }
     }

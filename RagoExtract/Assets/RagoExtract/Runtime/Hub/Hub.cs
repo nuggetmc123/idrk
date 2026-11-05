@@ -19,6 +19,11 @@ namespace Rago
         float _queueStart;
         Coroutine _offline;
         public static bool AnyQueued;
+        public static Kiosk Current;
+        public string SelectedMap => _map;
+        public static event System.Action<string> OnMapSelected;
+        /// <summary>Pick a raid from elsewhere (the world map board).</summary>
+        public void SelectMap(string id) { if (_queued) { RagoGame.I.Player.Toast("Cancel the queue to change the map"); return; } Select(id); Sfx.UI(Synth.Beep(), 0.3f); }
 
         public static Kiosk Create(Transform parent, Vector3 pos, Quaternion rot)
         {
@@ -26,6 +31,7 @@ namespace Rago
             go.transform.SetParent(parent, false);
             go.transform.SetPositionAndRotation(pos, rot);
             var k = go.AddComponent<Kiosk>();
+            Current = k;
             k.Build();
             return k;
         }
@@ -109,6 +115,7 @@ namespace Rago
                 _mapBtns[i].SetText((sel ? "> " : "  ") + Maps.Name(Maps.RaidIds[i]).ToUpper());
             }
             _mapInfo.text = "";
+            OnMapSelected?.Invoke(id);
             _status.text = NetHub.Online ? "" : "> " + UI.Wrap(NetHub.StatusText.ToUpper(), 44).Replace("\n", "\n  ");   // only shown when something is wrong
         }
 
@@ -117,6 +124,12 @@ namespace Rago
             if (_joining) return;   // raid already found: on the way in
             if (_queued) { Cancel(); return; }
             if (AnyQueued) return;
+            if (NetHub.Online && NetHub.Backend.PartyCode != null && NetHub.Backend.PartyMembers.Count > QueueRules.PartyMaxFor(_map))
+            {
+                RagoGame.I.Player.Toast(Maps.Name(_map) + " is for squads of up to " + QueueRules.PartyMaxFor(_map) + " - your party has " + NetHub.Backend.PartyMembers.Count);
+                Sfx.UI(Synth.UiError(), 0.3f);
+                return;
+            }
             if (NetHub.Online && NetHub.Backend.PartyCode != null && !NetHub.Backend.PartyLeader)
             {
                 RagoGame.I.Player.Toast("Only your party leader can start the queue - you'll follow them in");
@@ -192,7 +205,7 @@ namespace Rago
             const float soloWait = 5f;
             while (t < soloWait)
             {
-                _status.text = "> SEARCHING FOR OPERATORS  1/" + QueueRules.Max + "\n> OFFLINE - DEPLOYING SOLO IN " + Mathf.CeilToInt(soloWait - t) + "S";
+                _status.text = "> SEARCHING FOR OPERATORS  1/" + QueueRules.MaxFor(_map) + "\n> OFFLINE - DEPLOYING SOLO IN " + Mathf.CeilToInt(soloWait - t) + "S";
                 t += Time.deltaTime;
                 yield return null;
             }

@@ -153,7 +153,7 @@ namespace Rago
         }
 
         /// <summary>Hollow building with doors, windows, floors, stairs and a flat roof. Returns interior floor points for props/loot.</summary>
-        public List<Vector3> Building(Vector3 pos, float yaw, Vector2 size, int floors, Material wall, Color tint, Material floorMat, Material trim, int doorSide = 0, bool windows = true, bool roofAccess = false, float floorH = 3.2f, int vaultSide = -1)
+        public List<Vector3> Building(Vector3 pos, float yaw, Vector2 size, int floors, Material wall, Color tint, Material floorMat, Material trim, int doorSide = 0, bool windows = true, bool roofAccess = false, float floorH = 3.2f, int vaultSide = -1, bool desk = true)
         {
             var interior = new List<Vector3>();
             Quaternion q = Quaternion.Euler(0, yaw, 0);
@@ -198,16 +198,37 @@ namespace Rago
                     Vector3 s0 = new Vector3(sx, y, hz - 0.6f), s1 = new Vector3(sx, y + floorH, StairTopZ(size, hz));
                     Stairs(P(s0.x, s0.y, s0.z), P(s1.x, s1.y, s1.z), 1.3f, trim);
                 }
-                // loot spots: clear of the stairs / stair hole (+x side), the doorway and the vault door
-                for (int k = 0; k < 3; k++)
+                // loot spots: on the floor against the walls (crate facing into the room) and on a desk - never on the stairs
+                // or the stair hole (+x side), in front of the doorway or the vault door
+                float inset = 0.6f;
+                for (int side = 0; side < 4; side++)
                 {
-                    for (int tries = 0; tries < 12; tries++)
+                    if (side == 1) continue;   // the stairs run along the +x wall
+                    for (int k = 0; k < 2; k++)
                     {
-                        float lx = Rng.Range(-hx + 1f, hx - 3.4f), lz = Rng.Range(-hz + 1f, hz - 1f);
+                        float tt = (k + 0.5f) / 2f + Rng.Range(-0.12f, 0.12f);
+                        float lx, lz, ly;
+                        switch (side)
+                        {
+                            case 0: lx = Mathf.Lerp(-hx + 1f, hx - 3.4f, tt); lz = -hz + inset; ly = 0; break;
+                            case 2: lx = Mathf.Lerp(-hx + 1f, hx - 3.4f, tt); lz = hz - inset; ly = 180; break;
+                            default: lx = -hx + inset; lz = Mathf.Lerp(-hz + 1f, hz - 1f, tt); ly = 90; break;
+                        }
                         if (f == 0 && DoorZone(doorSide, lx, lz, hx, hz)) continue;
                         if (f == 0 && vaultSide >= 0 && DoorZone(vaultSide, lx, lz, hx, hz)) continue;
-                        interior.Add(P(lx, y + 0.12f, lz));
-                        break;
+                        var sp = P(lx, y + 0.12f, lz);
+                        interior.Add(sp); SpotYaw[sp] = yaw + ly;
+                    }
+                }
+                // a desk against the -x wall (opposite the stairs) with a spot on top
+                if (desk)
+                {
+                    float dz = Rng.Range(-hz + 1.6f, hz - 1.6f);
+                    if (!(f == 0 && (DoorZone(doorSide, -hx + 0.6f, dz, hx, hz) || (vaultSide >= 0 && DoorZone(vaultSide, -hx + 0.6f, dz, hx, hz)))))
+                    {
+                        Table(P(-hx + 0.62f, y + 0.1f, dz), yaw + 90, new Vector2(1.5f, 0.7f), 0.76f);
+                        var dp = P(-hx + 0.62f, y + 0.1f + 0.8f, dz);
+                        interior.Add(dp); DeskSpots[dp] = true; SpotYaw[dp] = yaw + 90;
                     }
                 }
                 // ceiling light
@@ -262,6 +283,10 @@ namespace Rago
             spot = Vector3.zero;
             return false;
         }
+
+        /// <summary>Loot spots that are desk tops, and the yaw each loot spot faces (set by Building).</summary>
+        public readonly Dictionary<Vector3, bool> DeskSpots = new Dictionary<Vector3, bool>();
+        public readonly Dictionary<Vector3, float> SpotYaw = new Dictionary<Vector3, float>();
 
         /// <summary>Where a building's stairs reach the next floor (local z), so the stair hole can match them exactly.</summary>
         static float StairTopZ(Vector2 size, float hz) => hz - 0.6f - Mathf.Min(size.y - 2f, 5.2f);
