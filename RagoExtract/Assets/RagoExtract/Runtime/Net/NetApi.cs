@@ -34,6 +34,7 @@ namespace Rago
 
         // per map: the Underground Sector is a tight 6-player raid with squads of up to 2
         public static int MaxFor(string map) => map == "underground" ? 6 : Max;
+        public static int MinFor(string map) => map == "underground" ? 2 : Min;
         public static int TargetFor(string map) => map == "underground" ? 6 : Target;
         public static int PartyMaxFor(string map) => map == "underground" ? 2 : Max;
 

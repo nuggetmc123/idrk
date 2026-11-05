@@ -15,11 +15,13 @@ namespace Rago
         readonly Dictionary<string, Vector3> _where = new Dictionary<string, Vector3>();
         Transform _ring;
 
-        public static WorldMapBoard Create(Transform parent, Vector3 pos, Quaternion rot)
+        TextMesh _rules;
+
+        public static WorldMapBoard Create(Transform parent, Vector3 pos, Quaternion rot, float scale = 1f)
         {
             var go = new GameObject("WorldMapBoard");
             go.transform.SetParent(parent, false);
-            go.transform.SetPositionAndRotation(pos, rot);
+            go.transform.localPosition = pos; go.transform.localRotation = rot; go.transform.localScale = Vector3.one * scale;
             var b = go.AddComponent<WorldMapBoard>();
             b.Build();
             return b;
@@ -38,7 +40,8 @@ namespace Rago
             for (float y = -0.6f; y <= 0.61f; y += 0.3f) grid.Box(new Vector3(0, y, -0.005f), new Vector3(BW - 0.14f, 0.003f, 0.001f), Color.white, 0f);
             grid.Build("Grid", p, Mats.Unlit("board_grid", new Color(0.25f, 0.4f, 0.52f, 1f)));
             UI.Text(p, "SELECT YOUR RAID", new Vector3(-BW / 2 + 0.08f, BH / 2 - 0.08f, -0.006f), 0.055f, UI.Accent, TextAnchor.MiddleLeft, FontStyle.Bold);
-            UI.Text(p, "point at a location and pull the trigger - then press QUEUE on the terminal", new Vector3(BW / 2 - 0.08f, BH / 2 - 0.08f, -0.006f), 0.026f, UI.Dim, TextAnchor.MiddleRight);
+            UI.Text(p, "point at a location and pull the trigger - then press QUEUE below", new Vector3(BW / 2 - 0.08f, BH / 2 - 0.08f, -0.006f), 0.03f, UI.Dim, TextAnchor.MiddleRight);
+            _rules = UI.Text(p, "", new Vector3(-BW / 2 + 0.08f, -BH / 2 + 0.06f, -0.006f), 0.034f, UI.Accent, TextAnchor.MiddleLeft, FontStyle.Bold);
             // the islands
             Island(p, "dockyard", new Vector3(-0.78f, 0.22f, 0), 0.34f, 11);
             Island(p, "pinewood", new Vector3(0.05f, -0.28f, 0), 0.32f, 23);
@@ -102,6 +105,8 @@ namespace Rago
             if (this == null || id == null) return;
             foreach (var kv in _buttons) kv.Value.SetColor(kv.Key == id ? new Color(0.85f, 0.45f, 0.1f) : new Color(0.12f, 0.12f, 0.12f));
             if (_where.TryGetValue(id, out var c) && _ring != null) _ring.localPosition = new Vector3(c.x, c.y, -0.010f);
+            if (_rules != null)
+                _rules.text = Maps.Name(id).ToUpper() + "   /   " + (QueueRules.MinFor(id)) + "-" + QueueRules.MaxFor(id) + " OPERATORS" + (QueueRules.PartyMaxFor(id) < QueueRules.Max ? "   /   SQUADS OF " + QueueRules.PartyMaxFor(id) : "") + "   /   AUTO-LAUNCH AT 01:00";
         }
     }
 }
