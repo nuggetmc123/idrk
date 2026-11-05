@@ -24,10 +24,10 @@ namespace Rago
         /// <summary>Spawn squads at the given points. Deterministic so every client builds the same NPC set.</summary>
         public const int MaxNpcs = 16;   // raiders per raid (spread over the whole map)
 
-        public void SpawnSquads(List<MapBase.NpcSpawn> spawns, int seed, bool puppets, List<Pose> avoid = null, float safeRadius = 110f)
+        public void SpawnSquads(List<MapBase.NpcSpawn> spawns, int seed, bool puppets, List<Pose> avoid = null, float safeRadius = 110f, int maxNpcs = MaxNpcs)
         {
             float SafeRadius = safeRadius;   // no raiders this close to a spawn spot
-            if (avoid != null) spawns = spawns.FindAll(s => { foreach (var a in avoid) { var d = a.position - s.pos; d.y = 0; if (d.sqrMagnitude < SafeRadius * SafeRadius) return false; } return true; });
+            if (avoid != null) spawns = spawns.FindAll(s => { foreach (var a in avoid) { var d = a.position - s.pos; if (Mathf.Abs(d.y) > 3f) continue; d.y = 0; if (d.sqrMagnitude < SafeRadius * SafeRadius) return false; } return true; });
             var rng = new Rng(seed * 13 + 5);
             int id = 0;
             // the maps are huge: spread a limited number of raiders over randomly picked squad spots, in smaller groups
@@ -36,8 +36,8 @@ namespace Rago
             int total = 0;
             foreach (var s in order)
             {
-                if (total >= MaxNpcs) break;
-                int count = Mathf.Min(MaxNpcs - total, Mathf.Max(1, s.count - 1));
+                if (total >= maxNpcs) break;
+                int count = Mathf.Min(maxNpcs - total, Mathf.Max(1, s.count - 1));
                 total += count;
                 for (int i = 0; i < count; i++)
                 {

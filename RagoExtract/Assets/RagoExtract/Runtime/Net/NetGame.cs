@@ -40,7 +40,7 @@ namespace Rago
             Send(false);
         }
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast }
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice }
 
         public static void Ensure()
         {
@@ -228,6 +228,12 @@ namespace Rago
 
         public void Register(Item it) { if (it != null && it.netId != 0) Items[it.netId] = it; }
 
+        public void NpcVoice(int id, byte line, byte idx)
+        {
+            if (!Live || !NetHub.Backend.IsHost) return;
+            var w = W(Msg.NpcVoice); w.Write(id); w.Write(line); w.Write(idx); Send(false);
+        }
+
         public void NpcFire(int id, Vector3 origin, Vector3 dir)
         {
             if (!Live || !NetHub.Backend.IsHost) return;
@@ -377,6 +383,12 @@ namespace Rago
                                 if (!NetHub.Backend.IsHost || NpcDirector.I == null) break;
                                 var npc = NpcDirector.I.Get(id);
                                 npc?.TakeHit(new HitInfo { damage = dmg, part = part, point = pt, dir = dir, attacker = (int)from + 1, fromNet = true, force = force }, null);
+                                break;
+                            }
+                        case Msg.NpcVoice:
+                            {
+                                int id = r.ReadInt32(); byte l = r.ReadByte(); byte ix = r.ReadByte();
+                                NpcDirector.I?.Get(id)?.RemoteVoice(l, ix);
                                 break;
                             }
                         case Msg.NpcFire:

@@ -37,7 +37,7 @@ namespace Rago
         Vector3 _stepLast; float _stepDist; bool _stepLeft;
         float _think, _awareness, _waitT, _lastSeenT, _burstT, _reloadT, _coverT, _searchT, _flinch, _stagger, _blind;
         /// <summary>Flashbanged: can't see or shoot, and staggers about for a bit.</summary>
-        public void Flash(float seconds) { _blind = Mathf.Max(_blind, seconds); _stagger = Mathf.Max(_stagger, seconds * 0.6f); }
+        public void Flash(float seconds) { bool was = _blind > 0; _blind = Mathf.Max(_blind, seconds); _stagger = Mathf.Max(_stagger, seconds * 0.6f); if (!was) Say(ScavVoice.Line.Flash, 1f, true); }
         int _burst, _rounds;
         Vector3 _lastKnown, _flinchDir;
         Vector3 _netPos, _netAim; float _netYaw; bool _netInit;
@@ -45,7 +45,24 @@ namespace Rago
         bool _crouch;
         float _aimErr = 1f;
         Rng _rng;
-        float _barkT;
+        float _barkT, _talkT, _idleTalkT = 20f;
+        int Voice => Heavy ? 2 : Id % 2;
+
+        /// <summary>Shout a line (authority only - it's sent to everyone else). chance &lt; 1: only sometimes.</summary>
+        void Say(ScavVoice.Line l, float chance = 1f, bool urgent = false)
+        {
+            if (Puppet || !Alive && l != ScavVoice.Line.Hit) return;
+            if (!urgent && Time.time < _talkT) return;
+            if (chance < 1f && Random.value > chance) return;
+            int idx = Random.Range(0, ScavVoice.Count(l));
+            float len = ScavVoice.Play(l, idx, Voice, Rig.head.position, urgent);
+            if (len <= 0f) return;
+            _talkT = Time.time + len + Random.Range(2f, 4f);
+            if (NetGame.Live && NetGame.IsHost) NetGame.I.NpcVoice(Id, (byte)l, (byte)idx);
+        }
+
+        /// <summary>The host's raider said something: play it here too.</summary>
+        public void RemoteVoice(byte line, byte idx) { if (Rig != null) ScavVoice.Play((ScavVoice.Line)line, idx, Voice, Rig.head.position, true); }
 
         struct Target { public IDamageable d; public Transform aim; public Vector3 vel; public bool valid; }
 
@@ -159,7 +176,7 @@ namespace Rago
                 if (close)
                 {
                     _awareness = Mathf.Max(_awareness, d < e.radius * 0.4f ? 0.9f : 0.6f);
-                    if (calm) { State = NpcState.Investigate; _lastKnown = e.pos; _searchT = 12f; }
+                    if (calm) { State = NpcState.Investigate; _lastKnown = e.pos; _searchT = 12f; Say(ScavVoice.Line.Hear, 0.8f); }
                 }
                 else if (calm)
                 {
@@ -190,8 +207,7 @@ namespace Rago
         {
             if (Time.time < _barkT) return;
             _barkT = Time.time + 6f;
-            Sfx.Play(Synth.HackTick(), Rig.head.position, 0.5f, 0.55f, 2f, 30f);
-            Sfx.Play(Synth.Beep(), Rig.head.position, 0.25f, 0.5f, 2f, 25f);
+            Say(ScavVoice.Line.Spot, 1f, true);
         }
 
         // ------------------------------------------------------------------------------- brain
@@ -216,6 +232,8 @@ namespace Rago
             {
                 case NpcState.Patrol:
                 case NpcState.Idle:
+                    _idleTalkT -= 0.2f;
+                    if (_idleTalkT <= 0) { _idleTalkT = _rng.Range(25f, 60f); Say(ScavVoice.Line.Idle, 0.6f); }
                     if (_patrol.Count == 0) { State = NpcState.Idle; break; }
                     if (!AgentOk || Agent.remainingDistance < 0.8f)
                     {
@@ -234,15 +252,16 @@ namespace Rago
                     if (_searchT <= 0) { State = NpcState.Patrol; _awareness = 0.3f; }
                     break;
                 case NpcState.Combat:
-                    if (!_target.valid || !_target.d.Alive) { State = NpcState.Search; _searchT = 10f; break; }
+                    if (!_target.valid || !_target.d.Alive) { if (_target.valid && !_target.d.Alive) Say(ScavVoice.Line.Kill, 0.9f, true); State = NpcState.Search; _searchT = 10f; break; }
                     if (!hasLos)
                     {
-                        if (Time.time - _lastSeenT > 4f) { State = NpcState.Search; _searchT = 14f; Go(_lastKnown, 3.2f); }
+                        if (Time.time - _lastSeenT > 4f) { State = NpcState.Search; _searchT = 14f; Go(_lastKnown, 3.2f); Say(ScavVoice.Line.Lost, 0.8f); }
                         else Go(_lastKnown, 2.8f);
                     }
                     else
                     {
                         float dist = Vector3.Distance(transform.position, _target.aim.position);
+                        if (_rng.Chance(0.03f)) Say(ScavVoice.Line.Attack);
                         _coverT -= 0.2f;
                         if (_coverT <= 0)
                         {
@@ -348,7 +367,7 @@ namespace Rago
             if (_awareness < 1f || _blind > 0) return;
             _burstT -= dt;
             if (_burstT > 0) return;
-            if (_rounds <= 0) { _reloadT = Heavy ? 2.6f : 3.2f; Sfx.Play(Synth.MagOut(), GunModel.magwell.position, 0.6f, 1f, 1f, 15f); if (FindCover(_target.aim.position, out var c)) { Go(c, 3.8f); State = NpcState.Cover; _coverT = 4f; } return; }
+            if (_rounds <= 0) { _reloadT = Heavy ? 2.6f : 3.2f; Say(ScavVoice.Line.Reload, 0.75f, true); Sfx.Play(Synth.MagOut(), GunModel.magwell.position, 0.6f, 1f, 1f, 15f); if (FindCover(_target.aim.position, out var c)) { Go(c, 3.8f); State = NpcState.Cover; _coverT = 4f; } return; }
             // aligned enough?
             Vector3 toAim = (AimPoint - GunModel.muzzle.position).normalized;
             if (Vector3.Angle(GunModel.muzzle.forward, toAim) > 12f) return;
@@ -467,6 +486,7 @@ namespace Rago
             _awareness = 1.2f;
             if (State != NpcState.Combat && State != NpcState.Cover) { State = NpcState.Combat; _lastKnown = h.point - h.dir * 15f; _lastSeenT = Time.time - 0.5f; _coverT = 0; }
             if (Health <= 0) Die(h.point, h.dir * Mathf.Max(20f, h.force * 20f), false);
+            else Say(ScavVoice.Line.Hit, 0.55f, true);
         }
 
         public void Die(Vector3 point, Vector3 impulse, bool fromNet)
@@ -474,6 +494,9 @@ namespace Rago
             if (Rig.ragdoll) return;
             Health = 0;
             State = NpcState.Dead;
+            if (!Puppet && NpcDirector.I != null)
+                foreach (var o in NpcDirector.I.Npcs)
+                    if (o != null && o != this && o.Alive && !o.Puppet && (o.transform.position - transform.position).sqrMagnitude < 18f * 18f) { o.Say(ScavVoice.Line.ManDown, 0.85f, true); break; }
             if (Agent != null) Agent.enabled = false;
             Rig.SetRagdoll(true, impulse, point, Puppet ? _puppetVel : Vector3.zero);
             Rig.root.SetLayerRecursive(Layers.Ragdoll);

@@ -104,7 +104,10 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 
   Your first invite starts a party with you as the leader. Invites sent from your bunker reach friends who are in their bunkers; invites sent in a raid reach people in that raid, and you team up when you're both back in your bunkers. Everyone stays in their own bunker; the **leader** picks a map and presses QUEUE on the raid terminal and every member's terminal follows. The whole party goes into the same raid (random players can still fill the free spots) and **spawns together**, side by side. In the raid, teammates have a **green dot** over their heads that you can see through walls. The raid waits for the whole party (still launching at 1:00 at the latest), and if the leader cancels, everyone's queue cancels. Parties need multiplayer set up (Rago Extract > Multiplayer).
 - **Raid terminal map**: the raid terminal's screen is a big map of the three islands and the hatch down to the Underground Sector. Point at a location and pull the trigger (click on desktop) to pick it - a ring marks your choice and the bottom line shows its player limits - then press QUEUE on the console below.
-- **Underground Sector** (new map): a sealed research complex - a grid of rooms (offices, storage, labs, barracks, server rooms, a generator hall, an armory and a vault lab) joined by dim service corridors. A moderate number of raiders, **6 players per raid, squads of up to 2**, six spawns round the edge and three extracts (Freight Elevator, Vent Shaft, Drainage Tunnel).
+- **Underground Sector**: a sealed research complex **three levels deep** (B1, B2, B3), each a grid of rooms (offices, storage, labs, barracks, server rooms, generator halls, armories) joined by dim service corridors and stacked over each other. Two stairwells link each level to the next: a railed opening in the floor above, and a stair in a walled shaft below ("DOWN TO B2" / "UP TO B1" signs; LEVEL markers on the corridor walls). **Two vaults** (one on B2, one on B3) and only **two extracts**: the Freight Elevator in the middle of B1 and the Drainage Tunnel in a corner of B3. Armories, server rooms, generator halls and barracks are often held by bigger groups of raiders (up to 22 per raid here). **6 players per raid, squads of up to 2**, all starting round the edge of B1.
+- **Raider voices**: raiders shout - when they spot you ("Contact!"), push or flank, reload, get hit, lose you ("Where did he go?"), hear something, get flashed, drop you, or see a mate go down - and chat now and then on patrol. Each raider keeps one of three voices, and everyone in the raid hears the same lines.
+- **Keycards**: besides safes, a few Vault Keycards lie loose around every raid map (usually on desks) - at least one per vault, in different places each raid.
+- **Crates face the room**: crates and cases sit squared up against the nearest wall with the lid opening towards you; weapon cases and duffels lie lengthways along desks and walls.
 - **Clear doorways**: the world builder remembers every doorway it cuts, and shelves, tables, crates and loot never block one or the space just in front of or behind it.
 - **Loot spots**: every map's layout is the same each raid (so you can learn it), but which crates appear - and what's in them - changes every raid. Crates sit on the floor against a wall or on a desk/bench; never on stairs or in the middle of nowhere.
 - **Raid terminal** (in your bunker, east wall; there are no raid terminals in the Market): pick a map on the green screen and press the big **QUEUE** key. Each raid holds 4-10 players. The queue tries to reach 8, starts right away at 10, and once the queue timer hits **1 minute** it launches with whoever is queued. While you're queued, the top-left of your view shows **FINDING RAID** with a timer, then **RAID FOUND** and **JOINING RAID** (with its own timer, which runs until you are in the raid) when a match is ready.
@@ -147,13 +150,13 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Grip | Grab, two-hand a gun (grab the handguard), pull a slide or charging handle |
 | Grip while pointing an empty hand at something up to 3.5 m away | Distance grab: the item glows when you point at it; squeeze and it flies into your hand. Point at a closed crate and squeeze to open it |
 | Grip on a wall, ledge, ladder, fence or rock (empty hand) | Climb: the hand locks on and pulling down lifts you. Let go above a ledge to climb onto it |
-| Grip at either hip or your chest (gun in the other hand) | Pull a fresh magazine for that gun. Put a mag back the same way to return its rounds |
+| Grip at either hip (gun in the other hand) | Pull a fresh magazine for that gun. Put a mag back the same way to return its rounds |
 | Trigger | Fire. Point at buttons and pull the trigger to click |
 | A / X | Drop magazine |
 | B / Y | Rack / release slide. Switches fire mode when a round is chambered |
-| Chest | Grab a fresh magazine for the gun in your other hand (from your ammo reserve) |
-| Right hip | Pistol holster |
-| Right shoulder / lower back | Long guns |
+| Right hip | Pistol holster (with a thigh strap) |
+| Front of chest | Front sling: your main long gun hangs across your chest, muzzle down to the left - works without a backpack. Let go of a rifle in front of your chest to sling it |
+| Lower back | Second long gun |
 | Left shoulder | Backpack: pull it off and it opens. Let go of things inside it to pack them, or next to its sides to strap a rifle on |
 | Top of head / collar | Take off your helmet / vest. Hold armor to your head or chest and let go to wear it |
 | Med near chest + trigger | Heal (bandage stops bleeding, medkit heals over time, stim gives instant HP + stamina) |

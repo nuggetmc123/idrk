@@ -5,11 +5,11 @@ namespace Rago
 {
     /// <summary>
     /// Body-mounted gear, Ghost-of-Tabor style:
-    ///  - over right shoulder: primary long gun
+    ///  - front of the chest: primary long gun on a sling, muzzle down to the left (no backpack needed)
     ///  - behind lower back: secondary long gun
     ///  - right hip: pistol holster
-    ///  - left hip / left chest: utility pouches (meds, keys, sights, valuables)
-    ///  - centre chest: magazine pouch (pulls a fresh mag for the gun in your other hand from your ammo reserve)
+    ///  - left hip / right chest: utility pouches (meds, keys, sights, valuables)
+    ///  - front of both hips: magazine pouches (pull a fresh mag for the gun in your other hand from your ammo reserve)
     ///  - over left shoulder: backpack (pull it off to open it)
     ///  - head / chest: helmet and vest. No armour at the start: find it in raids, bring it to your
     ///    head or chest and let go to wear it; grab the top of your head / your collar to take it off.
@@ -30,17 +30,32 @@ namespace Rago
             _p = p;
             Root = new GameObject("GearRoot").transform;
             DontDestroyOnLoad(Root.gameObject);
-            Primary = MakeSlot("Primary", new Vector3(0.1f, -0.38f, -0.2f), Quaternion.Euler(0, 0, 55) * Quaternion.Euler(-90, 0, 0), it => it is Gun g && g.g.TwoHanded, 0.33f, 0f);
+            // front sling: the rifle hangs across your chest, muzzle down to the left, top of the gun facing out
+            Primary = MakeSlot("FrontSling", new Vector3(-0.02f, -0.44f, 0.27f), Quaternion.LookRotation(new Vector3(-0.62f, -0.78f, 0f), Vector3.forward), it => it is Gun g && g.g.TwoHanded, 0.3f, 0f);
             Secondary = MakeSlot("Secondary", new Vector3(0f, -0.72f, -0.2f), Quaternion.Euler(0, 90, 0) * Quaternion.Euler(0, 0, 180), it => it is Gun g && g.g.TwoHanded, 0.28f, 0f);
             Pistol = MakeSlot("Holster", new Vector3(0.22f, -0.78f, 0.02f), Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 0, 0), it => it is Gun g && !g.g.TwoHanded, 0.16f, 0f);
             Util1 = MakeSlot("PouchL", new Vector3(-0.22f, -0.76f, 0.04f), Quaternion.identity, it => !(it is Gun) && !(it is Backpack) && !(it is ArmorItem), 0.13f, 0.11f);
-            Util2 = MakeSlot("PouchChest", new Vector3(-0.13f, -0.38f, 0.17f), Quaternion.identity, it => !(it is Gun) && !(it is Backpack) && !(it is ArmorItem), 0.11f, 0.09f);
+            Util2 = MakeSlot("PouchChest", new Vector3(0.15f, -0.36f, 0.17f), Quaternion.identity, it => !(it is Gun) && !(it is Backpack) && !(it is ArmorItem), 0.11f, 0.09f);
             PackSlot = MakeSlot("PackSlot", new Vector3(-0.16f, -0.32f, -0.2f), Quaternion.identity, it => it is Backpack, 0.3f, 0.02f);
-            // holster visual
-            var hb = new MB();
-            hb.Box(new Vector3(0, -0.05f, 0.03f), new Vector3(0.05f, 0.18f, 0.12f), new Color(0.12f, 0.12f, 0.11f), 0.012f, 2);
-            var hv = hb.Build("HolsterMesh", Pistol.transform, Mats.Polymer);
+            int bodyLayer = Layers.LocalBody > 0 ? Layers.LocalBody : 0;
+            // pistol holster on the right hip: polymer shell, retention hood and a thigh strap
+            var hb = new MB(2);
+            hb.Sub(0).Box(new Vector3(0, -0.05f, 0.03f), new Vector3(0.05f, 0.19f, 0.13f), new Color(0.12f, 0.12f, 0.11f), 0.012f, 2);
+            hb.Sub(0).Box(new Vector3(0, 0.055f, 0.035f), new Vector3(0.056f, 0.04f, 0.11f), new Color(0.09f, 0.09f, 0.085f), 0.008f);   // hood
+            hb.Sub(1).Box(new Vector3(-0.01f, -0.1f, 0.0f), new Vector3(0.012f, 0.035f, 0.2f), new Color(0.2f, 0.22f, 0.16f), 0.004f);      // thigh strap
+            hb.Sub(1).Box(new Vector3(-0.01f, 0.1f, 0.03f), new Vector3(0.012f, 0.05f, 0.06f), new Color(0.2f, 0.22f, 0.16f), 0.004f);       // belt loop
+            var hv = hb.Build("HolsterMesh", Pistol.transform, Mats.Polymer, Mats.Lit("pouch", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f));
             hv.transform.localRotation = Quaternion.Inverse(Pistol.transform.localRotation);
+            hv.layer = bodyLayer;
+            // front sling: a strap from the right shoulder down to the left hip, and a padded front holster plate with a clip
+            var sl = new MB(2);
+            Vector3 sa = new Vector3(0.17f, -0.16f, 0.12f), sbp = new Vector3(-0.21f, -0.82f, 0.16f);
+            var sdir = sbp - sa;
+            sl.Sub(0).Box((sa + sbp) * 0.5f, new Vector3(0.04f, sdir.magnitude, 0.008f), new Color(0.18f, 0.19f, 0.14f), 0.002f, 0, Quaternion.FromToRotation(Vector3.up, sdir.normalized));
+            sl.Sub(0).Box(new Vector3(-0.02f, -0.44f, 0.215f), new Vector3(0.15f, 0.2f, 0.025f), new Color(0.22f, 0.24f, 0.17f), 0.008f, 1, Quaternion.Euler(0, 0, 38f));   // holster plate
+            sl.Sub(1).Box(new Vector3(-0.02f, -0.44f, 0.232f), new Vector3(0.05f, 0.07f, 0.014f), new Color(0.1f, 0.1f, 0.1f), 0.004f, 0, Quaternion.Euler(0, 0, 38f));    // clip
+            var sv = sl.Build("FrontSlingMesh", Root, Mats.Lit("pouch", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f), Mats.Polymer);
+            sv.layer = bodyLayer;
             // double mag pouches on the front of each hip (pull a mag with either hand)
             foreach (var sx in new[] { -1f, 1f })
             {
@@ -88,7 +103,7 @@ namespace Rago
         // mag pouches on the front of both hips (either hand, either side) plus the chest one
         Vector3 HipMagL => Root.TransformPoint(new Vector3(-0.15f, -0.74f, 0.13f));
         Vector3 HipMagR => Root.TransformPoint(new Vector3(0.15f, -0.74f, 0.13f));
-        public bool NearMagPouch(Vector3 p) => NearChestPouch(p) || Vector3.Distance(p, HipMagL) < 0.16f || Vector3.Distance(p, HipMagR) < 0.16f;
+        public bool NearMagPouch(Vector3 p) => Vector3.Distance(p, HipMagL) < 0.16f || Vector3.Distance(p, HipMagR) < 0.16f;
 
         // ---------------------------------------------------------------------- armour
         /// <summary>Wear an armour item released near your head (helmet) or chest (vest). Swaps out what you had on.</summary>
@@ -152,7 +167,7 @@ namespace Rago
             if (Helmet != null && Vector3.Distance(p, HeadTop) < 0.13f) return TakeOff(ArmorSlot.Helmet, p, h.Anchor.rotation);
             if (Vest != null && Vector3.Distance(p, Collar) < 0.1f && Util2.item == null) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);
             if (Vector3.Distance(p, LeftShoulder) < 0.2f && PackSlot.item != null) return PackSlot.item;
-            if (Vector3.Distance(p, RightShoulder) < 0.22f && Primary.item != null) return Primary.item;
+            if (Vector3.Distance(p, Primary.transform.position) < 0.22f && Primary.item != null) return Primary.item;   // front sling
             if (Vector3.Distance(p, LowerBack) < 0.2f && Secondary.item != null) return Secondary.item;
             return null;
         }

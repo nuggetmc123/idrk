@@ -127,6 +127,7 @@ namespace Rago
         struct LootSpot { public Vector3 pos; public float yaw; public LootCrate.Kind? kind; public float chance; public bool desk; }
         readonly List<LootSpot> _spots = new List<LootSpot>();
         bool _lootPlaced;
+        public int MaxRaiders = NpcDirector.MaxNpcs;   // raiders alive at the start of a raid on this map
         public int LootSeed;
 
         /// <summary>After the map is built: pick this raid's crates from all the possible spots.</summary>
@@ -135,9 +136,11 @@ namespace Rago
             if (_lootPlaced) return;
             _lootPlaced = true;
             var rng = new Rng(LootSeed * 92821 + 17);
+            Physics.SyncTransforms();
+            var free = new List<LootSpot>();
             foreach (var s in _spots)
             {
-                if (!rng.Chance(s.chance)) continue;
+                if (!rng.Chance(s.chance)) { free.Add(s); continue; }
                 LootCrate.Kind k;
                 if (s.kind.HasValue) k = s.kind.Value;
                 else if (s.desk)
@@ -152,9 +155,38 @@ namespace Rago
                     float r = rng.Value;
                     k = r < 0.55f ? LootCrate.Kind.Crate : r < 0.72f ? LootCrate.Kind.ArmorCase : r < 0.86f ? LootCrate.Kind.Duffel : r < 0.95f ? LootCrate.Kind.WeaponCase : LootCrate.Kind.Safe;
                 }
-                AddCrate(s.pos, s.yaw, k);
+                AddCrate(s.pos, FaceRoom(s.pos, s.yaw, s.desk), k);
             }
+            // a few Vault Keycards lying loose around the map (on desks when there are free ones), different every raid
+            int cards = Mathf.Max(1, Vaults.Count) + (rng.Chance(0.5f) ? 1 : 0);
+            var pool = free.FindAll(f => f.desk);
+            if (pool.Count < cards) pool = free;
+            var picks = new List<Vector3>();
+            for (int i = 0; i < cards && pool.Count > 0; i++) { int k = rng.Range(0, pool.Count); picks.Add(pool[k].pos); pool.RemoveAt(k); }
+            if (picks.Count > 0) gameObject.AddComponent<KeycardSpawner>().At = picks;
             _spots.Clear();
+        }
+
+        /// <summary>
+        /// Which way a crate at p should face: its lid is hinged at the back, so the back goes against the nearest wall
+        /// (squared up to it) and the opening faces the room. A desk out in the open: the opening faces the chair side.
+        /// </summary>
+        float FaceRoom(Vector3 p, float yaw, bool desk)
+        {
+            int mask = ~0;
+            foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) mask &= ~(1 << l);
+            float best = 1.3f; Vector3 n = Vector3.zero;
+            Vector3 o = p + Vector3.up * 0.3f;
+            for (int i = 0; i < 16; i++)
+            {
+                float a = i * 22.5f * Mathf.Deg2Rad;
+                var dir = new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a));
+                if (!Physics.Raycast(o, dir, out var h, best, mask, QueryTriggerInteraction.Ignore)) continue;
+                if (Mathf.Abs(h.normal.y) > 0.3f || h.collider.GetComponentInParent<LootCrate>() != null) continue;
+                best = h.distance; n = h.normal;
+            }
+            if (n != Vector3.zero) { n.y = 0; return Mathf.Atan2(n.x, n.z) * Mathf.Rad2Deg; }   // local +z (the opening side) along the wall's normal
+            return desk ? yaw + 180f : yaw;
         }
 
         public Extraction AddExtract(Vector3 pos, string name)
@@ -777,12 +809,12 @@ namespace Rago
             Vector3 size; Material mat; Color col;
             switch (kind)
             {
-                case Kind.WeaponCase: size = new Vector3(0.42f, 0.16f, 1.15f); mat = Mats.Lit("case_hard", new Color(0.12f, 0.13f, 0.12f), 0.1f, 0.45f, Mats.Noise, null, 0.3f, 0.3f); col = Color.white; break;
+                case Kind.WeaponCase: size = new Vector3(1.15f, 0.16f, 0.42f); mat = Mats.Lit("case_hard", new Color(0.12f, 0.13f, 0.12f), 0.1f, 0.45f, Mats.Noise, null, 0.3f, 0.3f); col = Color.white; break;
                 case Kind.Optics: size = new Vector3(0.4f, 0.2f, 0.32f); mat = Mats.Lit("case_optics", new Color(0.55f, 0.48f, 0.33f), 0.1f, 0.35f, Mats.Noise, null, 0.4f, 0.3f); col = Color.white; break;
                 case Kind.Medical: size = new Vector3(0.5f, 0.28f, 0.34f); mat = Mats.Lit("case_med", new Color(0.85f, 0.85f, 0.82f), 0.1f, 0.4f, Mats.Noise, null, 0.4f, 0.3f); col = Color.white; break;
                 case Kind.Safe: size = new Vector3(0.5f, 0.5f, 0.45f); mat = Mats.Lit("safe", new Color(0.2f, 0.22f, 0.24f), 0.8f, 0.4f, Mats.Metal, Mats.MetalN, 0.4f, 0.5f); col = Color.white; break;
                 case Kind.ArmorCase: size = new Vector3(0.72f, 0.4f, 0.5f); mat = Mats.Lit("case_armor", new Color(0.24f, 0.27f, 0.2f), 0.15f, 0.35f, Mats.Noise, null, 0.45f, 0.35f); col = Color.white; break;
-                case Kind.Duffel: size = new Vector3(0.36f, 0.28f, 0.6f); mat = Mats.Lit("duffel", new Color(0.15f, 0.15f, 0.14f), 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f); col = Color.white; break;
+                case Kind.Duffel: size = new Vector3(0.6f, 0.28f, 0.36f); mat = Mats.Lit("duffel", new Color(0.15f, 0.15f, 0.14f), 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f); col = Color.white; break;
                 default: size = new Vector3(0.9f, 0.5f, 0.55f); mat = Mats.Lit("crate_mil", new Color(0.33f, 0.36f, 0.26f), 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
             }
             c.Size = size;
@@ -831,7 +863,7 @@ namespace Rago
             int rows = kind == Kind.WeaponCase || kind == Kind.ArmorCase ? 1 : 2;
             float fit = kind == Kind.WeaponCase ? 1.1f : Mathf.Min(size.x / cols, size.z / rows) * 0.95f;
             c._box = ItemContainer.Grid(go.transform, new Vector3(0, 0.06f, 0), Quaternion.identity, cols, rows, new Vector2(size.x / cols, size.z / rows), fit,
-                null, kind == Kind.WeaponCase ? Quaternion.Euler(0, 0, 90) : Quaternion.identity);
+                null, kind == Kind.WeaponCase ? Quaternion.Euler(0, 90, 0) * Quaternion.Euler(0, 0, 90) : Quaternion.identity);   // the gun lies along the case
             foreach (var s in c._box.slots) s.enabled = false;
             return c;
         }
@@ -888,6 +920,23 @@ namespace Rago
                     var key = ItemFactory.Spawn(new ItemData("key_vault"), free.transform.position, transform.rotation);
                     if (key != null) { key.netId = 10000 + index * 16 + 15; NetGame.I?.Register(key); free.Store(key, false); }
                 }
+            }
+        }
+    }
+
+    /// <summary>Puts this raid's loose keycards down once the raid is running (so they get network ids like crate loot).</summary>
+    public class KeycardSpawner : MonoBehaviour
+    {
+        public List<Vector3> At;
+        System.Collections.IEnumerator Start()
+        {
+            yield return new WaitForSeconds(1f);
+            for (int i = 0; At != null && i < At.Count; i++)
+            {
+                var it = ItemFactory.Spawn(new ItemData("key_vault"), At[i] + Vector3.up * 0.04f, Quaternion.Euler(0, i * 67f + 20f, 0));
+                if (it == null) continue;
+                it.netId = 950000 + i;
+                NetGame.I?.Register(it);
             }
         }
     }

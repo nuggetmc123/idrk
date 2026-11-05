@@ -173,6 +173,7 @@ namespace Rago
         }
 
         const float SnapDist = 0.07f;
+        Vector3 _aim;   // where the physics hand was sent last step
         bool _snapOk = true;
 
         /// <summary>
@@ -185,7 +186,7 @@ namespace Rago
             tr = Compat.SafeRot(tr);
             tp += _sag + tr * _recoilPos * 0.04f;
             tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot * 0.05f));
-            if ((rb.position - tp).sqrMagnitude > SnapDist * SnapDist) return;
+            if ((rb.position - tp).sqrMagnitude > 0.6f * 0.6f) return;   // a big jump (teleport, respawn): let physics catch up first
             transform.SetPositionAndRotation(tp, tr);
             var held = Held != null && !HeldAsSecondary ? Held : null;
             if (held != null && held.Held && held.primaryHand == this && held.rb != null)
@@ -210,11 +211,15 @@ namespace Rago
             tp += _sag;
             tp += tr * _recoilPos * 0.04f;
             tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot * 0.05f));
-            _snapOk = (rb.position - tp).sqrMagnitude < SnapDist * SnapDist;
+            // the hand draws exactly on the controller unless something solid stopped it last step (it ended up well short
+            // of where it was sent): then it stays against the wall. Comparing with the aim - not with the controller -
+            // means walking and running never count as "blocked", however fast you go.
+            _snapOk = (rb.position - _aim).sqrMagnitude < SnapDist * SnapDist;
 
             if (!XRInputs.VR || rig.Dead)
             {
                 rb.isKinematic = true;
+                _aim = tp;
                 rb.MovePosition(tp);
                 rb.MoveRotation(tr);
             }
@@ -223,10 +228,15 @@ namespace Rago
                 rb.isKinematic = false;
                 Vector3 delta = tp - rb.position;
                 if (delta.magnitude > 0.5f) _stuckTime += dt; else _stuckTime = 0;
-                if (_stuckTime > 0.4f || delta.magnitude > 1.5f) { rb.position = tp; rb.rotation = tr; rb.SetVel(Vector3.zero); _stuckTime = 0; }
+                if (_stuckTime > 0.4f || delta.magnitude > 1.5f) { rb.position = tp; rb.rotation = tr; rb.SetVel(Vector3.zero); _stuckTime = 0; _aim = tp; }
                 else
                 {
-                    rb.SetVel(Vector3.ClampMagnitude(delta / dt, 30f) * (1f - heavy * 0.35f) + rig.PlatformVelocity * 0f);
+                    // carry the hand along with your body's movement, then close the gap to the controller; a heavy gun
+                    // held one-handed only lags your arm movements, never your walking
+                    Vector3 carry = rig.MoveVelocity;
+                    Vector3 v = carry + Vector3.ClampMagnitude(delta / dt - carry, 30f) * (1f - heavy * 0.35f);
+                    rb.SetVel(v);
+                    _aim = rb.position + v * dt;
                     Quaternion dq = tr * Quaternion.Inverse(rb.rotation);
                     dq.ToAngleAxis(out float ang, out Vector3 axis);
                     if (ang > 180f) ang -= 360f;

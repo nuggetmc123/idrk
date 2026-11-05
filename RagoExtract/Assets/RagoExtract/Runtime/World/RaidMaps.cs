@@ -443,18 +443,31 @@ namespace Rago
     /// strip lights and hazard markings. Concrete everywhere, murky air, a moderate number of raiders (squads of 1-2),
     /// six player spawns round the edge and three extracts deeper in. 6 players per raid, squads of up to 2.
     /// </summary>
+    /// <summary>
+    /// Underground Sector: a sealed research complex three levels deep. Each level (B1 at the top, B2, B3) is a grid of
+    /// rooms joined by service corridors, stacked exactly over each other; two stairwells link each level to the next
+    /// (a railed opening in the floor above, a stair inside a walled shaft below). B1 is where you start, the vaults
+    /// are on B2 and B3, and there are only two ways out: the Freight Elevator on B1 and the Drainage Tunnel on B3.
+    /// </summary>
     public class UndergroundMap : MapBase
     {
-        const int NX = 6, NZ = 5;
-        const float Pitch = 16f, Room = 12f, Ht = 3.4f;
+        const int NX = 5, NZ = 4, Levels = 3;
+        const float Pitch = 16f, Room = 12f, Ht = 3.4f, Slab = 0.5f, LevelH = Ht + Slab;
+        static float LevelY(int l) => -l * LevelH;
+        static Vector3 Cell(int i, int j, int l) => new Vector3((i - (NX - 1) / 2f) * Pitch, LevelY(l), (j - (NZ - 1) / 2f) * Pitch);
+        // stairwells: (cell i, cell j, upper level) - the stair goes down from that level to the next
+        static readonly (int i, int j, int l)[] Wells = { (1, 0, 0), (3, 3, 0), (3, 0, 1), (1, 3, 1) };
 
         public override void Build()
         {
             Ambience = Synth.Amb.Bunker;
             KeepFog = true;
             NpcSafeRadius = 22f;
-            float ex = NX * Pitch / 2f + 2f, ez = NZ * Pitch / 2f + 2f;   // outer walls (50 x 42)
-            NavBounds = new Bounds(new Vector3(0, 1.5f, 0), new Vector3(ex * 2 + 2, 3.2f, ez * 2 + 2));   // floor only - not the top of the ceiling slab
+            MaxRaiders = 22;
+            float ex = NX * Pitch / 2f + 2f, ez = NZ * Pitch / 2f + 2f;   // outer walls (84 x 68)
+            float yBot = LevelY(Levels - 1), yTop = LevelY(0) + Ht;
+            // every floor, not the top of the roof slab
+            NavBounds = new Bounds(new Vector3(0, (yBot - 0.3f + 3.0f) / 2f, 0), new Vector3(ex * 2 + 2, 3.0f - (yBot - 0.3f), ez * 2 + 2));
             Lighting(new Color(0.9f, 0.95f, 1f), 0f, new Vector3(60, 30, 0), new Color(0.46f, 0.48f, 0.52f), new Color(0.38f, 0.38f, 0.39f), new Color(0.2f, 0.19f, 0.18f),
                 new Color(0.05f, 0.055f, 0.06f), 0.03f, new Color(0.03f, 0.03f, 0.035f), new Color(0.06f, 0.06f, 0.065f), 0f, 0.6f);
             var b = B;
@@ -466,58 +479,165 @@ namespace Rago
             var lamp = Mats.Lit("ug_lamp", new Color(0.9f, 0.95f, 1f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2.3f, 2.4f));
             var yellow = Mats.Lit("hazard_y", new Color(0.85f, 0.68f, 0.08f), 0f, 0.3f, Mats.Noise, null, 0.5f, 0.3f);
             Color wallCol = new Color(0.58f, 0.59f, 0.58f);
-            // shell: floor, ceiling, outer walls
-            b.Box(new Vector3(0, -0.15f, 0), new Vector3(ex * 2, 0.3f, ez * 2), floor, Color.white, null, true, Synth.Surface.Concrete);
-            b.Box(new Vector3(0, Ht + 0.15f, 0), new Vector3(ex * 2, 0.3f, ez * 2), ceiling, new Color(0.45f, 0.45f, 0.46f), null, true);
-            b.Wall(new Vector3(-ex, 0, -ez), new Vector3(ex, 0, -ez), Ht, 0.5f, conc, wallCol);
-            b.Wall(new Vector3(ex, 0, -ez), new Vector3(ex, 0, ez), Ht, 0.5f, conc, wallCol);
-            b.Wall(new Vector3(ex, 0, ez), new Vector3(-ex, 0, ez), Ht, 0.5f, conc, wallCol);
-            b.Wall(new Vector3(-ex, 0, ez), new Vector3(-ex, 0, -ez), Ht, 0.5f, conc, wallCol);
-            // corridors: strip lights and pipe runs down every corridor line
-            for (int i = 0; i <= NX; i++)
+
+            // ---- shell: roof, outer walls (all three levels), and each level's floor slab with the stair openings cut out
+            b.Box(new Vector3(0, yTop + 0.15f, 0), new Vector3(ex * 2, 0.3f, ez * 2), ceiling, new Color(0.45f, 0.45f, 0.46f), null, true);
+            float wallH = yTop - yBot;
+            b.Wall(new Vector3(-ex, yBot, -ez), new Vector3(ex, yBot, -ez), wallH, 0.5f, conc, wallCol);
+            b.Wall(new Vector3(ex, yBot, -ez), new Vector3(ex, yBot, ez), wallH, 0.5f, conc, wallCol);
+            b.Wall(new Vector3(ex, yBot, ez), new Vector3(-ex, yBot, ez), wallH, 0.5f, conc, wallCol);
+            b.Wall(new Vector3(-ex, yBot, ez), new Vector3(-ex, yBot, -ez), wallH, 0.5f, conc, wallCol);
+            for (int l = 0; l < Levels; l++)
             {
-                float x = (i - NX / 2f) * Pitch;
-                for (float z = -ez + 4f; z < ez - 2f; z += 8f) b.Box(new Vector3(x, Ht - 0.04f, z), new Vector3(0.25f, 0.06f, 1.4f), lamp, Color.white, null, false);
-                b.Cyl(new Vector3(x + 1.5f, Ht - 0.25f, -ez), new Vector3(x + 1.5f, Ht - 0.25f, ez), 0.07f, 0.07f, 8, metal, new Color(0.45f, 0.38f, 0.3f), false);
-                b.Cyl(new Vector3(x + 1.25f, Ht - 0.4f, -ez), new Vector3(x + 1.25f, Ht - 0.4f, ez), 0.05f, 0.05f, 8, metal, new Color(0.3f, 0.35f, 0.4f), false);
+                var holes = new List<Rect>();
+                foreach (var w in Wells) if (w.l == l) { var c = Cell(w.i, w.j, l); holes.Add(Rect.MinMaxRect(c.x - Room / 2f, c.z - 0.6f, c.x - Room / 2f + 1.85f, c.z + 3.6f)); }
+                float th = l == Levels - 1 ? 0.3f : Slab;
+                SlabWithHoles(LevelY(l), th, -ex, ex, -ez, ez, holes, floor);
             }
-            for (int j = 0; j <= NZ; j++)
+
+            // ---- per level: corridor lights, pipe runs, junction stripes
+            for (int l = 0; l < Levels; l++)
             {
-                float z = (j - NZ / 2f) * Pitch;
-                for (float x = -ex + 4f; x < ex - 2f; x += 8f) b.Box(new Vector3(x, Ht - 0.04f, z), new Vector3(1.4f, 0.06f, 0.25f), lamp, Color.white, null, false);
+                float y = LevelY(l);
+                for (int i = 0; i <= NX; i++)
+                {
+                    float x = (i - NX / 2f) * Pitch;
+                    for (float z = -ez + 4f; z < ez - 2f; z += 8f) b.Box(new Vector3(x, y + Ht - 0.04f, z), new Vector3(0.25f, 0.06f, 1.4f), lamp, Color.white, null, false);
+                    b.Cyl(new Vector3(x + 1.5f, y + Ht - 0.25f, -ez), new Vector3(x + 1.5f, y + Ht - 0.25f, ez), 0.07f, 0.07f, 8, metal, new Color(0.45f, 0.38f, 0.3f), false);
+                    b.Cyl(new Vector3(x + 1.25f, y + Ht - 0.4f, -ez), new Vector3(x + 1.25f, y + Ht - 0.4f, ez), 0.05f, 0.05f, 8, metal, new Color(0.3f, 0.35f, 0.4f), false);
+                }
+                for (int j = 0; j <= NZ; j++)
+                {
+                    float z = (j - NZ / 2f) * Pitch;
+                    for (float x = -ex + 4f; x < ex - 2f; x += 8f) b.Box(new Vector3(x, y + Ht - 0.04f, z), new Vector3(1.4f, 0.06f, 0.25f), lamp, Color.white, null, false);
+                }
+                for (int i = 0; i <= NX; i += 2)
+                    for (int j = 0; j <= NZ; j += 2)
+                    {
+                        var c = new Vector3((i - NX / 2f) * Pitch, y + 0.005f, (j - NZ / 2f) * Pitch);
+                        for (int s = 0; s < 4; s++) b.Box(c + Quaternion.Euler(0, s * 90, 0) * new Vector3(0, 0, 2.2f), new Vector3(3.6f, 0.008f, 0.18f), yellow, Color.white, Quaternion.Euler(0, s * 90, 0), false);
+                    }
+                // level markers painted on the corridor walls at the corners
+                foreach (var cpos in new[] { new Vector3(-ex + 0.27f, y + 2.2f, -ez + 6f), new Vector3(ex - 0.27f, y + 2.2f, ez - 6f) })
+                    b.Sign(cpos, Quaternion.Euler(0, cpos.x < 0 ? -90 : 90, 0), "LEVEL B" + (l + 1), new Color(0.85f, 0.7f, 0.15f), 0.4f);
             }
-            // rooms
-            var types = new List<string> { "armory", "vault", "generator", "server", "server" };
-            int cells = NX * NZ;
-            while (types.Count < cells) types.Add(b.Rng.Pick(new[] { "office", "office", "storage", "storage", "lab", "barracks" }));
-            for (int i = types.Count - 1; i > 0; i--) { int k = b.Rng.Range(0, i + 1); var t = types[i]; types[i] = types[k]; types[k] = t; }
+
+            // ---- rooms
             var pts = new List<Vector3>();
-            for (int i = 0; i < NX; i++)
-                for (int j = 0; j < NZ; j++)
-                {
-                    var c = new Vector3((i - (NX - 1) / 2f) * Pitch, 0, (j - (NZ - 1) / 2f) * Pitch);
-                    string type = types[i * NZ + j];
-                    BuildRoom(c, type, i, j, conc, wallCol, paint, metal, lamp, pts);
-                    // raiders in about a third of the rooms
-                    if (type != "vault" && b.Rng.Chance(0.34f)) Squad(c + new Vector3(b.Rng.Range(-1f, 1f), 0, -4.2f), b.Rng.Range(2, 4), type == "armory" || type == "generator");
-                }
+            for (int l = 0; l < Levels; l++)
+            {
+                var types = new List<string>();
+                if (l == 0) types.AddRange(new[] { "generator", "office", "barracks", "storage" });
+                else if (l == 1) types.AddRange(new[] { "vault", "armory", "server", "lab" });
+                else types.AddRange(new[] { "vault", "armory", "server", "server", "generator" });
+                var cells = new List<(int, int)>();
+                for (int i = 0; i < NX; i++) for (int j = 0; j < NZ; j++) if (WellAt(i, j, l) == null) cells.Add((i, j));
+                string[] fill = l == 0 ? new[] { "office", "office", "storage", "storage", "barracks", "lab" } : new[] { "office", "storage", "storage", "lab", "barracks", "server" };
+                while (types.Count < cells.Count) types.Add(b.Rng.Pick(fill));
+                for (int k = types.Count - 1; k > 0; k--) { int r = b.Rng.Range(0, k + 1); var t = types[k]; types[k] = types[r]; types[r] = t; }
+                int n = 0;
+                for (int i = 0; i < NX; i++)
+                    for (int j = 0; j < NZ; j++)
+                    {
+                        var c = Cell(i, j, l);
+                        string well = WellAt(i, j, l);
+                        string type = well ?? types[n++];
+                        BuildRoom(c, type, i, j, l, conc, wallCol, paint, metal, lamp, pts);
+                        if (type == "vault" || well != null) continue;
+                        // raiders: the guarded rooms often hold a bigger group, elsewhere the odd pair
+                        bool nest = type == "armory" || type == "server" || type == "generator" || type == "barracks";
+                        if (nest ? b.Rng.Chance(0.6f) : b.Rng.Chance(0.3f))
+                            Squad(c + new Vector3(b.Rng.Range(-1f, 1f), 0, -4.2f), nest ? b.Rng.Range(4, 6) : b.Rng.Range(2, 4), type == "armory" || type == "generator");
+                    }
+            }
+            foreach (var w in Wells) BuildStairwell(Cell(w.i, w.j, w.l), metal, conc, wallCol, yellow);
             ScatterLoot(pts, 0.9f);
-            // hazard stripes at the corridor junctions
-            for (int i = 0; i <= NX; i += 2)
-                for (int j = 0; j <= NZ; j += 2)
-                {
-                    var c = new Vector3((i - NX / 2f) * Pitch, 0.005f, (j - NZ / 2f) * Pitch);
-                    for (int s = 0; s < 4; s++) b.Box(c + Quaternion.Euler(0, s * 90, 0) * new Vector3(0, 0, 2.2f), new Vector3(3.6f, 0.008f, 0.18f), yellow, Color.white, Quaternion.Euler(0, s * 90, 0), false);
-                }
-            // player spawns round the edge, extracts deeper in (corridor junctions)
-            Spawn(new Vector3(-48, 0.05f, 40), 135); Spawn(new Vector3(48, 0.05f, -40), -45); Spawn(new Vector3(-16, 0.05f, -40), 0);
-            Spawn(new Vector3(16, 0.05f, 40), 180); Spawn(new Vector3(-48, 0.05f, -40), 45); Spawn(new Vector3(48, 0.05f, 40), -135);
-            AddExtract(new Vector3(0, 0, 24), "Freight Elevator");
-            AddExtract(new Vector3(-48, 0, -8), "Vent Shaft");
-            AddExtract(new Vector3(48, 0, 8), "Drainage Tunnel");
+
+            // ---- player spawns round the edge of B1; only two ways out
+            Spawn(new Vector3(-40, 0.05f, 32), 135); Spawn(new Vector3(40, 0.05f, -32), -45); Spawn(new Vector3(-8, 0.05f, -32), 0);
+            Spawn(new Vector3(8, 0.05f, 32), 180); Spawn(new Vector3(-40, 0.05f, -32), 45); Spawn(new Vector3(40, 0.05f, 32), -135);
+            AddExtract(new Vector3(8, 0, 0), "Freight Elevator (B1)");
+            AddExtract(new Vector3(-40, LevelY(2), -32), "Drainage Tunnel (B3)");
         }
 
-        void BuildRoom(Vector3 c, string type, int gi, int gj, Material conc, Color wallCol, Material paint, Material metal, Material lamp, List<Vector3> pts)
+        /// <summary>"stairs" if a stair goes down from this cell on level l, "landing" if one arrives here from above.</summary>
+        static string WellAt(int i, int j, int l)
+        {
+            foreach (var w in Wells)
+            {
+                if (w.i != i || w.j != j) continue;
+                if (w.l == l) return "stairs";
+                if (w.l + 1 == l) return "landing";
+            }
+            return null;
+        }
+
+        /// <summary>A floor slab (top at y) over the whole level, with rectangular openings left out.</summary>
+        void SlabWithHoles(float y, float th, float x0, float x1, float z0, float z1, List<Rect> holes, Material m)
+        {
+            var xs = new List<float> { x0, x1 }; var zs = new List<float> { z0, z1 };
+            foreach (var h in holes) { xs.Add(h.xMin); xs.Add(h.xMax); zs.Add(h.yMin); zs.Add(h.yMax); }
+            xs.Sort(); zs.Sort();
+            for (int zi = 0; zi < zs.Count - 1; zi++)
+            {
+                float za = zs[zi], zb = zs[zi + 1];
+                if (zb - za < 0.01f) continue;
+                float runStart = float.NaN;
+                for (int xi = 0; xi < xs.Count - 1; xi++)
+                {
+                    float xa = xs[xi], xb = xs[xi + 1];
+                    if (xb - xa < 0.01f) continue;
+                    var mid = new Vector2((xa + xb) / 2f, (za + zb) / 2f);
+                    bool hole = false; foreach (var h in holes) if (h.Contains(mid)) { hole = true; break; }
+                    if (!hole && float.IsNaN(runStart)) runStart = xa;
+                    bool last = xi == xs.Count - 2;
+                    if (!float.IsNaN(runStart) && (hole || last))
+                    {
+                        float end = hole ? xa : xb;
+                        B.Box(new Vector3((runStart + end) / 2f, y - th / 2f, (za + zb) / 2f), new Vector3(end - runStart, th, zb - za), m, Color.white, null, true, Synth.Surface.Concrete);
+                        runStart = float.NaN;
+                    }
+                }
+            }
+        }
+
+        /// <summary>A yellow safety railing from a to b: posts, a top rail and a mid rail, with a solid (invisible) barrier.</summary>
+        void Rail(Vector3 a, Vector3 b2, Material metal)
+        {
+            var b = B;
+            var d = b2 - a; float len = d.magnitude; var q = Quaternion.LookRotation(d / len, Vector3.up);
+            var col = new Color(0.85f, 0.68f, 0.1f);
+            foreach (float y in new[] { 1.0f, 0.5f }) b.Box(a + d * 0.5f + Vector3.up * y, new Vector3(0.05f, 0.05f, len), metal, col, q, false);
+            int posts = Mathf.Max(2, Mathf.CeilToInt(len / 1.1f) + 1);
+            for (int i = 0; i < posts; i++) b.Box(a + d * (i / (posts - 1f)) + Vector3.up * 0.5f, new Vector3(0.05f, 1.0f, 0.05f), metal, col, q, false);
+            b.Collider(a + d * 0.5f + Vector3.up * 0.55f, new Vector3(0.08f, 1.1f, len), q, Synth.Surface.Metal);
+        }
+
+        /// <summary>
+        /// The stair from the room at c (upper level) down to the same room on the level below: it runs along the west
+        /// wall, coming up through a railed opening in the upper floor; below, a wall closes the stair off into a shaft
+        /// you enter from the south.
+        /// </summary>
+        void BuildStairwell(Vector3 c, Material metal, Material conc, Color wallCol, Material yellow)
+        {
+            var b = B;
+            float h = Room / 2f;
+            float yU = c.y, yD = c.y - LevelH;
+            float sx = c.x - h + 0.95f;
+            b.Stairs(new Vector3(sx, yD, c.z - 2.8f), new Vector3(sx, yU, c.z + 3.6f), 1.6f, metal);
+            // railings round the opening upstairs (east and south sides; the stair comes up at the north end)
+            float rx = c.x - h + 1.88f;
+            Rail(new Vector3(rx, yU, c.z - 0.6f), new Vector3(rx, yU, c.z + 3.6f), metal);
+            Rail(new Vector3(c.x - h + 0.15f, yU, c.z - 0.6f), new Vector3(rx, yU, c.z - 0.6f), metal);
+            b.Box(new Vector3(c.x - h + 1.0f, yU + 0.004f, c.z + 4.3f), new Vector3(1.8f, 0.008f, 1.0f), yellow, Color.white, null, false);   // painted landing at the top
+            // the shaft below: a wall along the stair's open side, from the bottom step to the north wall
+            b.Wall(new Vector3(rx, yD, c.z - 2.0f), new Vector3(rx, yD, c.z + h), Ht, 0.15f, conc, wallCol);
+            int lvl = Mathf.RoundToInt(-yU / LevelH);
+            b.Sign(new Vector3(c.x - h + 1.0f, yU + 2.4f, c.z + h - 0.18f), Quaternion.identity, "DOWN TO B" + (lvl + 2), new Color(0.9f, 0.85f, 0.6f), 0.16f);
+            b.Sign(new Vector3(c.x - h + 0.17f, yD + 2.1f, c.z - 3.6f), Quaternion.Euler(0, -90, 0), "UP TO B" + (lvl + 1), new Color(0.9f, 0.85f, 0.6f), 0.16f);
+        }
+
+        void BuildRoom(Vector3 c, string type, int gi, int gj, int lvl, Material conc, Color wallCol, Material paint, Material metal, Material lamp, List<Vector3> pts)
         {
             var b = B;
             float h = Room / 2f;
@@ -526,6 +646,8 @@ namespace Rago
             for (int s = 0; s < 4; s++) doors[s] = b.Rng.Chance(0.55f);
             if (!doors[0] && !doors[1] && !doors[2] && !doors[3]) doors[b.Rng.Range(0, 4)] = true;
             if (type == "vault") { doors = new bool[4]; doors[0] = true; }
+            bool shaft = type == "stairs" || type == "landing";
+            if (shaft) { doors[3] = false; doors[0] = true; }   // the stair runs along the west wall; you reach it from the south
             var corners = new[] { c + new Vector3(-h, 0, -h), c + new Vector3(h, 0, -h), c + new Vector3(h, 0, h), c + new Vector3(-h, 0, h) };
             for (int s = 0; s < 4; s++)
             {
@@ -537,7 +659,7 @@ namespace Rago
                                                  (c + new Vector3(-h + 0.16f, 0.6f, 0), new Vector3(0.02f, 1.2f, Room - 0.4f)), (c + new Vector3(h - 0.16f, 0.6f, 0), new Vector3(0.02f, 1.2f, Room - 0.4f)) })
                 b.Box(pos, size, paint, Color.white, null, false);
             b.Box(c + new Vector3(0, Ht - 0.04f, 0), new Vector3(1.4f, 0.06f, 0.3f), lamp, Color.white, null, false);
-            string label = (char)('A' + gi) + (gj + 1).ToString() + "  " + type.ToUpper();
+            string label = "B" + (lvl + 1) + "-" + (char)('A' + gi) + (gj + 1).ToString() + "  " + (shaft ? "STAIRWELL" : type.ToUpper());
             for (int s = 0; s < 4; s++)
             {
                 if (!doors[s]) continue;
@@ -552,6 +674,7 @@ namespace Rago
             // floor spots along the walls, away from the doorways
             for (int s = 0; s < 4; s++)
             {
+                if (shaft && s != 1) continue;   // stairwells: loot only along the east wall
                 var a = corners[s]; var d = corners[(s + 1) % 4] - a; var inward = Vector3.Cross(d.normalized, Vector3.up);   // corners run anticlockwise: this points into the room
                 foreach (float t in new[] { 0.2f, 0.8f })
                 {
@@ -591,7 +714,7 @@ namespace Rago
                         foreach (float sx in new[] { -1f, 1f })
                         {
                             var bp = c + new Vector3(sx * (h - 0.6f), 0, bz);
-                            for (int lvl = 0; lvl < 2; lvl++) b.Box(bp + Vector3.up * (0.45f + lvl * 1.05f), new Vector3(0.9f, 0.12f, 2.0f), metal, new Color(0.32f, 0.35f, 0.3f), null, true, Synth.Surface.Metal);
+                            for (int bunk = 0; bunk < 2; bunk++) b.Box(bp + Vector3.up * (0.45f + bunk * 1.05f), new Vector3(0.9f, 0.12f, 2.0f), metal, new Color(0.32f, 0.35f, 0.3f), null, true, Synth.Surface.Metal);
                             foreach (float cz in new[] { -0.95f, 0.95f }) foreach (float cx in new[] { -0.42f, 0.42f }) b.Box(bp + new Vector3(cx, 0.85f, cz), new Vector3(0.05f, 1.7f, 0.05f), metal, new Color(0.25f, 0.25f, 0.25f), null, false);
                         }
                     if (b.Table(c, 0, new Vector2(1.6f, 0.9f), 0.76f)) DeskSpot(c, 0);

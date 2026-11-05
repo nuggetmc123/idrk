@@ -320,7 +320,7 @@ namespace Rago
             P("pack_expedition", "Expedition Pack", new Vector3(0.42f, 0.62f, 0.3f), 2, 4, E, 11000, new Color(0.22f, 0.3f, 0.4f), "Tall expedition pack with a hip belt and sleeping mat. Armor, SMGs and a lot of loot.");
             P("pack_mule", "Mule Hauler", new Vector3(0.5f, 0.74f, 0.34f), 2, 5, V, 22000, new Color(0.45f, 0.38f, 0.16f), "Vault-only. Hauling frame pack - even a rifle fits inside.");
 
-            M("key_vault", "Vault Keycard", ItemKind.Key, E, 14000, 0, new Color(0.85f, 0.15f, 0.12f), "Opens any raid vault: hold it to the card reader by the vault door. Often found in safes.");
+            M("key_vault", "Vault Keycard", ItemKind.Key, E, 14000, 0, new Color(0.85f, 0.15f, 0.12f), "Opens any raid vault: hold it to the card reader by the vault door. Found in safes and lying around on desks.");
         }
 
         static ArmorDef A(string id, string name, ArmorSlot slot, float prot, int style, Rarity r, int price, Color col, Color trim, string desc)
