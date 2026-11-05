@@ -302,6 +302,7 @@ namespace Rago
             var loose = new List<ItemData>();
             if (bunker != null) prof.stash = bunker.SaveStash();
             if (market != null) { foreach (var s in market.Stalls) s.SweepToStash(loose); if (market.Foreman != null) market.Foreman.SweepToStash(loose); }
+            foreach (var ss in new List<SellStation>(SellStation.All)) if (ss != null) ss.SweepToStash(loose);   // unsold loot left in an Exchange bin
             // anything lying around the hub goes back to the stash
             if (MapRoot != null)
                 foreach (var it in new List<Item>(Item.All))

@@ -37,7 +37,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 ## How the game works
 
 - **Bunker** is your private base. Everything you leave in it is saved automatically.
-  - **Main hall**: the raid terminal, a settings board and the lift to the Market.
+  - **Main hall**: the raid terminal, an **Exchange** sell counter next to the lift, and the lift to the Market.
   - **Armory** (through the north door): rifle rack, a pegboard and shelves for pistols, sights, mags, meds, loot and keys, a panel with your cash and ammo reserve, and a workbench.
   - **Armor Room** (through the east door): armor stands for helmets and vests, plus shelves for backpacks.
   - **Shooting range** (west tunnel) with hanging steel targets facing the firing line.
@@ -46,6 +46,8 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 - **First launch:** after a short LOADING screen you're in a dark registration room. Type your **callsign** on the terminal's keyboard (3-14 letters/numbers; on desktop, look at the screen and type) and press **CONFIRM** twice. The second press locks it in. **Your callsign can never be changed.** Every operator also has a 4-digit tag (for example REX#4821) so no two players ever show the same name; if two players with the same name and tag meet online, one of them is given a new tag automatically. Your callsign is shown on the steel nameplate in your bunker.
 - **Training:** your first visit to the bunker starts a short training. Glowing markers and a line of text at the bottom of your view walk you through it: draw, shoot, reload, open your backpack, put on armor, see your stash and find the raid terminal. Your progress is saved, and **SKIP TRAINING** on the nameplate ends it.
 - **Getting to the Market**: take the lift. In your bunker it's on the south wall (behind you when you spawn, under LIFT - MARKET). Press **CALL** on the panel next to it: the bell rings and the doors slide open. Walk in, and the doors close behind you and the lift goes up (or press GO UP inside). You arrive inside the Market's lift, which opens onto the Market. To go back, use the lift on the Market's east wall (LIFT - BUNKER) the same way.
+- **Selling: the Exchange.** A big orange-and-black SELL counter in the middle of the Market plaza (right in front of you when you step out of the lift) and another in your bunker's main hall. Put anything in the bin on the counter, check the receipt (each item shows the best price any Market trader pays for it) and press **SELL ALL**. Anything you leave in the bin goes back to your stash, unsold. The traders' own SELL trays still work too.
+- **Market layout**: a painted walkway with chevrons leads from the lift to the plaza and the Exchange; the four traders line the back wall under banners in their colours; Bruno the Foreman is on the west side facing the plaza; there are two fire-barrel lounges, vehicles and containers by the big door, crates stacked in the corners, bunting along the string lights and a notice board by the lift.
 - **Market** is a shared safe zone where players meet, with proximity voice chat. It has 4 NPC traders:
   - **Viktor** (rifles and shotguns)
   - **Mara** (sidearms, SMGs, holo sights, ammo, basic backpacks; also buys armor and bags)
@@ -84,7 +86,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   - **Jackpot** ($9,000-$45,000): cold wallet and gold idol, plus the vault-only gold bar, blue diamond and Crown Jewel.
 
   Pick something up and its name, rarity and value pop up.
-- **Bruno the Foreman** (Market, right side) gives you **bunker expansion jobs**. Each job needs certain items plus a cash fee. Put the items on his TURN IN tray and press TURN IN ITEMS. When everything is in, press PAY & BUILD. The new room opens in your bunker; until then its doorway is a sealed, hazard-striped door.
+- **Bruno the Foreman** (Market, west side) gives you **bunker expansion jobs**. Each job needs certain items plus a cash fee. Put the items on his TURN IN tray and press TURN IN ITEMS. When everything is in, press PAY & BUILD. The new room opens in your bunker; until then its doorway is a sealed, hazard-striped door.
 
   | # | Job | Bring | Fee | Unlocks |
   |---|---|---|---|---|
