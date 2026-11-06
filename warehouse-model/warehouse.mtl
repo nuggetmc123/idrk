@@ -26,3 +26,39 @@ Ns 20
 d 1
 illum 2
 
+newmtl GarageDoor
+Kd 0.550 0.570 0.580
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Steel
+Kd 0.120 0.120 0.130
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl ShelfFrame
+Kd 0.080 0.200 0.550
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Wood
+Kd 0.450 0.280 0.120
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl LampBulb
+Kd 1.000 0.920 0.750
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Ke 1.000 0.850 0.600
+
