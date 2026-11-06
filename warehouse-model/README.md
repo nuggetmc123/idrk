@@ -21,29 +21,104 @@ Size: 18 m wide × 26 m long, 6 m walls, 7.6 m to the roof peak. Units are meter
 ![Office and bathroom](preview_rooms.jpg)
 ![Ladder side](preview_back.jpg)
 
-## What's in it (every piece is its own named object)
+## What's in it
 
-"Left" and "right" mean as seen standing outside, facing that wall. `LeftWall` is on
+Every piece is its own object, named after its shape the way Blender names things:
+`Cube`, `Cube.001`, `Cube.002` and so on, plus `Triangle` and `Triangle.001` for the
+two triangular wall ends under the roof peak. Pieces built from several boxes (like a
+shelf, the ladder or the desk) are one object each, like cubes joined in Blender. In the
+`.blend`, `.fbx` and `.glb` files they all sit under one parent object called `Empty`.
+
+The building:
+- **Size:** 18 m × 26 m, with 6 m walls.
+- **Garage door:** in the front wall, rolled up so you can walk under it.
+- **Huge side opening:** 9 m × 4.3 m, in the left wall.
+- **Small door:** in the back wall.
+- **Ladder:** up to the roof, on the outside of the right wall.
+- **Shelves:** 9 units.
+- **Office and bathroom:** in the back-left corner.
+
+"Left" and "right" mean as seen standing outside, facing that wall. The left wall is on
 your left when you face the garage door.
 
-- **Building:** `Floor`, `Roof_Left`, `Roof_Right`.
-- **Front wall:** `FrontWall_LeftOfDoor`, `FrontWall_RightOfDoor`, `FrontWall_AboveDoor`, `FrontWall_Gable`.
-- **Back wall** (it has the small door): the same four pieces, named `BackWall_…`.
-- **Side walls:**
-  - Left wall: `LeftWall_LeftOfOpening` and `LeftWall_RightOfOpening` (with the huge open doorway between them), `LeftWall_AboveWindows`, and `LeftWall_WindowPost_1` … `_7`.
-  - Right wall: `RightWall_BelowWindows`, `RightWall_AboveWindows`, and `RightWall_WindowPost_1` … `_7`.
-- **Side opening:** a 9 m × 4.3 m open doorway in the left wall, framed by `SideOpeningFrame_Left`, `SideOpeningFrame_Right` and `SideOpeningFrame_Top`.
-- **Garage door:**
-  - `GarageDoor` is rolled up to 2.4 m, so you can walk under it. Move it down 2.4 m to close it.
-  - `GarageDoor_Track_Left`, `GarageDoor_Track_Right`, `GarageDoor_RollBox`.
-  - `DoorFrame_Left`, `DoorFrame_Right`, `DoorFrame_Top` (the yellow trim).
-- **Roof access:** `RoofLadder`, on the outside of the right wall.
-- **Shelves:** `Shelf_RightWall_1` … `_5` and `Shelf_Middle_1` … `_4` (9 units, 4 shelf levels each).
-- **Office and bathroom** (back-left corner, 3 m walls, with a flat ceiling you can climb onto):
-  - Walls: `Office_FrontWall_…` (a doorway and a window), `Bathroom_FrontWall_…` (a doorway), `Office_Bathroom_Wall`, `Bathroom_SideWall`, `Rooms_Ceiling`.
-  - Floors: `Office_Floor` (carpet), `Bathroom_Floor` (tile).
-  - Office: `Office_Desk`, `Office_Computer`, `Office_Chair`, `Office_FilingCabinet`.
-  - Bathroom: `Bathroom_Toilet`, `Bathroom_Sink`, `Bathroom_Mirror`.
+<details>
+<summary>Which object is which</summary>
+
+| Object | What it is |
+| --- | --- |
+| `Cube` | Warehouse floor |
+| `Cube.001` | Front wall, left of the garage door |
+| `Cube.002` | Front wall, right of the garage door |
+| `Cube.003` | Front wall, above the garage door |
+| `Cube.004` | Back wall, right of the small door |
+| `Cube.005` | Back wall, left of the small door |
+| `Cube.006` | Back wall, above the small door |
+| `Cube.007` | Left wall, left of the huge side opening |
+| `Cube.008` | Left wall, right of the huge side opening |
+| `Cube.009` | Right wall, below the windows |
+| `Cube.010` | Left wall, strip above the windows |
+| `Cube.011` | Left wall, post between windows #1 |
+| `Cube.012` | Left wall, post between windows #2 |
+| `Cube.013` | Left wall, post between windows #3 |
+| `Cube.014` | Left wall, post between windows #4 |
+| `Cube.015` | Left wall, post between windows #5 |
+| `Cube.016` | Left wall, post between windows #6 |
+| `Cube.017` | Left wall, post between windows #7 |
+| `Cube.018` | Right wall, strip above the windows |
+| `Cube.019` | Right wall, post between windows #1 |
+| `Cube.020` | Right wall, post between windows #2 |
+| `Cube.021` | Right wall, post between windows #3 |
+| `Cube.022` | Right wall, post between windows #4 |
+| `Cube.023` | Right wall, post between windows #5 |
+| `Cube.024` | Right wall, post between windows #6 |
+| `Cube.025` | Right wall, post between windows #7 |
+| `Triangle` | Front wall, triangle under the roof peak |
+| `Triangle.001` | Back wall, triangle under the roof peak |
+| `Cube.026` | Roof, left half |
+| `Cube.027` | Roof, right half |
+| `Cube.028` | Yellow garage door frame, left side |
+| `Cube.029` | Yellow garage door frame, right side |
+| `Cube.030` | Yellow garage door frame, top |
+| `Cube.031` | Yellow side opening frame, left side |
+| `Cube.032` | Yellow side opening frame, right side |
+| `Cube.033` | Yellow side opening frame, top |
+| `Cube.034` | **Garage door** (rolled up 2.4 m; move it down 2.4 m to close it) |
+| `Cube.035` | Garage door track, left |
+| `Cube.036` | Garage door track, right |
+| `Cube.037` | Garage door roll box (above the door, inside) |
+| `Cube.038` | **Ladder** to the roof (outside the right wall) |
+| `Cube.039` | **Shelf** #1 in the row along the right wall |
+| `Cube.040` | **Shelf** #2 in the row along the right wall |
+| `Cube.041` | **Shelf** #3 in the row along the right wall |
+| `Cube.042` | **Shelf** #4 in the row along the right wall |
+| `Cube.043` | **Shelf** #5 in the row along the right wall |
+| `Cube.044` | **Shelf** #1 in the middle row |
+| `Cube.045` | **Shelf** #2 in the middle row |
+| `Cube.046` | **Shelf** #3 in the middle row |
+| `Cube.047` | **Shelf** #4 in the middle row |
+| `Cube.048` | Office front wall, section 1 |
+| `Cube.049` | Office front wall, above the window |
+| `Cube.050` | Office front wall, below the window |
+| `Cube.051` | Office front wall, section 2 |
+| `Cube.052` | Office front wall, above the doorway |
+| `Cube.053` | Office front wall, section 3 |
+| `Cube.054` | Bathroom front wall, section 1 |
+| `Cube.055` | Bathroom front wall, above the doorway |
+| `Cube.056` | Bathroom front wall, section 2 |
+| `Cube.057` | Wall between the office and the bathroom |
+| `Cube.058` | Bathroom side wall (facing the warehouse) |
+| `Cube.059` | Ceiling on top of the office and bathroom (climbable) |
+| `Cube.060` | Office carpet |
+| `Cube.061` | Bathroom floor tiles |
+| `Cube.062` | **Desk** |
+| `Cube.063` | **Computer** |
+| `Cube.064` | **Chair** |
+| `Cube.065` | **Filing cabinet** |
+| `Cube.066` | **Toilet** |
+| `Cube.067` | **Sink** |
+| `Cube.068` | **Mirror** |
+
+</details>
 
 ## Materials and textures
 

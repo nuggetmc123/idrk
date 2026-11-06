@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generates a walk-in warehouse as warehouse.glb and warehouse.obj (+ .mtl), using the
 textures in textures/ (made by make_textures.py).
-Every piece is its own named object (Floor, GarageDoor, RoofLadder, Office_Desk, Bathroom_Toilet, ...).
+Every piece is its own object, named after its shape (Cube, Cube.001, ..., Triangle, Triangle.001).
 
 No dependencies: run `python3 make_warehouse.py`. Change the numbers below to resize it.
 Units are meters, +Y is up, the floor's top surface is at y = 0 and the building is
@@ -76,6 +76,7 @@ def centroid(pts): return mul(tuple(map(sum, zip(*pts))), 1/len(pts))
 class Mesh:
     def __init__(self, tile=1.0):
         self.pos, self.nrm, self.uv, self.idx, self.tile = [], [], [], [], tile
+        self.shape = "Cube"                      # what the piece gets named in the files
     def face(self, pts, inside):
         """Adds a flat convex polygon, wound so it faces away from the point `inside`."""
         n = norm(cross(sub(pts[1], pts[0]), sub(pts[2], pts[0])))
@@ -112,6 +113,7 @@ class Mesh:
 
     def prism_z(self, poly, z0, z1):
         """Extrudes a convex (x, y) polygon from z0 to z1."""
+        if len(poly) == 3: self.shape = "Triangle"
         mid = centroid([(x, y, (z0+z1)/2) for x, y in poly])
         self.face([(x, y, z1) for x, y in poly], mid)
         self.face([(x, y, z0) for x, y in poly], mid)
@@ -308,6 +310,17 @@ obj("Bathroom_Mirror", "Mirror").box(rx1 - it - 0.02, rx1 - it, 1.2, 1.9, sz - 0
 # ---- writers ----------------------------------------------------------------
 here = os.path.dirname(os.path.abspath(__file__))
 
+# In the exported files every object is named after its shape, the way Blender names new
+# objects: Cube, Cube.001, Cube.002, ... and Triangle, Triangle.001 for the gable ends.
+# (The descriptive names above are only used inside this script and in the README's list.)
+export_name, _count = {}, {}
+for name, parts in objects.items():
+    shape = "Triangle" if any(m.shape == "Triangle" for m in parts.values()) else "Cube"
+    k = _count.get(shape, 0)
+    export_name[name] = shape if k == 0 else f"{shape}.{k:03d}"
+    _count[shape] = k + 1
+ROOT_NAME = "Empty"                              # the parent object that holds everything
+
 def write_obj():
     with open(os.path.join(here, "warehouse.mtl"), "w") as m:
         for name, (color, metal, rough, textured, tile) in MATERIALS.items():
@@ -322,7 +335,7 @@ def write_obj():
                 "mtllib warehouse.mtl\n")
         off = 1
         for name, parts in objects.items():
-            o.write(f"o {name}\n")
+            o.write(f"o {export_name[name]}\n")
             for material, mesh in parts.items():
                 o.write(f"usemtl {material}\n")
                 o.writelines(f"v {p[0]:.4f} {p[1]:.4f} {p[2]:.4f}\n" for p in mesh.pos)
@@ -381,13 +394,13 @@ def write_glb():
                     "TEXCOORD_0": acc([c for uv in mesh.uv for c in uv], "f", 5126, "VEC2", 34962)},
                 "indices": acc(mesh.idx, "I", 5125, "SCALAR", 34963),
                 "material": mat_index[material]})
-        gl_meshes.append({"name": name, "primitives": prims})
-        node = {"name": name, "mesh": len(gl_meshes)-1, "translation": ctr}
+        gl_meshes.append({"name": export_name[name], "primitives": prims})
+        node = {"name": export_name[name], "mesh": len(gl_meshes)-1, "translation": ctr}
         nodes.append(node)
     while len(bin_) % 4: bin_.append(0)
     doc = {"asset": {"version": "2.0", "generator": "make_warehouse.py"},
            "scene": 0, "scenes": [{"name": "Warehouse", "nodes": [len(nodes)]}],
-           "nodes": nodes + [{"name": "Warehouse", "children": list(range(len(nodes)))}],
+           "nodes": nodes + [{"name": ROOT_NAME, "children": list(range(len(nodes)))}],
            "meshes": gl_meshes, "materials": mats, "accessors": accs,
            "images": images, "textures": textures,
            "samplers": [{"magFilter": 9729, "minFilter": 9987, "wrapS": 10497, "wrapT": 10497}],
@@ -403,4 +416,4 @@ write_obj()
 write_glb()
 print(f"wrote warehouse.glb, warehouse.obj, warehouse.mtl: {len(objects)} objects")
 for name, parts in objects.items():
-    print(f"  {name:28s} {', '.join(parts):22s} {sum(len(m.idx) for m in parts.values())//3} tris")
+    print(f"  {export_name[name]:14s} {name:28s} {', '.join(parts)}")
