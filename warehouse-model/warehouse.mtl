@@ -1,0 +1,28 @@
+newmtl Concrete
+Kd 0.420 0.420 0.400
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl MetalWall
+Kd 0.200 0.300 0.400
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Roof
+Kd 0.300 0.300 0.320
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Trim
+Kd 0.800 0.550 0.080
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
