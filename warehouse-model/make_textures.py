@@ -4,15 +4,17 @@
 Needs numpy and Pillow (`pip install numpy pillow`). Run `python3 make_textures.py`,
 then `python3 make_warehouse.py` to rebuild the model with them.
 
-Each material gets NAME_color.jpg and NAME_normal.jpg (OpenGL-style normal map, which is
+Each material gets <Name>_Color.jpg and <Name>_Normal.jpg (names in texture_names.py) (OpenGL-style normal map, which is
 what glTF, Blender and Unity expect). Everything is made from filtered noise in Fourier
 space, so every texture tiles with no visible seams.
 """
 import os
 import numpy as np
 from PIL import Image
+from texture_names import color_file, normal_file
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "textures")
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(HERE, "textures")
 rng = np.random.default_rng(7)
 
 # ---- helpers ----------------------------------------------------------------
@@ -58,9 +60,9 @@ def save(name, color, height, strength):
     os.makedirs(OUT, exist_ok=True)
     rgb = np.clip(color, 0, 1)
     Image.fromarray((rgb * 255 + 0.5).astype(np.uint8)).save(
-        os.path.join(OUT, f"{name}_color.jpg"), quality=88, optimize=True)
+        os.path.join(HERE, color_file(name)), quality=88, optimize=True)
     Image.fromarray((normal_map(height, strength) * 255 + 0.5).astype(np.uint8)).save(
-        os.path.join(OUT, f"{name}_normal.jpg"), quality=92, optimize=True)
+        os.path.join(HERE, normal_file(name)), quality=92, optimize=True)
     print("wrote", name)
 
 def top(x, fraction, soft=0.05):

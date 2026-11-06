@@ -10,7 +10,7 @@ a ladder up to the roof.
 | `warehouse.fbx` | **Unity**: drag it into your Assets folder. |
 | `warehouse.glb` | Blender (File → Import → glTF 2.0), Bevy/Rust, Godot, or Unity with glTFast. |
 | `warehouse.obj` + `warehouse.mtl` + `textures/` | Any 3D program. Keep them together. |
-| `make_textures.py` | Regenerates the textures in `textures/`. |
+| `make_textures.py` | Regenerates the textures in `textures/` (names come from `texture_names.py`). |
 | `make_warehouse.py` | Regenerates the `.glb`, `.obj` and `.mtl`. Change the numbers at the top, then run `python3 make_warehouse.py`. |
 
 Size: 18 m wide × 26 m long, 6 m walls, 7.6 m to the roof peak. Units are meters.
@@ -127,22 +127,30 @@ bumps and ridges in the light. The textures tile seamlessly and live in `texture
 They're already packed inside `warehouse.blend`, `warehouse.fbx` and `warehouse.glb`, so
 you only need the `textures/` folder for the `.obj`.
 
-| Material | Looks like | Used on |
+![All textures, labeled](texture_sheet.jpg)
+
+Each texture file says what it is: `textures/<Name>_Color.jpg` is the picture, and
+`textures/<Name>_Normal.jpg` is its normal map.
+
+| Texture files | Material | Used on |
 | --- | --- | --- |
-| `MetalWall` | blue-grey corrugated steel with rain streaks | outside walls |
-| `Roof` | galvanized corrugated roofing with a few rust spots | roof |
-| `Concrete` | sealed concrete with stains, scuffs and a cut line every 4 m | warehouse floor |
-| `GarageDoor` | white steel sectional door | garage door |
-| `Steel` | galvanized / brushed steel | ladder, garage door tracks and roll box, sink tap |
-| `Trim` | worn safety-yellow paint | door frames, cabinet handles |
-| `ShelfFrame` | chipped orange pallet-rack paint | shelf frames |
-| `Wood` | plywood with grain | shelf boards, desk |
-| `OfficeWall`, `RoomWall` | painted drywall | office walls, ceiling of the rooms |
-| `BathroomWall` | white 15 cm wall tiles | bathroom walls |
-| `Tile` | grey 30 cm floor tiles | bathroom floor |
-| `Carpet` | dark office carpet | office floor |
-| `Cabinet` | old beige-grey painted metal | filing cabinet |
-| `Porcelain`, `Plastic`, `Mirror` | plain colors | toilet and sink, chair and computer, mirror |
+| `Corrugated_Metal_Wall` | `MetalWall` | outside walls |
+| `Galvanized_Metal_Roof` | `Roof` | roof |
+| `Concrete_Floor` | `Concrete` | warehouse floor (cut line every 4 m) |
+| `Garage_Door_Panels` | `GarageDoor` | garage door |
+| `Galvanized_Steel` | `Steel` | ladder, garage door tracks and roll box, sink tap |
+| `Yellow_Safety_Paint` | `Trim` | door frames, cabinet handles |
+| `Orange_Shelf_Paint` | `ShelfFrame` | shelf frames |
+| `Plywood` | `Wood` | shelf boards, desk |
+| `Painted_Drywall` | `OfficeWall` | office walls |
+| `White_Ceiling` | `RoomWall` | ceiling on top of the office and bathroom |
+| `White_Wall_Tiles` | `BathroomWall` | bathroom walls |
+| `Grey_Floor_Tiles` | `Tile` | bathroom floor |
+| `Office_Carpet` | `Carpet` | office floor |
+| `Beige_Metal_Paint` | `Cabinet` | filing cabinet |
+
+`Porcelain` (toilet, sink), `Plastic` (chair, computer) and `Mirror` are plain colors with
+no texture. The file names are set in `texture_names.py`.
 
 To change how a texture looks, edit `make_textures.py` and run it (it needs
 `pip install numpy pillow`). Then run `python3 make_warehouse.py`.

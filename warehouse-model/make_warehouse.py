@@ -8,6 +8,7 @@ Units are meters, +Y is up, the floor's top surface is at y = 0 and the building
 centered on x = 0, z = 0. The garage door faces +Z.
 """
 import json, math, os, struct
+from texture_names import color_file, normal_file
 
 # ---- size settings (meters) -------------------------------------------------
 WIDTH = 18.0          # along X
@@ -328,7 +329,7 @@ def write_obj():
             m.write(f"newmtl {name}\nKd {rgb[0]:.3f} {rgb[1]:.3f} {rgb[2]:.3f}\nKs 0.1 0.1 0.1\nNs 20\nd 1\nillum 2\n"
                     f"Pr {rough:.2f}\nPm {metal:.2f}\n")
             if textured:
-                m.write(f"map_Kd textures/{name}_color.jpg\nmap_Bump -bm 1.0 textures/{name}_normal.jpg\n")
+                m.write(f"map_Kd {color_file(name)}\nmap_Bump -bm 1.0 {normal_file(name)}\n")
             m.write("\n")
     with open(os.path.join(here, "warehouse.obj"), "w") as o:
         o.write("# Walk-in warehouse. Meters, Y up, floor top at y=0.\n"
@@ -375,8 +376,8 @@ def write_glb():
         m = {"name": name, "pbrMetallicRoughness": {
              "baseColorFactor": [*rgb, 1.0], "metallicFactor": metal, "roughnessFactor": rough}}
         if textured:
-            m["pbrMetallicRoughness"]["baseColorTexture"] = {"index": texture(f"textures/{name}_color.jpg")}
-            m["normalTexture"] = {"index": texture(f"textures/{name}_normal.jpg")}
+            m["pbrMetallicRoughness"]["baseColorTexture"] = {"index": texture(color_file(name))}
+            m["normalTexture"] = {"index": texture(normal_file(name))}
         mats.append(m)
     for name, parts in objects.items():
         pts = [p for mesh in parts.values() for p in mesh.pos]

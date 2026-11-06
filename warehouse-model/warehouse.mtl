@@ -6,8 +6,8 @@ d 1
 illum 2
 Pr 0.85
 Pm 0.00
-map_Kd textures/Concrete_color.jpg
-map_Bump -bm 1.0 textures/Concrete_normal.jpg
+map_Kd textures/Concrete_Floor_Color.jpg
+map_Bump -bm 1.0 textures/Concrete_Floor_Normal.jpg
 
 newmtl MetalWall
 Kd 1.000 1.000 1.000
@@ -17,8 +17,8 @@ d 1
 illum 2
 Pr 0.55
 Pm 0.30
-map_Kd textures/MetalWall_color.jpg
-map_Bump -bm 1.0 textures/MetalWall_normal.jpg
+map_Kd textures/Corrugated_Metal_Wall_Color.jpg
+map_Bump -bm 1.0 textures/Corrugated_Metal_Wall_Normal.jpg
 
 newmtl Roof
 Kd 1.000 1.000 1.000
@@ -28,8 +28,8 @@ d 1
 illum 2
 Pr 0.50
 Pm 0.40
-map_Kd textures/Roof_color.jpg
-map_Bump -bm 1.0 textures/Roof_normal.jpg
+map_Kd textures/Galvanized_Metal_Roof_Color.jpg
+map_Bump -bm 1.0 textures/Galvanized_Metal_Roof_Normal.jpg
 
 newmtl Trim
 Kd 1.000 1.000 1.000
@@ -39,8 +39,8 @@ d 1
 illum 2
 Pr 0.55
 Pm 0.10
-map_Kd textures/Trim_color.jpg
-map_Bump -bm 1.0 textures/Trim_normal.jpg
+map_Kd textures/Yellow_Safety_Paint_Color.jpg
+map_Bump -bm 1.0 textures/Yellow_Safety_Paint_Normal.jpg
 
 newmtl GarageDoor
 Kd 1.000 1.000 1.000
@@ -50,8 +50,8 @@ d 1
 illum 2
 Pr 0.45
 Pm 0.20
-map_Kd textures/GarageDoor_color.jpg
-map_Bump -bm 1.0 textures/GarageDoor_normal.jpg
+map_Kd textures/Garage_Door_Panels_Color.jpg
+map_Bump -bm 1.0 textures/Garage_Door_Panels_Normal.jpg
 
 newmtl Steel
 Kd 1.000 1.000 1.000
@@ -61,8 +61,8 @@ d 1
 illum 2
 Pr 0.45
 Pm 0.60
-map_Kd textures/Steel_color.jpg
-map_Bump -bm 1.0 textures/Steel_normal.jpg
+map_Kd textures/Galvanized_Steel_Color.jpg
+map_Bump -bm 1.0 textures/Galvanized_Steel_Normal.jpg
 
 newmtl ShelfFrame
 Kd 1.000 1.000 1.000
@@ -72,8 +72,8 @@ d 1
 illum 2
 Pr 0.50
 Pm 0.10
-map_Kd textures/ShelfFrame_color.jpg
-map_Bump -bm 1.0 textures/ShelfFrame_normal.jpg
+map_Kd textures/Orange_Shelf_Paint_Color.jpg
+map_Bump -bm 1.0 textures/Orange_Shelf_Paint_Normal.jpg
 
 newmtl Wood
 Kd 1.000 1.000 1.000
@@ -83,8 +83,8 @@ d 1
 illum 2
 Pr 0.75
 Pm 0.00
-map_Kd textures/Wood_color.jpg
-map_Bump -bm 1.0 textures/Wood_normal.jpg
+map_Kd textures/Plywood_Color.jpg
+map_Bump -bm 1.0 textures/Plywood_Normal.jpg
 
 newmtl RoomWall
 Kd 1.000 1.000 1.000
@@ -94,8 +94,8 @@ d 1
 illum 2
 Pr 0.90
 Pm 0.00
-map_Kd textures/RoomWall_color.jpg
-map_Bump -bm 1.0 textures/RoomWall_normal.jpg
+map_Kd textures/White_Ceiling_Color.jpg
+map_Bump -bm 1.0 textures/White_Ceiling_Normal.jpg
 
 newmtl OfficeWall
 Kd 1.000 1.000 1.000
@@ -105,8 +105,8 @@ d 1
 illum 2
 Pr 0.90
 Pm 0.00
-map_Kd textures/OfficeWall_color.jpg
-map_Bump -bm 1.0 textures/OfficeWall_normal.jpg
+map_Kd textures/Painted_Drywall_Color.jpg
+map_Bump -bm 1.0 textures/Painted_Drywall_Normal.jpg
 
 newmtl BathroomWall
 Kd 1.000 1.000 1.000
@@ -116,8 +116,8 @@ d 1
 illum 2
 Pr 0.25
 Pm 0.00
-map_Kd textures/BathroomWall_color.jpg
-map_Bump -bm 1.0 textures/BathroomWall_normal.jpg
+map_Kd textures/White_Wall_Tiles_Color.jpg
+map_Bump -bm 1.0 textures/White_Wall_Tiles_Normal.jpg
 
 newmtl Carpet
 Kd 1.000 1.000 1.000
@@ -127,8 +127,8 @@ d 1
 illum 2
 Pr 1.00
 Pm 0.00
-map_Kd textures/Carpet_color.jpg
-map_Bump -bm 1.0 textures/Carpet_normal.jpg
+map_Kd textures/Office_Carpet_Color.jpg
+map_Bump -bm 1.0 textures/Office_Carpet_Normal.jpg
 
 newmtl Tile
 Kd 1.000 1.000 1.000
@@ -138,8 +138,8 @@ d 1
 illum 2
 Pr 0.30
 Pm 0.00
-map_Kd textures/Tile_color.jpg
-map_Bump -bm 1.0 textures/Tile_normal.jpg
+map_Kd textures/Grey_Floor_Tiles_Color.jpg
+map_Bump -bm 1.0 textures/Grey_Floor_Tiles_Normal.jpg
 
 newmtl Cabinet
 Kd 1.000 1.000 1.000
@@ -149,8 +149,8 @@ d 1
 illum 2
 Pr 0.50
 Pm 0.30
-map_Kd textures/Cabinet_color.jpg
-map_Bump -bm 1.0 textures/Cabinet_normal.jpg
+map_Kd textures/Beige_Metal_Paint_Color.jpg
+map_Bump -bm 1.0 textures/Beige_Metal_Paint_Normal.jpg
 
 newmtl Porcelain
 Kd 0.847 0.847 0.807
