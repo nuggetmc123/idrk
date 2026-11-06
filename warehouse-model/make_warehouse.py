@@ -31,23 +31,35 @@ SHELF_UNIT_LEN = 2.5
 SHELF_LEVELS = [0.15, 1.05, 1.95, 2.85]   # height of each shelf board
 TILE = 2.0                # texture repeat size for UVs
 
+# Colors are normal hex colors (like in any color picker). Metallic is kept low so the
+# colors stay bright in game engines that have no reflections set up.
 MATERIALS = {
-    #  name        base color (linear RGB)  metallic roughness  emission
-    "Concrete":   ((0.42, 0.42, 0.40), 0.0, 0.95, None),
-    "MetalWall":  ((0.20, 0.30, 0.40), 0.6, 0.55, None),
-    "Roof":       ((0.30, 0.30, 0.32), 0.7, 0.50, None),
-    "Trim":       ((0.80, 0.55, 0.08), 0.3, 0.60, None),
-    "GarageDoor": ((0.55, 0.57, 0.58), 0.7, 0.45, None),
-    "Steel":      ((0.12, 0.12, 0.13), 0.8, 0.40, None),
-    "ShelfFrame": ((0.08, 0.20, 0.55), 0.5, 0.50, None),
-    "Wood":       ((0.45, 0.28, 0.12), 0.0, 0.80, None),
-    "RoomWall":   ((0.75, 0.72, 0.65), 0.0, 0.90, None),
-    "Carpet":     ((0.12, 0.16, 0.22), 0.0, 1.00, None),
-    "Tile":       ((0.70, 0.74, 0.76), 0.0, 0.35, None),
-    "Porcelain":  ((0.90, 0.90, 0.88), 0.0, 0.20, None),
-    "Plastic":    ((0.04, 0.04, 0.05), 0.0, 0.60, None),
-    "Mirror":     ((0.85, 0.90, 0.95), 1.0, 0.05, None),
+    #  name          color      metallic roughness  glows
+    "Concrete":    ("#A4A49C", 0.0, 0.95, False),   # warehouse floor
+    "MetalWall":   ("#2E86DE", 0.1, 0.60, False),   # outside walls (blue)
+    "Roof":        ("#D63031", 0.1, 0.55, False),   # roof (red)
+    "Trim":        ("#FDCB2E", 0.0, 0.50, False),   # door frames, ladder, handles (yellow)
+    "GarageDoor":  ("#F0F3F4", 0.1, 0.45, False),   # roll-up door (white)
+    "Steel":       ("#4B5563", 0.3, 0.45, False),   # door tracks, roll box, tap
+    "ShelfFrame":  ("#F2711C", 0.0, 0.55, False),   # shelf uprights and beams (orange)
+    "Wood":        ("#C68642", 0.0, 0.80, False),   # shelf boards, desk
+    "RoomWall":    ("#F5F0E6", 0.0, 0.90, False),   # ceiling of the office/bathroom block
+    "OfficeWall":  ("#7BD389", 0.0, 0.90, False),   # office walls (green)
+    "BathroomWall":("#74C0FC", 0.0, 0.90, False),   # bathroom walls (light blue)
+    "Carpet":      ("#7E3F8F", 0.0, 1.00, False),   # office floor (purple)
+    "Tile":        ("#E3EEF2", 0.0, 0.35, False),   # bathroom floor
+    "Porcelain":   ("#FFFFFF", 0.0, 0.20, False),   # toilet, sink
+    "Plastic":     ("#22252B", 0.0, 0.60, False),   # chair, computer
+    "Cabinet":     ("#8395A7", 0.2, 0.50, False),   # filing cabinet
+    "Mirror":      ("#DDEBF5", 1.0, 0.05, False),   # bathroom mirror
 }
+
+def linear(hex_color):
+    """'#RRGGBB' (sRGB, as color pickers show it) -> linear RGB, which the file formats store."""
+    def ch(c):
+        c = int(c, 16) / 255
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    return tuple(ch(hex_color[i:i+2]) for i in (1, 3, 5))
 
 # ---- geometry helpers -------------------------------------------------------
 def add(a, b): return (a[0]+b[0], a[1]+b[1], a[2]+b[2])
@@ -190,7 +202,7 @@ obj("GarageDoor_RollBox", "Steel").box(-bw/2-0.3, bw/2+0.3, bh, bh+0.6, gz-0.6, 
 # ---- ladder up to the roof, outside the right wall ----------------------------
 lx = hw + OVERHANG + 0.15                        # just past the roof's edge
 lz = -hd + 3.5
-ladder = obj("RoofLadder", "Steel")
+ladder = obj("RoofLadder", "Trim")
 top = eave_y + 1.1                               # rails stick up past the roof edge to grab
 for dz in (-0.25, 0.25):
     ladder.box(lx-0.03, lx+0.03, 0, top, lz+dz-0.03, lz+dz+0.03)
@@ -226,6 +238,7 @@ mx = rx0 + (rx1 - rx0) * 0.62                    # center of the office/bathroom
 fz0, fz1 = rz1 - it, rz1                         # front wall's z range
 
 def front_wall(prefix, a, b, door_x, window_x=None):
+    wall = f"{prefix}Wall"                       # OfficeWall / BathroomWall material
     """Front wall of a room from x=a to x=b, with a doorway (0.9 x 2.1) and maybe a window."""
     holes = [("Door", door_x - 0.45, door_x + 0.45, 0.0, 2.1)]
     if window_x is not None:
@@ -234,17 +247,18 @@ def front_wall(prefix, a, b, door_x, window_x=None):
     x, k = a, 0
     for label, h0, h1, y0, y1 in holes:
         k += 1
-        obj(f"{prefix}_FrontWall_Section_{k}", "RoomWall").box(x, h0, 0, ROOM_H, fz0, fz1)
-        obj(f"{prefix}_FrontWall_Above{label}", "RoomWall").box(h0, h1, y1, ROOM_H, fz0, fz1)
+        obj(f"{prefix}_FrontWall_Section_{k}", wall).box(x, h0, 0, ROOM_H, fz0, fz1)
+        obj(f"{prefix}_FrontWall_Above{label}", wall).box(h0, h1, y1, ROOM_H, fz0, fz1)
         if y0 > 0:
-            obj(f"{prefix}_FrontWall_Below{label}", "RoomWall").box(h0, h1, 0, y0, fz0, fz1)
+            obj(f"{prefix}_FrontWall_Below{label}", wall).box(h0, h1, 0, y0, fz0, fz1)
         x = h1
-    obj(f"{prefix}_FrontWall_Section_{k+1}", "RoomWall").box(x, b, 0, ROOM_H, fz0, fz1)
+    obj(f"{prefix}_FrontWall_Section_{k+1}", wall).box(x, b, 0, ROOM_H, fz0, fz1)
 
 front_wall("Office", rx0, mx, mx - 1.0, window_x=rx0 + 1.3)
 front_wall("Bathroom", mx, rx1, (mx + rx1) / 2)
-obj("Office_Bathroom_Wall", "RoomWall").box(mx - it/2, mx + it/2, 0, ROOM_H, rz0, fz0)
-obj("Bathroom_SideWall", "RoomWall").box(rx1 - it, rx1, 0, ROOM_H, rz0, fz0)
+obj("Office_Bathroom_Wall", "OfficeWall").box(mx - it/2, mx, 0, ROOM_H, rz0, fz0)   # green on the office side
+obj("Office_Bathroom_Wall", "BathroomWall").box(mx, mx + it/2, 0, ROOM_H, rz0, fz0) # blue on the bathroom side
+obj("Bathroom_SideWall", "BathroomWall").box(rx1 - it, rx1, 0, ROOM_H, rz0, fz0)
 obj("Rooms_Ceiling", "RoomWall").box(rx0, rx1, ROOM_H, ROOM_H + 0.15, rz0, rz1)
 obj("Office_Floor", "Carpet").box(rx0, mx - it/2, 0, 0.02, rz0, fz0)
 obj("Bathroom_Floor", "Tile").box(mx + it/2, rx1 - it, 0, 0.02, rz0, fz0)
@@ -268,7 +282,7 @@ chair.box(dx - 0.25, dx + 0.25, 0.52, 1.05, cz + 0.2, cz + 0.26)   # back
 chair.box(dx - 0.03, dx + 0.03, 0.08, 0.45, cz - 0.03, cz + 0.03)  # post
 chair.box(dx - 0.28, dx + 0.28, 0.0, 0.08, cz - 0.03, cz + 0.03)   # feet
 chair.box(dx - 0.03, dx + 0.03, 0.0, 0.08, cz - 0.28, cz + 0.28)
-cab = obj("Office_FilingCabinet", "Steel")
+cab = obj("Office_FilingCabinet", "Cabinet")
 cab.box(rx0 + 0.05, rx0 + 0.6, 0, 1.3, rz0 + 2.3, rz0 + 2.8)
 for y in (0.35, 0.75, 1.15):                     # drawer handles
     obj("Office_FilingCabinet", "Trim").box(rx0 + 0.6, rx0 + 0.63, y, y + 0.03, rz0 + 2.45, rz0 + 2.65)
@@ -291,9 +305,10 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 def write_obj():
     with open(os.path.join(here, "warehouse.mtl"), "w") as m:
-        for name, (rgb, metal, rough, emit) in MATERIALS.items():
+        for name, (color, metal, rough, glows) in MATERIALS.items():
+            rgb = linear(color)
             m.write(f"newmtl {name}\nKd {rgb[0]:.3f} {rgb[1]:.3f} {rgb[2]:.3f}\nKs 0.1 0.1 0.1\nNs 20\nd 1\nillum 2\n")
-            if emit: m.write(f"Ke {emit[0]:.3f} {emit[1]:.3f} {emit[2]:.3f}\n")
+            if glows: m.write(f"Ke {rgb[0]:.3f} {rgb[1]:.3f} {rgb[2]:.3f}\n")
             m.write("\n")
     with open(os.path.join(here, "warehouse.obj"), "w") as o:
         o.write("# Walk-in warehouse. Meters, Y up, floor top at y=0.\n"
@@ -323,13 +338,13 @@ def write_glb():
         accs.append(a)
         return len(accs)-1
     mat_index = {}
-    for name, (rgb, metal, rough, emit) in MATERIALS.items():
+    for name, (color, metal, rough, glows) in MATERIALS.items():
+        rgb = linear(color)
         mat_index[name] = len(mats)
         m = {"name": name, "pbrMetallicRoughness": {
              "baseColorFactor": [*rgb, 1.0], "metallicFactor": metal, "roughnessFactor": rough}}
-        if emit:
-            m["emissiveFactor"] = list(emit)
-            m["extensions"] = {"KHR_materials_emissive_strength": {"emissiveStrength": 6.0}}
+        if glows:
+            m["emissiveFactor"] = list(rgb)
         mats.append(m)
     for name, parts in objects.items():
         pts = [p for mesh in parts.values() for p in mesh.pos]

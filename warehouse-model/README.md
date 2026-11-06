@@ -44,9 +44,33 @@ your left when you face the garage door.
   - Office: `Office_Desk`, `Office_Computer`, `Office_Chair`, `Office_FilingCabinet`.
   - Bathroom: `Bathroom_Toilet`, `Bathroom_Sink`, `Bathroom_Mirror`.
 
-Materials: `Concrete`, `MetalWall`, `Roof`, `Trim`, `GarageDoor`, `Steel`, `ShelfFrame`,
-`Wood`, `RoomWall`, `Carpet`, `Tile`, `Porcelain`, `Plastic`, `Mirror`. They're plain colors, so you can swap in your own textures.
-The UVs are set up so a texture repeats every 2 m.
+## Colors
+
+Each material is a plain color. To recolor something, change its material's color in
+Blender or Unity. To change it for good, edit the hex color in `MATERIALS` at the top of
+`make_warehouse.py` and run it again.
+
+| Material | Color | Used on |
+| --- | --- | --- |
+| `MetalWall` | blue `#2E86DE` | outside walls |
+| `Roof` | red `#D63031` | roof |
+| `Trim` | yellow `#FDCB2E` | door frames, ladder, cabinet handles |
+| `GarageDoor` | white `#F0F3F4` | garage door |
+| `Concrete` | grey `#A4A49C` | warehouse floor |
+| `ShelfFrame` | orange `#F2711C` | shelf frames |
+| `Wood` | brown `#C68642` | shelf boards, desk |
+| `OfficeWall` | green `#7BD389` | office walls |
+| `BathroomWall` | light blue `#74C0FC` | bathroom walls |
+| `RoomWall` | off-white `#F5F0E6` | ceiling of the office and bathroom |
+| `Carpet` | purple `#7E3F8F` | office floor |
+| `Tile` | pale blue `#E3EEF2` | bathroom floor |
+| `Porcelain` | white `#FFFFFF` | toilet, sink |
+| `Plastic` | black `#22252B` | chair, computer |
+| `Cabinet` | grey-blue `#8395A7` | filing cabinet |
+| `Steel` | dark grey `#4B5563` | garage door tracks and roll box, sink tap |
+| `Mirror` | shiny `#DDEBF5` | bathroom mirror |
+
+The UVs are set up so a texture repeats every 2 m, if you'd rather use textures.
 
 ## Using it in Unity
 
@@ -56,3 +80,8 @@ The UVs are set up so a texture repeats every 2 m.
 - **Lighting:** the model has no lights of its own. Light enters through the windows and
   doors, so add your own lights to brighten the inside. If you build for Quest, set
   them to **Baked** and bake the lighting (Window → Rendering → Lighting).
+- **If the colors don't show up:** select `warehouse.fbx` in the Project window, open the
+  **Materials** tab in the Inspector, and click **Extract Materials…**. That makes each
+  color an editable material. If everything is pink instead, your project uses URP or
+  HDRP. Run the render pipeline's material converter on the extracted materials (for URP:
+  Window → Rendering → Render Pipeline Converter).

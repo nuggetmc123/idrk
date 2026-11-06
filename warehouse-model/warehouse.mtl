@@ -1,96 +1,117 @@
 newmtl Concrete
-Kd 0.420 0.420 0.400
+Kd 0.371 0.371 0.332
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl MetalWall
-Kd 0.200 0.300 0.400
+Kd 0.027 0.238 0.730
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl Roof
-Kd 0.300 0.300 0.320
+Kd 0.672 0.030 0.031
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl Trim
-Kd 0.800 0.550 0.080
+Kd 0.982 0.597 0.027
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl GarageDoor
-Kd 0.550 0.570 0.580
+Kd 0.871 0.896 0.905
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl Steel
-Kd 0.120 0.120 0.130
+Kd 0.070 0.091 0.125
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl ShelfFrame
-Kd 0.080 0.200 0.550
+Kd 0.888 0.165 0.012
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl Wood
-Kd 0.450 0.280 0.120
+Kd 0.565 0.238 0.054
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl RoomWall
-Kd 0.750 0.720 0.650
+Kd 0.913 0.871 0.791
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl OfficeWall
+Kd 0.198 0.651 0.250
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl BathroomWall
+Kd 0.175 0.527 0.973
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl Carpet
-Kd 0.120 0.160 0.220
+Kd 0.209 0.050 0.275
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl Tile
-Kd 0.700 0.740 0.760
+Kd 0.768 0.855 0.888
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl Porcelain
-Kd 0.900 0.900 0.880
+Kd 1.000 1.000 1.000
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl Plastic
-Kd 0.040 0.040 0.050
+Kd 0.016 0.019 0.024
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Cabinet
+Kd 0.227 0.301 0.386
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
 
 newmtl Mirror
-Kd 0.850 0.900 0.950
+Kd 0.723 0.831 0.913
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
