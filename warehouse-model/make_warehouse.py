@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generates a walk-in warehouse as warehouse.glb and warehouse.obj (+ .mtl).
-Every piece is its own named object (Floor, GarageDoor, RoofLadder, Shelf_LeftWall_1, ...).
+Every piece is its own named object (Floor, GarageDoor, RoofLadder, Office_Desk, Bathroom_Toilet, ...).
 
 No dependencies: run `python3 make_warehouse.py`. Change the numbers below to resize it.
 Units are meters, +Y is up, the floor's top surface is at y = 0 and the building is
@@ -22,9 +22,11 @@ GARAGE_OPEN = 2.4         # how high the garage door is rolled up (0 = closed)
 SMALL_DOOR = (1.2, 2.4)   # width, height, back wall (-Z), near the right corner
 WINDOW = (2.0, 0.9, 4.3)  # width, height, sill height: open windows high on the side walls
 WINDOWS_PER_SIDE = 6
-SHELF_ROWS_X = [(-8.6, -7.6, "LeftWall"), (-3.4, -2.2, "MiddleLeft"),
-                (2.2, 3.4, "MiddleRight"), (7.6, 8.6, "RightWall")]   # x range of each row
-SHELF_Z = (-11.0, 9.0)    # shelf rows run from the back toward the door, stopping here
+SIDE_OPENING = (-1.5, 7.5)  # z range of the huge open doorway in the left wall (its top is the window sill)
+ROOMS = (-1.7, -7.2)        # office + bathroom block in the back-left corner: its right edge (x), front edge (z)
+ROOM_H = 3.0                # height of the room walls; the block has a flat ceiling you can climb onto
+# shelf rows: x range, row name, z range (each row is cut into SHELF_UNIT_LEN units)
+SHELF_ROWS = [(7.6, 8.6, "RightWall", -10.0, 2.5), (1.6, 2.8, "Middle", -8.0, 2.0)]
 SHELF_UNIT_LEN = 2.5
 SHELF_LEVELS = [0.15, 1.05, 1.95, 2.85]   # height of each shelf board
 TILE = 2.0                # texture repeat size for UVs
@@ -39,6 +41,12 @@ MATERIALS = {
     "Steel":      ((0.12, 0.12, 0.13), 0.8, 0.40, None),
     "ShelfFrame": ((0.08, 0.20, 0.55), 0.5, 0.50, None),
     "Wood":       ((0.45, 0.28, 0.12), 0.0, 0.80, None),
+    "RoomWall":   ((0.75, 0.72, 0.65), 0.0, 0.90, None),
+    "Carpet":     ((0.12, 0.16, 0.22), 0.0, 1.00, None),
+    "Tile":       ((0.70, 0.74, 0.76), 0.0, 0.35, None),
+    "Porcelain":  ((0.90, 0.90, 0.88), 0.0, 0.20, None),
+    "Plastic":    ((0.04, 0.04, 0.05), 0.0, 0.60, None),
+    "Mirror":     ((0.85, 0.90, 0.95), 1.0, 0.05, None),
 }
 
 # ---- geometry helpers -------------------------------------------------------
@@ -127,8 +135,13 @@ ww, wh, wy = WINDOW
 za, zb = -hd+t, hd-t
 spacing = (zb - za) / WINDOWS_PER_SIDE
 gaps = [(za + spacing*(i+0.5) - ww/2, za + spacing*(i+0.5) + ww/2) for i in range(WINDOWS_PER_SIDE)]
+# The left wall has a huge open doorway below its windows instead of a solid lower part.
+# (Seen from outside facing the left wall, the back of the building is on your left.)
+oz0, oz1 = SIDE_OPENING
+obj("LeftWall_LeftOfOpening", "MetalWall").box(-hw, -hw+t, 0, wy, za, oz0)
+obj("LeftWall_RightOfOpening", "MetalWall").box(-hw, -hw+t, 0, wy, oz1, zb)
+obj("RightWall_BelowWindows", "MetalWall").box(hw-t, hw, 0, wy, za, zb)
 for prefix, x0, x1 in [("LeftWall", -hw, -hw+t), ("RightWall", hw-t, hw)]:
-    obj(f"{prefix}_BelowWindows", "MetalWall").box(x0, x1, 0, wy, za, zb)
     obj(f"{prefix}_AboveWindows", "MetalWall").box(x0, x1, wy+wh, WALL_H, za, zb)
     edges = [za] + [c for g in gaps for c in g] + [zb]
     for i in range(0, len(edges), 2):            # the posts between (and beside) windows
@@ -154,6 +167,12 @@ for name, (x0, x1, y0, y1) in [("DoorFrame_Left", (-bw/2-f, -bw/2, 0, bh+f)),
                                ("DoorFrame_Right", (bw/2, bw/2+f, 0, bh+f)),
                                ("DoorFrame_Top", (-bw/2, bw/2, bh, bh+f))]:
     obj(name, "Trim").box(x0, x1, y0, y1, hd, hd+0.08)
+
+f = 0.25                                         # yellow frame around the side opening
+for name, (z0, z1, y0, y1) in [("SideOpeningFrame_Left", (oz0-f, oz0, 0, wy)),
+                               ("SideOpeningFrame_Right", (oz1, oz1+f, 0, wy)),
+                               ("SideOpeningFrame_Top", (oz0-f, oz1+f, wy-f, wy))]:
+    obj(name, "Trim").box(-hw-0.08, -hw, y0, y1, z0, z1)
 
 # ---- garage door: ribbed roll-up door just inside the opening ----------------
 gz = hd - t                                      # inside face of the front wall
@@ -184,10 +203,9 @@ for y in (1.5, 3.5, eave_y - 0.3):               # brackets holding it to the wa
         ladder.box(hw, lx, y-0.03, y+0.03, lz+dz-0.03, lz+dz+0.03)
 
 # ---- shelves: rows of tall shelving units, with aisles between them -----------
-n_units = round((SHELF_Z[1] - SHELF_Z[0]) / SHELF_UNIT_LEN)
-for x0, x1, row in SHELF_ROWS_X:
-    for u in range(n_units):
-        z0 = SHELF_Z[0] + u*SHELF_UNIT_LEN
+for x0, x1, row, rz0, rz1 in SHELF_ROWS:
+    for u in range(round((rz1 - rz0) / SHELF_UNIT_LEN)):
+        z0 = rz0 + u*SHELF_UNIT_LEN
         z1 = z0 + SHELF_UNIT_LEN
         name = f"Shelf_{row}_{u+1}"
         frame, wood = obj(name, "ShelfFrame"), obj(name, "Wood")
@@ -199,6 +217,74 @@ for x0, x1, row in SHELF_ROWS_X:
             for z in (z0 + 0.04, z1 - 0.04):                            # cross beams
                 frame.box(x0, x1, y-0.08, y, z-0.04, z+0.04)
             wood.box(x0 + 0.02, x1 - 0.02, y, y+0.04, z0 + 0.08, z1 - 0.08)  # board
+
+# ---- office + bathroom block in the back-left corner -------------------------
+rx0, rx1 = -hw + t, ROOMS[0]                     # inside face of the left wall .. block's right edge
+rz0, rz1 = -hd + t, ROOMS[1]                     # inside face of the back wall .. block's front edge
+it = 0.15                                        # interior wall thickness
+mx = rx0 + (rx1 - rx0) * 0.62                    # center of the office/bathroom divider wall
+fz0, fz1 = rz1 - it, rz1                         # front wall's z range
+
+def front_wall(prefix, a, b, door_x, window_x=None):
+    """Front wall of a room from x=a to x=b, with a doorway (0.9 x 2.1) and maybe a window."""
+    holes = [("Door", door_x - 0.45, door_x + 0.45, 0.0, 2.1)]
+    if window_x is not None:
+        holes.append(("Window", window_x - 0.8, window_x + 0.8, 1.0, 2.0))
+    holes.sort(key=lambda h: h[1])
+    x, k = a, 0
+    for label, h0, h1, y0, y1 in holes:
+        k += 1
+        obj(f"{prefix}_FrontWall_Section_{k}", "RoomWall").box(x, h0, 0, ROOM_H, fz0, fz1)
+        obj(f"{prefix}_FrontWall_Above{label}", "RoomWall").box(h0, h1, y1, ROOM_H, fz0, fz1)
+        if y0 > 0:
+            obj(f"{prefix}_FrontWall_Below{label}", "RoomWall").box(h0, h1, 0, y0, fz0, fz1)
+        x = h1
+    obj(f"{prefix}_FrontWall_Section_{k+1}", "RoomWall").box(x, b, 0, ROOM_H, fz0, fz1)
+
+front_wall("Office", rx0, mx, mx - 1.0, window_x=rx0 + 1.3)
+front_wall("Bathroom", mx, rx1, (mx + rx1) / 2)
+obj("Office_Bathroom_Wall", "RoomWall").box(mx - it/2, mx + it/2, 0, ROOM_H, rz0, fz0)
+obj("Bathroom_SideWall", "RoomWall").box(rx1 - it, rx1, 0, ROOM_H, rz0, fz0)
+obj("Rooms_Ceiling", "RoomWall").box(rx0, rx1, ROOM_H, ROOM_H + 0.15, rz0, rz1)
+obj("Office_Floor", "Carpet").box(rx0, mx - it/2, 0, 0.02, rz0, fz0)
+obj("Bathroom_Floor", "Tile").box(mx + it/2, rx1 - it, 0, 0.02, rz0, fz0)
+
+# Office: desk against the back wall, a computer on it, a chair, and a filing cabinet.
+dx = (rx0 + mx) / 2
+desk = obj("Office_Desk", "Wood")
+desk.box(dx - 0.8, dx + 0.8, 0.72, 0.76, rz0 + 0.1, rz0 + 0.85)
+for x in (dx - 0.75, dx + 0.75):
+    for z in (rz0 + 0.15, rz0 + 0.8):
+        desk.box(x - 0.03, x + 0.03, 0, 0.72, z - 0.03, z + 0.03)
+pc = obj("Office_Computer", "Plastic")
+pc.box(dx - 0.3, dx + 0.3, 0.92, 1.28, rz0 + 0.3, rz0 + 0.34)       # monitor
+pc.box(dx - 0.04, dx + 0.04, 0.76, 0.92, rz0 + 0.33, rz0 + 0.37)    # stand
+pc.box(dx - 0.12, dx + 0.12, 0.76, 0.78, rz0 + 0.27, rz0 + 0.43)    # base
+pc.box(dx - 0.25, dx + 0.25, 0.76, 0.78, rz0 + 0.5, rz0 + 0.66)     # keyboard
+cz = rz0 + 1.3
+chair = obj("Office_Chair", "Plastic")
+chair.box(dx - 0.25, dx + 0.25, 0.45, 0.52, cz - 0.25, cz + 0.25)  # seat
+chair.box(dx - 0.25, dx + 0.25, 0.52, 1.05, cz + 0.2, cz + 0.26)   # back
+chair.box(dx - 0.03, dx + 0.03, 0.08, 0.45, cz - 0.03, cz + 0.03)  # post
+chair.box(dx - 0.28, dx + 0.28, 0.0, 0.08, cz - 0.03, cz + 0.03)   # feet
+chair.box(dx - 0.03, dx + 0.03, 0.0, 0.08, cz - 0.28, cz + 0.28)
+cab = obj("Office_FilingCabinet", "Steel")
+cab.box(rx0 + 0.05, rx0 + 0.6, 0, 1.3, rz0 + 2.3, rz0 + 2.8)
+for y in (0.35, 0.75, 1.15):                     # drawer handles
+    obj("Office_FilingCabinet", "Trim").box(rx0 + 0.6, rx0 + 0.63, y, y + 0.03, rz0 + 2.45, rz0 + 2.65)
+
+# Bathroom: toilet against the back wall, sink and mirror on the side wall.
+tx = mx + it/2 + 0.6
+toilet = obj("Bathroom_Toilet", "Porcelain")
+toilet.box(tx - 0.25, tx + 0.25, 0.4, 0.8, rz0, rz0 + 0.2)                 # tank
+toilet.box(tx - 0.15, tx + 0.15, 0, 0.36, rz0 + 0.2, rz0 + 0.7)            # base
+toilet.box(tx - 0.2, tx + 0.2, 0.36, 0.42, rz0 + 0.2, rz0 + 0.75)          # seat
+sz = rz0 + 2.3
+sink = obj("Bathroom_Sink", "Porcelain")
+sink.box(rx1 - it - 0.55, rx1 - it, 0.8, 0.9, sz - 0.3, sz + 0.3)           # basin
+sink.box(rx1 - it - 0.3, rx1 - it - 0.1, 0, 0.8, sz - 0.1, sz + 0.1)        # pedestal
+obj("Bathroom_Sink", "Steel").box(rx1 - it - 0.12, rx1 - it, 0.9, 1.1, sz - 0.03, sz + 0.03)  # tap
+obj("Bathroom_Mirror", "Mirror").box(rx1 - it - 0.02, rx1 - it, 1.2, 1.9, sz - 0.3, sz + 0.3)
 
 # ---- writers ----------------------------------------------------------------
 here = os.path.dirname(os.path.abspath(__file__))

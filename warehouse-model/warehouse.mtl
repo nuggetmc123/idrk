@@ -54,3 +54,45 @@ Ns 20
 d 1
 illum 2
 
+newmtl RoomWall
+Kd 0.750 0.720 0.650
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Carpet
+Kd 0.120 0.160 0.220
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Tile
+Kd 0.700 0.740 0.760
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Porcelain
+Kd 0.900 0.900 0.880
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Plastic
+Kd 0.040 0.040 0.050
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Mirror
+Kd 0.850 0.900 0.950
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
