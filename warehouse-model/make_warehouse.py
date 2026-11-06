@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generates a walk-in warehouse as warehouse.glb and warehouse.obj (+ .mtl).
-Every piece is its own named object (Floor, GarageDoor, Shelf_LeftWall_1, Light_1, ...).
+Every piece is its own named object (Floor, GarageDoor, RoofLadder, Shelf_LeftWall_1, ...).
 
 No dependencies: run `python3 make_warehouse.py`. Change the numbers below to resize it.
 Units are meters, +Y is up, the floor's top surface is at y = 0 and the building is
@@ -27,10 +27,6 @@ SHELF_ROWS_X = [(-8.6, -7.6, "LeftWall"), (-3.4, -2.2, "MiddleLeft"),
 SHELF_Z = (-11.0, 9.0)    # shelf rows run from the back toward the door, stopping here
 SHELF_UNIT_LEN = 2.5
 SHELF_LEVELS = [0.15, 1.05, 1.95, 2.85]   # height of each shelf board
-LIGHTS_X = [-5.5, 0.0, 5.5]
-LIGHTS_Z = [-8.0, -1.0, 6.0]
-LAMP_Y = 4.6              # height of the lamp shades
-LAMP_POWER_W = 350        # how bright each light is in Blender (watts)
 TILE = 2.0                # texture repeat size for UVs
 
 MATERIALS = {
@@ -43,7 +39,6 @@ MATERIALS = {
     "Steel":      ((0.12, 0.12, 0.13), 0.8, 0.40, None),
     "ShelfFrame": ((0.08, 0.20, 0.55), 0.5, 0.50, None),
     "Wood":       ((0.45, 0.28, 0.12), 0.0, 0.80, None),
-    "LampBulb":   ((1.00, 0.92, 0.75), 0.0, 0.50, (1.00, 0.85, 0.60)),
 }
 
 # ---- geometry helpers -------------------------------------------------------
@@ -105,7 +100,6 @@ class Mesh:
 # ---- build the warehouse ----------------------------------------------------
 hw, hd, t = WIDTH/2, DEPTH/2, WALL_T
 objects = {}      # object name -> {material: Mesh}; an object can use several materials
-lights = []       # (object name, light position)
 
 def obj(name, material):
     return objects.setdefault(name, {}).setdefault(material, Mesh())
@@ -149,7 +143,6 @@ obj("BackWall_Gable", "MetalWall").prism_z(gable, -hd, -hd+t)
 slope = ROOF_RISE / hw
 eave_y = WALL_H - OVERHANG*slope                 # height of the roof's outer edge
 lift = ROOF_T / math.cos(math.atan(slope))       # vertical thickness of a roof sheet
-def roof_y(x): return WALL_H + ROOF_RISE*(1 - abs(x)/hw)   # underside of the roof
 for side, name in ((-1, "Roof_Left"), (1, "Roof_Right")):
     xe, yr = side*(hw+OVERHANG), WALL_H + ROOF_RISE
     lo = [(xe, eave_y, -hd-OVERHANG), (0.0, yr, -hd-OVERHANG), (0.0, yr, hd+OVERHANG), (xe, eave_y, hd+OVERHANG)]
@@ -190,44 +183,6 @@ for y in (1.5, 3.5, eave_y - 0.3):               # brackets holding it to the wa
     for dz in (-0.25, 0.25):
         ladder.box(hw, lx, y-0.03, y+0.03, lz+dz-0.03, lz+dz+0.03)
 
-# ---- stairs with side rails up to a platform at the roof edge (left wall) -----
-sx1 = -hw - OVERHANG                             # inner edge (by the roof edge)
-sx0 = sx1 - 1.2                                  # outer edge
-pz0, pz1 = -hd + 1.0, -hd + 2.8                  # the platform's z range
-platform = obj("RoofPlatform", "Steel")
-platform.box(sx0, sx1 + 0.05, eave_y - 0.15, eave_y, pz0, pz1)
-for x in (sx0 + 0.05, sx1 - 0.05):              # support legs
-    for z in (pz0 + 0.05, pz1 - 0.05):
-        platform.box(x-0.05, x+0.05, 0, eave_y - 0.15, z-0.05, z+0.05)
-platform.beam((sx1 - 0.05, 0, pz0 + 0.05), (sx1 - 0.05, eave_y - 0.15, pz1 - 0.05), 0.06, 0.06)  # cross brace
-
-n_steps = math.ceil(eave_y / 0.2)
-riser, tread = eave_y / n_steps, 0.28
-stair_bottom = pz1 + n_steps*tread               # where the stairs reach the ground
-stairs = obj("Stairs", "Steel")
-for i in range(1, n_steps):                      # the last step is the platform itself
-    z = pz1 + (n_steps - i)*tread
-    stairs.box(sx0 + 0.06, sx1 - 0.06, i*riser - 0.05, i*riser, z - tread, z)
-for x in (sx0 + 0.03, sx1 - 0.03):               # sloped side beams (stringers)
-    stairs.beam((x, 0, stair_bottom), (x, eave_y - 0.15, pz1), 0.06, 0.25)
-
-rail_h = 1.0
-rail = obj("Stairs_Railing", "Trim")
-for x in (sx0 + 0.03, sx1 - 0.03):               # a rail on both sides of the stairs
-    posts = [stair_bottom - k*(stair_bottom - pz1)/5 for k in range(6)]
-    for z in posts:
-        y = eave_y * (stair_bottom - z) / (stair_bottom - pz1)
-        rail.box(x-0.03, x+0.03, y, y+rail_h, z-0.03, z+0.03)
-    for h in (rail_h, rail_h/2):                 # handrail and mid rail
-        rail.beam((x, h, stair_bottom), (x, eave_y + h, pz1), 0.05, 0.05)
-
-prail = obj("RoofPlatform_Railing", "Trim")      # outer side and back end; roof side stays open
-for x, z in ((sx0 + 0.03, pz1 - 0.03), (sx0 + 0.03, pz0 + 0.03), (sx1 - 0.03, pz0 + 0.03)):
-    prail.box(x-0.03, x+0.03, eave_y, eave_y + rail_h, z-0.03, z+0.03)
-for h in (rail_h, rail_h/2):
-    prail.box(sx0, sx0 + 0.06, eave_y + h - 0.025, eave_y + h + 0.025, pz0, pz1)
-    prail.box(sx0, sx1, eave_y + h - 0.025, eave_y + h + 0.025, pz0, pz0 + 0.06)
-
 # ---- shelves: rows of tall shelving units, with aisles between them -----------
 n_units = round((SHELF_Z[1] - SHELF_Z[0]) / SHELF_UNIT_LEN)
 for x0, x1, row in SHELF_ROWS_X:
@@ -245,20 +200,6 @@ for x0, x1, row in SHELF_ROWS_X:
                 frame.box(x0, x1, y-0.08, y, z-0.04, z+0.04)
             wood.box(x0 + 0.02, x1 - 0.02, y, y+0.04, z0 + 0.08, z1 - 0.08)  # board
 
-# ---- hanging lights ----------------------------------------------------------
-k = 0
-for z in LIGHTS_Z:
-    for x in LIGHTS_X:
-        k += 1
-        name = f"Light_{k}"
-        steel, bulb = obj(name, "Steel"), obj(name, "LampBulb")
-        steel.box(x-0.015, x+0.015, LAMP_Y + 0.25, roof_y(x), z-0.015, z+0.015)   # cord
-        r0, r1 = 0.12, 0.35                                                # shade: cone-ish
-        ring = lambda r, y: [(x-r, y, z-r), (x+r, y, z-r), (x+r, y, z+r), (x-r, y, z+r)]
-        steel.hexa(ring(r1, LAMP_Y) + ring(r0, LAMP_Y + 0.25))
-        bulb.box(x-0.1, x+0.1, LAMP_Y - 0.12, LAMP_Y, z-0.1, z+0.1)
-        lights.append((name, (x, LAMP_Y - 0.15, z)))
-
 # ---- writers ----------------------------------------------------------------
 here = os.path.dirname(os.path.abspath(__file__))
 
@@ -269,7 +210,7 @@ def write_obj():
             if emit: m.write(f"Ke {emit[0]:.3f} {emit[1]:.3f} {emit[2]:.3f}\n")
             m.write("\n")
     with open(os.path.join(here, "warehouse.obj"), "w") as o:
-        o.write("# Walk-in warehouse. Meters, Y up, floor top at y=0. (OBJ has no lights; see the .glb/.fbx/.blend)\n"
+        o.write("# Walk-in warehouse. Meters, Y up, floor top at y=0.\n"
                 "mtllib warehouse.mtl\n")
         off = 1
         for name, parts in objects.items():
@@ -304,9 +245,6 @@ def write_glb():
             m["emissiveFactor"] = list(emit)
             m["extensions"] = {"KHR_materials_emissive_strength": {"emissiveStrength": 6.0}}
         mats.append(m)
-    light_defs, light_at = [], dict(lights)
-    # Blender reads glTF light intensity (candela) back as watts * 683 / (4 * pi)
-    candela = LAMP_POWER_W * 683 / (4 * math.pi)
     for name, parts in objects.items():
         pts = [p for mesh in parts.values() for p in mesh.pos]
         mn = [min(p[i] for p in pts) for i in range(3)]
@@ -325,20 +263,11 @@ def write_glb():
                 "material": mat_index[material]})
         gl_meshes.append({"name": name, "primitives": prims})
         node = {"name": name, "mesh": len(gl_meshes)-1, "translation": ctr}
-        if name in light_at:                     # a real light source, as a child of the lamp
-            light_defs.append({"name": f"{name}_Lamp", "type": "point", "intensity": candela,
-                               "color": [1.0, 0.88, 0.7], "range": 25.0})
-            nodes.append({"name": f"{name}_Lamp", "translation": [a-b for a, b in zip(light_at[name], ctr)],
-                          "extensions": {"KHR_lights_punctual": {"light": len(light_defs)-1}}})
-            node["children"] = [len(nodes)-1]
         nodes.append(node)
     while len(bin_) % 4: bin_.append(0)
-    top_level = [i for i, n in enumerate(nodes) if "mesh" in n]
     doc = {"asset": {"version": "2.0", "generator": "make_warehouse.py"},
-           "extensionsUsed": ["KHR_lights_punctual", "KHR_materials_emissive_strength"],
-           "extensions": {"KHR_lights_punctual": {"lights": light_defs}},
            "scene": 0, "scenes": [{"name": "Warehouse", "nodes": [len(nodes)]}],
-           "nodes": nodes + [{"name": "Warehouse", "children": top_level}],
+           "nodes": nodes + [{"name": "Warehouse", "children": list(range(len(nodes)))}],
            "meshes": gl_meshes, "materials": mats, "accessors": accs,
            "bufferViews": views, "buffers": [{"byteLength": len(bin_)}]}
     js = json.dumps(doc, separators=(",", ":")).encode()
@@ -350,6 +279,6 @@ def write_glb():
 
 write_obj()
 write_glb()
-print(f"wrote warehouse.glb, warehouse.obj, warehouse.mtl: {len(objects)} objects, {len(lights)} lights")
+print(f"wrote warehouse.glb, warehouse.obj, warehouse.mtl: {len(objects)} objects")
 for name, parts in objects.items():
     print(f"  {name:28s} {', '.join(parts):22s} {sum(len(m.idx) for m in parts.values())//3} tris")

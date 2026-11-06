@@ -54,11 +54,3 @@ Ns 20
 d 1
 illum 2
 
-newmtl LampBulb
-Kd 1.000 0.920 0.750
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-Ke 1.000 0.850 0.600
-
