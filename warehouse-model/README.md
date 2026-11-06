@@ -166,7 +166,7 @@ To change how a texture looks, edit `make_textures.py` and run it (it needs
 - **Textures:** select `warehouse.fbx` in the Project window and open the **Materials** tab
   in the Inspector. Click **Extract Textures…**, then **Extract Materials…**, into a folder
   of your choice. That makes every texture and material editable. If Unity asks to mark the
-  `_normal` textures as normal maps, click **Fix Now**.
+  `_Normal` textures as normal maps, click **Fix Now**.
 - **If everything is pink:** your project uses URP or HDRP. Run the render pipeline's
   material converter on the extracted materials (for URP: Window → Rendering → Render
   Pipeline Converter). After converting, check that each material still has its texture
