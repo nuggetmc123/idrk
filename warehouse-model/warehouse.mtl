@@ -1,119 +1,181 @@
 newmtl Concrete
-Kd 0.371 0.371 0.332
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl MetalWall
-Kd 0.027 0.238 0.730
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl Roof
-Kd 0.672 0.030 0.031
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl Trim
-Kd 0.982 0.597 0.027
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl GarageDoor
-Kd 0.871 0.896 0.905
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl Steel
-Kd 0.070 0.091 0.125
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl ShelfFrame
-Kd 0.888 0.165 0.012
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl Wood
-Kd 0.565 0.238 0.054
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl RoomWall
-Kd 0.913 0.871 0.791
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl OfficeWall
-Kd 0.198 0.651 0.250
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl BathroomWall
-Kd 0.175 0.527 0.973
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl Carpet
-Kd 0.209 0.050 0.275
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl Tile
-Kd 0.768 0.855 0.888
-Ks 0.1 0.1 0.1
-Ns 20
-d 1
-illum 2
-
-newmtl Porcelain
 Kd 1.000 1.000 1.000
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
+Pr 0.85
+Pm 0.00
+map_Kd textures/Concrete_color.jpg
+map_Bump -bm 1.0 textures/Concrete_normal.jpg
 
-newmtl Plastic
-Kd 0.016 0.019 0.024
+newmtl MetalWall
+Kd 1.000 1.000 1.000
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
+Pr 0.55
+Pm 0.30
+map_Kd textures/MetalWall_color.jpg
+map_Bump -bm 1.0 textures/MetalWall_normal.jpg
+
+newmtl Roof
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.50
+Pm 0.40
+map_Kd textures/Roof_color.jpg
+map_Bump -bm 1.0 textures/Roof_normal.jpg
+
+newmtl Trim
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.55
+Pm 0.10
+map_Kd textures/Trim_color.jpg
+map_Bump -bm 1.0 textures/Trim_normal.jpg
+
+newmtl GarageDoor
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.45
+Pm 0.20
+map_Kd textures/GarageDoor_color.jpg
+map_Bump -bm 1.0 textures/GarageDoor_normal.jpg
+
+newmtl Steel
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.45
+Pm 0.60
+map_Kd textures/Steel_color.jpg
+map_Bump -bm 1.0 textures/Steel_normal.jpg
+
+newmtl ShelfFrame
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.50
+Pm 0.10
+map_Kd textures/ShelfFrame_color.jpg
+map_Bump -bm 1.0 textures/ShelfFrame_normal.jpg
+
+newmtl Wood
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.75
+Pm 0.00
+map_Kd textures/Wood_color.jpg
+map_Bump -bm 1.0 textures/Wood_normal.jpg
+
+newmtl RoomWall
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.90
+Pm 0.00
+map_Kd textures/RoomWall_color.jpg
+map_Bump -bm 1.0 textures/RoomWall_normal.jpg
+
+newmtl OfficeWall
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.90
+Pm 0.00
+map_Kd textures/OfficeWall_color.jpg
+map_Bump -bm 1.0 textures/OfficeWall_normal.jpg
+
+newmtl BathroomWall
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.25
+Pm 0.00
+map_Kd textures/BathroomWall_color.jpg
+map_Bump -bm 1.0 textures/BathroomWall_normal.jpg
+
+newmtl Carpet
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 1.00
+Pm 0.00
+map_Kd textures/Carpet_color.jpg
+map_Bump -bm 1.0 textures/Carpet_normal.jpg
+
+newmtl Tile
+Kd 1.000 1.000 1.000
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.30
+Pm 0.00
+map_Kd textures/Tile_color.jpg
+map_Bump -bm 1.0 textures/Tile_normal.jpg
 
 newmtl Cabinet
-Kd 0.227 0.301 0.386
+Kd 1.000 1.000 1.000
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
+Pr 0.50
+Pm 0.30
+map_Kd textures/Cabinet_color.jpg
+map_Bump -bm 1.0 textures/Cabinet_normal.jpg
+
+newmtl Porcelain
+Kd 0.847 0.847 0.807
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.12
+Pm 0.00
+
+newmtl Plastic
+Kd 0.013 0.014 0.016
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+Pr 0.55
+Pm 0.00
 
 newmtl Mirror
-Kd 0.723 0.831 0.913
+Kd 0.807 0.855 0.888
 Ks 0.1 0.1 0.1
 Ns 20
 d 1
 illum 2
+Pr 0.03
+Pm 1.00
 

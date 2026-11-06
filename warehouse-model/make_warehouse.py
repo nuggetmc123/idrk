@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Generates a walk-in warehouse as warehouse.glb and warehouse.obj (+ .mtl).
+"""Generates a walk-in warehouse as warehouse.glb and warehouse.obj (+ .mtl), using the
+textures in textures/ (made by make_textures.py).
 Every piece is its own named object (Floor, GarageDoor, RoofLadder, Office_Desk, Bathroom_Toilet, ...).
 
 No dependencies: run `python3 make_warehouse.py`. Change the numbers below to resize it.
@@ -29,29 +30,29 @@ ROOM_H = 3.0                # height of the room walls; the block has a flat cei
 SHELF_ROWS = [(7.6, 8.6, "RightWall", -10.0, 2.5), (1.6, 2.8, "Middle", -8.0, 2.0)]
 SHELF_UNIT_LEN = 2.5
 SHELF_LEVELS = [0.15, 1.05, 1.95, 2.85]   # height of each shelf board
-TILE = 2.0                # texture repeat size for UVs
 
-# Colors are normal hex colors (like in any color picker). Metallic is kept low so the
-# colors stay bright in game engines that have no reflections set up.
+# Realistic look: most materials use a tiling photo-style texture from textures/
+# (made by make_textures.py) with a matching normal map for bumps and ridges.
+# tint multiplies the texture (#FFFFFF = the texture's own colors); tile = meters per repeat.
 MATERIALS = {
-    #  name          color      metallic roughness  glows
-    "Concrete":    ("#A4A49C", 0.0, 0.95, False),   # warehouse floor
-    "MetalWall":   ("#2E86DE", 0.1, 0.60, False),   # outside walls (blue)
-    "Roof":        ("#D63031", 0.1, 0.55, False),   # roof (red)
-    "Trim":        ("#FDCB2E", 0.0, 0.50, False),   # door frames, ladder, handles (yellow)
-    "GarageDoor":  ("#F0F3F4", 0.1, 0.45, False),   # roll-up door (white)
-    "Steel":       ("#4B5563", 0.3, 0.45, False),   # door tracks, roll box, tap
-    "ShelfFrame":  ("#F2711C", 0.0, 0.55, False),   # shelf uprights and beams (orange)
-    "Wood":        ("#C68642", 0.0, 0.80, False),   # shelf boards, desk
-    "RoomWall":    ("#F5F0E6", 0.0, 0.90, False),   # ceiling of the office/bathroom block
-    "OfficeWall":  ("#7BD389", 0.0, 0.90, False),   # office walls (green)
-    "BathroomWall":("#74C0FC", 0.0, 0.90, False),   # bathroom walls (light blue)
-    "Carpet":      ("#7E3F8F", 0.0, 1.00, False),   # office floor (purple)
-    "Tile":        ("#E3EEF2", 0.0, 0.35, False),   # bathroom floor
-    "Porcelain":   ("#FFFFFF", 0.0, 0.20, False),   # toilet, sink
-    "Plastic":     ("#22252B", 0.0, 0.60, False),   # chair, computer
-    "Cabinet":     ("#8395A7", 0.2, 0.50, False),   # filing cabinet
-    "Mirror":      ("#DDEBF5", 1.0, 0.05, False),   # bathroom mirror
+    #  name           tint      metallic roughness textured tile
+    "Concrete":     ("#FFFFFF", 0.0, 0.85, True,  4.0),   # sealed concrete slab, joint every 4 m
+    "MetalWall":    ("#FFFFFF", 0.3, 0.55, True,  2.0),   # corrugated steel cladding
+    "Roof":         ("#FFFFFF", 0.4, 0.50, True,  4.0),   # galvanized corrugated roofing
+    "Trim":         ("#FFFFFF", 0.1, 0.55, True,  1.0),   # worn safety-yellow paint
+    "GarageDoor":   ("#FFFFFF", 0.2, 0.45, True,  0.6),   # white steel sectional door
+    "Steel":        ("#FFFFFF", 0.6, 0.45, True,  1.0),   # galvanized steel: ladder, tracks, tap
+    "ShelfFrame":   ("#FFFFFF", 0.1, 0.50, True,  1.0),   # orange pallet-rack paint
+    "Wood":         ("#FFFFFF", 0.0, 0.75, True,  1.0),   # shelf boards, desk
+    "RoomWall":     ("#FFFFFF", 0.0, 0.90, True,  2.0),   # ceiling of the office/bathroom block
+    "OfficeWall":   ("#FFFFFF", 0.0, 0.90, True,  2.0),   # painted drywall
+    "BathroomWall": ("#FFFFFF", 0.0, 0.25, True,  0.6),   # white 15 cm wall tiles
+    "Carpet":       ("#FFFFFF", 0.0, 1.00, True,  1.0),   # office carpet
+    "Tile":         ("#FFFFFF", 0.0, 0.30, True,  0.6),   # 30 cm floor tiles
+    "Cabinet":      ("#FFFFFF", 0.3, 0.50, True,  1.0),   # old beige-grey filing cabinet
+    "Porcelain":    ("#EDEDE8", 0.0, 0.12, False, 1.0),   # toilet, sink
+    "Plastic":      ("#1E1F22", 0.0, 0.55, False, 1.0),   # chair, computer
+    "Mirror":       ("#E8EEF2", 1.0, 0.03, False, 1.0),   # bathroom mirror
 }
 
 def linear(hex_color):
@@ -73,7 +74,8 @@ def norm(v):
 def centroid(pts): return mul(tuple(map(sum, zip(*pts))), 1/len(pts))
 
 class Mesh:
-    def __init__(self): self.pos, self.nrm, self.uv, self.idx = [], [], [], []
+    def __init__(self, tile=1.0):
+        self.pos, self.nrm, self.uv, self.idx, self.tile = [], [], [], [], tile
     def face(self, pts, inside):
         """Adds a flat convex polygon, wound so it faces away from the point `inside`."""
         n = norm(cross(sub(pts[1], pts[0]), sub(pts[2], pts[0])))
@@ -84,7 +86,7 @@ class Mesh:
         base = len(self.pos)
         for p in pts:
             self.pos.append(p); self.nrm.append(n)
-            self.uv.append((p[u_ax]/TILE, -p[v_ax]/TILE))
+            self.uv.append((p[u_ax]/self.tile, -p[v_ax]/self.tile))
         for i in range(1, len(pts)-1):
             self.idx += [base, base+i, base+i+1]
 
@@ -122,7 +124,10 @@ hw, hd, t = WIDTH/2, DEPTH/2, WALL_T
 objects = {}      # object name -> {material: Mesh}; an object can use several materials
 
 def obj(name, material):
-    return objects.setdefault(name, {}).setdefault(material, Mesh())
+    parts = objects.setdefault(name, {})
+    if material not in parts:
+        parts[material] = Mesh(MATERIALS[material][4])
+    return parts[material]
 
 # Floor slab, a little bigger than the building so the walls sit on it.
 obj("Floor", "Concrete").box(-hw-0.5, hw+0.5, -FLOOR_T, 0.0, -hd-0.5, hd+0.5)
@@ -202,7 +207,7 @@ obj("GarageDoor_RollBox", "Steel").box(-bw/2-0.3, bw/2+0.3, bh, bh+0.6, gz-0.6, 
 # ---- ladder up to the roof, outside the right wall ----------------------------
 lx = hw + OVERHANG + 0.15                        # just past the roof's edge
 lz = -hd + 3.5
-ladder = obj("RoofLadder", "Trim")
+ladder = obj("RoofLadder", "Steel")
 top = eave_y + 1.1                               # rails stick up past the roof edge to grab
 for dz in (-0.25, 0.25):
     ladder.box(lx-0.03, lx+0.03, 0, top, lz+dz-0.03, lz+dz+0.03)
@@ -305,10 +310,12 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 def write_obj():
     with open(os.path.join(here, "warehouse.mtl"), "w") as m:
-        for name, (color, metal, rough, glows) in MATERIALS.items():
+        for name, (color, metal, rough, textured, tile) in MATERIALS.items():
             rgb = linear(color)
-            m.write(f"newmtl {name}\nKd {rgb[0]:.3f} {rgb[1]:.3f} {rgb[2]:.3f}\nKs 0.1 0.1 0.1\nNs 20\nd 1\nillum 2\n")
-            if glows: m.write(f"Ke {rgb[0]:.3f} {rgb[1]:.3f} {rgb[2]:.3f}\n")
+            m.write(f"newmtl {name}\nKd {rgb[0]:.3f} {rgb[1]:.3f} {rgb[2]:.3f}\nKs 0.1 0.1 0.1\nNs 20\nd 1\nillum 2\n"
+                    f"Pr {rough:.2f}\nPm {metal:.2f}\n")
+            if textured:
+                m.write(f"map_Kd textures/{name}_color.jpg\nmap_Bump -bm 1.0 textures/{name}_normal.jpg\n")
             m.write("\n")
     with open(os.path.join(here, "warehouse.obj"), "w") as o:
         o.write("# Walk-in warehouse. Meters, Y up, floor top at y=0.\n"
@@ -337,14 +344,26 @@ def write_glb():
         if minmax: a["min"], a["max"] = minmax
         accs.append(a)
         return len(accs)-1
+    images, textures = [], []
+    def texture(path):
+        """Embeds an image file in the .glb and returns its texture index."""
+        with open(os.path.join(here, path), "rb") as f:
+            data = f.read()
+        while len(bin_) % 4: bin_.append(0)
+        views.append({"buffer": 0, "byteOffset": len(bin_), "byteLength": len(data)})
+        bin_.extend(data)
+        images.append({"name": os.path.basename(path), "bufferView": len(views)-1, "mimeType": "image/jpeg"})
+        textures.append({"sampler": 0, "source": len(images)-1})
+        return len(textures)-1
     mat_index = {}
-    for name, (color, metal, rough, glows) in MATERIALS.items():
+    for name, (color, metal, rough, textured, tile) in MATERIALS.items():
         rgb = linear(color)
         mat_index[name] = len(mats)
         m = {"name": name, "pbrMetallicRoughness": {
              "baseColorFactor": [*rgb, 1.0], "metallicFactor": metal, "roughnessFactor": rough}}
-        if glows:
-            m["emissiveFactor"] = list(rgb)
+        if textured:
+            m["pbrMetallicRoughness"]["baseColorTexture"] = {"index": texture(f"textures/{name}_color.jpg")}
+            m["normalTexture"] = {"index": texture(f"textures/{name}_normal.jpg")}
         mats.append(m)
     for name, parts in objects.items():
         pts = [p for mesh in parts.values() for p in mesh.pos]
@@ -370,6 +389,8 @@ def write_glb():
            "scene": 0, "scenes": [{"name": "Warehouse", "nodes": [len(nodes)]}],
            "nodes": nodes + [{"name": "Warehouse", "children": list(range(len(nodes)))}],
            "meshes": gl_meshes, "materials": mats, "accessors": accs,
+           "images": images, "textures": textures,
+           "samplers": [{"magFilter": 9729, "minFilter": 9987, "wrapS": 10497, "wrapT": 10497}],
            "bufferViews": views, "buffers": [{"byteLength": len(bin_)}]}
     js = json.dumps(doc, separators=(",", ":")).encode()
     js += b" " * (-len(js) % 4)

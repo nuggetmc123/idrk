@@ -1,6 +1,6 @@
 # Warehouse model
 
-A walk-in warehouse for a Gorilla Tag–style VR fan game. It has a roll-up garage door,
+A realistic-looking walk-in warehouse for a Gorilla Tag–style VR fan game. It has a roll-up garage door,
 a huge open doorway in the side wall, an office and a bathroom, a few rows of shelves, and
 a ladder up to the roof.
 
@@ -9,7 +9,8 @@ a ladder up to the roof.
 | `warehouse.blend` | Open straight in Blender (5.x). |
 | `warehouse.fbx` | **Unity**: drag it into your Assets folder. |
 | `warehouse.glb` | Blender (File → Import → glTF 2.0), Bevy/Rust, Godot, or Unity with glTFast. |
-| `warehouse.obj` + `warehouse.mtl` | Any 3D program. Keep the two files together. |
+| `warehouse.obj` + `warehouse.mtl` + `textures/` | Any 3D program. Keep them together. |
+| `make_textures.py` | Regenerates the textures in `textures/`. |
 | `make_warehouse.py` | Regenerates the `.glb`, `.obj` and `.mtl`. Change the numbers at the top, then run `python3 make_warehouse.py`. |
 
 Size: 18 m wide × 26 m long, 6 m walls, 7.6 m to the roof peak. Units are meters.
@@ -44,33 +45,32 @@ your left when you face the garage door.
   - Office: `Office_Desk`, `Office_Computer`, `Office_Chair`, `Office_FilingCabinet`.
   - Bathroom: `Bathroom_Toilet`, `Bathroom_Sink`, `Bathroom_Mirror`.
 
-## Colors
+## Materials and textures
 
-Each material is a plain color. To recolor something, change its material's color in
-Blender or Unity. To change it for good, edit the hex color in `MATERIALS` at the top of
-`make_warehouse.py` and run it again.
+Most materials use a realistic texture plus a normal map, which makes flat surfaces show
+bumps and ridges in the light. The textures tile seamlessly and live in `textures/`.
+They're already packed inside `warehouse.blend`, `warehouse.fbx` and `warehouse.glb`, so
+you only need the `textures/` folder for the `.obj`.
 
-| Material | Color | Used on |
+| Material | Looks like | Used on |
 | --- | --- | --- |
-| `MetalWall` | blue `#2E86DE` | outside walls |
-| `Roof` | red `#D63031` | roof |
-| `Trim` | yellow `#FDCB2E` | door frames, ladder, cabinet handles |
-| `GarageDoor` | white `#F0F3F4` | garage door |
-| `Concrete` | grey `#A4A49C` | warehouse floor |
-| `ShelfFrame` | orange `#F2711C` | shelf frames |
-| `Wood` | brown `#C68642` | shelf boards, desk |
-| `OfficeWall` | green `#7BD389` | office walls |
-| `BathroomWall` | light blue `#74C0FC` | bathroom walls |
-| `RoomWall` | off-white `#F5F0E6` | ceiling of the office and bathroom |
-| `Carpet` | purple `#7E3F8F` | office floor |
-| `Tile` | pale blue `#E3EEF2` | bathroom floor |
-| `Porcelain` | white `#FFFFFF` | toilet, sink |
-| `Plastic` | black `#22252B` | chair, computer |
-| `Cabinet` | grey-blue `#8395A7` | filing cabinet |
-| `Steel` | dark grey `#4B5563` | garage door tracks and roll box, sink tap |
-| `Mirror` | shiny `#DDEBF5` | bathroom mirror |
+| `MetalWall` | blue-grey corrugated steel with rain streaks | outside walls |
+| `Roof` | galvanized corrugated roofing with a few rust spots | roof |
+| `Concrete` | sealed concrete with stains, scuffs and a cut line every 4 m | warehouse floor |
+| `GarageDoor` | white steel sectional door | garage door |
+| `Steel` | galvanized / brushed steel | ladder, garage door tracks and roll box, sink tap |
+| `Trim` | worn safety-yellow paint | door frames, cabinet handles |
+| `ShelfFrame` | chipped orange pallet-rack paint | shelf frames |
+| `Wood` | plywood with grain | shelf boards, desk |
+| `OfficeWall`, `RoomWall` | painted drywall | office walls, ceiling of the rooms |
+| `BathroomWall` | white 15 cm wall tiles | bathroom walls |
+| `Tile` | grey 30 cm floor tiles | bathroom floor |
+| `Carpet` | dark office carpet | office floor |
+| `Cabinet` | old beige-grey painted metal | filing cabinet |
+| `Porcelain`, `Plastic`, `Mirror` | plain colors | toilet and sink, chair and computer, mirror |
 
-The UVs are set up so a texture repeats every 2 m, if you'd rather use textures.
+To change how a texture looks, edit `make_textures.py` and run it (it needs
+`pip install numpy pillow`). Then run `python3 make_warehouse.py`.
 
 ## Using it in Unity
 
@@ -80,8 +80,13 @@ The UVs are set up so a texture repeats every 2 m, if you'd rather use textures.
 - **Lighting:** the model has no lights of its own. Light enters through the windows and
   doors, so add your own lights to brighten the inside. If you build for Quest, set
   them to **Baked** and bake the lighting (Window → Rendering → Lighting).
-- **If the colors don't show up:** select `warehouse.fbx` in the Project window, open the
-  **Materials** tab in the Inspector, and click **Extract Materials…**. That makes each
-  color an editable material. If everything is pink instead, your project uses URP or
-  HDRP. Run the render pipeline's material converter on the extracted materials (for URP:
-  Window → Rendering → Render Pipeline Converter).
+- **Textures:** select `warehouse.fbx` in the Project window and open the **Materials** tab
+  in the Inspector. Click **Extract Textures…**, then **Extract Materials…**, into a folder
+  of your choice. That makes every texture and material editable. If Unity asks to mark the
+  `_normal` textures as normal maps, click **Fix Now**.
+- **If everything is pink:** your project uses URP or HDRP. Run the render pipeline's
+  material converter on the extracted materials (for URP: Window → Rendering → Render
+  Pipeline Converter). After converting, check that each material still has its texture
+  and normal map.
+- **For Quest:** the textures are 512–2048 px JPGs, about 2 MB in total, which is fine for
+  a headset.
