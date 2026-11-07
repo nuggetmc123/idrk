@@ -126,6 +126,7 @@ namespace Rago
         /// <summary>Leaving: anything still in the bin goes back to the stash, unsold.</summary>
         public void SweepToStash(List<ItemData> into)
         {
+            if (_bin == null) return;
             foreach (var s in _bin.slots) if (s.item != null) { into.Add(s.item.Save()); var it = s.item; s.Release(it); Destroy(it.gameObject); }
         }
     }

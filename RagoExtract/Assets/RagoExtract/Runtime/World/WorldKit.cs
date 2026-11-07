@@ -137,7 +137,8 @@ namespace Rago
             foreach (var o in ops)
             {
                 if (o.z < 0.4f && o.w - o.z > 1.6f)   // a doorway you walk through: keep furniture out of it
-                    Doors.Add(new DoorGap { c = a + dir * o.x, along = dir, across = Vector3.Cross(dir, Vector3.up), halfW = o.y * 0.5f });
+                    Doors.Add(new DoorGap { c = a + dir * o.x, along = dir, across = Vector3.Cross(dir, Vector3.up), halfW = o.y * 0.5f, top = o.w,
+                                            swing = !NoSwingDoors && o.y <= 1.85f && o.w <= 2.45f });
                 float o0 = Mathf.Clamp(o.x - o.y * 0.5f, 0, len), o1 = Mathf.Clamp(o.x + o.y * 0.5f, 0, len);
                 if (o0 > cursor) Seg(a, dir, rot, cursor, o0, 0, height, thick, m, tint, s);
                 if (o.z > 0.01f) Seg(a, dir, rot, o0, o1, 0, o.z, thick, m, tint, s);           // below window
@@ -182,7 +183,9 @@ namespace Rago
                             ops.Add(new Vector4(c, 1.2f, 1.0f, 2.1f));
                         }
                     }
+                    NoSwingDoors = f == 0 && side == vaultSide;   // the vault's own round door goes there
                     Wall(P(a.x, y, a.z), P(b.x, y, b.z), floorH, t, wall, tint, ops);
+                    NoSwingDoors = false;
                 }
                 // floor slab (with a stair hole on upper floors)
                 if (f == 0) Box(P(0, 0.05f, 0), new Vector3(size.x, 0.1f, size.y), floorMat, Color.white, q, true, Synth.Surface.Wood);
@@ -289,7 +292,9 @@ namespace Rago
         }
 
         /// <summary>Loot spots that are desk tops, and the yaw each loot spot faces (set by Building).</summary>
-        public struct DoorGap { public Vector3 c, along, across; public float halfW; }
+        public struct DoorGap { public Vector3 c, along, across; public float halfW, top; public bool swing; }
+        /// <summary>Set while building walls whose doorways must stay open (vault entrances).</summary>
+        public bool NoSwingDoors;
         /// <summary>Every doorway cut by Wall(): shelves, tables, crates and loot keep out of them.</summary>
         public readonly List<DoorGap> Doors = new List<DoorGap>();
 

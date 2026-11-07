@@ -200,7 +200,8 @@ namespace Rago
             b.Wall(new Vector3(-ax, 0, az0), new Vector3(-ax, 0, az1), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(1.5f, 2.0f, 0, 2.4f) });   // Storage Room
             b.Wall(new Vector3(-ax, 0, az1), new Vector3(ax, 0, az1), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(ax + 4.5f, 2.0f, 0, 2.4f) }); // Trophy Vault
             b.Wall(new Vector3(ax, 0, az1), new Vector3(ax, 0, az0), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(2f, 2.0f, 0, 2.4f) });      // Generator Room
-            b.Box(new Vector3(0, 0.6f, az1 - 0.16f), new Vector3(ax * 2, 1.2f, 0.02f), paint, Color.white, null, false);
+            b.Box(new Vector3(-1.4f, 0.6f, az1 - 0.16f), new Vector3(9.2f, 1.2f, 0.02f), paint, Color.white, null, false);   // paint band, open at the Trophy Vault doorway (x 3.3-5.7)
+            b.Box(new Vector3(5.9f, 0.6f, az1 - 0.16f), new Vector3(0.2f, 1.2f, 0.02f), paint, Color.white, null, false);
             b.Box(new Vector3(0, Ht - 0.08f, (az0 + az1) / 2), new Vector3(1.2f, 0.08f, 0.25f), lampMat, Color.white, null, false);
             b.AddLight(new Vector3(0, Ht - 0.4f, (az0 + az1) / 2), new Color(1f, 0.88f, 0.7f), 9f, 1.4f, true);
             Stash.Add(StashSection.Create(transform, new Vector3(0, 0, az1 - 0.25f), 0, StashKind.Weapons));
@@ -243,7 +244,7 @@ namespace Rago
             // bed + locker
             b.Box(new Vector3(-5.8f, 0.3f, -4.6f), new Vector3(2.0f, 0.15f, 0.9f), Maps.Metal, new Color(0.3f, 0.32f, 0.3f), null, true, Synth.Surface.Metal);
             b.Box(new Vector3(-5.8f, 0.45f, -4.6f), new Vector3(1.9f, 0.15f, 0.85f), Mats.Lit("mattress", new Color(0.35f, 0.38f, 0.3f), 0, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0), Color.white, null, false, Synth.Surface.Dirt, 0.05f);
-            SellStation.Create(transform, new Vector3(-0.4f, 0, -D / 2 + 0.66f), 180f);   // sell loot right here, without going up to the Market
+            SellStation.Create(transform, new Vector3(-0.85f, 0, -D / 2 + 0.66f), 180f);   // between the column and the lift's CALL panel   // sell loot right here, without going up to the Market
             // settings are in the menu now (LEFT MENU button > SETTINGS)
             // supply crate with a free stim + bandages each visit so you can always heal up
             var supply = AddCrate(new Vector3(5.8f, 0, -4.9f), 0, LootCrate.Kind.Medical);

@@ -82,7 +82,9 @@ namespace Rago
                 foreach (var nb in all)
                 {
                     var src = new List<NavMeshBuildSource>();
-                    NavMeshBuilder.CollectSources(nb, mask, NavMeshCollectGeometry.PhysicsColliders, 0, new List<NavMeshBuildMarkup>(), src);
+                    var markups = new List<NavMeshBuildMarkup>();
+                    foreach (var t in NavIgnore) if (t != null) markups.Add(new NavMeshBuildMarkup { root = t, ignoreFromBuild = true });   // doors: raiders path through doorways
+                    NavMeshBuilder.CollectSources(nb, mask, NavMeshCollectGeometry.PhysicsColliders, 0, markups, src);
                     jobs.Add((nb, src));
                 }
             }
@@ -127,6 +129,23 @@ namespace Rago
         struct LootSpot { public Vector3 pos; public float yaw; public LootCrate.Kind? kind; public float chance; public bool desk; }
         readonly List<LootSpot> _spots = new List<LootSpot>();
         bool _lootPlaced;
+        public readonly List<Transform> NavIgnore = new List<Transform>();
+
+        /// <summary>Raids: a pushable door in every ordinary doorway (not vault entrances, gates or wide openings).</summary>
+        public void AddSwingDoors()
+        {
+            if (!IsRaid || B == null) return;
+            var root = new GameObject("Doors").transform; root.SetParent(transform, false);
+            NavIgnore.Add(root);
+            int k = 0;
+            foreach (var d in B.Doors)
+            {
+                if (!d.swing) continue;
+                int seed = Mathf.RoundToInt(d.c.x * 13.1f + d.c.z * 7.7f + d.c.y * 3.3f) ^ LootSeed;
+                SwingDoor.Create(root, d.c - d.along * (d.halfW - 0.02f), d.along, d.halfW * 2f - 0.04f, d.top - d.c.y - 0.03f, seed + k++);
+            }
+        }
+
         public int MaxRaiders = NpcDirector.MaxNpcs;   // raiders alive at the start of a raid on this map
         public int LootSeed;
 
@@ -1159,7 +1178,9 @@ namespace Rago
             else
             {
                 // front wall in the same material as the room, the full height, with the doorway
+                B.NoSwingDoors = true;
                 B.Wall(P(-3, 0, 0), P(3, 0, 0), height, 0.4f, wm, wt, new List<Vector4> { new Vector4(3f, 1.8f, 0f, 2.3f) });
+                B.NoSwingDoors = false;
                 face = -0.2f;
             }
             // steel frame around the round door

@@ -41,6 +41,7 @@ namespace Rago
             m.LootSeed = seed;
             m.Build();
             m.FinalizeLoot();
+            m.AddSwingDoors();
             m.B.Finish();
             try { m.SettleCrates(); } catch (System.Exception e) { Debug.LogWarning("[Rago] crate settle skipped: " + e.Message); }
             return m;
@@ -490,7 +491,7 @@ namespace Rago
             for (int l = 0; l < Levels; l++)
             {
                 var holes = new List<Rect>();
-                foreach (var w in Wells) if (w.l == l) { var c = Cell(w.i, w.j, l); holes.Add(Rect.MinMaxRect(c.x - Room / 2f, c.z - 0.6f, c.x - Room / 2f + 1.85f, c.z + 3.6f)); }
+                foreach (var w in Wells) if (w.l == l) { var c = Cell(w.i, w.j, l); holes.Add(Rect.MinMaxRect(c.x - Room / 2f, c.z - 0.6f, c.x - Room / 2f + 2.45f, c.z + 3.6f)); }
                 float th = l == Levels - 1 ? 0.3f : Slab;
                 SlabWithHoles(LevelY(l), th, -ex, ex, -ez, ez, holes, floor);
             }
@@ -623,17 +624,17 @@ namespace Rago
             var b = B;
             float h = Room / 2f;
             float yU = c.y, yD = c.y - LevelH;
-            float sx = c.x - h + 0.95f;
-            b.Stairs(new Vector3(sx, yD, c.z - 2.8f), new Vector3(sx, yU, c.z + 3.6f), 1.6f, metal);
+            float sx = c.x - h + 1.25f;   // 2.2 m wide: room for two people side by side
+            b.Stairs(new Vector3(sx, yD, c.z - 2.8f), new Vector3(sx, yU, c.z + 3.6f), 2.2f, metal);
             // railings round the opening upstairs (east and south sides; the stair comes up at the north end)
-            float rx = c.x - h + 1.88f;
+            float rx = c.x - h + 2.48f;
             Rail(new Vector3(rx, yU, c.z - 0.6f), new Vector3(rx, yU, c.z + 3.6f), metal);
             Rail(new Vector3(c.x - h + 0.15f, yU, c.z - 0.6f), new Vector3(rx, yU, c.z - 0.6f), metal);
-            b.Box(new Vector3(c.x - h + 1.0f, yU + 0.004f, c.z + 4.3f), new Vector3(1.8f, 0.008f, 1.0f), yellow, Color.white, null, false);   // painted landing at the top
+            b.Box(new Vector3(c.x - h + 1.25f, yU + 0.004f, c.z + 4.3f), new Vector3(2.3f, 0.008f, 1.0f), yellow, Color.white, null, false);   // painted landing at the top
             // the shaft below: a wall along the stair's open side, from the bottom step to the north wall
             b.Wall(new Vector3(rx, yD, c.z - 2.0f), new Vector3(rx, yD, c.z + h), Ht, 0.15f, conc, wallCol);
             int lvl = Mathf.RoundToInt(-yU / LevelH);
-            b.Sign(new Vector3(c.x - h + 1.0f, yU + 2.4f, c.z + h - 0.18f), Quaternion.identity, "DOWN TO B" + (lvl + 2), new Color(0.9f, 0.85f, 0.6f), 0.16f);
+            b.Sign(new Vector3(c.x - h + 1.25f, yU + 2.4f, c.z + h - 0.18f), Quaternion.identity, "DOWN TO B" + (lvl + 2), new Color(0.9f, 0.85f, 0.6f), 0.16f);
             b.Sign(new Vector3(c.x - h + 0.17f, yD + 2.1f, c.z - 3.6f), Quaternion.Euler(0, -90, 0), "UP TO B" + (lvl + 1), new Color(0.9f, 0.85f, 0.6f), 0.16f);
         }
 
@@ -655,9 +656,14 @@ namespace Rago
                 b.Wall(corners[s], corners[(s + 1) % 4], Ht, 0.3f, conc, wallCol, ops);
             }
             // paint band inside, a lamp, a door label
-            foreach (var (pos, size) in new[] { (c + new Vector3(0, 0.6f, -h + 0.16f), new Vector3(Room - 0.4f, 1.2f, 0.02f)), (c + new Vector3(0, 0.6f, h - 0.16f), new Vector3(Room - 0.4f, 1.2f, 0.02f)),
-                                                 (c + new Vector3(-h + 0.16f, 0.6f, 0), new Vector3(0.02f, 1.2f, Room - 0.4f)), (c + new Vector3(h - 0.16f, 0.6f, 0), new Vector3(0.02f, 1.2f, Room - 0.4f)) })
-                b.Box(pos, size, paint, Color.white, null, false);
+            // paint band along the bottom of each wall - left open at the doorways
+            for (int s = 0; s < 4; s++)
+            {
+                var a = corners[s]; var d = (corners[(s + 1) % 4] - a).normalized; var inward = Vector3.Cross(d, Vector3.up);
+                var segs = doors[s] ? new[] { (0.2f, Room * 0.5f - 0.9f), (Room * 0.5f + 0.9f, Room - 0.2f) } : new[] { (0.2f, Room - 0.2f) };
+                foreach (var (t0, t1) in segs)
+                    b.Box(a + d * ((t0 + t1) * 0.5f) + inward * 0.16f + Vector3.up * 0.6f, new Vector3(0.02f, 1.2f, t1 - t0), paint, Color.white, Quaternion.LookRotation(d, Vector3.up), false);
+            }
             b.Box(c + new Vector3(0, Ht - 0.04f, 0), new Vector3(1.4f, 0.06f, 0.3f), lamp, Color.white, null, false);
             string label = "B" + (lvl + 1) + "-" + (char)('A' + gi) + (gj + 1).ToString() + "  " + (shaft ? "STAIRWELL" : type.ToUpper());
             for (int s = 0; s < 4; s++)
