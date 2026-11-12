@@ -414,111 +414,117 @@ namespace Rago
             IsRaid = false; Indoor = true;
             Safe = true;
             Ambience = Synth.Amb.Market;
-            NavBounds = new Bounds(new Vector3(0, 5, 0), new Vector3(70, 20, 50));
-            Lighting(new Color(0.55f, 0.6f, 0.85f), 0.25f, new Vector3(40, 200, 0), new Color(0.2f, 0.22f, 0.3f), new Color(0.22f, 0.2f, 0.2f), new Color(0.1f, 0.1f, 0.1f),
+            NavBounds = new Bounds(new Vector3(0, 3, 0), new Vector3(40, 10, 32));
+            Lighting(new Color(0.55f, 0.6f, 0.85f), 0.25f, new Vector3(40, 200, 0), new Color(0.24f, 0.25f, 0.3f), new Color(0.24f, 0.22f, 0.2f), new Color(0.12f, 0.11f, 0.1f),
                 new Color(0.12f, 0.12f, 0.16f), 0.012f, new Color(0.03f, 0.04f, 0.08f), new Color(0.15f, 0.12f, 0.15f), 0.3f, 0.6f);
             var b = B;
-            float W = 56, D = 38, H = 11;
-            b.Ground(Vector3.zero, new Vector2(W + 20, D + 20), Maps.Asphalt, Synth.Surface.Concrete);
-            b.Box(new Vector3(0, 0.01f, 0), new Vector3(W, 0.02f, D), Maps.ConcreteDark, new Color(0.7f, 0.7f, 0.7f), null, false);
-            // hangar
+            // a compact hall: step out of the lift (east wall) and everything is in view -
+            // SELL right ahead, the traders along the back (north) wall, Bruno on the left (west) wall
+            float W = 32, D = 24, H = 7;
+            b.Box(new Vector3(0, -0.1f, 0), new Vector3(W + 1, 0.2f, D + 1), Maps.ConcreteDark, new Color(0.7f, 0.7f, 0.7f), null, true, Synth.Surface.Concrete);
             var corr = Maps.Corrugated;
             Color wc = new Color(0.45f, 0.5f, 0.52f);
             b.Wall(new Vector3(-W / 2, 0, D / 2), new Vector3(W / 2, 0, D / 2), H, 0.3f, corr, wc, null, Synth.Surface.Metal);
-            b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), H, 0.3f, corr, wc, new List<Vector4> { new Vector4(W / 2, 10f, 0, 7f) }, Synth.Surface.Metal);
-            b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), H, 0.3f, corr, wc, new List<Vector4> { new Vector4(D / 2 + 10f, 1.8f, 0, 2.4f) }, Synth.Surface.Metal); // lift
+            b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), H, 0.3f, corr, wc, null, Synth.Surface.Metal);
+            b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), H, 0.3f, corr, wc, new List<Vector4> { new Vector4(D / 2 + 6f, 1.8f, 0, 2.4f) }, Synth.Surface.Metal); // lift
             b.Wall(new Vector3(-W / 2, 0, -D / 2), new Vector3(-W / 2, 0, D / 2), H, 0.3f, corr, wc, null, Synth.Surface.Metal);
-            // big door half open + outside darkness
-            b.Box(new Vector3(-3, 3.5f, -D / 2 - 0.3f), new Vector3(9f, 7f, 0.15f), corr, wc * 0.8f, null, true, Synth.Surface.Metal);
-            // roof trusses
-            for (int i = 0; i < 8; i++)
-            {
-                float x = -W / 2 + (i + 0.5f) * W / 8;
-                b.Box(new Vector3(x, H - 0.2f, 0), new Vector3(0.3f, 0.5f, D), Maps.Metal, new Color(0.3f, 0.3f, 0.3f), null, false);
-                for (int k = -3; k <= 3; k++) b.Box(new Vector3(x, H - 1f, k * 5), new Vector3(0.12f, 1.5f, 0.12f), Maps.Metal, new Color(0.3f, 0.3f, 0.3f), Quaternion.Euler(30 * Mathf.Sign(k + 0.5f), 0, 0), false);
-            }
             b.Box(new Vector3(0, H + 0.1f, 0), new Vector3(W, 0.2f, D), corr, new Color(0.3f, 0.32f, 0.33f), null, true, Synth.Surface.Metal);
-            // string lights
+            for (int i = 0; i < 5; i++)   // roof trusses
+            {
+                float x = -W / 2 + (i + 0.5f) * W / 5;
+                b.Box(new Vector3(x, H - 0.2f, 0), new Vector3(0.3f, 0.4f, D), Maps.Metal, new Color(0.3f, 0.3f, 0.3f), null, false);
+            }
+            // a closed roller door on the south wall (the way the goods come in)
+            b.Box(new Vector3(-2f, 2.4f, -D / 2 + 0.2f), new Vector3(6f, 4.8f, 0.08f), Maps.Metal, new Color(0.42f, 0.36f, 0.22f), null, false);
+            for (int i = 0; i < 16; i++) b.Box(new Vector3(-2f, 0.15f + i * 0.3f, -D / 2 + 0.25f), new Vector3(6f, 0.03f, 0.02f), Maps.Metal, new Color(0.3f, 0.26f, 0.16f), null, false);
+            // string lights + bunting
             var bulb = Mats.Lit("bulb", new Color(1f, 0.8f, 0.5f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(3f, 2f, 1f));
             var bunting = Mats.Lit("bunting", Color.white, 0f, 0.1f, Mats.Fabric, null, 0.3f, 0f);
             var flagCols = new[] { new Color(0.8f, 0.25f, 0.2f), new Color(0.9f, 0.7f, 0.2f), new Color(0.25f, 0.5f, 0.3f), new Color(0.25f, 0.4f, 0.65f), new Color(0.85f, 0.85f, 0.8f) };
-            for (int s = 0; s < 4; s++)
+            for (int s = 0; s < 3; s++)
             {
-                float z = -14 + s * 9;
-                for (int i = 0; i < 22; i++)
+                float z = -6 + s * 6;
+                for (int i = 0; i < 14; i++)
                 {
-                    float x = -W / 2 + 2 + i * (W - 4) / 21f;
-                    float sag = Mathf.Sin(i / 21f * Mathf.PI) * 1.2f;
-                    b.Sphere(new Vector3(x, 7.5f - sag, z), Vector3.one * 0.07f, 6, bulb, Color.white, false);
-                    if (i < 21)   // bunting: cloth pennants between the bulbs
-                    {
-                        float xm = x + (W - 4) / 42f, sm = Mathf.Sin((i + 0.5f) / 21f * Mathf.PI) * 1.2f;
-                        b.Box(new Vector3(xm, 7.36f - sm, z), new Vector3(0.24f, 0.24f, 0.01f), bunting, flagCols[(i + s) % flagCols.Length], Quaternion.Euler(0, 0, 45), false);
-                    }
+                    float x = -W / 2 + 1.5f + i * (W - 3) / 13f;
+                    float sag = Mathf.Sin(i / 13f * Mathf.PI) * 0.7f;
+                    b.Sphere(new Vector3(x, 5.6f - sag, z), Vector3.one * 0.07f, 6, bulb, Color.white, false);
+                    if (i < 13) { float sm = Mathf.Sin((i + 0.5f) / 13f * Mathf.PI) * 0.7f; b.Box(new Vector3(x + (W - 3) / 26f, 5.46f - sm, z), new Vector3(0.24f, 0.24f, 0.01f), bunting, flagCols[(i + s) % flagCols.Length], Quaternion.Euler(0, 0, 45), false); }
                 }
-                b.AddLight(new Vector3(-12, 6.5f, z), new Color(1f, 0.75f, 0.45f), 16f, 1.2f);
-                b.AddLight(new Vector3(12, 6.5f, z), new Color(1f, 0.75f, 0.45f), 16f, 1.2f);
+                b.AddLight(new Vector3(-7, 5f, z), new Color(1f, 0.78f, 0.5f), 12f, 1.2f);
+                b.AddLight(new Vector3(7, 5f, z), new Color(1f, 0.78f, 0.5f), 12f, 1.2f);
             }
-            // ---- trader row along the back wall, each under a banner in its colours
+
+            // ---- traders along the back wall, each under a banner with their name
             var defs = TraderStall.Defaults();
             var fabric = Mats.Lit("banner", Color.white, 0f, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0f);
-            float[] stallX = { -18f, -6f, 6f, 18f };
+            float[] stallX = { -10.5f, -3.5f, 3.5f, 10.5f };
             for (int i = 0; i < defs.Count && i < stallX.Length; i++)
             {
-                Stalls.Add(TraderStall.Create(transform, new Vector3(stallX[i], 0, 14f), 0f, defs[i], 100 + i * 17));
-                b.Box(new Vector3(stallX[i], 6.2f, D / 2 - 0.2f), new Vector3(1.8f, 3.2f, 0.03f), fabric, defs[i].color, null, false);       // banner
-                b.Box(new Vector3(stallX[i], 7.86f, D / 2 - 0.22f), new Vector3(2.0f, 0.08f, 0.08f), Maps.Metal, new Color(0.3f, 0.3f, 0.3f), null, false); // rod
-                b.Sign(new Vector3(stallX[i], 6.6f, D / 2 - 0.23f), Quaternion.identity, defs[i].name.ToUpper(), new Color(0.97f, 0.95f, 0.9f), 0.45f);
-                b.AddLight(new Vector3(stallX[i], 4.2f, 12.6f), new Color(1f, 0.82f, 0.6f), 7f, 1.1f);
+                Stalls.Add(TraderStall.Create(transform, new Vector3(stallX[i], 0, D / 2 - 3.6f), 0f, defs[i], 100 + i * 17));
+                b.Box(new Vector3(stallX[i], 4.5f, D / 2 - 0.2f), new Vector3(2.4f, 2.0f, 0.03f), fabric, defs[i].color, null, false);       // banner
+                b.Box(new Vector3(stallX[i], 5.54f, D / 2 - 0.22f), new Vector3(2.6f, 0.08f, 0.08f), Maps.Metal, new Color(0.3f, 0.3f, 0.3f), null, false); // rod
+                b.Sign(new Vector3(stallX[i], 4.75f, D / 2 - 0.23f), Quaternion.identity, defs[i].name.ToUpper(), new Color(0.97f, 0.95f, 0.9f), 0.4f);
+                b.Sign(new Vector3(stallX[i], 4.15f, D / 2 - 0.23f), Quaternion.identity, Short(defs[i].title), new Color(0.97f, 0.95f, 0.9f), 0.14f);
+                b.AddLight(new Vector3(stallX[i], 3.8f, D / 2 - 5f), new Color(1f, 0.82f, 0.6f), 6f, 1.1f);
             }
-            // ---- the Exchange: sell anything, best price from any trader - right in front of you when you arrive
-            SellStation.Create(transform, new Vector3(0, 0, 3f), 0f);
-            var paintY = Mats.Lit("floor_paint", new Color(0.85f, 0.68f, 0.1f), 0f, 0.3f, Mats.Noise, null, 0.5f, 0.2f);
-            void Line(Vector3 c, Vector3 size) => b.Box(c + Vector3.up * 0.022f, size, paintY, Color.white, null, false);
-            Line(new Vector3(0, 0, -1.5f), new Vector3(8f, 0.004f, 0.12f)); Line(new Vector3(0, 0, 6.5f), new Vector3(8f, 0.004f, 0.12f));   // plaza box
-            Line(new Vector3(-4f, 0, 2.5f), new Vector3(0.12f, 0.004f, 8f)); Line(new Vector3(4f, 0, 2.5f), new Vector3(0.12f, 0.004f, 8f));
-            Line(new Vector3(16.8f, 0, -11.3f), new Vector3(21.6f, 0.004f, 0.12f)); Line(new Vector3(16.8f, 0, -8.7f), new Vector3(21.6f, 0.004f, 0.12f));   // walkway from the lift
-            for (int i = 0; i < 6; i++)   // chevrons pointing into the market
-                foreach (float sz in new[] { -1f, 1f })
-                    b.Box(new Vector3(24f - i * 3.4f, 0.022f, -10f + sz * 0.32f), new Vector3(0.9f, 0.004f, 0.14f), paintY, Color.white, Quaternion.Euler(0, -sz * 40f, 0), false);   // apex towards the plaza
-            // ---- Bruno the Foreman (bunker expansion jobs) on the west side, facing the plaza
-            Foreman = QuestStall.Create(transform, new Vector3(-22f, 0, 2f), -90f, 211);
-            b.AddLight(new Vector3(-21.2f, 3.6f, 2f), new Color(1f, 0.8f, 0.55f), 7f, 1.2f);
-            // ---- two lounges: a fire barrel between benches
-            foreach (var p in new[] { new Vector3(-12f, 0, -5f), new Vector3(12f, 0, -5f) })
+            // ---- the Exchange: a few steps from the lift doors, facing them
+            SellStation.Create(transform, new Vector3(W / 2 - 7.5f, 0, -6f), -90f);
+            // ---- Bruno the Foreman on the west wall, facing the room
+            Foreman = QuestStall.Create(transform, new Vector3(-W / 2 + 3.6f, 0, -1f), -90f, 211);
+            b.AddLight(new Vector3(-W / 2 + 4.6f, 3.6f, -1f), new Color(1f, 0.8f, 0.55f), 7f, 1.2f);
+            // ---- big hanging signs, readable from the lift and from the middle of the hall
+            HangingSign(new Vector3(0, 6.1f, D / 2 - 6.4f), 0f, "TRADERS", "buy guns, gear, ammo and meds", new Color(0.95f, 0.85f, 0.55f));
+            HangingSign(new Vector3(W / 2 - 7.5f, 4.6f, -6f), -90f, "SELL", "any loot - best price", UI.Accent);
+            HangingSign(new Vector3(-W / 2 + 4.8f, 4.6f, -1f), -90f, "BUNKER JOBS", "Bruno builds new rooms", new Color(0.95f, 0.75f, 0.1f));
+            // ---- a lounge in the south-west corner
+            var fire = new Vector3(-9f, 0, -8f);
+            b.Barrel(fire, new Color(0.3f, 0.2f, 0.15f));
+            b.Sphere(fire + Vector3.up * 0.95f, new Vector3(0.25f, 0.15f, 0.25f), 8, Mats.Lit("embers", new Color(1f, 0.4f, 0.1f), 0, 0.2f, null, null, 0, 0, false, 0.5f, new Color(3f, 0.9f, 0.2f)), Color.white, false);
+            var fl = b.AddLight(fire + Vector3.up * 1.4f, new Color(1f, 0.55f, 0.25f), 7f, 1.6f);
+            fl.gameObject.AddComponent<Flicker>();
+            foreach (float sx in new[] { -1.7f, 1.7f })
             {
-                b.Barrel(p, new Color(0.3f, 0.2f, 0.15f));
-                b.Sphere(p + Vector3.up * 0.95f, new Vector3(0.25f, 0.15f, 0.25f), 8, Mats.Lit("embers", new Color(1f, 0.4f, 0.1f), 0, 0.2f, null, null, 0, 0, false, 0.5f, new Color(3f, 0.9f, 0.2f)), Color.white, false);
-                var l = b.AddLight(p + Vector3.up * 1.4f, new Color(1f, 0.55f, 0.25f), 7f, 1.6f);
-                l.gameObject.AddComponent<Flicker>();
-                foreach (float sx in new[] { -1.7f, 1.7f })
-                {
-                    b.Box(p + new Vector3(sx, 0.42f, 0), new Vector3(0.45f, 0.06f, 2.2f), Maps.WoodPlank, new Color(0.55f, 0.42f, 0.3f), null, true, Synth.Surface.Wood);
-                    foreach (float sz in new[] { -0.9f, 0.9f }) b.Box(p + new Vector3(sx, 0.2f, sz), new Vector3(0.4f, 0.4f, 0.08f), Maps.Metal, new Color(0.25f, 0.25f, 0.25f), null, false);
-                }
+                b.Box(fire + new Vector3(sx, 0.42f, 0), new Vector3(0.45f, 0.06f, 2.2f), Maps.WoodPlank, new Color(0.55f, 0.42f, 0.3f), null, true, Synth.Surface.Wood);
+                foreach (float sz in new[] { -0.9f, 0.9f }) b.Box(fire + new Vector3(sx, 0.2f, sz), new Vector3(0.4f, 0.4f, 0.08f), Maps.Metal, new Color(0.25f, 0.25f, 0.25f), null, false);
             }
-            // ---- vehicles and containers by the big door, crates stacked neatly in the corners (not in the walkways)
-            b.CarWreck(new Vector3(-15f, 0, -14.5f), 80, new Color(0.25f, 0.28f, 0.22f));
-            b.ShippingContainer(new Vector3(-24.5f, 0, -13f), 0, new Color(0.5f, 0.15f, 0.12f));
-            b.ShippingContainer(new Vector3(-24.5f, 2.6f, -13f), 2, new Color(0.15f, 0.3f, 0.5f));
-            b.ShippingContainer(new Vector3(-25.3f, 0, 10f), 0, new Color(0.2f, 0.4f, 0.25f), true);
-            b.ShippingContainer(new Vector3(25.4f, 0, 4f), 0, new Color(0.55f, 0.4f, 0.12f));
-            foreach (var c in new[] { new Vector3(24.6f, 0, 16.4f), new Vector3(25.8f, 0, 16.4f), new Vector3(25.2f, 0, 15.2f), new Vector3(-25.8f, 0, -4.5f), new Vector3(-25.8f, 0, -5.7f), new Vector3(-24.6f, 0, -5.1f) })
+            // crates stacked in the corners, out of the way
+            foreach (var c in new[] { new Vector3(-W / 2 + 0.9f, 0, -D / 2 + 0.9f), new Vector3(-W / 2 + 2.1f, 0, -D / 2 + 0.9f), new Vector3(-W / 2 + 0.9f, 0, -D / 2 + 2.1f), new Vector3(W / 2 - 1.0f, 0, D / 2 - 1.0f), new Vector3(W / 2 - 2.2f, 0, D / 2 - 1.0f) })
                 b.Crate(c, b.Rng.Range(-6f, 6f), new Vector3(1f, 0.8f, 1f));
-            b.Crate(new Vector3(25.2f, 0.8f, 16.0f), 8, new Vector3(0.9f, 0.7f, 0.9f));
-            b.Crate(new Vector3(-25.6f, 0.8f, -5.1f), -5, new Vector3(0.9f, 0.7f, 0.9f));
-            // ---- notice board by the lift
-            var nb = UI.Panel(transform, "NoticeBoard", new Vector3(W / 2 - 0.2f, 1.9f, -4.6f), Quaternion.Euler(0, 90, 0), new Vector2(1.7f, 1.1f), null, true, Skin.Paper);
-            UI.Text(nb, "WELCOME TO THE MARKET", new Vector3(0, 0.44f, 0), 0.06f, UI.PaperInk, TextAnchor.MiddleCenter, FontStyle.Bold);
-            UI.Text(nb, "SELL  -  the Exchange in the middle of the plaza buys anything\n            at the best price any trader pays\n" +
-                        "BUY   -  traders along the back wall: guns, gear, ammo, meds\n" +
-                        "JOBS  -  Bruno (west side) builds new rooms in your bunker\n\n" +
-                        "Safe zone - weapons cold. Raids launch from your bunker.", new Vector3(-0.78f, 0.3f, 0), 0.036f, UI.PaperInk, TextAnchor.UpperLeft);
-            b.Sign(new Vector3(0, 9f, D / 2 - 0.3f), Quaternion.identity, "THE MARKET", UI.Accent, 0.8f);
-            b.Sign(new Vector3(0, 8f, D / 2 - 0.3f), Quaternion.identity, "safe zone - weapons cold", UI.Dim, 0.25f);
-            Elevator.Create(b, transform, new Vector3(W / 2, 0, -10), 90, "Market", "Bunker", false, () => RagoGame.I.GoTo(Area.Bunker));
-            b.Sign(new Vector3(W / 2 - 0.3f, 3.15f, -10), Quaternion.Euler(0, 90, 0), "LIFT - BUNKER", new Color(0.9f, 0.8f, 0.6f), 0.18f);
-            for (int i = 0; i < 8; i++) { float a = i / 8f * Mathf.PI * 2; Spawn(new Vector3(Mathf.Cos(a) * 4, 0.05f, -8 + Mathf.Sin(a) * 3), 0); }
+            b.Crate(new Vector3(-W / 2 + 1.4f, 0.8f, -D / 2 + 1.4f), 8, new Vector3(0.9f, 0.7f, 0.9f));
+            // ---- directory board right by the lift doors
+            var nb = UI.Panel(transform, "Directory", new Vector3(W / 2 - 0.2f, 1.9f, -2.2f), Quaternion.Euler(0, 90, 0), new Vector2(1.6f, 1.15f), null, true, Skin.Paper);
+            UI.Text(nb, "THE MARKET", new Vector3(0, 0.47f, 0), 0.07f, UI.PaperInk, TextAnchor.MiddleCenter, FontStyle.Bold);
+            UI.Text(nb, "SELL  -  straight ahead (orange counter)\nTRADERS  -  along the back wall, to your right\nBUNKER JOBS  -  Bruno, far wall\nLIFT  -  back down to your bunker\n\nSafe zone - weapons cold.", new Vector3(-0.74f, 0.33f, 0), 0.042f, UI.PaperInk, TextAnchor.UpperLeft);
+            b.Sign(new Vector3(0, 6.3f, D / 2 - 0.3f), Quaternion.identity, "THE MARKET", UI.Accent, 0.55f);
+            Elevator.Create(b, transform, new Vector3(W / 2, 0, -6), 90, "Market", "Bunker", false, () => RagoGame.I.GoTo(Area.Bunker));
+            b.Sign(new Vector3(W / 2 - 0.3f, 3.15f, -6), Quaternion.Euler(0, 90, 0), "LIFT - BUNKER", new Color(0.9f, 0.8f, 0.6f), 0.18f);
+            for (int i = 0; i < 8; i++) { float a = i / 8f * Mathf.PI * 2; Spawn(new Vector3(4 + Mathf.Cos(a) * 2.5f, 0.05f, -2 + Mathf.Sin(a) * 2f), 0); }
+        }
+
+        static string Short(string title) { int i = title.IndexOf(" - "); return i > 0 ? title.Substring(i + 3) : title; }
+
+        /// <summary>A sign board hanging from the roof on two rods, lettered on both sides, with a lamp on it.</summary>
+        void HangingSign(Vector3 at, float yaw, string big, string small, Color col)
+        {
+            var b = B;
+            var q = Quaternion.Euler(0, yaw, 0);
+            float w = Mathf.Max(2.2f, big.Length * 0.32f + 0.6f);
+            b.Box(at, new Vector3(w, 0.95f, 0.06f), Maps.Metal, new Color(0.08f, 0.08f, 0.09f), q, false);
+            b.Box(at + Vector3.down * 0.5f, new Vector3(w, 0.05f, 0.08f), Maps.Metal, col * 0.8f, q, false);
+            foreach (float sx in new[] { -0.4f, 0.4f })
+            {
+                var top = at + q * new Vector3(sx * w, 0.47f, 0);
+                b.Cyl(top, new Vector3(top.x, 7f, top.z), 0.015f, 0.015f, 6, Maps.Metal, Color.gray, false);
+            }
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var face = at + q * new Vector3(0, 0, side * 0.035f);
+                var rot = q * Quaternion.Euler(0, side < 0 ? 0 : 180, 0);
+                b.Sign(face + Vector3.up * 0.12f, rot, big, col, 0.42f);
+                b.Sign(face + Vector3.down * 0.27f, rot, small, new Color(0.9f, 0.9f, 0.88f), 0.12f);
+            }
+            b.AddLight(at + Vector3.down * 0.9f, col, 5f, 0.9f);
         }
     }
 

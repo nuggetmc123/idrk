@@ -15,6 +15,8 @@ namespace Rago
         const float MaxAngle = 100f;
 
         Transform _leaf;
+        Collider _col;
+        static readonly Collider[] _ov = new Collider[8];
         float _w, _h, _angle, _vel, _creakT;
         Vector3 _center;
 
@@ -54,11 +56,46 @@ namespace Rago
             var leafGo = mb.Build("DoorLeaf", _leaf, wood ? Mats.Lit("door_wood", Color.white, 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.45f, 0.2f, true, 1f)
                                                            : Mats.Lit("door_steel", Color.white, 0.6f, 0.45f, Mats.Metal, Mats.MetalN, 0.4f, 0.4f),
                                    Mats.Lit("door_hw", Color.white, 0.9f, 0.6f, Mats.Metal, null, 0.2f, 0.2f));
-            var col = leafGo.AddComponent<BoxCollider>(); col.center = new Vector3(w * 0.5f, h * 0.5f, 0); col.size = new Vector3(w - 0.02f, h - 0.02f, 0.05f);
+            var col = leafGo.AddComponent<BoxCollider>(); _col = col; col.center = new Vector3(w * 0.5f, h * 0.5f, 0); col.size = new Vector3(w - 0.02f, h - 0.02f, 0.05f);
             var rb = leafGo.AddComponent<Rigidbody>(); rb.isKinematic = true;   // a moving collider: the player capsule and hands are pushed cleanly
             leafGo.AddComponent<SurfaceTag>().surface = wood ? Synth.Surface.Wood : Synth.Surface.Metal;
             // some doors are already open when the raid starts (same on every player's game: it comes from the map seed)
             if (rng.Chance(0.35f)) _angle = rng.Range(55f, 95f) * (rng.Chance(0.5f) ? 1 : -1);
+            Apply();
+        }
+
+        /// <summary>Would the leaf at this angle overlap a wall, furniture or another door?</summary>
+        bool Fits(float angle)
+        {
+            var rot = transform.rotation * Quaternion.Euler(0, angle, 0);
+            var c = transform.position + rot * new Vector3(_w * 0.5f + 0.01f, _h * 0.5f + 0.06f, 0);
+            var half = new Vector3(_w * 0.5f - 0.05f, _h * 0.5f - 0.14f, 0.02f);   // clear of the floor and the lintel
+            int n = Physics.OverlapBoxNonAlloc(c, half, _ov, rot, Ballistics.WallMask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++) if (_ov[i] != _col) return false;
+            return true;
+        }
+
+        void Start()
+        {
+            Physics.SyncTransforms();
+            // stand on the real floor in the doorway (house floors are a slab above the wall's base)
+            var hinge = transform.position;
+            if (Physics.Raycast(hinge + transform.rotation * new Vector3(_w * 0.5f, 0, 0.15f) + Vector3.up * 0.6f, Vector3.down, out var fh, 1.0f, Ballistics.WallMask, QueryTriggerInteraction.Ignore) && fh.collider != _col)
+            {
+                float lift = Mathf.Clamp(fh.point.y - hinge.y + 0.01f, 0f, 0.3f);
+                if (lift > 0.005f)
+                {
+                    transform.position = hinge + Vector3.up * lift;
+                    float k = (_h - lift) / _h;
+                    _leaf.localScale = new Vector3(1f, k, 1f); _h -= lift;
+                    Physics.SyncTransforms();
+                }
+            }
+            // a door that starts open but would stand in a wall or another door: close it until it fits
+            if (_angle == 0f) { Apply(); return; }
+            float a = _angle;
+            while (Mathf.Abs(a) > 0.1f && !Fits(a)) a = Mathf.MoveTowards(a, 0f, 5f);
+            _angle = Mathf.Abs(a) <= 0.1f ? 0f : a;
             Apply();
         }
 
@@ -121,11 +158,13 @@ namespace Rago
             {
                 push = Mathf.Clamp(push, -480f * dt, 480f * dt);
                 _vel = Mathf.Lerp(_vel, push / Mathf.Max(dt, 0.001f), 0.5f);
+                if (!Fits(_angle + push)) { _vel = 0f; return; }   // blocked by a wall or another door: doors never pass through things
                 _angle += push;
                 if (Time.time > _creakT && Mathf.Abs(_vel) > 60f) { _creakT = Time.time + 1.2f; Sfx.Play(Synth.SlideBack(), _center, 0.12f, 0.5f, 1f, 12f); }
             }
             else if (Mathf.Abs(_vel) > 1f)
             {
+                if (!Fits(_angle + _vel * dt)) { _vel = 0f; return; }
                 _angle += _vel * dt;          // a shove keeps it swinging a little
                 _vel = Mathf.MoveTowards(_vel, 0, dt * 600f);
             }
