@@ -98,6 +98,7 @@ namespace Rago
 
         Vector3 HeadTop => _p.Head.position + Vector3.up * 0.12f;
         Vector3 Collar => Root.TransformPoint(new Vector3(0f, -0.24f, 0.14f));
+        Vector3 VestGrab { get { float yaw = _p.Head.eulerAngles.y; return _p.Head.position + Quaternion.Euler(0, yaw, 0) * new Vector3(0f, -0.32f, 0.13f); } }
         Vector3 ChestCenter => Root.TransformPoint(new Vector3(0f, -0.4f, 0.08f));
 
         public bool NearChestPouch(Vector3 p) => Vector3.Distance(p, ChestPouch) < 0.17f;
@@ -165,8 +166,12 @@ namespace Rago
                     return m;
                 }
             }
-            if (Helmet != null && Vector3.Distance(p, HeadTop) < 0.13f) return TakeOff(ArmorSlot.Helmet, p, h.Anchor.rotation);
-            if (Vest != null && Vector3.Distance(p, Collar) < 0.1f && Util2.item == null) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);
+            // armour: grab the helmet anywhere on top of your head; grab the vest at your collar / upper chest.
+            // Both follow your head (not the slower body turn), so they're where you reach even with your head turned.
+            Vector3 hp = _p.Head.position;
+            if (Helmet != null && (Vector3.Distance(p, HeadTop) < 0.19f || (Vector3.Distance(p, hp) < 0.18f && p.y > hp.y + 0.02f)))
+                return TakeOff(ArmorSlot.Helmet, p, h.Anchor.rotation);
+            if (Vest != null && Vector3.Distance(p, VestGrab) < 0.17f) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);
             if (Vector3.Distance(p, LeftShoulder) < 0.2f && PackSlot.item != null) return PackSlot.item;
             if (Vector3.Distance(p, Primary.transform.position) < 0.22f && Primary.item != null) return Primary.item;   // front sling
             if (Vector3.Distance(p, LowerBack) < 0.2f && Secondary.item != null) return Secondary.item;

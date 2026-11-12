@@ -166,7 +166,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Front of stomach | Front sling: your main long gun hangs low across your stomach, muzzle down to the left, well below your face - works without a backpack. Let go of a rifle in front of your stomach to sling it |
 | Lower back | Second long gun |
 | Left shoulder | Backpack: pull it off and it opens. Let go of things inside it to pack them, or next to its sides to strap a rifle on |
-| Top of head / collar | Take off your helmet / vest. Hold armor to your head or chest and let go to wear it |
+| Top of head / collar (upper chest) | Grip to take off your helmet / vest. Hold armor to your head or chest and let go to wear it |
 | Med near chest + trigger | Heal (bandage stops bleeding, medkit heals over time, stim gives instant HP + stamina) |
 
 ### Desktop controls (no headset)
