@@ -27,7 +27,7 @@ namespace Rago
         NavMeshDataInstance _nav;
         Light _sun;
 
-        public struct NpcSpawn { public Vector3 pos; public int count; public bool heavy; }
+        public struct NpcSpawn { public Vector3 pos; public int count; public bool heavy; public string boss; public float chance; }
 
         public void Init(int seed)
         {
@@ -218,9 +218,10 @@ namespace Rago
 
         /// <param name="attached">the vault is built onto the back of a building whose wall (with the doorway cut in it) is the vault front</param>
         /// <param name="wall">inside a building: build the vault walls from the building's own wall material, up to its ceiling</param>
-        public Vault AddVault(Vector3 pos, float yaw, bool attached = false, Material wall = null, Color? tint = null, float height = 2.9f, bool ceiling = true)
+        public Vault AddVault(Vector3 pos, float yaw, bool attached = false, Material wall = null, Color? tint = null, float height = 2.9f, bool ceiling = true,
+                              float width = 6f, float thick = 0.4f, bool sides = true, bool back = true)
         {
-            var v = Vault.Create(this, Vaults.Count, pos, yaw, attached, wall, tint, height, ceiling);
+            var v = Vault.Create(this, Vaults.Count, pos, yaw, attached, wall, tint, height, ceiling, width, thick, sides, back);
             Vaults.Add(v);
             return v;
         }
@@ -302,6 +303,8 @@ namespace Rago
 
         public void Spawn(Vector3 p, float yaw) => PlayerSpawns.Add(new Pose(p, Quaternion.Euler(0, yaw, 0)));
         public void Squad(Vector3 p, int n, bool heavy = false) => NpcSpawns.Add(new NpcSpawn { pos = p, count = n, heavy = heavy });
+        /// <summary>A named boss with heavy guards in their lair - only turns up in some raids (chance per raid).</summary>
+        public void Boss(Vector3 p, string name, float chance = 0.25f) => NpcSpawns.Add(new NpcSpawn { pos = p, count = 3, heavy = true, boss = name, chance = chance });
 
         /// <summary>
         /// A street of houses you can walk into: a road along local +x from origin with lots on both sides.
@@ -1154,7 +1157,11 @@ namespace Rago
         void OnDestroy() { _all.Remove(this); if (_alarm != null) _alarm.Stop(); }
 
         /// <summary>Builds a 6x5m vault room. pos = centre of the doorway, the room extends along +Z (local).</summary>
-        public static Vault Create(MapBase map, int id, Vector3 pos, float yaw, bool attached = false, Material wallMat = null, Color? wallTint = null, float height = 2.9f, bool ceiling = true)
+        /// <param name="width">inside width; a vault built across a room uses the room's width</param>
+        /// <param name="sides">false: the room's own side walls are the vault's sides</param>
+        /// <param name="back">false: the room's own back wall is the vault's back</param>
+        public static Vault Create(MapBase map, int id, Vector3 pos, float yaw, bool attached = false, Material wallMat = null, Color? wallTint = null, float height = 2.9f, bool ceiling = true,
+                                   float width = 6f, float thick = 0.4f, bool sides = true, bool back = true)
         {
             var go = new GameObject("Vault_" + id);
             go.transform.SetParent(map.transform, false);
@@ -1171,26 +1178,26 @@ namespace Rago
             var wm = wallMat != null ? wallMat : conc;
             Color wt = wallTint ?? new Color(0.7f, 0.7f, 0.72f);
             float z0 = attached ? 0.13f : 0f;   // attached: start behind the building's wall (its outer face)
-            B.Wall(P(-3, 0, z0), P(-3, 0, 5), height, 0.4f, wm, wt);
-            B.Wall(P(3, 0, 5), P(3, 0, z0), height, 0.4f, wm, wt);
-            B.Wall(P(-3, 0, 5), P(3, 0, 5), height, 0.4f, wm, wt);
+            float hw = width * 0.5f;
+            if (sides) { B.Wall(P(-hw, 0, z0), P(-hw, 0, 5), height, thick, wm, wt); B.Wall(P(hw, 0, 5), P(hw, 0, z0), height, thick, wm, wt); }
+            if (back) B.Wall(P(-hw, 0, 5), P(hw, 0, 5), height, thick, wm, wt);
             float face;   // where the front of the vault is (local z)
             if (attached) face = -0.125f;   // the building's wall, with the doorway already in it, is the front
             else
             {
                 // front wall in the same material as the room, the full height, with the doorway
                 B.NoSwingDoors = true;
-                B.Wall(P(-3, 0, 0), P(3, 0, 0), height, 0.4f, wm, wt, new List<Vector4> { new Vector4(3f, 1.8f, 0f, 2.3f) });
+                B.Wall(P(-hw, 0, 0), P(hw, 0, 0), height, thick, wm, wt, new List<Vector4> { new Vector4(hw, 1.8f, 0f, 2.3f) });
                 B.NoSwingDoors = false;
-                face = -0.2f;
+                face = -thick * 0.5f;
             }
             // steel frame around the round door
             var frameCol = new Color(0.36f, 0.38f, 0.4f);
             B.Box(P(-0.96f, 1.21f, face - 0.03f), new Vector3(0.12f, 2.42f, 0.06f), steel, frameCol, q, false);
             B.Box(P(0.96f, 1.21f, face - 0.03f), new Vector3(0.12f, 2.42f, 0.06f), steel, frameCol, q, false);
             B.Box(P(0, 2.36f, face - 0.03f), new Vector3(2.04f, 0.12f, 0.06f), steel, frameCol, q, false);
-            if (ceiling) B.Box(P(0, height + 0.07f, 2.5f + z0 * 0.5f), new Vector3(6.4f, 0.14f, 5.4f - z0), conc, new Color(0.6f, 0.6f, 0.62f), q);
-            B.Box(P(0, 0.06f, 2.5f + z0 * 0.5f), new Vector3(5.6f, 0.12f, 4.6f - z0), Mats.Lit("vault_floor", Color.white, 0.3f, 0.5f, Mats.Tiles, Mats.TilesN, 0.3f, 0.2f, true, 0.5f), new Color(0.5f, 0.52f, 0.55f), q);
+            if (ceiling) B.Box(P(0, height + 0.07f, 2.5f + z0 * 0.5f), new Vector3(width + 0.4f, 0.14f, 5.4f - z0), conc, new Color(0.6f, 0.6f, 0.62f), q);
+            B.Box(P(0, 0.06f, 2.5f + z0 * 0.5f), new Vector3(width - 0.4f, 0.12f, 4.6f - z0), Mats.Lit("vault_floor", Color.white, 0.3f, 0.5f, Mats.Tiles, Mats.TilesN, 0.3f, 0.2f, true, 0.5f), new Color(0.5f, 0.52f, 0.55f), q);
             B.AddLight(P(0, 2.6f, 2.5f), new Color(1f, 0.95f, 0.85f), 7f, 1.3f);
             // door (round, swings open)
             v._door = new GameObject("DoorHinge").transform;

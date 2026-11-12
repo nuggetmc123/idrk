@@ -66,7 +66,11 @@ namespace Rago
 
         struct Target { public IDamageable d; public Transform aim; public Vector3 vel; public bool valid; }
 
-        public static Npc Spawn(int id, Vector3 pos, float yaw, int seed, bool heavy, Transform parent)
+        /// <summary>A map boss (null for an ordinary raider): tough, well armed, better shot, stays near their lair.</summary>
+        public string BossName;
+        public bool IsBoss => BossName != null;
+
+        public static Npc Spawn(int id, Vector3 pos, float yaw, int seed, bool heavy, Transform parent, string boss = null)
         {
             var go = new GameObject("Npc_" + id);
             go.transform.SetParent(parent, false);
@@ -75,7 +79,8 @@ namespace Rago
             n.Id = id;
             n._rng = new Rng(seed);
             n.Heavy = heavy;
-            n.MaxHealth = n.Health = heavy ? 150 : 100;
+            n.BossName = boss;
+            n.MaxHealth = n.Health = boss != null ? 450 : heavy ? 150 : 100;
             n.Rig = HumanRig.Build(heavy ? Outfit.RaiderHeavy : Outfit.Raider, seed, go.transform);
             foreach (var c in n.Rig.colliders)
             {
@@ -86,13 +91,14 @@ namespace Rago
             }
             // real, droppable armour: heavies always wear a helmet + vest, regular raiders sometimes
             var ar = new Rng(seed * 31 + 5);
-            if (heavy) { n.Helmet = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "helm_fast" : "helm_ballistic"); n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_heavy" : "vest_carrier"); }
+            if (boss != null) { n.Helmet = Db.Get<ArmorDef>("helm_fast"); n.Vest = Db.Get<ArmorDef>("vest_heavy"); }
+            else if (heavy) { n.Helmet = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "helm_fast" : "helm_ballistic"); n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_heavy" : "vest_carrier"); }
             else { if (ar.Chance(0.2f)) n.Helmet = Db.Get<ArmorDef>("helm_bump"); if (ar.Chance(0.3f)) n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_carrier" : "vest_soft"); }
             ArmorBuilder.Dress(n.Rig, n.Helmet, n.Vest, null, false);
             n.Rig.root.SetLayerRecursive(Layers.Npc);
             string[] common = { "vostok74", "vostokm", "vanguard", "kestrel", "breacher", "wasp", "comrade", "bandit", "p9", "nomad" };
             string[] heavyGuns = { "sentinel", "grizzly", "lancer", "fennec", "vostokm", "riot", "hailstorm" };
-            n.Weapon = Db.Get<GunDef>(heavy ? n._rng.Pick(heavyGuns) : n._rng.Pick(common));
+            n.Weapon = Db.Get<GunDef>(boss != null ? "grizzly" : heavy ? n._rng.Pick(heavyGuns) : n._rng.Pick(common));
             n.GunModel = GunBuilder.Build(n.Weapon, go.transform);
             n._rounds = n.Weapon.magSize;
             var mag = GunBuilder.BuildMag(n.GunModel.magStyle, n.GunModel.magwell, n.Weapon.furniture, out _);
@@ -106,7 +112,7 @@ namespace Rago
             if (NavMesh.SamplePosition(pos, out var hit, 3f, NavMesh.AllAreas)) n.Agent.Warp(hit.position);
             for (int i = 0; i < 6; i++)
             {
-                Vector2 c = n._rng.InCircle() * 35f;
+                Vector2 c = n._rng.InCircle() * (boss != null ? 7f : 35f);   // bosses keep to their lair
                 Vector3 p = pos + new Vector3(c.x, 0, c.y);
                 if (NavMesh.SamplePosition(p, out var ph, 4f, NavMesh.AllAreas)) n._patrol.Add(ph.position);
             }
@@ -258,7 +264,7 @@ namespace Rago
                         {
                             _waitT = _rng.Range(12f, 25f);
                             // now and then they roam towards where the players are, so fights actually happen
-                            if (_rng.Chance(0.25f) && RoamTarget(out var roam)) Go(roam, 1.6f);
+                            if (!IsBoss && _rng.Chance(0.25f) && RoamTarget(out var roam)) Go(roam, 1.6f);
                             else { _patrolIdx = (_patrolIdx + 1) % _patrol.Count; Go(_patrol[_patrolIdx], 1.4f); }
                         }
                     }
@@ -358,7 +364,7 @@ namespace Rago
             if (engaging)
             {
                 // human-like aim: error shrinks while tracking, grows when the target moves or we get hit
-                _aimErr = Mathf.MoveTowards(_aimErr, 0.12f, dt * 0.45f);
+                _aimErr = Mathf.MoveTowards(_aimErr, IsBoss ? 0.07f : 0.12f, dt * (IsBoss ? 0.8f : 0.45f));   // bosses settle their aim faster
                 float dist = Vector3.Distance(Rig.head.position, _target.aim.position);
                 float err = _aimErr * Mathf.Lerp(0.25f, 1.3f, dist / 60f) + _target.vel.magnitude * 0.08f + _flinch * 0.6f;
                 Vector3 jitter = new Vector3(Mathf.PerlinNoise(Time.time * 1.3f, Id) - 0.5f, Mathf.PerlinNoise(Id, Time.time * 1.1f) - 0.5f, Mathf.PerlinNoise(Time.time, Id * 3) - 0.5f) * 2f * err;
@@ -538,6 +544,21 @@ namespace Rago
                 if (def == null) continue;
                 var it = ItemFactory.Spawn(def.id, Rig.chest.position + Vector3.up * 0.25f + Random.insideUnitSphere * 0.2f, Random.rotation);
                 if (it != null) { it.netId = 60000 + Id * 8 + 1 + i; NetGame.I?.Register(it); }
+            }
+            // a boss carries a vault keycard and vault-grade loot
+            if (IsBoss)
+            {
+                var key = ItemFactory.Spawn(new ItemData("key_vault"), Rig.chest.position + Vector3.up * 0.3f, Random.rotation);
+                if (key != null) { key.netId = 90000 + Id * 4; NetGame.I?.Register(key); }
+                for (int i = 0; i < 2; i++)
+                {
+                    var def = Db.Roll(Db.LootTable.Vault, rng);
+                    if (def == null) continue;
+                    var it = ItemFactory.Spawn(def.id, Rig.chest.position + Vector3.up * 0.35f + Random.insideUnitSphere * 0.25f, Random.rotation);
+                    if (it != null) { it.netId = 90000 + Id * 4 + 1 + i; NetGame.I?.Register(it); }
+                }
+                var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+                if (pl != null && Vector3.Distance(pl.transform.position, transform.position) < 90f) pl.Toast("BOSS DOWN: " + BossName.ToUpper());
             }
             // worn armour comes off as real items
             if (Helmet != null) DropArmor(Helmet, Rig.head, 4, impulse);

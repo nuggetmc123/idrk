@@ -28,6 +28,8 @@ namespace Rago
         {
             float SafeRadius = safeRadius;   // no raiders this close to a spawn spot
             if (avoid != null) spawns = spawns.FindAll(s => { foreach (var a in avoid) { var d = a.position - s.pos; if (Mathf.Abs(d.y) > 3f) continue; d.y = 0; if (d.sqrMagnitude < SafeRadius * SafeRadius) return false; } return true; });
+            var bosses = spawns.FindAll(s => s.boss != null);
+            spawns = spawns.FindAll(s => s.boss == null);
             var rng = new Rng(seed * 13 + 5);
             int id = 0;
             // the maps are huge: spread a limited number of raiders over randomly picked squad spots, in smaller groups
@@ -42,16 +44,32 @@ namespace Rago
                 for (int i = 0; i < count; i++)
                 {
                     Vector2 off = rng.InCircle() * 2.5f;
-                    bool heavy = s.heavy || rng.Chance(0.15f);
-                    var n = Npc.Spawn(id, s.pos + new Vector3(off.x, 0, off.y), rng.Range(0f, 360f), seed * 1000 + id, heavy, transform);
-                    if (puppets) n.MakePuppet();
-                    Synth.Gunshot(n.Weapon); Synth.GunshotDistant(n.Weapon); // pre-generate so the first shot doesn't hitch
-                    n.OnDied = OnNpcDied;
-                    Npcs.Add(n);
-                    _byId[id] = n;
-                    id++;
+                    SpawnOne(ref id, s.pos + new Vector3(off.x, 0, off.y), rng.Range(0f, 360f), seed, s.heavy || rng.Chance(0.15f), null, puppets);
                 }
             }
+            // bosses: each map's boss only turns up in some raids, with heavy guards round them
+            var brng = new Rng(seed * 31 + 11);
+            foreach (var b in bosses)
+            {
+                if (!brng.Chance(b.chance)) continue;
+                SpawnOne(ref id, b.pos, brng.Range(0f, 360f), seed, true, b.boss, puppets);
+                for (int g = 0; g < b.count; g++)
+                {
+                    Vector2 off = brng.InCircle() * 2.2f;
+                    SpawnOne(ref id, b.pos + new Vector3(off.x, 0, off.y), brng.Range(0f, 360f), seed, true, null, puppets);
+                }
+            }
+        }
+
+        void SpawnOne(ref int id, Vector3 pos, float yaw, int seed, bool heavy, string boss, bool puppets)
+        {
+            var n = Npc.Spawn(id, pos, yaw, seed * 1000 + id, heavy, transform, boss);
+            if (puppets) n.MakePuppet();
+            Synth.Gunshot(n.Weapon); Synth.GunshotDistant(n.Weapon); // pre-generate so the first shot doesn't hitch
+            n.OnDied = OnNpcDied;
+            Npcs.Add(n);
+            _byId[id] = n;
+            id++;
         }
 
         void OnNpcDied(Npc n)
