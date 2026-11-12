@@ -5,8 +5,9 @@ namespace Rago
     /// <summary>
     /// VR firearm: physical magazines, chambering, slide/charging-handle racking (grab it with your other hand),
     /// pump and bolt actions, fire modes, recoil into the physics hands, holo-sight rail.
-    /// Controls (hand holding the gun): Trigger = fire, A/X = drop magazine,
-    /// B/Y = rack / release slide (or switch fire mode when a round is chambered).
+    /// VR controls (hand holding the gun): Trigger = fire, B/Y tap = drop magazine, B/Y hold = switch fire mode.
+    /// A/X is jump. Rack by grabbing the slide / charging handle / bolt with your other hand and pulling it back.
+    /// Desktop: X = drop magazine, F = rack / fire mode.
     /// </summary>
     public class Gun : Item
     {
@@ -212,6 +213,30 @@ namespace Rago
             }
         }
 
+        float _bHeld; bool _bWas, _bDone;
+        /// <summary>VR B / Y on the gun hand: true on a quick tap (drop the mag); holding it half a second switches fire mode.</summary>
+        bool MagButton(Hand h, HandInput input)
+        {
+            if (!XRInputs.VR) return input.PrimaryDown;
+            bool tap = false;
+            if (input.Secondary)
+            {
+                if (!_bWas) { _bHeld = 0f; _bDone = false; }
+                _bHeld += Time.deltaTime;
+                if (!_bDone && _bHeld >= 0.45f && (g.action == FireAction.Auto || g.action == FireAction.Burst))
+                {
+                    _bDone = true;
+                    autoMode = !autoMode;
+                    Sfx.Play(Synth.DryFire(), transform.position, 0.4f, 1.6f, 0.5f, 5f);
+                    h.Haptic(0.2f, 0.03f);
+                    RagoGame.I.Player.Toast(autoMode ? (g.action == FireAction.Burst ? "BURST" : "AUTO") : "SEMI");
+                }
+            }
+            else if (_bWas && !_bDone) tap = true;
+            _bWas = input.Secondary;
+            return tap;
+        }
+
         public override void HeldUpdate(Hand h, HandInput input)
         {
             if (h != primaryHand) return;
@@ -219,7 +244,7 @@ namespace Rago
             if (RagoGame.I != null && RagoGame.I.SafeZone)
             {
                 if (input.TriggerDown) { Sfx.Play(Synth.DryFire(), transform.position, 0.5f, 1f, 0.5f, 6f); RagoGame.I.Player.Toast("Safe zone - weapons cold"); }
-                if (input.PrimaryDown) EjectMag();
+                if (MagButton(h, input)) EjectMag();
                 return;
             }
             if (input.TriggerDown)
@@ -240,9 +265,14 @@ namespace Rago
                 if (CanFire) { Fire(); _burstLeft--; _nextShot = Time.time + 60f / g.rpm; if (_burstLeft == 0) _nextShot += 0.12f; }
                 else _burstLeft = 0;
             }
-            // mag release
+            if (XRInputs.VR)
+            {
+                // B / Y: tap drops the mag, hold switches fire mode. No rack button: rack it by hand.
+                if (MagButton(h, input)) EjectMag();
+                return;
+            }
+            // desktop: X drops the mag, F racks or switches fire mode
             if (input.PrimaryDown) EjectMag();
-            // contextual secondary: fire mode or rack/release
             if (input.SecondaryDown)
             {
                 if (chambered && !needsCycle && (g.action == FireAction.Auto || g.action == FireAction.Burst))
@@ -370,7 +400,7 @@ namespace Rago
 
         public override bool CanGrab(Hand h)
         {
-            // a mag in a gun someone is holding stays in: drop it with the mag release (A / X). Otherwise your support hand
+            // a mag in a gun someone is holding stays in: drop it with the mag release (B / Y). Otherwise your support hand
             // would pull it out every time it came near the magwell. Mags in guns lying around can be pulled out by hand.
             if (inGun != null && inGun.Held) return false;
             return true;

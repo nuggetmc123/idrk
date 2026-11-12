@@ -361,10 +361,8 @@ namespace Rago
             Vector3 vel = (fwd * move.y + right * move.x) * speed;
             MoveVelocity = Vector3.Lerp(MoveVelocity, vel, dt * 10f);
             if (Cc.isGrounded && _vy < 0) _vy = -1f;
-            // jump: A (right) or X (left) on a hand that isn't holding a gun - on a gun hand that button drops the mag
-            bool jump = XRInputs.VR
-                ? (XRInputs.Right.PrimaryDown && !(HandR.Held is Gun && !HandR.HeldAsSecondary)) || (XRInputs.Left.PrimaryDown && !(HandL.Held is Gun && !HandL.HeldAsSecondary))
-                : Desktop.Jump;
+            // jump: A (or X) - always, gun in hand or not (the mag release is on B / Y)
+            bool jump = XRInputs.VR ? XRInputs.Right.PrimaryDown || XRInputs.Left.PrimaryDown : Desktop.Jump;
             if (jump && Cc.isGrounded && !Frozen && !Dead && Vitals.Stamina > 6f)
             {
                 _vy = 4.4f;                                   // about 1 m of air

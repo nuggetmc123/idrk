@@ -241,7 +241,7 @@ namespace Rago
                 vr = "Go to the shooting range (west tunnel), aim and pull the TRIGGER.",
                 desk = "Go to the shooting range (west tunnel). Hold right mouse to aim, left click to fire." });
             t._steps.Add(new Step { done = () => t._reloaded,
-                vr = "Reload: press A/X to drop the mag, grab a new one from your CHEST pouch and push it into the gun.",
+                vr = "Reload: tap B/Y to drop the mag, grab a new one from either HIP pouch, push it into the gun, then pull the slide / charging handle back with your other hand.",
                 desk = "Press R to reload." });
             t._steps.Add(new Step { done = () => P().HandL.Held is Backpack || P().HandR.Held is Backpack,
                 vr = "Reach over your LEFT shoulder and grip to pull your backpack off. It opens - drop things in.",

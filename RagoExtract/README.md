@@ -151,7 +151,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | | |
 |---|---|
 | Left stick | Move. Click to sprint (uses stamina) |
-| A / X (on a hand without a gun) | Jump. With a gun in your right hand, use X. On the gun's hand, A/X still drops the mag |
+| A / X | Jump (always, gun in hand or not) |
 | Left MENU button (three lines) | Open / close the menu: party, friends, recent players, settings |
 | Y (left hand not holding a gun) | Open / close the field map (in raids) |
 | Right stick | Snap or smooth turn. Click to crouch toggle (real crouching also works) |
@@ -160,8 +160,8 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Grip on a wall, ledge, ladder, fence or rock (empty hand) | Climb: the hand locks on and pulling down lifts you. Let go above a ledge to climb onto it |
 | Grip at either hip (gun in the other hand) | Pull a fresh magazine for that gun. Put a mag back the same way to return its rounds |
 | Trigger | Fire. Point at buttons and pull the trigger to click |
-| A / X | Drop magazine |
-| B / Y | Rack / release slide. Switches fire mode when a round is chambered |
+| B / Y (gun hand) | Tap: drop the magazine. Hold half a second: switch fire mode (semi / auto / burst) |
+| Other hand on the slide / charging handle / bolt | Grab it and pull back to rack (chamber a round, release a locked slide) - there's no rack button |
 | Right hip | Pistol holster (with a thigh strap) |
 | Front of stomach | Front sling: your main long gun hangs low across your stomach, muzzle down to the left, well below your face - works without a backpack. Let go of a rifle in front of your stomach to sling it |
 | Lower back | Second long gun |
