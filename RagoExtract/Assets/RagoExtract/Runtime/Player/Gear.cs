@@ -30,8 +30,9 @@ namespace Rago
             _p = p;
             Root = new GameObject("GearRoot").transform;
             DontDestroyOnLoad(Root.gameObject);
-            // front sling: the rifle hangs across your chest, muzzle down to the left, top of the gun facing out
-            Primary = MakeSlot("FrontSling", new Vector3(-0.02f, -0.44f, 0.27f), Quaternion.LookRotation(new Vector3(-0.62f, -0.78f, 0f), Vector3.forward), it => it is Gun g && g.g.TwoHanded, 0.3f, 0f);
+            // front sling: the rifle hangs across your stomach, muzzle down to the left, top of the gun facing out
+            // low on the stomach and nearly flat, so even a long stock stays below your chest - never up by your face
+            Primary = MakeSlot("FrontSling", new Vector3(0f, -0.64f, 0.27f), Quaternion.LookRotation(new Vector3(-0.86f, -0.5f, 0f), Vector3.forward), it => it is Gun g && g.g.TwoHanded, 0.3f, 0f);
             Secondary = MakeSlot("Secondary", new Vector3(0f, -0.72f, -0.2f), Quaternion.Euler(0, 90, 0) * Quaternion.Euler(0, 0, 180), it => it is Gun g && g.g.TwoHanded, 0.28f, 0f);
             Pistol = MakeSlot("Holster", new Vector3(0.22f, -0.78f, 0.02f), Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 0, 0), it => it is Gun g && !g.g.TwoHanded, 0.16f, 0f);
             Util1 = MakeSlot("PouchL", new Vector3(-0.22f, -0.76f, 0.04f), Quaternion.identity, it => !(it is Gun) && !(it is Backpack) && !(it is ArmorItem), 0.13f, 0.11f);
@@ -49,11 +50,11 @@ namespace Rago
             hv.layer = bodyLayer;
             // front sling: a strap from the right shoulder down to the left hip, and a padded front holster plate with a clip
             var sl = new MB(2);
-            Vector3 sa = new Vector3(0.17f, -0.16f, 0.12f), sbp = new Vector3(-0.21f, -0.82f, 0.16f);
+            Vector3 sa = new Vector3(0.19f, -0.3f, 0.05f), sbp = new Vector3(-0.22f, -0.84f, 0.16f);   // from the shoulder (behind and below your chin) to the left hip
             var sdir = sbp - sa;
             sl.Sub(0).Box((sa + sbp) * 0.5f, new Vector3(0.04f, sdir.magnitude, 0.008f), new Color(0.18f, 0.19f, 0.14f), 0.002f, 0, Quaternion.FromToRotation(Vector3.up, sdir.normalized));
-            sl.Sub(0).Box(new Vector3(-0.02f, -0.44f, 0.215f), new Vector3(0.15f, 0.2f, 0.025f), new Color(0.22f, 0.24f, 0.17f), 0.008f, 1, Quaternion.Euler(0, 0, 38f));   // holster plate
-            sl.Sub(1).Box(new Vector3(-0.02f, -0.44f, 0.232f), new Vector3(0.05f, 0.07f, 0.014f), new Color(0.1f, 0.1f, 0.1f), 0.004f, 0, Quaternion.Euler(0, 0, 38f));    // clip
+            sl.Sub(0).Box(new Vector3(0f, -0.64f, 0.215f), new Vector3(0.15f, 0.2f, 0.025f), new Color(0.22f, 0.24f, 0.17f), 0.008f, 1, Quaternion.Euler(0, 0, 60f));   // holster plate
+            sl.Sub(1).Box(new Vector3(0f, -0.64f, 0.232f), new Vector3(0.05f, 0.07f, 0.014f), new Color(0.1f, 0.1f, 0.1f), 0.004f, 0, Quaternion.Euler(0, 0, 60f));    // clip
             var sv = sl.Build("FrontSlingMesh", Root, Mats.Lit("pouch", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f), Mats.Polymer);
             sv.layer = bodyLayer;
             // double mag pouches on the front of each hip (pull a mag with either hand)

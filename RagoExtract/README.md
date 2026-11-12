@@ -161,7 +161,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | A / X | Drop magazine |
 | B / Y | Rack / release slide. Switches fire mode when a round is chambered |
 | Right hip | Pistol holster (with a thigh strap) |
-| Front of chest | Front sling: your main long gun hangs across your chest, muzzle down to the left - works without a backpack. Let go of a rifle in front of your chest to sling it |
+| Front of stomach | Front sling: your main long gun hangs low across your stomach, muzzle down to the left, well below your face - works without a backpack. Let go of a rifle in front of your stomach to sling it |
 | Lower back | Second long gun |
 | Left shoulder | Backpack: pull it off and it opens. Let go of things inside it to pack them, or next to its sides to strap a rifle on |
 | Top of head / collar | Take off your helmet / vest. Hold armor to your head or chest and let go to wear it |
