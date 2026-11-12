@@ -319,7 +319,9 @@ namespace Rago
             var sd = def as SimpleDef;
             var pl = RagoGame.I.Player;
             if (_using || sd == null) return;
-            if (input.TriggerDown && Vector3.Distance(transform.position, pl.Head.position - Vector3.up * 0.2f) < 0.45f)
+            bool atBody = Vector3.Distance(transform.position, pl.Head.position - Vector3.up * 0.2f) < 0.45f
+                       || (pl.Body != null && pl.Body.Rig != null && Vector3.Distance(transform.position, pl.Body.Rig.chest.position) < 0.4f);
+            if (input.TriggerDown && atBody)
             {
                 _using = true;
                 if (def.id == "stim") { pl.Vitals.Heal(sd.heal); pl.Vitals.Stamina = pl.Vitals.MaxStamina; pl.Vitals.StimBoost = 20f; Sfx.Play(Synth.Inject(), transform.position, 0.6f, 1f, 0.5f, 6f); }

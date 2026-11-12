@@ -37,7 +37,13 @@ namespace Rago
         Vector3 _stepLast; float _stepDist; bool _stepLeft;
         float _think, _awareness, _waitT, _lastSeenT, _burstT, _reloadT, _coverT, _searchT, _flinch, _stagger, _blind;
         /// <summary>Flashbanged: can't see or shoot, and staggers about for a bit.</summary>
-        public void Flash(float seconds) { bool was = _blind > 0; _blind = Mathf.Max(_blind, seconds); _stagger = Mathf.Max(_stagger, seconds * 0.6f); if (!was) Say(ScavVoice.Line.Flash, 1f, true); }
+        public void Flash(float seconds)
+        {
+            bool was = _blind > 0;
+            _blind = Mathf.Max(_blind, seconds); _stagger = Mathf.Max(_stagger, seconds * 0.6f);
+            _awareness = Mathf.Min(_awareness, 0.4f); _aimErr = 1.5f; _burst = 0;   // they lose you and have to find you again
+            if (!was) { Stop(); Say(ScavVoice.Line.Flash, 1f, true); }
+        }
         int _burst, _rounds;
         Vector3 _lastKnown, _flinchDir;
         Vector3 _netPos, _netAim; float _netYaw; bool _netInit;
@@ -249,6 +255,7 @@ namespace Rago
 
         void Decide()
         {
+            if (_blind > 0) { Stop(); return; }   // flashed: standing there, blinking
             bool hasLos = _target.valid && Time.time - _lastSeenT < 0.35f;
             switch (State)
             {
@@ -359,7 +366,7 @@ namespace Rago
         void Act(float dt)
         {
             Vector3 vel = AgentOk ? Agent.velocity : Vector3.zero;
-            bool engaging = (State == NpcState.Combat || State == NpcState.Cover) && _target.valid && Time.time - _lastSeenT < 0.6f;
+            bool engaging = _blind <= 0 && (State == NpcState.Combat || State == NpcState.Cover) && _target.valid && Time.time - _lastSeenT < 0.6f;
             Vector3 lookAt;
             if (engaging)
             {

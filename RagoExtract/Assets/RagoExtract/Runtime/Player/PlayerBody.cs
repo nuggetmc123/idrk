@@ -122,7 +122,7 @@ namespace Rago
         public float Bleed;      // hp per second
         public float LegPenalty = 1f;
         public bool God;
-        float _hot, _hotRate, _dripT, _regenDelay;
+        float _hot, _hotRate, _dripT, _regenDelay, _clotT = 5f;
         public bool Alive => Health > 0;
         public int ActorId => 0;
         public static System.Action<HitInfo> OnLocalDamaged;
@@ -132,6 +132,12 @@ namespace Rago
 
         public void Heal(float hp) { Health = Mathf.Min(MaxHealth, Health + hp); }
         public void HealOverTime(float hp, float secs) { _hot += hp; _hotRate = hp / Mathf.Max(0.1f, secs); }
+        static bool Pressing(Hand h)
+        {
+            if (h == null || h.Held != null || !h.Input.GripHeld || h.rig == null || h.rig.Body == null || h.rig.Body.Rig == null) return false;
+            return Vector3.Distance(h.TrackedPosition, h.rig.Body.Rig.chest.position) < 0.28f;
+        }
+
         public void StopBleeding() { Bleed = 0; LegPenalty = Mathf.Max(LegPenalty, 0.85f); rig.Toast("Bleeding stopped"); }
 
         public void TakeHit(HitInfo h, HitZone zone)
@@ -170,7 +176,24 @@ namespace Rago
             if (_hot > 0) { float k = Mathf.Min(_hot, _hotRate * dt); _hot -= k; Heal(k); }
             if (Bleed > 0)
             {
-                Health -= Bleed * dt;
+                // pressing an empty hand on your chest (grip) slows the bleeding and helps it clot
+                bool pressure = Pressing(rig.HandL) || Pressing(rig.HandR);
+                Health -= Bleed * dt * (pressure ? 0.5f : 1f);
+                // without meds it's a gamble: every few seconds a wound may clot on its own - light bleeds often do,
+                // heavy ones rarely; resting helps, sprinting doesn't
+                _clotT -= dt;
+                if (_clotT <= 0f)
+                {
+                    _clotT = 5f;
+                    float chance = Bleed <= 0.61f ? 0.22f : Bleed <= 1.21f ? 0.12f : Bleed <= 2.41f ? 0.06f : 0.03f;
+                    if (pressure) chance *= 3f;
+                    if (rig.Sprinting) chance *= 0.4f; else if (rig.MoveVelocity.sqrMagnitude < 0.2f) chance *= 1.5f;
+                    if (Random.value < chance)
+                    {
+                        Bleed = Mathf.Max(0f, Bleed - 0.6f);
+                        rig.Toast(Bleed <= 0f ? "Your bleeding stopped on its own" : "A wound clotted - still bleeding");
+                    }
+                }
                 _dripT -= dt;
                 if (_dripT <= 0) { _dripT = Random.Range(0.3f, 0.8f) / Bleed; Fx.Drip(rig.Body.Rig.spine.position + Random.insideUnitSphere * 0.1f); }
                 if (Health <= 0) { Health = 0; rig.OnDeath(Vector3.zero, rig.Head.position); OnLocalDeath?.Invoke(-1); }

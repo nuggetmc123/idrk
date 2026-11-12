@@ -243,8 +243,8 @@ namespace Rago
                 var z = c.GetComponent<HitZone>();
                 if (z != null && z.owner != null && z.owner.Alive)
                 {
-                    // pick the most central zone per character (thorax first)
-                    if (!hitOwners.TryGetValue(z.owner, out var cur) || z.part == BodyPart.Thorax) hitOwners[z.owner] = z;
+                    // the shrapnel hits the part of them nearest the blast (legs and belly for a grenade on the floor)
+                    if (!hitOwners.TryGetValue(z.owner, out var cur) || (z.transform.position - p).sqrMagnitude < (cur.transform.position - p).sqrMagnitude) hitOwners[z.owner] = z;
                 }
                 var rb = c.attachedRigidbody;
                 if (rb != null && !rb.isKinematic) rb.AddExplosionForce(14f, p, FragRadius, 0.6f, ForceMode.Impulse);
@@ -256,7 +256,7 @@ namespace Rago
                 float d = Vector3.Distance(at, p);
                 if (!ClearLine(p, at)) continue;
                 float k = Mathf.Clamp01(1f - d / FragRadius);
-                float dmg = 18f + 150f * k * k;
+                float dmg = 25f + 210f * k * k;   // a frag within ~3 m kills an ordinary raider
                 var info = new HitInfo { damage = dmg, part = z.part, point = at, dir = (at - p).normalized, normal = (p - at).normalized, attacker = attacker, gunId = "frag", force = 6f * k + 1f };
                 z.owner.TakeHit(info, z);
                 Ballistics.ReportHit(info, z);
