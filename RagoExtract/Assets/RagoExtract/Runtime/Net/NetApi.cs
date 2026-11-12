@@ -69,6 +69,8 @@ namespace Rago
         ulong HostId { get; }
         string SessionId { get; }
         IReadOnlyList<ulong> Peers { get; }
+        /// <summary>Players connected to the game right now (all regions' servers this client can see), or -1 if unknown.</summary>
+        int OnlineCount { get; }
         void Init(Action<bool> done);
         void JoinMarket(Action<bool> done);
         void QueueRaid(string map, Action<QueueStatus> status, Action<RaidStart> start, Action<string> failed);

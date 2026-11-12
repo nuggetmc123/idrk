@@ -243,9 +243,72 @@ namespace Rago.Net
             if (r != null) Destroy(r.gameObject);
         }
 
+        // ---------------------------------------------------------------- players online
+        int _listedPlayers = -1;
+        object _statsSrc; PropertyInfo _onMaster, _inRooms; float _statsSearchT;
+
+        /// <summary>
+        /// How many people are playing right now. Photon's own app statistics (players on the master server - in their
+        /// bunkers - plus players in sessions: the Market, parties and raids) when the SDK exposes them; otherwise
+        /// everyone in a listed session plus you.
+        /// </summary>
+        public int OnlineCount
+        {
+            get
+            {
+                int s = StatsCount();
+                if (s > 0) return s;
+                return _listedPlayers;
+            }
+        }
+
+        int StatsCount()
+        {
+            if (_lobby == null) return -1;
+            if (_statsSrc == null && Time.realtimeSinceStartup > _statsSearchT)
+            {
+                _statsSearchT = Time.realtimeSinceStartup + 10f;
+                try { FindStats(_lobby, 0, new HashSet<object>(RefEq.I)); } catch { }
+            }
+            if (_statsSrc == null) return -1;
+            try { return (int)_onMaster.GetValue(_statsSrc) + (int)_inRooms.GetValue(_statsSrc); }
+            catch { _statsSrc = null; return -1; }
+        }
+
+        bool FindStats(object o, int depth, HashSet<object> seen)
+        {
+            if (o == null || depth > 4 || !seen.Add(o)) return false;
+            var t = o.GetType();
+            var pm = t.GetProperty("PlayersOnMasterCount", Any); var pr = t.GetProperty("PlayersInRoomsCount", Any);
+            if (pm != null && pr != null && pm.PropertyType == typeof(int) && pr.PropertyType == typeof(int)) { _statsSrc = o; _onMaster = pm; _inRooms = pr; return true; }
+            if (o is UnityEngine.Object && depth > 0) return false;
+            foreach (var f in t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                var ft = f.FieldType;
+                if (ft.IsPrimitive || ft.IsEnum || ft == typeof(string) || ft.IsValueType || typeof(System.Collections.IEnumerable).IsAssignableFrom(ft) || typeof(Delegate).IsAssignableFrom(ft)) continue;
+                object v; try { v = f.GetValue(o); } catch { continue; }
+                if (FindStats(v, depth + 1, seen)) return true;
+            }
+            return false;
+        }
+
+        sealed class RefEq : IEqualityComparer<object>
+        {
+            public static readonly RefEq I = new RefEq();
+            public new bool Equals(object a, object b) => ReferenceEquals(a, b);
+            public int GetHashCode(object o) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(o);
+        }
+
         public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
         {
             if (runner != _lobby || sessionList == null) return;
+            int sum = 0;
+            foreach (var si in sessionList)
+            {
+                var pc = si.GetType().GetProperty("PlayerCount", Any);   // read by name so a Fusion version difference can't break the build
+                if (pc != null && pc.GetValue(si) is int c) sum += c;
+            }
+            _listedPlayers = sum + 1;   // + you (in the lobby, not in a session)
             string me = Key(MyName());
             bool changed = false;
             foreach (var si in sessionList)
@@ -451,7 +514,7 @@ namespace Rago.Net
                     status?.Invoke(new QueueStatus { players = players, max = QueueRules.MaxFor(map), target = QueueRules.TargetFor(map), elapsed = elapsed, maxWait = QueueRules.MaxWait, text = QueueRules.Describe(players, elapsed, map) });
                     if (IsHost && QueueRules.ShouldStart(players, elapsed, atTarget < 0 ? 0 : Time.realtimeSinceStartup - atTarget, _queuePartySize, map))
                     {
-                        try { _runner.SessionInfo.IsOpen = false; _runner.SessionInfo.IsVisible = false; }
+                        try { _runner.SessionInfo.IsOpen = false; }   // closed (nobody can join) but still listed, so its players count as online
                         catch (Exception e) { Debug.LogWarning("[Rago] couldn't close the raid session: " + e.Message); }
                         int seed = props != null && props.TryGetValue("seed", out var sp) ? (int)sp : UnityEngine.Random.Range(1, 999999);
                         // each party shares one spawn spot (members stand side by side); everyone else gets their own

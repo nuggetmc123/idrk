@@ -83,6 +83,8 @@ namespace Rago
             // stencilled markings
             UI.Text(transform, "RAID DEPLOYMENT", new Vector3(0, 2.83f, -0.035f), 0.075f, UI.Stencil, TextAnchor.MiddleCenter, FontStyle.Bold);
             UI.Text(transform, "RDT-8", new Vector3(-1.1f, 2.83f, -0.035f), 0.045f, UI.Stencil, TextAnchor.MiddleLeft, FontStyle.Bold);
+            _online = UI.Text(transform, "", new Vector3(1.12f, 2.83f, -0.035f), 0.042f, new Color(0.45f, 1f, 0.55f), TextAnchor.MiddleRight, FontStyle.Bold);
+            UpdateOnline();
             UI.Text(transform, "NO WEAPONS ON THE DESK", new Vector3(0.7f, 0.2f, 0.044f), 0.018f, UI.Lin(new Color(0.85f, 0.85f, 0.8f)), TextAnchor.MiddleRight);
 
             // the screen: a big map of the raid locations - point at one and pull the trigger to pick it
@@ -98,8 +100,23 @@ namespace Rago
             Select(_map);
         }
 
+        TextMesh _online;
+        float _onlineT;
+
+        /// <summary>The live count of people playing right now (from Photon), on the header sign.</summary>
+        void UpdateOnline()
+        {
+            if (_online == null) return;
+            int n = NetHub.Online && NetHub.Backend != null ? NetHub.Backend.OnlineCount : -1;
+            if (!NetHub.Online) { _online.text = "OFFLINE"; _online.color = new Color(0.6f, 0.6f, 0.6f); }
+            else if (n <= 0) { _online.text = "PLAYERS ONLINE  ..."; _online.color = new Color(0.45f, 1f, 0.55f); }
+            else { _online.text = n + (n == 1 ? " PLAYER ONLINE" : " PLAYERS ONLINE"); _online.color = new Color(0.45f, 1f, 0.55f); }
+        }
+
         void Update()
         {
+            _onlineT -= Time.deltaTime;
+            if (_onlineT <= 0f) { _onlineT = 2f; UpdateOnline(); }
             float on = _queued && Mathf.Repeat(Time.time, 0.8f) < 0.4f ? 1f : 0f;
             if (_beacon != null) _beacon.SetColor("_EmissionColor", new Color(3f, 1.4f, 0.2f) * on);
             if (_beaconLight != null) _beaconLight.intensity = on * 1.5f;
