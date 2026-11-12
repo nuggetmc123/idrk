@@ -438,11 +438,7 @@ namespace Rago.Net
         {
             _peers.Clear(); _refs.Clear();
             if (_runner == null) return;
-            foreach (var p in _runner.ActivePlayers)
-            {
-                _refs[Id(p)] = p;
-                if (p != _runner.LocalPlayer) _peers.Add(Id(p));
-            }
+            foreach (var p in _runner.ActivePlayers) NotePeer(p);
         }
 
         async Task Shutdown()
@@ -595,6 +591,7 @@ namespace Rago.Net
         void HandleReliable(PlayerRef player, ArraySegment<byte> data)
         {
             if (data.Array == null || data.Count < 1) return;
+            NotePeer(player);   // they can reach us, so we can reach them: never ignore a player we hear from
             byte channel = data.Array[data.Offset];
             if (channel == 1)
             {
@@ -644,19 +641,16 @@ namespace Rago.Net
         // ------------------------------------------------------------------------------------ callbacks
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            RefreshPeers();
-            if (player != runner.LocalPlayer)
-            {
-                SendSys(Id(player), 3, MyName());
-                if (!_inPartySession && _queueing && _partyCode != null) SendSys(Id(player), 4, _partyCode);
-                OnPeerJoined?.Invoke(Id(player));
-            }
+            if (runner != _runner) return;
+            NotePeer(player);
+            foreach (var p in runner.ActivePlayers) NotePeer(p);
             if (_inPartySession) OnPartyChanged?.Invoke();
         }
 
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
-            RefreshPeers();
+            if (runner != _runner) return;
+            _peers.Remove(Id(player)); _refs.Remove(Id(player));
             _names.Remove(Id(player));
             OnPeerLeft?.Invoke(Id(player));
             if (_inPartySession) OnPartyChanged?.Invoke();
@@ -692,8 +686,39 @@ namespace Rago.Net
         public void OnSceneLoadDone(NetworkRunner runner) { }
         public void OnSceneLoadStart(NetworkRunner runner) { }
 
+        float _peerScan;
+
+        /// <summary>
+        /// Make sure a player in our session is on the peer list (and introduced) - whether we learned about them from the
+        /// session's player list or from a message they sent. In Shared mode the players already in a session can reach
+        /// a newcomer's client a moment after it joins, so the list taken at join time can be empty; nothing is ever sent
+        /// to a player who isn't on it, which made other players invisible.
+        /// </summary>
+        void NotePeer(PlayerRef p)
+        {
+            if (_runner == null || p == _runner.LocalPlayer || p.PlayerId < 0) return;
+            ulong id = Id(p);
+            _refs[id] = p;
+            if (_peers.Contains(id)) return;
+            _peers.Add(id);
+            SendSys(id, 3, MyName());
+            if (!_inPartySession && _queueing && _partyCode != null) SendSys(id, 4, _partyCode);
+            OnPeerJoined?.Invoke(id);
+            if (_inPartySession) OnPartyChanged?.Invoke();
+        }
+
         void Update()
         {
+            // keep the peer list in step with the session (players can show up after we joined)
+            if (InSession)
+            {
+                _peerScan -= Time.unscaledDeltaTime;
+                if (_peerScan <= 0f)
+                {
+                    _peerScan = 0.5f;
+                    try { foreach (var p in _runner.ActivePlayers) NotePeer(p); } catch { }
+                }
+            }
             // the shared-mode master client runs the NPCs; tell everyone who that is
             if (!InSession || !IsHost) return;
             _announce -= Time.unscaledDeltaTime;

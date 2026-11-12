@@ -296,6 +296,7 @@ namespace Rago
                                     SendHello(ulong.MaxValue);
                                 }
                                 var rp = GetRemote(from, seed);
+                                if (rp.DisplayName != name && !string.IsNullOrEmpty(name)) RagoGame.I?.Player?.Toast(name + " is here");
                                 rp.DisplayName = name;
                                 if (_helloSent.Add(from)) SendHello(from); // introduce ourselves back
                                 break;
@@ -303,6 +304,7 @@ namespace Rago
                         case Msg.Pose:
                             {
                                 var rp = GetRemote(from, (int)from * 31);
+                                if (_helloSent.Add(from)) SendHello(from);   // their movement got here before their hello: introduce ourselves
                                 bool dead = r.ReadBoolean();
                                 var root = V3(r); var hp = V3(r); var hr = Q(r); var lp = V3(r); var lr = Q(r); var rpp = V3(r); var rr = Q(r); var vel = V3(r);
                                 string hl = r.ReadString(), hrr = r.ReadString();
