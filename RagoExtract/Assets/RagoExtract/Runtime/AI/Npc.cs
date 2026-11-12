@@ -28,7 +28,7 @@ namespace Rago
         public bool Alive => Health > 0;
         public int ActorId => 1000 + Id;
         public System.Action<Npc> OnDied;
-        const float HearClose = 28f;   // gunshots closer than this make raiders come and check; farther ones only make them look
+        const float HearClose = 45f;   // gunshots closer than this make raiders come and check; farther ones only make them look
         public ArmorDef Helmet, Vest;
 
         Vector3 _home;
@@ -104,9 +104,9 @@ namespace Rago
             n.Agent.updateRotation = false; n.Agent.stoppingDistance = 0.4f; n.Agent.autoBraking = true;
             n.Agent.obstacleAvoidanceType = ObstacleAvoidanceType.LowQualityObstacleAvoidance;
             if (NavMesh.SamplePosition(pos, out var hit, 3f, NavMesh.AllAreas)) n.Agent.Warp(hit.position);
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 6; i++)
             {
-                Vector2 c = n._rng.InCircle() * 25f;
+                Vector2 c = n._rng.InCircle() * 35f;
                 Vector3 p = pos + new Vector3(c.x, 0, c.y);
                 if (NavMesh.SamplePosition(p, out var ph, 4f, NavMesh.AllAreas)) n._patrol.Add(ph.position);
             }
@@ -125,6 +125,22 @@ namespace Rago
             Agent.SetDestination(p);
         }
         void Stop() { if (AgentOk) Agent.isStopped = true; }
+
+        /// <summary>A spot somewhere in the general area of a player (not on top of them).</summary>
+        bool RoamTarget(out Vector3 p)
+        {
+            p = Vector3.zero;
+            var targets = new List<Vector3>();
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl != null && pl.Vitals.Alive && !RagoGame.I.SafeZone) targets.Add(pl.transform.position);
+            if (NetGame.Live && NetGame.IsHost) foreach (var r in NetGame.I.Remotes.Values) if (r != null && r.Alive) targets.Add(r.transform.position);
+            if (targets.Count == 0) return false;
+            var t = targets[_rng.Range(0, targets.Count)];
+            Vector2 o = _rng.InCircle() * 30f;
+            if (!NavMesh.SamplePosition(t + new Vector3(o.x, 0, o.y), out var h, 6f, NavMesh.AllAreas)) return false;
+            p = h.position;
+            return true;
+        }
 
         // ------------------------------------------------------------------------------- perception
         void Perceive(float dt)
@@ -238,7 +254,13 @@ namespace Rago
                     if (!AgentOk || Agent.remainingDistance < 0.8f)
                     {
                         _waitT -= 0.2f;
-                        if (_waitT <= 0) { _waitT = _rng.Range(25f, 35f); _patrolIdx = (_patrolIdx + 1) % _patrol.Count; Go(_patrol[_patrolIdx], 1.4f); } // a new spot about every 30 s
+                        if (_waitT <= 0)
+                        {
+                            _waitT = _rng.Range(12f, 25f);
+                            // now and then they roam towards where the players are, so fights actually happen
+                            if (_rng.Chance(0.25f) && RoamTarget(out var roam)) Go(roam, 1.6f);
+                            else { _patrolIdx = (_patrolIdx + 1) % _patrol.Count; Go(_patrol[_patrolIdx], 1.4f); }
+                        }
                     }
                     break;
                 case NpcState.Investigate:
@@ -318,6 +340,7 @@ namespace Rago
             {
                 var c = _los[i].collider;
                 if (c.transform.IsChildOf(transform)) continue;
+                if (c is CharacterController) continue;   // a player's movement capsule wraps their body: look past it to the body itself
                 var z = c.GetComponent<HitZone>();
                 if (z != null && z.owner == (IDamageable)this) continue;
                 if (_los[i].distance < best) { best = _los[i].distance; first = c; }
@@ -380,7 +403,7 @@ namespace Rago
         void FireOnce(Vector3 dir)
         {
             _rounds--;
-            Vector3 o = GunModel.muzzle.position;
+            Vector3 o = Ballistics.SafeOrigin(Rig.head.position, GunModel.muzzle.position);
             float spr = Weapon.spread * 0.6f;
             dir = Quaternion.Euler(Random.Range(-spr, spr), Random.Range(-spr, spr), 0) * dir;
             Ballistics.Fire(o, dir, Weapon, ActorId, transform, this, false, Random.value < 0.3f);

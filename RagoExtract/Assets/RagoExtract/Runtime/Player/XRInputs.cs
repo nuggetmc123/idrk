@@ -14,6 +14,9 @@ namespace Rago
         public Vector3 Position;
         public Quaternion Rotation;
         public bool Tracked;
+        /// <summary>The aim pose relative to the grip pose (where the controller points vs. along its handle), if the runtime reports it.</summary>
+        public Quaternion AimLocal;
+        public bool HasAim;
         public bool GripHeld => Grip > 0.55f;
     }
 
@@ -82,6 +85,9 @@ namespace Rago
             if (head.TryGetFeatureValue(CommonUsages.centerEyeRotation, out Quaternion hr) || head.TryGetFeatureValue(CommonUsages.deviceRotation, out hr)) HeadRot = hr;
         }
 
+        static readonly InputFeatureUsage<Quaternion> PointerRot = new InputFeatureUsage<Quaternion>("PointerRotation");
+        static readonly InputFeatureUsage<Quaternion> PointerRotLower = new InputFeatureUsage<Quaternion>("pointerRotation");
+
         static void ReadHand(XRNode node, ref HandInput h, ref bool pg, ref bool pt, ref bool pp, ref bool ps, ref bool pc, ref bool pm)
         {
             var d = InputDevices.GetDeviceAtXRNode(node);
@@ -96,6 +102,12 @@ namespace Rago
             d.TryGetFeatureValue(CommonUsages.menuButton, out n.Menu);
             if (d.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 p)) n.Position = p; else n.Position = h.Position;
             if (d.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion r)) n.Rotation = r; else n.Rotation = h.Rotation;
+            n.AimLocal = h.AimLocal; n.HasAim = h.HasAim;
+            if (n.Tracked && (d.TryGetFeatureValue(PointerRot, out Quaternion ar) || d.TryGetFeatureValue(PointerRotLower, out ar)) && ar != new Quaternion(0, 0, 0, 0))
+            {
+                var off = Quaternion.Inverse(n.Rotation) * ar;   // fixed per controller model; read it every frame anyway
+                if (Quaternion.Angle(off, Quaternion.identity) < 90f) { n.AimLocal = off; n.HasAim = true; }
+            }
             bool g = n.Grip > 0.55f, t = n.Trigger > 0.6f;
             n.GripDown = g && !pg; n.GripUp = !g && pg;
             n.TriggerDown = t && !pt; n.TriggerUp = !t && pt;

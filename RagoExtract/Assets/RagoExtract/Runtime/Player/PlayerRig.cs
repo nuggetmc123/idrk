@@ -114,10 +114,14 @@ namespace Rago
             Vector3 fwd = Head.forward; fwd.y = 0; if (fwd.sqrMagnitude < 0.01f) return; fwd.Normalize();
             Vector3 feet = transform.position;
             Vector3 probe = Head.position + fwd * 0.55f + Vector3.up * 0.2f;
+            Vector3 neck = transform.position + Vector3.up * Mathf.Max(0.3f, Cc.height - 0.3f);
+            if (Physics.Linecast(neck, Head.position, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) return;   // your head is through a wall or roof
+            if (Physics.Linecast(Head.position, probe, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) return;  // the ledge is on the other side of something
             if (Physics.Raycast(probe, Vector3.down, out var hit, 2.2f, ~0, QueryTriggerInteraction.Ignore) && hit.collider.attachedRigidbody == null)
             {
                 float rise = hit.point.y - feet.y;
-                if (rise > 0.3f && rise < 1.9f && hit.normal.y > 0.6f)
+                bool room = !Physics.CheckCapsule(hit.point + Vector3.up * 0.3f, hit.point + Vector3.up * 1.6f, 0.2f, Ballistics.WallMask, QueryTriggerInteraction.Ignore);
+                if (room && rise > 0.3f && rise < 1.9f && hit.normal.y > 0.6f)
                 {
                     Cc.Move(Vector3.up * (rise + 0.05f));
                     Cc.Move(fwd * 0.6f);
@@ -126,11 +130,52 @@ namespace Rago
             }
         }
 
+        /// <summary>
+        /// Head past a wall, roof or door (leaning or climbing into it): the view goes black, so walls can't be looked
+        /// through. It's a wall between your body and your eyes, or your eyes inside one.
+        /// </summary>
+        void HeadCheck()
+        {
+            Vector3 neck = transform.position + Vector3.up * Mathf.Max(0.3f, Cc.height - 0.3f);
+            bool blocked = Physics.Linecast(neck, Head.position, Ballistics.WallMask, QueryTriggerInteraction.Ignore)
+                        || (Physics.CheckSphere(Head.position, 0.09f, Ballistics.WallMask, QueryTriggerInteraction.Ignore) && !OverlapsOnlySelf());
+            Hud.SetBlocked(blocked);
+        }
+
+        Vector3 _safePos; float _safeYaw, _openSkyT, _safeCheckT; bool _hasSafe;
+        /// <summary>
+        /// Indoor maps have a roof over every place you can stand. If there's open sky over you, you got out of the map
+        /// (through a roof, out of a door that leads nowhere): go back to the last spot you stood properly.
+        /// </summary>
+        void KeepInside(float dt)
+        {
+            var map = RagoGame.I != null ? RagoGame.I.Map : null;
+            if (map == null || !map.Indoor) { _hasSafe = false; return; }
+            _safeCheckT -= dt;
+            if (_safeCheckT > 0) return;
+            _safeCheckT = 0.2f;
+            bool roof = Physics.Raycast(transform.position + Vector3.up * 0.3f, Vector3.up, 80f, Ballistics.WallMask, QueryTriggerInteraction.Ignore);
+            if (roof && Cc.isGrounded && !HandL.Climbing && !HandR.Climbing)
+            {
+                _safePos = transform.position + Vector3.up * 0.05f; _safeYaw = Head.eulerAngles.y; _hasSafe = true; _openSkyT = 0; return;
+            }
+            if (roof) { _openSkyT = 0; return; }
+            _openSkyT += 0.2f;
+            if (_openSkyT >= 0.6f && _hasSafe)
+            {
+                _openSkyT = 0;
+                HandL.StopClimbing(); HandR.StopClimbing();
+                Teleport(_safePos, _safeYaw);
+                Toast("You can't go out there");
+            }
+        }
+
         public Vector3 LastTeleportPos; public float LastTeleportYaw;
 
         public void Teleport(Vector3 pos, float yaw)
         {
             LastTeleportPos = pos; LastTeleportYaw = yaw;
+            _hasSafe = false; _openSkyT = 0;   // new place: find a fresh safe spot here
             Cc.enabled = false;
             transform.position = pos;
             transform.rotation = Quaternion.Euler(0, yaw, 0);
@@ -173,6 +218,7 @@ namespace Rago
             HandR.Tick(XRInputs.Right, rp, rr);
             if (!XRInputs.VR) DesktopActions();
             if (!Frozen) Locomotion(dt);
+            if (!Frozen) { HeadCheck(); KeepInside(dt); }
             Gear.Tick();
             Hud.Tick(dt);
         }
@@ -299,7 +345,12 @@ namespace Rago
             }
             // capsule height from head height
             float headH = Mathf.Clamp(Head.position.y - transform.position.y, 0.6f, 2.1f);
-            Cc.height = Mathf.Max(0.6f, headH + 0.08f);
+            // never taller than the space under the ceiling: a capsule grown into a roof gets pushed out on top of it
+            float room = 2.3f;
+            float r0 = Cc.radius + Cc.skinWidth + 0.02f;
+            if (Physics.SphereCast(transform.position + Vector3.up * r0, Cc.radius * 0.95f, Vector3.up, out var ceil, 2.3f, Ballistics.WallMask, QueryTriggerInteraction.Ignore))
+                room = r0 + ceil.distance + Cc.radius * 0.95f - 0.03f;
+            Cc.height = Mathf.Clamp(headH + 0.08f, 0.6f, Mathf.Max(0.6f, room));
             Cc.center = new Vector3(0, Cc.height * 0.5f + Cc.skinWidth, 0);
 
             // stick movement relative to head yaw
@@ -372,9 +423,6 @@ namespace Rago
                 }
                 if (Mathf.Abs(turn.x) < 0.3f) _snapCooldown = 0;
             }
-            // head inside a wall -> fade to black
-            bool blocked = Physics.CheckSphere(Head.position, 0.09f, ~0, QueryTriggerInteraction.Ignore) && !OverlapsOnlySelf();
-            Hud.SetBlocked(blocked);
             _lastHead = Head.position;
         }
 

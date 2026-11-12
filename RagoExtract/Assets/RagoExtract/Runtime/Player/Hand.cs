@@ -25,6 +25,11 @@ namespace Rago
         public float ClimbStart { get; private set; }
         public Quaternion TrackedRotation { get; private set; }
         public Hand Other => left ? rig.HandR : rig.HandL;
+
+        /// <summary>The controller's aim offset: guns point where the controller points, not along its handle.</summary>
+        public Quaternion AimLocal => !XRInputs.VR ? Quaternion.identity : Input.HasAim ? Input.AimLocal : Quaternion.Euler(30, 0, 0);   // no aim pose reported: the usual ~30 degrees
+        /// <summary>World rotation for a held item's grip: the hand's anchor, turned to the aim direction for guns.</summary>
+        public Quaternion HoldRotation(bool aim) => aim ? transform.rotation * AimLocal * Anchor.localRotation : Anchor.rotation;
         public static float GripPitch = 0f; // tweakable grip angle (bunker settings)
 
         Transform _visual;
@@ -441,7 +446,7 @@ namespace Rago
             Vector3 end = Vector3.zero;
             if (canPoint)
             {
-                var ray = new Ray(Anchor.position + Anchor.forward * 0.05f, transform.rotation * Quaternion.Euler(30, 0, 0) * Vector3.forward); // natural pointing angle
+                var ray = new Ray(Anchor.position + Anchor.forward * 0.05f, transform.rotation * AimLocal * Vector3.forward); // natural pointing angle
                 if (Physics.Raycast(ray, out var h, 6f, ~0, QueryTriggerInteraction.Collide))
                 {
                     hit = h.collider.GetComponent<WorldButton>();
@@ -503,7 +508,7 @@ namespace Rago
                     _remoteMask = ~0;
                     foreach (int l in new[] { Layers.Hands, Layers.LocalBody, Layers.Player }) if (l > 0) _remoteMask &= ~(1 << l);
                 }
-                Vector3 dir = transform.rotation * Quaternion.Euler(30, 0, 0) * Vector3.forward;   // same natural pointing angle as the laser
+                Vector3 dir = transform.rotation * AimLocal * Vector3.forward;   // same natural pointing angle as the laser
                 Vector3 origin = Anchor.position + dir * 0.05f;
                 int n = Physics.SphereCastNonAlloc(origin, 0.09f, dir, _rhits, RemoteRange, _remoteMask, QueryTriggerInteraction.Collide);
                 System.Array.Sort(_rhits, 0, n, RemoteCmp.Inst);

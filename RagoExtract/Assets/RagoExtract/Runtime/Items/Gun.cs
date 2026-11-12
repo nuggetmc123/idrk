@@ -165,6 +165,7 @@ namespace Rago
         Vector3 Vel() => primaryHand != null ? primaryHand.Velocity : Vector3.zero;
 
         bool CanFire => chambered && !needsCycle && !slideLocked;
+        public override bool AimedHold => true;
 
         public static System.Action<Gun> OnShot, OnReloaded;   // local player's guns (used by the training)
 
@@ -177,10 +178,11 @@ namespace Rago
             float spr = g.pellets > 1 ? 0f : g.spread * 0.12f;
             dir = Quaternion.Euler(Random.Range(-spr, spr), Random.Range(-spr, spr), 0) * dir;
             bool tracer = g.cls == GunClass.LMG || (g.TwoHanded && Random.value < 0.25f);
-            Ballistics.Fire(rig.muzzle.position, dir, g, 0, transform, RagoGame.I.Player.Vitals, false, tracer);
+            Vector3 origin = Ballistics.SafeOrigin(RagoGame.I.Player.Head.position, rig.muzzle.position);   // barrel through a wall: you shoot the wall
+            Ballistics.Fire(origin, dir, g, 0, transform, RagoGame.I.Player.Vitals, false, tracer);
             Fx.MuzzleFlash(rig.muzzle, g.TwoHanded ? (g.cal == Caliber.C50BMG ? 2f : 1.2f) : 0.7f, g.suppressed);
             Sfx.Gunshot(g, rig.muzzle.position, true);
-            OnLocalFire?.Invoke(this, rig.muzzle.position, dir);
+            OnLocalFire?.Invoke(this, origin, dir);
             // recoil
             float rec = g.recoil;
             bool twoHand = secondaryHand != null;

@@ -462,7 +462,7 @@ namespace Rago
         public override void Build()
         {
             Ambience = Synth.Amb.Bunker;
-            KeepFog = true;
+            KeepFog = true; Indoor = true;
             NpcSafeRadius = 22f;
             MaxRaiders = 22;
             float ex = NX * Pitch / 2f + 2f, ez = NZ * Pitch / 2f + 2f;   // outer walls (84 x 68)

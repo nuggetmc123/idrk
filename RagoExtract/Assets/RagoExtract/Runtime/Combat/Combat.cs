@@ -82,6 +82,31 @@ namespace Rago
         public static void ReportHit(HitInfo h, HitZone z) => OnHitActor?.Invoke(h, z);   // grenades / knives
         public static int BulletMask = ~0;
 
+        static int _wallMask = 0;
+        /// <summary>World geometry only (not items, hands, bodies or players).</summary>
+        public static int WallMask
+        {
+            get
+            {
+                if (_wallMask != 0) return _wallMask;
+                int m = ~0;
+                foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) m &= ~(1 << l);
+                return _wallMask = m;
+            }
+        }
+
+        /// <summary>
+        /// Where a shot really starts: the muzzle, unless the barrel is poking through a wall (or door) between the
+        /// shooter's eye and the muzzle - then the shot starts at that wall and hits it. No shooting through walls.
+        /// </summary>
+        public static Vector3 SafeOrigin(Vector3 eye, Vector3 muzzle)
+        {
+            Vector3 d = muzzle - eye; float len = d.magnitude;
+            if (len < 0.01f) return muzzle;
+            if (Physics.Raycast(eye, d / len, out var h, len, WallMask, QueryTriggerInteraction.Ignore)) return h.point - d / len * 0.03f;
+            return muzzle;
+        }
+
         public static void Fire(Vector3 origin, Vector3 dir, GunDef gun, int shooter, Transform ignore, IDamageable ignoreOwner, bool visualOnly, bool tracer)
         {
             int pellets = Mathf.Max(1, gun.pellets);
@@ -127,6 +152,7 @@ namespace Rago
                         {
                             var hit = _hits[h];
                             if (hit.collider.isTrigger && SurfaceTag.Of(hit.collider) != Synth.Surface.Water) continue;
+                            if (hit.collider is CharacterController) continue;   // a player's movement capsule: the bullet goes on to their body's hit zones
                             if (b.ignore != null && hit.collider.transform.IsChildOf(b.ignore)) continue;
                             var zone = hit.collider.GetComponent<HitZone>();
                             if (zone != null && b.ignoreOwner != null && zone.owner == b.ignoreOwner) continue;

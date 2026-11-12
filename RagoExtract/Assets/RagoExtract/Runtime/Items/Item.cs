@@ -81,11 +81,7 @@ namespace Rago
                 rb.isKinematic = true;
                 SetCollidersTrigger(true);
                 transform.SetParent(null, true);
-                if (!SnapGrip)
-                {
-                    var a = h.Anchor;
-                    _freeGrip = new Pose(Quaternion.Inverse(a.rotation) * (transform.position - a.position), Quaternion.Inverse(a.rotation) * transform.rotation);
-                }
+                if (!SnapGrip) _freeGrip = PalmGrip(h);
                 NetEvents.ItemTaken(this);
             }
             else secondaryHand = h;
@@ -110,11 +106,7 @@ namespace Rago
                 secondaryHand = null;
                 primaryHand = s;
                 s.BecomePrimary(this);
-                if (!SnapGrip)
-                {
-                    var a = s.Anchor;
-                    _freeGrip = new Pose(Quaternion.Inverse(a.rotation) * (transform.position - a.position), Quaternion.Inverse(a.rotation) * transform.rotation);
-                }
+                if (!SnapGrip) _freeGrip = PalmGrip(s);
                 return;
             }
             primaryHand = null;
@@ -225,13 +217,65 @@ namespace Rago
         protected virtual bool TryAttach() => false;
 
         /// <summary>Target pose for the item given the hand anchor, including two-handed aim.</summary>
+        /// <summary>Guns: held aimed where the controller points.</summary>
+        public virtual bool AimedHold => false;
+
+        /// <summary>
+        /// How a hand holds an item without a fixed grip: small things (mags, meds, keycards, valuables) sit in the
+        /// palm, squared up to the hand; big things (helmets, vests, bags) stay as grabbed, with no gap between the
+        /// hand and the spot you grabbed.
+        /// </summary>
+        Pose PalmGrip(Hand h)
+        {
+            var a = h.Anchor;
+            Quaternion rel = Quaternion.Inverse(a.rotation) * transform.rotation;
+            Bounds wb = default; bool any = false;
+            foreach (var c in GetComponentsInChildren<Collider>()) { if (!any) { wb = c.bounds; any = true; } else wb.Encapsulate(c.bounds); }
+            if (!any) return new Pose(Quaternion.Inverse(a.rotation) * (transform.position - a.position), rel);
+            float size = Mathf.Max(wb.size.x, wb.size.y, wb.size.z);
+            if (size < 0.35f)
+            {
+                rel = Snap90(rel);
+                Vector3 c = transform.InverseTransformPoint(wb.center);
+                return new Pose(-(rel * c) + new Vector3(0, 0, 0.01f), rel);   // centred in the fist
+            }
+            // big: the point you grabbed goes into your hand
+            Vector3 closest = a.position; float bd = float.MaxValue;
+            foreach (var c in GetComponentsInChildren<Collider>())
+            {
+                if (c is MeshCollider mc && !mc.convex) continue;
+                var cp = c.ClosestPoint(a.position); float d = (cp - a.position).sqrMagnitude;
+                if (d < bd) { bd = d; closest = cp; }
+            }
+            Vector3 shift = closest - a.position;   // pull the item onto the hand by this much
+            return new Pose(Quaternion.Inverse(a.rotation) * (transform.position - shift - a.position), rel);
+        }
+
+        static Quaternion Snap90(Quaternion q)
+        {
+            Vector3 f = Axis(q * Vector3.forward);
+            Vector3 u = Vector3.ProjectOnPlane(q * Vector3.up, f);
+            if (u.sqrMagnitude < 1e-4f) return q;
+            u = Axis(u);
+            if (Mathf.Abs(Vector3.Dot(f, u)) > 0.5f) return q;
+            return Quaternion.LookRotation(f, u);
+        }
+
+        static Vector3 Axis(Vector3 v)
+        {
+            float ax = Mathf.Abs(v.x), ay = Mathf.Abs(v.y), az = Mathf.Abs(v.z);
+            if (ax >= ay && ax >= az) return new Vector3(Mathf.Sign(v.x), 0, 0);
+            if (ay >= az) return new Vector3(0, Mathf.Sign(v.y), 0);
+            return new Vector3(0, 0, Mathf.Sign(v.z));
+        }
+
         public virtual void GetHeldPose(out Vector3 pos, out Quaternion rot)
         {
             var a = primaryHand.Anchor;
             if (SnapGrip)
             {
                 Quaternion gr = Quaternion.Inverse(grip.localRotation);
-                rot = a.rotation * gr;
+                rot = primaryHand.HoldRotation(AimedHold) * gr;
                 pos = a.position - rot * grip.localPosition;
                 if (secondaryHand != null && secondGrip != null)
                 {

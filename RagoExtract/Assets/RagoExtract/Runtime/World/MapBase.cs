@@ -23,6 +23,7 @@ namespace Rago
         public Synth.Amb Ambience = Synth.Amb.Wind;
         public bool IsRaid = true;
         public bool Safe;
+        public bool Indoor;   // every walkable spot has a roof over it (bunker, Market, Underground): open sky = you got out
         NavMeshDataInstance _nav;
         Light _sun;
 

@@ -159,7 +159,7 @@ namespace Rago
 
         public override void Build()
         {
-            IsRaid = false;
+            IsRaid = false; Indoor = true;
             Ambience = Synth.Amb.Bunker;
             NavBounds = new Bounds(new Vector3(0, 2, 6), new Vector3(30, 8, 50));
             Lighting(new Color(1f, 0.9f, 0.75f), 0.05f, new Vector3(60, 30, 0), new Color(0.22f, 0.23f, 0.25f), new Color(0.2f, 0.19f, 0.17f), new Color(0.12f, 0.11f, 0.1f),
@@ -411,7 +411,7 @@ namespace Rago
 
         public override void Build()
         {
-            IsRaid = false;
+            IsRaid = false; Indoor = true;
             Safe = true;
             Ambience = Synth.Amb.Market;
             NavBounds = new Bounds(new Vector3(0, 5, 0), new Vector3(70, 20, 50));
