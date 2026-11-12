@@ -56,7 +56,8 @@ namespace Rago
             var leafGo = mb.Build("DoorLeaf", _leaf, wood ? Mats.Lit("door_wood", Color.white, 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.45f, 0.2f, true, 1f)
                                                            : Mats.Lit("door_steel", Color.white, 0.6f, 0.45f, Mats.Metal, Mats.MetalN, 0.4f, 0.4f),
                                    Mats.Lit("door_hw", Color.white, 0.9f, 0.6f, Mats.Metal, null, 0.2f, 0.2f));
-            var col = leafGo.AddComponent<BoxCollider>(); _col = col; col.center = new Vector3(w * 0.5f, h * 0.5f, 0); col.size = new Vector3(w - 0.02f, h - 0.02f, 0.05f);
+            var col = leafGo.AddComponent<BoxCollider>(); _col = col;
+            leafGo.AddComponent<DoorGrip>().door = this;   // grab it anywhere with the grip button and swing it with your hand col.center = new Vector3(w * 0.5f, h * 0.5f, 0); col.size = new Vector3(w - 0.02f, h - 0.02f, 0.05f);
             var rb = leafGo.AddComponent<Rigidbody>(); rb.isKinematic = true;   // a moving collider: the player capsule and hands are pushed cleanly
             leafGo.AddComponent<SurfaceTag>().surface = wood ? Synth.Surface.Wood : Synth.Surface.Metal;
             // some doors are already open when the raid starts (same on every player's game: it comes from the map seed)
@@ -99,6 +100,24 @@ namespace Rago
             Apply();
         }
 
+        public bool Held;
+        float HandAngle(Vector3 p) { var l = transform.InverseTransformPoint(p); return Mathf.Atan2(-l.z, l.x) * Mathf.Rad2Deg; }
+
+        /// <summary>A hand grabbed the door: from now on the door follows the hand round the hinge.</summary>
+        public float GrabOffset(Vector3 hand) => Mathf.DeltaAngle(HandAngle(hand), _angle);
+
+        public void DriveWithHand(Vector3 hand, float offset)
+        {
+            float dt = Mathf.Max(Time.deltaTime, 0.001f);
+            float target = Mathf.Clamp(HandAngle(hand) + offset, -MaxAngle, MaxAngle);
+            float step = Mathf.Clamp(Mathf.DeltaAngle(_angle, target), -720f * dt, 720f * dt);
+            if (Mathf.Abs(step) < 0.01f) { _vel = 0f; return; }
+            if (!Fits(_angle + step)) { _vel = 0f; return; }
+            _angle += step;
+            _vel = Mathf.Lerp(_vel, step / dt, 0.5f);   // let go mid-swing and it carries on a little
+            Apply();
+        }
+
         void Apply()
         {
             _leaf.localRotation = Quaternion.Euler(0, _angle, 0);
@@ -133,6 +152,7 @@ namespace Rago
 
         void Update()
         {
+            if (Held) return;   // a hand is swinging it
             Gather();
             float dt = Time.deltaTime;
             float push = 0f;
@@ -157,7 +177,7 @@ namespace Rago
             if (push != 0f)
             {
                 push = Mathf.Clamp(push, -480f * dt, 480f * dt);
-                _vel = Mathf.Lerp(_vel, push / Mathf.Max(dt, 0.001f), 0.5f);
+                _vel = Mathf.Sign(push) * Mathf.Max(Mathf.Abs(Mathf.Lerp(_vel, push / Mathf.Max(dt, 0.001f), 0.5f)), 160f);   // a push swings it open, you don't have to walk it all the way
                 if (!Fits(_angle + push)) { _vel = 0f; return; }   // blocked by a wall or another door: doors never pass through things
                 _angle += push;
                 if (Time.time > _creakT && Mathf.Abs(_vel) > 60f) { _creakT = Time.time + 1.2f; Sfx.Play(Synth.SlideBack(), _center, 0.12f, 0.5f, 1f, 12f); }
@@ -166,11 +186,22 @@ namespace Rago
             {
                 if (!Fits(_angle + _vel * dt)) { _vel = 0f; return; }
                 _angle += _vel * dt;          // a shove keeps it swinging a little
-                _vel = Mathf.MoveTowards(_vel, 0, dt * 600f);
+                _vel = Mathf.MoveTowards(_vel, 0, dt * 240f);
             }
             else return;
             if (Mathf.Abs(_angle) > MaxAngle) { _angle = Mathf.Sign(_angle) * MaxAngle; _vel = -_vel * 0.2f; }
             Apply();
         }
+    }
+
+    /// <summary>Grab a door with the grip button: it swings with your hand round the hinge.</summary>
+    public class DoorGrip : Interactable
+    {
+        public SwingDoor door;
+        float _offset;
+        public override bool CanGrab(Hand h) => door != null;
+        public override void OnGrab(Hand h) { _offset = door.GrabOffset(h.TrackedPosition); door.Held = true; h.Haptic(0.2f, 0.03f); }
+        public override void HoldUpdate(Hand h) { if (door != null) door.DriveWithHand(h.TrackedPosition, _offset); }
+        public override void OnRelease(Hand h) { if (door != null) door.Held = false; }
     }
 }
