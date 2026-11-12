@@ -97,11 +97,29 @@ namespace Rago
             console.localPosition = new Vector3(0, 1.124f, -0.131f); console.localRotation = Quaternion.Euler(55, 0, 0);
             _queueBtn = UI.Button(console, "QUEUE", new Vector3(0.1f, 0, 0), new Vector2(0.34f, 0.15f), ToggleQueue, new Color(0.2f, 0.42f, 0.2f), BtnStyle.Key);
             UI.Text(console, "PRESS TO\nDEPLOY", new Vector3(-0.3f, 0, -0.002f), 0.03f, UI.Stencil, TextAnchor.MiddleCenter, FontStyle.Bold);
+            // your party, on a little screen beside the QUEUE key: who's in it and who leads
+            var pp = UI.Panel(console, "PartyScreen", new Vector3(0.56f, 0, -0.003f), Quaternion.identity, new Vector2(0.5f, 0.34f), null, true, Skin.Crt);
+            UI.Text(pp, "PARTY", new Vector3(-0.22f, 0.13f, 0), 0.03f, UI.CrtGreen, TextAnchor.MiddleLeft, FontStyle.Bold);
+            _party = UI.Text(pp, "", new Vector3(-0.22f, 0.09f, 0), 0.022f, UI.CrtGreen, TextAnchor.UpperLeft);
+            UpdateParty();
             Select(_map);
         }
 
-        TextMesh _online;
-        float _onlineT;
+        TextMesh _online, _party;
+        float _onlineT, _partyT;
+
+        /// <summary>The party screen on the console: members (leader marked), or how to start one.</summary>
+        void UpdateParty()
+        {
+            if (_party == null) return;
+            var b = NetHub.Backend;
+            if (!NetHub.Online || b == null) { _party.text = "offline - solo raids\nwith AI"; return; }
+            if (b.PartyCode == null) { _party.text = "no party\n\ninvite friends: menu\nbutton > FRIENDS"; return; }
+            var sb = new System.Text.StringBuilder();
+            foreach (var m in b.PartyMembers) sb.Append("> ").Append(m.ToUpper()).Append('\n');
+            sb.Append(b.PartyLeader ? "\nyou lead: QUEUE takes\nthe whole party" : "\nyour leader queues -\nyou follow them in");
+            _party.text = sb.ToString();
+        }
 
         /// <summary>The live count of people playing right now (from Photon), on the header sign.</summary>
         void UpdateOnline()
@@ -117,6 +135,8 @@ namespace Rago
         {
             _onlineT -= Time.deltaTime;
             if (_onlineT <= 0f) { _onlineT = 2f; UpdateOnline(); }
+            _partyT -= Time.deltaTime;
+            if (_partyT <= 0f) { _partyT = 1f; UpdateParty(); }
             float on = _queued && Mathf.Repeat(Time.time, 0.8f) < 0.4f ? 1f : 0f;
             if (_beacon != null) _beacon.SetColor("_EmissionColor", new Color(3f, 1.4f, 0.2f) * on);
             if (_beaconLight != null) _beaconLight.intensity = on * 1.5f;

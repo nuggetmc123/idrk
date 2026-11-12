@@ -469,6 +469,7 @@ namespace Rago.Net
             if (!_ready) { failed?.Invoke("offline"); return; }
             if (_queueing) return;
             _queueing = true; _cancel = false; _pendingStart = null; _raidMap = map;
+            float pressedAt = Time.realtimeSinceStartup;   // the 1:00 launch counts from when you pressed QUEUE, like your HUD timer
             try
             {
                 status?.Invoke(new QueueStatus { players = 1, max = QueueRules.MaxFor(map), text = "Finding a raid..." });
@@ -504,7 +505,7 @@ namespace Rago.Net
                     int t0 = props != null && props.TryGetValue("t0", out var tp) ? (int)tp : (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000);
                     float elapsed = (float)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000 - t0);
                     // the session's start time may never sync (or the host changed): never wait longer than our own timer says
-                    elapsed = Mathf.Max(elapsed, Time.realtimeSinceStartup - queuedAt);
+                    elapsed = Mathf.Max(elapsed, Time.realtimeSinceStartup - queuedAt, Time.realtimeSinceStartup - pressedAt);
                     int players = _peers.Count + 1;
                     if (players >= QueueRules.TargetFor(map)) { if (atTarget < 0) atTarget = Time.realtimeSinceStartup; } else atTarget = -1;
                     status?.Invoke(new QueueStatus { players = players, max = QueueRules.MaxFor(map), target = QueueRules.TargetFor(map), elapsed = elapsed, maxWait = QueueRules.MaxWait, text = QueueRules.Describe(players, elapsed, map) });
@@ -530,7 +531,17 @@ namespace Rago.Net
                         start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = 0, players = players, online = true, partySlot = 0 });
                         return;
                     }
-                    await Task.Delay(1000);
+                    // not the host and the host's go never came (left, lagging, message lost): don't sit past 1:00 - go in
+                    // anyway with this session's seed, so we still land in the same raid as everyone else in it
+                    if (!IsHost && elapsed >= QueueRules.MaxWait + 4f)
+                    {
+                        int seed = props != null && props.TryGetValue("seed", out var sp2) ? (int)sp2 : (_runner.SessionInfo.Name ?? map).GetHashCode() & 0x7fffff;
+                        _queueing = false;
+                        _status = "Raid (" + players + " players)";
+                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = (int)(LocalId % 10), players = players, online = true, partySlot = 0 });
+                        return;
+                    }
+                    await Task.Delay(500);
                 }
                 if (_cancel) { await Shutdown(); _queueing = false; RejoinParty(); return; }
             }
