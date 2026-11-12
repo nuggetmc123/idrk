@@ -152,7 +152,7 @@ namespace Rago
                         {
                             var hit = _hits[h];
                             if (hit.collider.isTrigger && SurfaceTag.Of(hit.collider) != Synth.Surface.Water) continue;
-                            if (hit.collider is CharacterController) continue;   // a player's movement capsule: the bullet goes on to their body's hit zones
+                            if (hit.collider is CharacterController && b.shooter == 0) continue;   // your own shots pass your own capsule; raider shots stop at it, as before
                             if (b.ignore != null && hit.collider.transform.IsChildOf(b.ignore)) continue;
                             var zone = hit.collider.GetComponent<HitZone>();
                             if (zone != null && b.ignoreOwner != null && zone.owner == b.ignoreOwner) continue;
