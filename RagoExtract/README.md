@@ -32,6 +32,8 @@ Three buttons:
 
 The Multiplayer window shows a checklist ([done] / [ todo ]) of each step, so you can see exactly what's left. In the game, the raid terminal in your bunker says ONLINE when it worked, or tells you exactly what's missing.
 
+**Region:** everyone plays on one Photon region (US by default) so friends always land on the same servers. Players mostly in Europe or Asia: add a text file `Assets/RagoExtract/Resources/Rago/photon_region.txt` containing `eu` or `asia` (everyone must use the same build).
+
 Online play runs on Photon's cloud in Shared mode: everyone meets in the Market, raids are matched per map (4-10 players, aims for 8, launches at 1:00), and the session's master client runs the raiders (it hands over automatically if they leave). Voice chat is built in: your microphone is streamed over the same connection and others hear you from your position in 3D. Without an App ID the game runs offline (solo raids with AI).
 
 ## How the game works

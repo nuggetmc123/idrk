@@ -137,6 +137,13 @@ namespace Rago
             if (_onlineT <= 0f) { _onlineT = 2f; UpdateOnline(); }
             _partyT -= Time.deltaTime;
             if (_partyT <= 0f) { _partyT = 1f; UpdateParty(); }
+            // safety net: a queue still searching at 1:15 (nobody to match with, or the network never answered) deploys you solo
+            if (_queued && !_joining && Time.time - _queueStart > 75f)
+            {
+                if (NetHub.Online) NetHub.Backend.CancelQueue();
+                RagoGame.I?.Player?.Toast("No raid found in time - deploying solo");
+                OnStart(new RaidStart { map = _map, seed = Random.Range(1, 1000000), spawnIndex = Random.Range(0, 10), players = 1, online = false });
+            }
             float on = _queued && Mathf.Repeat(Time.time, 0.8f) < 0.4f ? 1f : 0f;
             if (_beacon != null) _beacon.SetColor("_EmissionColor", new Color(3f, 1.4f, 0.2f) * on);
             if (_beaconLight != null) _beaconLight.intensity = on * 1.5f;

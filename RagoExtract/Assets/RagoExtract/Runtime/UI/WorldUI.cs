@@ -219,8 +219,13 @@ namespace Rago
         public void SetTextColor(Color c) { if (Label != null) Label.color = c; }
         public void Hover() { _hover = 0.15f; Sfx.UI(Synth.UiHover(), 0.15f); }
 
+        float _lastClick = -1f;
+        static float _anyClick = -1f;
         public void Click()
         {
+            // one press = one click: ignore a repeat on the same key within 0.2 s, and any second click in the same instant
+            if (Time.unscaledTime - _lastClick < 0.2f || Time.unscaledTime - _anyClick < 0.08f) return;
+            _lastClick = _anyClick = Time.unscaledTime;
             if (!Interactable) { Sfx.UI(Synth.UiError(), 0.3f); return; }
             _press = 0.15f;
             Sfx.UI(Synth.UiClick(), 0.5f);

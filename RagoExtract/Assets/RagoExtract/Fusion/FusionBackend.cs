@@ -195,7 +195,8 @@ namespace Rago.Net
         {
             _status = (create ? "Starting" : "Joining") + " party...";
             _names.Clear();
-            bool ok = await StartSession(PartySession(id), new Dictionary<string, SessionProperty> { { "kind", "party" }, { "lead", id } }, QueueRules.Max, create);
+            // "inv" exists from the start (empty): properties added later may not be shown to other players' lobbies
+            bool ok = await StartSession(PartySession(id), new Dictionary<string, SessionProperty> { { "kind", "party" }, { "lead", id }, { "inv", create ? string.Join(",", _invited.ConvertAll(Key)) : "" } }, QueueRules.Max, create);
             if (ok && !create && _peers.Count == 0) { ok = false; await Shutdown(); }   // nobody there
             if (!ok) { OnPartyChanged?.Invoke(); return false; }
             _partyCode = id; _inPartySession = true;
@@ -334,6 +335,14 @@ namespace Rago.Net
             NetHub.Backend = go.AddComponent<FusionBackend>();
         }
 
+        /// <summary>The Photon region everyone plays on: Resources/Rago/photon_region.txt if present (e.g. "eu", "asia"), else "us".</summary>
+        static string Region()
+        {
+            var t = Resources.Load<TextAsset>("Rago/photon_region");
+            var r = t != null ? t.text.Trim().ToLowerInvariant() : "";
+            return string.IsNullOrEmpty(r) ? "us" : r;
+        }
+
         static string AppId()
         {
             var t = Resources.Load<TextAsset>("Rago/photon_appid");
@@ -372,6 +381,9 @@ namespace Rago.Net
                 if (settings == null) return null;
                 var copy = settings.GetType().GetMethod("GetCopy", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null)?.Invoke(settings, null) ?? settings;
                 if (!Set(copy, "AppIdFusion", appId)) { Debug.LogWarning("[Rago] couldn't set AppIdFusion; using the project's Photon settings"); return null; }
+                // everyone on ONE region: with "best region" two friends in different areas land on different servers
+                // and can never see each other's parties, invites or raids
+                Set(copy, "FixedRegion", Region());
                 return copy;
             }
             catch (Exception e) { Debug.LogWarning("[Rago] couldn't apply the Photon App ID (using the project's Photon settings): " + e.Message); return null; }
