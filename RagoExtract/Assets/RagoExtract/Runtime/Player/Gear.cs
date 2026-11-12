@@ -32,10 +32,10 @@ namespace Rago
             DontDestroyOnLoad(Root.gameObject);
             // front sling: the rifle hangs across your stomach, muzzle down to the left, top of the gun facing out
             // low on the stomach and nearly flat, so even a long stock stays below your chest - never up by your face
-            Primary = MakeSlot("FrontSling", new Vector3(0f, -0.64f, 0.27f), Quaternion.LookRotation(new Vector3(-0.86f, -0.5f, 0f), Vector3.forward), it => it is Gun g && g.g.TwoHanded, 0.3f, 0f);
-            Secondary = MakeSlot("Secondary", new Vector3(0f, -0.72f, -0.2f), Quaternion.Euler(0, 90, 0) * Quaternion.Euler(0, 0, 180), it => it is Gun g && g.g.TwoHanded, 0.28f, 0f);
-            Pistol = MakeSlot("Holster", new Vector3(0.22f, -0.78f, 0.02f), Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 0, 0), it => it is Gun g && !g.g.TwoHanded, 0.16f, 0f);
-            Util1 = MakeSlot("PouchL", new Vector3(-0.22f, -0.76f, 0.04f), Quaternion.identity, it => !(it is Gun) && !(it is Backpack) && !(it is ArmorItem), 0.13f, 0.11f);
+            Primary = MakeSlot("FrontSling", new Vector3(0f, -0.56f, 0.27f), Quaternion.LookRotation(new Vector3(-0.86f, -0.5f, 0f), Vector3.forward), it => it is Gun g && g.g.TwoHanded, 0.3f, 0f);
+            Secondary = MakeSlot("Secondary", new Vector3(0f, -0.6f, -0.2f), Quaternion.Euler(0, 90, 0) * Quaternion.Euler(0, 0, 180), it => it is Gun g && g.g.TwoHanded, 0.28f, 0f);
+            Pistol = MakeSlot("Holster", new Vector3(0.22f, -0.66f, 0.04f), Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 0, 0), it => it is Gun g && !g.g.TwoHanded, 0.16f, 0f);
+            Util1 = MakeSlot("PouchL", new Vector3(-0.22f, -0.64f, 0.04f), Quaternion.identity, it => !(it is Gun) && !(it is Backpack) && !(it is ArmorItem), 0.13f, 0.11f);
             Util2 = MakeSlot("PouchChest", new Vector3(0.15f, -0.36f, 0.17f), Quaternion.identity, it => !(it is Gun) && !(it is Backpack) && !(it is ArmorItem), 0.11f, 0.09f);
             PackSlot = MakeSlot("PackSlot", new Vector3(-0.16f, -0.32f, -0.2f), Quaternion.identity, it => it is Backpack, 0.3f, 0.02f);
             int bodyLayer = Layers.LocalBody > 0 ? Layers.LocalBody : 0;
@@ -50,11 +50,11 @@ namespace Rago
             hv.layer = bodyLayer;
             // front sling: a strap from the right shoulder down to the left hip, and a padded front holster plate with a clip
             var sl = new MB(2);
-            Vector3 sa = new Vector3(0.19f, -0.3f, 0.05f), sbp = new Vector3(-0.22f, -0.84f, 0.16f);   // from the shoulder (behind and below your chin) to the left hip
+            Vector3 sa = new Vector3(0.19f, -0.3f, 0.05f), sbp = new Vector3(-0.22f, -0.76f, 0.16f);   // from the shoulder (behind and below your chin) to the left hip
             var sdir = sbp - sa;
             sl.Sub(0).Box((sa + sbp) * 0.5f, new Vector3(0.04f, sdir.magnitude, 0.008f), new Color(0.18f, 0.19f, 0.14f), 0.002f, 0, Quaternion.FromToRotation(Vector3.up, sdir.normalized));
-            sl.Sub(0).Box(new Vector3(0f, -0.64f, 0.215f), new Vector3(0.15f, 0.2f, 0.025f), new Color(0.22f, 0.24f, 0.17f), 0.008f, 1, Quaternion.Euler(0, 0, 60f));   // holster plate
-            sl.Sub(1).Box(new Vector3(0f, -0.64f, 0.232f), new Vector3(0.05f, 0.07f, 0.014f), new Color(0.1f, 0.1f, 0.1f), 0.004f, 0, Quaternion.Euler(0, 0, 60f));    // clip
+            sl.Sub(0).Box(new Vector3(0f, -0.56f, 0.215f), new Vector3(0.15f, 0.2f, 0.025f), new Color(0.22f, 0.24f, 0.17f), 0.008f, 1, Quaternion.Euler(0, 0, 60f));   // holster plate
+            sl.Sub(1).Box(new Vector3(0f, -0.56f, 0.232f), new Vector3(0.05f, 0.07f, 0.014f), new Color(0.1f, 0.1f, 0.1f), 0.004f, 0, Quaternion.Euler(0, 0, 60f));    // clip
             var sv = sl.Build("FrontSlingMesh", Root, Mats.Lit("pouch", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f), Mats.Polymer);
             sv.layer = bodyLayer;
             // AMMO POUCHES on the front of each hip: pull a fresh mag for the gun in your other hand, or put ammo
@@ -67,7 +67,7 @@ namespace Rago
                 pb.Sub(0).Box(new Vector3(0, -0.01f, 0), new Vector3(0.11f, 0.12f, 0.05f), new Color(0.2f, 0.22f, 0.16f), 0.008f, 1);           // pouch body
                 foreach (float mx in new[] { -0.026f, 0.026f }) pb.Sub(0).Box(new Vector3(mx, 0.062f, 0), new Vector3(0.036f, 0.03f, 0.024f), new Color(0.08f, 0.08f, 0.08f), 0.003f); // mag tops
                 var pv = pb.Build(sx < 0 ? "AmmoPouchL" : "AmmoPouchR", Root, Mats.Lit("pouch", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f), Mats.Polymer);
-                pv.transform.localPosition = new Vector3(sx * 0.15f, -0.74f, 0.13f);
+                pv.transform.localPosition = new Vector3(sx * 0.15f, -0.62f, 0.13f);
                 pv.transform.localRotation = Quaternion.Euler(0, sx * 25f, 0);
                 pv.layer = Layers.LocalBody > 0 ? Layers.LocalBody : 0;
                 // the flap: its own material so it can light up
@@ -150,7 +150,7 @@ namespace Rago
         Vector3 ChestPouch => Root.TransformPoint(new Vector3(0.0f, -0.42f, 0.2f));
         Vector3 LeftShoulder => Root.TransformPoint(new Vector3(-0.18f, -0.15f, -0.08f));
         Vector3 RightShoulder => Root.TransformPoint(new Vector3(0.18f, -0.15f, -0.08f));
-        Vector3 LowerBack => Root.TransformPoint(new Vector3(0f, -0.7f, -0.18f));
+        Vector3 LowerBack => Root.TransformPoint(new Vector3(0f, -0.58f, -0.18f));
 
         Vector3 HeadTop => _p.Head.position + Vector3.up * 0.12f;
         Vector3 Collar => Root.TransformPoint(new Vector3(0f, -0.24f, 0.14f));
@@ -159,8 +159,8 @@ namespace Rago
 
         public bool NearChestPouch(Vector3 p) => Vector3.Distance(p, ChestPouch) < 0.17f;
         // mag pouches on the front of both hips (either hand, either side) plus the chest one
-        Vector3 HipMagL => Root.TransformPoint(new Vector3(-0.15f, -0.74f, 0.13f));
-        Vector3 HipMagR => Root.TransformPoint(new Vector3(0.15f, -0.74f, 0.13f));
+        Vector3 HipMagL => Root.TransformPoint(new Vector3(-0.15f, -0.62f, 0.13f));
+        Vector3 HipMagR => Root.TransformPoint(new Vector3(0.15f, -0.62f, 0.13f));
         public bool NearMagPouch(Vector3 p) => Vector3.Distance(p, HipMagL) < 0.16f || Vector3.Distance(p, HipMagR) < 0.16f;
 
         // ---------------------------------------------------------------------- armour
