@@ -57,16 +57,33 @@ namespace Rago
             sl.Sub(1).Box(new Vector3(0f, -0.64f, 0.232f), new Vector3(0.05f, 0.07f, 0.014f), new Color(0.1f, 0.1f, 0.1f), 0.004f, 0, Quaternion.Euler(0, 0, 60f));    // clip
             var sv = sl.Build("FrontSlingMesh", Root, Mats.Lit("pouch", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f), Mats.Polymer);
             sv.layer = bodyLayer;
-            // double mag pouches on the front of each hip (pull a mag with either hand)
-            foreach (var sx in new[] { -1f, 1f })
+            // AMMO POUCHES on the front of each hip: pull a fresh mag for the gun in your other hand, or put ammo
+            // you find (boxes, mags) back in. Yellow flap + AMMO label so you can't miss them; the flap turns
+            // green when what you're holding will go in, and your reserve shows when your hand is near.
+            for (int k = 0; k < 2; k++)
             {
-                var pb = new MB();
-                pb.Box(new Vector3(-0.022f, 0, 0), new Vector3(0.04f, 0.11f, 0.03f), new Color(0.2f, 0.22f, 0.16f), 0.006f, 1);
-                pb.Box(new Vector3(0.022f, 0, 0), new Vector3(0.04f, 0.11f, 0.03f), new Color(0.2f, 0.22f, 0.16f), 0.006f, 1);
-                var pv = pb.Build(sx < 0 ? "MagPouchL" : "MagPouchR", Root, Mats.Lit("pouch", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f));
+                float sx = k == 0 ? -1f : 1f;
+                var pb = new MB(2);
+                pb.Sub(0).Box(new Vector3(0, -0.01f, 0), new Vector3(0.11f, 0.12f, 0.05f), new Color(0.2f, 0.22f, 0.16f), 0.008f, 1);           // pouch body
+                foreach (float mx in new[] { -0.026f, 0.026f }) pb.Sub(0).Box(new Vector3(mx, 0.062f, 0), new Vector3(0.036f, 0.03f, 0.024f), new Color(0.08f, 0.08f, 0.08f), 0.003f); // mag tops
+                var pv = pb.Build(sx < 0 ? "AmmoPouchL" : "AmmoPouchR", Root, Mats.Lit("pouch", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f), Mats.Polymer);
                 pv.transform.localPosition = new Vector3(sx * 0.15f, -0.74f, 0.13f);
                 pv.transform.localRotation = Quaternion.Euler(0, sx * 25f, 0);
                 pv.layer = Layers.LocalBody > 0 ? Layers.LocalBody : 0;
+                // the flap: its own material so it can light up
+                var fb = new MB();
+                fb.Box(new Vector3(0, 0.035f, 0.027f), new Vector3(0.112f, 0.03f, 0.006f), Color.white, 0.002f);
+                var flap = fb.Build("Flap", pv.transform, new Material(Mats.Lit("ammo_flap", Color.white, 0f, 0.4f)));
+                flap.layer = pv.layer;
+                _flap[k] = flap.GetComponent<MeshRenderer>().material;
+                _flap[k].SetColor("_Color", FlapIdle);
+                // label and readout lie on top, tilted up towards your eyes (you look down at your hip)
+                var lbl = UI.Text(pv.transform, "AMMO", new Vector3(0, 0.052f, 0.021f), 0.016f, new Color(0.95f, 0.8f, 0.2f), TextAnchor.MiddleCenter, FontStyle.Bold);
+                lbl.transform.localRotation = Quaternion.Euler(70, 0, 0);
+                lbl.gameObject.layer = pv.layer;
+                _pouchInfo[k] = UI.Text(pv.transform, "", new Vector3(0, 0.1f, 0.06f), 0.016f, Color.white, TextAnchor.LowerCenter, FontStyle.Bold);
+                _pouchInfo[k].transform.localRotation = Quaternion.Euler(70, 0, 0);
+                _pouchInfo[k].gameObject.layer = pv.layer;
             }
         }
 
@@ -80,9 +97,48 @@ namespace Rago
             return s;
         }
 
+        static readonly Color FlapIdle = new Color(0.95f, 0.75f, 0.12f), FlapReady = new Color(0.25f, 0.95f, 0.35f);
+        readonly Material[] _flap = new Material[2];
+        readonly TextMesh[] _pouchInfo = new TextMesh[2];
+
+        /// <summary>Is this something the ammo pouch takes (a magazine or a box of ammo)?</summary>
+        static bool AmmoThing(Item it) => it is Magazine || (it != null && it.def is SimpleDef sd && sd.kind == ItemKind.Ammo);
+
+        void TickPouches()
+        {
+            var pos = new[] { HipMagL, HipMagR };
+            for (int k = 0; k < 2; k++)
+            {
+                if (_flap[k] == null) continue;
+                bool ready = false, near = false;
+                foreach (var h in new[] { _p.HandL, _p.HandR })
+                {
+                    if (h == null) continue;
+                    float d = Vector3.Distance(h.transform.position, pos[k]);
+                    if (d < 0.2f) near = true;
+                    if (d < 0.16f && h.Held != null && !h.HeldAsSecondary && AmmoThing(h.Held)) ready = true;
+                }
+                _flap[k].SetColor("_Color", ready ? FlapReady : FlapIdle);
+                if (_pouchInfo[k] != null) _pouchInfo[k].text = ready ? "LET GO TO STORE" : near ? ReserveText() : "";
+            }
+        }
+
+        /// <summary>Your reserve for the guns you have on you, e.g. "5.45x39  120".</summary>
+        string ReserveText()
+        {
+            var cals = new List<Caliber>();
+            foreach (var s in new[] { Primary, Secondary, Pistol }) if (s != null && s.item is Gun g && !cals.Contains(g.g.cal)) cals.Add(g.g.cal);
+            foreach (var h in new[] { _p.HandL, _p.HandR }) if (h != null && h.Held is Gun hg && !cals.Contains(hg.g.cal)) cals.Add(hg.g.cal);
+            if (cals.Count == 0) return "AMMO POUCH";
+            var sb = new System.Text.StringBuilder();
+            foreach (var c in cals) sb.Append(Db.CalName(c)).Append("  ").Append(Ammo[(int)c]).Append('\n');
+            return sb.ToString().TrimEnd();
+        }
+
         public void Tick()
         {
             if (_p.Dead) return;
+            TickPouches();
             // gear follows the torso (head position, smoothed yaw)
             float headYaw = _p.Head.eulerAngles.y;
             if (Mathf.Abs(Mathf.DeltaAngle(_yaw, headYaw)) > 30f || _p.MoveVelocity.sqrMagnitude > 0.3f) _yaw = Mathf.MoveTowardsAngle(_yaw, headYaw, Time.deltaTime * 240f);

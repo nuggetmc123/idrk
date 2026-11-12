@@ -273,8 +273,10 @@ namespace Rago
             if (XRInputs.VR)
             {
                 float s = left ? -1 : 1;
-                _visual.localRotation = Quaternion.Euler(0, 0, s * -90f);
-                _visual.localPosition = new Vector3(s * 0.028f, -0.005f, -0.015f);
+                // fingers along the controller's aim direction (where your real index finger points), not up its handle
+                var aim = AimLocal;
+                _visual.localRotation = aim * Quaternion.Euler(0, 0, s * -90f);
+                _visual.localPosition = aim * new Vector3(s * 0.028f, -0.005f, -0.015f);
             }
             else { _visual.localPosition = Vector3.zero; _visual.localRotation = Quaternion.identity; }
         }

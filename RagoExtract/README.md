@@ -108,6 +108,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 - **Raider voices**: raiders shout - when they spot you ("Contact!"), push or flank, reload, get hit, lose you ("Where did he go?"), hear something, get flashed, drop you, or see a mate go down - and chat now and then on patrol. Each raider keeps one of three voices, and everyone in the raid hears the same lines.
 - **Keycards**: besides safes, a few Vault Keycards lie loose around every raid map (usually on desks) - at least one per vault, in different places each raid.
 - **Crates face the room**: crates and cases sit squared up against the nearest wall with the lid opening towards you; weapon cases and duffels lie lengthways along desks and walls.
+- **Hands** line up with your real hands: the fingers point where the controller points (from its aim pose), the same angle guns are held at.
 - **Holding things**: guns point where your controller points (the game reads the controller's aim pose, so pistols and rifles sit in your hand at the right angle on any headset); the Grip angle setting still fine-tunes it. Small items (mags, meds, keycards, valuables) sit squarely in your palm; big ones (helmets, vests, bags) are held where you grabbed them.
 - **No wall tricks**: lean or climb your head into a wall or roof and your view goes black; a gun barrel poked through a wall shoots the wall; climbing can't pop you onto a roof, and on indoor maps you're put back if you ever get out under the open sky.
 - **Bleeding**: big hits can start you bleeding. A bandage or medkit stops it at once (hold it near your chest or head and pull the trigger). Without meds it's a gamble: every few seconds a wound may clot by itself - light bleeds usually do, heavy ones rarely - so you might make it or bleed out. Standing still helps, sprinting doesn't, and pressing an empty hand on your chest (hold grip there) halves the blood loss and makes it clot much sooner.
@@ -158,7 +159,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Grip | Grab, two-hand a gun (grab the handguard), pull a slide or charging handle |
 | Grip while pointing an empty hand at something up to 3.5 m away | Distance grab: the item glows when you point at it; squeeze and it flies into your hand. Point at a closed crate and squeeze to open it |
 | Grip on a wall, ledge, ladder, fence or rock (empty hand) | Climb: the hand locks on and pulling down lifts you. Let go above a ledge to climb onto it |
-| Grip at either hip (gun in the other hand) | Pull a fresh magazine for that gun. Put a mag back the same way to return its rounds |
+| Yellow AMMO pouch at either hip | Grip there (gun in the other hand) to pull a fresh magazine for that gun. Let go of a mag or a box of ammo you found there to store it - the flap turns green when it'll go in. Hand near the pouch shows your reserve for the guns you carry |
 | Trigger | Fire. Point at buttons and pull the trigger to click |
 | B / Y (gun hand) | Tap: drop the magazine. Hold half a second: switch fire mode (semi / auto / burst) |
 | Other hand on the slide / charging handle / bolt | Grab it and pull back to rack (chamber a round, release a locked slide) - there's no rack button |

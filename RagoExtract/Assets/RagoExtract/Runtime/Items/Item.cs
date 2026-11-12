@@ -341,6 +341,17 @@ namespace Rago
     /// <summary>Valuables, keycards, ammo boxes.</summary>
     public class LootItem : Item
     {
+        static bool _ammoHint;
+        public override void OnGrab(Hand h)
+        {
+            base.OnGrab(h);
+            if (!_ammoHint && def is SimpleDef sd && sd.kind == ItemKind.Ammo)
+            {
+                _ammoHint = true;
+                RagoGame.I?.Player?.Toast("Ammo: let go of it at the yellow AMMO pouch on either hip");
+            }
+        }
+
         protected override bool TrySlot(Hand h)
         {
             var sd = def as SimpleDef;
