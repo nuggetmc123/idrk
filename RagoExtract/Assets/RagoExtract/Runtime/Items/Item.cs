@@ -235,7 +235,7 @@ namespace Rago
             float size = Mathf.Max(wb.size.x, wb.size.y, wb.size.z);
             if (size < 0.35f)
             {
-                rel = Snap90(rel);
+                rel = AlongFist(rel, wb);
                 Vector3 c = transform.InverseTransformPoint(wb.center);
                 return new Pose(-(rel * c) + new Vector3(0, 0, 0.01f), rel);   // centred in the fist
             }
@@ -249,6 +249,22 @@ namespace Rago
             }
             Vector3 shift = closest - a.position;   // pull the item onto the hand by this much
             return new Pose(Quaternion.Inverse(a.rotation) * (transform.position - shift - a.position), rel);
+        }
+
+        /// <summary>
+        /// Small things are held with their longest side running through your fist (like a stick, a bottle, a box), the
+        /// end that was up staying up; then squared up.
+        /// </summary>
+        Quaternion AlongFist(Quaternion rel, Bounds worldBounds)
+        {
+            // the item's longest local axis
+            var lb = localBounds.size.sqrMagnitude > 0 ? localBounds.size : transform.InverseTransformVector(worldBounds.size);
+            lb = new Vector3(Mathf.Abs(lb.x), Mathf.Abs(lb.y), Mathf.Abs(lb.z));
+            Vector3 longAx = lb.x >= lb.y && lb.x >= lb.z ? Vector3.right : lb.y >= lb.z ? Vector3.up : Vector3.forward;
+            Vector3 inHand = rel * longAx;                                  // where it points in the hand now
+            Vector3 target = Vector3.forward * Mathf.Sign(Vector3.Dot(inHand, Vector3.forward) == 0 ? 1f : Vector3.Dot(inHand, Vector3.forward));
+            var r = Quaternion.FromToRotation(inHand, target) * rel;         // long side along the fist axis
+            return Snap90(r);
         }
 
         static Quaternion Snap90(Quaternion q)

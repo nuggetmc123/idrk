@@ -51,6 +51,8 @@ namespace Rago
             ring.Build("Ring", g._pin, metal);
             var col = go.AddComponent<SphereCollider>(); col.radius = g.Flash ? 0.032f : 0.04f; col.center = new Vector3(0, -0.005f, 0);
             g.localBounds = new Bounds(Vector3.zero, new Vector3(0.07f, 0.11f, 0.07f));
+            g.grip = new GameObject("Grip").transform; g.grip.SetParent(go.transform, false);   // in your fist, fuse and spoon up
+            g.grip.localPosition = new Vector3(0, -0.012f, 0); g.grip.localRotation = Quaternion.LookRotation(Vector3.up, Vector3.back);
             go.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
             g.SetupPhysics(0.4f);
             return g;

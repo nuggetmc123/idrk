@@ -156,9 +156,14 @@ namespace Rago
             _recoilAngVel += (-_recoilRot * 280f - _recoilAngVel * 24f) * dt;
             _recoilRot += _recoilAngVel * dt;
 
+            // rack with the free hand on the slide / charging handle: hold the TRIGGER (or grip), pull back, let go
+            if (Racking == null && Held == null && _interact == null && input.TriggerDown && Other.Held is Gun rg && !Other.HeldAsSecondary && rg.TryStartRack(this))
+            {
+                BeginRack(rg); Haptic(0.2f, 0.03f);
+            }
             if (Racking != null)
             {
-                Racking.RackUpdate(this, input.GripHeld);
+                Racking.RackUpdate(this, input.GripHeld || input.Trigger > 0.3f);
                 if (!Racking.IsRacking(this)) Racking = null;
             }
             else if (input.GripDown && Held == null && _interact == null) TryGrab();
@@ -286,7 +291,8 @@ namespace Rago
             // snap the hand visual onto the grip when holding something
             if (Held != null && Held.Held)
             {
-                if (!HeldAsSecondary && Held.SnapGrip)
+                if (!HeldAsSecondary && Held.SnapGrip && !Held.AimedHold) RestPose();   // a mag, grenade, knife...: your fist wraps it like the controller
+                else if (!HeldAsSecondary && Held.SnapGrip)
                 {
                     _visual.position = Held.grip.position;
                     _visual.rotation = Held.grip.rotation * Quaternion.Inverse(Anchor.localRotation);

@@ -317,7 +317,9 @@ namespace Rago
         public bool TryStartRack(Hand h)
         {
             if (rig.slide == null || h == primaryHand) return false;
-            if (Vector3.Distance(h.Anchor.position, rig.slide.position) > 0.07f) return false;
+            // anywhere on the slide / charging handle / bolt: its top or either side, not just one exact point
+            Vector3 l = transform.InverseTransformPoint(h.Anchor.position), s = transform.InverseTransformPoint(rig.slide.position);
+            if (Mathf.Abs(l.x - s.x) > 0.09f || l.y < s.y - 0.06f || l.y > s.y + 0.09f || l.z < s.z - 0.14f || l.z > s.z + 0.12f) return false;
             _rackHand = h;
             _rackStart = transform.InverseTransformPoint(h.TrackedPosition);
             _rackingBack = false;
@@ -389,8 +391,20 @@ namespace Rago
             col.center = mesh.bounds.center; col.size = mesh.bounds.size;
             m.localBounds = mesh.bounds;
             go.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
+            m.grip = new GameObject("Grip").transform; m.grip.SetParent(go.transform, false);
+            m.PlaceGrip(mesh.bounds);
             m.SetupPhysics(0.35f);
             return m;
+        }
+
+        /// <summary>
+        /// Held like a real mag: the body in your fist, the feed lips (top) up through the top of your fist and the
+        /// rounds facing forward - ready to go straight up into a magwell.
+        /// </summary>
+        void PlaceGrip(Bounds b)
+        {
+            grip.localPosition = new Vector3(b.center.x, Mathf.Lerp(b.min.y, b.max.y, 0.45f), b.center.z);
+            grip.localRotation = Quaternion.LookRotation(Vector3.up, Vector3.back);   // hand's fist axis = mag's up, hand's back = mag's back
         }
 
         public override string Label => Db.CalName(cal) + "  " + rounds + "/" + capacity;
@@ -415,6 +429,7 @@ namespace Rago
             var col = GetComponent<BoxCollider>();
             if (col != null) { col.center = mesh.bounds.center; col.size = mesh.bounds.size; }
             localBounds = mesh.bounds;
+            if (grip != null) PlaceGrip(mesh.bounds);
             style = gun.rig.magStyle; gunId = gun.g.id;
             capacity = gun.g.magSize;
             if (rounds > capacity)
