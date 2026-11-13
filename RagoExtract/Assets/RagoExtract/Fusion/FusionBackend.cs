@@ -318,6 +318,7 @@ namespace Rago.Net
                 if (props == null || !props.TryGetValue("kind", out var k) || Str(k) != "party") continue;
                 if (!props.TryGetValue("inv", out var inv) || !props.TryGetValue("lead", out var lead)) continue;
                 string invited = Str(inv), leader = Str(lead);
+                KnownPlayers.Add(leader);   // a real player, online now
                 if (string.IsNullOrEmpty(invited) || Array.IndexOf(invited.Split(','), me) < 0) continue;
                 if (_invites.Exists(x => Key(x.party) == Key(leader))) continue;
                 _invites.Add(new PartyInvite { from = leader, party = leader, time = Time.realtimeSinceStartup });
@@ -631,6 +632,7 @@ namespace Rago.Net
                 {
                     // someone's callsign (sent to everyone in a session)
                     _names[Id(player)] = text;
+                    KnownPlayers.Add(text);
                     OnMetPlayer?.Invoke(text);   // raid, Market or party: a real player you've met (RECENT, and you can add them as a friend)
                     OnPartyChanged?.Invoke();
                 }

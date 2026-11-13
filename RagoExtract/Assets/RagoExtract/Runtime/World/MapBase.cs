@@ -139,9 +139,15 @@ namespace Rago
             var root = new GameObject("Doors").transform; root.SetParent(transform, false);
             NavIgnore.Add(root);
             int k = 0;
+            var placed = new List<WorldBuilder.DoorGap>();
             foreach (var d in B.Doors)
             {
                 if (!d.swing) continue;
+                // two doorways overlapping (walls meeting at a doorway): only one door
+                bool clash = false;
+                foreach (var p in placed) if (Mathf.Abs(p.c.y - d.c.y) < 1f && (p.c - d.c).magnitude < p.halfW + d.halfW + 0.3f) { clash = true; break; }
+                if (clash) continue;
+                placed.Add(d);
                 int seed = Mathf.RoundToInt(d.c.x * 13.1f + d.c.z * 7.7f + d.c.y * 3.3f) ^ LootSeed;
                 SwingDoor.Create(root, d.c - d.along * (d.halfW - 0.02f), d.along, d.halfW * 2f - 0.04f, d.top - d.c.y - 0.03f, seed + k++);
             }

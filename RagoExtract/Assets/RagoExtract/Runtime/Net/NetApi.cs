@@ -59,6 +59,18 @@ namespace Rago
 
     /// <summary>Transport + matchmaking backend. The real implementation (Photon Fusion 2, shared mode) lives in the
     /// RagoExtract.Fusion assembly and registers itself once Fusion is imported from the Rago Extract tab.</summary>
+    /// <summary>
+    /// Callsigns of real players this game has seen online this session: people in your sessions, and party
+    /// leaders listed by Photon while you're in your bunker. Used to check a typed-in friend actually exists.
+    /// </summary>
+    public static class KnownPlayers
+    {
+        static readonly Dictionary<string, string> _names = new Dictionary<string, string>();
+        static string Key(string n) => (n ?? "").Trim().ToLowerInvariant();
+        public static void Add(string callsign) { if (!string.IsNullOrWhiteSpace(callsign) && callsign.Contains("#")) _names[Key(callsign)] = callsign.Trim(); }
+        public static string Find(string callsign) => _names.TryGetValue(Key(callsign), out var n) ? n : null;
+    }
+
     public interface INetBackend
     {
         string Status { get; }

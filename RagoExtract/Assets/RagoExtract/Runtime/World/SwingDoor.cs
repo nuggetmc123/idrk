@@ -57,7 +57,8 @@ namespace Rago
                                                            : Mats.Lit("door_steel", Color.white, 0.6f, 0.45f, Mats.Metal, Mats.MetalN, 0.4f, 0.4f),
                                    Mats.Lit("door_hw", Color.white, 0.9f, 0.6f, Mats.Metal, null, 0.2f, 0.2f));
             var col = leafGo.AddComponent<BoxCollider>(); _col = col;
-            leafGo.AddComponent<DoorGrip>().door = this;   // grab it anywhere with the grip button and swing it with your hand col.center = new Vector3(w * 0.5f, h * 0.5f, 0); col.size = new Vector3(w - 0.02f, h - 0.02f, 0.05f);
+            col.center = new Vector3(w * 0.5f, h * 0.5f, 0); col.size = new Vector3(w - 0.02f, h - 0.02f, 0.05f);   // just the leaf (not the handles)
+            leafGo.AddComponent<DoorGrip>().door = this;   // grab it anywhere with the grip button and swing it with your hand
             var rb = leafGo.AddComponent<Rigidbody>(); rb.isKinematic = true;   // a moving collider: the player capsule and hands are pushed cleanly
             leafGo.AddComponent<SurfaceTag>().surface = wood ? Synth.Surface.Wood : Synth.Surface.Metal;
             // some doors are already open when the raid starts (same on every player's game: it comes from the map seed)
@@ -79,6 +80,15 @@ namespace Rago
         void Start()
         {
             Physics.SyncTransforms();
+            // never two doors in one doorway: if another door already hangs here, this one goes
+            foreach (var o in All)
+            {
+                if (o == this || o == null || !o._started) continue;
+                if (Vector3.Distance(o.transform.position, transform.position) < 0.6f || Vector3.Distance(o.transform.TransformPoint(_w, 0, 0), transform.TransformPoint(_w, 0, 0)) < 0.6f
+                    || Vector3.Distance(o.transform.position, transform.TransformPoint(_w, 0, 0)) < 0.6f && Vector3.Distance(o.transform.TransformPoint(o._w, 0, 0), transform.position) < 0.6f)
+                { Destroy(gameObject); return; }
+            }
+            _started = true;
             // stand on the real floor in the doorway (house floors are a slab above the wall's base)
             var hinge = transform.position;
             if (Physics.Raycast(hinge + transform.rotation * new Vector3(_w * 0.5f, 0, 0.15f) + Vector3.up * 0.6f, Vector3.down, out var fh, 1.0f, Ballistics.WallMask, QueryTriggerInteraction.Ignore) && fh.collider != _col)
@@ -107,9 +117,10 @@ namespace Rago
         }
 
         public bool Held;
-        int _side = 1;   // the way it swings (+1 / -1 in angle): into the roomier side, so doors facing each other across a corridor never meet
-        float Lo => _side > 0 ? 0f : -MaxAngle;
-        float Hi => _side > 0 ? MaxAngle : 0f;
+        bool _started;
+        int _side = 1;   // the way a door that starts open hangs: into the roomier side
+        // it swings both ways - away from whoever pushes it - and stops against walls, furniture and other doors
+        const float Lo = -MaxAngle, Hi = MaxAngle;
         float HandAngle(Vector3 p) { var l = transform.InverseTransformPoint(p); return Mathf.Atan2(-l.z, l.x) * Mathf.Rad2Deg; }
 
         /// <summary>A hand grabbed the door: from now on the door follows the hand round the hinge.</summary>
@@ -185,7 +196,6 @@ namespace Rago
             }
             if (push != 0f)
             {
-                push = Mathf.Abs(push) * _side;   // whichever side you push from, it opens its own way
                 push = Mathf.Clamp(push, -480f * dt, 480f * dt);
                 _vel = Mathf.Sign(push) * Mathf.Max(Mathf.Abs(Mathf.Lerp(_vel, push / Mathf.Max(dt, 0.001f), 0.5f)), 160f);   // a push swings it open, you don't have to walk it all the way
                 if (!Fits(_angle + push)) { _vel = 0f; return; }   // blocked by a wall or another door: doors never pass through things
@@ -200,7 +210,7 @@ namespace Rago
             }
             else return;
             if (_angle > Hi) { _angle = Hi; _vel = -_vel * 0.2f; }
-            if (_angle < Lo) { _angle = Lo; _vel = 0f; }   // shut against the frame
+            if (_angle < Lo) { _angle = Lo; _vel = -_vel * 0.2f; }
             Apply();
         }
     }

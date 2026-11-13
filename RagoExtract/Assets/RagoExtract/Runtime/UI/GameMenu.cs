@@ -120,7 +120,7 @@ namespace Rago
             if (IsFriend(callsign)) { pl.Toast(callsign + " is already a friend"); return; }
             // only real players: someone you've raided with, or who's in this session (Market / party / raid) now
             string real = KnownPlayer(callsign);
-            if (real == null) { pl.Toast("No player " + callsign + " found. Play a raid or meet them in the Market first - they'll be in RECENT"); Sfx.UI(Synth.UiError(), 0.3f); return; }
+            if (real == null) { pl.Toast("No player called " + callsign + " found. Check the spelling and tag, or play with them once (raid, Market or party)"); Sfx.UI(Synth.UiError(), 0.3f); return; }
             callsign = real;
             prof.friends.Add(callsign);
             prof.Save();
@@ -135,7 +135,7 @@ namespace Rago
             if (here != null) foreach (var n in here) if (Key(n) == Key(callsign)) return n;
             var prof = Profile.Current;
             if (prof != null) foreach (var n in prof.recent) if (Key(n) == Key(callsign)) return n;
-            return null;
+            return KnownPlayers.Find(callsign);   // seen online this session (e.g. leading a party)
         }
 
         static void Invite(string callsign)
