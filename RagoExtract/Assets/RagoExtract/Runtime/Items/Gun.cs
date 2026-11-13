@@ -247,7 +247,7 @@ namespace Rago
             OnShot?.Invoke(this);
             chambered = false;
             _hasSpent = true;
-            Vector3 dir = rig.muzzle.forward;
+            Vector3 dir = ZeroedDir();
             float spr = g.pellets > 1 ? 0f : g.spread * 0.12f * SpreadMul;
             var shot = Quiet ? g.Quiet : g;   // a screwed-on suppressor makes it a quiet gun
             dir = Quaternion.Euler(Random.Range(-spr, spr), Random.Range(-spr, spr), 0) * dir;
@@ -422,6 +422,21 @@ namespace Rago
 
         public bool IsRacking(Hand h) => _rackHand == h;
 
+        /// <summary>
+        /// Sights are zeroed: the bullet leaves the barrel angled up a hair so it crosses the line of sight at the
+        /// zero distance (irons 25 m, red dots / holos 50 m, magnified scopes 100 m) - it hits where you aim.
+        /// </summary>
+        Vector3 ZeroedDir()
+        {
+            Vector3 f = rig.muzzle.forward;
+            Vector3 eye; float zero;
+            if (sight != null && sight.Lens != null) { eye = sight.Lens.position; zero = sight.sd.mag > 0f ? 100f : 50f; }
+            else if (rig.sightLine != null) { eye = rig.sightLine.position; zero = g.TwoHanded ? 25f : 15f; }
+            else return f;
+            Vector3 d = (eye + transform.forward * zero - rig.muzzle.position).normalized;
+            return Vector3.Angle(d, f) < 2f ? d : f;
+        }
+
         Transform _muzzleEnd;
         /// <summary>The end of a screwed-on suppressor (the flash comes out there).</summary>
         Transform MuzzleEnd
@@ -595,6 +610,7 @@ namespace Rago
     {
         public SightDef sd;
         public Gun onGun;
+        public Transform Lens;   // the holo window / the scope's eyepiece
 
         public static SightItem Create(SightDef def, Vector3 pos, Quaternion rot)
         {
@@ -602,9 +618,12 @@ namespace Rago
             go.transform.SetPositionAndRotation(pos, rot);
             var s = go.AddComponent<SightItem>();
             s.def = def; s.sd = def;
-            GunBuilder.BuildSight(def, go.transform);
+            s.Lens = GunBuilder.BuildSight(def, go.transform);
+            if (def.mag > 0f) go.AddComponent<ScopeView>().Init(s, def.mag);
             var col = go.AddComponent<BoxCollider>();
             col.center = new Vector3(0, 0.025f, 0); col.size = new Vector3(0.04f, 0.05f, 0.08f);
+            var bodyMf = go.transform.Find("SightBody")?.GetComponent<MeshFilter>();
+            if (def.mag > 0f && bodyMf != null && bodyMf.sharedMesh != null) { var bb = bodyMf.sharedMesh.bounds; col.center = bb.center; col.size = bb.size; }   // scopes are long
             s.localBounds = new Bounds(col.center, col.size);
             go.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
             s.SetupPhysics(0.25f);

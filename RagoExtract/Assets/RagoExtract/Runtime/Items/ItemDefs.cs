@@ -87,7 +87,8 @@ namespace Rago
         public Color reticle;
         public int style;     // shader style
         public float size;
-        public int model;     // 0 holo box, 1 micro dot, 2 open reflex, 3 hex holo, 4 tactical reflex
+        public int model;     // 0 holo box, 1 micro dot, 2 open reflex, 3 hex holo, 4 tactical reflex, 5 hunting scope, 6 long-range scope, 7 prism
+        public float mag;     // magnified scopes: 3x, 4x, 8x (0 = red dot / holo)
         public Finish finish;
     }
 
@@ -313,6 +314,9 @@ namespace Rago
             S("micro_dot", "Micro Dot T2", 1, new Color(4f, 0.2f, 0.12f), 1, 0.01f, C, 500, Finish.Black, "Tiny tube red dot. Fits pistols and rifles.");
             S("reflex_pan", "Panorama Reflex", 2, new Color(4f, 0.3f, 0.1f), 1, 0.01f, C, 450, Finish.Black, "Open reflex sight with a wide window.");
             S("tac_reflex", "Tac Reflex", 4, new Color(4f, 2.2f, 0.2f), 3, 0.014f, R, 1700, Finish.Od, "Amber chevron reflex. Fast target pickup.");
+            S("prism_3x", "Combat 3x Prism", 7, new Color(4f, 0.3f, 0.15f), 2, 0f, U, 2200, Finish.Black, "3x prism sight with a glowing red chevron. Short and quick.").mag = 3f;
+            S("scope_4x", "Hunter 4x Scope", 5, Color.black, 0, 0f, R, 3500, Finish.Black, "4x hunting scope with a duplex crosshair. Made for bolt-actions.").mag = 4f;
+            S("scope_8x", "Longshot 8x Scope", 6, new Color(3f, 0.2f, 0.1f), 1, 0f, E, 7000, Finish.Tan, "8x long-range scope, mil-dot crosshair with a red centre dot.").mag = 8f;
             S("hex_holo", "Hex Holo Mk.II", 3, new Color(0.3f, 2.8f, 4f), 2, 0.016f, V, 6000, Finish.Gray, "Vault-only. Cyan chevron hex holographic.");
 
             // ---------------- MEDS

@@ -869,6 +869,65 @@ namespace Rago
             return (p + qe * new Vector3(0, -0.004f, 0), qe);
         }
 
+        /// <summary>
+        /// A magnified scope: tube, rings, turrets, bells. Returns the eyepiece (a round lens facing the shooter at
+        /// -Z); an "Objective" point at the front marks where the scope's camera looks out from.
+        /// </summary>
+        static Transform BuildScope(SightDef s, Transform parent, Material body)
+        {
+            var mb = new MB(2);
+            Color w = Color.white;
+            float ax, tubeR, zEye, zObj, eyeR, objR, lensR;
+            if (s.model == 7)
+            {   // prism: a short box body
+                ax = 0.036f; lensR = 0.0135f; zEye = -0.078f; zObj = 0.072f;
+                mb.Sub(0).Box(new Vector3(0, 0.006f, 0), new Vector3(0.026f, 0.012f, 0.07f), w, 0.002f);
+                mb.Sub(0).Box(new Vector3(0, ax, -0.002f), new Vector3(0.036f, 0.042f, 0.1f), w, 0.005f, 2);
+                mb.Sub(0).Cyl(new Vector3(0, ax, -0.052f), new Vector3(0, ax, zEye), 0.0165f, 0.0165f, 20, w);
+                mb.Sub(0).Cyl(new Vector3(0, ax, 0.048f), new Vector3(0, ax, zObj), 0.0175f, 0.0175f, 20, w);
+                mb.Sub(1).Cyl(new Vector3(0.018f, ax + 0.006f, 0f), new Vector3(0.026f, ax + 0.006f, 0f), 0.008f, 0.008f, 12, w);
+            }
+            else
+            {
+                bool big = s.model == 6;
+                ax = big ? 0.05f : 0.043f; tubeR = big ? 0.015f : 0.0127f; eyeR = big ? 0.021f : 0.019f; objR = big ? 0.027f : 0.021f;
+                lensR = eyeR - 0.003f;
+                float z0 = big ? -0.085f : -0.075f, z1 = big ? 0.13f : 0.105f;
+                zEye = z0 - (big ? 0.065f : 0.06f); zObj = z1 + (big ? 0.11f : 0.08f);
+                mb.Sub(0).Cyl(new Vector3(0, ax, z0), new Vector3(0, ax, z1), tubeR, tubeR, 20, w);                                   // main tube
+                mb.Sub(0).Cyl(new Vector3(0, ax, z0), new Vector3(0, ax, z0 - 0.025f), tubeR, eyeR, 20, w);                           // eyepiece bell
+                mb.Sub(0).Cyl(new Vector3(0, ax, z0 - 0.025f), new Vector3(0, ax, zEye), eyeR, eyeR, 20, w);
+                mb.Sub(1).Cyl(new Vector3(0, ax, zEye + 0.012f), new Vector3(0, ax, zEye + 0.02f), eyeR + 0.0012f, eyeR + 0.0012f, 20, w); // focus ring
+                mb.Sub(0).Cyl(new Vector3(0, ax, z1), new Vector3(0, ax, z1 + 0.04f), tubeR, objR, 20, w);                             // objective bell
+                mb.Sub(0).Cyl(new Vector3(0, ax, z1 + 0.04f), new Vector3(0, ax, zObj), objR, objR, 20, w);
+                // turrets
+                mb.Sub(0).Cyl(new Vector3(0, ax, 0.015f), new Vector3(0, ax + tubeR + 0.012f, 0.015f), 0.009f, 0.009f, 14, w);
+                mb.Sub(0).Cyl(new Vector3(0, ax, 0.015f), new Vector3(tubeR + 0.012f, ax, 0.015f), 0.009f, 0.009f, 14, w);
+                for (int i = 0; i < 6; i++) mb.Sub(1).Box(new Vector3(0, ax + tubeR + 0.008f, 0.015f) + Quaternion.Euler(0, i * 30f, 0) * new Vector3(0.0092f, 0, 0), new Vector3(0.0015f, 0.008f, 0.0015f), w);
+                // rings
+                foreach (float rz in new[] { -0.045f, big ? 0.085f : 0.065f })
+                {
+                    mb.Sub(1).Box(new Vector3(0, (ax - tubeR) * 0.5f, rz), new Vector3(0.024f, ax - tubeR, 0.016f), w, 0.002f);
+                    mb.Sub(1).Cyl(new Vector3(0, ax, rz - 0.008f), new Vector3(0, ax, rz + 0.008f), tubeR + 0.003f, tubeR + 0.003f, 20, w);
+                }
+            }
+            var go = mb.Build("SightBody", parent, body, Mats.Lit("scope_ring", new Color(0.08f, 0.08f, 0.085f), 0.6f, 0.45f, Mats.Metal, null, 0.2f, 0.3f));
+            // front glass (blue coated)
+            var fg = new MB(1);
+            float fr = s.model == 7 ? 0.0145f : s.model == 6 ? 0.024f : 0.018f;
+            fg.Cyl(new Vector3(0, ax, zObj), new Vector3(0, ax, zObj + 0.0008f), fr, fr, 20, w);
+            fg.Build("ObjectiveGlass", go.transform, Mats.Lit("scope_glass", new Color(0.05f, 0.1f, 0.16f), 0.2f, 0.95f));
+            var obj = new GameObject("Objective").transform;
+            obj.SetParent(go.transform, false); obj.localPosition = new Vector3(0, ax, zObj + 0.004f);
+            // the eyepiece
+            var lens = new MB(1);
+            float L = lensR;
+            lens.Quad(new Vector3(-L, -L, 0), new Vector3(L, -L, 0), new Vector3(L, L, 0), new Vector3(-L, L, 0), Color.white, Vector2.one);
+            var lgo = lens.Build("Lens", go.transform, Mats.Scope(s.model == 7 ? 2 : s.model == 6 ? 1 : 0, s.reticle, L));
+            lgo.transform.localPosition = new Vector3(0, ax, zEye - 0.0008f);
+            return lgo.transform;
+        }
+
         // ------------------------------------------------------------------ attachments
         /// <summary>
         /// Builds a muzzle device, light/laser or foregrip. Muzzle: origin at the gun's muzzle point, +Z forward.
@@ -969,6 +1028,7 @@ namespace Rago
                 : s.finish == Finish.Od ? Mats.Lit("sight_od", new Color(0.3f, 0.33f, 0.24f), 0.3f, 0.35f, Mats.Metal, null, 0.3f, 0.6f)
                 : s.finish == Finish.Gray ? Mats.Lit("sight_gray", new Color(0.35f, 0.36f, 0.38f), 0.6f, 0.45f, Mats.Metal, null, 0.2f, 0.4f)
                 : Mats.Lit("sight_blk", new Color(0.06f, 0.06f, 0.065f), 0.4f, 0.4f, Mats.Metal, null, 0.25f, 0.5f);
+            if (s.mag > 0f) return BuildScope(s, parent, body);
             Vector3 lensPos; Vector2 lensSize;
             switch (s.model)
             {

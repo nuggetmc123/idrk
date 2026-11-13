@@ -245,9 +245,11 @@ namespace Rago
             if (gun != null && !HandR.HeldAsSecondary)
             {
                 Quaternion gr = view;
-                Vector3 sightLocal = gun.sight != null ? gun.rig.root.transform.InverseTransformPoint(gun.sight.transform.TransformPoint(new Vector3(0, 0.03f, 0))) : gun.rig.sightLine.localPosition;
+                bool scoped = gun.sight != null && gun.sight.sd.mag > 0f;
+                Vector3 sightLocal = gun.sight != null && gun.sight.Lens != null ? gun.rig.root.transform.InverseTransformPoint(gun.sight.Lens.position)
+                    : gun.sight != null ? gun.rig.root.transform.InverseTransformPoint(gun.sight.transform.TransformPoint(new Vector3(0, 0.03f, 0))) : gun.rig.sightLine.localPosition;
                 Vector3 gunPos;
-                if (Desktop.Aiming) gunPos = Head.position + view * new Vector3(0, 0, gun.g.TwoHanded ? 0.16f : 0.32f) - gr * sightLocal;
+                if (Desktop.Aiming) gunPos = Head.position + view * new Vector3(0, 0, scoped ? 0.075f : gun.g.TwoHanded ? 0.16f : 0.32f) - gr * sightLocal;
                 else gunPos = Head.position + view * new Vector3(0.16f, -0.2f, 0.3f) - gr * new Vector3(0, gun.rig.boreY, 0);
                 rp = gunPos + gr * gun.grip.localPosition;
                 rr = gr * gun.grip.localRotation * Quaternion.Inverse(HandR.Anchor.localRotation);

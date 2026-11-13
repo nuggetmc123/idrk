@@ -10,7 +10,7 @@ namespace Rago
     /// </summary>
     public static class Mats
     {
-        static Material _lit, _unlit, _holo, _sky, _foliage;
+        static Material _lit, _unlit, _holo, _sky, _foliage, _scope;
         static readonly Dictionary<string, Material> _cache = new Dictionary<string, Material>();
         public static Texture2D Grime, Noise, Concrete, ConcreteN, Metal, MetalN, Wood, WoodN, Ground, Grass, Dirt, Asphalt, AsphaltN,
             Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster;
@@ -28,6 +28,8 @@ namespace Rago
             if (_lit == null) _lit = new Material(FindShader("Rago/Lit", "Standard"));
             if (_unlit == null) _unlit = new Material(FindShader("Rago/Unlit", "Sprites/Default"));
             if (_holo == null) _holo = new Material(FindShader("Rago/HoloReticle", "Sprites/Default"));
+            _scope = Resources.Load<Material>("Rago/M_Scope");
+            if (_scope == null) _scope = new Material(FindShader("Rago/ScopeLens", "Unlit/Texture"));
             if (_sky == null) _sky = new Material(FindShader("Rago/Sky", "Skybox/Procedural"));
             BuildTextures();
         }
@@ -215,7 +217,20 @@ namespace Rago
             var m = new Material(_holo);
             m.SetColor("_ReticleColor", reticle);
             m.SetFloat("_Style", style);
-            m.SetFloat("_Size", size);
+            m.SetFloat("_Size", size * 1.35f);       // big enough to read in a headset
+            m.SetFloat("_Thickness", 0.0019f);
+            return m;
+        }
+
+        /// <summary>A magnified scope's eyepiece (one per scope: it shows that scope's own camera).</summary>
+        public static Material Scope(int style, Color dot, float lensR)
+        {
+            Init();
+            var m = new Material(_scope);
+            m.SetFloat("_Style", style);
+            m.SetColor("_DotColor", dot);
+            m.SetFloat("_LensR", lensR);
+            m.SetFloat("_Active", 0f);
             return m;
         }
 
