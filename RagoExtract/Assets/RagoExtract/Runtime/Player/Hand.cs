@@ -313,8 +313,13 @@ namespace Rago
                 if (!HeldAsSecondary && Held.SnapGrip && !Held.AimedHold) RestPose();   // a mag, grenade, knife...: your fist wraps it like the controller
                 else if (!HeldAsSecondary && Held.SnapGrip)
                 {
-                    _visual.position = Held.grip.position;
-                    _visual.rotation = Held.grip.rotation * Quaternion.Inverse(Anchor.localRotation);
+                    // a real pistol-grip hold: palm against the side of the grip, the back of your hand facing out,
+                    // knuckles running down the grip's slant, thumb on top and fingers wrapped round the front
+                    float s = left ? -1f : 1f;
+                    var t = Held.transform;
+                    Quaternion slant = t.rotation * Quaternion.Euler(16f, 0f, 0f);
+                    _visual.rotation = Quaternion.LookRotation(slant * Vector3.forward, slant * Vector3.right * s);
+                    _visual.position = Held.grip.position + slant * new Vector3(s * 0.03f, 0.004f, -0.012f);
                 }
                 else if (HeldAsSecondary && Held.secondGrip != null)
                 {

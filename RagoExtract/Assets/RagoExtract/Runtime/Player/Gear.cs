@@ -33,7 +33,9 @@ namespace Rago
             // front sling: the rifle hangs across your stomach, muzzle down to the left, top of the gun facing out
             // low on the stomach and nearly flat, so even a long stock stays below your chest - never up by your face
             Primary = MakeSlot("FrontSling", new Vector3(0f, -0.56f, 0.27f), Quaternion.LookRotation(new Vector3(-0.86f, -0.5f, 0f), Vector3.forward), it => it is Gun g && g.g.TwoHanded, 0.3f, 0f);
-            Secondary = MakeSlot("Secondary", new Vector3(0f, -0.6f, -0.2f), Quaternion.Euler(0, 90, 0) * Quaternion.Euler(0, 0, 180), it => it is Gun g && g.g.TwoHanded, 0.28f, 0f);
+            // second long gun (rifle / shotgun) slung diagonally across your back, flat against it: stock up behind
+            // your right shoulder, muzzle down by your left hip. Reach over your right shoulder (or anywhere along it).
+            Secondary = MakeSlot("BackSling", new Vector3(0f, -0.42f, -0.15f), Quaternion.LookRotation(new Vector3(-0.55f, -0.83f, 0f), Vector3.back), it => it is Gun g && g.g.TwoHanded, 0.3f, 0f);
             Pistol = MakeSlot("Holster", new Vector3(0.22f, -0.66f, 0.04f), Quaternion.Euler(90, 0, 0) * Quaternion.Euler(0, 0, 0), it => it is Gun g && !g.g.TwoHanded, 0.16f, 0f);
             Util1 = MakeSlot("PouchL", new Vector3(-0.22f, -0.64f, 0.04f), Quaternion.identity, it => !(it is Gun) && !(it is Backpack) && !(it is ArmorItem), 0.13f, 0.11f);
             Util2 = MakeSlot("PouchChest", new Vector3(0.15f, -0.36f, 0.17f), Quaternion.identity, it => !(it is Gun) && !(it is Backpack) && !(it is ArmorItem), 0.11f, 0.09f);
@@ -53,8 +55,6 @@ namespace Rago
             Vector3 sa = new Vector3(0.19f, -0.3f, 0.05f), sbp = new Vector3(-0.22f, -0.76f, 0.16f);   // from the shoulder (behind and below your chin) to the left hip
             var sdir = sbp - sa;
             sl.Sub(0).Box((sa + sbp) * 0.5f, new Vector3(0.04f, sdir.magnitude, 0.008f), new Color(0.18f, 0.19f, 0.14f), 0.002f, 0, Quaternion.FromToRotation(Vector3.up, sdir.normalized));
-            sl.Sub(0).Box(new Vector3(0f, -0.56f, 0.215f), new Vector3(0.15f, 0.2f, 0.025f), new Color(0.22f, 0.24f, 0.17f), 0.008f, 1, Quaternion.Euler(0, 0, 60f));   // holster plate
-            sl.Sub(1).Box(new Vector3(0f, -0.56f, 0.232f), new Vector3(0.05f, 0.07f, 0.014f), new Color(0.1f, 0.1f, 0.1f), 0.004f, 0, Quaternion.Euler(0, 0, 60f));    // clip
             var sv = sl.Build("FrontSlingMesh", Root, Mats.Lit("pouch", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f), Mats.Polymer);
             sv.layer = bodyLayer;
             // AMMO POUCHES on the front of each hip: pull a fresh mag for the gun in your other hand, or put ammo
@@ -155,7 +155,17 @@ namespace Rago
         Vector3 ChestPouch => Root.TransformPoint(new Vector3(0.0f, -0.42f, 0.2f));
         Vector3 LeftShoulder => Root.TransformPoint(new Vector3(-0.18f, -0.15f, -0.08f));
         Vector3 RightShoulder => Root.TransformPoint(new Vector3(0.18f, -0.15f, -0.08f));
-        Vector3 LowerBack => Root.TransformPoint(new Vector3(0f, -0.58f, -0.18f));
+        Vector3 BackSlingGrab => Root.TransformPoint(new Vector3(0.17f, -0.2f, -0.13f));   // behind your right shoulder
+
+        /// <summary>Is the hand within reach of any part of this stored gun (along its length)?</summary>
+        static bool NearGun(Item it, Vector3 p, float reach)
+        {
+            var b = it.localBounds;
+            Vector3 a = it.transform.TransformPoint(b.center - Vector3.forward * b.extents.z), c = it.transform.TransformPoint(b.center + Vector3.forward * b.extents.z);
+            Vector3 ac = c - a;
+            float t = Mathf.Clamp01(Vector3.Dot(p - a, ac) / Mathf.Max(ac.sqrMagnitude, 1e-5f));
+            return Vector3.Distance(p, a + ac * t) < reach;
+        }
 
         Vector3 HeadTop => _p.Head.position + Vector3.up * 0.12f;
         Vector3 Collar => Root.TransformPoint(new Vector3(0f, -0.24f, 0.14f));
@@ -235,7 +245,7 @@ namespace Rago
             if (Vest != null && Vector3.Distance(p, VestGrab) < 0.17f) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);
             if (Vector3.Distance(p, LeftShoulder) < 0.2f && PackSlot.item != null) return PackSlot.item;
             if (Vector3.Distance(p, Primary.transform.position) < 0.22f && Primary.item != null) return Primary.item;   // front sling
-            if (Vector3.Distance(p, LowerBack) < 0.2f && Secondary.item != null) return Secondary.item;
+            if (Secondary.item != null && (NearGun(Secondary.item, p, 0.13f) || Vector3.Distance(p, BackSlingGrab) < 0.2f)) return Secondary.item;
             return null;
         }
 
