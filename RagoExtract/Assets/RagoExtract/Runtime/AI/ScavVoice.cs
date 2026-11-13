@@ -32,7 +32,18 @@ namespace Rago
             var clip = Clip(l, idx, voice);
             if (clip == null) return 0f;
             bool loud = l == Line.Spot || l == Line.Attack || l == Line.Hit || l == Line.ManDown || l == Line.Flash || l == Line.Reload;
-            Sfx.Play(clip, at, loud ? 1f : 0.7f, Random.Range(0.97f, 1.03f), 2.5f, loud ? 40f : 22f);
+            float range = loud ? 30f : 16f;
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl != null)
+            {
+                Vector3 ear = pl.Head.position;
+                float d = Vector3.Distance(ear, at);
+                if (d > range) { _anyT = Time.time + clip.length * 0.6f; return clip.length; }   // too far away to hear
+                // a wall (or floor) between you: much quieter, muffled, and only heard close up
+                bool walled = Physics.Linecast(ear, at, Ballistics.WallMask, QueryTriggerInteraction.Ignore);
+                if (walled && d > range * 0.5f) { _anyT = Time.time + clip.length * 0.6f; return clip.length; }
+                Sfx.PlayVoice(clip, at, (loud ? 1f : 0.7f) * (walled ? 0.35f : 1f), Random.Range(0.97f, 1.03f), 2.5f, walled ? range * 0.5f : range, walled);
+            }
             _anyT = Time.time + clip.length * 0.6f;
             return clip.length;
         }

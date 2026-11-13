@@ -37,6 +37,7 @@ namespace Rago
                 s.spatialBlend = 1f;
                 s.rolloffMode = AudioRolloffMode.Logarithmic;
                 s.dopplerLevel = 0f;
+                var lp = go.AddComponent<AudioLowPassFilter>(); lp.enabled = false; lp.cutoffFrequency = 900f;   // used to muffle sounds behind walls
                 _pool.Add(s);
             }
             _ambience = gameObject.AddComponent<AudioSource>();
@@ -72,7 +73,22 @@ namespace Rago
             s.maxDistance = maxDist;
             s.spatialBlend = spatial;
             s.loop = false;
+            s.rolloffMode = AudioRolloffMode.Logarithmic;
+            var lp = s.GetComponent<AudioLowPassFilter>(); if (lp != null) lp.enabled = false;
             s.Play();
+            return s;
+        }
+
+        /// <summary>
+        /// A voice in the world: fades to silence at maxDist (logarithmic falloff never does - it stays faintly audible
+        /// across the whole map) and is muffled when 'muffled' (a wall in between).
+        /// </summary>
+        public static AudioSource PlayVoice(AudioClip clip, Vector3 pos, float vol, float pitch, float minDist, float maxDist, bool muffled)
+        {
+            var s = Play(clip, pos, vol, pitch, minDist, maxDist);
+            if (s == null) return null;
+            s.rolloffMode = AudioRolloffMode.Linear;
+            var lp = s.GetComponent<AudioLowPassFilter>(); if (lp != null) lp.enabled = muffled;
             return s;
         }
 

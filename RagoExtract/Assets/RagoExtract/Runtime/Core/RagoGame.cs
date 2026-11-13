@@ -100,6 +100,7 @@ namespace Rago
             try { Mats.Foliage("_warm", Mats.LeafCard, Color.white); Shader.WarmupAllShaders(); }
             catch (System.Exception e) { Debug.LogWarning("[Rago Extract] shader warm-up skipped: " + e.Message); }
             var prof = Profile.LoadOrCreate();
+            if (prof.aimVersion < 1) { prof.gripPitch = 0f; prof.aimVersion = 1; prof.Save(); }   // the old tweak would now double the aim correction
             Hand.GripPitch = prof.gripPitch;
             PlayerRig.SmoothTurn = prof.smoothTurn;
             PlayerRig.SnapAngle = prof.snapAngle;

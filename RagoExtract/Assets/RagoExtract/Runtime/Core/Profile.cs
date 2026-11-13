@@ -17,6 +17,7 @@ namespace Rago
         public int[] stashAmmo = new int[System.Enum.GetValues(typeof(Caliber)).Length];
         public Loadout loadout = new Loadout();
         public float gripPitch = 0f;
+        public int aimVersion;   // 1 = guns follow the controller's aim pose (old grip-angle tweaks reset)
         public bool smoothTurn;
         public float snapAngle = 45f;
         public float volume = 1f;

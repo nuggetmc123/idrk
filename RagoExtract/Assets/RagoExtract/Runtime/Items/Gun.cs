@@ -42,6 +42,7 @@ namespace Rago
             gun.rig = GunBuilder.Build(def, go.transform);
             gun.grip = new GameObject("Grip").transform;
             gun.grip.SetParent(go.transform, false);
+            gun.grip.localPosition = new Vector3(0f, -0.015f, -0.015f);   // the middle of the pistol grip, where your fist closes
             gun.secondGrip = gun.rig.foregrip;
             var b = gun.rig.bounds;
             gun.localBounds = b;

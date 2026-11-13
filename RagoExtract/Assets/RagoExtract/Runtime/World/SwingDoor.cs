@@ -92,6 +92,12 @@ namespace Rago
                     Physics.SyncTransforms();
                 }
             }
+            // swing into whichever side has more room (the room, not the corridor)
+            var mid = transform.TransformPoint(new Vector3(_w * 0.5f, 1.0f, 0));
+            float Room(Vector3 dir) => Physics.Raycast(mid + dir * 0.06f, dir, out var rh, 5f, Ballistics.WallMask, QueryTriggerInteraction.Ignore) ? rh.distance : 5f;
+            float front = Room(transform.forward), back = Room(-transform.forward);
+            _side = front >= back ? -1 : 1;   // a positive angle swings the leaf towards local -z
+            _angle = Mathf.Abs(_angle) * _side;
             // a door that starts open but would stand in a wall or another door: close it until it fits
             if (_angle == 0f) { Apply(); return; }
             float a = _angle;
@@ -101,6 +107,9 @@ namespace Rago
         }
 
         public bool Held;
+        int _side = 1;   // the way it swings (+1 / -1 in angle): into the roomier side, so doors facing each other across a corridor never meet
+        float Lo => _side > 0 ? 0f : -MaxAngle;
+        float Hi => _side > 0 ? MaxAngle : 0f;
         float HandAngle(Vector3 p) { var l = transform.InverseTransformPoint(p); return Mathf.Atan2(-l.z, l.x) * Mathf.Rad2Deg; }
 
         /// <summary>A hand grabbed the door: from now on the door follows the hand round the hinge.</summary>
@@ -109,7 +118,7 @@ namespace Rago
         public void DriveWithHand(Vector3 hand, float offset)
         {
             float dt = Mathf.Max(Time.deltaTime, 0.001f);
-            float target = Mathf.Clamp(HandAngle(hand) + offset, -MaxAngle, MaxAngle);
+            float target = Mathf.Clamp(HandAngle(hand) + offset, Lo, Hi);
             float step = Mathf.Clamp(Mathf.DeltaAngle(_angle, target), -720f * dt, 720f * dt);
             if (Mathf.Abs(step) < 0.01f) { _vel = 0f; return; }
             if (!Fits(_angle + step)) { _vel = 0f; return; }
@@ -176,6 +185,7 @@ namespace Rago
             }
             if (push != 0f)
             {
+                push = Mathf.Abs(push) * _side;   // whichever side you push from, it opens its own way
                 push = Mathf.Clamp(push, -480f * dt, 480f * dt);
                 _vel = Mathf.Sign(push) * Mathf.Max(Mathf.Abs(Mathf.Lerp(_vel, push / Mathf.Max(dt, 0.001f), 0.5f)), 160f);   // a push swings it open, you don't have to walk it all the way
                 if (!Fits(_angle + push)) { _vel = 0f; return; }   // blocked by a wall or another door: doors never pass through things
@@ -189,7 +199,8 @@ namespace Rago
                 _vel = Mathf.MoveTowards(_vel, 0, dt * 240f);
             }
             else return;
-            if (Mathf.Abs(_angle) > MaxAngle) { _angle = Mathf.Sign(_angle) * MaxAngle; _vel = -_vel * 0.2f; }
+            if (_angle > Hi) { _angle = Hi; _vel = -_vel * 0.2f; }
+            if (_angle < Lo) { _angle = Lo; _vel = 0f; }   // shut against the frame
             Apply();
         }
     }
