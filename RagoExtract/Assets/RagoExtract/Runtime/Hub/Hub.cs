@@ -607,7 +607,8 @@ namespace Rago
             mb.Build("Racks", transform, Steel);
             var rifles = Group(ItemContainer.Grid(transform, new Vector3(-1.0f, 1.35f, -0.05f), Quaternion.Euler(-90, 0, 0), 7, 1, new Vector2(0.42f, 1f), 1.2f, it => it is Gun g && g.g.TwoHanded, Quaternion.Euler(0, 0, 90)));
             foreach (var sl in rifles.slots) { sl.radius = 0.22f; sl.reachY = 0.7f; }   // hang a rifle anywhere up its column
-            Group(ItemContainer.Grid(transform, new Vector3(1.55f, 1.55f, -0.05f), Quaternion.Euler(-90, 0, 0), 4, 3, new Vector2(0.36f, 0.3f), 0.26f, it => !(it is Backpack) && !(it is ArmorItem) && !(it is Gun g && g.g.TwoHanded)));   // pistols, sights, mags, meds, loot
+            // pistols, sights, mags, meds, loot: hung flat against the pegboard on hooks, full size
+            Group(PegGrid(new Vector3(1.55f, 1.55f), 4, 3, new Vector2(0.36f, 0.3f), it => !(it is Backpack) && !(it is ArmorItem) && !(it is Gun g && g.g.TwoHanded)));
             Group(ItemContainer.Grid(transform, new Vector3(1.55f, 0.5f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.38f, 0.4f), 0.34f, it => !(it is Backpack) && !(it is ArmorItem)));
             Panel(new Vector3(-1.0f, 0.26f, -0.45f), Quaternion.Euler(-30, 0, 0), new Vector2(1.9f, 0.5f));
         }
@@ -641,6 +642,26 @@ namespace Rago
             Panel(new Vector3(1.6f, 2.05f, 0.04f), Quaternion.identity, new Vector2(1.6f, 0.4f));
         }
 
+        /// <summary>
+        /// Spots on the pegboard: each has a hook, and whatever you hang there lies flat against the board (not
+        /// floating in front of it) at its real size unless it's too big for the spot.
+        /// </summary>
+        ItemContainer PegGrid(Vector2 centre, int cols, int rows, Vector2 spacing, System.Func<Item, bool> filter)
+        {
+            const float face = 0.06f;   // the board's front face
+            var c = ItemContainer.Grid(transform, new Vector3(centre.x, centre.y, face), Quaternion.Euler(-90, 0, 0), cols, rows, spacing, Mathf.Max(spacing.x, spacing.y) * 0.95f, filter);
+            var hooks = new MB(1);
+            foreach (var sl in c.slots)
+            {
+                sl.radius = Mathf.Max(spacing.x, spacing.y) * 0.62f;
+                var hp = transform.InverseTransformPoint(sl.transform.position);
+                hooks.Box(new Vector3(hp.x, hp.y + spacing.y * 0.36f, face - 0.03f), new Vector3(0.012f, 0.012f, 0.06f), new Color(0.75f, 0.75f, 0.72f), 0.004f);   // the hook
+                hooks.Box(new Vector3(hp.x, hp.y + spacing.y * 0.36f + 0.012f, face - 0.058f), new Vector3(0.012f, 0.03f, 0.008f), new Color(0.75f, 0.75f, 0.72f), 0.003f);
+            }
+            hooks.Build("Hooks", transform, Steel);
+            return c;
+        }
+
         ItemContainer Single(Transform parent, Vector3 pos, System.Func<Item, bool> filter, float radius)
         {
             var c = ItemContainer.Grid(parent, pos, Quaternion.identity, 1, 1, Vector2.one * radius, 0f, filter, Quaternion.Euler(0, 180, 0));
@@ -656,7 +677,7 @@ namespace Rago
             Shelf(mb, 1.55f, 0.45f, 1.7f); Shelf(mb, 1.55f, 1.05f, 1.7f); Shelf(mb, 1.55f, 1.65f, 1.7f);
             mb.Build("Shelves", transform, Steel);
             System.Func<Item, bool> small = it => !(it is Backpack) && !(it is ArmorItem) && !(it is Gun g && g.g.TwoHanded);
-            Group(ItemContainer.Grid(transform, new Vector3(-1.2f, 1.55f, -0.05f), Quaternion.Euler(-90, 0, 0), 6, 3, new Vector2(0.3f, 0.3f), 0.24f, small));
+            Group(PegGrid(new Vector3(-1.2f, 1.55f), 6, 3, new Vector2(0.3f, 0.3f), small));
             for (int r = 0; r < 3; r++) Group(ItemContainer.Grid(transform, new Vector3(1.55f, 0.5f + r * 0.6f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.42f, 0.4f), 0.32f, small));
             Panel(new Vector3(-1.2f, 0.35f, -0.2f), Quaternion.Euler(-30, 0, 0), new Vector2(1.7f, 0.5f));
         }
