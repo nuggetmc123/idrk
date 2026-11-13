@@ -142,8 +142,13 @@ namespace Rago
             // gear follows the torso (head position, smoothed yaw)
             float headYaw = _p.Head.eulerAngles.y;
             if (Mathf.Abs(Mathf.DeltaAngle(_yaw, headYaw)) > 30f || _p.MoveVelocity.sqrMagnitude > 0.3f) _yaw = Mathf.MoveTowardsAngle(_yaw, headYaw, Time.deltaTime * 240f);
-            Root.position = _p.Head.position;
-            Root.rotation = Quaternion.Euler(0, _yaw, 0);
+            // hang from the neck, not the eyes: looking down tips your eyes forward, which used to swing your belt gear
+            // (pouches, slung rifle, bag) out in front of your face
+            var head = _p.Head;
+            Vector3 neck = head.position - head.rotation * new Vector3(0f, 0.1f, 0.09f);
+            var bodyRot = Quaternion.Euler(0, _yaw, 0);
+            Root.position = neck + Vector3.up * 0.1f + bodyRot * new Vector3(0f, 0f, 0.09f);   // = your eyes when you stand straight
+            Root.rotation = bodyRot;
             // shoulder slots are grabbed from over the shoulder, so their store point follows head height closely
         }
 

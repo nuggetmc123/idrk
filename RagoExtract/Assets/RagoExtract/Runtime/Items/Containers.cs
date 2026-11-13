@@ -9,6 +9,7 @@ namespace Rago
         public Item item;
         public System.Func<Item, bool> filter;
         public float radius = 0.12f;
+        public float reachY = 0f;         // > 0: a tall slot (a rifle rack column): takes the item anywhere this far above/below its point, in line with it
         public float fit = 0f;            // max dimension of a stored item (0 = keep full size)
         public Quaternion storeRot = Quaternion.identity;
         public System.Action<Slot> onChanged;
@@ -26,11 +27,25 @@ namespace Rago
         public static Slot FindFor(Item it, Vector3 pos)
         {
             Slot best = null; float bd = 1e9f;
+            // measure from the middle of the item, not its origin (a rifle's origin is at its grip, in your hand)
+            Vector3 c = it != null && it.localBounds.size.sqrMagnitude > 0 ? it.transform.TransformPoint(it.localBounds.center) : pos;
             foreach (var s in Active)
             {
                 if (!s.isActiveAndEnabled || !s.Accepts(it)) continue;
-                float d = Vector3.Distance(s.transform.position, pos);
-                if (d < s.radius && d < bd) { bd = d; best = s; }
+                Vector3 sp = s.transform.position;
+                float d;
+                if (s.reachY > 0f)
+                {
+                    Vector3 dv = c - sp; float vy = Mathf.Abs(dv.y); dv.y = 0;
+                    if (vy > s.reachY || dv.magnitude > s.radius) continue;
+                    d = dv.magnitude + vy * 0.2f;
+                }
+                else
+                {
+                    d = Mathf.Min(Vector3.Distance(sp, pos), Vector3.Distance(sp, c));
+                    if (d >= s.radius) continue;
+                }
+                if (d < bd) { bd = d; best = s; }
             }
             return best;
         }

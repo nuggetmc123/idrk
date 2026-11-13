@@ -177,9 +177,28 @@ namespace Rago
                 if (Held != null && !HeldAsSecondary && Held.slot != null) { Held = null; }
             }
             UpdateHints();
+            UpdateSlotMarker();
             UpdateLaser(input);
             UpdateRemote(input);
             UpdateFingers(input);
+        }
+
+        Transform _slotMark;
+        /// <summary>Holding something near a rack / shelf / holster spot that will take it: a green marker shows where it goes if you let go.</summary>
+        void UpdateSlotMarker()
+        {
+            Slot target = null;
+            if (Held != null && !HeldAsSecondary && Held.primaryHand == this && !rig.Dead) target = Slot.FindFor(Held, Held.transform.position);
+            if (target == null || target.item != null) { if (_slotMark != null) _slotMark.gameObject.SetActive(false); return; }
+            if (_slotMark == null)
+            {
+                _slotMark = new MB().Sphere(Vector3.zero, Vector3.one * 0.035f, 10, Color.white, 0f, 0.5f)
+                    .Build("SlotMarker", null, Mats.Lit("slot_marker", new Color(0.3f, 1f, 0.4f), 0f, 0.5f, null, null, 0, 0, false, 0.5f, new Color(0.4f, 2.2f, 0.6f))).transform;
+                foreach (var c in _slotMark.GetComponentsInChildren<Collider>()) Destroy(c);
+            }
+            _slotMark.gameObject.SetActive(true);
+            _slotMark.position = target.transform.position;
+            _slotMark.localScale = Vector3.one * (1f + 0.15f * Mathf.Sin(Time.time * 8f));
         }
 
         const float SnapDist = 0.07f;

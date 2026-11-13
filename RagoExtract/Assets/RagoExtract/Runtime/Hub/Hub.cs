@@ -598,7 +598,8 @@ namespace Rago
             }
             Shelf(mb, 1.55f, 0.45f, 1.6f);
             mb.Build("Racks", transform, Steel);
-            Group(ItemContainer.Grid(transform, new Vector3(-1.0f, 1.35f, -0.05f), Quaternion.Euler(-90, 0, 0), 7, 1, new Vector2(0.42f, 1f), 1.2f, it => it is Gun g && g.g.TwoHanded, Quaternion.Euler(0, 0, 90)));
+            var rifles = Group(ItemContainer.Grid(transform, new Vector3(-1.0f, 1.35f, -0.05f), Quaternion.Euler(-90, 0, 0), 7, 1, new Vector2(0.42f, 1f), 1.2f, it => it is Gun g && g.g.TwoHanded, Quaternion.Euler(0, 0, 90)));
+            foreach (var sl in rifles.slots) { sl.radius = 0.22f; sl.reachY = 0.7f; }   // hang a rifle anywhere up its column
             Group(ItemContainer.Grid(transform, new Vector3(1.55f, 1.55f, -0.05f), Quaternion.Euler(-90, 0, 0), 4, 3, new Vector2(0.36f, 0.3f), 0.26f, it => !(it is Backpack) && !(it is ArmorItem) && !(it is Gun g && g.g.TwoHanded)));   // pistols, sights, mags, meds, loot
             Group(ItemContainer.Grid(transform, new Vector3(1.55f, 0.5f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.38f, 0.4f), 0.34f, it => !(it is Backpack) && !(it is ArmorItem)));
             Panel(new Vector3(-1.0f, 0.26f, -0.45f), Quaternion.Euler(-30, 0, 0), new Vector2(1.9f, 0.5f));
