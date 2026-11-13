@@ -97,14 +97,16 @@ namespace Rago
             }
             // real, droppable armour: heavies always wear a helmet + vest, regular raiders sometimes
             var ar = new Rng(seed * 31 + 5);
-            if (boss != null) { n.Helmet = Db.Get<ArmorDef>("helm_fast"); n.Vest = Db.Get<ArmorDef>("vest_heavy"); }
+            if (boss != null) { BossKit(boss, out var bg, out var bh, out var bv); n.Helmet = Db.Get<ArmorDef>(bh); n.Vest = Db.Get<ArmorDef>(bv); }
             else if (heavy) { n.Helmet = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "helm_fast" : "helm_ballistic"); n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_heavy" : "vest_carrier"); }
             else { if (ar.Chance(0.2f)) n.Helmet = Db.Get<ArmorDef>("helm_bump"); if (ar.Chance(0.3f)) n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_carrier" : "vest_soft"); }
             ArmorBuilder.Dress(n.Rig, n.Helmet, n.Vest, null, false);
             n.Rig.root.SetLayerRecursive(Layers.Npc);
             string[] common = { "vostok74", "vostokm", "vanguard", "kestrel", "breacher", "wasp", "comrade", "bandit", "p9", "nomad" };
             string[] heavyGuns = { "sentinel", "grizzly", "lancer", "fennec", "vostokm", "riot", "hailstorm" };
-            n.Weapon = Db.Get<GunDef>(boss != null ? "grizzly" : heavy ? n._rng.Pick(heavyGuns) : n._rng.Pick(common));
+            string bossGun = "grizzly";
+            if (boss != null) BossKit(boss, out bossGun, out _, out _);
+            n.Weapon = Db.Get<GunDef>(boss != null ? bossGun : heavy ? n._rng.Pick(heavyGuns) : n._rng.Pick(common)) ?? Db.Get<GunDef>("grizzly");
             n.GunModel = GunBuilder.Build(n.Weapon, go.transform);
             n._rounds = n.Weapon.magSize;
             var mag = GunBuilder.BuildMag(n.GunModel.magStyle, n.GunModel.magwell, n.Weapon.furniture, out _);
@@ -125,6 +127,17 @@ namespace Rago
             n._think = n._rng.Range(0f, 0.3f);
             n._waitT = n._rng.Range(3f, 30f);   // staggered, so the whole map doesn't start walking at once
             return n;
+        }
+
+        /// <summary>Each map boss's own gun and armour (boss-only items: the only way to get them is to kill the boss).</summary>
+        public static void BossKit(string boss, out string gun, out string helmet, out string vest)
+        {
+            string b = boss.ToLowerInvariant();
+            if (b.Contains("kessler")) { gun = "boss_lancet"; helmet = "boss_helm_kessler"; vest = "boss_vest_kessler"; }
+            else if (b.Contains("harbor")) { gun = "boss_anchor"; helmet = "boss_helm_harbor"; vest = "boss_vest_harbor"; }
+            else if (b.Contains("warden")) { gun = "boss_longbow"; helmet = "boss_helm_warden"; vest = "boss_vest_warden"; }
+            else if (b.Contains("banker")) { gun = "boss_parachute"; helmet = "boss_helm_banker"; vest = "boss_vest_banker"; }
+            else { gun = "grizzly"; helmet = "helm_fast"; vest = "vest_heavy"; }
         }
 
         bool AgentOk => Agent != null && Agent.enabled && Agent.isOnNavMesh;

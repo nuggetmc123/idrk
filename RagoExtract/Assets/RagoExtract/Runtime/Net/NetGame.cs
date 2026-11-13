@@ -161,7 +161,7 @@ namespace Rago
         void LocalFire(Gun g, Vector3 origin, Vector3 dir)
         {
             var w = W(Msg.Fire);
-            w.Write(g.g.id); V3(w, origin); V3(w, dir);
+            w.Write(g.Quiet && !g.g.suppressed ? g.g.id + "~s" : g.g.id); V3(w, origin); V3(w, dir);   // ~s: a suppressor is screwed on
             Send(true);
         }
 
@@ -320,8 +320,10 @@ namespace Rago
                             }
                         case Msg.Fire:
                             {
-                                var g = Db.Get<GunDef>(r.ReadString()); var o = V3(r); var d = V3(r);
+                                string gid = r.ReadString(); bool sup = gid.EndsWith("~s"); if (sup) gid = gid.Substring(0, gid.Length - 2);
+                                var g = Db.Get<GunDef>(gid); var o = V3(r); var d = V3(r);
                                 if (g == null) break;
+                                if (sup) g = g.Quiet;
                                 Remotes.TryGetValue(from, out var rp);
                                 Ballistics.Fire(o, d, g, (int)from + 1, rp != null ? rp.transform : null, rp, true, g.cls == GunClass.LMG);
                                 Sfx.Gunshot(g, o, false);

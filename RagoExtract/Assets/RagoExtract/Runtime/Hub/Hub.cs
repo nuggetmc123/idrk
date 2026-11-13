@@ -499,13 +499,14 @@ namespace Rago
             var gunsmith = new TraderDef { name = "Viktor", title = "Gunsmith - rifles & shotguns", outfit = Outfit.Gunsmith, color = new Color(0.75f, 0.45f, 0.2f), sellRate = 0.5f };
             foreach (var g in Db.Guns) if (g.TwoHanded && g.rarity <= Rarity.Rare && g.cls != GunClass.SMG) gunsmith.stock.Add(g.id);
             gunsmith.buys = d => d.kind == ItemKind.Gun;
-            var arms = new TraderDef { name = "Mara", title = "Quartermaster - sidearms, SMGs, optics, ammo, bags", outfit = Outfit.Quartermaster, color = new Color(0.35f, 0.55f, 0.3f), sellRate = 0.5f };
+            var arms = new TraderDef { name = "Mara", title = "Quartermaster - sidearms, SMGs, optics, attachments, ammo, bags", outfit = Outfit.Quartermaster, color = new Color(0.35f, 0.55f, 0.3f), sellRate = 0.5f };
             foreach (var g in Db.Guns) if ((!g.TwoHanded || g.cls == GunClass.SMG) && g.rarity <= Rarity.Rare) arms.stock.Add(g.id);
             foreach (var s in Db.Sights) if (s.rarity <= Rarity.Rare) arms.stock.Add(s.id);
+            foreach (var a in Db.Attachments) if (a.rarity <= Rarity.Rare) arms.stock.Add(a.id);
             foreach (var m in Db.Misc) if (m.kind == ItemKind.Ammo || m.kind == ItemKind.Throwable || m.kind == ItemKind.Melee) arms.stock.Add(m.id);
             // basic bags only; better bags and all armour have to be found in raids
             arms.stock.Add("pack_day"); arms.stock.Add("pack_assault");
-            arms.buys = d => d.kind == ItemKind.Gun || d.kind == ItemKind.Sight || d.kind == ItemKind.Armor || d.kind == ItemKind.Backpack || d.kind == ItemKind.Magazine;
+            arms.buys = d => d.kind == ItemKind.Gun || d.kind == ItemKind.Sight || d.kind == ItemKind.Attachment || d.kind == ItemKind.Armor || d.kind == ItemKind.Backpack || d.kind == ItemKind.Magazine;
             var medic = new TraderDef { name = "Doc Hale", title = "Medic - meds & stims", outfit = Outfit.Medic, color = new Color(0.8f, 0.2f, 0.2f), sellRate = 0.6f };
             foreach (var m in Db.Misc) if (m.kind == ItemKind.Med) medic.stock.Add(m.id);
             medic.buys = d => d.kind == ItemKind.Med || d.kind == ItemKind.Valuable;

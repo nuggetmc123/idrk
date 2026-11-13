@@ -551,6 +551,7 @@ namespace Rago
                         if (it.slot != null && it.slot.transform.IsChildOf(rig.Gear.Root)) continue;   // your own holsters/pouches
                         if (it is Magazine mm && mm.inGun != null) continue;
                         if (it is SightItem si && si.onGun != null) continue;
+                        if (it is AttachItem ai && ai.onGun != null) continue;
                         best = it; break;
                     }
                     var lc = c.GetComponentInParent<LootCrate>();

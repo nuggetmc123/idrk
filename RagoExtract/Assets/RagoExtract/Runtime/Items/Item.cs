@@ -11,6 +11,7 @@ namespace Rago
         public int rounds = -1;     // rounds in the loaded magazine (-1 = full)
         public bool chambered = true;
         public string sight = "";   // attached sight id
+        public string muzzle = "", side = "", gripAtt = "";   // attached suppressor/brake, light/laser, foregrip
         public int count = 1;
         public string contents = "";  // backpacks: JSON of the items inside
         public ItemData() { }

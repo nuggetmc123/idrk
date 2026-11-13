@@ -90,7 +90,7 @@ namespace Rago
             return p;
         }
 
-        public static AudioClip[] Gunshot(GunDef g) => Get("shot_" + g.id, v => MakeShot(ProfileFor(g), v, false), 3);
+        public static AudioClip[] Gunshot(GunDef g) => Get("shot_" + g.id + (g.suppressed ? "_s" : ""), v => MakeShot(ProfileFor(g), v, false), 3);
         public static AudioClip[] GunshotDistant(GunDef g) => Get("shotfar_" + g.cal + g.suppressed, v => MakeShot(ProfileFor(g), v, true), 2);
 
         static AudioClip MakeShot(ShotProfile p, int variant, bool distant)

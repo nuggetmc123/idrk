@@ -15,6 +15,7 @@ namespace Rago
         public GunRig rig;
         public Magazine mag;
         public SightItem sight;
+        public AttachItem muzzleAtt, sideAtt, gripAtt;
         public bool chambered;
         public bool slideLocked;
         public bool needsCycle;
@@ -30,8 +31,76 @@ namespace Rago
         public bool Internal => rig.magStyle == MagStyle.ShellCaddy || rig.magStyle == MagStyle.Speedloader || rig.magStyle == MagStyle.Clip;
         public int Rounds => Internal ? internalRounds : mag != null ? mag.rounds : 0;
         public int Capacity => g.magSize;
-        public override string Label => g.name + (sight != null ? " + " + sight.def.name : "");
-        public override int Value => g.price + (sight != null ? sight.def.price : 0);
+        public override string Label
+        {
+            get
+            {
+                string s = g.name + (sight != null ? " + " + sight.def.name : "");
+                int n = (muzzleAtt != null ? 1 : 0) + (sideAtt != null ? 1 : 0) + (gripAtt != null ? 1 : 0);
+                return n > 0 ? s + " (+" + n + ")" : s;
+            }
+        }
+        public override int Value => g.price + (sight != null ? sight.def.price : 0) + (muzzleAtt != null ? muzzleAtt.def.price : 0) + (sideAtt != null ? sideAtt.def.price : 0) + (gripAtt != null ? gripAtt.def.price : 0);
+
+        // ------------------------------------------------------------ attachments
+        Transform _muzzlePt, _sidePt, _gripPt;
+        bool _ptsMade;
+        public AttachItem Attached(AttachSlot s) => s == AttachSlot.Muzzle ? muzzleAtt : s == AttachSlot.Side ? sideAtt : gripAtt;
+        public void SetAttached(AttachSlot s, AttachItem a) { if (s == AttachSlot.Muzzle) muzzleAtt = a; else if (s == AttachSlot.Side) sideAtt = a; else gripAtt = a; }
+        public bool Quiet => g.suppressed || muzzleAtt != null && muzzleAtt.ad.suppress;
+        float RecoilMul => (muzzleAtt != null ? muzzleAtt.ad.recoilMul : 1f) * (gripAtt != null ? gripAtt.ad.recoilMul : 1f) * (sideAtt != null ? sideAtt.ad.recoilMul : 1f);
+        float SpreadMul => (muzzleAtt != null ? muzzleAtt.ad.spreadMul : 1f) * (gripAtt != null ? gripAtt.ad.spreadMul : 1f) * (sideAtt != null ? sideAtt.ad.spreadMul : 1f);
+
+        /// <summary>Where an attachment of this kind goes on this gun (null = this gun can't take one).</summary>
+        public Transform AttachPoint(AttachSlot s)
+        {
+            if (!_ptsMade) MakeAttachPoints();
+            return s == AttachSlot.Muzzle ? _muzzlePt : s == AttachSlot.Side ? _sidePt : _gripPt;
+        }
+
+        void MakeAttachPoints()
+        {
+            _ptsMade = true;
+            var st = g.style;
+            if (!g.suppressed && rig.muzzle != null && st != GunStyle.Revolver && st != GunStyle.Double && st != GunStyle.Pump && st != GunStyle.BoxShotgun)
+                _muzzlePt = rig.muzzle;
+            if (rig.under != null) _sidePt = rig.under;
+            if (rig.foregrip == null || !g.TwoHanded) return;
+            // find the outside of the handguard from the gun's own mesh
+            var body = rig.root.transform.Find("Body");
+            var mf = body != null ? body.GetComponent<MeshFilter>() : null;
+            if (mf == null || mf.sharedMesh == null) return;
+            var v = mf.sharedMesh.vertices;
+            float fz = rig.foregrip.localPosition.z, mz = rig.muzzle != null ? rig.muzzle.localPosition.z - 0.08f : fz + 0.1f;
+            float sz = Mathf.Min(fz + 0.07f, mz), gz = Mathf.Min(fz + 0.065f, mz);
+            float maxX = 0f, minY = float.MaxValue; bool sideOk = false, gripOk = false;
+            float by = rig.boreY;
+            foreach (var p in v)
+            {
+                if (Mathf.Abs(p.z - sz) < 0.025f && p.y > by - 0.035f && p.y < by + 0.02f && p.x > maxX) { maxX = p.x; sideOk = true; }
+                if (Mathf.Abs(p.z - gz) < 0.02f && Mathf.Abs(p.x) < 0.01f && p.y < by && p.y > by - 0.09f && p.y < minY) { minY = p.y; gripOk = true; }
+            }
+            if (sideOk && maxX > 0.008f)
+            {
+                _sidePt = new GameObject("SideRail").transform;
+                _sidePt.SetParent(rig.root.transform, false);
+                _sidePt.localPosition = new Vector3(maxX, by - 0.008f, sz);
+            }
+            if (gripOk && st != GunStyle.Pump && st != GunStyle.Double)
+            {
+                _gripPt = new GameObject("GripRail").transform;
+                _gripPt.SetParent(rig.root.transform, false);
+                _gripPt.localPosition = new Vector3(0, minY + 0.002f, gz);
+            }
+        }
+
+        void LoadAttachment(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            var ad = Db.Get<AttachDef>(id);
+            if (ad == null || AttachPoint(ad.slot) == null) return;
+            AttachItem.Create(ad, transform.position, transform.rotation).AttachTo(this, false);
+        }
 
         public static Gun Create(GunDef def, ItemData data, Vector3 pos, Quaternion rot)
         {
@@ -82,13 +151,15 @@ namespace Rago
                     s.AttachTo(this, false);
                 }
             }
+            LoadAttachment(d.muzzle); LoadAttachment(d.side); LoadAttachment(d.gripAtt);
             autoMode = g.action == FireAction.Auto || g.action == FireAction.Burst;
         }
 
         public override ItemData Save()
         {
             int r = Rounds;
-            return new ItemData(g.id) { rounds = r, chambered = chambered, sight = sight != null ? sight.def.id : "" };
+            return new ItemData(g.id) { rounds = r, chambered = chambered, sight = sight != null ? sight.def.id : "",
+                muzzle = muzzleAtt != null ? muzzleAtt.def.id : "", side = sideAtt != null ? sideAtt.def.id : "", gripAtt = gripAtt != null ? gripAtt.def.id : "" };
         }
 
         // ------------------------------------------------------------ magazines
@@ -177,16 +248,17 @@ namespace Rago
             chambered = false;
             _hasSpent = true;
             Vector3 dir = rig.muzzle.forward;
-            float spr = g.pellets > 1 ? 0f : g.spread * 0.12f;
+            float spr = g.pellets > 1 ? 0f : g.spread * 0.12f * SpreadMul;
+            var shot = Quiet ? g.Quiet : g;   // a screwed-on suppressor makes it a quiet gun
             dir = Quaternion.Euler(Random.Range(-spr, spr), Random.Range(-spr, spr), 0) * dir;
             bool tracer = g.cls == GunClass.LMG || (g.TwoHanded && Random.value < 0.25f);
             Vector3 origin = Ballistics.SafeOrigin(RagoGame.I.Player.Head.position, rig.muzzle.position);   // barrel through a wall: you shoot the wall
-            Ballistics.Fire(origin, dir, g, 0, transform, RagoGame.I.Player.Vitals, false, tracer);
-            Fx.MuzzleFlash(rig.muzzle, g.TwoHanded ? (g.cal == Caliber.C50BMG ? 2f : 1.2f) : 0.7f, g.suppressed);
-            Sfx.Gunshot(g, rig.muzzle.position, true);
+            Ballistics.Fire(origin, dir, shot, 0, transform, RagoGame.I.Player.Vitals, false, tracer);
+            Fx.MuzzleFlash(muzzleAtt != null && muzzleAtt.ad.suppress ? MuzzleEnd : rig.muzzle, g.TwoHanded ? (g.cal == Caliber.C50BMG ? 2f : 1.2f) : 0.7f, shot.suppressed);
+            Sfx.Gunshot(shot, rig.muzzle.position, true);
             OnLocalFire?.Invoke(this, origin, dir);
             // recoil
-            float rec = g.recoil;
+            float rec = g.recoil * RecoilMul;
             bool twoHand = secondaryHand != null;
             if (twoHand) rec *= 0.45f;
             if (g.TwoHanded && !twoHand) rec *= 1.6f;
@@ -349,6 +421,18 @@ namespace Rago
         }
 
         public bool IsRacking(Hand h) => _rackHand == h;
+
+        Transform _muzzleEnd;
+        /// <summary>The end of a screwed-on suppressor (the flash comes out there).</summary>
+        Transform MuzzleEnd
+        {
+            get
+            {
+                if (_muzzleEnd == null) { _muzzleEnd = new GameObject("MuzzleEnd").transform; _muzzleEnd.SetParent(rig.muzzle, false); }
+                _muzzleEnd.localPosition = new Vector3(0, 0, muzzleAtt != null && muzzleAtt.ad.model == 1 ? 0.16f : 0.095f);
+                return _muzzleEnd;
+            }
+        }
 
         Vector3 _rackLocal; bool _rackLocalSet;
         /// <summary>

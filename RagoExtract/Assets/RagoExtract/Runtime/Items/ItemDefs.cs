@@ -3,8 +3,8 @@ using UnityEngine;
 
 namespace Rago
 {
-    public enum Rarity { Common, Uncommon, Rare, Epic, Vault }
-    public enum ItemKind { Gun, Sight, Magazine, Ammo, Med, Valuable, Key, Armor, Backpack, Throwable, Melee }
+    public enum Rarity { Common, Uncommon, Rare, Epic, Vault, Boss }   // Boss: only ever carried by a map boss
+    public enum ItemKind { Gun, Sight, Magazine, Ammo, Med, Valuable, Key, Armor, Backpack, Throwable, Melee, Attachment }
     public enum ArmorSlot { Helmet, Vest }
     public enum GunClass { Pistol, Revolver, SMG, Shotgun, Rifle, BattleRifle, DMR, Sniper, LMG }
     public enum FireAction { Semi, Auto, Burst, Bolt, Pump, Break, Revolver }
@@ -27,6 +27,7 @@ namespace Rago
                 case Rarity.Uncommon: return new Color(0.35f, 0.85f, 0.35f);
                 case Rarity.Rare: return new Color(0.3f, 0.6f, 1f);
                 case Rarity.Epic: return new Color(0.75f, 0.4f, 1f);
+                case Rarity.Boss: return new Color(1f, 0.22f, 0.18f);
                 default: return new Color(1f, 0.72f, 0.2f);
             }
         }
@@ -51,6 +52,34 @@ namespace Rago
         public int pellets = 1;
         public bool drum;
         public bool TwoHanded => cls != GunClass.Pistol && cls != GunClass.Revolver;
+
+        GunDef _quiet;
+        /// <summary>This gun with a suppressor screwed on (same gun, quiet shot sound / flash / noise).</summary>
+        public GunDef Quiet
+        {
+            get
+            {
+                if (suppressed) return this;
+                if (_quiet == null) { _quiet = (GunDef)MemberwiseClone(); _quiet.suppressed = true; _quiet._quiet = _quiet; }
+                return _quiet;
+            }
+        }
+    }
+
+    public enum AttachSlot { Muzzle, Side, Grip }
+
+    /// <summary>
+    /// A gun attachment: muzzle devices (suppressors, brakes) screw onto the barrel, lights and lasers clip onto the
+    /// side rail (under the frame on pistols), grips go under the handguard of long guns.
+    /// </summary>
+    public class AttachDef : ItemDef
+    {
+        public AttachSlot slot;
+        public int model;
+        public float recoilMul = 1f, spreadMul = 1f;
+        public bool suppress, light, laser;
+        public Color beam = Color.red;
+        public Finish finish;
     }
 
     public class SightDef : ItemDef
@@ -106,6 +135,7 @@ namespace Rago
         public static readonly Dictionary<string, ItemDef> All = new Dictionary<string, ItemDef>();
         public static readonly List<GunDef> Guns = new List<GunDef>();
         public static readonly List<SightDef> Sights = new List<SightDef>();
+        public static readonly List<AttachDef> Attachments = new List<AttachDef>();
         public static readonly List<SimpleDef> Misc = new List<SimpleDef>();
         public static readonly List<ArmorDef> Armor = new List<ArmorDef>();
         public static readonly List<BackpackDef> Packs = new List<BackpackDef>();
@@ -158,6 +188,12 @@ namespace Rago
         {
             var s = new SightDef { id = id, name = name, model = model, reticle = ret, style = style, size = size, rarity = r, price = price, finish = fin, kind = ItemKind.Sight, desc = desc };
             Sights.Add(s); All[id] = s; return s;
+        }
+
+        static AttachDef X(string id, string name, AttachSlot slot, int model, Rarity r, int price, float recoil, float spread, Finish fin, string desc)
+        {
+            var a = new AttachDef { id = id, name = name, slot = slot, model = model, rarity = r, price = price, recoilMul = recoil, spreadMul = spread, finish = fin, kind = ItemKind.Attachment, desc = desc };
+            Attachments.Add(a); All[id] = a; return a;
         }
 
         static SimpleDef M(string id, string name, ItemKind kind, Rarity r, int price, int shape, Color col, string desc)
@@ -233,12 +269,43 @@ namespace Rago
             G("kodiak", "Kodiak .338", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C338, 115, 45, 5, 2.1f, 0.08f, E, 12000, true, Finish.Tan, Finish.Black, 0.7f, "Magnum precision. Rarely seen, never forgotten.");
             G("leviathan", "Leviathan .50", GunClass.Sniper, GunStyle.AntiMat, FireAction.Bolt, Caliber.C50BMG, 170, 40, 5, 3.2f, 0.06f, V, 26000, true, Finish.Black, Finish.Black, 0.82f, "Vault-only. Bolt-action .50 cal. Overkill is underrated.");
 
+            // more bolt-actions
+            G("marsh", "Marsh M44", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C762, 72, 45, 5, 1.7f, 0.22f, C, 1300, false, Finish.Gray, Finish.Wood, 0.48f, "Stubby war-surplus carbine. Iron sights, stripper clips, a big kick.");
+            G("ranger", "Ranger Scout", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C308, 78, 55, 5, 1.4f, 0.16f, U, 3200, false, Finish.Black, Finish.Od, 0.5f, "Short, handy scout rifle with proper notch-and-post iron sights.");
+            G("prairie", "Prairie Varmint", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C556, 58, 65, 5, 0.75f, 0.1f, C, 1500, true, Finish.Gray, Finish.Wood, 0.66f, "Light 5.56 bolt gun with a rail. Soft kick, quick follow-ups.");
+            G("harrier", "Harrier LR", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C338, 120, 45, 5, 2.0f, 0.07f, R, 10500, true, Finish.Black, Finish.Tan, 0.68f, "Long-range .338 chassis rifle with a 5-round box.");
+
+            // ---------------- BOSS-ONLY GUNS: only a map boss carries one; kill the boss to take it
+            var lancet = G("boss_lancet", "Kessler's Lancet", GunClass.SMG, GunStyle.SmgVector, FireAction.Auto, Caliber.C57, 30, 1100, 40, 0.3f, 0.7f, Rarity.Boss, 18000, true, Finish.Chrome, Finish.Black, 0.3f, "Boss-only (Doctor Kessler, Underground). Chrome, integrally suppressed, 1100 rounds a minute.");
+            lancet.suppressed = true;
+            var anchor = G("boss_anchor", "Harbormaster's Anchor", GunClass.Shotgun, GunStyle.BoxShotgun, FireAction.Auto, Caliber.C12g, 16, 360, 20, 1.4f, 3.6f, Rarity.Boss, 20000, true, Finish.Gray, Finish.Wood, 0.46f, "Boss-only (The Harbormaster, Dockyard). Full-auto drum shotgun with a wooden deck stock.");
+            anchor.drum = true;
+            G("boss_longbow", "Warden's Longbow", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C338, 135, 55, 5, 1.8f, 0.05f, Rarity.Boss, 24000, true, Finish.Od, Finish.Wood, 0.78f, "Boss-only (The Warden, Pinewood). Hand-built .338 that never misses.");
+            G("boss_parachute", "Golden Parachute", GunClass.Rifle, GunStyle.Bullpup, FireAction.Auto, Caliber.C762, 46, 750, 30, 0.55f, 0.6f, Rarity.Boss, 26000, true, Finish.Gold, Finish.Black, 0.48f, "Boss-only (The Banker, Old Town). Gold-plated 7.62 bullpup.");
+
             // ---------------- LMGs (4)
             var lan = G("lancer", "Lancer RPK", GunClass.LMG, GunStyle.AK, FireAction.Auto, Caliber.C545, 31, 600, 75, 0.6f, 1.4f, U, 6200, true, Finish.Black, Finish.Wood, 0.59f, "Squad support AK with a 75-round drum.");
             lan.drum = true;
             G("brute", "Brute 249", GunClass.LMG, GunStyle.Lmg, FireAction.Auto, Caliber.C556, 32, 750, 100, 0.65f, 1.6f, R, 9800, true, Finish.Black, Finish.Fde, 0.47f, "Belt-fed suppression machine.");
             G("hammer", "Hammer PKM", GunClass.LMG, GunStyle.Lmg, FireAction.Auto, Caliber.C308, 48, 650, 100, 1.0f, 1.6f, E, 11500, true, Finish.Gray, Finish.Wood, 0.6f, "General-purpose 7.62 machine gun.");
             G("goliath", "Goliath MG3", GunClass.LMG, GunStyle.Lmg, FireAction.Auto, Caliber.C308, 50, 1200, 100, 1.1f, 1.8f, V, 20000, true, Finish.Black, Finish.Black, 0.56f, "Vault-only. Buzzsaw. 1200 rounds a minute.");
+
+            // ---------------- ATTACHMENTS (attachment boxes, crates, Mara): bring one to the gun and let go
+            X("sup_compact", "Compact Suppressor", AttachSlot.Muzzle, 0, U, 1800, 0.92f, 1f, Finish.Black, "Short can for pistols, SMGs and rifles. Quiet shots, small flash, raiders hear you from much closer.");
+            X("sup_long", "Long Suppressor", AttachSlot.Muzzle, 1, R, 3600, 0.85f, 0.9f, Finish.Fde, "Full-length rifle can. Quietest there is, and it tames recoil a little.");
+            X("brake_muzzle", "Muzzle Brake", AttachSlot.Muzzle, 2, C, 600, 0.75f, 1f, Finish.Black, "Vents gas sideways: much less kick, much louder.");
+            X("comp_triport", "Tri-Port Compensator", AttachSlot.Muzzle, 3, U, 1100, 0.8f, 0.92f, Finish.Gray, "Keeps the muzzle down and the shots tight.");
+            var wml = X("light_wml", "Weapon Light", AttachSlot.Side, 0, C, 700, 1f, 1f, Finish.Black, "Bright light on the rail. On while you hold the gun. Great in the Underground.");
+            wml.light = true;
+            var lr = X("laser_red", "Red Laser", AttachSlot.Side, 1, U, 900, 1f, 0.85f, Finish.Black, "Red aiming laser. On while you hold the gun.");
+            lr.laser = true; lr.beam = new Color(1f, 0.08f, 0.05f);
+            var lg = X("laser_green", "Green Laser", AttachSlot.Side, 1, R, 1600, 1f, 0.8f, Finish.Od, "Brighter green aiming laser.");
+            lg.laser = true; lg.beam = new Color(0.15f, 1f, 0.2f);
+            var peq = X("combo_peq", "PEQ Light + Laser", AttachSlot.Side, 2, E, 4200, 1f, 0.8f, Finish.Fde, "Light and green laser in one box.");
+            peq.light = true; peq.laser = true; peq.beam = new Color(0.15f, 1f, 0.2f);
+            X("grip_vertical", "Vertical Grip", AttachSlot.Grip, 0, C, 400, 0.85f, 1f, Finish.Black, "Under the handguard. Less recoil.");
+            X("grip_angled", "Angled Grip", AttachSlot.Grip, 1, U, 900, 0.82f, 0.9f, Finish.Fde, "Angled foregrip. Less recoil, tighter shots.");
+            X("grip_stubby", "Stubby Grip", AttachSlot.Grip, 2, C, 300, 0.9f, 1f, Finish.Od, "A short grip that barely gets in the way.");
 
             // ---------------- SIGHTS (found in attachment boxes)
             S("holo_ex3", "EX3 Holographic", 0, new Color(4f, 0.25f, 0.15f), 0, 0.012f, U, 900, Finish.Black, "Classic 65 MOA ring + dot holographic sight.");
@@ -310,6 +377,15 @@ namespace Rago
             A("vest_carrier", "Plate Carrier", ArmorSlot.Vest, 0.3f, 1, U, 1800, tan, olive, "Front and back plates with mag pouches.");
             A("vest_heavy", "Heavy Plate Carrier", ArmorSlot.Vest, 0.42f, 2, R, 4200, olive, blk, "Thicker plates and shoulder protection.");
             A("vest_assault", "Assault Armor Rig", ArmorSlot.Vest, 0.52f, 3, E, 8000, blk, gray, "Full torso coverage with a groin flap.");
+            // boss-only armour (worn by the map bosses, dropped when they die)
+            A("boss_helm_kessler", "Kessler's Hazard Visor", ArmorSlot.Helmet, 0.55f, 3, Rarity.Boss, 14000, new Color(0.85f, 0.86f, 0.84f), new Color(0.75f, 0.12f, 0.1f), "Boss-only. A lab-white visor helmet with a red cross.");
+            A("boss_vest_kessler", "Kessler's Lab Plate", ArmorSlot.Vest, 0.58f, 3, Rarity.Boss, 16000, new Color(0.85f, 0.86f, 0.84f), new Color(0.75f, 0.12f, 0.1f), "Boss-only. White full-torso plates.");
+            A("boss_helm_harbor", "Harbormaster's Dive Helm", ArmorSlot.Helmet, 0.6f, 4, Rarity.Boss, 15000, new Color(0.62f, 0.3f, 0.12f), new Color(0.8f, 0.62f, 0.3f), "Boss-only. A rust-orange full-face helm with brass trim.");
+            A("boss_vest_harbor", "Harbormaster's Deck Armor", ArmorSlot.Vest, 0.55f, 2, Rarity.Boss, 15000, new Color(0.7f, 0.32f, 0.1f), new Color(0.15f, 0.15f, 0.16f), "Boss-only. Heavy orange plates and shoulder guards.");
+            A("boss_helm_warden", "Warden's Ranger Helmet", ArmorSlot.Helmet, 0.5f, 1, Rarity.Boss, 12000, new Color(0.2f, 0.3f, 0.16f), new Color(0.38f, 0.28f, 0.16f), "Boss-only. Forest-green helmet with ear protection.");
+            A("boss_vest_warden", "Warden's Field Rig", ArmorSlot.Vest, 0.55f, 1, Rarity.Boss, 13000, new Color(0.2f, 0.3f, 0.16f), new Color(0.38f, 0.28f, 0.16f), "Boss-only. Green plate carrier, light and quiet.");
+            A("boss_helm_banker", "Banker's Gilded Helmet", ArmorSlot.Helmet, 0.55f, 2, Rarity.Boss, 16000, new Color(0.1f, 0.1f, 0.11f), new Color(0.9f, 0.7f, 0.2f), "Boss-only. Black high-cut helmet with gold rails.");
+            A("boss_vest_banker", "Banker's Gold Plate", ArmorSlot.Vest, 0.6f, 3, Rarity.Boss, 20000, new Color(0.88f, 0.68f, 0.22f), new Color(0.1f, 0.1f, 0.11f), "Boss-only. Gold-plated assault armour. Very subtle.");
             A("vest_jugg", "Juggernaut Armor", ArmorSlot.Vest, 0.65f, 4, V, 18000, blk, gold, "Vault-only. Walk through gunfire.");
 
             // ---------------- BACKPACKS (bigger = more loot out of the raid)
@@ -353,6 +429,7 @@ namespace Rago
 
         static float Weight(Rarity r, LootTable t)
         {
+            if (r == Rarity.Boss) return 0f;   // only bosses carry these
             if (r == Rarity.Vault) return t == LootTable.Vault ? 10f : 0f;
             if (t == LootTable.Vault) return r == Rarity.Epic ? 3f : r == Rarity.Rare ? 1.5f : 0f;
             switch (r)
@@ -371,10 +448,10 @@ namespace Rago
             switch (t)
             {
                 case LootTable.WeaponCase: pool.AddRange(Guns); break;
-                case LootTable.OpticsBox: pool.AddRange(Sights); break;
+                case LootTable.OpticsBox: pool.AddRange(Sights); pool.AddRange(Attachments); break;
                 case LootTable.Vault:
                     if (rng.Chance(0.55f)) pool.AddRange(Guns.FindAll(g => g.rarity >= Rarity.Epic));
-                    else if (rng.Chance(0.35f)) pool.AddRange(Sights.FindAll(s => s.rarity >= Rarity.Rare));
+                    else if (rng.Chance(0.35f)) { pool.AddRange(Sights.FindAll(s => s.rarity >= Rarity.Rare)); pool.AddRange(Attachments.FindAll(s => s.rarity >= Rarity.Rare)); }
                     else if (rng.Chance(0.4f)) { pool.AddRange(Armor.FindAll(a => a.rarity >= Rarity.Epic)); pool.AddRange(Packs.FindAll(b => b.rarity >= Rarity.Epic)); }
                     else pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Valuable && m.rarity >= Rarity.Rare));
                     break;
@@ -391,7 +468,7 @@ namespace Rago
                     else if (roll < 0.76f) pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Valuable || m.kind == ItemKind.Key));
                     else if (roll < 0.83f) pool.AddRange(Armor);
                     else if (roll < 0.86f) pool.AddRange(Packs);
-                    else if (roll < 0.91f) pool.AddRange(Sights);
+                    else if (roll < 0.91f) { pool.AddRange(Sights); pool.AddRange(Attachments); }
                     else if (roll < 0.96f) pool.AddRange(Misc.FindAll(m => m.kind == ItemKind.Throwable || m.kind == ItemKind.Melee));
                     else pool.AddRange(Guns.FindAll(g => g.cls == GunClass.Pistol || g.cls == GunClass.Revolver || g.cls == GunClass.SMG));
                     break;
