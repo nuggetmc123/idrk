@@ -66,6 +66,9 @@ namespace Rago
                 _muzzlePt = rig.muzzle;
             if (rig.under != null) _sidePt = rig.under;
             if (rig.foregrip == null || !g.TwoHanded) return;
+            // only guns with a railed handguard take lights / lasers and foregrips
+            bool railed = st == GunStyle.AR || st == GunStyle.Battle || st == GunStyle.Bullpup || st == GunStyle.Lmg || st == GunStyle.BoxShotgun || st == GunStyle.AntiMat || st == GunStyle.SmgVector;
+            if (!railed) return;
             // find the outside of the handguard from the gun's own mesh
             var body = rig.root.transform.Find("Body");
             var mf = body != null ? body.GetComponent<MeshFilter>() : null;
@@ -86,7 +89,7 @@ namespace Rago
                 _sidePt.SetParent(rig.root.transform, false);
                 _sidePt.localPosition = new Vector3(maxX, by - 0.008f, sz);
             }
-            if (gripOk && st != GunStyle.Pump && st != GunStyle.Double)
+            if (gripOk && st != GunStyle.Pump && st != GunStyle.Double && st != GunStyle.SmgVector)
             {
                 _gripPt = new GameObject("GripRail").transform;
                 _gripPt.SetParent(rig.root.transform, false);

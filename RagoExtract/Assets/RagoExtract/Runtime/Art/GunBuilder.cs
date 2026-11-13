@@ -16,7 +16,7 @@ namespace Rago
         public float boreY;
     }
 
-    public enum MagStyle { PistolBox, Stanag, Banana, Straight, Drum, SmgCurved, LongBox, BeltBox, ShellCaddy, Speedloader, Clip, BigBox }
+    public enum MagStyle { PistolBox, Stanag, Banana, Straight, Drum, SmgCurved, LongBox, BeltBox, ShellCaddy, Speedloader, Clip, BigBox, SmgStick }
 
     public static class GunBuilder
     {
@@ -462,7 +462,7 @@ namespace Rago
             rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, bz + (d.suppressed ? 0.21f : 0.06f)));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.02f, 0.075f, 0.06f));
             rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.025f, 0.105f), Quaternion.Euler(12, 0, 0));
-            rig.magStyle = d.cal == Caliber.C45 ? MagStyle.Straight : MagStyle.SmgCurved;
+            rig.magStyle = d.cal == Caliber.C45 ? MagStyle.SmgStick : MagStyle.SmgCurved;   // .45: a slim straight stick, not the big 7.62 rifle mag
             if (d.optics) rig.rail = Anchor(rig.root, "Rail", new Vector3(0, 0.102f, 0.02f));
             rig.foregrip = Anchor(rig.root, "Foregrip", new Vector3(0, 0.038f, 0.24f));
             rig.sightLine = Anchor(rig.root, "SightLine", new Vector3(0, 0.116f, -0.06f));
@@ -800,6 +800,12 @@ namespace Rago
                     for (int i = 0; i < 3; i++) mb.Sub(1).Box(new Vector3(0, -0.03f - i * 0.035f, 0), new Vector3(sw + 0.003f, 0.004f, 0.07f), w);
                     mb.Sub(0).Box(new Vector3(0, -sl - 0.005f, 0), new Vector3(sw + 0.005f, 0.012f, 0.08f), w, 0.004f);
                     size = new Vector3(sw, sl, 0.08f);
+                    break;
+                case MagStyle.SmgStick:
+                    mb.Sub(1).Box(new Vector3(0, -0.085f, 0), new Vector3(0.024f, 0.17f, 0.036f), w, 0.003f);
+                    for (int i = 0; i < 3; i++) mb.Sub(1).Box(new Vector3(0, -0.035f - i * 0.045f, 0.0185f), new Vector3(0.016f, 0.012f, 0.002f), w);   // witness holes
+                    mb.Sub(0).Box(new Vector3(0, -0.175f, 0.002f), new Vector3(0.028f, 0.012f, 0.042f), w, 0.004f);
+                    size = new Vector3(0.028f, 0.18f, 0.042f);
                     break;
                 case MagStyle.SmgCurved:
                     {

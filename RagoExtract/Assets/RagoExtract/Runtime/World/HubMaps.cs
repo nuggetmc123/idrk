@@ -15,6 +15,7 @@ namespace Rago
             var l = new List<ItemData>();
             foreach (var s in Stash) if (s != null) l.AddRange(s.Save());
             if (_medCabinet != null) l.AddRange(_medCabinet.Save());
+            if (LostAndFound.I != null) l.AddRange(LostAndFound.I.Save());
             return l;
         }
 
@@ -29,6 +30,9 @@ namespace Rago
                 var k = StashSection.For(d);
                 bool placed = false;
                 foreach (var s in Stash) if (s.kind == k && s.Place(d, false)) { placed = true; break; }
+                if (!placed && k == StashKind.Weapons) foreach (var s in Stash) if (s.kind == StashKind.Gear && s.Place(d, false)) { placed = true; break; }
+                // no room on any rack or shelf: it waits in the Lost & Found (never on a hidden page)
+                if (!placed && LostAndFound.I != null) { LostAndFound.I.Add(d); placed = true; }
                 if (!placed) foreach (var s in Stash) if (s.kind == k) { s.Place(d, true); break; }
             }
             // died and lost all your armour? a beat-up bump helmet and soft vest turn up on the stands, so you never raid naked
@@ -234,6 +238,7 @@ namespace Rago
                 Tutorial.Create(transform, new Vector3(-W / 2 - 3f, 0, 0), new Vector3(W / 2 + 3.5f, 0, -2f),
                     new Vector3(0, 0, D / 2 + 3f), new Vector3(W / 2 - 1.9f, 0, 4.2f), new Vector3(2.5f, 0, -D / 2 + 1.2f));
             BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
+            LostAndFound.Create(transform, new Vector3(-W / 2 + 0.55f, 0, 3.6f), -90f);   // west wall of the main hall, by the range tunnel
             LoadStash();
             RestockMedBay();
             Kiosk.Create(transform, new Vector3(W / 2 - 0.9f, 0, 4.2f), Quaternion.Euler(0, 90, 0));

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Rago
 {
     /// <summary>
-    /// The Exchange: a big sell counter that takes anything. Put loot in the bin, read the receipt, press SELL ALL.
+    /// The Exchange: a big sell counter that takes anything. Put loot on the red square and it's sold on the spot.
     /// Each item fetches the best price any Market trader would pay for it. There's one in the Market plaza and one
     /// in the bunker's main hall. The customer stands at local -Z.
     /// </summary>
@@ -39,7 +39,11 @@ namespace Rago
             mb.Sub(1).Box(new Vector3(0, 0.75f, -0.402f), new Vector3(2.7f, 0.12f, 0.006f), orange, 0f);                       // orange band
             for (int i = 0; i < 12; i++)                                                                                       // hazard kick plate
                 mb.Sub(1).Box(new Vector3(-1.24f + i * 0.225f, 0.08f, -0.403f), new Vector3(0.1f, 0.15f, 0.006f), i % 2 == 0 ? yel : blk, 0f, 0, Quaternion.Euler(0, 0, 35));
-            mb.Sub(1).Box(new Vector3(-0.3f, 1.05f, -0.02f), new Vector3(1.84f, 0.012f, 0.78f), orange * 0.55f, 0.003f);     // the bin's tray
+            Color red = UI.Lin(new Color(0.85f, 0.1f, 0.08f));
+            mb.Sub(1).Box(new Vector3(-0.3f, 1.05f, -0.02f), new Vector3(1.84f, 0.012f, 0.78f), red, 0.003f);                 // the red sell square
+            foreach (var (c, sz) in new[] { (new Vector3(-0.3f, 1.058f, -0.4f), new Vector3(1.84f, 0.006f, 0.025f)), (new Vector3(-0.3f, 1.058f, 0.36f), new Vector3(1.84f, 0.006f, 0.025f)),
+                                            (new Vector3(-1.21f, 1.058f, -0.02f), new Vector3(0.025f, 0.006f, 0.78f)), (new Vector3(0.61f, 1.058f, -0.02f), new Vector3(0.025f, 0.006f, 0.78f)) })
+                mb.Sub(1).Box(c, sz, Color.white, 0f);                                                                       // white border
             foreach (var sx in new[] { -1.3f, 1.3f }) mb.Sub(0).Box(new Vector3(sx, 1.55f, 0.46f), new Vector3(0.1f, 3.1f, 0.1f), steel, 0.01f); // posts
             mb.Sub(0).Box(new Vector3(0, 2.75f, 0.42f), new Vector3(2.9f, 0.62f, 0.1f), blk, 0.02f, 1);                       // header sign
             mb.Sub(1).Box(new Vector3(0, 2.43f, 0.36f), new Vector3(2.9f, 0.03f, 0.04f), orange, 0.004f);                      // trim
@@ -57,8 +61,8 @@ namespace Rago
 
             // the bin: 4 x 2, takes anything
             _bin = ItemContainer.Grid(transform, new Vector3(-0.3f, 1.08f, -0.02f), Quaternion.identity, 4, 2, new Vector2(0.44f, 0.36f), 0.34f);
-            _bin.onChanged = Refresh;
-            UI.Text(transform, "PUT LOOT HERE", new Vector3(-0.3f, 1.06f, -0.43f), 0.035f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold).transform.localRotation = Quaternion.Euler(60, 0, 0);
+            _bin.onChanged = () => { Refresh(); if (_sellAt <= 0f && _bin.slots.Exists(x => x.item != null)) _sellAt = Time.time + 0.35f; };
+            UI.Text(transform, "PUT IT ON THE RED SQUARE - IT SELLS", new Vector3(-0.3f, 1.06f, -0.43f), 0.032f, new Color(1f, 0.85f, 0.8f), TextAnchor.MiddleCenter, FontStyle.Bold).transform.localRotation = Quaternion.Euler(60, 0, 0);
             // receipt clipboard
             var rp = UI.Panel(transform, "Receipt", new Vector3(1.0f, 1.4f, 0.12f), Quaternion.Euler(-25, 0, 0), new Vector2(0.62f, 0.62f), null, true, Skin.Paper);
             UI.Text(rp, "RECEIPT", new Vector3(0, 0.26f, 0), 0.034f, UI.PaperInk, TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -66,8 +70,14 @@ namespace Rago
             _values = UI.Text(rp, "", new Vector3(0.28f, 0.21f, 0), 0.022f, UI.PaperInk, TextAnchor.UpperRight, FontStyle.Bold);
             _total = UI.Text(rp, "", new Vector3(0, -0.13f, 0), 0.032f, UI.PaperInk, TextAnchor.MiddleCenter, FontStyle.Bold);
             _cash = UI.Text(rp, "", new Vector3(0, -0.18f, 0), 0.02f, UI.PaperDim, TextAnchor.MiddleCenter);
-            UI.Button(rp, "SELL ALL", new Vector3(0, -0.25f, 0), new Vector2(0.34f, 0.08f), Sell, null, BtnStyle.Stamp);
             Refresh();
+        }
+
+        float _sellAt;
+        string _last = "";
+        void Update()
+        {
+            if (_sellAt > 0f && Time.time >= _sellAt) { _sellAt = 0f; Sell(); }
         }
 
         void AddCol(Vector3 c, Vector3 s) { var b = gameObject.AddComponent<BoxCollider>(); b.center = c; b.size = s; }
@@ -104,7 +114,7 @@ namespace Rago
                     sb.Append(name).Append('\n'); vb.Append('$').Append(v.ToString("N0")).Append('\n');
                 }
             }
-            _receipt.text = n == 0 ? "Put anything you want to sell\nin the bin on the counter.\n\nEach item gets the best price\nany trader in the Market pays." : sb.ToString() + (n > 8 ? "+ " + (n - 8) + " more" : "");
+            _receipt.text = n == 0 ? (_last.Length > 0 ? "LAST SOLD\n" + _last : "Put anything you want to sell\non the red square: it's sold\nstraight away for the best price\nany trader in the Market pays.") : sb.ToString() + (n > 8 ? "+ " + (n - 8) + " more" : "");
             _values.text = n == 0 ? "" : vb.ToString();
             _total.text = n == 0 ? "" : "TOTAL  $" + total.ToString("N0");
             _cash.text = Profile.Current != null ? "your cash  $" + Profile.Current.money.ToString("N0") : "";
@@ -115,7 +125,8 @@ namespace Rago
             int total = 0, n = 0;
             foreach (var s in _bin.slots)
                 if (s.item != null) { total += Offer(s.item, out _); n++; var it = s.item; s.Release(it); Destroy(it.gameObject); }
-            if (n == 0) { Sfx.UI(Synth.UiError(), 0.3f); RagoGame.I?.Player?.Toast("Put items in the bin first"); return; }
+            if (n == 0) return;
+            _last = n + " item(s)  $" + total.ToString("N0");
             Profile.Current.money += total;
             Profile.Current.Save();
             Sfx.UI(Synth.Cash(), 0.7f);

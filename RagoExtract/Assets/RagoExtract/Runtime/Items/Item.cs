@@ -196,9 +196,13 @@ namespace Rago
         {
             transform.SetParent(RagoGame.I != null ? RagoGame.I.MapRoot : null, true);
             // let go partly inside a floor or table: lift it out first, or physics pushes it down through
-            float half = Mathf.Max(0.02f, localBounds.extents.y);
-            float floor = FloorBelow(transform.position + Vector3.up * 0.4f, 0.4f + half + 0.05f);
-            if (!float.IsNaN(floor) && transform.position.y - half < floor) transform.position += Vector3.up * (floor - (transform.position.y - half) + 0.01f);
+            // measured from the item's real middle and its real (rotated) height, not its origin (a gun's is at the grip)
+            Vector3 mid = transform.TransformPoint(localBounds.center);
+            var m = Matrix4x4.Rotate(transform.rotation);
+            Vector3 e = Vector3.Scale(localBounds.extents, transform.lossyScale);
+            float half = Mathf.Max(0.02f, Mathf.Abs(m.m10) * e.x + Mathf.Abs(m.m11) * e.y + Mathf.Abs(m.m12) * e.z);
+            float floor = FloorBelow(mid + Vector3.up * 0.4f, 0.4f + half + 0.05f);
+            if (!float.IsNaN(floor) && mid.y - half < floor) transform.position += Vector3.up * (floor - (mid.y - half) + 0.01f);
             _trackFree = false;
             rb.isKinematic = false;
             SetCollidersTrigger(false);

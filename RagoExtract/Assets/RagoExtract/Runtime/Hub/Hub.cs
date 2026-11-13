@@ -368,8 +368,8 @@ namespace Rago
             _delivery = ItemContainer.Grid(transform, new Vector3(-1.1f, 1.08f, -0.05f), Quaternion.identity, 2, 2, new Vector2(0.36f, 0.3f), 0.3f);
             TrayVisual(new Vector3(-1.1f, 1.05f, -0.05f), "PICKUP", new Color(0.3f, 0.6f, 1f));
             _sell = ItemContainer.Grid(transform, new Vector3(1.15f, 1.08f, -0.05f), Quaternion.identity, 2, 2, new Vector2(0.36f, 0.3f), 0.3f, it => _t.buys == null || _t.buys(it.def));
-            TrayVisual(new Vector3(1.15f, 1.05f, -0.05f), "SELL", new Color(1f, 0.6f, 0.2f));
-            _sell.onChanged = Refresh;
+            TrayVisual(new Vector3(1.15f, 1.05f, -0.05f), "SELL - PUT IT HERE", new Color(1f, 0.12f, 0.08f));
+            _sell.onChanged = () => { Refresh(); if (_sellAt <= 0f && _sell.slots.Exists(x => x.item != null)) _sellAt = Time.time + 0.35f; };   // the red square: whatever goes on it is sold
             // a receipt pad on a clipboard for selling
             var sp = UI.Panel(transform, "SellPanel", new Vector3(1.15f, 1.32f, 0.34f), Quaternion.Euler(-25, 0, 0), new Vector2(0.66f, 0.24f), null, true, Skin.Paper);
             _sellLabel = UI.Text(sp, "", new Vector3(0, 0.035f, 0), 0.028f, UI.PaperInk);
@@ -431,7 +431,8 @@ namespace Rago
         int Price(ItemDef d) => Mathf.RoundToInt(d.price * (d.rarity >= Rarity.Rare ? 1.6f : 1.25f) / 10f) * 10;
         int SellValue(Item it) => Mathf.Max(1, Mathf.RoundToInt(it.Value * _t.sellRate * (it.def != null && it.def.kind == ItemKind.Valuable ? _t.valuableBonus : 1f)));
 
-        float _buyT;
+        float _buyT, _sellAt;
+        void Update() { if (_sellAt > 0f && Time.time >= _sellAt) { _sellAt = 0f; Sell(); } }
         void Buy(ItemDef d)
         {
             if (Time.unscaledTime < _buyT) return;   // one press = one purchase
@@ -575,6 +576,8 @@ namespace Rago
             mb.Sub(0).Box(new Vector3(x, y, -0.15f), new Vector3(w, 0.04f, depth), new Color(0.3f, 0.3f, 0.3f), 0.01f);
             mb.Sub(0).Box(new Vector3(x - w / 2 + 0.03f, y - 0.08f, 0.0f), new Vector3(0.03f, 0.16f, 0.2f), new Color(0.25f, 0.25f, 0.25f), 0.005f);
             mb.Sub(0).Box(new Vector3(x + w / 2 - 0.03f, y - 0.08f, 0.0f), new Vector3(0.03f, 0.16f, 0.2f), new Color(0.25f, 0.25f, 0.25f), 0.005f);
+            // solid: things set down on a shelf stay on it (they used to fall straight through to the floor)
+            var c = gameObject.AddComponent<BoxCollider>(); c.center = new Vector3(x, y, -0.15f); c.size = new Vector3(w, 0.04f, depth);
         }
 
         ItemContainer Group(ItemContainer c) { _groups.Add(c); return c; }

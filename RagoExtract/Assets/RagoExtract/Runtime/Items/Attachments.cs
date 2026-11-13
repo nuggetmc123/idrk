@@ -86,14 +86,16 @@ namespace Rago
 
         protected override bool TryAttach()
         {
-            Gun best = null; float bd = 0.09f;
+            // near enough: the attachment's mount end or its middle within ~13 cm of the spot (a can is long)
+            Gun best = null; float bd = 0.13f;
+            Vector3 mid = transform.TransformPoint(localBounds.center);
             foreach (var it in All)
             {
                 var g = it as Gun;
                 if (g == null || g.Attached(ad.slot) != null) continue;
                 var at = g.AttachPoint(ad.slot);
                 if (at == null) continue;
-                float d = Vector3.Distance(at.position, transform.position);
+                float d = Mathf.Min(Vector3.Distance(at.position, transform.position), Vector3.Distance(at.position, mid));
                 if (d < bd) { bd = d; best = g; }
             }
             if (best == null) return false;

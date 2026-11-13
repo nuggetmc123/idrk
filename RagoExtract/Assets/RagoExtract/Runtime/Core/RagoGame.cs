@@ -179,6 +179,33 @@ namespace Rago
         {
             // watchdog: no load may keep the screen black for more than a minute
             if (_travelling && Time.unscaledTime - _travelStart > 60f) { Debug.LogError("[Rago Extract] loading took over 60 s - fading back in"); RecoverFromLoading("Loading took too long"); }
+            // the bunker saves itself every 20 s, so quitting the app (or the headset killing it) never loses your stash
+            if (!_travelling && Area == Area.Bunker && Time.unscaledTime > _autosaveT) { _autosaveT = Time.unscaledTime + 20f; AutosaveBunker(); }
+        }
+
+        float _autosaveT;
+        /// <summary>Snapshot the bunker (racks, shelves, Lost &amp; Found, anything lying around) without moving anything.</summary>
+        void AutosaveBunker()
+        {
+            var prof = Profile.Current;
+            var bunker = Map as BunkerMap;
+            if (prof == null || bunker == null || Player == null || Player.Gear == null || MapRoot == null) return;
+            try
+            {
+                var stash = bunker.SaveStash();
+                foreach (var it in Item.All)
+                {
+                    if (it == null || it.Held || it.slot != null || it is Magazine) continue;
+                    if (it is SightItem si && si.onGun != null) continue;
+                    if (it is AttachItem ai && ai.onGun != null) continue;
+                    if (!it.transform.IsChildOf(MapRoot) && it.transform.parent != null) continue;
+                    var d = it.Save(); if (d != null) stash.Add(d);
+                }
+                prof.stash = stash;
+                var lo = Player.Gear.SaveLoadout(); lo.ammo = null; prof.loadout = lo;
+                prof.Save();
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Rago Extract] autosave failed: " + e.Message); }
         }
 
         IEnumerator Travel(Area to, RaidStart rs)
@@ -308,6 +335,7 @@ namespace Rago
             if (MapRoot != null)
                 foreach (var it in new List<Item>(Item.All))
                 {
+                    if (it is Magazine lm && lm.inGun == null && !it.Held && it.slot == null && it.transform.parent == null) { prof.stashAmmo[(int)lm.cal] += lm.rounds; Destroy(it.gameObject); continue; }   // a loose mag: its rounds go back to the reserve
                     if (it == null || it.Held || it.slot != null || it is Magazine) continue;
                     if (!it.transform.IsChildOf(MapRoot) && it.transform.parent != null) continue;
                     loose.Add(it.Save());

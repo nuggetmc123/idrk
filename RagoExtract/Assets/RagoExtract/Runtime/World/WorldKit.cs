@@ -188,7 +188,8 @@ namespace Rago
                     NoSwingDoors = false;
                 }
                 // floor slab (with a stair hole on upper floors)
-                if (f == 0) Box(P(0, 0.05f, 0), new Vector3(size.x, 0.1f, size.y), floorMat, Color.white, q, true, Synth.Surface.Wood);
+                // ground floor: a thick solid block under the boards, so nothing dropped can sink through to the ground
+                if (f == 0) { Box(P(0, 0.05f, 0), new Vector3(size.x, 0.1f, size.y), floorMat, Color.white, q, false, Synth.Surface.Wood); Collider(P(0, -0.25f, 0), new Vector3(size.x, 0.7f, size.y), q, Synth.Surface.Wood); }
                 else
                 {
                     // the stair hole is exactly where the stairs come up: from the top step to the back wall

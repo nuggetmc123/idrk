@@ -109,7 +109,7 @@ namespace Rago
         {
             var listener = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.Head.position : pos;
             float dist = Vector3.Distance(listener, pos);
-            float loud = g.suppressed ? 0.45f : 1f;
+            float loud = g.suppressed ? 0.22f : 1f;
             if (dist < 80f || local)
                 Play(Synth.Gunshot(g), pos, (local ? 0.9f : 1f) * loud, 0.04f, g.suppressed ? 2f : 6f, g.suppressed ? 60f : 400f);
             if (dist > 35f && !g.suppressed)

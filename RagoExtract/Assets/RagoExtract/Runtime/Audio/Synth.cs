@@ -558,10 +558,11 @@ namespace Rago
 
         public static AudioClip Grab(int v) => Get("grab", k =>
         {
-            var d = Buf(0.18f);
-            Friction(d, 0, 0.12f, 0.6f, 800 + k * 300, 4000);
-            Thump(d, 0.0f, 0.3f, 200, 0.02f);
-            return Clip("grab", d, true, 0.4f);
+            // a soft, short tap - not a burst of rustling noise every time you touch something
+            var d = Buf(0.09f);
+            Thump(d, 0.0f, 0.35f, 180 + k * 30, 0.018f);
+            Friction(d, 0.004f, 0.03f, 0.08f, 600 + k * 200, 2200);
+            return Clip("grab", d, true, 0.3f);
         }, 3)[v % 3];
 
         public static AudioClip Zipper() => One("zip", () =>
@@ -687,10 +688,10 @@ namespace Rago
                         float wave = Mathf.Pow(0.5f + 0.5f * Mathf.Sin(t * Mathf.PI * 2 / 4f), 3);
                         s = lp.P(pink) * (0.6f + gust * 0.5f) * 1.2f + bp.P(N()) * wave * 0.5f; break;
                     case Amb.Bunker:
-                        s = Mathf.Sin(t * 2 * Mathf.PI * 60) * 0.12f + Mathf.Sin(t * 2 * Mathf.PI * 120) * 0.05f + lp.P(N()) * 0.35f; break;
+                        s = Mathf.Sin(t * 2 * Mathf.PI * 60) * 0.12f + Mathf.Sin(t * 2 * Mathf.PI * 120) * 0.04f + lp.P(lp.P(N())) * 0.12f; break;   // hum, barely any hiss
                     case Amb.Market:
                         float chatter = 0.5f + 0.5f * Mathf.Sin(t * 7.3f) * Mathf.Sin(t * 3.1f + 2);
-                        s = bp.P(N()) * chatter * 0.9f + Mathf.Sin(t * 2 * Mathf.PI * 50) * 0.04f + lp.P(pink) * 0.5f; break;
+                        s = bp.P(N()) * chatter * 0.3f + Mathf.Sin(t * 2 * Mathf.PI * 50) * 0.04f + lp.P(pink) * 0.35f; break;
                 }
                 d[i] = s;
             }
