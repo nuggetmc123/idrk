@@ -210,7 +210,7 @@ namespace Rago
             var bc = gameObject.AddComponent<BoxCollider>();
             bc.size = new Vector3(w, h, 0.04f);
             bc.isTrigger = true;
-            float front = style == BtnStyle.Key ? -0.024f : style == BtnStyle.Plate ? -0.009f : -0.003f;
+            float front = style == BtnStyle.Key ? -0.024f : style == BtnStyle.Plate ? -0.009f : -0.007f;   // clear of the rounded edge of a thin tag / stamp
             Label = UI.Text(_cap, label, new Vector3(0, 0, front + 0.002f), Mathf.Min(h * 0.42f, 0.05f), ink, TextAnchor.MiddleCenter, style == BtnStyle.Key || style == BtnStyle.Stamp ? FontStyle.Bold : FontStyle.Normal);
         }
 

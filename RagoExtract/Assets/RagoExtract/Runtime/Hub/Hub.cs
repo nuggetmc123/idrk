@@ -674,11 +674,12 @@ namespace Rago
         {
             Backboard("GEAR");
             var mb = new MB(1);
-            Shelf(mb, 1.55f, 0.45f, 1.7f); Shelf(mb, 1.55f, 1.05f, 1.7f); Shelf(mb, 1.55f, 1.65f, 1.7f);
+            // three shelves, the top one well below eye level so you can see what's on it
+            Shelf(mb, 1.55f, 0.35f, 1.7f); Shelf(mb, 1.55f, 0.8f, 1.7f); Shelf(mb, 1.55f, 1.25f, 1.7f);
             mb.Build("Shelves", transform, Steel);
             System.Func<Item, bool> small = it => !(it is Backpack) && !(it is ArmorItem) && !(it is Gun g && g.g.TwoHanded);
             Group(PegGrid(new Vector3(-1.2f, 1.55f), 6, 3, new Vector2(0.3f, 0.3f), small));
-            for (int r = 0; r < 3; r++) Group(ItemContainer.Grid(transform, new Vector3(1.55f, 0.5f + r * 0.6f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.42f, 0.4f), 0.32f, small));
+            for (int r = 0; r < 3; r++) Group(ItemContainer.Grid(transform, new Vector3(1.55f, 0.375f + r * 0.45f, -0.15f), Quaternion.identity, 4, 1, new Vector2(0.42f, 0.4f), 0.32f, small));
             Panel(new Vector3(-1.2f, 0.35f, -0.2f), Quaternion.Euler(-30, 0, 0), new Vector2(1.7f, 0.5f));
         }
 

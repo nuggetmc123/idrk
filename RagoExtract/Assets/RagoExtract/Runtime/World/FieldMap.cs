@@ -100,6 +100,9 @@ namespace Rago
             UI.Text(_sheet, "you", new Vector3(-h + 0.11f, -h - 0.02f, -0.002f), 0.016f, UI.StampRed, TextAnchor.MiddleLeft, FontStyle.Bold);
             // extracts
             var green = Mats.Unlit("map_extract", new Color(0.1f, 0.7f, 0.2f, 1f));
+            var dots = new List<Vector3>();
+            foreach (var e in map.Extracts) if (e != null) dots.Add(ToSheet(e.transform.position));
+            var taken = new List<Rect>();
             foreach (var e in map.Extracts)
             {
                 if (e == null) continue;
@@ -113,16 +116,42 @@ namespace Rago
                 for (int i = 0; i < 16; i++) { float a = i * 22.5f; ring.Box(Quaternion.Euler(0, 0, a) * new Vector3(0.016f, 0, 0), new Vector3(0.003f, 0.006f, 0.0005f), Color.white, 0f, 0, Quaternion.Euler(0, 0, a)); }
                 var rg = ring.Build("Ring", _sheet, green);
                 rg.transform.localPosition = p + new Vector3(0, 0, -0.003f);
-                bool right = p.x < h * 0.4f;
+                // the name on one line, when it opens underneath; put beside the dot wherever it doesn't run into
+                // another extract or another label (right, left, above, below), staying on the sheet
                 int om = Mathf.RoundToInt(e.OpensAt / 60f);
-                UI.Text(_sheet, e.Name.ToUpper() + "  (opens " + om + " min)", p + new Vector3(right ? 0.022f : -0.022f, 0, -0.003f), 0.017f, new Color(0.05f, 0.35f, 0.1f), right ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight, FontStyle.Bold);
+                string name = e.Name.ToUpper(), when = "opens " + om + " min";
+                const float sz = 0.015f;
+                float lw = Mathf.Max(name.Length, when.Length) * sz * 0.62f, lh = sz * 2.3f;
+                Vector3 best = Vector3.zero; TextAnchor bestA = TextAnchor.MiddleLeft; Rect bestR = default; float bestScore = float.MaxValue;
+                var opts = new (Vector2 off, TextAnchor a, Rect r)[]
+                {
+                    (new Vector2(0.022f, 0), TextAnchor.MiddleLeft, new Rect(p.x + 0.022f, p.y - lh / 2, lw, lh)),
+                    (new Vector2(-0.022f, 0), TextAnchor.MiddleRight, new Rect(p.x - 0.022f - lw, p.y - lh / 2, lw, lh)),
+                    (new Vector2(0, 0.024f + lh / 2), TextAnchor.MiddleCenter, new Rect(p.x - lw / 2, p.y + 0.024f, lw, lh)),
+                    (new Vector2(0, -0.024f - lh / 2), TextAnchor.MiddleCenter, new Rect(p.x - lw / 2, p.y - 0.024f - lh, lw, lh)),
+                };
+                foreach (var o in opts)
+                {
+                    float score = 0;
+                    foreach (var t in taken) if (t.Overlaps(o.r)) score += 10;
+                    foreach (var d in dots) if (d != p && o.r.Contains(new Vector2(d.x, d.y)) || d != p && Vector2.Distance(o.r.center, d) < 0.03f) score += 10;
+                    foreach (var d in dots) if (d != p && new Rect(o.r.x - 0.018f, o.r.y - 0.018f, o.r.width + 0.036f, o.r.height + 0.036f).Contains(new Vector2(d.x, d.y))) score += 5;
+                    float outX = Mathf.Max(0, o.r.xMax - h) + Mathf.Max(0, -h - o.r.xMin), outY = Mathf.Max(0, o.r.yMax - h) + Mathf.Max(0, -h - o.r.yMin);
+                    score += (outX + outY) * 200f;
+                    if (score < bestScore) { bestScore = score; best = o.off; bestA = o.a; bestR = o.r; }
+                }
+                taken.Add(bestR);
+                var ink = new Color(0.05f, 0.35f, 0.1f);
+                var lbl = UI.Text(_sheet, name + "\n<size=48>" + when + "</size>", p + best + new Vector3(0, 0, -0.003f), sz, ink, bestA, FontStyle.Bold);
+                lbl.richText = true;
             }
             // you
             _arrow = new GameObject("You").transform; _arrow.SetParent(_sheet, false);
             var arrow = new MB();
-            arrow.Sector(Vector3.zero, Quaternion.Euler(0, 0, 90 - 22), 0.018f, 0, 44, 6, Color.white);
+            // an arrowhead pointing the way you face: tip ahead, wide end behind (a wedge drawn from the tip back)
+            arrow.Sector(new Vector3(0, 0.013f, 0), Quaternion.Euler(0, 0, 270 - 20), 0.024f, 0, 40, 6, Color.white);
             arrow.Build("Arrow", _arrow, Mats.Unlit("map_you", new Color(0.85f, 0.1f, 0.08f, 1f)));
-            var youLegend = new MB().Sector(Vector3.zero, Quaternion.Euler(0, 0, 90 - 22), 0.012f, 0, 44, 6, Color.white).Build("YouLegend", _sheet, Mats.Unlit("map_you", new Color(0.85f, 0.1f, 0.08f, 1f)));
+            var youLegend = new MB().Sector(new Vector3(0, 0.008f, 0), Quaternion.Euler(0, 0, 270 - 20), 0.015f, 0, 40, 6, Color.white).Build("YouLegend", _sheet, Mats.Unlit("map_you", new Color(0.85f, 0.1f, 0.08f, 1f)));
             youLegend.transform.localPosition = new Vector3(-h + 0.1f, -h - 0.025f, -0.003f);
             _sheet.gameObject.SetActive(false);
         }

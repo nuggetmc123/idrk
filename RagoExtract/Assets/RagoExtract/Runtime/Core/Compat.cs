@@ -82,11 +82,34 @@ namespace Rago
                     if (_textMat == null) return f.material; // shader missing: fall back to Unity's
                     _textMat.name = "RagoText";
                     _textMat.hideFlags = HideFlags.DontSave;
-                    Font.textureRebuilt += font => { if (font == _font && _textMat != null) _textMat.mainTexture = font.material.mainTexture; };
+                    Font.textureRebuilt += OnFontRebuilt;
+                    // put every letter in every style into the font texture up front, so it (almost) never has to
+                    // rebuild mid-game - a rebuild left text made before it pointing at letters that had moved: blank
+                    const string chars = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+                    foreach (FontStyle st in new[] { FontStyle.Normal, FontStyle.Bold, FontStyle.Italic, FontStyle.BoldAndItalic })
+                        foreach (int fs in new[] { 64, 48 }) try { f.RequestCharactersInTexture(chars, fs, st); } catch { }
                 }
                 _textMat.mainTexture = f.material.mainTexture;
                 return _textMat;
             }
+        }
+
+        static bool _refreshing;
+        /// <summary>The font texture was rebuilt (new letters / sizes): point the material at it and re-lay every text.</summary>
+        static void OnFontRebuilt(Font font)
+        {
+            if (font != _font || _refreshing) return;
+            if (_textMat != null) _textMat.mainTexture = font.material.mainTexture;
+            _refreshing = true;
+            try
+            {
+                foreach (var t in Object.FindObjectsByType<TextMesh>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                {
+                    if (t == null || t.font != font) continue;
+                    var txt = t.text; t.text = ""; t.text = txt;
+                }
+            }
+            finally { _refreshing = false; }
         }
 
         /// <summary>Destroy that also works in edit mode (used when the world is imported into the scene).</summary>
