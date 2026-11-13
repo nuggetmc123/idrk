@@ -169,7 +169,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
 | Yellow AMMO pouch at either hip | Grip there (gun in the other hand) to pull a fresh magazine for that gun. Let go of a mag or a box of ammo you found there to store it - the flap turns green when it'll go in. Hand near the pouch shows your reserve for the guns you carry |
 | Trigger | Fire. Point at buttons and pull the trigger to click |
 | B / Y (gun hand) | Tap: drop the magazine. Hold half a second: switch fire mode (semi / auto / burst) |
-| Other hand on the slide / charging handle / bolt | Hold TRIGGER (or grip) anywhere on its top or sides and pull back, then let it go forward, to rack (chamber a round, release a locked slide) |
+| Other hand on the slide / charging handle / bolt | Hold TRIGGER (or grip) on the handle itself (the pistol slide, or the rifle's charging handle / bolt on its top or side - not by the trigger) and pull back, then let it go forward, to rack (chamber a round, release a locked slide) |
 | Right hip | Pistol holster (with a thigh strap) |
 | Front of stomach | Front sling: your main long gun hangs low across your stomach, muzzle down to the left, well below your face - works without a backpack. Let go of a rifle in front of your stomach to sling it |
 | Lower back | Second long gun |

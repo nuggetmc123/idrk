@@ -325,7 +325,7 @@ namespace Rago
             }
             else if (Racking != null && Racking.rig.slide != null)
             {
-                _visual.position = Racking.rig.slide.position;
+                _visual.position = Racking.RackPoint;   // on the slide / charging handle itself, which moves back as you pull
                 _visual.rotation = Racking.transform.rotation * Quaternion.Euler(0, 0, left ? 90 : -90);
             }
             else RestPose();

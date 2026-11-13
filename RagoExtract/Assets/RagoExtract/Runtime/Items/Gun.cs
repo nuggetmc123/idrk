@@ -319,7 +319,7 @@ namespace Rago
         {
             if (rig.slide == null || h == primaryHand) return false;
             // anywhere on the slide / charging handle / bolt: its top or either side, not just one exact point
-            Vector3 l = transform.InverseTransformPoint(h.Anchor.position), s = transform.InverseTransformPoint(rig.slide.position);
+            Vector3 l = transform.InverseTransformPoint(h.Anchor.position), s = transform.InverseTransformPoint(RackPoint);
             if (Mathf.Abs(l.x - s.x) > 0.09f || l.y < s.y - 0.06f || l.y > s.y + 0.09f || l.z < s.z - 0.14f || l.z > s.z + 0.12f) return false;
             _rackHand = h;
             _rackStart = transform.InverseTransformPoint(h.TrackedPosition);
@@ -349,6 +349,26 @@ namespace Rago
         }
 
         public bool IsRacking(Hand h) => _rackHand == h;
+
+        Vector3 _rackLocal; bool _rackLocalSet;
+        /// <summary>
+        /// Where the slide / charging handle / bolt handle really is (the middle of its mesh). Its transform sits at the
+        /// gun's origin by the trigger, which is where racking used to be grabbed and where the hand was drawn.
+        /// </summary>
+        public Vector3 RackPoint
+        {
+            get
+            {
+                if (rig == null || rig.slide == null) return transform.position;
+                if (!_rackLocalSet)
+                {
+                    _rackLocalSet = true;
+                    var mf = rig.slide.GetComponent<MeshFilter>();
+                    _rackLocal = mf != null && mf.sharedMesh != null ? mf.sharedMesh.bounds.center : Vector3.zero;
+                }
+                return rig.slide.TransformPoint(_rackLocal);
+            }
+        }
 
         public override void AnyUpdate()
         {
