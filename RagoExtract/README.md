@@ -100,8 +100,8 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   Turned-in items are saved, so you can bring them over several raids.
 - **Menu, friends and parties**: press the **LEFT MENU button** (the three lines; **N** on desktop) anywhere, in the bunker or in a raid. The menu opens in front of you:
   - **PARTY**: who's in your party, invites you've received (ACCEPT / DECLINE), LEAVE PARTY.
-  - **FRIENDS**: **+ ADD FRIEND** and type their full callsign with the tag (like `GHOST#0193`), then INVITE or REMOVE.
-  - **RECENT**: everyone in your current raid, then people you've raided with before: INVITE them or **+ FRIEND** them.
+  - **FRIENDS**: only real players: **+ FRIEND** someone from RECENT, or **+ ADD FRIEND** and type the full callsign (like `GHOST#0193`) of someone you've played with - a made-up name is refused. Then INVITE or REMOVE.
+  - **RECENT**: everyone in your session now, then everyone you've been in a raid, party or the Market with: INVITE them or **+ FRIEND** them.
   - **SETTINGS**: grip angle, turning, volume, microphone (this replaces the old settings board).
 
   Your first invite starts a party with you as the leader. Invites sent from your bunker reach friends who are in their bunkers; invites sent in a raid reach people in that raid, and you team up when you're both back in your bunkers. Everyone stays in their own bunker; the **leader** picks a map and presses QUEUE on the raid terminal and every member's terminal follows. The whole party goes into the same raid (random players can still fill the free spots) and **spawns together**, side by side. In the raid, teammates have a **green dot** over their heads that you can see through walls. The raid waits for the whole party (still launching at 1:00 at the latest), and if the leader cancels, everyone's queue cancels. Parties need multiplayer set up (Rago Extract > Multiplayer).

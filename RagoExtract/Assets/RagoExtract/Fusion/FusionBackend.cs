@@ -631,7 +631,7 @@ namespace Rago.Net
                 {
                     // someone's callsign (sent to everyone in a session)
                     _names[Id(player)] = text;
-                    if (_sessionKind.StartsWith("raid")) OnMetPlayer?.Invoke(text);
+                    OnMetPlayer?.Invoke(text);   // raid, Market or party: a real player you've met (RECENT, and you can add them as a friend)
                     OnPartyChanged?.Invoke();
                 }
                 else if (code == 7 && _inPartySession && IsHost) { Remember(text); PublishInvites(); }      // a member asks the leader to invite someone

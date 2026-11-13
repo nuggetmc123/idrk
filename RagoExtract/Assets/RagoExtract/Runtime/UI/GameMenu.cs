@@ -118,10 +118,24 @@ namespace Rago
             { pl.Toast("Type their full callsign with the tag, like GHOST#0193"); Sfx.UI(Synth.UiError(), 0.3f); return; }
             if (Key(callsign) == Key(prof.DisplayName)) { pl.Toast("That's you"); return; }
             if (IsFriend(callsign)) { pl.Toast(callsign + " is already a friend"); return; }
+            // only real players: someone you've raided with, or who's in this session (Market / party / raid) now
+            string real = KnownPlayer(callsign);
+            if (real == null) { pl.Toast("No player " + callsign + " found. Play a raid or meet them in the Market first - they'll be in RECENT"); Sfx.UI(Synth.UiError(), 0.3f); return; }
+            callsign = real;
             prof.friends.Add(callsign);
             prof.Save();
             pl.Toast("Added " + callsign + " as a friend");
             Sfx.UI(Synth.QueueFound(), 0.35f);
+        }
+
+        /// <summary>The real callsign of a player the game has actually met (RECENT, or with you now), or null.</summary>
+        static string KnownPlayer(string callsign)
+        {
+            var here = NetHub.Online ? NetHub.Backend.SessionPlayers : null;
+            if (here != null) foreach (var n in here) if (Key(n) == Key(callsign)) return n;
+            var prof = Profile.Current;
+            if (prof != null) foreach (var n in prof.recent) if (Key(n) == Key(callsign)) return n;
+            return null;
         }
 
         static void Invite(string callsign)
@@ -200,7 +214,7 @@ namespace Rago
             var prof = Profile.Current;
             Btn("+ ADD FRIEND", -0.36f, 0.2f, 0.32f, () => { _typing = true; _typed = ""; Desktop.Typing = true; }, Go);
             var here = NetHub.Online ? NetHub.Backend.SessionPlayers : null;
-            if (prof.friends.Count == 0) { Line("No friends yet. Press + ADD FRIEND and type their callsign,", 0.08f, 0.026f); Line("or add people from the RECENT tab.", 0.03f, 0.026f); return; }
+            if (prof.friends.Count == 0) { Line("No friends yet. Play with someone (a raid, the Market or a party),", 0.08f, 0.026f); Line("then add them from RECENT - or type the callsign of someone you've met.", 0.03f, 0.026f); return; }
             DrawList(prof.friends, 0.1f, name =>
             {
                 bool inSession = here != null && FindIn(here, name);
@@ -219,7 +233,7 @@ namespace Rago
             var here = NetHub.Online ? NetHub.Backend.SessionPlayers : null;
             if (here != null) foreach (var n in here) list.Add(n);
             foreach (var n in prof.recent) if (!FindIn(list, n)) list.Add(n);
-            if (list.Count == 0) { Line("Nobody yet: people you raid with show up here.", 0.2f, 0.028f); return; }
+            if (list.Count == 0) { Line("Nobody yet: people you raid, party or meet in the Market with show up here.", 0.2f, 0.028f); return; }
             DrawList(list, 0.2f, name => (name, here != null && FindIn(here, name) ? "in this raid" : ""), (name, y) =>
             {
                 Btn("INVITE", 0.2f, y, 0.2f, () => Invite(name), Go);
@@ -254,7 +268,7 @@ namespace Rago
 
         void DrawKeyboard()
         {
-            Line("ADD FRIEND - their full callsign:", 0.2f, 0.028f, UI.Accent);
+            Line("ADD FRIEND - callsign of someone you've played with:", 0.2f, 0.028f, UI.Accent);
             Line((_typed.Length > 0 ? _typed : "") + "_", 0.13f, 0.042f);
             string[] rows = { "1234567890", "QWERTYUIOP", "ASDFGHJKL_", "ZXCVBNM#" };
             for (int r = 0; r < rows.Length; r++)

@@ -29,6 +29,7 @@ namespace Rago
         public int tutorialStep;
         public List<string> friends = new List<string>();   // callsigns you added (menu > FRIENDS)
         public List<string> recent = new List<string>();    // people you've raided with, newest first
+        public bool friendsChecked;   // once: drop typed-in friends nobody has ever met (made-up names)
         public string DisplayName => tag > 0 ? name + "#" + tag.ToString("0000") : name;
         public static int NewTagFor(int avoid = -1) { int t; do t = Random.Range(1000, 10000); while (t == avoid); return t; }
         // bunker expansions (Foreman jobs in the Market)
@@ -64,6 +65,13 @@ namespace Rago
             if (jobProgress == null) jobProgress = new List<int>();
             if (tag <= 0) tag = NewTagFor();
             if (loadout.pack == null) loadout.pack = new List<ItemData>();
+            if (friends == null) friends = new List<string>();
+            if (recent == null) recent = new List<string>();
+            if (!friendsChecked)
+            {
+                friendsChecked = true;
+                friends.RemoveAll(f => !recent.Exists(r => r.Trim().ToLowerInvariant() == f.Trim().ToLowerInvariant()));
+            }
             stash.RemoveAll(d => d == null || Db.Get(d.id) == null);
             loadout.pack.RemoveAll(d => d == null || Db.Get(d.id) == null);
             if (version < 2)
