@@ -418,9 +418,11 @@ namespace Rago
                 int price = Price(def);
                 UI.Text(row, "$" + price.ToString("N0"), new Vector3(0.45f, 0, 0), 0.048f, UI.ChalkYellow, TextAnchor.MiddleRight, FontStyle.Bold);
                 var d2 = def;
-                UI.Button(row, "buy", new Vector3(0.61f, 0, 0), new Vector2(0.17f, 0.085f), () => Buy(d2), null, BtnStyle.Tag);
+                int need = Levels.Required(def);
+                if (need > Levels.Current) UI.Text(row, "LVL " + need, new Vector3(0.61f, 0, 0), 0.04f, new Color(1f, 0.45f, 0.4f), TextAnchor.MiddleCenter, FontStyle.Bold);
+                else UI.Button(row, "buy", new Vector3(0.61f, 0, 0), new Vector2(0.17f, 0.085f), () => Buy(d2), null, BtnStyle.Tag);
             }
-            _money.text = "your cash  $" + Profile.Current.money.ToString("N0");
+            _money.text = "level " + Levels.Current + "   your cash  $" + Profile.Current.money.ToString("N0");
             int v = 0, n = 0;
             foreach (var s in _sell.slots) if (s.item != null) { v += SellValue(s.item); n++; }
             _sellLabel.text = n == 0 ? "Put items on the SELL tray" : n + " item(s) for <color=#1d6b2a>$" + v.ToString("N0") + "</color>";
@@ -429,10 +431,14 @@ namespace Rago
         int Price(ItemDef d) => Mathf.RoundToInt(d.price * (d.rarity >= Rarity.Rare ? 1.6f : 1.25f) / 10f) * 10;
         int SellValue(Item it) => Mathf.Max(1, Mathf.RoundToInt(it.Value * _t.sellRate * (it.def != null && it.def.kind == ItemKind.Valuable ? _t.valuableBonus : 1f)));
 
+        float _buyT;
         void Buy(ItemDef d)
         {
+            if (Time.unscaledTime < _buyT) return;   // one press = one purchase
+            _buyT = Time.unscaledTime + 0.5f;
             int price = Price(d);
             var prof = Profile.Current;
+            if (Levels.Required(d) > Levels.Current) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I.Player.Toast("Reach level " + Levels.Required(d) + " to buy " + d.name); return; }
             if (prof.money < price) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I.Player.Toast("Not enough money"); return; }
             if (d.kind == ItemKind.Ammo)
             {
@@ -714,7 +720,7 @@ namespace Rago
             if (kind != StashKind.Armor)
             {
                 _info.text = "<b>" + prof.DisplayName + "</b>\nCash  <color=#b8f0a0>$" + prof.money.ToString("N0") + "</color>\n" + items +
-                    "\nRaids " + prof.raids + "  Extracts " + prof.extracts + "  Kills " + prof.kills;
+                    "\n" + Levels.Describe(prof.xp) + "\nRaids " + prof.raids + "  Extracts " + prof.extracts + "  Kills " + prof.kills;
                 var sb = new System.Text.StringBuilder("AMMO RESERVE\n");
                 int col = 0;
                 foreach (Caliber cc in System.Enum.GetValues(typeof(Caliber))) { if (prof.stashAmmo[(int)cc] <= 0) continue; sb.Append(Db.CalName(cc)).Append(": ").Append(prof.stashAmmo[(int)cc]).Append(++col % 2 == 0 ? "\n" : "    "); }

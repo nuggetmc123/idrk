@@ -224,7 +224,8 @@ namespace Rago
         public void Click()
         {
             // one press = one click: ignore a repeat on the same key within 0.2 s, and any second click in the same instant
-            if (Time.unscaledTime - _lastClick < 0.2f || Time.unscaledTime - _anyClick < 0.08f) return;
+            // (the global gap also covers a panel that rebuilds its buttons on click - the new button isn't a repeat of the old)
+            if (Time.unscaledTime - _lastClick < 0.2f || Time.unscaledTime - _anyClick < 0.25f) return;
             _lastClick = _anyClick = Time.unscaledTime;
             if (!Interactable) { Sfx.UI(Synth.UiError(), 0.3f); return; }
             _press = 0.15f;

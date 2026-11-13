@@ -411,7 +411,8 @@ namespace Rago
             // ammo you carried comes back to the stash
             for (int i = 0; i < prof.stashAmmo.Length; i++) prof.stashAmmo[i] += gear.Ammo[i];
             prof.loadout.ammo = null;
-            prof.xp += 100 + NpcDirector.I.Kills * 50;
+            int lootXp = Mathf.Clamp((Value(gear) - _startValue) / 100, 0, 500);   // $100 of loot brought out = 1 XP, up to 500
+            Levels.Award(Levels.ExtractXp + lootXp, "extracted");   // kills already paid out as they happened
             prof.Save();
             Sfx.UI(Synth.Extracted(), 0.7f);
             _g.LastResult = new RaidResult { extracted = true, map = _map.DisplayName, exit = exit, value = Value(gear) - _startValue, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };

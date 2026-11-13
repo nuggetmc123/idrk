@@ -108,7 +108,8 @@ namespace Rago
                 var off = Quaternion.Inverse(n.Rotation) * ar;   // fixed per controller model; read it every frame anyway
                 if (Quaternion.Angle(off, Quaternion.identity) < 90f) { n.AimLocal = off; n.HasAim = true; }
             }
-            bool g = n.Grip > 0.55f, t = n.Trigger > 0.6f;
+            // hysteresis: press past 60%, release below 35% - a trigger resting near the threshold can't double-click
+            bool g = pg ? n.Grip > 0.35f : n.Grip > 0.55f, t = pt ? n.Trigger > 0.35f : n.Trigger > 0.6f;
             n.GripDown = g && !pg; n.GripUp = !g && pg;
             n.TriggerDown = t && !pt; n.TriggerUp = !t && pt;
             n.PrimaryDown = n.Primary && !pp; n.SecondaryDown = n.Secondary && !ps;

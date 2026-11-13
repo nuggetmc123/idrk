@@ -76,6 +76,8 @@ namespace Rago
         {
             Kills++;
             if (Profile.Current != null) Profile.Current.kills++;
+            if (n.IsBoss) Levels.Award(Levels.BossXp, "boss killed");
+            else Levels.Award(Levels.KillXp, "kill");
         }
 
         public Npc Get(int id) => _byId.TryGetValue(id, out var n) ? n : null;
