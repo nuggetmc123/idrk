@@ -279,13 +279,18 @@ namespace Rago.Net
         /// bunkers - plus players in sessions: the Market, parties and raids) when the SDK exposes them; otherwise
         /// everyone in a listed session plus you.
         /// </summary>
+        int _statsCache = -1; float _statsCacheT = -999f;
         public int OnlineCount
         {
             get
             {
+                // Photon's own count (everyone connected, bunkers included) is only sent while you're in the lobby: keep
+                // the last one for a while so it doesn't drop to "just the people in my session" in the Market or a party
                 int s = StatsCount();
-                if (s > 0) return s;
-                return _listedPlayers;
+                if (s > 0) { _statsCache = s; _statsCacheT = Time.realtimeSinceStartup; }
+                int best = Mathf.Max(_listedPlayers, InSession ? _peers.Count + 1 : 1);
+                if (_statsCache > 0 && Time.realtimeSinceStartup - _statsCacheT < 120f) best = Mathf.Max(best, _statsCache);
+                return best;
             }
         }
 
@@ -294,8 +299,9 @@ namespace Rago.Net
             if (_lobby == null) return -1;
             if (_statsSrc == null && Time.realtimeSinceStartup > _statsSearchT)
             {
-                _statsSearchT = Time.realtimeSinceStartup + 10f;
+                _statsSearchT = Time.realtimeSinceStartup + 5f;
                 try { FindStats(_lobby, 0, new HashSet<object>(RefEq.I)); } catch { }
+                if (_statsSrc != null) Debug.Log("[Rago] players-online stats found on " + _statsSrc.GetType().Name);
             }
             if (_statsSrc == null) return -1;
             try { return (int)_onMaster.GetValue(_statsSrc) + (int)_inRooms.GetValue(_statsSrc); }
@@ -304,7 +310,7 @@ namespace Rago.Net
 
         bool FindStats(object o, int depth, HashSet<object> seen)
         {
-            if (o == null || depth > 4 || !seen.Add(o)) return false;
+            if (o == null || depth > 7 || !seen.Add(o)) return false;
             var t = o.GetType();
             var pm = t.GetProperty("PlayersOnMasterCount", Any); var pr = t.GetProperty("PlayersInRoomsCount", Any);
             if (pm != null && pr != null && pm.PropertyType == typeof(int) && pr.PropertyType == typeof(int)) { _statsSrc = o; _onMaster = pm; _inRooms = pr; return true; }
@@ -314,6 +320,17 @@ namespace Rago.Net
                 var ft = f.FieldType;
                 if (ft.IsPrimitive || ft.IsEnum || ft == typeof(string) || ft.IsValueType || typeof(System.Collections.IEnumerable).IsAssignableFrom(ft) || typeof(Delegate).IsAssignableFrom(ft)) continue;
                 object v; try { v = f.GetValue(o); } catch { continue; }
+                if (FindStats(v, depth + 1, seen)) return true;
+            }
+            // the Photon client often hangs off a property (CloudServices / Communicator / Client), not a field
+            foreach (var pi in t.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                var pt = pi.PropertyType;
+                if (pi.GetIndexParameters().Length > 0 || pt.IsPrimitive || pt.IsEnum || pt == typeof(string) || pt.IsValueType || typeof(System.Collections.IEnumerable).IsAssignableFrom(pt) || typeof(Delegate).IsAssignableFrom(pt)) continue;
+                if (typeof(UnityEngine.Object).IsAssignableFrom(pt)) continue;
+                string n = pi.Name;
+                if (!(n.Contains("Client") || n.Contains("Cloud") || n.Contains("Communicator") || n.Contains("Realtime") || n.Contains("Connection") || n.Contains("Peer"))) continue;
+                object v; try { v = pi.GetValue(o); } catch { continue; }
                 if (FindStats(v, depth + 1, seen)) return true;
             }
             return false;
