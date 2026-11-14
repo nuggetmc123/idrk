@@ -145,18 +145,19 @@ namespace Rago
             UI.Text(_panel, "signed:  Bruno", new Vector3(-0.69f, -0.41f, 0), 0.04f, UI.PaperDim, TextAnchor.MiddleLeft, FontStyle.Italic);
             _build = UI.Button(_panel, "APPROVED - BUILD IT", new Vector3(0.38f, -0.4f, 0), new Vector2(0.6f, 0.11f), Build, null, BtnStyle.Stamp);
 
-            // turn-in tray: only takes what the current job still needs
-            _tray = ItemContainer.Grid(transform, new Vector3(-1.2f, 1.08f, -0.05f), Quaternion.identity, 2, 2, new Vector2(0.36f, 0.3f), 0.3f,
+            // the red square: put anything the job needs anywhere on it and it's counted straight away
+            _tray = ItemContainer.Grid(transform, new Vector3(-1.05f, 1.08f, -0.05f), Quaternion.identity, 4, 2, new Vector2(0.3f, 0.3f), 0.28f,
                 it => it.def != null && BunkerJobs.Needed(Profile.Current, it.def.id) > 0);
+            foreach (var sl in _tray.slots) sl.radius = 0.24f;
             var tray = new MB();
-            tray.Box(Vector3.zero, new Vector3(0.78f, 0.02f, 0.66f), Hivis * 0.5f, 0.005f);
-            var tgo = tray.Build("Tray", transform, Mats.Lit("tray_jobs", Color.white, 0.3f, 0.4f));
-            tgo.transform.localPosition = new Vector3(-1.2f, 1.05f, -0.05f);
-            UI.Text(transform, "TURN IN", new Vector3(-1.2f, 1.07f, -0.41f), 0.025f, Hivis).transform.localRotation = Quaternion.Euler(60, 0, 0);
-            _tray.onChanged = Refresh;
-            var tp = UI.Panel(transform, "TurnInPanel", new Vector3(-1.2f, 1.32f, 0.34f), Quaternion.Euler(-25, 0, 0), new Vector2(0.66f, 0.24f), null, true, Skin.Paper);
-            UI.Text(tp, "Put the job's items on the tray", new Vector3(0, 0.035f, 0), 0.026f, UI.PaperInk);
-            UI.Button(tp, "TURN IN", new Vector3(0, -0.06f, 0), new Vector2(0.3f, 0.08f), TurnIn, null, BtnStyle.Stamp);
+            tray.Box(Vector3.zero, new Vector3(1.26f, 0.02f, 0.66f), UI.Lin(new Color(0.85f, 0.1f, 0.08f)), 0.005f);
+            foreach (var (c, sz) in new[] { (new Vector3(0, 0.012f, -0.32f), new Vector3(1.26f, 0.006f, 0.025f)), (new Vector3(0, 0.012f, 0.32f), new Vector3(1.26f, 0.006f, 0.025f)),
+                                            (new Vector3(-0.62f, 0.012f, 0), new Vector3(0.025f, 0.006f, 0.66f)), (new Vector3(0.62f, 0.012f, 0), new Vector3(0.025f, 0.006f, 0.66f)) })
+                tray.Box(c, sz, Color.white, 0f);
+            var tgo = tray.Build("Tray", transform, Mats.Lit("tray_jobs_red", Color.white, 0.2f, 0.4f));
+            tgo.transform.localPosition = new Vector3(-1.05f, 1.05f, -0.05f);
+            UI.Text(transform, "JOB ITEMS - PUT THEM HERE", new Vector3(-1.05f, 1.07f, -0.41f), 0.025f, new Color(1f, 0.85f, 0.8f), TextAnchor.MiddleCenter, FontStyle.Bold).transform.localRotation = Quaternion.Euler(60, 0, 0);
+            _tray.onChanged = () => { Refresh(); if (_turnAt <= 0f && _tray.slots.Exists(x => x.item != null)) _turnAt = Time.time + 0.35f; };
 
             // Bruno: hi-vis vest and cap
             _npcPos = transform.TransformPoint(new Vector3(-0.2f, 0, 1.0f));
@@ -167,7 +168,12 @@ namespace Rago
 
         void AddCol(Vector3 c, Vector3 s) { var b = gameObject.AddComponent<BoxCollider>(); b.center = c; b.size = s; }
 
-        void Update() { if (Time.frameCount % 20 == 0) Refresh(); }
+        float _turnAt;
+        void Update()
+        {
+            if (_turnAt > 0f && Time.time >= _turnAt) { _turnAt = 0f; TurnIn(); }
+            if (Time.frameCount % 20 == 0) Refresh();
+        }
 
         void Refresh()
         {
@@ -223,10 +229,10 @@ namespace Rago
                 var it = s.item; s.Release(it); Destroy(it.gameObject);
                 n++;
             }
-            if (n == 0) { Sfx.UI(Synth.UiError(), 0.3f); RagoGame.I.Player.Toast("Put items the job needs on the TURN IN tray"); return; }
+            if (n == 0) return;
             p.Save();
             Sfx.UI(Synth.Cash(), 0.5f);
-            RagoGame.I.Player.Toast("Turned in " + n + " item(s)" + (BunkerJobs.ItemsDone(p) ? " - pay the fee to build" : ""));
+            RagoGame.I.Player.Toast("Bruno took " + n + " item(s)" + (BunkerJobs.ItemsDone(p) ? " - that's everything: press BUILD IT" : ""));
             Refresh();
         }
 

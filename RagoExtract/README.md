@@ -88,7 +88,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   - **Jackpot** ($9,000-$45,000): cold wallet and gold idol, plus the vault-only gold bar, blue diamond and Crown Jewel.
 
   Pick something up and its name, rarity and value pop up.
-- **Bruno the Foreman** (Market, far wall under BUNKER JOBS) gives you **bunker expansion jobs**. Each job needs certain items plus a cash fee. Put the items on his TURN IN tray and press TURN IN ITEMS. When everything is in, press PAY & BUILD. The new room opens in your bunker; until then its doorway is a sealed, hazard-striped door.
+- **Bruno the Foreman** (Market, far wall under BUNKER JOBS) gives you **bunker expansion jobs**. Each job needs certain items plus a cash fee. Put the job's items anywhere on his big **red square** - each one is counted as soon as it lands (only items the job still needs are taken). When everything is in, press PAY & BUILD. The new room opens in your bunker; until then its doorway is a sealed, hazard-striped door.
 
   | # | Job | Bring | Fee | Unlocks |
   |---|---|---|---|---|
