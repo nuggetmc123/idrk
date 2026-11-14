@@ -90,9 +90,14 @@ namespace Rago
             HandTargets(out var lp, out var lr, out var rp, out var rr);
             HandL.RenderSnap(lp, lr);
             HandR.RenderSnap(rp, rr);
+            HandL.RenderSnapHeld();   // only now: a gun held in both hands is posed from both hands' latest spots
+            HandR.RenderSnapHeld();
             if (Body != null) Body.Repose();   // arms follow the snapped hands
             Gear.Tick();
+            AfterRenderSnap?.Invoke();   // things that ride on your hands (the field map) go on last
         }
+
+        public static System.Action AfterRenderSnap;
 
         void ApplyHead()
         {
@@ -212,13 +217,14 @@ namespace Rago
                 transform.rotation = Quaternion.Euler(0, Desktop.Yaw, 0);
                 Origin.localRotation = Quaternion.identity;
             }
-            // ---------------- hands
+            // ---------------- move first, then the hands: their targets are where the controllers are AFTER this frame's
+            // walking, so a held gun doesn't trail (and swing the opposite way) while you move
+            if (!Frozen) Locomotion(dt);
+            if (!Frozen) { HeadCheck(); KeepInside(dt); }
             HandTargets(out var lp, out var lr, out var rp, out var rr);
             HandL.Tick(XRInputs.Left, lp, lr);
             HandR.Tick(XRInputs.Right, rp, rr);
             if (!XRInputs.VR) DesktopActions();
-            if (!Frozen) Locomotion(dt);
-            if (!Frozen) { HeadCheck(); KeepInside(dt); }
             Gear.Tick();
             Hud.Tick(dt);
         }

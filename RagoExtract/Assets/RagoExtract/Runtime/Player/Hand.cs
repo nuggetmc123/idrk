@@ -217,6 +217,12 @@ namespace Rago
             tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot * 0.05f));
             if ((rb.position - tp).sqrMagnitude > 0.6f * 0.6f) return;   // a big jump (teleport, respawn): let physics catch up first
             transform.SetPositionAndRotation(tp, tr);
+        }
+
+        /// <summary>After BOTH hands are snapped: put what this hand holds on them (a two-handed gun needs both hands' latest spots).</summary>
+        public void RenderSnapHeld()
+        {
+            if (rig.Dead || rb == null) return;
             var held = Held != null && !HeldAsSecondary ? Held : null;
             if (held != null && held.Held && held.primaryHand == this && held.rb != null)
             {

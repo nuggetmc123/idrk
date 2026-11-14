@@ -168,6 +168,15 @@ namespace Rago
             if (toggle) { _open = !_open; _sheet.gameObject.SetActive(_open); Sfx.Play(Synth.Grab(1), p.Head.position, 0.3f, 1.4f, 0f, 3f); }
             if (!_open) return;
             if (p.Dead) { _open = false; _sheet.gameObject.SetActive(false); return; }
+            Place(p);
+        }
+
+        void OnEnable() { PlayerRig.AfterRenderSnap += AfterSnap; }
+        void OnDisable() { PlayerRig.AfterRenderSnap -= AfterSnap; }
+        void AfterSnap() { var p = RagoGame.I != null ? RagoGame.I.Player : null; if (p != null && _open && _sheet != null) Place(p); }   // again on the freshly snapped hand
+
+        void Place(PlayerRig p)
+        {
             // place it: just above the left hand (VR) or in front of your face (desktop), always turned towards your eyes
             Vector3 head = p.Head.position;
             Vector3 pos;
