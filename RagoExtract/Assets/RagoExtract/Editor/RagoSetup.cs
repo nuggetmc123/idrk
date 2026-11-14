@@ -225,6 +225,15 @@ namespace Rago.EditorTools
             ResumeQueue(); // after a domain reload the static constructor resumes the queue anyway
         }
 
+        static void AfterPlay(PlayModeStateChange st)
+        {
+            if (st != PlayModeStateChange.EnteredEditMode) return;
+            EditorApplication.playModeStateChanged -= AfterPlay;
+            _xrDeferred = false;
+            var s = Load();
+            if (!s.xrConfigured && ConfigureXR()) { s.xrConfigured = true; Save(s); }
+        }
+
         static void OnPackagesDone()
         {
             var s = Load();
@@ -332,8 +341,20 @@ namespace Rago.EditorTools
         const BindingFlags Any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
 
         /// <summary>Enables the OpenXR loader for Android (Quest) and PC, plus Meta Quest support and controller profiles.</summary>
+        static bool _xrDeferred;
         public static bool ConfigureXR()
         {
+            // Unity can't change the VR loader list while the game is running: do it as soon as Play mode ends
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                if (!_xrDeferred)
+                {
+                    _xrDeferred = true;
+                    EditorApplication.playModeStateChanged += AfterPlay;
+                }
+                LastMessage = "VR setup will finish when you stop Play mode.";
+                return false;
+            }
             try
             {
                 var perBT = T("UnityEditor.XR.Management.XRGeneralSettingsPerBuildTarget");
