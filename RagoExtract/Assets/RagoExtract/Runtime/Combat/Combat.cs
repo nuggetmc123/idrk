@@ -127,7 +127,7 @@ namespace Rago
                 if (Physics.Raycast(origin + dir.normalized * 0.3f, dir, out var th, 350f, BulletMask, QueryTriggerInteraction.Ignore)) end = th.point;
                 Fx.TracerLine(origin + dir.normalized * 0.5f, end, gun.velocity);
             }
-            Noise.Emit(origin, gun.suppressed ? 18f : 140f, shooter);
+            Noise.Emit(origin, gun.suppressed ? 7f : 140f, shooter);   // a suppressed shot: raiders only hear it within ~7 m
         }
 
         void FixedUpdate()

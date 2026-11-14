@@ -40,7 +40,7 @@ namespace Rago
             Send(false);
         }
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice }
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden }
 
         public static void Ensure()
         {
@@ -228,6 +228,13 @@ namespace Rago
 
         public void Register(Item it) { if (it != null && it.netId != 0) Items[it.netId] = it; }
 
+        /// <summary>Tell everyone (the host runs the raiders) whether raiders should ignore you (tester tool).</summary>
+        public void SendHidden(bool hidden)
+        {
+            if (!Live) return;
+            var w = W(Msg.Hidden); w.Write(hidden); Send(true);
+        }
+
         public void NpcVoice(int id, byte line, byte idx)
         {
             if (!Live || !NetHub.Backend.IsHost) return;
@@ -387,6 +394,12 @@ namespace Rago
                                 if (!NetHub.Backend.IsHost || NpcDirector.I == null) break;
                                 var npc = NpcDirector.I.Get(id);
                                 npc?.TakeHit(new HitInfo { damage = dmg, part = part, point = pt, dir = dir, attacker = (int)from + 1, fromNet = true, force = force }, null);
+                                break;
+                            }
+                        case Msg.Hidden:
+                            {
+                                bool hid = r.ReadBoolean();
+                                if (Remotes.TryGetValue(from, out var hp) && hp != null) hp.HiddenFromAi = hid;   // a tester made themselves invisible to raiders
                                 break;
                             }
                         case Msg.NpcVoice:

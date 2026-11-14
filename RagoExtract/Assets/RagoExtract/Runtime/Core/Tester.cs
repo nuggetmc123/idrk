@@ -5,7 +5,13 @@ namespace Rago
     /// <summary>Tester tools (menu > TESTER): spawn items and raiders, be invisible to raiders. God mode is Vitals.God.</summary>
     public static class Tester
     {
-        public static bool Invisible;   // raiders don't see, target or hunt you
+        static bool _invisible;
+        /// <summary>Raiders don't see, target or hunt you. Only the AI: other players still see you normally.</summary>
+        public static bool Invisible
+        {
+            get => _invisible;
+            set { _invisible = value; NetGame.I?.SendHidden(value); }
+        }
 
         static Vector3 InFront(float dist, out Quaternion rot)
         {

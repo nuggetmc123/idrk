@@ -109,9 +109,10 @@ namespace Rago
         {
             var listener = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.Head.position : pos;
             float dist = Vector3.Distance(listener, pos);
-            float loud = g.suppressed ? 0.15f : 1f;
+            // suppressed: quiet for you, and for everyone else (other players, raiders) only heard close by
+            float loud = g.suppressed ? (local ? 0.15f : 0.1f) : 1f;
             if (dist < 80f || local)
-                Play(Synth.Gunshot(g), pos, (local ? 0.9f : 1f) * loud, 0.04f, g.suppressed ? 2f : 6f, g.suppressed ? 60f : 400f);
+                Play(Synth.Gunshot(g), pos, (local ? 0.9f : 1f) * loud, 0.04f, g.suppressed ? 1.5f : 6f, g.suppressed ? (local ? 40f : 25f) : 400f);
             if (dist > 35f && !g.suppressed)
                 Play(Synth.GunshotDistant(g), pos, Mathf.Clamp01(dist / 120f) * 0.9f, 0.05f, 25f, 900f);
         }

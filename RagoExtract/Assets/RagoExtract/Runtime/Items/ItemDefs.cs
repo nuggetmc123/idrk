@@ -292,8 +292,8 @@ namespace Rago
             G("goliath", "Goliath MG3", GunClass.LMG, GunStyle.Lmg, FireAction.Auto, Caliber.C308, 50, 1200, 100, 1.1f, 1.8f, V, 20000, true, Finish.Black, Finish.Black, 0.56f, "Vault-only. Buzzsaw. 1200 rounds a minute.");
 
             // ---------------- ATTACHMENTS (attachment boxes, crates, Mara): bring one to the gun and let go
-            X("sup_compact", "Compact Suppressor", AttachSlot.Muzzle, 0, U, 1800, 0.92f, 1f, Finish.Black, "Short can for pistols, SMGs and rifles. Quiet shots, small flash, raiders hear you from much closer.");
-            X("sup_long", "Long Suppressor", AttachSlot.Muzzle, 1, R, 3600, 0.85f, 0.9f, Finish.Fde, "Full-length rifle can. Quietest there is, and it tames recoil a little.");
+            X("sup_compact", "Compact Suppressor", AttachSlot.Muzzle, 0, U, 1800, 0.92f, 1f, Finish.Black, "Short can for pistol-calibre guns (pistols, SMGs). Quiet shots, small flash, raiders only hear you up close.");
+            X("sup_long", "Long Suppressor", AttachSlot.Muzzle, 1, R, 3600, 0.85f, 0.9f, Finish.Fde, "Full-length can for rifle-calibre guns (rifles, DMRs, bolt-actions). Quiet, and it tames recoil a little.");
             X("brake_muzzle", "Muzzle Brake", AttachSlot.Muzzle, 2, C, 600, 0.75f, 1f, Finish.Black, "Vents gas sideways: much less kick, much louder.");
             X("comp_triport", "Tri-Port Compensator", AttachSlot.Muzzle, 3, U, 1100, 0.8f, 0.92f, Finish.Gray, "Keeps the muzzle down and the shots tight.");
             var wml = X("light_wml", "Weapon Light", AttachSlot.Side, 0, C, 700, 1f, 1f, Finish.Black, "Bright light on the rail. On while you hold the gun. Great in the Underground.");

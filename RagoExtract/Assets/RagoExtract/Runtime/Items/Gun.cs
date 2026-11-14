@@ -52,6 +52,18 @@ namespace Rago
         float SpreadMul => (muzzleAtt != null ? muzzleAtt.ad.spreadMul : 1f) * (gripAtt != null ? gripAtt.ad.spreadMul : 1f) * (sideAtt != null ? sideAtt.ad.spreadMul : 1f);
 
         /// <summary>Where an attachment of this kind goes on this gun (null = this gun can't take one).</summary>
+        /// <summary>
+        /// Will this attachment go on this gun? Muzzle devices come in sizes: the compact can is for pistol-calibre guns
+        /// (pistols, SMGs), the long can, brake and compensator for rifle calibres.
+        /// </summary>
+        public bool CanTake(AttachDef a)
+        {
+            if (a == null || AttachPoint(a.slot) == null) return false;
+            if (a.slot != AttachSlot.Muzzle) return true;
+            bool pistolCal = g.cal == Caliber.C9mm || g.cal == Caliber.C45 || g.cal == Caliber.C57 || g.cal == Caliber.C50AE || g.cal == Caliber.C357;
+            return a.model == 0 ? pistolCal : !pistolCal;
+        }
+
         public Transform AttachPoint(AttachSlot s)
         {
             if (!_ptsMade) MakeAttachPoints();
@@ -62,7 +74,9 @@ namespace Rago
         {
             _ptsMade = true;
             var st = g.style;
-            if (!g.suppressed && rig.muzzle != null && st != GunStyle.Revolver && st != GunStyle.Double && st != GunStyle.Pump && st != GunStyle.BoxShotgun)
+            // threaded barrels only: not built-in cans, revolvers, shotguns, belt-fed MGs or the .50s' giant brakes
+            if (!g.suppressed && rig.muzzle != null && st != GunStyle.Revolver && st != GunStyle.Double && st != GunStyle.Pump && st != GunStyle.BoxShotgun
+                && st != GunStyle.Lmg && st != GunStyle.AntiMat && g.cal != Caliber.C12g && g.cal != Caliber.C50BMG)
                 _muzzlePt = rig.muzzle;
             if (rig.under != null) _sidePt = rig.under;
             if (rig.foregrip == null || !g.TwoHanded) return;
@@ -101,7 +115,7 @@ namespace Rago
         {
             if (string.IsNullOrEmpty(id)) return;
             var ad = Db.Get<AttachDef>(id);
-            if (ad == null || AttachPoint(ad.slot) == null) return;
+            if (ad == null || !CanTake(ad)) return;
             AttachItem.Create(ad, transform.position, transform.rotation).AttachTo(this, false);
         }
 

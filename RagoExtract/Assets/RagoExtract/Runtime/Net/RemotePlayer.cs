@@ -21,6 +21,7 @@ namespace Rago
         bool _dead, _hasPose;
         float _yaw;
         public bool Alive => !_dead;
+        public bool HiddenFromAi;   // tester: raiders ignore this player (other players still see them)
         public int ActorId => (int)NetId + 1;
         public Transform Chest => _rig != null ? _rig.chest : transform;
 

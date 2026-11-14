@@ -63,7 +63,7 @@ namespace Rago
         public void AttachTo(Gun g, bool sound = true)
         {
             var at = g.AttachPoint(ad.slot);
-            if (at == null || g.Attached(ad.slot) != null && g.Attached(ad.slot) != this) return;
+            if (at == null || !g.CanTake(ad) || g.Attached(ad.slot) != null && g.Attached(ad.slot) != this) return;
             onGun = g;
             g.SetAttached(ad.slot, this);
             SetMounted(true);
@@ -92,7 +92,7 @@ namespace Rago
             foreach (var it in All)
             {
                 var g = it as Gun;
-                if (g == null || g.Attached(ad.slot) != null) continue;
+                if (g == null || g.Attached(ad.slot) != null || !g.CanTake(ad)) continue;
                 var at = g.AttachPoint(ad.slot);
                 if (at == null) continue;
                 float d = Mathf.Min(Vector3.Distance(at.position, transform.position), Vector3.Distance(at.position, mid));

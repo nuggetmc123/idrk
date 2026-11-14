@@ -158,7 +158,7 @@ namespace Rago
             var targets = new List<Vector3>();
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (pl != null && pl.Vitals.Alive && !RagoGame.I.SafeZone && !Tester.Invisible) targets.Add(pl.transform.position);
-            if (NetGame.Live && NetGame.IsHost) foreach (var r in NetGame.I.Remotes.Values) if (r != null && r.Alive) targets.Add(r.transform.position);
+            if (NetGame.Live && NetGame.IsHost) foreach (var r in NetGame.I.Remotes.Values) if (r != null && r.Alive && !r.HiddenFromAi) targets.Add(r.transform.position);
             if (targets.Count == 0) return false;
             var t = targets[_rng.Range(0, targets.Count)];
             Vector2 o = _rng.InCircle() * 30f;
@@ -235,7 +235,7 @@ namespace Rago
                 yield return new Target { d = p.Vitals, aim = p.Body.Rig.chest, vel = p.MoveVelocity };
             if (NetGame.Live && NetGame.IsHost)
                 foreach (var r in NetGame.I.Remotes.Values)
-                    if (r != null && r.Alive) yield return new Target { d = r, aim = r.Chest, vel = Vector3.zero };
+                    if (r != null && r.Alive && !r.HiddenFromAi) yield return new Target { d = r, aim = r.Chest, vel = Vector3.zero };
         }
 
         public void HearAlert(Vector3 pos)

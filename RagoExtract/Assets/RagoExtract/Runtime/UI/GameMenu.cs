@@ -204,7 +204,7 @@ namespace Rago
             Line("God mode (no damage):", y);
             Btn(pl.Vitals.God ? "ON" : "OFF", 0.28f, y, 0.16f, () => { pl.Vitals.God = !pl.Vitals.God; if (pl.Vitals.God) pl.Vitals.ResetFull(); }, pl.Vitals.God ? Go : (Color?)null);
             Btn("HEAL", 0.45f, y, 0.14f, () => pl.Vitals.ResetFull()); y -= 0.08f;
-            Line("Invisible to raiders:", y);
+            Line("Invisible to AI (not players):", y);
             Btn(Tester.Invisible ? "ON" : "OFF", 0.28f, y, 0.16f, () => Tester.Invisible = !Tester.Invisible, Tester.Invisible ? Go : (Color?)null);
             Btn("+AMMO", 0.45f, y, 0.14f, () =>
             {
