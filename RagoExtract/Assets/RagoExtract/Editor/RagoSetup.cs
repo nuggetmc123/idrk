@@ -78,8 +78,13 @@ namespace Rago.EditorTools
                 RagoWindow.Open();
             }
             Step("Multiplayer check", RagoMultiplayer.AutoEnable);
-            Step("Package list", RefreshInstalled);
-            Step("Package import", ResumeQueue);
+            // only talk to the Package Manager when there's actually something waiting to install: asking it on every
+            // script reload made Unity 6 log "ScriptableSingleton already exists" errors from its own internals
+            if (File.Exists(QueueFile))
+            {
+                Step("Package list", RefreshInstalled);
+                Step("Package import", ResumeQueue);
+            }
             if (IsInstalled("com.unity.xr.openxr") && !s.xrConfigured && ConfigureXR()) { s.xrConfigured = true; Save(s); }
         }
 
