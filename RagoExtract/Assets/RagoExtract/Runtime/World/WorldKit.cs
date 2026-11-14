@@ -183,9 +183,10 @@ namespace Rago
                             ops.Add(new Vector4(c, 1.2f, 1.0f, 2.1f));
                         }
                     }
-                    NoSwingDoors = f == 0 && side == vaultSide;   // the vault's own round door goes there
+                    bool keep = NoSwingDoors;
+                    NoSwingDoors = keep || (f == 0 && side == vaultSide);   // the vault's own door goes there
                     Wall(P(a.x, y, a.z), P(b.x, y, b.z), floorH, t, wall, tint, ops);
-                    NoSwingDoors = false;
+                    NoSwingDoors = keep;
                 }
                 // floor slab (with a stair hole on upper floors)
                 // ground floor: a thick solid block under the boards, so nothing dropped can sink through to the ground

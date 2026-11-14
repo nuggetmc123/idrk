@@ -16,6 +16,14 @@ namespace Rago
         public Magazine mag;
         public SightItem sight;
         public AttachItem muzzleAtt, sideAtt, gripAtt;
+        public bool SideOn = true;   // light / laser switched on
+        public void ToggleSide()
+        {
+            if (sideAtt == null) return;
+            SideOn = !SideOn;
+            Sfx.Play(Synth.DryFire(), transform.position, 0.25f, 1.6f, 0.5f, 4f);
+            primaryHand?.Haptic(0.15f, 0.02f);
+        }
         public bool chambered;
         public bool slideLocked;
         public bool needsCycle;

@@ -475,6 +475,7 @@ namespace Rago
             Lighting(new Color(0.9f, 0.95f, 1f), 0f, new Vector3(60, 30, 0), new Color(0.46f, 0.48f, 0.52f), new Color(0.38f, 0.38f, 0.39f), new Color(0.2f, 0.19f, 0.18f),
                 new Color(0.05f, 0.055f, 0.06f), 0.03f, new Color(0.03f, 0.03f, 0.035f), new Color(0.06f, 0.06f, 0.065f), 0f, 0.6f);
             var b = B;
+            b.NoSwingDoors = true;   // doors here come only from the rooms' own doorways (CustomDoors), one per doorway
             var conc = Maps.Concrete;
             var floor = Mats.Lit("ug_floor", new Color(0.46f, 0.47f, 0.47f), 0.1f, 0.45f, Mats.Concrete, null, 0.5f, 0.2f, true, 0.4f);
             var ceiling = Mats.Lit("ug_ceiling", Color.white, 0f, 0.2f, Mats.Concrete, null, 0.5f, 0.1f, true, 0.4f);
@@ -657,6 +658,12 @@ namespace Rago
             {
                 var ops = doors[s] ? new List<Vector4> { new Vector4(Room * 0.5f, 1.6f, 0, 2.3f) } : null;
                 b.Wall(corners[s], corners[(s + 1) % 4], Ht, 0.3f, conc, wallCol, ops);
+                // one door in this doorway (not the vault room's: its round vault door goes there)
+                if (doors[s] && type != "vault")
+                {
+                    var dir = (corners[(s + 1) % 4] - corners[s]).normalized;
+                    CustomDoors.Add(new WorldBuilder.DoorGap { c = corners[s] + dir * (Room * 0.5f), along = dir, across = Vector3.Cross(dir, Vector3.up), halfW = 0.8f, top = c.y + 2.3f, swing = true });
+                }
             }
             // paint band inside, a lamp, a door label
             // paint band along the bottom of each wall - left open at the doorways

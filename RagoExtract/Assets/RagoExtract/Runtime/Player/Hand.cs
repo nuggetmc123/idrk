@@ -161,6 +161,13 @@ namespace Rago
             {
                 BeginRack(rg); Haptic(0.2f, 0.03f);
             }
+            // light / laser on the gun: the support hand's trigger switches it (on the handguard, or empty and not pointing
+            // at a button or racking)
+            else if (input.TriggerDown && Racking == null && _interact == null && _hoverBtn == null)
+            {
+                Gun lg = HeldAsSecondary ? Held as Gun : Held == null && !Other.HeldAsSecondary ? Other.Held as Gun : null;
+                if (lg != null && lg.sideAtt != null) { lg.ToggleSide(); Haptic(0.15f, 0.02f); }
+            }
             if (Racking != null)
             {
                 Racking.RackUpdate(this, input.GripHeld || input.Trigger > 0.3f);

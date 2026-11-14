@@ -133,6 +133,9 @@ namespace Rago
         public readonly List<Transform> NavIgnore = new List<Transform>();
 
         /// <summary>Raids: a pushable door in every ordinary doorway (not vault entrances, gates or wide openings).</summary>
+        /// <summary>Doorways that get a door, listed by the map itself (instead of every wall's openings).</summary>
+        public readonly List<WorldBuilder.DoorGap> CustomDoors = new List<WorldBuilder.DoorGap>();
+
         public void AddSwingDoors()
         {
             if (!IsRaid || B == null) return;
@@ -140,7 +143,9 @@ namespace Rago
             NavIgnore.Add(root);
             int k = 0;
             var placed = new List<WorldBuilder.DoorGap>();
-            foreach (var d in B.Doors)
+            var all = new List<WorldBuilder.DoorGap>(B.Doors);
+            all.AddRange(CustomDoors);   // maps that place their own doors (the Underground's rooms)
+            foreach (var d in all)
             {
                 if (!d.swing) continue;
                 // two doorways overlapping (walls meeting at a doorway): only one door
@@ -1251,9 +1256,10 @@ namespace Rago
             else
             {
                 // front wall in the same material as the room, the full height, with the doorway
+                bool was = B.NoSwingDoors;
                 B.NoSwingDoors = true;
                 B.Wall(P(-hw, 0, 0), P(hw, 0, 0), height, thick, wm, wt, new List<Vector4> { new Vector4(hw, 1.8f, 0f, 2.3f) });
-                B.NoSwingDoors = false;
+                B.NoSwingDoors = was;   // (it used to switch door-registration back on for everything built after a vault)
                 face = -thick * 0.5f;
             }
             // steel frame around the round door

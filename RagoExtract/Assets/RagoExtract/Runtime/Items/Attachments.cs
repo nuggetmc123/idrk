@@ -107,7 +107,7 @@ namespace Rago
 
         void LateUpdate()
         {
-            bool on = onGun != null && onGun.primaryHand != null;
+            bool on = onGun != null && onGun.primaryHand != null && onGun.SideOn;   // the support hand's trigger switches it on / off
             if (_light != null && _light.enabled != on) _light.enabled = on;
             if (_beam == null) return;
             if (!on) { if (_beam.enabled) { _beam.enabled = false; _dot.gameObject.SetActive(false); } return; }
