@@ -35,7 +35,9 @@ namespace Rago
             _cam.targetTexture = _rt;
             _cam.stereoTargetEye = StereoTargetEyeMask.None;
             _cam.nearClipPlane = 0.05f; _cam.farClipPlane = 1500f;
-            _cam.enabled = false;   // rendered by hand, only while you look through it
+            _cam.enabled = false;   // switched on (Unity draws it before your eyes' cameras) only while you look through it
+            _cam.depth = -50f;
+            _rt.Create();
             int mask = ~0;
             if (Layers.Hands >= 0) mask &= ~(1 << Layers.Hands);
             if (Layers.LocalBody >= 0) mask &= ~(1 << Layers.LocalBody);
@@ -71,8 +73,9 @@ namespace Rago
                 if (_cam == null) Make();
                 float apparent = 2f * Mathf.Atan(_lensR / Mathf.Max(dist, 0.03f)) * Mathf.Rad2Deg;   // how big the eyepiece looks to you
                 _cam.fieldOfView = Mathf.Clamp(apparent / _mag, 0.5f, 30f);
-                _cam.Render();
+                if (!_cam.enabled) _cam.enabled = true;   // (calling Render() by hand drew nothing under VR on some headsets)
             }
+            else if (_cam != null && _cam.enabled) _cam.enabled = false;
             if (want != _live) { _live = want; if (_mat.HasProperty("_Active")) _mat.SetFloat("_Active", want ? 1f : 0f); }
         }
 
