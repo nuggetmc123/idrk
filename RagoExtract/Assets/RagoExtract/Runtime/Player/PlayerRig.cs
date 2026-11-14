@@ -139,6 +139,38 @@ namespace Rago
         /// Head past a wall, roof or door (leaning or climbing into it): the view goes black, so walls can't be looked
         /// through. It's a wall between your body and your eyes, or your eyes inside one.
         /// </summary>
+        // ---- safety net: never stuck under the world or inside a floor
+        Vector3 _groundSafe; float _groundSafeYaw; bool _hasGroundSafe; float _safeSampleT, _embedT, _voidT;
+
+        void FallRescue(float dt)
+        {
+            int mask = Ballistics.WallMask;
+            Vector3 p = transform.position;
+            // remember solid ground: standing on something, nothing overlapping the body
+            _safeSampleT -= dt;
+            bool embedded = Physics.CheckCapsule(p + Vector3.up * 0.45f, p + Vector3.up * Mathf.Max(0.5f, Cc.height - 0.35f), Cc.radius * 0.8f, mask, QueryTriggerInteraction.Ignore);
+            if (_safeSampleT <= 0f && Cc.isGrounded && !embedded && !HandL.Climbing && !HandR.Climbing)
+            {
+                _safeSampleT = 0.5f;
+                if (Physics.Raycast(p + Vector3.up * 0.3f, Vector3.down, 0.6f, mask, QueryTriggerInteraction.Ignore)) { _groundSafe = p + Vector3.up * 0.05f; _groundSafeYaw = Head.eulerAngles.y; _hasGroundSafe = true; }
+            }
+            if (!_hasGroundSafe) return;
+            // under the world (nothing at all beneath you) or wedged inside a floor / wall
+            bool voidBelow = !Cc.isGrounded && !Physics.Raycast(p + Vector3.up * 0.3f, Vector3.down, 60f, mask, QueryTriggerInteraction.Ignore);
+            _voidT = voidBelow ? _voidT + dt : 0f;
+            _embedT = embedded && !HandL.Climbing && !HandR.Climbing ? _embedT + dt : 0f;
+            if (_voidT > 0.8f || _embedT > 1.2f || p.y < _groundSafe.y - 40f)
+            {
+                _voidT = _embedT = 0f;
+                HandL.StopClimbing(); HandR.StopClimbing();
+                _vy = 0f; MoveVelocity = Vector3.zero;
+                var back = _groundSafe; var yaw = _groundSafeYaw;
+                Teleport(back, yaw);
+                _groundSafe = back; _groundSafeYaw = yaw; _hasGroundSafe = true;
+                Toast("Back on solid ground");
+            }
+        }
+
         void HeadCheck()
         {
             Vector3 neck = transform.position + Vector3.up * Mathf.Max(0.3f, Cc.height - 0.3f);
@@ -181,6 +213,7 @@ namespace Rago
         {
             LastTeleportPos = pos; LastTeleportYaw = yaw;
             _hasSafe = false; _openSkyT = 0;   // new place: find a fresh safe spot here
+            _hasGroundSafe = false; _voidT = _embedT = 0f;
             Cc.enabled = false;
             transform.position = pos;
             transform.rotation = Quaternion.Euler(0, yaw, 0);
@@ -220,7 +253,7 @@ namespace Rago
             // ---------------- move first, then the hands: their targets are where the controllers are AFTER this frame's
             // walking, so a held gun doesn't trail (and swing the opposite way) while you move
             if (!Frozen) Locomotion(dt);
-            if (!Frozen) { HeadCheck(); KeepInside(dt); }
+            if (!Frozen) { HeadCheck(); KeepInside(dt); FallRescue(dt); }
             HandTargets(out var lp, out var lr, out var rp, out var rr);
             HandL.Tick(XRInputs.Left, lp, lr);
             HandR.Tick(XRInputs.Right, rp, rr);

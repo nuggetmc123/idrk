@@ -399,8 +399,8 @@ namespace Rago
             if (_remote != null && _remote.primaryHand == null) { StartPull(_remote); return; }
             if (_remoteCrate != null && !_remoteCrate.opened) { _remoteCrate.Open(); Haptic(0.3f, 0.04f); return; }
             // 5. nothing to pick up: grab the world itself and climb (walls, ledges, ladders, fences, rocks)
-            // (not in the bunker or the Market: there's nothing to climb, and gripping a counter pinned you in place)
-            if (XRInputs.VR && RagoGame.I != null && RagoGame.I.Area == Area.Raid && CanClimbHere(p)) { Climbing = true; ClimbAnchor = TrackedPosition; ClimbStart = Time.time; Haptic(0.35f, 0.05f); }
+            // (not in the Market: gripping a stall counter pinned you in place)
+            if (XRInputs.VR && RagoGame.I != null && RagoGame.I.Area != Area.Market && CanClimbHere(p)) { Climbing = true; ClimbAnchor = TrackedPosition; ClimbStart = Time.time; Haptic(0.35f, 0.05f); }
         }
 
         static int _worldMask = 0;
