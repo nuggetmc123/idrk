@@ -82,6 +82,7 @@ namespace Rago
             if (p.Dead || Vector3.Distance(p.Head.position, transform.position) > 2.5f) { Show(false); return; }
             _refresh -= Time.unscaledDeltaTime;
             if (_refresh <= 0f) { _refresh = 1.5f; if (!_typing) _dirty = true; }
+            if (Time.unscaledTime > _pendT) { _pendT = Time.unscaledTime + 3f; CheckPending(); }
             if (_dirty) { _dirty = false; Rebuild(); }
         }
 
@@ -120,7 +121,17 @@ namespace Rago
             if (IsFriend(callsign)) { pl.Toast(callsign + " is already a friend"); return; }
             // only real players: someone you've raided with, or who's in this session (Market / party / raid) now
             string real = KnownPlayer(callsign);
-            if (real == null) { pl.Toast("No player called " + callsign + " found. Check the spelling and tag, or play with them once (raid, Market or party)"); Sfx.UI(Synth.UiError(), 0.3f); return; }
+            if (real == null)
+            {
+                // not seen online yet (they may be sitting in their bunker): a request that confirms itself the moment the
+                // game sees them in a party, raid or the Market - a made-up name never confirms and expires
+                if (prof.pendingFriends.Exists(x => Key(x.Split('|')[0]) == Key(callsign))) { pl.Toast(callsign + " is already waiting to be found"); return; }
+                prof.pendingFriends.Add(callsign + "|" + System.DateTime.UtcNow.ToString("yyyy-MM-dd"));
+                prof.Save();
+                pl.Toast("Friend request for " + callsign + ": added as soon as they're online in a party, raid or the Market");
+                Sfx.UI(Synth.Beep(), 0.3f);
+                return;
+            }
             callsign = real;
             prof.friends.Add(callsign);
             prof.Save();
@@ -129,6 +140,28 @@ namespace Rago
         }
 
         /// <summary>The real callsign of a player the game has actually met (RECENT, or with you now), or null.</summary>
+        float _pendT;
+        /// <summary>Confirm pending friend requests whose player has been seen; drop ones never seen in 14 days.</summary>
+        static void CheckPending()
+        {
+            var prof = Profile.Current;
+            if (prof == null || prof.pendingFriends.Count == 0) return;
+            bool changed = false;
+            for (int i = prof.pendingFriends.Count - 1; i >= 0; i--)
+            {
+                var parts = prof.pendingFriends[i].Split('|');
+                string real = KnownPlayer(parts[0]);
+                if (real != null)
+                {
+                    prof.pendingFriends.RemoveAt(i); changed = true;
+                    if (!IsFriend(real)) { prof.friends.Add(real); RagoGame.I?.Player?.Toast(real + " found - added as a friend"); }
+                    continue;
+                }
+                if (parts.Length > 1 && System.DateTime.TryParse(parts[1], out var when) && (System.DateTime.UtcNow - when).TotalDays > 14) { prof.pendingFriends.RemoveAt(i); changed = true; }
+            }
+            if (changed) prof.Save();
+        }
+
         static string KnownPlayer(string callsign)
         {
             var here = NetHub.Online ? NetHub.Backend.SessionPlayers : null;
@@ -270,15 +303,19 @@ namespace Rago
             var prof = Profile.Current;
             Btn("+ ADD FRIEND", -0.36f, 0.2f, 0.32f, () => { _typing = true; _typed = ""; Desktop.Typing = true; }, Go);
             var here = NetHub.Online ? NetHub.Backend.SessionPlayers : null;
-            if (prof.friends.Count == 0) { Line("No friends yet. Play with someone (a raid, the Market or a party),", 0.08f, 0.026f); Line("then add them from RECENT - or type the callsign of someone you've met.", 0.03f, 0.026f); return; }
-            DrawList(prof.friends, 0.1f, name =>
+            var pending = prof.pendingFriends.ConvertAll(x => x.Split('|')[0]);
+            if (prof.friends.Count == 0 && pending.Count == 0) { Line("No friends yet. Press + ADD FRIEND and type their callsign (like GHOST#0193),", 0.08f, 0.026f); Line("or add people you've played with from RECENT.", 0.03f, 0.026f); return; }
+            var all = new List<string>(prof.friends); all.AddRange(pending);
+            DrawList(all, 0.1f, name =>
             {
+                if (pending.Exists(x => Key(x) == Key(name)) && !IsFriend(name)) return (name, "request: waiting to see them online");
                 bool inSession = here != null && FindIn(here, name);
                 return (name, inSession ? "here with you" : "");
             }, (name, y) =>
             {
-                Btn("INVITE", 0.2f, y, 0.2f, () => Invite(name), Go);
-                Btn("REMOVE", 0.42f, y, 0.2f, () => { prof.friends.RemoveAll(x => Key(x) == Key(name)); prof.Save(); }, Stop);
+                bool wait = !IsFriend(name);
+                if (!wait) Btn("INVITE", 0.2f, y, 0.2f, () => Invite(name), Go);
+                Btn("REMOVE", 0.42f, y, 0.2f, () => { prof.friends.RemoveAll(x => Key(x) == Key(name)); prof.pendingFriends.RemoveAll(x => Key(x.Split('|')[0]) == Key(name)); prof.Save(); }, Stop);
             });
         }
 

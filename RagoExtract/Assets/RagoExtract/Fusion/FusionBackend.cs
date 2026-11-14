@@ -138,13 +138,39 @@ namespace Rago.Net
             while (_invited.Count > 12) _invited.RemoveAt(0);
         }
 
+        /// <summary>
+        /// The host lists everyone in the session (callsigns) in its properties, so players in their bunkers can see who
+        /// is online in parties, raids and the Market - that's how a typed-in friend is found.
+        /// </summary>
+        void PublishNames()
+        {
+            if (_runner == null || !IsHost || !InSession) return;
+            try
+            {
+                var props = new Dictionary<string, SessionProperty>();
+                var cur = _runner.SessionInfo.Properties;
+                if (cur != null) foreach (var kv in cur) if (kv.Key != "names") props[kv.Key] = kv.Value;
+                props["names"] = NamesHere();
+                if (_inPartySession) { props["kind"] = "party"; props["lead"] = MyName(); props["inv"] = string.Join(",", _invited.ConvertAll(Key)); }
+                _runner.SessionInfo.UpdateCustomProperties(props);
+            }
+            catch (Exception e) { Debug.LogWarning("[Rago] couldn't publish player names: " + e.Message); }
+        }
+
+        string NamesHere()
+        {
+            var names = new List<string> { MyName() };
+            foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) names.Add(n);
+            return string.Join(",", names);
+        }
+
         void PublishInvites()
         {
             if (!_inPartySession || !IsHost || _runner == null) return;
             try
             {
                 _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty>
-                    { { "kind", "party" }, { "lead", MyName() }, { "inv", string.Join(",", _invited.ConvertAll(Key)) } });
+                    { { "kind", "party" }, { "lead", MyName() }, { "inv", string.Join(",", _invited.ConvertAll(Key)) }, { "names", NamesHere() } });
             }
             catch (Exception e) { Debug.LogWarning("[Rago] couldn't publish party invites: " + e.Message); }
         }
@@ -312,6 +338,13 @@ namespace Rago.Net
             _listedPlayers = sum + 1;   // + you (in the lobby, not in a session)
             string me = Key(MyName());
             bool changed = false;
+            foreach (var si in sessionList)   // everyone online in a party, raid or the Market: real players a friend can be added from
+            {
+                var pr = si.Properties;
+                if (pr == null) continue;
+                if (pr.TryGetValue("names", out var nm)) foreach (var n in Str(nm).Split(',')) KnownPlayers.Add(n);
+                if (pr.TryGetValue("lead", out var ld)) KnownPlayers.Add(Str(ld));
+            }
             foreach (var si in sessionList)
             {
                 var props = si.Properties;
@@ -633,6 +666,7 @@ namespace Rago.Net
                     // someone's callsign (sent to everyone in a session)
                     _names[Id(player)] = text;
                     KnownPlayers.Add(text);
+                    PublishNames();
                     OnMetPlayer?.Invoke(text);   // raid, Market or party: a real player you've met (RECENT, and you can add them as a friend)
                     OnPartyChanged?.Invoke();
                 }
@@ -677,6 +711,7 @@ namespace Rago.Net
             if (runner != _runner) return;
             _peers.Remove(Id(player)); _refs.Remove(Id(player));
             _names.Remove(Id(player));
+            PublishNames();
             OnPeerLeft?.Invoke(Id(player));
             if (_inPartySession) OnPartyChanged?.Invoke();
         }

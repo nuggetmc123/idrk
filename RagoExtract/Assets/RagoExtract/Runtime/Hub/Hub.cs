@@ -456,9 +456,11 @@ namespace Rago
             foreach (var s in _delivery.slots) if (s.item == null) { free = s; break; }
             prof.money -= price;
             var it = ItemFactory.Spawn(new ItemData(d.id), free != null ? free.transform.position + Vector3.up * 0.1f : transform.TransformPoint(new Vector3(0, 1.2f, -0.2f)), transform.rotation);
+            bool toStash = false;
             if (it != null && free != null && free.Accepts(it)) free.Store(it, false);
+            else if (it != null) { prof.stash.Add(it.Save()); Destroy(it.gameObject); it = null; toStash = true; }   // the tray is full: straight to your stash
             Sfx.UI(Synth.Cash(), 0.6f);
-            RagoGame.I.Player.Toast("Bought " + d.name);
+            RagoGame.I.Player.Toast("Bought " + d.name + (toStash ? " - the tray is full, sent to your stash" : " - on the PICKUP tray"));
             prof.Save();
             Refresh();
         }

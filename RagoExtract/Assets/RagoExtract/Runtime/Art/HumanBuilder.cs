@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Rago
 {
-    public enum Outfit { Operator, Raider, RaiderHeavy, Gunsmith, Medic, Fence, Quartermaster, Kiosk, Foreman }
+    public enum Outfit { Operator, Raider, RaiderHeavy, Gunsmith, Medic, Fence, Quartermaster, Kiosk, Foreman, BossKessler, BossHarbor, BossWarden, BossBanker }
 
     /// <summary>
     /// A procedurally built humanoid made of rigid segments on a bone hierarchy. Used for the player's own
@@ -110,6 +110,23 @@ namespace Rago
                     p.cap = !p.beanie && !p.gasMask && rng.Chance(0.5f);
                     p.helmetOn = false; p.plate = false; // raider armour is real, droppable gear (Npc.Spawn)
                     break;
+                // map bosses: each dressed so you know them on sight
+                case Outfit.BossKessler:   // lab coat over scrubs, surgical mask
+                    p.top = new Color(0.9f, 0.91f, 0.9f); p.top2 = new Color(0.3f, 0.5f, 0.55f); p.pants = new Color(0.22f, 0.4f, 0.45f); p.gear = new Color(0.75f, 0.1f, 0.08f); p.gear2 = p.gear * 0.8f;
+                    p.coat = true; p.mask = true; p.accent = new Color(0.75f, 0.1f, 0.08f); p.helmetOn = false; p.plate = false;
+                    break;
+                case Outfit.BossHarbor:    // rust-orange foul-weather coat, navy trousers, watch cap
+                    p.top = new Color(0.72f, 0.3f, 0.1f); p.top2 = new Color(0.14f, 0.18f, 0.3f); p.pants = new Color(0.14f, 0.18f, 0.3f); p.gear = new Color(0.78f, 0.6f, 0.28f); p.gear2 = p.gear * 0.8f;
+                    p.coat = true; p.beanie = false; p.accent = new Color(0.78f, 0.6f, 0.28f); p.helmetOn = false; p.plate = false;
+                    break;
+                case Outfit.BossWarden:    // forest green camo, face covered
+                    p.top = new Color(0.2f, 0.3f, 0.15f); p.top2 = new Color(0.32f, 0.36f, 0.2f); p.pants = new Color(0.25f, 0.3f, 0.17f); p.gear = new Color(0.36f, 0.26f, 0.14f); p.gear2 = p.gear * 0.8f;
+                    p.mask = true; p.accent = new Color(0.36f, 0.26f, 0.14f); p.helmetOn = false; p.plate = false;
+                    break;
+                case Outfit.BossBanker:    // black suit, gold tie and trim
+                    p.top = new Color(0.08f, 0.08f, 0.09f); p.top2 = new Color(0.85f, 0.65f, 0.2f); p.pants = new Color(0.08f, 0.08f, 0.09f); p.gear = new Color(0.85f, 0.65f, 0.2f); p.gear2 = p.gear * 0.8f;
+                    p.suit = true; p.accent = new Color(0.85f, 0.65f, 0.2f); p.helmetOn = false; p.plate = false;
+                    break;
                 case Outfit.Gunsmith:
                     p.top = new Color(0.32f, 0.3f, 0.28f); p.top2 = p.top; p.pants = new Color(0.2f, 0.22f, 0.28f); p.gear = new Color(0.35f, 0.24f, 0.14f); p.apron = true; p.cap = true; p.accent = new Color(0.5f, 0.3f, 0.1f);
                     break;
@@ -155,6 +172,10 @@ namespace Rago
                 case Outfit.RaiderHeavy:
                     c = rng.Pick(new[] { new Color(0.22f, 0.22f, 0.23f), new Color(0.5f, 0.14f, 0.1f), new Color(0.34f, 0.34f, 0.28f), new Color(0.3f, 0.25f, 0.22f) });
                     break;
+                case Outfit.BossKessler: c = new Color(0.86f, 0.84f, 0.8f); break;
+                case Outfit.BossHarbor: c = new Color(0.16f, 0.2f, 0.32f); break;
+                case Outfit.BossWarden: c = new Color(0.3f, 0.38f, 0.22f); break;
+                case Outfit.BossBanker: c = new Color(0.88f, 0.68f, 0.22f); break;
                 default:
                     c = new Color(0.94f, 0.93f, 0.9f);
                     break;

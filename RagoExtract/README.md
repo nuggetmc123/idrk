@@ -100,7 +100,7 @@ Online play runs on Photon's cloud in Shared mode: everyone meets in the Market,
   Turned-in items are saved, so you can bring them over several raids.
 - **Menu, friends and parties**: press the **LEFT MENU button** (the three lines; **N** on desktop) anywhere, in the bunker or in a raid. The menu opens in front of you:
   - **PARTY**: who's in your party, invites you've received (ACCEPT / DECLINE), LEAVE PARTY.
-  - **FRIENDS**: **+ ADD FRIEND** and type their full callsign (like `GHOST#0193`), or **+ FRIEND** someone from RECENT. Only real players are accepted: someone you've played with (raid, Market or party), or who the game can see online right now (e.g. leading a party) - a made-up name is refused. Then INVITE or REMOVE.
+  - **FRIENDS**: **+ ADD FRIEND** and type their full callsign (like `GHOST#0193`), or **+ FRIEND** someone from RECENT. A name the game already knows (someone you've played with, or anyone online in a party, raid or the Market - every session lists its players) is added straight away; otherwise it's kept as a request ("waiting to see them online") and becomes a friend the moment that player shows up online. A made-up name never does and drops off after 14 days. Then INVITE or REMOVE.
   - **RECENT**: everyone in your session now, then everyone you've been in a raid, party or the Market with: INVITE them or **+ FRIEND** them.
   - **SETTINGS**: grip angle, turning, volume, microphone (this replaces the old settings board).
 

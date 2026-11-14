@@ -87,7 +87,7 @@ namespace Rago
             n.Heavy = heavy;
             n.BossName = boss;
             n.MaxHealth = n.Health = boss != null ? 450 : heavy ? 150 : 100;
-            n.Rig = HumanRig.Build(heavy ? Outfit.RaiderHeavy : Outfit.Raider, seed, go.transform);
+            n.Rig = HumanRig.Build(boss != null ? BossOutfit(boss) : heavy ? Outfit.RaiderHeavy : Outfit.Raider, seed, go.transform);
             foreach (var c in n.Rig.colliders)
             {
                 var z = c.gameObject.AddComponent<HitZone>();
@@ -130,6 +130,12 @@ namespace Rago
         }
 
         /// <summary>Each map boss's own gun and armour (boss-only items: the only way to get them is to kill the boss).</summary>
+        public static Outfit BossOutfit(string boss)
+        {
+            string b = boss.ToLowerInvariant();
+            return b.Contains("kessler") ? Outfit.BossKessler : b.Contains("harbor") ? Outfit.BossHarbor : b.Contains("warden") ? Outfit.BossWarden : b.Contains("banker") ? Outfit.BossBanker : Outfit.RaiderHeavy;
+        }
+
         public static void BossKit(string boss, out string gun, out string helmet, out string vest)
         {
             string b = boss.ToLowerInvariant();

@@ -28,6 +28,7 @@ namespace Rago
         public bool nameSet, tutorialDone;
         public int tutorialStep;
         public List<string> friends = new List<string>();   // callsigns you added (menu > FRIENDS)
+        public List<string> pendingFriends = new List<string>();   // typed in but not seen online yet: "CALLSIGN#1234|day added"
         public List<string> recent = new List<string>();    // people you've raided with, newest first
         public bool friendsChecked, friendsChecked2;   // drop typed-in friends nobody has ever met (made-up names)
         public string DisplayName => tag > 0 ? name + "#" + tag.ToString("0000") : name;
@@ -66,6 +67,7 @@ namespace Rago
             if (tag <= 0) tag = NewTagFor();
             if (loadout.pack == null) loadout.pack = new List<ItemData>();
             if (friends == null) friends = new List<string>();
+            if (pendingFriends == null) pendingFriends = new List<string>();
             if (recent == null) recent = new List<string>();
             if (!friendsChecked || !friendsChecked2)
             {

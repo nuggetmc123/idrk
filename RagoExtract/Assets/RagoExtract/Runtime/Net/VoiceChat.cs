@@ -89,7 +89,7 @@ namespace Rago
                 float rms = 0;
                 for (int i = 0; i < FrameSamples; i++) rms += _pending[i] * _pending[i];
                 rms = Mathf.Sqrt(rms / FrameSamples);
-                if (rms > 0.012f) _hangover = 0.35f;
+                if (rms > 0.02f) _hangover = 0.35f;   // talking (headset hiss and breathing don't open the mic)
                 bool send = !_muted && _hangover > 0f;
                 _hangover -= FrameSamples / (float)MicRate;
                 if (send)

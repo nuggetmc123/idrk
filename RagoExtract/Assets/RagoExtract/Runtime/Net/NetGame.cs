@@ -25,7 +25,14 @@ namespace Rago
         public readonly Dictionary<ulong, RemotePlayer> Remotes = new Dictionary<ulong, RemotePlayer>();
         public readonly Dictionary<int, Item> Items = new Dictionary<int, Item>();
         bool _active;
-        float _poseT, _npcT, _voiceT;
+        float _poseT, _npcT, _voiceT, _gearT, _npcFullT;
+        string _lastGear;
+        // last raider state sent, per raider: only changes go out (everything is on the reliable channel, which backs up
+        // - and lags the whole game - if it's fed more than it can carry)
+        readonly Dictionary<int, (Vector3 pos, float yaw, byte st, Vector3 aim)> _npcSent = new Dictionary<int, (Vector3, float, byte, Vector3)>();
+        const float NetStep = 0.03f;   // 3 cm grid for positions in raider updates
+        static void P3(BinaryWriter w, Vector3 v) { w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.x / NetStep), -32767, 32767)); w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.y / NetStep), -32767, 32767)); w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.z / NetStep), -32767, 32767)); }
+        static Vector3 P3(BinaryReader r) => new Vector3(r.ReadInt16() * NetStep, r.ReadInt16() * NetStep, r.ReadInt16() * NetStep);
         int _dropCounter;
         public bool InRaid;
         readonly HashSet<ulong> _helloSent = new HashSet<ulong>();
@@ -142,14 +149,17 @@ namespace Rago
                 V3(w, p.HandR.transform.position); Q(w, p.HandR.transform.rotation);
                 V3(w, p.MoveVelocity);
                 w.Write(HeldId(p.HandL)); w.Write(HeldId(p.HandR));
-                w.Write(GearKey(p));
+                // what you're wearing: only when it changes (and now and then for late joiners), not 15 times a second
+                string gk = GearKey(p);
+                _gearT -= 1f / 15f;
+                if (gk != _lastGear || _gearT <= 0f) { w.Write(gk); _lastGear = gk; _gearT = 2f; }
                 Send(false);
             }
             if (InRaid && NetHub.Backend.IsHost && NpcDirector.I != null)
             {
                 if (!_wasHost) { _wasHost = true; NpcDirector.I.BecomeAuthority(); } // host migrated to us: run the NPCs
                 _npcT -= Time.deltaTime;
-                if (_npcT <= 0) { _npcT = 0.1f; SendNpcStates(); }
+                if (_npcT <= 0) { _npcT = 0.15f; SendNpcStates(); }
             }
             _voiceT -= Time.deltaTime;
             if (_voiceT <= 0 && NetHub.Voice != null && NetHub.Voice.Ready) { _voiceT = 0.25f; NetHub.Voice.UpdatePosition(p.Head); }
@@ -265,16 +275,29 @@ namespace Rago
         void SendNpcStates()
         {
             var list = NpcDirector.I.Npcs;
-            var w = W(Msg.NpcStates);
-            w.Write((short)list.Count);
+            _npcFullT -= 0.15f;
+            bool full = _npcFullT <= 0f;
+            if (full) _npcFullT = 1.5f;   // everyone, now and then (someone joining, a lost update)
+            var send = new List<Npc>();
             foreach (var n in list)
             {
-                w.Write(n.Id);
-                V3(w, n.transform.position);
-                w.Write(n.Yaw);
-                w.Write((byte)n.State);
-                V3(w, n.AimPoint);
-                w.Write(n.Alive);
+                if (n == null) continue;
+                byte st = (byte)((byte)n.State | (n.Alive ? 0x80 : 0));
+                if (!full && _npcSent.TryGetValue(n.Id, out var last) && last.st == st && (last.pos - n.transform.position).sqrMagnitude < 0.0016f
+                    && Mathf.Abs(Mathf.DeltaAngle(last.yaw, n.Yaw)) < 3f && (last.aim - n.AimPoint).sqrMagnitude < 0.04f) continue;
+                _npcSent[n.Id] = (n.transform.position, n.Yaw, st, n.AimPoint);
+                send.Add(n);
+            }
+            if (send.Count == 0) return;
+            var w = W(Msg.NpcStates);
+            w.Write((short)send.Count);
+            foreach (var n in send)
+            {
+                w.Write((short)n.Id);
+                P3(w, n.transform.position);
+                w.Write((byte)Mathf.RoundToInt(Mathf.Repeat(n.Yaw, 360f) / 360f * 255f));
+                w.Write((byte)((byte)n.State | (n.Alive ? 0x80 : 0)));
+                P3(w, n.AimPoint);
             }
             Send(false);
         }
@@ -383,8 +406,8 @@ namespace Rago
                                 int n = r.ReadInt16();
                                 for (int i = 0; i < n; i++)
                                 {
-                                    int id = r.ReadInt32(); var pos = V3(r); float yaw = r.ReadSingle(); var st = (NpcState)r.ReadByte(); var aim = V3(r); bool alive = r.ReadBoolean();
-                                    NpcDirector.I.Get(id)?.ApplyNetState(pos, yaw, st, aim, alive);
+                                    int id = r.ReadInt16(); var pos = P3(r); float yaw = r.ReadByte() / 255f * 360f; byte sb = r.ReadByte(); var aim = P3(r);
+                                    NpcDirector.I.Get(id)?.ApplyNetState(pos, yaw, (NpcState)(sb & 0x7f), aim, (sb & 0x80) != 0);
                                 }
                                 break;
                             }
