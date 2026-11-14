@@ -4,7 +4,8 @@ using UnityEngine;
 namespace Rago
 {
     /// <summary>
-    /// Spectator mode - only inside the Unity editor (never in a build you give out). Press F8 in Play mode:
+    /// Spectator mode - only inside the Unity editor (never in a build you give out), and only for the callsigns in
+    /// AllowedCallsigns. Press F8 in Play mode:
     /// you stop being sent to anyone (no body, no name, no voice), raiders ignore you, and you fly a free camera.
     /// ] / [: next / previous player   V: view (free / behind / their eyes)   WASD + mouse: fly   Space / Ctrl: up / down   Shift: fast.
     /// F8 again: back to playing (you appear to the others again).
@@ -24,6 +25,17 @@ namespace Rago
             var go = new GameObject("Spectator"); DontDestroyOnLoad(go); _i = go.AddComponent<Spectator>();
         }
 
+        // who may spectate (as well as being in the Unity editor)
+        static readonly string[] AllowedCallsigns = { "test#1714" };
+        static bool Allowed()
+        {
+            var p = Profile.Current;
+            if (p == null) return false;
+            string me = p.DisplayName.Trim().ToLowerInvariant();
+            foreach (var a in AllowedCallsigns) if (a == me) return true;
+            return false;
+        }
+
         static bool Key(KeyCode k) { try { return Input.GetKey(k); } catch { return false; } }
         static bool KeyDown(KeyCode k) { try { return Input.GetKeyDown(k); } catch { return false; } }
 
@@ -32,7 +44,11 @@ namespace Rago
             if (!Application.isEditor) return;
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (pl == null) return;
-            if (KeyDown(KeyCode.F8)) Set(!Active, pl);
+            if (KeyDown(KeyCode.F8))
+            {
+                if (!Active && !Allowed()) { pl.Toast("Spectator mode isn't available on this account"); return; }
+                Set(!Active, pl);
+            }
             if (!Active) return;
             var remotes = NetGame.I != null ? new List<RemotePlayer>(NetGame.I.Remotes.Values) : new List<RemotePlayer>();
             remotes.RemoveAll(r => r == null);
