@@ -27,13 +27,34 @@ namespace Rago
 
         // who may spectate (as well as being in the Unity editor)
         static readonly string[] AllowedCallsigns = { "test#1714" };
+        public const string PrefKey = "RagoExtract.SpectatorAllowed";
+        /// <summary>Set by the editor menu (Rago Extract > Spectator > Allow On This PC): stored on this computer only.</summary>
+        public static bool AllowedOnThisPc;
+
         static bool Allowed()
         {
+            if (AllowedOnThisPc) return true;
             var p = Profile.Current;
             if (p == null) return false;
             string me = p.DisplayName.Trim().ToLowerInvariant();
             foreach (var a in AllowedCallsigns) if (a == me) return true;
             return false;
+        }
+
+        /// <summary>Spectate on / off (F8, or the editor menu Rago Extract > Spectator > Toggle).</summary>
+        public static void Toggle()
+        {
+            if (!Application.isEditor || _i == null) return;
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl == null) { Debug.Log("[Rago Extract] spectator: start Play mode first"); return; }
+            if (!Active && !Allowed())
+            {
+                string who = Profile.Current != null ? Profile.Current.DisplayName : "?";
+                pl.Toast("Spectator is locked - menu: Rago Extract > Spectator > Allow On This PC");
+                Debug.Log("[Rago Extract] spectator is locked for this profile (" + who + "). Use Rago Extract > Spectator > Allow On This PC.");
+                return;
+            }
+            _i.Set(!Active, pl);
         }
 
         static bool Key(KeyCode k) { try { return Input.GetKey(k); } catch { return false; } }
@@ -44,11 +65,7 @@ namespace Rago
             if (!Application.isEditor) return;
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (pl == null) return;
-            if (KeyDown(KeyCode.F8))
-            {
-                if (!Active && !Allowed()) { pl.Toast("Spectator mode isn't available on this account"); return; }
-                Set(!Active, pl);
-            }
+            if (KeyDown(KeyCode.F8)) Toggle();
             if (!Active) return;
             var remotes = NetGame.I != null ? new List<RemotePlayer>(NetGame.I.Remotes.Values) : new List<RemotePlayer>();
             remotes.RemoveAll(r => r == null);
