@@ -100,12 +100,12 @@ namespace Rago
             var I2 = I;
             var lgo = new GameObject("BlastLight");
             lgo.transform.position = p + Vector3.up * 0.4f;
-            var l = lgo.AddComponent<Light>(); l.type = LightType.Point; l.range = flash ? 22f : 16f; l.intensity = flash ? 9f : 6f;
+            var l = lgo.AddComponent<Light>(); l.type = LightType.Point; l.range = flash ? 14f : 16f; l.intensity = flash ? 3f : 6f;   // no eye-searing white pop
             l.color = flash ? new Color(1f, 1f, 1f) : new Color(1f, 0.6f, 0.25f);
             Destroy(lgo, flash ? 0.12f : 0.18f);
             if (flash)
             {
-                for (int i = 0; i < 3; i++) Emit(I2._flashSprite, p + Vector3.up * 0.2f, Vector3.zero, 2.5f + i, 0.12f, new Color(1, 1, 1, 1));
+                for (int i = 0; i < 2; i++) Emit(I2._flashSprite, p + Vector3.up * 0.2f, Vector3.zero, 1.2f + i * 0.5f, 0.08f, new Color(0.6f, 0.6f, 0.55f, 0.6f));
                 for (int i = 0; i < 4; i++) Emit(I2._smoke, p + Vector3.up * 0.1f, (Vector3.up + Random.insideUnitSphere * 0.6f) * 0.6f, Random.Range(0.4f, 0.8f), Random.Range(1.5f, 2.5f), new Color(0.85f, 0.85f, 0.85f, 0.45f));
                 for (int i = 0; i < 12; i++) Emit(I2._sparks, p, Random.insideUnitSphere * 5f, 0.012f, 0.15f, new Color(1, 1, 0.9f));
                 return;

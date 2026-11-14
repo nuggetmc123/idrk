@@ -41,17 +41,28 @@ namespace Rago
 
         static string PathFile => Path.Combine(Application.persistentDataPath, "rago_profile.json");
 
-        public static Profile LoadOrCreate()
+        static string BackupFile => PathFile + ".bak";
+
+        static Profile TryRead(string path)
         {
             try
             {
-                if (File.Exists(PathFile))
-                {
-                    var p = JsonUtility.FromJson<Profile>(File.ReadAllText(PathFile));
-                    if (p != null) { p.Fix(); Current = p; return p; }
-                }
+                if (!File.Exists(path)) return null;
+                var text = File.ReadAllText(path);
+                if (string.IsNullOrWhiteSpace(text)) return null;
+                var p = JsonUtility.FromJson<Profile>(text);
+                return p != null && p.stash != null ? p : null;
             }
-            catch (System.Exception e) { Debug.LogWarning("[Rago] profile load failed, starting fresh: " + e.Message); }
+            catch (System.Exception e) { Debug.LogWarning("[Rago] couldn't read " + path + ": " + e.Message); return null; }
+        }
+
+        public static Profile LoadOrCreate()
+        {
+            // the profile, or if that's damaged (the game was closed mid-save), the backup - never a silent reset
+            var p = TryRead(PathFile) ?? TryRead(BackupFile);
+            if (p != null) { p.Fix(); Current = p; return p; }
+            if (File.Exists(PathFile))
+                try { File.Copy(PathFile, PathFile + ".damaged", true); } catch { }   // keep the broken one, just in case
             Current = NewProfile();
             Current.Save();
             return Current;
@@ -74,6 +85,9 @@ namespace Rago
                 friendsChecked = friendsChecked2 = true;
                 friends.RemoveAll(f => !recent.Exists(r => r.Trim().ToLowerInvariant() == f.Trim().ToLowerInvariant()));
             }
+            // the game was closed in the middle of a raid: the ammo packed for it goes back to the reserve
+            if (loadout.ammo != null) ReturnAmmoToStash();
+            loadout.ammo = null;
             stash.RemoveAll(d => d == null || Db.Get(d.id) == null);
             loadout.pack.RemoveAll(d => d == null || Db.Get(d.id) == null);
             if (version < 2)
@@ -129,7 +143,15 @@ namespace Rago
 
         public void Save()
         {
-            try { File.WriteAllText(PathFile, JsonUtility.ToJson(this, true)); }
+            // write a temp file and swap it in, keeping the last good one as a backup: a save cut off half way (the app
+            // closed, the headset slept) can never leave a broken profile that loads as a brand-new one
+            try
+            {
+                string tmp = PathFile + ".tmp";
+                File.WriteAllText(tmp, JsonUtility.ToJson(this, true));
+                if (File.Exists(PathFile)) { File.Copy(PathFile, BackupFile, true); File.Delete(PathFile); }
+                File.Move(tmp, PathFile);
+            }
             catch (System.Exception e) { Debug.LogWarning("[Rago] profile save failed: " + e.Message); }
         }
 

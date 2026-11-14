@@ -477,6 +477,8 @@ namespace Rago
             }
             // ---- the Exchange: a few steps from the lift doors, facing them
             SellStation.Create(transform, new Vector3(W / 2 - 7.5f, 0, -6f), -90f);
+            // ---- a Lost & Found by the lift: anything left lying around turns up here, and goes home to your stash when you leave
+            LostAndFound.Create(transform, new Vector3(W / 2 - 3f, 0, -D / 2 + 0.55f), 180f);
             // ---- Bruno the Foreman on the west wall, facing the room
             Foreman = QuestStall.Create(transform, new Vector3(-W / 2 + 3.6f, 0, -1f), -90f, 211);
             b.AddLight(new Vector3(-W / 2 + 4.6f, 3.6f, -1f), new Color(1f, 0.8f, 0.55f), 7f, 1.2f);

@@ -42,6 +42,17 @@ namespace Rago
             _cam.cullingMask = mask;
             var main = Camera.main;
             if (main != null) { _cam.clearFlags = main.clearFlags; _cam.backgroundColor = main.backgroundColor; }
+            // the scope shader didn't build on this device: fall back to a plain textured lens (zoom, no reticle)
+            if (_mat != null && (_mat.shader == null || !_mat.shader.isSupported || _mat.shader.name != "Rago/ScopeLens"))
+            {
+                {
+                    var m = Mats.UnlitTexture(_rt);
+                    var mr = _sight.Lens.GetComponent<MeshRenderer>();
+                    if (mr != null) mr.sharedMaterial = m;
+                    _mat = m;
+                    Debug.LogWarning("[Rago] scope shader unavailable - using a plain lens");
+                }
+            }
             if (_mat != null) _mat.SetTexture("_MainTex", _rt);
         }
 
@@ -62,7 +73,7 @@ namespace Rago
                 _cam.fieldOfView = Mathf.Clamp(apparent / _mag, 0.5f, 30f);
                 _cam.Render();
             }
-            if (want != _live) { _live = want; _mat.SetFloat("_Active", want ? 1f : 0f); }
+            if (want != _live) { _live = want; if (_mat.HasProperty("_Active")) _mat.SetFloat("_Active", want ? 1f : 0f); }
         }
 
         void OnDestroy()

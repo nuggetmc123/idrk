@@ -43,7 +43,7 @@ Shader "Rago/ScopeLens"
                 return o;
             }
 
-            float line(float d, float w) { return 1 - smoothstep(w * 0.6, w, d); }
+            float lineMask(float d, float w) { return 1 - smoothstep(w * 0.6, w, d); }
 
             half4 frag (v2f i) : SV_Target
             {
@@ -67,12 +67,12 @@ Shader "Rago/ScopeLens"
                 if (_Style < 0.5)
                 {
                     float thick = r > 0.45 ? 0.05 : w;          // duplex: heavy posts outside, fine wires in the middle
-                    k = max(line(abs(c.x), thick) * step(abs(c.y), 1), line(abs(c.y), thick));
+                    k = max(lineMask(abs(c.x), thick) * step(abs(c.y), 1), lineMask(abs(c.y), thick));
                     k *= step(r, 0.98);
                 }
                 else if (_Style < 1.5)
                 {
-                    k = max(line(abs(c.x), w), line(abs(c.y), w));
+                    k = max(lineMask(abs(c.x), w), lineMask(abs(c.y), w));
                     for (int n = 1; n <= 4; n++)
                     {
                         k = max(k, 1 - smoothstep(0.018, 0.026, length(c - float2(n * 0.18, 0))));
@@ -84,8 +84,8 @@ Shader "Rago/ScopeLens"
                 else
                 {
                     float a = abs(c.x) * 1.4 + c.y;             // chevron tip at the centre
-                    k = line(abs(a), 0.03) * step(-0.18, c.y) * step(c.y, 0.02) * step(abs(c.x), 0.14);
-                    k = max(k, line(abs(c.y + 0.5), 0.014) * step(abs(c.x), 0.02));
+                    k = lineMask(abs(a), 0.03) * step(-0.18, c.y) * step(c.y, 0.02) * step(abs(c.x), 0.14);
+                    k = max(k, lineMask(abs(c.y + 0.5), 0.014) * step(abs(c.x), 0.02));
                 }
                 half3 col = lerp(img, half3(0, 0, 0), k);
                 col += _DotColor.rgb * (1 - smoothstep(0.025, 0.04, r)) * (_Style > 1.5 ? 0 : 1);

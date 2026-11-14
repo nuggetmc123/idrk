@@ -222,6 +222,16 @@ namespace Rago
             return m;
         }
 
+        /// <summary>A plain textured, unlit material (any texture, e.g. a render texture). Always in the build.</summary>
+        public static Material UnlitTexture(Texture t)
+        {
+            Init();
+            var m = new Material(_unlit);
+            m.SetColor("_Color", Color.white);
+            m.SetTexture("_MainTex", t);
+            return m;
+        }
+
         /// <summary>A magnified scope's eyepiece (one per scope: it shows that scope's own camera).</summary>
         public static Material Scope(int style, Color dot, float lensR)
         {

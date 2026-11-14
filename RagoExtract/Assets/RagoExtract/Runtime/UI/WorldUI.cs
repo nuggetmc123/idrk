@@ -367,7 +367,7 @@ namespace Rago
             _flash = Mathf.MoveTowards(_flash, 0, dt);
             float fa = Mathf.Clamp01(_flash);
             _flashR.enabled = fa > 0.01f;
-            if (_flashR.enabled) _flashM.SetColor("_Color", new Color(1, 1, 1, fa));
+            if (_flashR.enabled) _flashM.SetColor("_Color", new Color(0.01f, 0.01f, 0.01f, fa));   // blinded = blacked out (a white screen hurts in a headset)
             _suppM.SetColor("_Color", new Color(0, 0, 0, _sup * 0.75f));
             _supp.enabled = _sup > 0.01f;
             _toastT -= dt; if (_toastT <= 0) _toast.text = "";

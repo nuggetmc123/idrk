@@ -86,7 +86,7 @@ namespace Rago
             n._rng = new Rng(seed);
             n.Heavy = heavy;
             n.BossName = boss;
-            n.MaxHealth = n.Health = boss != null ? 450 : heavy ? 150 : 100;
+            n.MaxHealth = n.Health = boss != null ? 1400 : heavy ? 150 : 100;   // a boss soaks up a magazine or two
             n.Rig = HumanRig.Build(boss != null ? BossOutfit(boss) : heavy ? Outfit.RaiderHeavy : Outfit.Raider, seed, go.transform);
             foreach (var c in n.Rig.colliders)
             {
@@ -571,14 +571,15 @@ namespace Rago
                 var it = ItemFactory.Spawn(def.id, Rig.chest.position + Vector3.up * 0.25f + Random.insideUnitSphere * 0.2f, Random.rotation);
                 if (it != null) { it.netId = 60000 + Id * 8 + 1 + i; NetGame.I?.Register(it); }
             }
-            // a boss carries a vault keycard and vault-grade loot
+            // a boss carries a vault keycard and a couple of valuables (their own gun and armour drop below - no pile of random guns)
             if (IsBoss)
             {
                 var key = ItemFactory.Spawn(new ItemData("key_vault"), Rig.chest.position + Vector3.up * 0.3f, Random.rotation);
                 if (key != null) { key.netId = 90000 + Id * 4; NetGame.I?.Register(key); }
                 for (int i = 0; i < 2; i++)
                 {
-                    var def = Db.Roll(Db.LootTable.Vault, rng);
+                    var def = Db.Roll(Db.LootTable.Safe, rng);
+                    if (def != null && def.kind == ItemKind.Key) def = Db.Roll(Db.LootTable.Safe, rng);
                     if (def == null) continue;
                     var it = ItemFactory.Spawn(def.id, Rig.chest.position + Vector3.up * 0.35f + Random.insideUnitSphere * 0.25f, Random.rotation);
                     if (it != null) { it.netId = 90000 + Id * 4 + 1 + i; NetGame.I?.Register(it); }
