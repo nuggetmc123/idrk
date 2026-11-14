@@ -301,7 +301,7 @@ namespace Rago
             mb.Sub(FIN).Box(new Vector3(0, rig.boreY - 0.004f, 0.075f + bl * 0.5f), new Vector3(0.012f, 0.01f, bl * 0.9f), W, 0.002f); // ejector shroud
             Irons(mb, -0.005f, 0.065f + bl, 0.091f, 0.082f, rig.boreY + 0.024f);
             // hammer
-            mb.Sub(FIN).Box(new Vector3(0, 0.083f, -0.03f), new Vector3(0.008f, 0.02f, 0.012f), W, 0.002f, 1, Quaternion.Euler(-30, 0, 0));
+            mb.Sub(FIN).Box(new Vector3(0, 0.071f, -0.036f), new Vector3(0.008f, 0.016f, 0.012f), W, 0.002f, 1, Quaternion.Euler(-30, 0, 0));   // low and back: below the rear sight's notch, so it never blocks the sight picture
             rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY + 0.008f, 0.077f + bl));
             rig.ejectPort = Anchor(rig.root, "Eject", cylC + new Vector3(0.02f, 0, 0));
             rig.magwell = Anchor(rig.root, "Magwell", cylC + new Vector3(0.035f, 0, -0.03f), Quaternion.Euler(0, 0, 90));

@@ -14,7 +14,7 @@ namespace Rago
     public class GameMenu : MonoBehaviour
     {
         public static GameMenu I;
-        enum Tab { Party, Friends, Recent, Settings }
+        enum Tab { Party, Friends, Recent, Settings, Tester }
         Tab _tab = Tab.Party;
         Transform _panel, _content;
         TextMesh _header;
@@ -42,11 +42,11 @@ namespace Rago
             _panel = UI.Panel(transform, "Menu", Vector3.zero, Quaternion.identity, new Vector2(1.12f, 0.9f), null, true, Skin.Steel);
             _header = UI.Text(_panel, "", new Vector3(-0.52f, 0.39f, 0), 0.034f, UI.Accent, TextAnchor.MiddleLeft, FontStyle.Bold);
             UI.Button(_panel, "X", new Vector3(0.5f, 0.39f, 0), new Vector2(0.07f, 0.065f), () => Show(false), new Color(0.5f, 0.15f, 0.1f), BtnStyle.Key);
-            string[] names = { "PARTY", "FRIENDS", "RECENT", "SETTINGS" };
-            for (int i = 0; i < 4; i++)
+            string[] names = { "PARTY", "FRIENDS", "RECENT", "SETTINGS", "TESTER" };
+            for (int i = 0; i < names.Length; i++)
             {
                 var t = (Tab)i;
-                _tabBtns.Add(UI.Button(_panel, names[i], new Vector3(-0.405f + i * 0.27f, 0.3f, 0), new Vector2(0.255f, 0.075f), () => { _tab = t; _typing = false; _page = 0; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }));
+                _tabBtns.Add(UI.Button(_panel, names[i], new Vector3(-0.432f + i * 0.216f, 0.3f, 0), new Vector2(0.205f, 0.075f), () => { _tab = t; _typing = false; _page = 0; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }));
             }
             _content = new GameObject("Content").transform;
             _content.SetParent(_panel, false);
@@ -163,6 +163,7 @@ namespace Rago
                 case Tab.Party: DrawParty(); break;
                 case Tab.Friends: DrawFriends(); break;
                 case Tab.Recent: DrawRecent(); break;
+                case Tab.Tester: DrawTester(); break;
                 default: DrawSettings(); break;
             }
         }
@@ -174,6 +175,61 @@ namespace Rago
             UI.Button(_content, label, new Vector3(x, y, 0), new Vector2(w, 0.065f), () => { click(); _dirty = true; }, col);
 
         static readonly Color Go = new Color(0.2f, 0.42f, 0.2f), Stop = new Color(0.5f, 0.15f, 0.1f);
+
+        // ------------------------------------------------------------------------------- tester tools
+        static readonly string[] Cats = { "GUNS", "ARMOR", "ATTACHMENTS", "SIGHTS", "OTHER" };
+        static int _cat, _pick, _npcKind;
+        static readonly string[] NpcKinds = { "Raider", "Heavy raider", "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker" };
+
+        static List<ItemDef> CatItems(int cat)
+        {
+            Db.Init();
+            var l = new List<ItemDef>();
+            switch (cat)
+            {
+                case 0: l.AddRange(Db.Guns); break;
+                case 1: l.AddRange(Db.Armor); l.AddRange(Db.Packs); break;
+                case 2: l.AddRange(Db.Attachments); break;
+                case 3: l.AddRange(Db.Sights); break;
+                default: l.AddRange(Db.Misc); break;
+            }
+            return l;
+        }
+
+        void DrawTester()
+        {
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl == null) return;
+            float y = 0.2f;
+            Line("God mode (no damage):", y);
+            Btn(pl.Vitals.God ? "ON" : "OFF", 0.28f, y, 0.16f, () => { pl.Vitals.God = !pl.Vitals.God; if (pl.Vitals.God) pl.Vitals.ResetFull(); }, pl.Vitals.God ? Go : (Color?)null);
+            Btn("HEAL", 0.45f, y, 0.14f, () => pl.Vitals.ResetFull()); y -= 0.08f;
+            Line("Invisible to raiders:", y);
+            Btn(Tester.Invisible ? "ON" : "OFF", 0.28f, y, 0.16f, () => Tester.Invisible = !Tester.Invisible, Tester.Invisible ? Go : (Color?)null);
+            Btn("+AMMO", 0.45f, y, 0.14f, () =>
+            {
+                var g = (pl.HandR.Held as Gun) ?? (pl.HandL.Held as Gun);
+                if (g == null) { pl.Toast("Hold a gun to get ammo for it"); return; }
+                pl.Gear.Ammo[(int)g.g.cal] += 300; pl.Toast("+300 " + Db.CalName(g.g.cal));
+            }); y -= 0.1f;
+            // spawn any item
+            var items = CatItems(_cat);
+            _pick = items.Count == 0 ? 0 : (_pick % items.Count + items.Count) % items.Count;
+            Btn("<", -0.47f, y, 0.08f, () => { _cat = (_cat + Cats.Length - 1) % Cats.Length; _pick = 0; });
+            Line(Cats[_cat], y, 0.028f, UI.Accent, -0.41f);
+            Btn(">", -0.1f, y, 0.08f, () => { _cat = (_cat + 1) % Cats.Length; _pick = 0; }); y -= 0.08f;
+            string nm = items.Count > 0 ? items[_pick].name : "-";
+            Btn("<", -0.47f, y, 0.08f, () => _pick--);
+            Line(nm.Length > 24 ? nm.Substring(0, 23) + "." : nm, y, 0.026f, Color.white, -0.41f);
+            Btn(">", 0.1f, y, 0.08f, () => _pick++);
+            Btn("SPAWN", 0.36f, y, 0.2f, () => { if (items.Count > 0) Tester.SpawnItem(items[_pick]); }, Go); y -= 0.1f;
+            // spawn raiders / bosses
+            Btn("<", -0.47f, y, 0.08f, () => _npcKind = (_npcKind + NpcKinds.Length - 1) % NpcKinds.Length);
+            Line(NpcKinds[_npcKind], y, 0.026f, Color.white, -0.41f);
+            Btn(">", 0.1f, y, 0.08f, () => _npcKind = (_npcKind + 1) % NpcKinds.Length);
+            Btn("SPAWN NPC", 0.36f, y, 0.2f, () => Tester.SpawnNpc(_npcKind), Stop); y -= 0.08f;
+            Line("NPCs only spawn in a raid (and only the host's, in multiplayer).", y, 0.02f, UI.Dim);
+        }
 
         void DrawParty()
         {

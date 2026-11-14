@@ -71,7 +71,7 @@ namespace Rago
             transform.SetParent(at, false);
             transform.localPosition = Vector3.zero;
             transform.localRotation = Quaternion.identity;
-            if (sound) Sfx.Play(Synth.MagIn(), transform.position, 0.6f, 1.3f, 0.5f, 8f);
+            if (sound) { Sfx.Play(Synth.MagIn(), transform.position, 0.6f, 1.3f, 0.5f, 8f); RagoGame.I?.Player?.Toast(ad.name + " fitted to the " + g.g.name); }
         }
 
         public override void OnGrab(Hand h)

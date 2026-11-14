@@ -27,7 +27,7 @@ namespace Rago
         NavMeshDataInstance _nav;
         Light _sun;
 
-        public struct NpcSpawn { public Vector3 pos; public int count; public bool heavy; public string boss; public float chance; }
+        public struct NpcSpawn { public Vector3 pos; public int count; public bool heavy; public string boss; public float chance; public bool guard; }   // guard: always spawns (vault guards)
 
         public void Init(int seed)
         {
@@ -229,6 +229,17 @@ namespace Rago
         {
             var v = Vault.Create(this, Vaults.Count, pos, yaw, attached, wall, tint, height, ceiling, width, thick, sides, back);
             Vaults.Add(v);
+            // three heavy guards in front of the vault door, every raid
+            var q = Quaternion.Euler(0, yaw, 0);
+            NpcSpawns.Add(new NpcSpawn { pos = pos + q * new Vector3(0, 0.05f, -2.6f), count = 3, heavy = true, guard = true, chance = 1f });
+            // and three crates of vault-grade loot inside (behind the locked door)
+            if (IsRaid)
+                foreach (var lp in new[] { new Vector3(-1.1f, 0.13f, 1.3f), new Vector3(1.1f, 0.13f, 1.3f), new Vector3(0f, 0.13f, 3.7f) })
+                {
+                    var c = LootCrate.Create(this, Crates.Count, pos + q * lp, yaw + 180f, lp.z > 3f ? LootCrate.Kind.Safe : LootCrate.Kind.Crate);
+                    c.vaultGrade = true;
+                    Crates.Add(c);
+                }
             return v;
         }
 
@@ -292,6 +303,17 @@ namespace Rago
                         placed = true;
                     }
                 if (!placed) { Crates.RemoveAt(ci); Destroy(c.gameObject); Physics.SyncTransforms(); }
+            }
+            // last check: no crate may end up with a floor just above it (sunk under a house's floor boards): if one
+            // is, put it on top of that floor
+            foreach (var c in Crates)
+            {
+                if (c == null) continue;
+                Vector3 sz = c.Size.sqrMagnitude > 0 ? c.Size : new Vector3(0.6f, 0.4f, 0.5f);
+                Vector3 mid = c.transform.position + Vector3.up * (sz.y * 0.5f);
+                if (!Physics.Raycast(mid, Vector3.up, out var up, sz.y * 0.5f + 0.5f, mask, QueryTriggerInteraction.Ignore) || up.collider.transform.IsChildOf(c.transform)) continue;
+                if (Physics.Raycast(up.point + Vector3.up * 0.8f, Vector3.down, out var top, 1.0f, mask, QueryTriggerInteraction.Ignore) && top.normal.y > 0.7f && top.point.y - c.transform.position.y < 0.7f)
+                { c.transform.position = new Vector3(c.transform.position.x, top.point.y + 0.004f, c.transform.position.z); Physics.SyncTransforms(); }
             }
         }
 
@@ -822,6 +844,7 @@ namespace Rago
         public Kind kind;
         public int index;
         public bool opened;
+        public bool vaultGrade;   // a crate inside a vault: vault loot, and more of it
         public Vector3 Size;
         Transform _lid;
         ItemContainer _box;
@@ -906,8 +929,8 @@ namespace Rago
                 var p = RagoGame.I != null ? RagoGame.I.Player : null;
                 if (p == null) return;
                 Vector3 lp = _lid.position;
-                bool near = Vector3.Distance(p.HandL.Anchor.position, lp) < 0.5f && p.HandL.Input.GripHeld
-                         || Vector3.Distance(p.HandR.Anchor.position, lp) < 0.5f && p.HandR.Input.GripHeld;
+                bool near = Vector3.Distance(p.HandL.Anchor.position, lp) < 0.7f && p.HandL.Input.GripHeld
+                         || Vector3.Distance(p.HandR.Anchor.position, lp) < 0.7f && p.HandR.Input.GripHeld;
                 if (!XRInputs.VR && Desktop.Interact && Physics.Raycast(p.Head.position, p.Head.forward, out var h, 3f) && h.collider.transform.IsChildOf(transform)) near = true;
                 if (near) Open();
             }
@@ -925,8 +948,8 @@ namespace Rago
             Sfx.Play(kind == Kind.Safe ? Synth.SlideBack() : Synth.Grab(1), transform.position, 0.6f, kind == Kind.Safe ? 0.6f : 0.8f, 1f, 10f);
             foreach (var s in _box.slots) s.enabled = true;
             var rng = new Rng(_map.Seed * 7349 + index * 131);
-            var table = kind == Kind.WeaponCase ? Db.LootTable.WeaponCase : kind == Kind.Optics ? Db.LootTable.OpticsBox : kind == Kind.Medical ? Db.LootTable.Medical : kind == Kind.Safe ? Db.LootTable.Safe : kind == Kind.ArmorCase ? Db.LootTable.Armor : Db.LootTable.Crate;
-            int n = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? rng.Range(1, 3) : rng.Range(1, 5);
+            var table = vaultGrade ? Db.LootTable.Vault : kind == Kind.WeaponCase ? Db.LootTable.WeaponCase : kind == Kind.Optics ? Db.LootTable.OpticsBox : kind == Kind.Medical ? Db.LootTable.Medical : kind == Kind.Safe ? Db.LootTable.Safe : kind == Kind.ArmorCase ? Db.LootTable.Armor : Db.LootTable.Crate;
+            int n = vaultGrade ? Mathf.Min(_box.slots.Count, rng.Range(2, 5)) : kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? rng.Range(1, 3) : rng.Range(1, 5);
             for (int i = 0; i < n && i < _box.slots.Count; i++)
             {
                 var def = Db.Roll(table, rng);
@@ -1052,6 +1075,40 @@ namespace Rago
             _laptop.gameObject.AddComponent<ExfilLaptop>().zone = this;
         }
 
+        /// <summary>
+        /// Put the laptop crate somewhere clear at the edge of the zone - not inside a sandbag wall, a wreck or a crate -
+        /// standing on the ground and facing the middle of the zone.
+        /// </summary>
+        void PlaceLaptop()
+        {
+            if (_laptop == null) return;
+            Physics.SyncTransforms();
+            int mask = ~0;
+            foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) mask &= ~(1 << l);
+            var hits = new Collider[12];
+            Vector3 c = transform.position;
+            foreach (float r in new[] { 1.1f, 1.6f, 0.7f, 2.2f })
+                for (int k = 0; k < 12; k++)
+                {
+                    float a = k * 30f * Mathf.Deg2Rad;
+                    Vector3 dir = new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a));
+                    Vector3 p = c + dir * r;
+                    if (!Physics.Raycast(p + Vector3.up * 1.5f, Vector3.down, out var g, 3f, mask, QueryTriggerInteraction.Ignore) || g.normal.y < 0.8f || g.collider.transform.IsChildOf(_laptop)) continue;
+                    if (Mathf.Abs(g.point.y - c.y) > 0.6f) continue;
+                    var rot = Quaternion.LookRotation(dir, Vector3.up);   // the screen side (local -Z) faces the middle
+                    int n = Physics.OverlapBoxNonAlloc(g.point + Vector3.up * 0.34f, new Vector3(0.33f, 0.3f, 0.26f), hits, rot, mask, QueryTriggerInteraction.Ignore);
+                    bool blocked = false;
+                    for (int i = 0; i < n; i++) if (!hits[i].transform.IsChildOf(_laptop) && !hits[i].transform.IsChildOf(transform)) { blocked = true; break; }
+                    if (blocked) continue;
+                    // room to stand at it, on the zone side
+                    n = Physics.OverlapBoxNonAlloc(g.point - dir * 0.7f + Vector3.up * 1.0f, new Vector3(0.25f, 0.8f, 0.25f), hits, rot, mask, QueryTriggerInteraction.Ignore);
+                    for (int i = 0; i < n; i++) if (!hits[i].transform.IsChildOf(_laptop) && !hits[i].transform.IsChildOf(transform)) { blocked = true; break; }
+                    if (blocked) continue;
+                    _laptop.SetPositionAndRotation(g.point, rot);
+                    return;
+                }
+        }
+
         bool PlayerInZone(PlayerRig p)
         {
             Vector3 d = p.transform.position - transform.position; d.y = 0;
@@ -1076,6 +1133,8 @@ namespace Rago
             Sfx.Play(Synth.QueueFound(), _laptop.position, 0.5f, 1f, 0.6f, 15f);
             p.Toast("Exfil called - stay in the zone for " + (int)Time_ + " seconds");
         }
+
+        void Start() { PlaceLaptop(); }
 
         void Update()
         {
@@ -1205,16 +1264,20 @@ namespace Rago
             if (ceiling) B.Box(P(0, height + 0.07f, 2.5f + z0 * 0.5f), new Vector3(width + 0.4f, 0.14f, 5.4f - z0), conc, new Color(0.6f, 0.6f, 0.62f), q);
             B.Box(P(0, 0.06f, 2.5f + z0 * 0.5f), new Vector3(width - 0.4f, 0.12f, 4.6f - z0), Mats.Lit("vault_floor", Color.white, 0.3f, 0.5f, Mats.Tiles, Mats.TilesN, 0.3f, 0.2f, true, 0.5f), new Color(0.5f, 0.52f, 0.55f), q);
             B.AddLight(P(0, 2.6f, 2.5f), new Color(1f, 0.95f, 0.85f), 7f, 1.3f);
-            // door (round, swings open)
+            // door: a thick square steel slab that fills the frame exactly, with a locking wheel; swings open on the left
             v._door = new GameObject("DoorHinge").transform;
             v._door.SetParent(go.transform, false);
             v._door.localPosition = new Vector3(-0.95f, 1.15f, face - 0.06f);
             var dm = new MB(2);
-            dm.Sub(0).Cyl(new Vector3(0.95f, 0, 0.0f), new Vector3(0.95f, 0, -0.35f), 1.15f, 1.15f, 28, Color.white);
+            dm.Sub(0).Box(new Vector3(0.95f, 0.003f, -0.175f), new Vector3(1.86f, 2.3f, 0.35f), Color.white, 0.02f, 2);
+            dm.Sub(0).Box(new Vector3(0.95f, 0.003f, -0.355f), new Vector3(1.5f, 1.95f, 0.02f), new Color(0.85f, 0.85f, 0.85f), 0.01f);   // raised inner panel
+            foreach (float bx in new[] { 0.16f, 1.74f }) for (int k = 0; k < 4; k++)                                                          // bolt heads round the edge
+                dm.Sub(1).Cyl(new Vector3(bx, -0.9f + k * 0.6f, -0.35f), new Vector3(bx, -0.9f + k * 0.6f, -0.375f), 0.03f, 0.03f, 10, Color.white);
+            for (int h = 0; h < 3; h++) dm.Sub(1).Box(new Vector3(1.86f, -0.7f + h * 0.7f, -0.17f), new Vector3(0.06f, 0.18f, 0.3f), Color.white, 0.01f);   // locking bars on the opening edge
             dm.Sub(1).Cyl(new Vector3(0.95f, 0, -0.36f), new Vector3(0.95f, 0, -0.42f), 0.35f, 0.3f, 18, Color.white);
             for (int i = 0; i < 3; i++) dm.Sub(1).Box(new Vector3(0.95f, 0, -0.43f), new Vector3(0.9f, 0.06f, 0.05f), Color.white, 0.01f, 1, Quaternion.Euler(0, 0, i * 60f));
             var door = dm.Build("Door", v._door, Mats.Lit("vault_door", new Color(0.55f, 0.57f, 0.6f), 0.9f, 0.6f, Mats.Metal, Mats.MetalN, 0.15f, 0.35f), Mats.Chrome);
-            var dc = door.AddComponent<BoxCollider>(); dc.center = new Vector3(0.95f, 0, -0.17f); dc.size = new Vector3(2f, 2.3f, 0.36f);
+            var dc = door.AddComponent<BoxCollider>(); dc.center = new Vector3(0.95f, 0, -0.175f); dc.size = new Vector3(1.86f, 2.3f, 0.36f);
             door.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
             // card reader outside, right of the door (keycard only - no hacking)
             var reader = new GameObject("Reader").AddComponent<KeycardReader>();

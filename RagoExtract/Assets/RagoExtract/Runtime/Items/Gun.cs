@@ -143,7 +143,8 @@ namespace Rago
                 InsertMag(m, false);
             }
             chambered = d.chambered && (r > 0 || d.rounds < 0);
-            if (chambered && Internal && internalRounds > 0 && g.action != FireAction.Revolver && g.action != FireAction.Break) internalRounds--;
+            // saved rounds include the chambered one (a revolver's round under the hammer, a double's loaded barrel too)
+            if (chambered && Internal && internalRounds > 0) internalRounds--;
             else if (chambered && !Internal && mag != null && mag.rounds > 0) mag.rounds--;
             if (!string.IsNullOrEmpty(d.sight))
             {
@@ -160,7 +161,7 @@ namespace Rago
 
         public override ItemData Save()
         {
-            int r = Rounds;
+            int r = Rounds + (chambered ? 1 : 0);   // everything in the gun, the chambered round included (Load takes it back out)
             return new ItemData(g.id) { rounds = r, chambered = chambered, sight = sight != null ? sight.def.id : "",
                 muzzle = muzzleAtt != null ? muzzleAtt.def.id : "", side = sideAtt != null ? sideAtt.def.id : "", gripAtt = gripAtt != null ? gripAtt.def.id : "" };
         }
@@ -173,7 +174,9 @@ namespace Rago
             if (primaryHand != null) OnReloaded?.Invoke(this);
             if (Internal)
             {
-                int take = Mathf.Min(m.rounds, g.magSize - internalRounds);
+                // the round under the hammer / in a barrel counts: a 6-shot revolver holds 6, a double barrel 2
+                bool chamberCounts = g.action == FireAction.Revolver || g.action == FireAction.Break;
+                int take = Mathf.Max(0, Mathf.Min(m.rounds, g.magSize - internalRounds - (chamberCounts && chambered ? 1 : 0)));
                 internalRounds += take;
                 m.rounds -= take;
                 if (sound) Sfx.Play(Synth.MagIn(), transform.position, 0.7f, 1.15f, 0.5f, 10f);

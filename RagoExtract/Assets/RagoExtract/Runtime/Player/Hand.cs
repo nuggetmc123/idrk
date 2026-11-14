@@ -562,7 +562,8 @@ namespace Rago
                     var lc = c.GetComponentInParent<LootCrate>();
                     if (lc != null) { if (!lc.opened) { crate = lc; break; } continue; }   // an open crate: look for the loot inside it
                     if (c.isTrigger || c.GetComponentInParent<HitZone>() != null) continue;
-                    break;   // a wall or floor blocks the view
+                    if (_rhits[i].normal.y > 0.6f) continue;   // a floor or tabletop the sweep grazes on the way to a crate sitting on it doesn't block
+                    break;   // a wall blocks the view
                 }
             }
             if ((best != null && best != _remote) || (crate != null && crate != _remoteCrate)) Haptic(0.12f, 0.015f);

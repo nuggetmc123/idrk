@@ -162,7 +162,7 @@ namespace Rago
 
         public void Kill(string reason)
         {
-            if (!Alive) return;
+            if (!Alive || God) return;   // god mode (tester): nothing kills you
             Health = 0;
             rig.OnDeath(Vector3.zero, rig.Head.position);
             rig.Toast(reason);
@@ -196,6 +196,7 @@ namespace Rago
                 }
                 _dripT -= dt;
                 if (_dripT <= 0) { _dripT = Random.Range(0.3f, 0.8f) / Bleed; Fx.Drip(rig.Body.Rig.spine.position + Random.insideUnitSphere * 0.1f); }
+                if (God) { Health = MaxHealth; Bleed = 0; }   // tester god mode
                 if (Health <= 0) { Health = 0; rig.OnDeath(Vector3.zero, rig.Head.position); OnLocalDeath?.Invoke(-1); }
             }
             if (!rig.Sprinting) Stamina = Mathf.Min(MaxStamina, Stamina + dt * (StimBoost > 0 ? 30f : 12f));

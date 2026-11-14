@@ -39,6 +39,7 @@ namespace Rago
             _sparks = MakePS("Sparks", Mats.Unlit("fx_spark", new Color(1f, 0.75f, 0.35f, 1f), Mats.Spark, Mats.BlendKind.Additive), 300, 1f, true, 0f, 0.1f);
             _blood = MakePS("Blood", Mats.Unlit("fx_blood", new Color(0.45f, 0.02f, 0.02f, 1f), Mats.BloodDrop), 600, 1.2f, true, 0f, 0.4f);
             _bloodMist = MakePS("BloodMist", Mats.Unlit("fx_bloodmist", new Color(0.5f, 0.03f, 0.03f, 0.55f), Mats.Smoke), 200, 0.05f, false, 0.3f, 3.5f);
+            _flashSprite = MakePS("FlashSprite", Mats.Unlit("fx_flashsprite", new Color(1f, 0.95f, 0.85f, 1f), Mats.Flash, Mats.BlendKind.Additive), 60, 0f, false, 0.4f, 1.6f);   // grenade / flashbang pop (was never made: flashbangs threw an error)
             _debris = MakePS("Debris", Mats.Unlit("fx_debris", new Color(0.3f, 0.28f, 0.25f, 1f), Mats.BloodDrop), 300, 1.5f, false, 0f, 0.8f);
         }
 
@@ -89,7 +90,7 @@ namespace Rago
                 position = pos, velocity = vel, startSize = size, startLifetime = life, startColor = col,
                 rotation = rot, applyShapeToPosition = false
             };
-            ps.Emit(ep, 1);
+            if (ps != null) ps.Emit(ep, 1);
         }
 
         // ---------------------------------------------------------------- grenades

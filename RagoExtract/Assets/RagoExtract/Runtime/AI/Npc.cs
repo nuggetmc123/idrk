@@ -157,7 +157,7 @@ namespace Rago
             p = Vector3.zero;
             var targets = new List<Vector3>();
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
-            if (pl != null && pl.Vitals.Alive && !RagoGame.I.SafeZone) targets.Add(pl.transform.position);
+            if (pl != null && pl.Vitals.Alive && !RagoGame.I.SafeZone && !Tester.Invisible) targets.Add(pl.transform.position);
             if (NetGame.Live && NetGame.IsHost) foreach (var r in NetGame.I.Remotes.Values) if (r != null && r.Alive) targets.Add(r.transform.position);
             if (targets.Count == 0) return false;
             var t = targets[_rng.Range(0, targets.Count)];
@@ -231,7 +231,7 @@ namespace Rago
         IEnumerable<Target> Candidates()
         {
             var p = RagoGame.I != null ? RagoGame.I.Player : null;
-            if (p != null && p.Vitals.Alive && !RagoGame.I.SafeZone)
+            if (p != null && p.Vitals.Alive && !RagoGame.I.SafeZone && !Tester.Invisible)
                 yield return new Target { d = p.Vitals, aim = p.Body.Rig.chest, vel = p.MoveVelocity };
             if (NetGame.Live && NetGame.IsHost)
                 foreach (var r in NetGame.I.Remotes.Values)

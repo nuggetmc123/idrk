@@ -111,9 +111,11 @@ namespace Rago
                 return;
             }
             primaryHand = null;
+            // onto a gun first (a suppressor at the muzzle, a mag at the magwell, a sight on the rail) - otherwise a pouch
+            // close by (your chest pouch is right where you fit a suppressor) took it instead and it never went on
+            if (TryAttach()) return;
             if (Backpack.TryDropInto(this)) return;   // let go inside an open bag: it goes in
             if (TrySlot(h)) return;
-            if (TryAttach()) return;
             Drop(vel, angVel);
         }
 

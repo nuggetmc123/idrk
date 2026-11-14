@@ -27,9 +27,12 @@ namespace Rago
         public void SpawnSquads(List<MapBase.NpcSpawn> spawns, int seed, bool puppets, List<Pose> avoid = null, float safeRadius = 110f, int maxNpcs = MaxNpcs)
         {
             float SafeRadius = safeRadius;   // no raiders this close to a spawn spot
+            // bosses live in a fixed lair, so they only have to be clear of a player's own spawn spot (30 m), not the big
+            // safe radius for ordinary raiders - that radius covered every lair, so bosses never turned up at all
+            var bosses = spawns.FindAll(s => s.boss != null || s.guard);
+            if (avoid != null) bosses = bosses.FindAll(s => { foreach (var a in avoid) { var d = a.position - s.pos; if (Mathf.Abs(d.y) > 3f) continue; d.y = 0; if (d.sqrMagnitude < 30f * 30f) return false; } return true; });
             if (avoid != null) spawns = spawns.FindAll(s => { foreach (var a in avoid) { var d = a.position - s.pos; if (Mathf.Abs(d.y) > 3f) continue; d.y = 0; if (d.sqrMagnitude < SafeRadius * SafeRadius) return false; } return true; });
-            var bosses = spawns.FindAll(s => s.boss != null);
-            spawns = spawns.FindAll(s => s.boss == null);
+            spawns = spawns.FindAll(s => s.boss == null && !s.guard);
             var rng = new Rng(seed * 13 + 5);
             int id = 0;
             // the maps are huge: spread a limited number of raiders over randomly picked squad spots, in smaller groups
@@ -52,6 +55,11 @@ namespace Rago
             foreach (var b in bosses)
             {
                 if (!brng.Chance(b.chance)) continue;
+                if (b.guard)
+                {
+                    for (int g = 0; g < b.count; g++) { Vector2 go = brng.InCircle() * 1.6f; SpawnOne(ref id, b.pos + new Vector3(go.x, 0, go.y), brng.Range(0f, 360f), seed, true, null, puppets); }
+                    continue;
+                }
                 SpawnOne(ref id, b.pos, brng.Range(0f, 360f), seed, true, b.boss, puppets);
                 for (int g = 0; g < b.count; g++)
                 {
@@ -59,6 +67,15 @@ namespace Rago
                     SpawnOne(ref id, b.pos + new Vector3(off.x, 0, off.y), brng.Range(0f, 360f), seed, true, null, puppets);
                 }
             }
+        }
+
+        int _testerId = 9000;
+        /// <summary>Tester: spawn one raider (or a boss) right now.</summary>
+        public void SpawnNow(Vector3 pos, float yaw, bool heavy, string boss)
+        {
+            int id = _testerId;
+            SpawnOne(ref id, pos, yaw, Random.Range(1, 99999), heavy, boss, false);
+            _testerId = id;
         }
 
         void SpawnOne(ref int id, Vector3 pos, float yaw, int seed, bool heavy, string boss, bool puppets)
