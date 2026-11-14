@@ -998,14 +998,21 @@ namespace Rago
                 _box.slots[i].Store(it, false);
             }
             // vaults open with a keycard only: safes often have one
-            if (false && kind == Kind.Safe && rng.Chance(0.35f))   // keycards only at their own spots now
+            // vaults (and air drops): a small chance of a Vault Keycard or a Military Radio - the only crates that ever have one
+            if (vaultGrade)
             {
-                var free = _box.FirstFree(null);
-                foreach (var sl in _box.slots) if (sl.item == null) { free = sl; break; }
-                if (free != null && !NetGame.Taken(10000 + index * 16 + 15))
+                string[] rare = { "key_vault", "val_radio" };
+                for (int r = 0; r < rare.Length; r++)
                 {
-                    var key = ItemFactory.Spawn(new ItemData("key_vault"), free.transform.position, transform.rotation);
-                    if (key != null) { key.netId = 10000 + index * 16 + 15; NetGame.I?.Register(key); free.Store(key, false); }
+                    int rid = 10000 + index * 16 + 13 + r;
+                    if (!rng.Chance(0.06f) || NetGame.Taken(rid)) continue;
+                    if (rare[r] == "val_radio" && _map != null && _map.Id == "underground" && !rng.Chance(0.5f)) continue;
+                    Slot fs = null;
+                    foreach (var sl in _box.slots) if (sl.item == null) { fs = sl; break; }
+                    if (fs == null) break;
+                    var ri = ItemFactory.Spawn(new ItemData(rare[r]), fs.transform.position, transform.rotation);
+                    if (ri == null) continue;
+                    ri.netId = rid; NetGame.I?.Register(ri); fs.Store(ri, false);
                 }
             }
         }
