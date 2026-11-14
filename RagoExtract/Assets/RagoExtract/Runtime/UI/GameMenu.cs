@@ -222,12 +222,12 @@ namespace Rago
             Btn("<", -0.47f, y, 0.08f, () => _pick--);
             Line(nm.Length > 24 ? nm.Substring(0, 23) + "." : nm, y, 0.026f, Color.white, -0.41f);
             Btn(">", 0.1f, y, 0.08f, () => _pick++);
-            Btn("SPAWN", 0.36f, y, 0.2f, () => { if (items.Count > 0) Tester.SpawnItem(items[_pick]); }, Go); y -= 0.1f;
+            Btn("SPAWN", 0.36f, y, 0.2f, () => { if (items.Count > 0) { Show(false); Tester.BeginPlace(items[_pick]); } }, Go); y -= 0.1f;
             // spawn raiders / bosses
             Btn("<", -0.47f, y, 0.08f, () => _npcKind = (_npcKind + NpcKinds.Length - 1) % NpcKinds.Length);
             Line(NpcKinds[_npcKind], y, 0.026f, Color.white, -0.41f);
             Btn(">", 0.1f, y, 0.08f, () => _npcKind = (_npcKind + 1) % NpcKinds.Length);
-            Btn("SPAWN NPC", 0.36f, y, 0.2f, () => Tester.SpawnNpc(_npcKind), Stop); y -= 0.08f;
+            Btn("SPAWN NPC", 0.36f, y, 0.2f, () => { Show(false); Tester.BeginPlace(null, _npcKind); }, Stop); y -= 0.08f;
             Line("NPCs only spawn in a raid (and only the host's, in multiplayer).", y, 0.02f, UI.Dim);
         }
 
