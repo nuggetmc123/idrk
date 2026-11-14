@@ -642,6 +642,7 @@ namespace Rago.Net
 
         void SendSys(ulong to, byte code, string text)
         {
+            if (code == 3 && Spectator.Active) return;   // spectating: don't introduce yourself (you stay out of their lists)
             var t = System.Text.Encoding.UTF8.GetBytes(text);
             var packet = new byte[t.Length + 2];
             packet[0] = 1; packet[1] = code;

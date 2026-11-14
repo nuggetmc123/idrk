@@ -24,6 +24,10 @@ namespace Rago
         public bool HiddenFromAi;   // tester: raiders ignore this player (other players still see them)
         public int ActorId => (int)NetId + 1;
         public Transform Chest => _rig != null ? _rig.chest : transform;
+        public Vector3 HeadPos => _sHead;
+        public Quaternion HeadRot => _sHeadR;
+        public string HoldingRight => _heldR;
+        public string HoldingLeft => _heldL;
 
         public static RemotePlayer Create(ulong id, int seed)
         {

@@ -41,7 +41,7 @@ namespace Rago
         /// <summary>Microphone audio from VoiceChat (8 kHz u-law frames).</summary>
         public void SendVoice(byte[] frame)
         {
-            if (!Live) return;
+            if (!Live || Spectator.Active) return;
             var w = W(Msg.Voice);
             w.Write((short)frame.Length); w.Write(frame);
             Send(false);
@@ -124,8 +124,12 @@ namespace Rago
             return (g.Helmet != null ? g.Helmet.id : "") + "|" + (g.Vest != null ? g.Vest.id : "") + "|" + (pack != null ? pack.def.id : "");
         }
 
+        /// <summary>Introduce yourself to everyone (after you stop spectating).</summary>
+        public void Announce() { if (Live) SendHello(ulong.MaxValue); }
+
         void SendHello(ulong to)
         {
+            if (Spectator.Active) return;   // spectating: nobody gets told you're here
             var w = W(Msg.Hello);
             w.Write(Profile.Current.DisplayName);
             w.Write(Profile.Current.outfitSeed);
@@ -138,7 +142,7 @@ namespace Rago
             var p = RagoGame.I != null ? RagoGame.I.Player : null;
             if (p == null) return;
             _poseT -= Time.deltaTime;
-            if (_poseT <= 0)
+            if (_poseT <= 0 && !Spectator.Active)   // spectating: no body is sent, so nobody sees you
             {
                 _poseT = 1f / 15f;
                 var w = W(Msg.Pose);
