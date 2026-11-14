@@ -536,6 +536,59 @@ namespace Rago
             return Clip("ringing", d, true, 0.6f);
         });
 
+        /// <summary>A four-engine cargo plane's drone (loops): low turboprop throb with a whine on top.</summary>
+        public static AudioClip PlaneDrone() => One("planedrone", () =>
+        {
+            float len = 4f;
+            var d = Buf(len);
+            var lp = new LP(220); var lp2 = new LP(1400);
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)SR;
+                // whole cycles over the loop length so it loops without a click
+                float f1 = Mathf.Round(62f * len) / len, f2 = Mathf.Round(93f * len) / len, f3 = Mathf.Round(124f * len) / len, w = Mathf.Round(880f * len) / len, beat = Mathf.Round(3f * len) / len;
+                float throb = 0.75f + 0.25f * Mathf.Sin(t * 2 * Mathf.PI * beat);
+                float tone = Mathf.Sin(t * 2 * Mathf.PI * f1) * 0.9f + Mathf.Sin(t * 2 * Mathf.PI * f2) * 0.5f + Mathf.Sin(t * 2 * Mathf.PI * f3) * 0.35f;
+                d[i] = (tone * throb + lp.P(N()) * 2.2f + lp2.P(N()) * 0.25f) * 0.6f + Mathf.Sin(t * 2 * Mathf.PI * w) * 0.04f;
+            }
+            return Clip("planedrone", d, true, 0.8f, true);
+        });
+
+        /// <summary>The spoon flying off as the grenade leaves your hand: a springy metal "ping".</summary>
+        public static AudioClip SpoonFly() => One("spoonfly", () =>
+        {
+            var d = Buf(0.45f);
+            MetalClick(d, 0, 0.8f, 4400, 0.12f);
+            MetalClick(d, 0.01f, 0.35f, 6100, 0.18f);
+            MetalClick(d, 0.22f, 0.25f, 3800, 0.04f);   // the spoon landing
+            return Clip("spoonfly", d);
+        });
+
+        /// <summary>A grenade bouncing / rolling on a hard floor: heavy metal clunk.</summary>
+        public static AudioClip GrenadeBounce(int v) => Get("gbounce", k =>
+        {
+            var d = Buf(0.3f);
+            Thump(d, 0, 0.8f, 160 + k * 25, 0.03f);
+            MetalClick(d, 0.002f, 0.45f, 1900 + k * 300, 0.06f);
+            Friction(d, 0.02f, 0.15f, 0.12f, 400, 2400);
+            return Clip("gbounce" + k, d);
+        })[Mathf.Clamp(v, 0, 2)];
+
+        /// <summary>A far-away explosion: a low, rolling thud with an echo.</summary>
+        public static AudioClip ExplosionFar() => One("explosionfar", () =>
+        {
+            var d = Buf(3.5f);
+            var lp = new LP(110); var lp2 = new LP(70);
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)SR;
+                float boom = lp.P(N()) * Mathf.Exp(-t * 2.6f) * 5f * Mathf.Clamp01(t * 40f);
+                float echo = t > 0.45f ? lp2.P(N()) * Mathf.Exp(-(t - 0.45f) * 1.6f) * 2.6f : 0f;
+                d[i] = boom + echo;
+            }
+            return Clip("explosionfar", d);
+        });
+
         /// <summary>Grenade pin pulled: a metal ping and the spoon click.</summary>
         public static AudioClip PinPull() => One("pinpull", () =>
         {

@@ -168,6 +168,27 @@ namespace Rago
             _lootPlaced = true;
             var rng = new Rng(LootSeed * 92821 + 17);
             Physics.SyncTransforms();
+            // the map's own keycard spots (4, every map) and military radio spots (3, not the Underground): the same places
+            // every raid so you can learn them, picked once from this map's desk / floor spots and kept free of crates
+            var fixedRng = new Rng(Seed * 7027 + 911);
+            var cand = _spots.FindAll(s => s.desk && !s.kind.HasValue);
+            if (cand.Count < 7) cand = _spots.FindAll(s => !s.kind.HasValue);
+            cand.Sort((a, b) => a.pos.x != b.pos.x ? a.pos.x.CompareTo(b.pos.x) : a.pos.z.CompareTo(b.pos.z));
+            var cardSpots = new List<Vector3>(); var radioSpots = new List<Vector3>();
+            bool radios = Id != "underground";
+            for (int i = 0; i < 7 && cand.Count > 0; i++)
+            {
+                if (i >= 4 && !radios) break;
+                int k = fixedRng.Range(0, cand.Count);
+                var sp = cand[k]; cand.RemoveAt(k);
+                // keep them spread out: skip one too close to a spot already taken
+                bool close = false;
+                foreach (var q in cardSpots) if ((q - sp.pos).sqrMagnitude < 15f * 15f) close = true;
+                foreach (var q in radioSpots) if ((q - sp.pos).sqrMagnitude < 15f * 15f) close = true;
+                if (close && cand.Count > 7 - i) { i--; continue; }
+                _spots.RemoveAll(s => s.pos == sp.pos);
+                if (i < 4) cardSpots.Add(sp.pos); else radioSpots.Add(sp.pos);
+            }
             var free = new List<LootSpot>();
             foreach (var s in _spots)
             {
@@ -188,13 +209,17 @@ namespace Rago
                 }
                 AddCrate(s.pos, FaceRoom(s.pos, s.yaw, s.desk), k);
             }
-            // a few Vault Keycards lying loose around the map (on desks when there are free ones), different every raid
-            int cards = Mathf.Max(1, Vaults.Count) + (rng.Chance(0.5f) ? 1 : 0);
-            var pool = free.FindAll(f => f.desk);
-            if (pool.Count < cards) pool = free;
-            var picks = new List<Vector3>();
-            for (int i = 0; i < cards && pool.Count > 0; i++) { int k = rng.Range(0, pool.Count); picks.Add(pool[k].pos); pool.RemoveAt(k); }
-            if (picks.Count > 0) gameObject.AddComponent<KeycardSpawner>().At = picks;
+            // this raid: each card spot has a card half the time (at least one somewhere), each radio spot likewise
+            var at = new List<Vector3>(); var ids = new List<string>();
+            void Fill(List<Vector3> spots, string id)
+            {
+                int before = at.Count;
+                foreach (var p in spots) if (rng.Chance(0.5f)) { at.Add(p); ids.Add(id); }
+                if (at.Count == before && spots.Count > 0) { at.Add(spots[rng.Range(0, spots.Count)]); ids.Add(id); }
+            }
+            Fill(cardSpots, "key_vault");
+            Fill(radioSpots, "val_radio");
+            if (at.Count > 0) { var ks = gameObject.AddComponent<KeycardSpawner>(); ks.At = at; ks.Ids = ids; }
             _spots.Clear();
         }
 
@@ -965,6 +990,7 @@ namespace Rago
                 if (def == null) continue;
                 var d = new ItemData(def.id);
                 if (def is GunDef gd) { d.rounds = rng.Range(0, gd.magSize + 1); d.chambered = false; }
+                if (NetGame.Taken(10000 + index * 16 + i)) continue;   // another player already took it
                 var it = ItemFactory.Spawn(d, _box.slots[i].transform.position, transform.rotation);
                 if (it == null) continue;
                 it.netId = 10000 + index * 16 + i;
@@ -972,11 +998,11 @@ namespace Rago
                 _box.slots[i].Store(it, false);
             }
             // vaults open with a keycard only: safes often have one
-            if (kind == Kind.Safe && rng.Chance(0.35f))
+            if (false && kind == Kind.Safe && rng.Chance(0.35f))   // keycards only at their own spots now
             {
                 var free = _box.FirstFree(null);
                 foreach (var sl in _box.slots) if (sl.item == null) { free = sl; break; }
-                if (free != null)
+                if (free != null && !NetGame.Taken(10000 + index * 16 + 15))
                 {
                     var key = ItemFactory.Spawn(new ItemData("key_vault"), free.transform.position, transform.rotation);
                     if (key != null) { key.netId = 10000 + index * 16 + 15; NetGame.I?.Register(key); free.Store(key, false); }
@@ -989,12 +1015,15 @@ namespace Rago
     public class KeycardSpawner : MonoBehaviour
     {
         public List<Vector3> At;
+        public List<string> Ids;
         System.Collections.IEnumerator Start()
         {
             yield return new WaitForSeconds(1f);
             for (int i = 0; At != null && i < At.Count; i++)
             {
-                var it = ItemFactory.Spawn(new ItemData("key_vault"), At[i] + Vector3.up * 0.04f, Quaternion.Euler(0, i * 67f + 20f, 0));
+                if (NetGame.Taken(950000 + i)) continue;
+                string id = Ids != null && i < Ids.Count ? Ids[i] : "key_vault";
+                var it = ItemFactory.Spawn(new ItemData(id), At[i] + Vector3.up * 0.04f, Quaternion.Euler(0, i * 67f + 20f, 0));
                 if (it == null) continue;
                 it.netId = 950000 + i;
                 NetGame.I?.Register(it);

@@ -212,7 +212,7 @@ namespace Rago
         // ------------------------------------------------------------------------------- tester tools
         static readonly string[] Cats = { "GUNS", "ARMOR", "ATTACHMENTS", "SIGHTS", "OTHER" };
         static int _cat, _pick, _npcKind;
-        static readonly string[] NpcKinds = { "Raider", "Heavy raider", "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker" };
+        static readonly string[] NpcKinds = { "Raider", "Heavy raider", "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker", "The Courier" };
 
         static List<ItemDef> CatItems(int cat)
         {

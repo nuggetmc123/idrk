@@ -18,6 +18,9 @@ namespace Rago
         string _heldL = "", _heldR = "";
         GameObject _modelL, _modelR;
         GunRig _gunR;
+        Item _itemL, _itemR;            // display copies of what they hold (their gun with its sight, can, light / laser)
+        bool _poseL, _poseR, _supL, _supR;
+        Vector3 _gl, _gr, _sGl, _sGr; Quaternion _glR = Quaternion.identity, _grR = Quaternion.identity, _sGlR = Quaternion.identity, _sGrR = Quaternion.identity;
         bool _dead, _hasPose;
         float _yaw;
         public bool Alive => !_dead;
@@ -49,14 +52,29 @@ namespace Rago
             return rp;
         }
 
-        public void ApplyPose(bool dead, Vector3 root, Vector3 head, Quaternion headR, Vector3 hl, Quaternion hlR, Vector3 hr, Quaternion hrR, Vector3 vel, string heldL, string heldR)
+        public void ApplyHeld(string heldL, string heldR)
+        {
+            if (_dead) return;
+            if (heldL != _heldL) { _heldL = heldL; SetHeld(true, heldL); }
+            if (heldR != _heldR) { _heldR = heldR; SetHeld(false, heldR); }
+        }
+
+        public void ApplyHeldPose(bool hasL, Vector3 gl, Quaternion glR, bool hasR, Vector3 gr, Quaternion grR, bool supL, bool supR, bool sideOn)
+        {
+            bool firstL = hasL && !_poseL, firstR = hasR && !_poseR;
+            _poseL = hasL; _poseR = hasR; _supL = supL; _supR = supR;
+            if (hasL) { _gl = gl; _glR = glR; if (firstL) { _sGl = gl; _sGlR = glR; } }
+            if (hasR) { _gr = gr; _grR = grR; if (firstR) { _sGr = gr; _sGrR = grR; } }
+            foreach (var it in new[] { _itemL, _itemR })
+                if (it is Gun g) { g.RemoteOn = true; g.SideOn = sideOn; }
+        }
+
+        public void ApplyPose(bool dead, Vector3 root, Vector3 head, Quaternion headR, Vector3 hl, Quaternion hlR, Vector3 hr, Quaternion hrR, Vector3 vel)
         {
             if (dead && !_dead) Die();
             if (!dead && _dead) Revive();
             _root = root; _head = head; _headR = headR; _hl = hl; _hlR = hlR; _hr = hr; _hrR = hrR; _vel = vel;
             if (!_hasPose) { _hasPose = true; _sRoot = root; _sHead = head; _sHl = hl; _sHr = hr; _sHeadR = headR; _sHlR = hlR; _sHrR = hrR; }
-            if (heldL != _heldL) { _heldL = heldL; SetHeld(true, heldL); }
-            if (heldR != _heldR) { _heldR = heldR; SetHeld(false, heldR); }
         }
 
         string _gear = "";
@@ -71,14 +89,36 @@ namespace Rago
             ArmorBuilder.Dress(_rig, Db.Get<ArmorDef>(P(0)), Db.Get<ArmorDef>(P(1)), Db.Get<BackpackDef>(P(2)), false);
         }
 
-        void SetHeld(bool left, string id)
+        void SetHeld(bool left, string key)
         {
             ref GameObject slot = ref left ? ref _modelL : ref _modelR;
             if (slot != null) Destroy(slot);
             slot = null;
             if (!left) _gunR = null;
+            if (left) _itemL = null; else _itemR = null;
+            var parts = (key ?? "").Split(';');
+            string id = parts[0];
             var def = Db.Get(id);
             if (def == null) return;
+            // the real item, made into a display copy: right model, attachments where they belong, lights and lasers
+            // that work - but nobody can grab it, it has no physics, and it isn't part of the world's items
+            string P(int i) => parts.Length > i ? parts[i] : "";
+            var data = new ItemData(id) { sight = P(1), muzzle = P(2), side = P(3), gripAtt = P(4), rounds = 0, chambered = false };
+            var disp = ItemFactory.Spawn(data, transform.position, transform.rotation);
+            if (disp != null)
+            {
+                foreach (var it in disp.GetComponentsInChildren<Item>(true))
+                {
+                    Item.All.Remove(it);
+                    if (it.rb != null) { it.rb.isKinematic = true; it.rb.detectCollisions = false; }
+                }
+                foreach (var c in disp.GetComponentsInChildren<Collider>(true)) Destroy(c);
+                disp.transform.SetParent(transform, true);
+                if (disp is Gun dg) { dg.RemoteOn = true; _gunR = left ? _gunR : dg.rig; }
+                slot = disp.gameObject;
+                if (left) _itemL = disp; else _itemR = disp;
+                return;
+            }
             var hand = left ? _rig.handL : _rig.handR;
             if (def is GunDef g)
             {
@@ -125,6 +165,7 @@ namespace Rago
             _rig.SetRagdoll(true, _vel * 0.5f, _rig.chest.position, _vel);
             if (_modelL != null) Destroy(_modelL);
             if (_modelR != null) Destroy(_modelR);
+            _itemL = _itemR = null;
             _heldL = _heldR = "";
             Fx.BloodPool(_rig.chest.position);
             Sfx.Play(Synth.BodyFall(), _rig.hips.position, 0.8f, 1f, 1f, 25f);
@@ -150,7 +191,23 @@ namespace Rago
             Footsteps.Track(ref _stepLast, ref _stepDist, ref _stepLeft, _sRoot, _sHeadR * Vector3.forward, dt, 0.4f);
             float hy = _sHeadR.eulerAngles.y;
             if (Mathf.Abs(Mathf.DeltaAngle(_yaw, hy)) > 35f || _vel.sqrMagnitude > 0.3f) _yaw = Mathf.MoveTowardsAngle(_yaw, hy, dt * 220f);
-            _rig.Pose(_sRoot, _yaw, _sHead, _sHeadR, _sHl, _sHlR, _sHr, _sHrR, _vel, dt);
+            // what they hold sits exactly where it is for them; their hands go on its grips (like the raiders' hands)
+            _sGl = Vector3.Lerp(_sGl, _gl, k); _sGr = Vector3.Lerp(_sGr, _gr, k);
+            _sGlR = Quaternion.Slerp(_sGlR, _glR, k); _sGrR = Quaternion.Slerp(_sGrR, _grR, k);
+            Vector3 hlP = _sHl, hrP = _sHr; Quaternion hlQ = _sHlR, hrQ = _sHrR;
+            if (_itemR != null)
+            {
+                if (_poseR) _itemR.transform.SetPositionAndRotation(_sGr, _sGrR); else _itemR.transform.SetPositionAndRotation(_sHr, _sHrR);
+                if (_itemR is Gun) { hrP = _itemR.grip != null ? _itemR.grip.position : _itemR.transform.position; hrQ = _itemR.transform.rotation; }
+                if (_supL && _itemR.secondGrip != null) { hlP = _itemR.secondGrip.position; hlQ = _itemR.transform.rotation * Quaternion.Euler(0, 0, 70); }
+            }
+            if (_itemL != null)
+            {
+                if (_poseL) _itemL.transform.SetPositionAndRotation(_sGl, _sGlR); else _itemL.transform.SetPositionAndRotation(_sHl, _sHlR);
+                if (_itemL is Gun) { hlP = _itemL.grip != null ? _itemL.grip.position : _itemL.transform.position; hlQ = _itemL.transform.rotation; }
+                if (_supR && _itemL.secondGrip != null) { hrP = _itemL.secondGrip.position; hrQ = _itemL.transform.rotation * Quaternion.Euler(0, 0, -70); }
+            }
+            _rig.Pose(_sRoot, _yaw, _sHead, _sHeadR, hlP, hlQ, hrP, hrQ, _vel, dt);
             if (_voice != null) _voice.transform.position = _sHead;
             var cam = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.Head : null;
             if (cam != null)

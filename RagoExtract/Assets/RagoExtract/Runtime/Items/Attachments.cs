@@ -61,6 +61,9 @@ namespace Rago
         }
 
         void OnDestroy() { if (_dot != null) Destroy(_dot.gameObject); }
+        void OnEnable() { PlayerRig.AfterRenderSnap += Beam; }
+        void OnDisable() { PlayerRig.AfterRenderSnap -= Beam; }
+        static readonly RaycastHit[] _rh = new RaycastHit[1];
 
         public void AttachTo(Gun g, bool sound = true)
         {
@@ -107,8 +110,27 @@ namespace Rago
 
         void LateUpdate()
         {
-            bool on = onGun != null && onGun.primaryHand != null && onGun.SideOn;   // the support hand's trigger switches it on / off
+            bool on = onGun != null && (onGun.primaryHand != null || onGun.RemoteOn) && onGun.SideOn;   // the support hand's trigger switches it on / off
             if (_light != null && _light.enabled != on) _light.enabled = on;
+            if (on && _light != null)
+            {
+                // the light reaches only as far as the nearest wall in front of it (+ a little): on Quest the shadow
+                // alone didn't stop it, and it lit up the rooms on the other side of walls
+                float reach = 28f;
+                Vector3 o = _light.transform.position, f = _light.transform.forward;
+                foreach (var d in new[] { f, Quaternion.AngleAxis(14f, _light.transform.up) * f, Quaternion.AngleAxis(-14f, _light.transform.up) * f, Quaternion.AngleAxis(14f, _light.transform.right) * f, Quaternion.AngleAxis(-14f, _light.transform.right) * f })
+                    if (Physics.RaycastNonAlloc(o, d, _rh, 28f, Ballistics.WallMask, QueryTriggerInteraction.Ignore) > 0) reach = Mathf.Min(reach, _rh[0].distance);
+                    else { reach = 28f; break; }   // open in some direction: full range (it's the walls ahead that matter)
+                _light.range = Mathf.Lerp(_light.range, Mathf.Clamp(reach + 1.5f, 2.5f, 28f), 0.5f);
+            }
+            Beam();
+        }
+
+        /// <summary>The laser line from the emitter - run again right before drawing, after the gun is snapped to your hand.</summary>
+        void Beam()
+        {
+            if (this == null) return;
+            bool on = onGun != null && (onGun.primaryHand != null || onGun.RemoteOn) && onGun.SideOn;
             if (_beam == null) return;
             if (!on) { if (_beam.enabled) { _beam.enabled = false; _dot.gameObject.SetActive(false); } return; }
             Vector3 o = _emit.position, d = onGun.rig.muzzle != null ? onGun.rig.muzzle.forward : _emit.forward;

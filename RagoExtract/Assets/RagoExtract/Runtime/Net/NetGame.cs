@@ -36,7 +36,7 @@ namespace Rago
         // offsets from the body (head, hands) to the millimetre, velocity to the cm/s: half the size of three floats
         static void S3(BinaryWriter w, Vector3 v, float step) { w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.x / step), -32767, 32767)); w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.y / step), -32767, 32767)); w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.z / step), -32767, 32767)); }
         static Vector3 S3(BinaryReader r, float step) => new Vector3(r.ReadInt16() * step, r.ReadInt16() * step, r.ReadInt16() * step);
-        int _dropCounter;
+        int _dropCounter, _deaths;
         public bool InRaid;
         readonly HashSet<ulong> _helloSent = new HashSet<ulong>();
         bool _wasHost;
@@ -51,7 +51,7 @@ namespace Rago
             Send(false);
         }
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden }
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop }
 
         public static void Ensure()
         {
@@ -91,6 +91,7 @@ namespace Rago
             foreach (var r in Remotes.Values) if (r != null) Destroy(r.gameObject);
             Remotes.Clear();
             Items.Clear();
+            _taken.Clear();
             _helloSent.Clear();
             Gun.OnLocalFire = null;
             Ballistics.OnHitActor = null;
@@ -153,18 +154,33 @@ namespace Rago
                 float step = rtt < 0.25f ? 1f / 15f : rtt < 0.5f ? 1f / 10f : 1f / 6f;
                 _poseT = step;
                 var w = W(Msg.Pose);
-                w.Write(p.Dead);
                 var root = p.transform.position;
+                // what each hand is holding (the gun itself, with its attachments), where it is, and whether the light /
+                // laser is on - so other players see your gun exactly where it is, your hands on its grips, and its beam
+                var il = PrimaryHeld(p.HandL); var ir = PrimaryHeld(p.HandR);
+                var sideGun = (ir as Gun) ?? (il as Gun);
+                byte f = 0;
+                if (p.Dead) f |= 1;
+                if (il != null) f |= 8;
+                if (ir != null) f |= 16;
+                if (p.HandL.Held != null && p.HandL.HeldAsSecondary) f |= 32;
+                if (p.HandR.Held != null && p.HandR.HeldAsSecondary) f |= 64;
+                if (sideGun != null && sideGun.SideOn && (sideGun.Attached(AttachSlot.Side) != null)) f |= 128;
+                string kl = HeldKey(p.HandL), kr = HeldKey(p.HandR), gk = GearKey(p);
+                _gearT -= step;
+                bool keys = kl != _lastKl || kr != _lastKr || _gearT <= 0f, gear = gk != _lastGear || _gearT <= 0f;
+                if (_gearT <= 0f) _gearT = 2f;
+                byte f2 = (byte)((keys ? 1 : 0) | (gear ? 2 : 0));
+                w.Write(f); w.Write(f2);
                 V3(w, root);
                 S3(w, p.Head.position - root, 0.001f); Q(w, p.Head.rotation);
-                S3(w, p.HandL.transform.position - root, 0.001f); Q(w, p.HandL.transform.rotation);
-                S3(w, p.HandR.transform.position - root, 0.001f); Q(w, p.HandR.transform.rotation);
+                S3(w, p.HandL.Visual.position - root, 0.001f); Q(w, p.HandL.Visual.rotation);
+                S3(w, p.HandR.Visual.position - root, 0.001f); Q(w, p.HandR.Visual.rotation);
                 S3(w, p.MoveVelocity, 0.01f);
-                w.Write(HeldId(p.HandL)); w.Write(HeldId(p.HandR));
-                // what you're wearing: only when it changes (and now and then for late joiners), not 15 times a second
-                string gk = GearKey(p);
-                _gearT -= step;
-                if (gk != _lastGear || _gearT <= 0f) { w.Write(gk); _lastGear = gk; _gearT = 2f; }
+                if (il != null) { S3(w, il.transform.position - root, 0.001f); Q(w, il.transform.rotation); }
+                if (ir != null) { S3(w, ir.transform.position - root, 0.001f); Q(w, ir.transform.rotation); }
+                if (keys) { w.Write(kl); w.Write(kr); _lastKl = kl; _lastKr = kr; }
+                if (gear) { w.Write(gk); _lastGear = gk; }
                 Send(false);
             }
             if (InRaid && NetHub.Backend.IsHost && NpcDirector.I != null)
@@ -177,7 +193,16 @@ namespace Rago
             if (_voiceT <= 0 && NetHub.Voice != null && NetHub.Voice.Ready) { _voiceT = 0.25f; NetHub.Voice.UpdatePosition(p.Head); }
         }
 
-        static string HeldId(Hand h) => h.Held != null && !h.HeldAsSecondary && h.Held.def != null ? h.Held.def.id : "";
+        string _lastKl, _lastKr;
+        static Item PrimaryHeld(Hand h) => h.Held != null && !h.HeldAsSecondary && h.Held.def != null ? h.Held : null;
+        /// <summary>"id" or, for a gun, "id;sight;muzzle;side;grip" - enough for others to build the same gun.</summary>
+        static string HeldKey(Hand h)
+        {
+            var it = PrimaryHeld(h);
+            if (it == null) return "";
+            if (it is Gun g) { var d = g.Save(); return d.id + ";" + d.sight + ";" + d.muzzle + ";" + d.side + ";" + d.gripAtt; }
+            return it.def.id;
+        }
 
         // -------------------------------------------------------------------------------- gameplay hooks
         void LocalFire(Gun g, Vector3 origin, Vector3 dir)
@@ -200,8 +225,7 @@ namespace Rago
             if (h.attacker != 0)
             {
                 // host simulates NPC bullets: forward their damage to the player that got hit
-                if (h.attacker >= 1000 && z.owner is RemotePlayer victim && NetHub.Backend.IsHost) NpcDamageToRemote(victim.NetId, h);
-                return; // otherwise only report our own hits
+                return; // only report our own hits (raider shots are worked out by each player against themselves)
             }
             if (z.owner is RemotePlayer rp)
             {
@@ -209,11 +233,13 @@ namespace Rago
                 w.Write(rp.NetId); w.Write(h.damage); w.Write((byte)h.part); V3(w, h.point); V3(w, h.dir); w.Write(h.force);
                 Send(true, rp.NetId);
             }
-            else if (z.owner is Npc npc && !NetHub.Backend.IsHost)
+            else if (z.owner is Npc npc)
             {
+                // to everyone (not just the host): each copy of the raider keeps the same health, and whoever's shot
+                // takes them to zero kills them for all
                 var w = W(Msg.NpcHit);
                 w.Write(npc.Id); w.Write(h.damage); w.Write((byte)h.part); V3(w, h.point); V3(w, h.dir); w.Write(h.force);
-                Send(true, NetHub.Backend.HostId); // to the host
+                Send(true);
             }
         }
 
@@ -223,12 +249,12 @@ namespace Rago
             var w = W(Msg.Died);
             V3(w, pos);
             w.Write(items.Count);
-            int baseId = (int)(NetHub.Backend.LocalId % 1000) * 100000 + 90000;
+            int baseId = 50000000 + (int)(NetHub.Backend.LocalId % 1000) * 1000 + (++_deaths % 10) * 100;
             for (int i = 0; i < items.Count; i++) { w.Write(baseId + i); w.Write(JsonUtility.ToJson(items[i])); }
             Send(true);
         }
 
-        public int NewDropId() => (int)(NetHub.Backend.LocalId % 1000 + 1) * 100000 + (++_dropCounter % 80000);
+        public int NewDropId() => 200000000 + (int)(NetHub.Backend.LocalId % 1000) * 100000 + (++_dropCounter % 90000);
 
         public void OnItemTaken(Item it)
         {
@@ -248,13 +274,45 @@ namespace Rago
             Send(true);
         }
 
-        public void Register(Item it) { if (it != null && it.netId != 0) Items[it.netId] = it; }
+        readonly HashSet<int> _taken = new HashSet<int>();
+        /// <summary>Has another player already picked up the loot with this id? (Crates and bodies roll the same loot on every
+        /// machine; without this, a crate you opened after someone emptied it was full again.)</summary>
+        public static bool Taken(int id) => I != null && Live && id != 0 && I._taken.Contains(id);
+
+        public void Register(Item it)
+        {
+            if (it == null || it.netId == 0) return;
+            if (Taken(it.netId)) { var s = it.slot; if (s != null) s.Release(it); it.gameObject.SetActive(false); Destroy(it.gameObject); return; }
+            Items[it.netId] = it;
+        }
 
         /// <summary>Tell everyone (the host runs the raiders) whether raiders should ignore you (tester tool).</summary>
         public void SendHidden(bool hidden)
         {
             if (!Live) return;
             var w = W(Msg.Hidden); w.Write(hidden); Send(true);
+        }
+
+        /// <summary>A radio air drop called in by us: everyone sees the same plane and crate.</summary>
+        public void SendAirDrop(Vector3 target, float heading, bool boss, int index)
+        {
+            if (!Live) return;
+            var w = W(Msg.AirDrop); V3(w, target); w.Write(heading); w.Write(boss); w.Write(index); Send(true);
+        }
+
+        /// <summary>Tester: spawn a raider in an online raid. The host makes it and tells everyone (with its id).</summary>
+        public void RequestNpc(int kind, Vector3 pos, float yaw)
+        {
+            if (NetHub.Backend.IsHost) { HostSpawnNpc(kind, pos, yaw); return; }
+            var w = W(Msg.NpcSpawnAsk); w.Write((byte)kind); V3(w, pos); w.Write(yaw); Send(true);
+        }
+
+        void HostSpawnNpc(int kind, Vector3 pos, float yaw)
+        {
+            if (NpcDirector.I == null) return;
+            int id = NpcDirector.I.NextTesterId(), seed = Random.Range(1, 99999);
+            NpcDirector.I.SpawnNet(id, pos, yaw, seed, kind >= 1, Tester.BossFor(kind), false);
+            var w = W(Msg.NpcSpawned); w.Write(id); w.Write((byte)kind); V3(w, pos); w.Write(yaw); w.Write(seed); Send(true);
         }
 
         public void NpcVoice(int id, byte line, byte idx)
@@ -347,11 +405,15 @@ namespace Rago
                             {
                                 var rp = GetRemote(from, (int)from * 31);
                                 if (_helloSent.Add(from)) SendHello(from);   // their movement got here before their hello: introduce ourselves
-                                bool dead = r.ReadBoolean();
+                                byte f = r.ReadByte(), f2 = r.ReadByte();
                                 var root = V3(r); var hp = root + S3(r, 0.001f); var hr = Q(r); var lp = root + S3(r, 0.001f); var lr = Q(r); var rpp = root + S3(r, 0.001f); var rr = Q(r); var vel = S3(r, 0.01f);
-                                string hl = r.ReadString(), hrr = r.ReadString();
-                                rp.ApplyPose(dead, root, hp, hr, lp, lr, rpp, rr, vel, hl, hrr);
-                                if (r.BaseStream.Position < r.BaseStream.Length) rp.ApplyGear(r.ReadString());
+                                Vector3 glp = default, grp = default; Quaternion glr = Quaternion.identity, grr = Quaternion.identity;
+                                if ((f & 8) != 0) { glp = root + S3(r, 0.001f); glr = Q(r); }
+                                if ((f & 16) != 0) { grp = root + S3(r, 0.001f); grr = Q(r); }
+                                if ((f2 & 1) != 0) rp.ApplyHeld(r.ReadString(), r.ReadString());
+                                if ((f2 & 2) != 0) rp.ApplyGear(r.ReadString());
+                                rp.ApplyPose((f & 1) != 0, root, hp, hr, lp, lr, rpp, rr, vel);
+                                rp.ApplyHeldPose((f & 8) != 0, glp, glr, (f & 16) != 0, grp, grr, (f & 32) != 0, (f & 64) != 0, (f & 128) != 0);
                                 break;
                             }
                         case Msg.Blast:
@@ -396,6 +458,7 @@ namespace Rago
                         case Msg.ItemTaken:
                             {
                                 int id = r.ReadInt32();
+                                _taken.Add(id);   // someone has it: if this crate / body hasn't been opened here yet, it won't appear when it is
                                 if (Items.TryGetValue(id, out var it) && it != null && !it.Held)
                                 {
                                     if (it.slot != null) it.slot.Release(it);
@@ -426,7 +489,7 @@ namespace Rago
                         case Msg.NpcHit:
                             {
                                 int id = r.ReadInt32(); float dmg = r.ReadSingle(); var part = (BodyPart)r.ReadByte(); var pt = V3(r); var dir = V3(r); float force = r.ReadSingle();
-                                if (!NetHub.Backend.IsHost || NpcDirector.I == null) break;
+                                if (NpcDirector.I == null) break;
                                 var npc = NpcDirector.I.Get(id);
                                 npc?.TakeHit(new HitInfo { damage = dmg, part = part, point = pt, dir = dir, attacker = (int)from + 1, fromNet = true, force = force }, null);
                                 break;
@@ -435,6 +498,24 @@ namespace Rago
                             {
                                 bool hid = r.ReadBoolean();
                                 if (Remotes.TryGetValue(from, out var hp) && hp != null) hp.HiddenFromAi = hid;   // a tester made themselves invisible to raiders
+                                break;
+                            }
+                        case Msg.AirDrop:
+                            {
+                                var t = V3(r); float hd = r.ReadSingle(); bool boss = r.ReadBoolean(); int ix = r.ReadInt32();
+                                if (InRaid) global::Rago.AirDrop.Call(t, hd, boss, false, ix);
+                                break;
+                            }
+                        case Msg.NpcSpawnAsk:
+                            {
+                                int kind = r.ReadByte(); var pos = V3(r); float yaw = r.ReadSingle();
+                                if (NetHub.Backend.IsHost) HostSpawnNpc(kind, pos, yaw);
+                                break;
+                            }
+                        case Msg.NpcSpawned:
+                            {
+                                int id = r.ReadInt32(); int kind = r.ReadByte(); var pos = V3(r); float yaw = r.ReadSingle(); int seed = r.ReadInt32();
+                                if (NpcDirector.I != null && !NetHub.Backend.IsHost) NpcDirector.I.SpawnNet(id, pos, yaw, seed, kind >= 1, Tester.BossFor(kind), true);
                                 break;
                             }
                         case Msg.NpcVoice:

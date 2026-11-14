@@ -336,7 +336,8 @@ namespace Rago
         public void FadeTo(float a) { _fadeTarget = a; }
         public bool FadeDone => Mathf.Abs(_fadeCur - _fadeTarget) < 0.02f;
         public void SetBlocked(bool b) { _blocked = b; }
-        public void Damage(float a, Vector3 dir) { _dmg = Mathf.Clamp01(_dmg + a * 0.9f + 0.25f); }
+        // a short red pulse round the edge of your view - never a red-out you can't see through
+        public void Damage(float a, Vector3 dir) { _dmg = Mathf.Min(0.45f, _dmg + a * 0.35f + 0.12f); }
         public void Suppress(float a) { _sup = Mathf.Clamp01(_sup + a); }
         /// <summary>Flashbanged: white-out that fades over a few seconds, with a ringing in your ears.</summary>
         public void Flashbang(float strength)
@@ -359,8 +360,8 @@ namespace Rago
             _fadeM.SetColor("_Color", new Color(0, 0, 0, _fadeCur));
             _fade.enabled = _fadeCur > 0.002f;
             var v = _p.Vitals;
-            float low = v.Alive ? Mathf.Clamp01(1f - v.Health / 45f) * 0.5f : 0.7f;
-            _dmg = Mathf.MoveTowards(_dmg, 0, dt * 1.4f);
+            float low = v.Alive ? Mathf.Clamp01(1f - v.Health / 45f) * 0.3f : 0.7f;
+            _dmg = Mathf.MoveTowards(_dmg, 0, dt * 1.8f);
             _damageM.SetColor("_Color", new Color(0.55f, 0, 0, Mathf.Max(_dmg, low)));
             _damage.enabled = Mathf.Max(_dmg, low) > 0.01f;
             _sup = Mathf.MoveTowards(_sup, 0, dt * 0.7f);

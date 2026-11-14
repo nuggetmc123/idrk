@@ -178,7 +178,7 @@ namespace Rago
                 case ItemKind.Melee: it = Knife.Create((SimpleDef)def, pos, rot); break;
                 case ItemKind.Armor: it = ArmorItem.Create((ArmorDef)def, pos, rot); break;
                 case ItemKind.Backpack: { var bp = Backpack.Create(pos, (BackpackDef)def); bp.Load(d); it = bp; break; }
-                default: it = Simple<LootItem>((SimpleDef)def, pos, rot); break;
+                default: it = def.id == "val_radio" ? Simple<RadioItem>((SimpleDef)def, pos, rot) : Simple<LootItem>((SimpleDef)def, pos, rot); break;
             }
             if (RagoGame.I != null && RagoGame.I.MapRoot != null) it.transform.SetParent(RagoGame.I.MapRoot, true);
             it.Unsink();   // spawned at floor level: start on the floor, not half inside it (physics would push it through)
@@ -210,6 +210,15 @@ namespace Rago
                         mb.Sub(1).Box(new Vector3(0, 0.07f, 0), new Vector3(0.08f, 0.02f, 0.02f), w, 0.005f);
                     }
                     else if (d.shape == 3) { mb.Sub(0).Cyl(new Vector3(0, -0.035f, 0), new Vector3(0, 0.03f, 0), 0.022f, 0.022f, 14, c); mb.Sub(0).Cyl(new Vector3(0, 0.03f, 0), new Vector3(0, 0.045f, 0), 0.024f, 0.024f, 14, w); mb.Sub(0).Cyl(new Vector3(0, -0.01f, 0), new Vector3(0, 0.015f, 0), 0.0225f, 0.0225f, 14, w * 0.95f); }
+                    else if (d.shape == 5)
+                    {
+                        // a drinks can: coloured body, silver top and bottom, ring pull, a white stripe
+                        mb.Sub(1).Cyl(new Vector3(0, -0.06f, 0), new Vector3(0, -0.052f, 0), 0.029f, 0.032f, 18, w * 0.85f);
+                        mb.Sub(0).Cyl(new Vector3(0, -0.052f, 0), new Vector3(0, 0.05f, 0), 0.033f, 0.033f, 18, c);
+                        mb.Sub(0).Cyl(new Vector3(0, -0.005f, 0), new Vector3(0, 0.012f, 0), 0.0335f, 0.0335f, 18, w);
+                        mb.Sub(1).Cyl(new Vector3(0, 0.05f, 0), new Vector3(0, 0.06f, 0), 0.032f, 0.027f, 18, w * 0.85f);
+                        mb.Sub(1).Box(new Vector3(0, 0.0615f, 0.008f), new Vector3(0.012f, 0.002f, 0.018f), w * 0.7f, 0.001f);
+                    }
                     else if (d.shape == 4)
                     {
                         mb.Sub(2).Box(Vector3.zero, new Vector3(0.16f, 0.1f, 0.07f), c, 0.025f, 2);

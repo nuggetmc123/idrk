@@ -29,7 +29,6 @@ namespace Rago
             if (d == null && npcKind >= 0)
             {
                 if (NpcDirector.I == null || RagoGame.I.Area != Area.Raid) { pl.Toast("NPCs can only be spawned in a raid"); return; }
-                if (NetGame.Live && !NetGame.IsHost) { pl.Toast("Only the host can spawn NPCs"); return; }
             }
             SpawnPlacer.Begin(d, npcKind);
         }
@@ -45,13 +44,18 @@ namespace Rago
             RagoGame.I.Player.Toast("Spawned " + d.name);
         }
 
+        public static readonly string[] Bosses = { "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker", "The Courier" };
+        public static string BossFor(int kind) => kind >= 2 && kind - 2 < Bosses.Length ? Bosses[kind - 2] : null;
+
         public static void SpawnNpcAt(int kind, Vector3 pos, float yaw)
         {
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (pl == null || NpcDirector.I == null) return;
             if (UnityEngine.AI.NavMesh.SamplePosition(pos, out var h, 3f, UnityEngine.AI.NavMesh.AllAreas)) pos = h.position;
-            string boss = kind >= 2 ? new[] { "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker" }[kind - 2] : null;
-            NpcDirector.I.SpawnNow(pos, yaw, kind >= 1, boss);
+            string boss = BossFor(kind);
+            // online: the host runs raiders, so anyone can spawn one - it's made on the host and copied to everyone
+            if (NetGame.Live) NetGame.I.RequestNpc(kind, pos, yaw);
+            else NpcDirector.I.SpawnNow(pos, yaw, kind >= 1, boss);
             pl.Toast("Spawned " + (boss ?? (kind == 1 ? "a heavy raider" : "a raider")));
         }
 
@@ -60,11 +64,11 @@ namespace Rago
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (pl == null) return;
             if (NpcDirector.I == null || RagoGame.I.Area != Area.Raid) { pl.Toast("NPCs can only be spawned in a raid"); return; }
-            if (NetGame.Live && !NetGame.IsHost) { pl.Toast("Only the host can spawn NPCs"); return; }
             var pos = InFront(5f, out var rot);
             if (UnityEngine.AI.NavMesh.SamplePosition(pos, out var h, 4f, UnityEngine.AI.NavMesh.AllAreas)) pos = h.position;
-            string boss = kind >= 2 ? new[] { "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker" }[kind - 2] : null;
-            NpcDirector.I.SpawnNow(pos, rot.eulerAngles.y + 180f, kind >= 1, boss);
+            string boss = BossFor(kind);
+            if (NetGame.Live) NetGame.I.RequestNpc(kind, pos, rot.eulerAngles.y + 180f);
+            else NpcDirector.I.SpawnNow(pos, rot.eulerAngles.y + 180f, kind >= 1, boss);
             pl.Toast("Spawned " + (boss ?? (kind == 1 ? "a heavy raider" : "a raider")));
         }
     }

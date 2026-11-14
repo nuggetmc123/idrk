@@ -85,8 +85,20 @@ namespace Rago
             if (!_hinted) { _hinted = true; RagoGame.I?.Player?.Toast("Pin pulled - throw it! (" + (int)_fuse + " s)"); }
         }
 
+        bool _wasHeld; float _bounceT;
+        void OnCollisionEnter(Collision c)
+        {
+            if (Time.time < _bounceT || c.relativeVelocity.sqrMagnitude < 1.2f) return;
+            _bounceT = Time.time + 0.12f;
+            Sfx.Play(Synth.GrenadeBounce(Random.Range(0, 3)), transform.position, Mathf.Clamp01(c.relativeVelocity.magnitude / 6f) * 0.8f, 1f + Random.Range(-0.08f, 0.08f), 1f, 25f);
+        }
+
         public override void AnyUpdate()
         {
+            // the spoon flies off with a ping as the armed grenade leaves your hand
+            bool held = primaryHand != null;
+            if (_armed && _wasHeld && !held) Sfx.Play(Synth.SpoonFly(), transform.position, 0.6f, 1f + Random.Range(-0.05f, 0.05f), 0.5f, 12f);
+            _wasHeld = held;
             if (!_armed) return;
             _fuse -= Time.deltaTime;
             if (_fuse > 0) return;
@@ -219,7 +231,17 @@ namespace Rago
         {
             // the visuals can never stop the blast itself (a missing effect once made every grenade a dud)
             try { Fx.Explosion(p, flash); } catch (System.Exception e) { Debug.LogWarning("[Rago] blast fx: " + e.Message); }
-            try { Sfx.Play(flash ? Synth.FlashBang() : Synth.Explosion(), p, 1f, 1f + Random.Range(-0.05f, 0.05f), 6f, flash ? 140f : 260f); } catch (System.Exception e) { Debug.LogWarning("[Rago] blast sfx: " + e.Message); }
+            try
+            {
+                Sfx.Play(flash ? Synth.FlashBang() : Synth.Explosion(), p, 1f, 1f + Random.Range(-0.05f, 0.05f), 6f, flash ? 140f : 260f);
+                // heard from far away too: a low rolling thud with an echo off the buildings / hills
+                var me = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.Head.position : p;
+                float far = Vector3.Distance(me, p);
+                if (far > 40f) Sfx.Play(Synth.ExplosionFar(), p, Mathf.Clamp01(1.3f - far / 600f) * (flash ? 0.5f : 1f), 1f, 30f, 700f);
+                // debris pattering down after a frag
+                if (!flash) Sfx.Play(Synth.Impact(Synth.Surface.Dirt, Random.Range(0, 3)), p + Vector3.up * 0.3f, 0.5f, 0.8f, 2f, 40f);
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Rago] blast sfx: " + e.Message); }
             // everyone works out their own flash blindness and camera shake
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (pl != null && !pl.Dead)

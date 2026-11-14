@@ -73,7 +73,7 @@ namespace Rago
             public string gunId;
             public Transform ignore;
             public IDamageable ignoreOwner;
-            public bool tracer, visualOnly, cracked;
+            public bool tracer, visualOnly, cracked, localOnly;
         }
 
         readonly List<Bullet> _bullets = new List<Bullet>();
@@ -107,7 +107,7 @@ namespace Rago
             return muzzle;
         }
 
-        public static void Fire(Vector3 origin, Vector3 dir, GunDef gun, int shooter, Transform ignore, IDamageable ignoreOwner, bool visualOnly, bool tracer)
+        public static void Fire(Vector3 origin, Vector3 dir, GunDef gun, int shooter, Transform ignore, IDamageable ignoreOwner, bool visualOnly, bool tracer, bool localOnly = false)
         {
             int pellets = Mathf.Max(1, gun.pellets);
             for (int p = 0; p < pellets; p++)
@@ -117,7 +117,7 @@ namespace Rago
                 I._bullets.Add(new Bullet
                 {
                     pos = origin, vel = d.normalized * gun.velocity, damage = gun.damage, life = 2.5f, shooter = shooter, gunId = gun.id,
-                    ignore = ignore, ignoreOwner = ignoreOwner, tracer = tracer && p == 0, visualOnly = visualOnly,
+                    ignore = ignore, ignoreOwner = ignoreOwner, tracer = tracer && p == 0, visualOnly = visualOnly, localOnly = localOnly,
                     force = Mathf.Clamp(gun.damage * 0.06f, 1.2f, 9f)
                 });
             }
@@ -202,6 +202,10 @@ namespace Rago
                     attacker = b.shooter, gunId = b.gunId, force = b.force
                 };
                 Fx.Blood(hit.point, dir, hit.normal, hit.collider.transform, info.damage);
+                // localOnly: a raider's shot replayed on this machine - it can hurt the player here, nobody else
+                // (each player works out the raiders' bullets against themselves, so they always land where you are)
+                bool mine = b.localOnly && RagoGame.I != null && RagoGame.I.Player != null && zone.owner == (IDamageable)RagoGame.I.Player.Vitals;
+                if (mine) { zone.owner.TakeHit(info, zone); return; }
                 if (!b.visualOnly)
                 {
                     zone.owner.TakeHit(info, zone);

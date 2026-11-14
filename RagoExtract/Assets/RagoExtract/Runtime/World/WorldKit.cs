@@ -86,6 +86,10 @@ namespace Rago
                 go.transform.SetParent(ColRoot(s), false);
                 go.transform.position = c;
                 go.AddComponent<SphereCollider>().radius = Mathf.Min(radii.x, Mathf.Min(radii.y, radii.z)) * 0.95f;
+                // a squashed / stretched one (rocks): the sphere above only filled its thinnest direction and you walked
+                // straight through the rest - a box filling most of the shape covers it
+                if (Mathf.Max(radii.x, Mathf.Max(radii.y, radii.z)) > Mathf.Min(radii.x, Mathf.Min(radii.y, radii.z)) * 1.15f)
+                    go.AddComponent<BoxCollider>().size = new Vector3(radii.x * 1.5f, radii.y * 1.5f, radii.z * 1.5f);
             }
         }
 

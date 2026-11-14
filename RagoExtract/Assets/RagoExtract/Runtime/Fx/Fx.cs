@@ -95,6 +95,14 @@ namespace Rago
 
         // ---------------------------------------------------------------- grenades
         /// <summary>Frag: fireball, sparks, a dust ring and a column of smoke. Flashbang: a blinding white pop and a puff.</summary>
+        /// <summary>A puff of coloured marker smoke (air drop flare / landing zone).</summary>
+        public static void SignalSmoke(Vector3 p, Color c)
+        {
+            if (I == null || I._smoke == null) return;
+            for (int i = 0; i < 3; i++)
+                Emit(I._smoke, p + Random.insideUnitSphere * 0.15f, Vector3.up * Random.Range(1.2f, 2.2f) + Random.insideUnitSphere * 0.4f, Random.Range(0.6f, 1.3f), Random.Range(3f, 5f), c);
+        }
+
         public static void Explosion(Vector3 p, bool flash)
         {
             var I2 = I;
@@ -272,29 +280,38 @@ namespace Rago
         {
             var I2 = I;
             float amount = Mathf.Clamp(damage / 35f, 0.4f, 2.5f);
-            int drops = Mathf.RoundToInt(14 * amount);
+            // your own wounds: nothing flies at the camera and nothing sticks in front of your eyes (a head or neck hit
+            // used to cover your view in red you couldn't see through)
+            var cam = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.Head : null;
+            bool nearEyes = cam != null && (point - cam.position).sqrMagnitude < 0.55f * 0.55f;
+            if (nearEyes) { dir = (point - cam.position).sqrMagnitude > 0.0001f ? (point - cam.position).normalized : dir; normal = dir; }
+            // realistic blood: dark arterial red, small fast droplets that fall, a faint mist - not a fountain of
+            // bright red blobs
+            Color Dark() => new Color(Random.Range(0.22f, 0.34f), Random.Range(0.005f, 0.02f), Random.Range(0.005f, 0.02f), 1f);
+            int drops = nearEyes ? 0 : Mathf.RoundToInt(9 * amount);
             for (int i = 0; i < drops; i++)
             {
-                Vector3 v = (dir * Random.Range(1.5f, 5f) + Random.insideUnitSphere * 1.8f + Vector3.up * 0.5f);
-                Emit(I2._blood, point + dir * 0.08f, v, Random.Range(0.015f, 0.045f), Random.Range(0.4f, 0.9f), new Color(Random.Range(0.35f, 0.55f), 0.02f, 0.02f, 1f));
+                Vector3 v = dir * Random.Range(1.2f, 4f) + Random.insideUnitSphere * 1.1f;
+                Emit(I2._blood, point + dir * 0.06f, v, Random.Range(0.006f, 0.018f), Random.Range(0.5f, 1.0f), Dark());
             }
-            for (int i = 0; i < Mathf.RoundToInt(5 * amount); i++)
-                Emit(I2._blood, point, (normal * Random.Range(1f, 2.5f) + Random.insideUnitSphere), Random.Range(0.012f, 0.03f), Random.Range(0.3f, 0.6f), new Color(0.5f, 0.02f, 0.02f, 1f));
-            for (int i = 0; i < 2; i++)
-                Emit(I2._bloodMist, point + dir * 0.05f, dir * Random.Range(0.4f, 1.2f) + Random.insideUnitSphere * 0.3f, Random.Range(0.15f, 0.3f) * amount, Random.Range(0.3f, 0.6f), new Color(0.5f, 0.03f, 0.03f, 0.5f));
-            // wound decal stuck to the body part
-            if (bone != null)
-                I2.PlaceDecal(I2._bloodDecals, ref I2._bloodIdx, 90, Mats.Unlit("fx_wound", new Color(0.7f, 0.05f, 0.05f, 1f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -40), point, normal, Random.Range(0.06f, 0.1f), bone);
+            if (!nearEyes)
+                for (int i = 0; i < Mathf.RoundToInt(3 * amount); i++)
+                    Emit(I2._blood, point, normal * Random.Range(0.5f, 1.5f) + Random.insideUnitSphere * 0.5f, Random.Range(0.005f, 0.014f), Random.Range(0.4f, 0.8f), Dark());
+            if (!nearEyes)
+                Emit(I2._bloodMist, point + dir * 0.05f, dir * Random.Range(0.3f, 0.8f) + Random.insideUnitSphere * 0.2f, Random.Range(0.08f, 0.16f) * amount, Random.Range(0.15f, 0.3f), new Color(0.32f, 0.02f, 0.02f, 0.28f));
+            // wound decal stuck to the body part (never on your own face in front of the camera)
+            if (bone != null && !nearEyes)
+                I2.PlaceDecal(I2._bloodDecals, ref I2._bloodIdx, 90, Mats.Unlit("fx_wound", new Color(0.3f, 0.02f, 0.02f, 1f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -40), point, normal, Random.Range(0.035f, 0.06f), bone);
             // splatter behind the target
             if (Physics.Raycast(point + dir * 0.3f, (dir + Random.insideUnitSphere * 0.15f).normalized, out var hit, 3.5f, ~0, QueryTriggerInteraction.Ignore))
             {
                 if (hit.collider.attachedRigidbody == null || hit.collider.attachedRigidbody.isKinematic && hit.collider.GetComponentInParent<HitZone>() == null)
-                    I2.PlaceDecal(I2._bloodDecals, ref I2._bloodIdx, 90, Mats.Unlit("fx_bloodsplat", new Color(0.65f, 0.04f, 0.04f, 0.95f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -40),
+                    I2.PlaceDecal(I2._bloodDecals, ref I2._bloodIdx, 90, Mats.Unlit("fx_bloodsplat", new Color(0.32f, 0.02f, 0.02f, 0.92f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -40),
                         hit.point, hit.normal, Random.Range(0.25f, 0.7f) * Mathf.Lerp(1.3f, 0.6f, hit.distance / 3.5f) * amount, null);
             }
             // drip on the ground below
             if (Physics.Raycast(point, Vector3.down, out var g, 2.5f, ~0, QueryTriggerInteraction.Ignore) && g.collider.GetComponentInParent<HitZone>() == null)
-                I2.PlaceDecal(I2._bloodDecals, ref I2._bloodIdx, 90, Mats.Unlit("fx_bloodsplat", new Color(0.65f, 0.04f, 0.04f, 0.95f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -40),
+                I2.PlaceDecal(I2._bloodDecals, ref I2._bloodIdx, 90, Mats.Unlit("fx_bloodsplat", new Color(0.32f, 0.02f, 0.02f, 0.92f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -40),
                     g.point + Random.insideUnitSphere.Flat() * 0.3f, g.normal, Random.Range(0.15f, 0.35f) * amount, null);
             Sfx.Play(Synth.Impact(Synth.Surface.Flesh, Random.Range(0, 3)), point, 0.9f, 1f + Random.Range(-0.1f, 0.1f), 1.5f, 30f);
         }
@@ -302,9 +319,9 @@ namespace Rago
         /// <summary>Single drip for bleeding characters.</summary>
         public static void Drip(Vector3 pos)
         {
-            Emit(I._blood, pos, Vector3.down * 0.3f, 0.02f, 0.7f, new Color(0.45f, 0.02f, 0.02f, 1f));
+            Emit(I._blood, pos, Vector3.down * 0.3f, 0.012f, 0.7f, new Color(0.28f, 0.01f, 0.01f, 1f));
             if (Random.value < 0.35f && Physics.Raycast(pos, Vector3.down, out var g, 2.2f, ~0, QueryTriggerInteraction.Ignore) && g.collider.GetComponentInParent<HitZone>() == null)
-                I.PlaceDecal(I._bloodDecals, ref I._bloodIdx, 90, Mats.Unlit("fx_bloodsplat", new Color(0.65f, 0.04f, 0.04f, 0.95f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -40), g.point, g.normal, Random.Range(0.05f, 0.12f), null);
+                I.PlaceDecal(I._bloodDecals, ref I._bloodIdx, 90, Mats.Unlit("fx_bloodsplat", new Color(0.32f, 0.02f, 0.02f, 0.92f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -40), g.point, g.normal, Random.Range(0.05f, 0.12f), null);
         }
 
         /// <summary>A pool of blood that slowly spreads under a corpse.</summary>
@@ -317,7 +334,7 @@ namespace Rago
             go.transform.rotation = Quaternion.LookRotation(-g.normal) * Quaternion.Euler(0, 0, Random.Range(0, 360f));
             go.AddComponent<MeshFilter>().sharedMesh = I._quad;
             var mr = go.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = Mats.Unlit("fx_pool", new Color(0.42f, 0.02f, 0.02f, 0.97f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -45);
+            mr.sharedMaterial = Mats.Unlit("fx_pool", new Color(0.24f, 0.01f, 0.01f, 0.97f), Mats.BloodSplat, Mats.BlendKind.Alpha, false, -45);
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             go.transform.localScale = Vector3.one * 0.05f;
             I._pools.Add(new Pool { t = go.transform, size = 0.05f, target = Random.Range(0.9f, 1.5f), grow = 0.12f });

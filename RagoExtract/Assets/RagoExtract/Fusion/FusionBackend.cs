@@ -67,6 +67,7 @@ namespace Rago.Net
         readonly HashSet<ulong> _acks = new HashSet<ulong>();           // members who answered the leader's "follow me"
         readonly Dictionary<ulong, float> _nameAsk = new Dictionary<ulong, float>();   // when we last asked a player who they are
         float _pingT;
+        string _lastRaid;
         NetworkRunner _lobby;
         public string PartyCode => _partyCode;
         // the leader is whoever the party is named after - not whoever got back to their bunker first (that player opened
@@ -449,6 +450,97 @@ namespace Rago.Net
 
         const BindingFlags Any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
 
+        // ---- who's who without any messages: every player joins with a Photon user id of "CALLSIGN#0000@party~1234",
+        // which every other player in the session can read straight away. Names and parties sent as messages could get
+        // lost right after joining - the party list said "joining..." forever and parties were split up in raids.
+        static void UseUserId(ref StartGameArgs args, string uid)
+        {
+            try
+            {
+                var f = typeof(StartGameArgs).GetField("AuthValues", Any); var pr = f == null ? typeof(StartGameArgs).GetProperty("AuthValues", Any) : null;
+                var t = f != null ? f.FieldType : pr != null ? pr.PropertyType : null;
+                if (t == null) return;
+                object av = null;
+                try { av = Activator.CreateInstance(t, uid); } catch { }
+                if (av == null) { av = Activator.CreateInstance(t); Set(av, "UserId", uid); }
+                object boxed = args;
+                if (Set(boxed, "AuthValues", av)) args = (StartGameArgs)boxed;
+            }
+            catch (Exception e) { Debug.LogWarning("[Rago] couldn't set the player id: " + e.Message); }
+        }
+
+        static MethodInfo _getUid, _setMaster;
+        string UserIdOf(PlayerRef p)
+        {
+            if (_runner == null) return null;
+            try
+            {
+                if (_getUid == null) _getUid = typeof(NetworkRunner).GetMethod("GetPlayerUserId", Any, null, new[] { typeof(PlayerRef) }, null);
+                return _getUid?.Invoke(_runner, new object[] { p }) as string;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>Read a player's callsign and party from their user id.</summary>
+        void LearnFromUserId(ulong id, PlayerRef p)
+        {
+            var uid = UserIdOf(p);
+            if (string.IsNullOrEmpty(uid)) return;
+            int at = uid.IndexOf('@'), tl = uid.LastIndexOf('~');
+            string name = at >= 0 ? uid.Substring(0, at) : tl >= 0 ? uid.Substring(0, tl) : uid;
+            string party = at >= 0 ? uid.Substring(at + 1, (tl > at ? tl : uid.Length) - at - 1) : "";
+            bool changed = false;
+            if (!_names.ContainsKey(id) && name.Contains("#"))
+            {
+                _names[id] = name; KnownPlayers.Add(name); changed = true;
+                OnMetPlayer?.Invoke(name);
+            }
+            if (!string.IsNullOrEmpty(party) && !_peerParty.ContainsKey(id)) _peerParty[id] = party;
+            if (changed) { PublishNames(); OnPartyChanged?.Invoke(); }
+        }
+
+        /// <summary>Shared mode: hand the session's "host" role to another player (the party leader).</summary>
+        void MakeMaster(PlayerRef p)
+        {
+            try
+            {
+                if (_setMaster == null) _setMaster = typeof(NetworkRunner).GetMethod("SetMasterClient", Any, null, new[] { typeof(PlayerRef) }, null);
+                _setMaster?.Invoke(_runner, new object[] { p });
+            }
+            catch (Exception e) { Debug.LogWarning("[Rago] couldn't hand over the party: " + e.Message); }
+        }
+
+        static int Fnv(string s) { unchecked { int h = (int)2166136261; foreach (char c in s ?? "") h = (h ^ c) * 16777619; return h & 0x7fffffff; } }
+
+        /// <summary>
+        /// Everyone's spawn worked out the same way on every machine from the players in the session: each party shares
+        /// one spot (members side by side, in callsign order), solo players get their own. So even if the host's
+        /// "go" message never reaches you, you still land next to your party.
+        /// </summary>
+        void SpawnFor(string myName, out int spot, out int slot)
+        {
+            var groups = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
+            void Add(string name, string party)
+            {
+                string g = !string.IsNullOrEmpty(party) ? "p:" + Key(party) : "s:" + Key(name);
+                if (!groups.TryGetValue(g, out var l)) groups[g] = l = new List<string>();
+                if (!l.Contains(Key(name))) l.Add(Key(name));
+            }
+            Add(myName, _partyCode);
+            foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) Add(n, _peerParty.TryGetValue(p, out var pc) ? pc : null);
+            var used = new HashSet<int>();
+            spot = 0; slot = 0;
+            foreach (var kv in groups)
+            {
+                int s0 = Fnv(kv.Key) % 10, s1 = s0;
+                for (int i = 0; i < 10 && used.Contains(s1); i++) s1 = (s1 + 1) % 10;
+                used.Add(s1);
+                kv.Value.Sort(StringComparer.Ordinal);
+                int k = kv.Value.IndexOf(Key(myName));
+                if (k >= 0) { spot = s1; slot = k; }
+            }
+        }
+
         static object Get(object o, Type t, string name)
         {
             var p = t.GetProperty(name, Any); if (p != null) return p.GetValue(o);
@@ -490,6 +582,7 @@ namespace Rago.Net
                 SceneManager = sceneManager,
             };
             UseAppId(ref args, AppId());
+            UseUserId(ref args, MyName() + "@" + (_partyCode ?? "") + "~" + UnityEngine.Random.Range(1000, 9999));
             if (!allowCreate) { object boxed = args; if (Set(boxed, "EnableClientSessionCreation", false)) args = (StartGameArgs)boxed; }   // joining a party: never create an empty one
             var res = await _runner.StartGame(args);
             if (!res.Ok)
@@ -560,6 +653,16 @@ namespace Rago.Net
                     _acks.Clear();
                     var members = new List<ulong>(_peers);
                     string go6 = map + "|" + sessionName + "|" + _queuePartySize;
+                    if (IsHost)
+                        try
+                        {
+                            var pp = new Dictionary<string, SessionProperty>();
+                            var cur = _runner.SessionInfo.Properties;
+                            if (cur != null) foreach (var kv in cur) pp[kv.Key] = kv.Value;
+                            pp["raid"] = go6 + "|" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                            _runner.SessionInfo.UpdateCustomProperties(pp);
+                        }
+                        catch (Exception e) { Debug.LogWarning("[Rago] couldn't post the raid to the party: " + e.Message); }
                     float until = Time.realtimeSinceStartup + 5f;
                     while (Time.realtimeSinceStartup < until && InSession)
                     {
@@ -578,8 +681,17 @@ namespace Rago.Net
                 float queuedAt = Time.realtimeSinceStartup;
                 while (!_cancel && InSession)
                 {
-                    if (_pendingStart != null) { var rs = _pendingStart; _pendingStart = null; _queueing = false; start?.Invoke(rs); return; }
                     var props = _runner.SessionInfo.Properties;
+                    // the host said go (message) or closed the session with a "go" on it (property - can't get lost)
+                    if (_pendingStart == null && !IsHost && props != null && props.ContainsKey("go") && props.TryGetValue("seed", out var gs))
+                        _pendingStart = new RaidStart { map = map, seed = (int)gs, spawnIndex = -1, players = _peers.Count + 1, online = true };
+                    if (_pendingStart != null)
+                    {
+                        var rs = _pendingStart; _pendingStart = null; _queueing = false;
+                        if (rs.spawnIndex < 0) { SpawnFor(MyName(), out int sp0, out int sl0); rs.spawnIndex = sp0; rs.partySlot = sl0; }
+                        start?.Invoke(rs);
+                        return;
+                    }
                     if (IsHost && (props == null || !props.ContainsKey("t0")))
                         try { _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty> { { "kind", "raid_" + map }, { "t0", (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000) }, { "seed", UnityEngine.Random.Range(1, 999999) } }); }
                         catch (Exception e) { Debug.LogWarning("[Rago] couldn't set the queue start time: " + e.Message); }
@@ -592,24 +704,22 @@ namespace Rago.Net
                     status?.Invoke(new QueueStatus { players = players, max = QueueRules.MaxFor(map), target = QueueRules.TargetFor(map), elapsed = elapsed, maxWait = QueueRules.MaxWait, text = QueueRules.Describe(players, elapsed, map) });
                     if (IsHost && QueueRules.ShouldStart(players, elapsed, atTarget < 0 ? 0 : Time.realtimeSinceStartup - atTarget, _queuePartySize, map))
                     {
-                        try { _runner.SessionInfo.IsOpen = false; }   // closed (nobody can join) but still listed, so its players count as online
-                        catch (Exception e) { Debug.LogWarning("[Rago] couldn't close the raid session: " + e.Message); }
                         int seed = props != null && props.TryGetValue("seed", out var sp) ? (int)sp : UnityEngine.Random.Range(1, 999999);
-                        // each party shares one spawn spot (members stand side by side); everyone else gets their own
-                        var spotOf = new Dictionary<string, int>(); var slotOf = new Dictionary<string, int>();
-                        string mine = _partyCode ?? "solo_host";
-                        spotOf[mine] = 0; slotOf[mine] = 1;
-                        _nextSpawn = 1;
-                        foreach (var p in _peers)
+                        try
                         {
-                            string key = _peerParty.TryGetValue(p, out var pc) && !string.IsNullOrEmpty(pc) ? pc : "solo_" + p;
-                            if (!spotOf.ContainsKey(key)) { spotOf[key] = _nextSpawn++; slotOf[key] = 0; }
-                            int slot = slotOf[key]++;
-                            SendSys(p, 1, map + "|" + seed + "|" + (spotOf[key] % 10) + "|" + players + "|" + slot);
+                            var gp = new Dictionary<string, SessionProperty>();
+                            if (props != null) foreach (var kv in props) gp[kv.Key] = kv.Value;
+                            gp["seed"] = seed; gp["go"] = players;
+                            _runner.SessionInfo.UpdateCustomProperties(gp);
+                            _runner.SessionInfo.IsOpen = false;   // closed (nobody can join) but still listed, so its players count as online
                         }
+                        catch (Exception e) { Debug.LogWarning("[Rago] couldn't close the raid session: " + e.Message); }
+                        // each party shares one spawn spot (members stand side by side); everyone else gets their own
+                        foreach (var p in _peers) SendSys(p, 1, map + "|" + seed + "|-1|" + players + "|0");   // everyone works out their own spot
+                        SpawnFor(MyName(), out int mySpot, out int mySlot);
                         _queueing = false;
                         _status = "Raid (" + players + " players)";
-                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = 0, players = players, online = true, partySlot = 0 });
+                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = mySpot, players = players, online = true, partySlot = mySlot });
                         return;
                     }
                     // not the host and the host's go never came (left, lagging, message lost): don't sit past 1:00 - go in
@@ -619,7 +729,8 @@ namespace Rago.Net
                         int seed = props != null && props.TryGetValue("seed", out var sp2) ? (int)sp2 : (_runner.SessionInfo.Name ?? map).GetHashCode() & 0x7fffff;
                         _queueing = false;
                         _status = "Raid (" + players + " players)";
-                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = (int)(LocalId % 10), players = players, online = true, partySlot = 0 });
+                        SpawnFor(MyName(), out int sp1, out int sl1);
+                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = sp1, players = players, online = true, partySlot = sl1 });
                         return;
                     }
                     await Task.Delay(500);
@@ -754,7 +865,7 @@ namespace Rago.Net
                     // the leader queued: follow them into their raid session
                     var p = text.Split('|');
                     SendSys(Id(player), 10, "ok");
-                    if (p.Length >= 3 && _pendingRaidSession != p[1]) { _pendingRaidSession = p[1]; _pendingPartySize = int.Parse(p[2]); _wasLeader = false; OnPartyQueue?.Invoke(p[0]); }
+                    if (p.Length >= 3 && _pendingRaidSession != p[1] && _lastRaid != p[1]) { _lastRaid = p[1]; _pendingRaidSession = p[1]; _pendingPartySize = int.Parse(p[2]); _wasLeader = false; OnPartyQueue?.Invoke(p[0]); }
                 }
                 else if (code == 6) SendSys(Id(player), 10, "ok");     // already on our way: still answer so the leader stops asking
                 else if (code == 10) _acks.Add(Id(player));
@@ -848,6 +959,7 @@ namespace Rago.Net
             if (_runner == null || p == _runner.LocalPlayer || p.PlayerId < 0) return;
             ulong id = Id(p);
             _refs[id] = p;
+            LearnFromUserId(id, p);
             if (_peers.Contains(id)) return;
             _peers.Add(id);
             SendSys(id, 3, MyName());
@@ -866,6 +978,20 @@ namespace Rago.Net
                 {
                     _peerScan = 0.5f;
                     try { foreach (var p in _runner.ActivePlayers) NotePeer(p); } catch { }
+                    // the party session's host should be the leader (whoever got back first opened it and became host)
+                    if (_inPartySession && IsHost && _partyCode != null && Key(_partyCode) != Key(MyName()))
+                        foreach (var kv in _names) if (Key(kv.Value) == Key(_partyCode) && _refs.TryGetValue(kv.Key, out var lr)) { MakeMaster(lr); break; }
+                    // the leader queued: follow - read from the party session itself too, not only from a message
+                    if (_inPartySession && !_queueing && _pendingRaidSession == null && _runner.SessionInfo.Properties != null
+                        && _runner.SessionInfo.Properties.TryGetValue("raid", out var rv))
+                    {
+                        var rp = Str(rv).Split('|');
+                        if (rp.Length >= 4 && rp[1] != _lastRaid && long.TryParse(rp[3], out var when) && DateTimeOffset.UtcNow.ToUnixTimeSeconds() - when < 25)
+                        {
+                            _lastRaid = rp[1]; _pendingRaidSession = rp[1]; int.TryParse(rp[2], out _pendingPartySize); _wasLeader = false;
+                            OnPartyQueue?.Invoke(rp[0]);
+                        }
+                    }
                     // a callsign (or party tag) sent the moment someone joined can be lost: keep introducing ourselves to,
                     // and asking, anyone we still don't have a name for - the party list said "joining..." forever
                     float now = Time.realtimeSinceStartup;

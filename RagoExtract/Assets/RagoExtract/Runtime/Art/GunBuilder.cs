@@ -84,6 +84,7 @@ namespace Rago
                 case GunStyle.BoxShotgun: BoxShotgun(d, rig, mb, mats); break;
                 case GunStyle.Lmg: Lmg(d, rig, mb, mats); break;
                 case GunStyle.AntiMat: AntiMat(d, rig, mb, mats); break;
+                case GunStyle.Tommy: Tommy(d, rig, mb, mats); break;
             }
             var body = mb.Build("Body", root.transform, mats);
             var dev = _device; _device = null;
@@ -473,6 +474,53 @@ namespace Rago
             rig.foregrip = Anchor(rig.root, "Foregrip", new Vector3(0, 0.038f, 0.24f));
             rig.sightLine = Anchor(rig.root, "SightLine", new Vector3(0, 0.116f, -0.06f));
             rig.butt = Anchor(rig.root, "Butt", new Vector3(0, 0.055f, -0.28f));
+        }
+
+        /// <summary>Thompson: wooden butt stock and pistol grip, long milled receiver, finned barrel, Cutts compensator,
+        /// vertical wooden foregrip, top cocking knob and a drum.</summary>
+        static void Tommy(GunDef d, GunRig rig, MB mb, Material[] mats)
+        {
+            rig.boreY = 0.072f;
+            PistolGrip(mb, FUR, 12f, 0.1f, 0.034f, 0.03f, 0.0f);
+            // receiver: long, squared, with the rounded top of the frame
+            mb.Sub(FIN).Box(new Vector3(0, 0.07f, 0.07f), new Vector3(0.042f, 0.052f, 0.3f), W, 0.008f, 2);
+            mb.Sub(FIN).Box(new Vector3(0, 0.035f, 0.03f), new Vector3(0.036f, 0.03f, 0.2f), W, 0.006f);   // lower frame
+            TriggerGuard(mb, 0.0f, 0.06f, 0.025f, -0.01f, FIN);
+            mb.Sub(FIN).Box(new Vector3(0, 0.03f, 0.13f), new Vector3(0.03f, 0.03f, 0.05f), W, 0.004f);   // magwell
+            // top cocking knob in its slot
+            mb.Sub(DARK).Box(new Vector3(0, 0.098f, 0.07f), new Vector3(0.008f, 0.004f, 0.12f), W, 0.001f);
+            var ch = new MB(1);
+            ch.Sphere(new Vector3(0, 0.106f, 0.12f), Vector3.one * 0.009f, 10, W);
+            rig.slide = ch.Build("CockingKnob", rig.root.transform, mats[DARK]).transform;
+            rig.slideTravel = new Vector3(0, 0, -0.08f);
+            // finned barrel and the Cutts compensator
+            float bz = 0.22f, blen = 0.26f;
+            Barrel(mb, new Vector3(0, rig.boreY, bz), blen, 0.009f, DARK);
+            for (int i = 0; i < 11; i++)
+            {
+                float z = bz + 0.01f + i * 0.012f;
+                mb.Sub(DARK).Cyl(new Vector3(0, rig.boreY, z), new Vector3(0, rig.boreY, z + 0.005f), 0.019f, 0.019f, 16, W);
+            }
+            mb.Sub(DARK).Cyl(new Vector3(0, rig.boreY, bz + blen), new Vector3(0, rig.boreY, bz + blen + 0.055f), 0.016f, 0.014f, 14, W);
+            for (int i = 0; i < 3; i++) mb.Sub(BLK).Box(new Vector3(0, rig.boreY + 0.013f, bz + blen + 0.012f + i * 0.014f), new Vector3(0.012f, 0.004f, 0.004f), W, 0.001f);
+            // vertical wooden foregrip
+            mb.Sub(FUR).Cyl(new Vector3(0, 0.05f, 0.29f), new Vector3(0, -0.045f, 0.3f), 0.017f, 0.02f, 14, W);
+            for (int i = 0; i < 4; i++) mb.Sub(FUR).Cyl(new Vector3(0, 0.035f - i * 0.022f, 0.296f), new Vector3(0, 0.025f - i * 0.022f, 0.296f), 0.022f, 0.022f, 14, W);
+            mb.Sub(FIN).Box(new Vector3(0, 0.055f, 0.28f), new Vector3(0.03f, 0.02f, 0.05f), W, 0.004f);
+            // wooden butt stock
+            Stock(mb, FUR, -0.06f, -0.38f, 0.085f, 0.0f, 0.06f, 0.042f);
+            mb.Sub(FIN).Box(new Vector3(0, 0.055f, -0.07f), new Vector3(0.04f, 0.04f, 0.04f), W, 0.004f);   // stock mount
+            Irons(mb, -0.02f, bz + blen - 0.01f, 0.112f, 0.092f, rig.boreY + 0.012f);
+            if (d.optics) Rail(mb, new Vector3(0, 0.097f, -0.02f), 0.12f);
+            float mz = bz + blen + 0.06f;
+            rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, mz));
+            rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.022f, 0.08f, 0.09f));
+            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.018f, 0.13f));
+            rig.magStyle = MagStyle.Drum;
+            if (d.optics) rig.rail = Anchor(rig.root, "Rail", new Vector3(0, 0.106f, 0.02f));
+            rig.foregrip = Anchor(rig.root, "Foregrip", new Vector3(0, 0.0f, 0.298f));
+            rig.sightLine = Anchor(rig.root, "SightLine", new Vector3(0, 0.112f, -0.02f));
+            rig.butt = Anchor(rig.root, "Butt", new Vector3(0, 0.03f, -0.38f));
         }
 
         static void SmgMac(GunDef d, GunRig rig, MB mb, Material[] mats)

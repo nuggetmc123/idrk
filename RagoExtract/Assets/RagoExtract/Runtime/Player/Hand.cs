@@ -227,6 +227,8 @@ namespace Rago
         }
 
         /// <summary>After BOTH hands are snapped: put what this hand holds on them (a two-handed gun needs both hands' latest spots).</summary>
+        public void RefreshVisual() { if (rig != null && !rig.Dead) UpdateVisualPose(); }
+
         public void RenderSnapHeld()
         {
             if (rig.Dead || rb == null) return;
@@ -406,8 +408,7 @@ namespace Rago
             if (_remote != null && _remote.primaryHand == null) { StartPull(_remote); return; }
             if (_remoteCrate != null && !_remoteCrate.opened) { _remoteCrate.Open(); Haptic(0.3f, 0.04f); return; }
             // 5. nothing to pick up: grab the world itself and climb (walls, ledges, ladders, fences, rocks)
-            // (not in the Market: gripping a stall counter pinned you in place)
-            if (XRInputs.VR && RagoGame.I != null && RagoGame.I.Area != Area.Market && CanClimbHere(p)) { Climbing = true; ClimbAnchor = TrackedPosition; ClimbStart = Time.time; Haptic(0.35f, 0.05f); }
+            if (XRInputs.VR && RagoGame.I != null && CanClimbHere(p)) { Climbing = true; ClimbAnchor = TrackedPosition; ClimbStart = Time.time; Haptic(0.35f, 0.05f); }
         }
 
         static int _worldMask = 0;
@@ -426,6 +427,8 @@ namespace Rago
                 if (c == null || c == _col || c.attachedRigidbody != null && !c.attachedRigidbody.isKinematic) continue;   // not loose physics props
                 if (c.GetComponentInParent<Item>() != null || c.GetComponentInParent<LootCrate>() != null) continue;
                 if (c.transform.IsChildOf(rig.transform)) continue;
+                // never other people: gripping another player (or a raider) grabbed onto them and dragged you around
+                if (c.GetComponentInParent<HitZone>() != null || c.GetComponentInParent<RemotePlayer>() != null || c.GetComponentInParent<Npc>() != null) continue;
                 return true;
             }
             return false;

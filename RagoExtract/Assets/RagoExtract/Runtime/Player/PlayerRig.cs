@@ -92,6 +92,9 @@ namespace Rago
             HandR.RenderSnap(rp, rr);
             HandL.RenderSnapHeld();   // only now: a gun held in both hands is posed from both hands' latest spots
             HandR.RenderSnapHeld();
+            // the support hand goes on the gun's foregrip only once the gun itself has moved: done above in hand order it
+            // put your left hand where the gun WAS, so it slid off the gun while you walked
+            HandL.RefreshVisual(); HandR.RefreshVisual();
             if (Body != null) Body.Repose();   // arms follow the snapped hands
             Gear.Tick();
             AfterRenderSnap?.Invoke();   // things that ride on your hands (the field map) go on last

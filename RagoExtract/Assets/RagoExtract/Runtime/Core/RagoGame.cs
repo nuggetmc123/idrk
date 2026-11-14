@@ -409,9 +409,20 @@ namespace Rago
             var er = new Rng(rs.seed * 7 + 13);
             foreach (var ex in map.Extracts) if (ex != null) ex.OpensAt = er.Range(300f, 600f);
             FieldMap.Create(map, map.DisplayName);   // photographed now, while the screen is still black
+            // a random air drop in 15% of raids (not the Underground): same time, place and boss for everyone (raid seed)
+            AirDrop.ResetCount();
+            var ar = new Rng(rs.seed * 31 + 5);
+            if (map.Id != "underground" && ar.Chance(AirDrop.RandomChance) && AirDrop.PickSpot(map, ar, out var dz))
+                I.StartCoroutine(I.DropLater(ar.Range(150f, 480f), dz, ar.Range(0f, 360f)));
             var dir = NpcDirector.Create(map.transform);
             dir.SpawnSquads(map.NpcSpawns, rs.seed, online && !NetHub.Backend.IsHost, map.PlayerSpawns, map.NpcSafeRadius, map.MaxRaiders);
             g.Player.Hud.Center(map.DisplayName.ToUpper() + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>", 6f);
+        }
+
+        System.Collections.IEnumerator DropLater(float after, Vector3 zone, float heading)
+        {
+            yield return new WaitForSeconds(after);
+            if (!Done) AirDrop.Call(zone, heading, true, false, 1400);
         }
 
         static int Value(Gear gear) { int v = 0; foreach (var d in gear.AllCarried()) v += Backpack.DataValue(d); return v; }

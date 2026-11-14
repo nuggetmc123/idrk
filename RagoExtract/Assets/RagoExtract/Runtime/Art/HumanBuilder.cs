@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Rago
 {
-    public enum Outfit { Operator, Raider, RaiderHeavy, Gunsmith, Medic, Fence, Quartermaster, Kiosk, Foreman, BossKessler, BossHarbor, BossWarden, BossBanker }
+    public enum Outfit { Operator, Raider, RaiderHeavy, Gunsmith, Medic, Fence, Quartermaster, Kiosk, Foreman, BossKessler, BossHarbor, BossWarden, BossBanker, BossCourier }
 
     /// <summary>
     /// A procedurally built humanoid made of rigid segments on a bone hierarchy. Used for the player's own
@@ -127,6 +127,10 @@ namespace Rago
                     p.top = new Color(0.08f, 0.08f, 0.09f); p.top2 = new Color(0.85f, 0.65f, 0.2f); p.pants = new Color(0.08f, 0.08f, 0.09f); p.gear = new Color(0.85f, 0.65f, 0.2f); p.gear2 = p.gear * 0.8f;
                     p.suit = true; p.accent = new Color(0.85f, 0.65f, 0.2f); p.helmetOn = false; p.plate = false;
                     break;
+                case Outfit.BossCourier:   // 1930s look: pinstripe charcoal suit, white shirt, fedora-dark cap
+                    p.top = new Color(0.16f, 0.16f, 0.18f); p.top2 = new Color(0.9f, 0.9f, 0.86f); p.pants = new Color(0.16f, 0.16f, 0.18f); p.gear = new Color(0.45f, 0.08f, 0.08f); p.gear2 = p.gear * 0.8f;
+                    p.suit = true; p.cap = true; p.accent = new Color(0.45f, 0.08f, 0.08f); p.helmetOn = false; p.plate = false;
+                    break;
                 case Outfit.Gunsmith:
                     p.top = new Color(0.32f, 0.3f, 0.28f); p.top2 = p.top; p.pants = new Color(0.2f, 0.22f, 0.28f); p.gear = new Color(0.35f, 0.24f, 0.14f); p.apron = true; p.cap = true; p.accent = new Color(0.5f, 0.3f, 0.1f);
                     break;
@@ -176,6 +180,7 @@ namespace Rago
                 case Outfit.BossHarbor: c = new Color(0.16f, 0.2f, 0.32f); break;
                 case Outfit.BossWarden: c = new Color(0.3f, 0.38f, 0.22f); break;
                 case Outfit.BossBanker: c = new Color(0.88f, 0.68f, 0.22f); break;
+                case Outfit.BossCourier: c = new Color(0.55f, 0.1f, 0.1f); break;
                 default:
                     c = new Color(0.94f, 0.93f, 0.9f);
                     break;

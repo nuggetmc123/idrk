@@ -133,7 +133,7 @@ namespace Rago
         public static Outfit BossOutfit(string boss)
         {
             string b = boss.ToLowerInvariant();
-            return b.Contains("kessler") ? Outfit.BossKessler : b.Contains("harbor") ? Outfit.BossHarbor : b.Contains("warden") ? Outfit.BossWarden : b.Contains("banker") ? Outfit.BossBanker : Outfit.RaiderHeavy;
+            return b.Contains("kessler") ? Outfit.BossKessler : b.Contains("harbor") ? Outfit.BossHarbor : b.Contains("warden") ? Outfit.BossWarden : b.Contains("banker") ? Outfit.BossBanker : b.Contains("courier") ? Outfit.BossCourier : Outfit.RaiderHeavy;
         }
 
         public static void BossKit(string boss, out string gun, out string helmet, out string vest)
@@ -143,6 +143,7 @@ namespace Rago
             else if (b.Contains("harbor")) { gun = "boss_anchor"; helmet = "boss_helm_harbor"; vest = "boss_vest_harbor"; }
             else if (b.Contains("warden")) { gun = "boss_longbow"; helmet = "boss_helm_warden"; vest = "boss_vest_warden"; }
             else if (b.Contains("banker")) { gun = "boss_parachute"; helmet = "boss_helm_banker"; vest = "boss_vest_banker"; }
+            else if (b.Contains("courier")) { gun = "boss_tommy"; helmet = "boss_helm_courier"; vest = "boss_vest_courier"; }
             else { gun = "grizzly"; helmet = "helm_fast"; vest = "vest_heavy"; }
         }
 
@@ -450,7 +451,9 @@ namespace Rago
 
         public void RemoteFire(Vector3 o, Vector3 dir)
         {
-            Ballistics.Fire(o, dir, Weapon, ActorId, transform, this, true, Random.value < 0.3f);
+            // the bullet can hurt you here: the host's copy of you is a moment behind, so its hits used to miss - you
+            // couldn't be hurt by raiders at all unless you were the host
+            Ballistics.Fire(o, dir, Weapon, ActorId, transform, this, true, Random.value < 0.3f, true);
             Fx.MuzzleFlash(GunModel.muzzle, Weapon.TwoHanded ? 1.1f : 0.7f, Weapon.suppressed);
             Sfx.Gunshot(Weapon, o, false);
             _recoil = 1f;
@@ -530,10 +533,17 @@ namespace Rago
         public void TakeHit(HitInfo h, HitZone zone)
         {
             if (!Alive) return;
-            if (Puppet && !h.fromNet) return; // the host applies damage
             float dmg = h.damage;
             dmg *= ArmorDef.Reduction(h.part, Helmet, Vest);
             Health -= dmg;
+            if (Puppet)
+            {
+                // every player's copy of this raider counts every hit (everyone's shots are sent to everyone), so whoever
+                // lands the killing shot drops them straight away and tells the others - not only the host
+                _flinch = Mathf.Clamp01(_flinch + 0.6f); _flinchDir = h.dir.normalized;
+                if (Health <= 0) Die(h.point, h.dir * Mathf.Max(20f, h.force * 20f), h.fromNet);
+                return;
+            }
             _flinch = Mathf.Clamp01(_flinch + 0.6f);
             _flinchDir = h.dir.normalized;
             _aimErr = Mathf.Min(1.5f, _aimErr + 0.5f);

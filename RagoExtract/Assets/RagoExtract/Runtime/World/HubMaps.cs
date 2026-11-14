@@ -110,13 +110,41 @@ namespace Rago
                 FloorCeiling(6, 13, 6, 13, floor, conc, Ht);
                 Walls(conc, tint, Ht, (new Vector3(8, 0, 6), new Vector3(13, 0, 6)), (new Vector3(13, 0, 13), new Vector3(6, 0, 13)), (new Vector3(13, 0, 6), new Vector3(13, 0, 13)));
                 Lamp(new Vector3(9.5f, 0, 9.5f), lampMat, new Color(1f, 0.85f, 0.6f), Ht);
-                var body = Mats.Lit("generator", new Color(0.55f, 0.48f, 0.12f), 0.5f, 0.45f, Mats.Metal, Mats.MetalN, 0.5f, 0.5f);
-                b.Box(new Vector3(10.2f, 0.15f, 9.0f), new Vector3(2.6f, 0.3f, 1.4f), Maps.Metal, new Color(0.25f, 0.25f, 0.25f), null, true, Synth.Surface.Metal); // skid
-                b.Box(new Vector3(9.6f, 0.95f, 9.0f), new Vector3(1.4f, 1.3f, 1.2f), body, Color.white, null, true, Synth.Surface.Metal, 0.03f);
-                b.Cyl(new Vector3(10.4f, 0.75f, 9.0f), new Vector3(11.3f, 0.75f, 9.0f), 0.45f, 0.45f, 18, body, new Color(0.8f, 0.8f, 0.8f), true, Synth.Surface.Metal);
-                b.Cyl(new Vector3(9.3f, 1.6f, 8.7f), new Vector3(9.3f, Ht, 8.7f), 0.08f, 0.08f, 10, Maps.Metal, new Color(0.3f, 0.3f, 0.3f), false); // exhaust
-                b.Box(new Vector3(9.6f, 1.25f, 8.39f), new Vector3(0.5f, 0.3f, 0.02f), Mats.Lit("gen_panel", new Color(0.1f, 0.1f, 0.1f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(0.2f, 1.2f, 0.3f)), Color.white, null, false);
-                for (int i = 0; i < 4; i++) b.Cyl(new Vector3(8.0f, 0.2f + i * 0.12f, 9.0f), new Vector3(6.3f, 0.2f + i * 0.12f, 9.0f + i * 0.1f), 0.025f, 0.025f, 6, Maps.Metal, new Color(0.12f, 0.12f, 0.12f), false); // cables
+                // diesel generator set: steel skid frame, yellow sound-proof canopy with louvres and access doors, a
+                // radiator grille at one end, the control panel with gauges, a fuel tank underneath and the muffler on top
+                var body = Mats.Lit("generator2", new Color(0.86f, 0.66f, 0.12f), 0.35f, 0.45f, Mats.Metal, Mats.MetalN, 0.45f, 0.45f);
+                var steel = Maps.Metal;
+                Color dk = new Color(0.14f, 0.14f, 0.15f), mid = new Color(0.3f, 0.3f, 0.31f);
+                Vector3 gc = new Vector3(9.7f, 0, 9.0f);
+                b.Box(gc + new Vector3(0, 0.09f, 0), new Vector3(3.0f, 0.18f, 1.3f), steel, dk, null, true, Synth.Surface.Metal);                       // skid
+                foreach (var z in new[] { -0.6f, 0.6f }) b.Box(gc + new Vector3(0, 0.22f, z), new Vector3(3.0f, 0.1f, 0.08f), steel, mid, null, false);   // skid rails
+                b.Box(gc + new Vector3(0, 0.36f, 0), new Vector3(2.6f, 0.2f, 1.1f), steel, mid, null, true, Synth.Surface.Metal);                        // fuel tank
+                b.Box(gc + new Vector3(0, 1.1f, 0), new Vector3(2.7f, 1.3f, 1.2f), body, Color.white, null, true, Synth.Surface.Metal, 0.04f);         // canopy
+                b.Box(gc + new Vector3(0, 1.79f, 0), new Vector3(2.75f, 0.06f, 1.25f), body, new Color(0.85f, 0.85f, 0.85f), null, false, Synth.Surface.Metal, 0.02f);   // roof lip
+                // louvres down both sides and access door seams + handles
+                foreach (var sz in new[] { -0.61f, 0.61f })
+                {
+                    for (int i = 0; i < 7; i++) b.Box(gc + new Vector3(-0.6f + i * 0.09f, 1.2f, sz), new Vector3(0.05f, 0.55f, 0.015f), steel, dk, null, false);
+                    foreach (var x in new[] { 0.15f, 0.85f }) b.Box(gc + new Vector3(x, 1.1f, sz), new Vector3(0.012f, 1.1f, 0.012f), steel, dk, null, false);
+                    b.Box(gc + new Vector3(0.75f, 1.1f, sz * 1.03f), new Vector3(0.12f, 0.03f, 0.03f), steel, new Color(0.6f, 0.6f, 0.6f), null, false);
+                }
+                // radiator grille (+x end)
+                b.Box(gc + new Vector3(1.36f, 1.05f, 0), new Vector3(0.02f, 1.0f, 1.0f), steel, dk, null, false);
+                for (int i = 0; i < 9; i++) b.Box(gc + new Vector3(1.375f, 0.62f + i * 0.105f, 0), new Vector3(0.02f, 0.03f, 0.98f), steel, mid, null, false);
+                // control panel (-x end): dark panel, gauges, green run light, red stop button
+                b.Box(gc + new Vector3(-1.36f, 1.15f, 0), new Vector3(0.02f, 0.7f, 0.8f), Mats.Lit("gen_ctrl", dk, 0.2f, 0.5f), Color.white, null, false);
+                foreach (var z in new[] { -0.22f, 0f, 0.22f })
+                {
+                    b.Cyl(gc + new Vector3(-1.37f, 1.3f, z), gc + new Vector3(-1.39f, 1.3f, z), 0.075f, 0.075f, 16, steel, new Color(0.75f, 0.75f, 0.75f), false);
+                    b.Cyl(gc + new Vector3(-1.39f, 1.3f, z), gc + new Vector3(-1.395f, 1.3f, z), 0.06f, 0.06f, 16, Mats.Lit("gauge_face", new Color(0.92f, 0.9f, 0.84f), 0f, 0.3f), Color.white, false);
+                }
+                b.Box(gc + new Vector3(-1.38f, 1.0f, -0.2f), new Vector3(0.03f, 0.07f, 0.07f), Mats.Lit("gen_run", new Color(0.1f, 0.4f, 0.1f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(0.2f, 2f, 0.3f)), Color.white, null, false);
+                b.Cyl(gc + new Vector3(-1.37f, 1.0f, 0.2f), gc + new Vector3(-1.41f, 1.0f, 0.2f), 0.04f, 0.035f, 14, Mats.Lit("gen_stop", new Color(0.8f, 0.08f, 0.06f), 0.1f, 0.5f), Color.white, false);
+                // muffler, exhaust pipe up through the ceiling, lifting eye
+                b.Cyl(gc + new Vector3(0.6f, 1.95f, 0.25f), gc + new Vector3(-0.4f, 1.95f, 0.25f), 0.14f, 0.14f, 14, steel, new Color(0.35f, 0.3f, 0.26f), false);
+                b.Cyl(gc + new Vector3(-0.4f, 1.95f, 0.25f), gc + new Vector3(-0.45f, Ht, 0.25f), 0.06f, 0.06f, 10, steel, dk, false);
+                b.Cyl(gc + new Vector3(0, 1.82f, -0.2f), gc + new Vector3(0, 1.98f, -0.2f), 0.06f, 0.06f, 10, steel, mid, false);
+                for (int i = 0; i < 4; i++) b.Cyl(new Vector3(8.2f, 0.2f + i * 0.12f, 9.0f), new Vector3(6.3f, 0.2f + i * 0.12f, 9.0f + i * 0.1f), 0.025f, 0.025f, 6, Maps.Metal, new Color(0.12f, 0.12f, 0.12f), false); // cables
                 var l = b.AddLight(new Vector3(9.6f, 1.6f, 8.0f), new Color(0.4f, 1f, 0.5f), 3f, 0.6f);
                 l.gameObject.AddComponent<Flicker>();
                 GeneratorPanel.Create(transform, new Vector3(9.5f, 1.5f, 12.8f), 0);

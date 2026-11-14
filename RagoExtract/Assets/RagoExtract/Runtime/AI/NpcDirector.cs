@@ -78,6 +78,16 @@ namespace Rago
             _testerId = id;
         }
 
+        /// <summary>A tester-spawned raider in an online raid: the host runs it, everyone else gets a copy with the same id.</summary>
+        public void SpawnNet(int id, Vector3 pos, float yaw, int seed, bool heavy, string boss, bool puppet)
+        {
+            if (_byId.ContainsKey(id)) return;
+            int i = id;
+            SpawnOne(ref i, pos, yaw, seed, heavy, boss, puppet);
+            if (id >= _testerId) _testerId = id + 1;
+        }
+        public int NextTesterId() => _testerId;
+
         void SpawnOne(ref int id, Vector3 pos, float yaw, int seed, bool heavy, string boss, bool puppets)
         {
             var n = Npc.Spawn(id, pos, yaw, seed * 1000 + id, heavy, transform, boss);

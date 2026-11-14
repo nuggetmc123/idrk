@@ -9,7 +9,7 @@ namespace Rago
     public enum GunClass { Pistol, Revolver, SMG, Shotgun, Rifle, BattleRifle, DMR, Sniper, LMG }
     public enum FireAction { Semi, Auto, Burst, Bolt, Pump, Break, Revolver }
     public enum Caliber { C9mm, C45, C57, C556, C545, C762, C308, C338, C50BMG, C12g, C50AE, C357 }
-    public enum GunStyle { Pistol, Revolver, SmgBox, SmgMac, SmgVector, Bullpup, AR, AK, Battle, Bolt, Pump, Double, BoxShotgun, Lmg, AntiMat }
+    public enum GunStyle { Pistol, Revolver, SmgBox, SmgMac, SmgVector, Bullpup, AR, AK, Battle, Bolt, Pump, Double, BoxShotgun, Lmg, AntiMat, Tommy }
     public enum Finish { Black, Fde, Od, Wood, Chrome, Gold, Tan, Plum, Gray }
 
     public class ItemDef
@@ -125,6 +125,7 @@ namespace Rago
         public float heal;
         public float healTime = 0.5f;   // seconds the heal is spread over
         public bool stopsBleed;
+        public float energy;            // energy drinks: seconds of boosted stamina / sprint
         public Caliber ammoCal;
         public int ammoCount;
         public int shape; // visual variant
@@ -282,6 +283,10 @@ namespace Rago
             var anchor = G("boss_anchor", "Harbormaster's Anchor", GunClass.Shotgun, GunStyle.BoxShotgun, FireAction.Auto, Caliber.C12g, 16, 360, 20, 1.4f, 3.6f, Rarity.Boss, 20000, true, Finish.Gray, Finish.Wood, 0.46f, "Boss-only (The Harbormaster, Dockyard). Full-auto drum shotgun with a wooden deck stock.");
             anchor.drum = true;
             G("boss_longbow", "Warden's Longbow", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C338, 135, 55, 5, 1.8f, 0.05f, Rarity.Boss, 24000, true, Finish.Od, Finish.Wood, 0.78f, "Boss-only (The Warden, Pinewood). Hand-built .338 that never misses.");
+            // the Thompson: the air-drop boss's gun - one of the best guns in the game. Hits like a rifle at SMG speed,
+            // 100-round drum, very accurate for a sub-gun
+            var tommy = G("boss_tommy", "Chicago Typewriter", GunClass.SMG, GunStyle.Tommy, FireAction.Auto, Caliber.C45, 44, 800, 100, 0.42f, 0.55f, Rarity.Boss, 30000, true, Finish.Black, Finish.Wood, 0.3f, "Boss-only (The Courier, from the air drop). A .45 Thompson with a finned barrel, Cutts compensator and a 100-round drum. One of the best guns there is.");
+            tommy.drum = true;
             G("boss_parachute", "Golden Parachute", GunClass.Rifle, GunStyle.Bullpup, FireAction.Auto, Caliber.C762, 46, 750, 30, 0.55f, 0.6f, Rarity.Boss, 26000, true, Finish.Gold, Finish.Black, 0.48f, "Boss-only (The Banker, Old Town). Gold-plated 7.62 bullpup.");
 
             // ---------------- LMGs (4)
@@ -332,6 +337,13 @@ namespace Rago
             var trauma = M("trauma_kit", "Trauma Kit", ItemKind.Med, R, 2400, 1, new Color(0.15f, 0.35f, 0.75f), "Surgical trauma kit: heals 90 HP over a few seconds.");
             trauma.heal = 90; trauma.stopsBleed = true; trauma.healTime = 5f;
             var stim = M("stim", "Adrenal Stim", ItemKind.Med, R, 1200, 2, new Color(0.2f, 0.75f, 0.9f), "Instant 30 HP and a burst of stamina.");
+            // energy drinks: hold the can to your mouth and pull the trigger
+            var volt = M("energy_volt", "Volt Energy", ItemKind.Med, C, 260, 5, new Color(0.35f, 0.85f, 0.2f), "Energy drink. Full stamina and faster sprinting for 30 s, +5 HP.");
+            volt.heal = 5; volt.energy = 30f;
+            var rush = M("energy_rush", "Red Rush", ItemKind.Med, U, 420, 5, new Color(0.85f, 0.12f, 0.12f), "Strong energy drink. Full stamina and faster sprinting for 60 s, +10 HP.");
+            rush.heal = 10; rush.energy = 60f;
+            var cola = M("energy_nuke", "Nuke Cola", ItemKind.Med, C, 160, 5, new Color(0.15f, 0.15f, 0.18f), "Fizzy, sugary, mildly radioactive. Full stamina and 15 s of faster sprinting."); 
+            cola.heal = 3; cola.energy = 15f;
             // throwables + knives
             M("frag", "M67 Frag Grenade", ItemKind.Throwable, U, 900, 0, new Color(0.3f, 0.34f, 0.22f), "Pull the trigger to pull the pin, then throw. Goes off 3.6 s later. Lethal within a few metres.");
             M("flash", "M84 Flashbang", ItemKind.Throwable, U, 650, 1, new Color(0.55f, 0.57f, 0.58f), "Pull the pin and throw. Blinds and deafens anyone looking at it - raiders can't see or shoot for a few seconds.");
@@ -356,7 +368,7 @@ namespace Rago
             M("junk_battery", "Battery Pack", ItemKind.Valuable, C, 300, 12, new Color(0.2f, 0.25f, 0.2f), "Always in demand.");
             M("junk_whiskey", "Whiskey Bottle", ItemKind.Valuable, U, 650, 13, new Color(0.55f, 0.3f, 0.1f), "Aged twelve years. Mostly full.");
             M("val_phone", "Smartphone", ItemKind.Valuable, U, 950, 14, new Color(0.08f, 0.08f, 0.1f), "Cracked screen, good parts.");
-            M("val_radio", "Military Radio", ItemKind.Valuable, U, 1400, 15, new Color(0.3f, 0.33f, 0.24f), "Encrypted handset.");
+            M("val_radio", "Military Radio", ItemKind.Valuable, R, 3500, 15, new Color(0.3f, 0.33f, 0.24f), "Encrypted military handset. In a raid, hold it and pull the trigger to call in an AIR DROP where you stand (not underground). Found only at a few spots on each map.");
             M("val_ring", "Silver Ring", ItemKind.Valuable, U, 1100, 16, new Color(0.85f, 0.85f, 0.9f), "Engraved. Not yours.");
             M("val_laptop", "Rugged Laptop", ItemKind.Valuable, R, 6500, 17, new Color(0.25f, 0.27f, 0.25f), "Field laptop full of data.");
             M("val_idol", "Gold Idol", ItemKind.Valuable, E, 16000, 18, new Color(1f, 0.75f, 0.25f), "A small golden statue. Huge payday.");
@@ -383,6 +395,8 @@ namespace Rago
             A("vest_heavy", "Heavy Plate Carrier", ArmorSlot.Vest, 0.42f, 2, R, 4200, olive, blk, "Thicker plates and shoulder protection.");
             A("vest_assault", "Assault Armor Rig", ArmorSlot.Vest, 0.52f, 3, E, 8000, blk, gray, "Full torso coverage with a groin flap.");
             // boss-only armour (worn by the map bosses, dropped when they die)
+            A("boss_helm_courier", "Courier's Steel Pot", ArmorSlot.Helmet, 0.55f, 1, Rarity.Boss, 14000, new Color(0.16f, 0.16f, 0.18f), new Color(0.45f, 0.08f, 0.08f), "Boss-only (The Courier, air drops). Charcoal steel helmet with a red band.");
+            A("boss_vest_courier", "Courier's Drop Rig", ArmorSlot.Vest, 0.6f, 3, Rarity.Boss, 17000, new Color(0.16f, 0.16f, 0.18f), new Color(0.45f, 0.08f, 0.08f), "Boss-only (The Courier, air drops). Heavy charcoal plate carrier.");
             A("boss_helm_kessler", "Kessler's Hazard Visor", ArmorSlot.Helmet, 0.55f, 3, Rarity.Boss, 14000, new Color(0.85f, 0.86f, 0.84f), new Color(0.75f, 0.12f, 0.1f), "Boss-only. A lab-white visor helmet with a red cross.");
             A("boss_vest_kessler", "Kessler's Lab Plate", ArmorSlot.Vest, 0.58f, 3, Rarity.Boss, 16000, new Color(0.85f, 0.86f, 0.84f), new Color(0.75f, 0.12f, 0.1f), "Boss-only. White full-torso plates.");
             A("boss_helm_harbor", "Harbormaster's Dive Helm", ArmorSlot.Helmet, 0.6f, 4, Rarity.Boss, 15000, new Color(0.62f, 0.3f, 0.12f), new Color(0.8f, 0.62f, 0.3f), "Boss-only. A rust-orange full-face helm with brass trim.");
@@ -478,6 +492,8 @@ namespace Rago
                     else pool.AddRange(Guns.FindAll(g => g.cls == GunClass.Pistol || g.cls == GunClass.Revolver || g.cls == GunClass.SMG));
                     break;
             }
+            // vault keycards and military radios only lie at their own spots on each map - never in crates, safes or on bodies
+            pool.RemoveAll(d => d.kind == ItemKind.Key || d.id == "val_radio");
             float total = 0;
             foreach (var d in pool) total += Weight(d.rarity, t) * (d.kind == ItemKind.Key ? 0.08f : 1f);
             if (total <= 0) return Get("bandage");

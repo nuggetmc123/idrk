@@ -17,6 +17,7 @@ namespace Rago
         public SightItem sight;
         public AttachItem muzzleAtt, sideAtt, gripAtt;
         public bool SideOn = true;   // light / laser switched on
+        public bool RemoteOn;        // another player's gun shown here: its light / laser follows what they send
         public void ToggleSide()
         {
             if (sideAtt == null) return;

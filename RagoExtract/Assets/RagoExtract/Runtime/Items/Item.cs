@@ -347,7 +347,13 @@ namespace Rago
             if (input.TriggerDown && atBody)
             {
                 _using = true;
-                if (def.id == "stim") { pl.Vitals.Heal(sd.heal); pl.Vitals.Stamina = pl.Vitals.MaxStamina; pl.Vitals.StimBoost = 20f; Sfx.Play(Synth.Inject(), transform.position, 0.6f, 1f, 0.5f, 6f); }
+                if (sd.energy > 0f)
+                {
+                    pl.Vitals.Heal(sd.heal); pl.Vitals.Stamina = pl.Vitals.MaxStamina; pl.Vitals.StimBoost = Mathf.Max(pl.Vitals.StimBoost, sd.energy);
+                    Sfx.Play(Synth.Heal(), transform.position, 0.5f, 1.6f, 0.5f, 6f);
+                    pl.Toast(def.name + ": stamina boosted for " + Mathf.RoundToInt(sd.energy) + " s");
+                }
+                else if (def.id == "stim") { pl.Vitals.Heal(sd.heal); pl.Vitals.Stamina = pl.Vitals.MaxStamina; pl.Vitals.StimBoost = 20f; Sfx.Play(Synth.Inject(), transform.position, 0.6f, 1f, 0.5f, 6f); }
                 else
                 {
                     Sfx.Play(Synth.Heal(), transform.position, 0.6f, 1f, 0.5f, 6f);
