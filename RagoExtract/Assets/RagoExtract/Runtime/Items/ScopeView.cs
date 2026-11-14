@@ -71,7 +71,9 @@ namespace Rago
             if (want)
             {
                 if (_cam == null) Make();
-                float apparent = 2f * Mathf.Atan(_lensR / Mathf.Max(dist, 0.03f)) * Mathf.Rad2Deg;   // how big the eyepiece looks to you
+                // fixed zoom: worked out for a normal eye relief (8 cm), not your head's distance this frame - that moved
+                // with every step you took and the picture kept zooming in and out
+                float apparent = 2f * Mathf.Atan(_lensR / 0.08f) * Mathf.Rad2Deg;
                 _cam.fieldOfView = Mathf.Clamp(apparent / _mag, 0.5f, 30f);
                 if (!_cam.enabled) _cam.enabled = true;   // (calling Render() by hand drew nothing under VR on some headsets)
             }

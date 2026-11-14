@@ -64,9 +64,25 @@ namespace Rago.Net
         readonly List<string> _invited = new List<string>();     // leader: callsigns invited to this party
         string _pendingRaidSession; int _pendingPartySize = 1; int _queuePartySize = 1;
         string _sessionKind = "";
+        readonly HashSet<ulong> _acks = new HashSet<ulong>();           // members who answered the leader's "follow me"
+        readonly Dictionary<ulong, float> _nameAsk = new Dictionary<ulong, float>();   // when we last asked a player who they are
+        float _pingT;
         NetworkRunner _lobby;
         public string PartyCode => _partyCode;
-        public bool PartyLeader => _partyCode != null && (_inPartySession ? IsHost : _wasLeader);
+        // the leader is whoever the party is named after - not whoever got back to their bunker first (that player opened
+        // the party session and became its host, which made them "leader" and left the real leader unable to queue).
+        // If the leader has left the party, the session's host takes over.
+        public bool PartyLeader
+        {
+            get
+            {
+                if (_partyCode == null) return false;
+                if (Key(_partyCode) == Key(MyName())) return true;
+                if (!_inPartySession) return _wasLeader;
+                foreach (var p in _peers) if (_names.TryGetValue(p, out var n) && Key(n) == Key(_partyCode)) return false;
+                return IsHost && _names.Count >= _peers.Count;   // leader not here (and everyone's name is known): the host leads
+            }
+        }
         public IReadOnlyList<PartyInvite> Invites { get { _invites.RemoveAll(i => Time.realtimeSinceStartup - i.time > 300f); return _invites; } }
         public IReadOnlyList<string> PartyMembers
         {
@@ -76,6 +92,8 @@ namespace Rago.Net
                 if (_partyCode == null) return _members;
                 _members.Add(MyName() + (PartyLeader ? "  (leader)" : ""));
                 if (_inPartySession) foreach (var p in _peers) _members.Add(_names.TryGetValue(p, out var n) ? n : "joining...");
+                else if (InSession)   // in a raid together: the party carries on, list the teammates who are in here with you
+                    foreach (var p in _peers) if (IsTeammate(p)) _members.Add(_names.TryGetValue(p, out var n) ? n : "teammate");
                 return _members;
             }
         }
@@ -454,6 +472,7 @@ namespace Rago.Net
             await Shutdown();
             await LeaveLobby();
             _inPartySession = false;
+            _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear(); _rtt = 0f; _pingOut = -1f;
             _sessionKind = props != null && props.TryGetValue("kind", out var kp) ? Str(kp) : "";
             var go = new GameObject("FusionRunner");
             DontDestroyOnLoad(go);
@@ -510,7 +529,6 @@ namespace Rago.Net
             if (!_ready) { done?.Invoke(false); return; }
             _status = "Joining the Market...";
             bool ok = await StartSession("RagoMarket", new Dictionary<string, SessionProperty> { { "kind", "market" } }, 20);
-            _names.Clear();
             if (ok) foreach (var p in _peers) SendSys(p, 3, MyName());
             _status = ok ? "Market (" + (_peers.Count + 1) + " players)" : _status;
             done?.Invoke(ok);
@@ -533,16 +551,27 @@ namespace Rago.Net
                 }
                 else if (_partyCode != null && _inPartySession)
                 {
-                    if (!IsHost) { failed?.Invoke("Only the party leader can start the queue"); _queueing = false; return; }
+                    if (!PartyLeader) { failed?.Invoke("Only the party leader can start the queue"); _queueing = false; return; }
                     _wasLeader = true;
                     _queuePartySize = _peers.Count + 1;
                     sessionName = "rago_raid_" + map + "_" + _partyCode + "_" + UnityEngine.Random.Range(1000, 9999);
-                    foreach (var p in _peers) SendSys(p, 6, map + "|" + sessionName + "|" + _queuePartySize);
-                    await Task.Delay(400);   // let the message go out before leaving the party session
+                    // tell every member, and keep telling them until each one answers (up to 5 s): leaving the party session
+                    // before a member heard it left them behind on their own - it looked like they'd been kicked
+                    _acks.Clear();
+                    var members = new List<ulong>(_peers);
+                    string go6 = map + "|" + sessionName + "|" + _queuePartySize;
+                    float until = Time.realtimeSinceStartup + 5f;
+                    while (Time.realtimeSinceStartup < until && InSession)
+                    {
+                        bool all = true;
+                        foreach (var p in members) if (!_acks.Contains(p) && _peers.Contains(p)) { all = false; SendSys(p, 6, go6); }
+                        if (all) break;
+                        await Task.Delay(500);
+                    }
+                    await Task.Delay(300);   // let the last messages go out before leaving the party session
                 }
                 // random join of an open queue for this map, or create one (a party gets its own session that randoms can still fill)
                 bool ok = await StartSession(sessionName, new Dictionary<string, SessionProperty> { { "kind", "raid_" + map } }, QueueRules.MaxFor(map));
-                _peerParty.Clear(); _names.Clear();
                 if (ok) foreach (var p in _peers) { SendSys(p, 3, MyName()); if (_partyCode != null) SendSys(p, 4, _partyCode); }
                 if (!ok) { failed?.Invoke(_status); _queueing = false; return; }
                 float atTarget = -1f;
@@ -619,14 +648,43 @@ namespace Rago.Net
         // ------------------------------------------------------------------------------------ data
         static readonly ReliableKey GameKey = ReliableKey.FromInts(7, 1, 0, 0);
 
+        // Game messages are queued and sent as ONE packet per player per frame (channel 2: [len u16][msg]...).
+        // Every reliable send has its own overhead and Photon only moves so many a second - lots of small ones
+        // (poses, raider updates, shots, voice) backed up in raids and everything arrived seconds late.
+        readonly Dictionary<ulong, System.IO.MemoryStream> _out = new Dictionary<ulong, System.IO.MemoryStream>();
+        float _rtt;
+        float _pingOut = -1f;   // when the oldest still-unanswered ping went out
+        /// <summary>Round trip to the other players, seconds. Grows while pings go unanswered (a backed-up line).</summary>
+        public float Rtt => !InSession || _peers.Count == 0 ? 0f : Mathf.Max(_rtt, _pingOut >= 0f ? Time.realtimeSinceStartup - _pingOut : 0f);
+
         public void Send(byte[] data, bool reliable, ulong target = ulong.MaxValue)
         {
-            if (!InSession || data == null) return;
-            var packet = new byte[data.Length + 1];
-            packet[0] = 0; // game channel
-            Buffer.BlockCopy(data, 0, packet, 1, data.Length);
-            if (target == ulong.MaxValue) { foreach (var p in _peers) SendTo(p, packet); }
-            else if (target != LocalId) SendTo(target, packet);
+            if (!InSession || data == null || data.Length == 0 || data.Length > 60000) return;
+            if (target == ulong.MaxValue) { foreach (var p in _peers) Queue(p, data); }
+            else if (target != LocalId) Queue(target, data);
+        }
+
+        void Queue(ulong id, byte[] data)
+        {
+            if (!_out.TryGetValue(id, out var ms)) _out[id] = ms = new System.IO.MemoryStream(512);
+            if (ms.Length == 0) ms.WriteByte(2);
+            ms.WriteByte((byte)(data.Length & 0xff)); ms.WriteByte((byte)(data.Length >> 8));
+            ms.Write(data, 0, data.Length);
+            if (ms.Length > 16000) Flush(id, ms);
+        }
+
+        void Flush(ulong id, System.IO.MemoryStream ms)
+        {
+            if (ms.Length == 0) return;
+            if (_peers.Contains(id)) SendTo(id, ms.ToArray());
+            ms.SetLength(0);
+        }
+
+        void LateUpdate()
+        {
+            if (_out.Count == 0) return;
+            if (!InSession) { _out.Clear(); return; }
+            foreach (var kv in _out) Flush(kv.Key, kv.Value);
         }
 
         void SendSys(ulong to, byte code, string text)
@@ -695,7 +753,31 @@ namespace Rago.Net
                 {
                     // the leader queued: follow them into their raid session
                     var p = text.Split('|');
-                    if (p.Length >= 3) { _pendingRaidSession = p[1]; _pendingPartySize = int.Parse(p[2]); _wasLeader = false; OnPartyQueue?.Invoke(p[0]); }
+                    SendSys(Id(player), 10, "ok");
+                    if (p.Length >= 3 && _pendingRaidSession != p[1]) { _pendingRaidSession = p[1]; _pendingPartySize = int.Parse(p[2]); _wasLeader = false; OnPartyQueue?.Invoke(p[0]); }
+                }
+                else if (code == 6) SendSys(Id(player), 10, "ok");     // already on our way: still answer so the leader stops asking
+                else if (code == 10) _acks.Add(Id(player));
+                else if (code == 9) { SendSys(Id(player), 3, MyName()); if (_partyCode != null && !_inPartySession) SendSys(Id(player), 4, _partyCode); }   // "who are you?"
+                else if (code == 11) SendSys(Id(player), 12, text);    // ping: echo it back
+                else if (code == 12 && float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var sentAt))
+                {
+                    float rtt = Time.realtimeSinceStartup - sentAt;
+                    _rtt = rtt > _rtt ? rtt : Mathf.Lerp(_rtt, rtt, 0.3f);   // rises at once, settles slowly
+                    _pingOut = -1f;
+                }
+                return;
+            }
+            if (channel == 2)
+            {
+                int i = data.Offset + 1, end = data.Offset + data.Count;
+                while (i + 2 <= end)
+                {
+                    int len = data.Array[i] | (data.Array[i + 1] << 8); i += 2;
+                    if (len <= 0 || i + len > end) break;
+                    var msg = new byte[len];
+                    Buffer.BlockCopy(data.Array, i, msg, 0, len); i += len;
+                    try { OnData?.Invoke(Id(player), msg); } catch (Exception e) { Debug.LogWarning("[Rago] packet handler: " + e.Message); }
                 }
                 return;
             }
@@ -784,6 +866,26 @@ namespace Rago.Net
                 {
                     _peerScan = 0.5f;
                     try { foreach (var p in _runner.ActivePlayers) NotePeer(p); } catch { }
+                    // a callsign (or party tag) sent the moment someone joined can be lost: keep introducing ourselves to,
+                    // and asking, anyone we still don't have a name for - the party list said "joining..." forever
+                    float now = Time.realtimeSinceStartup;
+                    foreach (var p in _peers)
+                    {
+                        if (_names.ContainsKey(p) && (_partyCode == null || _inPartySession || _peerParty.ContainsKey(p))) continue;
+                        if (_nameAsk.TryGetValue(p, out var t) && now - t < 1.5f) continue;
+                        _nameAsk[p] = now;
+                        SendSys(p, 3, MyName());
+                        if (_partyCode != null && !_inPartySession) SendSys(p, 4, _partyCode);
+                        SendSys(p, 9, "?");
+                    }
+                }
+                _pingT -= Time.unscaledDeltaTime;
+                if (_pingT <= 0f && _peers.Count > 0)
+                {
+                    _pingT = 1f;
+                    string ts = Time.realtimeSinceStartup.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+                    foreach (var p in _peers) SendSys(p, 11, ts);
+                    if (_pingOut < 0f) _pingOut = Time.realtimeSinceStartup;
                 }
             }
             // the shared-mode master client runs the NPCs; tell everyone who that is

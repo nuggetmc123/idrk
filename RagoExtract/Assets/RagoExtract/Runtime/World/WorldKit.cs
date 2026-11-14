@@ -120,6 +120,20 @@ namespace Rago
             var mc = go.AddComponent<MeshCollider>();
             mc.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
             go.AddComponent<SurfaceTag>().surface = s;
+            Terrains.Add(mc);
+        }
+
+        /// <summary>The map's terrain surfaces (thin, one-sided meshes: anything that ends up under one falls forever).</summary>
+        public readonly List<MeshCollider> Terrains = new List<MeshCollider>();
+
+        /// <summary>Top of the terrain at (x, z), or -infinity where there's no terrain.</summary>
+        public float TerrainTop(Vector3 p)
+        {
+            float best = float.NegativeInfinity;
+            var ray = new Ray(new Vector3(p.x, p.y + 400f, p.z), Vector3.down);
+            foreach (var t in Terrains)
+                if (t != null && t.enabled && t.Raycast(ray, out var h, 900f) && h.point.y > best) best = h.point.y;
+            return best;
         }
 
         /// <summary>Wall from a to b (on the ground plane) with rectangular openings (centre distance along the wall, width, bottom, top).</summary>

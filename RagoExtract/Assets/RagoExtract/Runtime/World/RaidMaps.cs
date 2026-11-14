@@ -43,6 +43,7 @@ namespace Rago
             m.FinalizeLoot();
             m.AddSwingDoors();
             m.B.Finish();
+            m.gameObject.AddComponent<ItemRescue>().map = m;
             try { m.SettleCrates(); } catch (System.Exception e) { Debug.LogWarning("[Rago] crate settle skipped: " + e.Message); }
             return m;
         }

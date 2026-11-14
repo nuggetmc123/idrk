@@ -261,6 +261,10 @@ namespace Rago
             foreach (var c in Crates)
             {
                 if (c == null) continue;
+                // under the terrain (a slope higher than the spot): start from the terrain's surface, or the probe below
+                // starts inside the hill, sees nothing and leaves the crate buried
+                float tt = B != null ? B.TerrainTop(c.transform.position) : float.NegativeInfinity;
+                if (tt > c.transform.position.y + 0.01f && tt < c.transform.position.y + 12f) { var q0 = c.transform.position; q0.y = tt; c.transform.position = q0; Physics.SyncTransforms(); }
                 var p = c.transform.position;
                 // probe the centre and the four corners of the crate's footprint: it rests on the highest support, so a
                 // crate half over a stair hole or a floor edge can't end up sunk into the floor

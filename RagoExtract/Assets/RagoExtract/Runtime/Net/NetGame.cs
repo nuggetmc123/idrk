@@ -33,6 +33,9 @@ namespace Rago
         const float NetStep = 0.03f;   // 3 cm grid for positions in raider updates
         static void P3(BinaryWriter w, Vector3 v) { w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.x / NetStep), -32767, 32767)); w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.y / NetStep), -32767, 32767)); w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.z / NetStep), -32767, 32767)); }
         static Vector3 P3(BinaryReader r) => new Vector3(r.ReadInt16() * NetStep, r.ReadInt16() * NetStep, r.ReadInt16() * NetStep);
+        // offsets from the body (head, hands) to the millimetre, velocity to the cm/s: half the size of three floats
+        static void S3(BinaryWriter w, Vector3 v, float step) { w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.x / step), -32767, 32767)); w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.y / step), -32767, 32767)); w.Write((short)Mathf.Clamp(Mathf.RoundToInt(v.z / step), -32767, 32767)); }
+        static Vector3 S3(BinaryReader r, float step) => new Vector3(r.ReadInt16() * step, r.ReadInt16() * step, r.ReadInt16() * step);
         int _dropCounter;
         public bool InRaid;
         readonly HashSet<ulong> _helloSent = new HashSet<ulong>();
@@ -42,6 +45,7 @@ namespace Rago
         public void SendVoice(byte[] frame)
         {
             if (!Live || Spectator.Active) return;
+            if (NetHub.Backend.Rtt > 0.8f) return;   // the line is backed up: voice is the biggest thing we send, skip it until it clears
             var w = W(Msg.Voice);
             w.Write((short)frame.Length); w.Write(frame);
             Send(false);
@@ -144,18 +148,22 @@ namespace Rago
             _poseT -= Time.deltaTime;
             if (_poseT <= 0 && !Spectator.Active)   // spectating: no body is sent, so nobody sees you
             {
-                _poseT = 1f / 15f;
+                // 15 a second normally; fewer when the line to the other players is backing up (it only ever needs the latest)
+                float rtt = NetHub.Backend.Rtt;
+                float step = rtt < 0.25f ? 1f / 15f : rtt < 0.5f ? 1f / 10f : 1f / 6f;
+                _poseT = step;
                 var w = W(Msg.Pose);
                 w.Write(p.Dead);
-                V3(w, p.transform.position);
-                V3(w, p.Head.position); Q(w, p.Head.rotation);
-                V3(w, p.HandL.transform.position); Q(w, p.HandL.transform.rotation);
-                V3(w, p.HandR.transform.position); Q(w, p.HandR.transform.rotation);
-                V3(w, p.MoveVelocity);
+                var root = p.transform.position;
+                V3(w, root);
+                S3(w, p.Head.position - root, 0.001f); Q(w, p.Head.rotation);
+                S3(w, p.HandL.transform.position - root, 0.001f); Q(w, p.HandL.transform.rotation);
+                S3(w, p.HandR.transform.position - root, 0.001f); Q(w, p.HandR.transform.rotation);
+                S3(w, p.MoveVelocity, 0.01f);
                 w.Write(HeldId(p.HandL)); w.Write(HeldId(p.HandR));
                 // what you're wearing: only when it changes (and now and then for late joiners), not 15 times a second
                 string gk = GearKey(p);
-                _gearT -= 1f / 15f;
+                _gearT -= step;
                 if (gk != _lastGear || _gearT <= 0f) { w.Write(gk); _lastGear = gk; _gearT = 2f; }
                 Send(false);
             }
@@ -163,7 +171,7 @@ namespace Rago
             {
                 if (!_wasHost) { _wasHost = true; NpcDirector.I.BecomeAuthority(); } // host migrated to us: run the NPCs
                 _npcT -= Time.deltaTime;
-                if (_npcT <= 0) { _npcT = 0.15f; SendNpcStates(); }
+                if (_npcT <= 0) { float rtt = NetHub.Backend.Rtt; _npcT = rtt < 0.3f ? 0.15f : rtt < 0.6f ? 0.3f : 0.5f; SendNpcStates(_npcT); }
             }
             _voiceT -= Time.deltaTime;
             if (_voiceT <= 0 && NetHub.Voice != null && NetHub.Voice.Ready) { _voiceT = 0.25f; NetHub.Voice.UpdatePosition(p.Head); }
@@ -276,18 +284,18 @@ namespace Rago
             Send(true, target);
         }
 
-        void SendNpcStates()
+        void SendNpcStates(float dt)
         {
             var list = NpcDirector.I.Npcs;
-            _npcFullT -= 0.15f;
+            _npcFullT -= dt;
             bool full = _npcFullT <= 0f;
-            if (full) _npcFullT = 1.5f;   // everyone, now and then (someone joining, a lost update)
+            if (full) _npcFullT = 3f;   // everyone, now and then (someone joining, a lost update)
             var send = new List<Npc>();
             foreach (var n in list)
             {
                 if (n == null) continue;
                 byte st = (byte)((byte)n.State | (n.Alive ? 0x80 : 0));
-                if (!full && _npcSent.TryGetValue(n.Id, out var last) && last.st == st && (last.pos - n.transform.position).sqrMagnitude < 0.0016f
+                if (!full && _npcSent.TryGetValue(n.Id, out var last) && last.st == st && (last.pos - n.transform.position).sqrMagnitude < 0.0036f
                     && Mathf.Abs(Mathf.DeltaAngle(last.yaw, n.Yaw)) < 3f && (last.aim - n.AimPoint).sqrMagnitude < 0.04f) continue;
                 _npcSent[n.Id] = (n.transform.position, n.Yaw, st, n.AimPoint);
                 send.Add(n);
@@ -340,7 +348,7 @@ namespace Rago
                                 var rp = GetRemote(from, (int)from * 31);
                                 if (_helloSent.Add(from)) SendHello(from);   // their movement got here before their hello: introduce ourselves
                                 bool dead = r.ReadBoolean();
-                                var root = V3(r); var hp = V3(r); var hr = Q(r); var lp = V3(r); var lr = Q(r); var rpp = V3(r); var rr = Q(r); var vel = V3(r);
+                                var root = V3(r); var hp = root + S3(r, 0.001f); var hr = Q(r); var lp = root + S3(r, 0.001f); var lr = Q(r); var rpp = root + S3(r, 0.001f); var rr = Q(r); var vel = S3(r, 0.01f);
                                 string hl = r.ReadString(), hrr = r.ReadString();
                                 rp.ApplyPose(dead, root, hp, hr, lp, lr, rpp, rr, vel, hl, hrr);
                                 if (r.BaseStream.Position < r.BaseStream.Length) rp.ApplyGear(r.ReadString());

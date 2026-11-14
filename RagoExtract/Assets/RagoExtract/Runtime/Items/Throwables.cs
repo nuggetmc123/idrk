@@ -198,7 +198,21 @@ namespace Rago
     public static class Blast
     {
         public const float FragRadius = 9f, FlashRadius = 16f;
-        static readonly Collider[] _cols = new Collider[256];
+        static readonly Collider[] _cols = new Collider[2048];
+
+        /// <summary>
+        /// Only the layers people and loose things are on. Searching every layer filled the list with walls, floors,
+        /// trees and grass long before it reached the raiders, so on most maps grenades and flashbangs never touched them.
+        /// </summary>
+        static int ActorMask
+        {
+            get
+            {
+                int m = 0;
+                foreach (int l in new[] { Layers.Npc, Layers.Player, Layers.LocalBody, Layers.Ragdoll, Layers.Items }) if (l > 0) m |= 1 << l;   // 0 = layer not set up (Default)
+                return m == 0 ? ~0 : m;
+            }
+        }
 
         /// <param name="local">true on the thrower's machine: it applies the damage, forces and noise, and tells the others</param>
         public static void Detonate(Vector3 p, bool flash, int attacker, bool local)
@@ -223,22 +237,23 @@ namespace Rago
             if (flash && authority)
             {
                 // raiders who can see it are blinded and stagger
-                int n = Physics.OverlapSphereNonAlloc(p, FlashRadius, _cols, ~0, QueryTriggerInteraction.Collide);
-                var done = new HashSet<Npc>();
-                for (int i = 0; i < n; i++)
-                {
-                    var npc = _cols[i].GetComponentInParent<Npc>();
-                    if (npc == null || !npc.Alive || !done.Add(npc)) continue;
-                    float d = Vector3.Distance(npc.transform.position, p);
-                    if (ClearLine(p, npc.transform.position + Vector3.up * 1.6f)) npc.Flash(Mathf.Lerp(6f, 2f, d / FlashRadius));
-                }
+                // every living raider in range with a clear line from the bang to their head (or chest)
+                if (NpcDirector.I != null)
+                    foreach (var npc in NpcDirector.I.Npcs)
+                    {
+                        if (npc == null || !npc.Alive) continue;
+                        float d = Vector3.Distance(npc.transform.position, p);
+                        if (d > FlashRadius) continue;
+                        if (ClearLine(p, npc.transform.position + Vector3.up * 1.6f) || ClearLine(p, npc.transform.position + Vector3.up * 1.1f))
+                            npc.Flash(Mathf.Lerp(7f, 2.5f, d / FlashRadius));
+                    }
             }
             if (!local) return;
             Noise.Emit(p, flash ? 45f : 80f, attacker, true);
             if (NetGame.Live) NetGame.I.SendBlast(p, flash);
             if (flash) return;
             // frag: damage everyone with a clear line to the blast, push loose things and bodies
-            int m = Physics.OverlapSphereNonAlloc(p, FragRadius, _cols, ~0, QueryTriggerInteraction.Collide);
+            int m = Physics.OverlapSphereNonAlloc(p, FragRadius, _cols, ActorMask, QueryTriggerInteraction.Collide);
             var hitOwners = new Dictionary<IDamageable, HitZone>();
             for (int i = 0; i < m; i++)
             {
@@ -257,7 +272,7 @@ namespace Rago
                 var z = kv.Value;
                 Vector3 at = z.transform.position;
                 float d = Vector3.Distance(at, p);
-                if (!ClearLine(p, at)) continue;
+                if (!ClearLine(p, at) && !ClearLine(p, (z.owner as Component) != null ? ((Component)z.owner).transform.position + Vector3.up * 1.2f : at)) continue;
                 float k = Mathf.Clamp01(1f - d / FragRadius);
                 float dmg = 25f + 210f * k * k;   // a frag within ~3 m kills an ordinary raider
                 var info = new HitInfo { damage = dmg, part = z.part, point = at, dir = (at - p).normalized, normal = (p - at).normalized, attacker = attacker, gunId = "frag", force = 6f * k + 1f };
@@ -266,12 +281,25 @@ namespace Rago
             }
         }
 
+        static readonly RaycastHit[] _hits = new RaycastHit[32];
         static bool ClearLine(Vector3 from, Vector3 to)
         {
             // walls and floors block a blast; people, items and hands don't
             int mask = ~0;
             foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) mask &= ~(1 << l);
-            return !Physics.Linecast(from + Vector3.up * 0.15f, to, out var hit, mask, QueryTriggerInteraction.Ignore) || hit.collider.GetComponentInParent<HitZone>() != null;
+            // anything belonging to a person (a raider's or player's own capsule, armour, gun) never shields them
+            from += Vector3.up * 0.15f;
+            var d = to - from; float len = d.magnitude;
+            if (len < 0.01f) return true;
+            int n = Physics.RaycastNonAlloc(from, d / len, _hits, len, mask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var c = _hits[i].collider;
+                if (c == null || c.GetComponentInParent<HitZone>() != null || c.GetComponentInParent<Npc>() != null || c.GetComponentInParent<PlayerRig>() != null || c.GetComponentInParent<RemotePlayer>() != null) continue;
+                if (c.attachedRigidbody != null && !c.attachedRigidbody.isKinematic) continue;   // loose crates, items, bodies
+                return false;
+            }
+            return true;
         }
     }
 }
