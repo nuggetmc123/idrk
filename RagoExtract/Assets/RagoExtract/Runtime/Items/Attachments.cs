@@ -36,7 +36,9 @@ namespace Rago
                 a._light.transform.SetParent(a._emit, false);
                 a._light.type = LightType.Spot; a._light.spotAngle = 48f; a._light.innerSpotAngle = 18f;
                 a._light.range = 28f; a._light.intensity = 3.2f; a._light.color = new Color(1f, 0.97f, 0.9f);
-                a._light.shadows = LightShadows.None;
+                a._light.shadows = LightShadows.Hard;   // walls stop the beam (no shadows = it lit the rooms behind walls)
+                a._light.shadowStrength = 1f; a._light.shadowNearPlane = 0.1f;
+                a._light.shadowResolution = UnityEngine.Rendering.LightShadowResolution.Low;
                 a._light.enabled = false;
             }
             if (def.laser && a._emit != null)

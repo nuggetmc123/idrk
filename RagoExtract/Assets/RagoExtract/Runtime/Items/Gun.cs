@@ -46,7 +46,15 @@ namespace Rago
         Transform _muzzlePt, _sidePt, _gripPt;
         bool _ptsMade;
         public AttachItem Attached(AttachSlot s) => s == AttachSlot.Muzzle ? muzzleAtt : s == AttachSlot.Side ? sideAtt : gripAtt;
-        public void SetAttached(AttachSlot s, AttachItem a) { if (s == AttachSlot.Muzzle) muzzleAtt = a; else if (s == AttachSlot.Side) sideAtt = a; else gripAtt = a; }
+        public void SetAttached(AttachSlot s, AttachItem a)
+        {
+            if (s == AttachSlot.Muzzle)
+            {
+                muzzleAtt = a;
+                if (rig.muzzleDevice != null) rig.muzzleDevice.SetActive(a == null);   // the gun's own brake / flash hider comes off for the can
+            }
+            else if (s == AttachSlot.Side) sideAtt = a; else gripAtt = a;
+        }
         public bool Quiet => g.suppressed || muzzleAtt != null && muzzleAtt.ad.suppress;
         float RecoilMul => (muzzleAtt != null ? muzzleAtt.ad.recoilMul : 1f) * (gripAtt != null ? gripAtt.ad.recoilMul : 1f) * (sideAtt != null ? sideAtt.ad.recoilMul : 1f);
         float SpreadMul => (muzzleAtt != null ? muzzleAtt.ad.spreadMul : 1f) * (gripAtt != null ? gripAtt.ad.spreadMul : 1f) * (sideAtt != null ? sideAtt.ad.spreadMul : 1f);

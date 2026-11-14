@@ -221,7 +221,7 @@ namespace Rago
             float riverCut = Mathf.Clamp01(1 - river / 7f) * 3.2f;
             float north = Mathf.Clamp01((92f - z) / 14f);   // flattens into the hamlet's valley in the north
             float edge = Mathf.Clamp01((92f - Mathf.Abs(x)) / 14f) * Mathf.Clamp01((92f + z) / 14f); // and into the outskirts everywhere else
-            return h * flat * north * edge - riverCut * edge;
+            return (h * north - riverCut) * flat * edge;   // the river valley stays out of the flat clearings too (it dipped under the outpost's fence and tents)
         }
 
         public override void Build()

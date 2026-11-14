@@ -303,6 +303,7 @@ namespace Rago
                 foreach (float side in new[] { -1f, 1f })
                 {
                     if (side < 0 && Mathf.Abs(x - 2.5f) < 1.5f) continue;   // the lift
+                    if (side < 0 && x < 0f) continue;                         // the south-west wall is the Gear wall: no columns in front of it
                     float wz = side * (D / 2 - 0.15f) - side * 0.15f;
                     b.Box(new Vector3(x, Ht / 2, wz), new Vector3(0.36f, Ht, 0.3f), conc, colCol, null, true);
                     BulkheadLamp(new Vector3(x, 2.35f, wz - side * 0.2f), side < 0 ? 180f : 0f, metal, glow);   // facing into the room
@@ -477,8 +478,6 @@ namespace Rago
             }
             // ---- the Exchange: a few steps from the lift doors, facing them
             SellStation.Create(transform, new Vector3(W / 2 - 7.5f, 0, -6f), -90f);
-            // ---- a Lost & Found by the lift: anything left lying around turns up here, and goes home to your stash when you leave
-            LostAndFound.Create(transform, new Vector3(W / 2 - 3f, 0, -D / 2 + 0.55f), 180f);
             // ---- Bruno the Foreman on the west wall, facing the room
             Foreman = QuestStall.Create(transform, new Vector3(-W / 2 + 3.6f, 0, -1f), -90f, 211);
             b.AddLight(new Vector3(-W / 2 + 4.6f, 3.6f, -1f), new Color(1f, 0.8f, 0.55f), 7f, 1.2f);

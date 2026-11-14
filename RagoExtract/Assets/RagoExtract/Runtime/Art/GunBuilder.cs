@@ -9,6 +9,7 @@ namespace Rago
         public GameObject root;
         public Transform muzzle, magwell, ejectPort, rail, foregrip, slide, pump, sightLine, butt;
         public Transform under;   // pistols: the accessory rail under the frame (lights / lasers)
+        public GameObject muzzleDevice;   // the gun's own flash hider / brake: hidden while a suppressor or brake is screwed on
         public Vector3 slideTravel = new Vector3(0, 0, -0.03f);
         public Vector3 pumpTravel = new Vector3(0, 0, -0.07f);
         public Bounds bounds;
@@ -65,6 +66,7 @@ namespace Rago
             rig.root = root;
             var mb = new MB(6);
             var mats = new[] { FinishMat(d.finish), FurnMat(d.furniture), Mats.Polymer, d.finish == Finish.Gold || d.furniture == Finish.Gold ? Mats.Gold : Mats.GunBlued, Mats.Lit("gun_dark", new Color(0.03f, 0.03f, 0.03f), 0.5f, 0.3f), SightDot };
+            _device = new MB(6);
             switch (d.style)
             {
                 case GunStyle.Pistol: Pistol(d, rig, mb, mats); break;
@@ -84,6 +86,8 @@ namespace Rago
                 case GunStyle.AntiMat: AntiMat(d, rig, mb, mats); break;
             }
             var body = mb.Build("Body", root.transform, mats);
+            var dev = _device; _device = null;
+            if (dev != null && dev.VertexCount > 0) rig.muzzleDevice = dev.Build("MuzzleDevice", root.transform, mats);
             rig.bounds = body.GetComponent<MeshFilter>().sharedMesh.bounds;
             return rig;
         }
@@ -136,8 +140,10 @@ namespace Rago
             mb.Sub(sub).Tube(from, from + Vector3.forward * len, r, r * 0.45f, 14, W);
         }
 
+        static MB _device;   // muzzle devices go in their own mesh while a gun is being built
         static void Muzzle(MB mb, Vector3 pos, float r, int kind)
         {
+            if (kind != 3 && _device != null) mb = _device;   // (an integral suppressor stays part of the gun)
             switch (kind)
             {
                 case 0: // birdcage flash hider
