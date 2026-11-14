@@ -55,9 +55,11 @@ Shader "Rago/ScopeLens"
                 float3 eye = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1)).xyz;
                 float2 off = eye.xy / _LensR;                   // lens radii off axis
                 float back = max(-eye.z, 0.0);                  // eye relief (the lens faces -Z)
-                float tol = 1.15 - saturate((back - 0.11) * 6); // too far back: the picture shrinks
-                float shadow = length(c + off * 0.9);           // the shadow ring moves the opposite way to your eye
-                float vis = 1 - smoothstep(tol - 0.18, tol, shadow);
+                // a forgiving eye box (in VR one eye is always a few cm off the head's centre): just a soft dark edge
+                // creeping in when you're well off to the side or far back - the picture is never blacked out
+                float tol = 1.35 - 0.35 * saturate((back - 0.18) * 5);
+                float shadow = length(c + off * 0.25);
+                float vis = lerp(0.25, 1.0, 1 - smoothstep(tol - 0.35, tol, shadow));
                 vis *= 1 - smoothstep(0.9, 1.0, r);
                 // reticle
                 float k = 0;

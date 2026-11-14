@@ -65,8 +65,9 @@ namespace Rago
             if (d == null) return;
             var free = _bin.slots.Find(s => s.item == null);
             if (free == null) { _extra.Add(d); Refresh(); return; }
-            var it = ItemFactory.Spawn(d, free.transform.position + Vector3.up * 0.2f, transform.rotation);
-            if (it == null) return;
+            Item it = null;
+            try { it = ItemFactory.Spawn(d, free.transform.position + Vector3.up * 0.2f, transform.rotation); } catch (System.Exception e) { Debug.LogWarning("[Rago] lost & found spawn: " + e.Message); }
+            if (it == null) { _extra.Add(d); Refresh(); return; }   // never lose it: keep it on the list
             it.transform.SetParent(null, true);
             if (free.Accepts(it)) free.Store(it, false); else { Compat.Kill(it.gameObject); _extra.Add(d); }
             Refresh();
@@ -105,9 +106,12 @@ namespace Rago
         {
             if (Time.time < _scanT) return;
             _scanT = Time.time + 1f;
+            Refresh();
             var root = RagoGame.I != null ? RagoGame.I.MapRoot : null;
             foreach (var it in new List<Item>(Item.All))
             {
+                try
+                {
                 if (it == null || it.Held || it.slot != null || it.rb == null) { if (it != null) _still.Remove(it); continue; }
                 if (it is Magazine m && m.inGun != null) continue;
                 if (it is Magazine lm && lm.transform.position.y - FloorY < 0.35f && lm.rb.Vel().sqrMagnitude < 0.01f)
@@ -131,11 +135,16 @@ namespace Rago
                 if (!_still.TryGetValue(it, out var since)) { _still[it] = Time.time; if (!lost) continue; }
                 if (!lost && Time.time - since < 8f) continue;
                 _still.Remove(it);
-                var d = it.Save();
+                // one odd item must never stop the whole sweep (an exception here used to end it for every item)
+                ItemData d = null;
+                try { d = it.Save(); } catch (System.Exception e) { Debug.LogWarning("[Rago] lost & found: " + e.Message); }
                 if (d == null) continue;
+                string nm = it.def != null ? it.def.name : "Item";
                 Destroy(it.gameObject);
                 Add(d);
-                RagoGame.I?.Player?.Toast((it.def != null ? it.def.name : "Item") + " moved to the Lost & Found");
+                RagoGame.I?.Player?.Toast(nm + " moved to the Lost & Found");
+                }
+                catch (System.Exception e) { Debug.LogWarning("[Rago] lost & found sweep: " + e.Message); }
             }
         }
     }

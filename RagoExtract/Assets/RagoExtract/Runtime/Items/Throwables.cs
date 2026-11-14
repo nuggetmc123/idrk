@@ -94,8 +94,8 @@ namespace Rago
             Vector3 p = transform.position;
             if (primaryHand != null) primaryHand.ForceRelease(true);
             if (slot != null) slot.Release(this);
-            Blast.Detonate(p, Flash, 0, true);
-            Destroy(gameObject);
+            try { Blast.Detonate(p, Flash, 0, true); }
+            finally { Destroy(gameObject); }   // gone either way
         }
     }
 
@@ -203,8 +203,9 @@ namespace Rago
         /// <param name="local">true on the thrower's machine: it applies the damage, forces and noise, and tells the others</param>
         public static void Detonate(Vector3 p, bool flash, int attacker, bool local)
         {
-            Fx.Explosion(p, flash);
-            Sfx.Play(flash ? Synth.FlashBang() : Synth.Explosion(), p, 1f, 1f + Random.Range(-0.05f, 0.05f), 6f, flash ? 140f : 260f);
+            // the visuals can never stop the blast itself (a missing effect once made every grenade a dud)
+            try { Fx.Explosion(p, flash); } catch (System.Exception e) { Debug.LogWarning("[Rago] blast fx: " + e.Message); }
+            try { Sfx.Play(flash ? Synth.FlashBang() : Synth.Explosion(), p, 1f, 1f + Random.Range(-0.05f, 0.05f), 6f, flash ? 140f : 260f); } catch (System.Exception e) { Debug.LogWarning("[Rago] blast sfx: " + e.Message); }
             // everyone works out their own flash blindness and camera shake
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (pl != null && !pl.Dead)

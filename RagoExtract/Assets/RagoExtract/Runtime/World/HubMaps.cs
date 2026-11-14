@@ -239,16 +239,18 @@ namespace Rago
                     new Vector3(0, 0, D / 2 + 3f), new Vector3(W / 2 - 1.9f, 0, 4.2f), new Vector3(2.5f, 0, -D / 2 + 1.2f));
             BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
             LostAndFound.Create(transform, new Vector3(-W / 2 + 0.55f, 0, 3.6f), -90f);   // west wall of the main hall, by the range tunnel
+            // GEAR wall on the south side: more room for meds, mags, sights, attachments, loot and pistols
+            Stash.Add(StashSection.Create(transform, new Vector3(-4.95f, 0, -D / 2 + 0.25f), 180, StashKind.Gear));
             LoadStash();
             RestockMedBay();
             Kiosk.Create(transform, new Vector3(W / 2 - 0.9f, 0, 4.2f), Quaternion.Euler(0, 90, 0));
             // workbench + props
             b.Crate(new Vector3(3.6f, 0, D / 2 - 0.7f), 10, new Vector3(1.0f, 0.6f, 0.6f));
             b.Crate(new Vector3(3.4f, 0.6f, D / 2 - 0.6f), -5, new Vector3(0.8f, 0.5f, 0.5f));
-            b.Barrel(new Vector3(-6.8f, 0, -5f), new Color(0.2f, 0.3f, 0.2f));
-            // bed + locker
-            b.Box(new Vector3(-5.8f, 0.3f, -4.6f), new Vector3(2.0f, 0.15f, 0.9f), Maps.Metal, new Color(0.3f, 0.32f, 0.3f), null, true, Synth.Surface.Metal);
-            b.Box(new Vector3(-5.8f, 0.45f, -4.6f), new Vector3(1.9f, 0.15f, 0.85f), Mats.Lit("mattress", new Color(0.35f, 0.38f, 0.3f), 0, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0), Color.white, null, false, Synth.Surface.Dirt, 0.05f);
+            b.Barrel(new Vector3(-7.45f, 0, -2.2f), new Color(0.2f, 0.3f, 0.2f));
+            // bed along the west wall
+            b.Box(new Vector3(-7.45f, 0.3f, -3.75f), new Vector3(0.9f, 0.15f, 2.0f), Maps.Metal, new Color(0.3f, 0.32f, 0.3f), null, true, Synth.Surface.Metal);
+            b.Box(new Vector3(-7.45f, 0.45f, -3.75f), new Vector3(0.85f, 0.15f, 1.9f), Mats.Lit("mattress", new Color(0.35f, 0.38f, 0.3f), 0, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0), Color.white, null, false, Synth.Surface.Dirt, 0.05f);
             SellStation.Create(transform, new Vector3(-0.85f, 0, -D / 2 + 0.66f), 180f);   // between the column and the lift's CALL panel   // sell loot right here, without going up to the Market
             // settings are in the menu now (LEFT MENU button > SETTINGS)
             // supply crate with a free stim + bandages each visit so you can always heal up
