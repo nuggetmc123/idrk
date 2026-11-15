@@ -663,7 +663,8 @@ namespace Rago
             }
             for (int i = 0; i < 4; i++) Box(pos + q * new Vector3(0, 0.1f + i * 0.6f, 0), new Vector3(w, 0.04f, 0.6f), m, Color.white, q, true, Synth.Surface.Metal);
             foreach (var sx in new[] { -w / 2, w / 2 }) foreach (var sz in new[] { -0.28f, 0.28f }) Box(pos + q * new Vector3(sx, 1f, sz), new Vector3(0.05f, 2f, 0.05f), m, Color.white, q, false);
-            for (int i = 0; i < 6; i++) Box(pos + q * new Vector3(Rng.Range(-w / 2 + 0.3f, w / 2 - 0.3f), 0.25f + Rng.Range(0, 3) * 0.6f, 0), new Vector3(Rng.Range(0.2f, 0.5f), Rng.Range(0.15f, 0.35f), Rng.Range(0.2f, 0.45f)), Mats.Lit("cardboard", Color.white, 0, 0.2f, Mats.Noise, null, 0.4f, 0f), new Color(0.65f, 0.5f, 0.33f), q, false);
+            // cardboard boxes on the bottom and top shelves (the middle one is kept clear for loot)
+            for (int i = 0; i < 6; i++) Box(pos + q * new Vector3(Rng.Range(-w / 2 + 0.3f, w / 2 - 0.3f), 0.25f + (Rng.Range(0, 3) == 1 ? 2 : 0) * 0.6f, 0), new Vector3(Rng.Range(0.2f, 0.5f), Rng.Range(0.15f, 0.35f), Rng.Range(0.2f, 0.45f)), Mats.Lit("cardboard", Color.white, 0, 0.2f, Mats.Noise, null, 0.4f, 0f), new Color(0.65f, 0.5f, 0.33f), q, false);
             return pos;
         }
 

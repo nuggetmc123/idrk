@@ -174,7 +174,8 @@ namespace Rago
                 {
                     var sp = pos + new Vector3(-hx + 5 + r * (size.x - 10) / 2, 0, -hz + 5 + k * (size.y - 10));
                     var at = b.Shelf(sp, 0, 4f);
-                    if (at.HasValue) pts.Add(at.Value + new Vector3(0, 0.75f, 0));
+                    // a small case on the second shelf (a big crate didn't fit between the shelves and stuck through them)
+                    if (at.HasValue) { var ls = at.Value + new Vector3(0, 0.73f, 0); pts.Add(ls); b.DeskSpots[ls] = true; b.SpotYaw[ls] = 180f; }
                 }
             for (int i = 0; i < 4; i++) pts.Add(pos + new Vector3(b.Rng.Range(-hx + 2, hx - 2), 0.05f, b.Rng.Range(-hz + 2, hz - 2)));
             b.AddLight(pos + new Vector3(0, h - 1.2f, 0), new Color(1f, 0.85f, 0.6f), 18f, 1.2f);
@@ -253,7 +254,14 @@ namespace Rago
                 if (Mathf.Abs(z + 15 + Mathf.Sin(x * 0.04f) * 8f) < 6) continue;
                 b.Pine(new Vector3(x, H(x, z), z), b.Rng.Range(9f, 17f));
             }
-            for (int i = 0; i < 60; i++) { float x = b.Rng.Range(-90f, 90f), z = b.Rng.Range(-90f, 90f); b.Rock(new Vector3(x, H(x, z), z), b.Rng.Range(0.5f, 2.2f)); }
+            for (int i = 0; i < 60; i++)
+            {
+                float x = b.Rng.Range(-90f, 90f), z = b.Rng.Range(-90f, 90f), rs = b.Rng.Range(0.5f, 2.2f);
+                // not inside the outpost, the cabins or the river (rocks poked up through the cabin floors)
+                if (Vector2.Distance(new Vector2(x, z), new Vector2(0, 10)) < 32 || Vector2.Distance(new Vector2(x, z), new Vector2(-48, -49)) < 22) continue;
+                if (Mathf.Abs(z + 15 + Mathf.Sin(x * 0.04f) * 8f) < 7) continue;
+                b.Rock(new Vector3(x, H(x, z), z), rs);
+            }
             // outpost
             Vector3 o = new Vector3(0, 0, 10);
             b.Fence(o + new Vector3(-24, 0, -20), o + new Vector3(24, 0, -20));
