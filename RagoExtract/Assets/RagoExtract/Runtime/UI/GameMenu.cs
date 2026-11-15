@@ -14,7 +14,7 @@ namespace Rago
     public class GameMenu : MonoBehaviour
     {
         public static GameMenu I;
-        enum Tab { Party, Friends, Recent, Settings, Tester }
+        enum Tab { Party, Friends, Recent, Settings, Tester, Notes }
         Tab _tab = Tab.Party;
         Transform _panel, _content;
         TextMesh _header;
@@ -42,11 +42,11 @@ namespace Rago
             _panel = UI.Panel(transform, "Menu", Vector3.zero, Quaternion.identity, new Vector2(1.12f, 0.9f), null, true, Skin.Steel);
             _header = UI.Text(_panel, "", new Vector3(-0.52f, 0.39f, 0), 0.034f, UI.Accent, TextAnchor.MiddleLeft, FontStyle.Bold);
             UI.Button(_panel, "X", new Vector3(0.5f, 0.39f, 0), new Vector2(0.07f, 0.065f), () => Show(false), new Color(0.5f, 0.15f, 0.1f), BtnStyle.Key);
-            string[] names = { "PARTY", "FRIENDS", "RECENT", "SETTINGS", "TESTER" };
+            string[] names = { "PARTY", "FRIENDS", "RECENT", "SETTINGS", "TESTER", "NOTES" };
             for (int i = 0; i < names.Length; i++)
             {
                 var t = (Tab)i;
-                _tabBtns.Add(UI.Button(_panel, names[i], new Vector3(-0.432f + i * 0.216f, 0.3f, 0), new Vector2(0.205f, 0.075f), () => { _tab = t; _typing = false; _page = 0; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }));
+                _tabBtns.Add(UI.Button(_panel, names[i], new Vector3(-0.455f + i * 0.182f, 0.3f, 0), new Vector2(0.172f, 0.075f), () => { _tab = t; _typing = false; _page = 0; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }));
             }
             _content = new GameObject("Content").transform;
             _content.SetParent(_panel, false);
@@ -198,6 +198,7 @@ namespace Rago
                 case Tab.Friends: DrawFriends(); break;
                 case Tab.Recent: DrawRecent(); break;
                 case Tab.Tester: DrawTester(); break;
+                case Tab.Notes: DrawNotes(); break;
                 default: DrawSettings(); break;
             }
         }
@@ -318,6 +319,27 @@ namespace Rago
                 if (!wait) Btn("INVITE", 0.2f, y, 0.2f, () => Invite(name), Go);
                 Btn("REMOVE", 0.42f, y, 0.2f, () => { prof.friends.RemoveAll(x => Key(x) == Key(name)); prof.pendingFriends.RemoveAll(x => Key(x.Split('|')[0]) == Key(name)); prof.Save(); }, Stop);
             });
+        }
+
+        /// <summary>Patch notes: one update per page, newest first.</summary>
+        void DrawNotes()
+        {
+            var all = PatchNotes.All;
+            int pages = all.Length;
+            _page = Mathf.Clamp(_page, 0, pages - 1);
+            var (ver, title, lines) = all[_page];
+            Line("UPDATE " + ver + "  -  " + title.ToUpper() + (_page == 0 ? "   (latest)" : ""), 0.22f, 0.03f, UI.Accent);
+            float y = 0.15f;
+            foreach (var l in lines)
+            {
+                string wrapped = UI.Wrap("- " + l, 62);
+                int rows = wrapped.Split('\n').Length;
+                var tm = UI.Text(_content, wrapped, new Vector3(-0.52f, y, 0), 0.021f, Color.white, TextAnchor.UpperLeft);
+                y -= rows * 0.032f + 0.018f;
+            }
+            Btn("< NEWER", -0.3f, -0.39f, 0.18f, () => _page = Mathf.Max(0, _page - 1));
+            Line((_page + 1) + "/" + pages, -0.39f, 0.024f, UI.Dim, -0.035f);
+            Btn("OLDER >", 0.12f, -0.39f, 0.18f, () => _page = Mathf.Min(pages - 1, _page + 1));
         }
 
         void DrawRecent()
