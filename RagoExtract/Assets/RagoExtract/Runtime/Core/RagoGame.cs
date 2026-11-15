@@ -143,6 +143,28 @@ namespace Rago
         // ------------------------------------------------------------------------------------------ travel
         public void GoTo(Area a) { if (!_travelling) StartCoroutine(Safe(Travel(a, null))); }
         public void StartRaid(RaidStart rs) { if (!_travelling) StartCoroutine(Safe(Travel(Area.Raid, rs))); }
+
+        /// <summary>The map's spawn points, farthest-apart first, starting from one picked by the seed (same on every machine).</summary>
+        static List<Pose> SpawnOrder(List<Pose> spots, int seed)
+        {
+            var left = new List<Pose>(spots);
+            var order = new List<Pose>();
+            if (left.Count == 0) return order;
+            int first = Mathf.Abs(seed) % left.Count;
+            order.Add(left[first]); left.RemoveAt(first);
+            while (left.Count > 0)
+            {
+                int best = 0; float bestD = -1f;
+                for (int i = 0; i < left.Count; i++)
+                {
+                    float d = float.MaxValue;
+                    foreach (var o in order) d = Mathf.Min(d, (o.position - left[i].position).sqrMagnitude);
+                    if (d > bestD) { bestD = d; best = i; }
+                }
+                order.Add(left[best]); left.RemoveAt(best);
+            }
+            return order;
+        }
         Vector3? _rejoinPos; float _rejoinYaw;
         /// <summary>Back into the raid you dropped out of (RECONNECT on the raid terminal).</summary>
         public void Rejoin()
@@ -312,7 +334,10 @@ namespace Rago
                 if (sl.item is Gun pg) { Synth.Gunshot(pg.g); Synth.GunshotDistant(pg.g); }
             Synth.MagIn(); Synth.MagOut(); Synth.SlideForward(); Synth.SlideBack();
             // each player in a raid gets a different spawn spot; the raid seed shuffles which one
-            var spawn = Map.PlayerSpawns.Count > 0 ? Map.PlayerSpawns[(rs != null ? rs.spawnIndex + Mathf.Abs(rs.seed) : Random.Range(0, Map.PlayerSpawns.Count)) % Map.PlayerSpawns.Count] : new Pose(Vector3.up * 0.1f, Quaternion.identity);
+            // groups get spawn points in farthest-apart order (from a starting point picked by the raid seed): the 2nd group
+            // as far as possible from the 1st, the 3rd as far as possible from both, ...
+            var order = SpawnOrder(Map.PlayerSpawns, rs != null ? rs.seed : Random.Range(0, 99999));
+            var spawn = order.Count > 0 ? order[(rs != null ? Mathf.Abs(rs.spawnIndex) : Random.Range(0, order.Count)) % order.Count] : new Pose(Vector3.up * 0.1f, Quaternion.identity);
             // party members share a spawn spot: stand them side by side
             if (rs != null && rs.partySlot > 0)
             {

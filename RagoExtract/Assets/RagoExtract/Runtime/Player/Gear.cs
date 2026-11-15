@@ -605,6 +605,22 @@ namespace Rago
 
         static Vector3 Abs(Vector3 v) => new Vector3(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
 
+        bool PlaceAsHeld(Item it, Vector3 lp, Quaternion cur, out Quaternion rot, out float scale, out Vector3 size, out float x, out float z, out float bottom)
+        {
+            rot = cur; scale = 1f; x = z = bottom = 0;
+            var b = it.localBounds.size; if (b.sqrMagnitude < 1e-6f) b = Vector3.one * 0.05f;
+            // the box it takes up at this angle
+            var m = Matrix4x4.Rotate(cur);
+            size = new Vector3(Mathf.Abs(m.m00) * b.x + Mathf.Abs(m.m01) * b.y + Mathf.Abs(m.m02) * b.z,
+                               Mathf.Abs(m.m10) * b.x + Mathf.Abs(m.m11) * b.y + Mathf.Abs(m.m12) * b.z,
+                               Mathf.Abs(m.m20) * b.x + Mathf.Abs(m.m21) * b.y + Mathf.Abs(m.m22) * b.z);
+            if (size.x > In.x || size.z > In.z) return false;   // too wide held like that
+            float hx = (In.x - size.x) / 2f, hz = (In.z - size.z) / 2f;
+            x = Mathf.Clamp(lp.x, -hx, hx); z = Mathf.Clamp(lp.z, -hz, hz);
+            bottom = BaseAt(x, z, size, null);
+            return bottom + size.y <= In.y + 0.06f;   // a little can stick out of the top
+        }
+
         float BaseAt(float x, float z, Vector3 size, Stored ignore)
         {
             float top = 0;
@@ -627,7 +643,11 @@ namespace Rago
             if (it is Gun g && g.g.TwoHanded) foreach (var s in Sides) if (s.Accepts(it)) { s.Store(it, sound); return true; }
             Vector3 lp = worldPos.HasValue ? _space.InverseTransformPoint(worldPos.Value) : Vector3.zero;
             Quaternion cur = Quaternion.Inverse(_space.rotation) * it.transform.rotation;
-            if (!FindSpot(it, new Vector2(lp.x, lp.z), cur, null, out var rot, out var sc, out var size, out var x, out var z, out var bottom)) return false;
+            Quaternion rot; float sc; Vector3 size; float x, z, bottom;
+            // put in by hand: it stays where you let go of it, at the angle you held it, resting on whatever's below
+            // (like a real bag). Only if it really can't sit like that does the bag find it the nearest spot that works.
+            if (!(worldPos.HasValue && PlaceAsHeld(it, lp, cur, out rot, out sc, out size, out x, out z, out bottom))
+                && !FindSpot(it, new Vector2(lp.x, lp.z), cur, null, out rot, out sc, out size, out x, out z, out bottom)) return false;
             var sgo = new GameObject("In_" + it.name);
             sgo.transform.SetParent(_space, false);
             var sl = sgo.AddComponent<Slot>();
@@ -672,7 +692,7 @@ namespace Rago
                 if (b == null || !b.Open || !b.Held) continue; // the flap has to be open: hold the bag
                 var lp = b._space.InverseTransformPoint(c);
                 var n = b.In;
-                if (Mathf.Abs(lp.x) > n.x / 2 + 0.06f || Mathf.Abs(lp.z) > n.z / 2 + 0.06f || lp.y < -0.06f || lp.y > n.y + 0.22f) continue;
+                if (Mathf.Abs(lp.x) > n.x / 2 + 0.02f || Mathf.Abs(lp.z) > n.z / 2 + 0.02f || lp.y < -0.04f || lp.y > n.y + 0.06f) continue;   // let go INSIDE it - near it isn't enough
                 float d = new Vector2(lp.x, lp.z).sqrMagnitude;
                 if (d < bd) { bd = d; best = b; }
             }
@@ -748,13 +768,23 @@ namespace Rago
             }
         }
 
+        Quaternion _heldRot; bool _heldRotInit; int _heldRotFrame = -10;
+
         public override void GetHeldPose(out Vector3 pos, out Quaternion rot)
         {
             // hold the bag open in front of you by its near rim, level, mouth up
+            // which way it faces comes from where your hand is (from your head), not which way the hand points - pointing
+            // the hand up or down used to flip the bag right round. Turned smoothly, so it never snaps.
             var a = primaryHand.Anchor;
-            Vector3 fwd = a.forward; fwd.y = 0;
-            if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
-            rot = Quaternion.LookRotation(fwd.normalized, Vector3.up);
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            Vector3 fwd = pl != null ? a.position - pl.Head.position : a.forward; fwd.y = 0;
+            if (fwd.sqrMagnitude < 0.0025f && pl != null) { fwd = pl.Head.forward; fwd.y = 0; }
+            if (fwd.sqrMagnitude < 0.0001f) fwd = Vector3.forward;
+            var want = Quaternion.LookRotation(fwd.normalized, Vector3.up);
+            if (!_heldRotInit || Time.frameCount - _heldRotFrame > 2) _heldRot = want;
+            else if (Time.frameCount != _heldRotFrame) _heldRot = Quaternion.Slerp(_heldRot, want, 1f - Mathf.Exp(-10f * Time.deltaTime));
+            _heldRotInit = true; _heldRotFrame = Time.frameCount;
+            rot = _heldRot;
             var n = In;
             Vector3 grip = new Vector3(0, n.y + 0.02f, -ArmorBuilder.BagOuter(bd).z / 2 - 0.01f); // by the haul loop
             pos = a.position - rot * grip;

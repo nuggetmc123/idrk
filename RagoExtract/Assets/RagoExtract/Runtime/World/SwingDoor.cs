@@ -65,7 +65,7 @@ namespace Rago
             // some doors are already open when the raid starts (same on every player's game: it comes from the map seed)
             if (rng.Chance(0.35f)) _angle = rng.Range(55f, 95f) * (rng.Chance(0.5f) ? 1 : -1);
             // ...and some closed ones are padlocked: shoot the lock off (or smash it with a knife) to get in
-            else if (rng.Chance(0.18f) && RagoGame.I != null && RagoGame.I.Area == Area.Raid) AddLock(rng.Chance(0.5f) ? 1f : -1f);
+            else if (rng.Chance(0.18f) && RagoGame.I != null && RagoGame.I.Area == Area.Raid) { AddLock(1f); AddLock(-1f); }   // a hasp and padlock on each face: you see it from either side
             Apply();
         }
 
@@ -121,13 +121,14 @@ namespace Rago
 
         public int Id;
         public bool Locked;
-        GameObject _lock;
+        readonly List<GameObject> _locks = new List<GameObject>();
         float _lockHp = 35f, _rattleT;
 
         void AddLock(float side)
         {
             Locked = true;
-            _lock = new GameObject("Padlock");
+            var _lock = new GameObject("Padlock");
+            _locks.Add(_lock);
             _lock.transform.SetParent(_leaf, false);
             _lock.transform.localPosition = new Vector3(_w - 0.12f, 1.12f, 0.06f * side);
             var mb = new MB(2);
@@ -148,7 +149,7 @@ namespace Rago
         {
             if (!Locked) return;
             _lockHp -= dmg;
-            Sfx.Play(Synth.Impact(Synth.Surface.Metal, Random.Range(0, 3)), _lock != null ? _lock.transform.position : _center, 0.8f, 1.2f, 1f, 25f);
+            Sfx.Play(Synth.Impact(Synth.Surface.Metal, Random.Range(0, 3)), _locks.Count > 0 && _locks[0] != null ? _locks[0].transform.position : _center, 0.8f, 1.2f, 1f, 25f);
             if (_lockHp <= 0f) BreakLock(tell);
         }
 
@@ -156,12 +157,14 @@ namespace Rago
         {
             if (!Locked) return;
             Locked = false;
-            if (_lock != null)
+            foreach (var lk in _locks)
             {
-                Sfx.Play(Synth.MagOut(), _lock.transform.position, 0.9f, 0.7f, 1f, 25f);
-                Fx.Impact(_lock.transform.position, _lock.transform.forward, Vector3.down, Synth.Surface.Metal, null, 1f);
-                Destroy(_lock);
+                if (lk == null) continue;
+                Sfx.Play(Synth.MagOut(), lk.transform.position, 0.9f, 0.7f, 1f, 25f);
+                Fx.Impact(lk.transform.position, lk.transform.forward, Vector3.down, Synth.Surface.Metal, null, 1f);
+                Destroy(lk);
             }
+            _locks.Clear();
             if (tell && NetGame.Live) NetGame.I.LockBroken(Id);
         }
 

@@ -568,8 +568,11 @@ namespace Rago
             ScatterLoot(pts, 0.9f);
 
             // ---- player spawns round the edge of B1; only two ways out
-            Spawn(new Vector3(-40, 0.05f, 32), 135); Spawn(new Vector3(40, 0.05f, -32), -45); Spawn(new Vector3(-8, 0.05f, -32), 0);
-            Spawn(new Vector3(8, 0.05f, 32), 180); Spawn(new Vector3(-40, 0.05f, -32), 45); Spawn(new Vector3(40, 0.05f, 32), -135);
+            // down on the bottom level (B3), round its outer corridor - you fight your way UP. Kept away from the
+            // Drainage Tunnel extract (B3, south-west corner).
+            float b3 = LevelY(2) + 0.05f;
+            Spawn(new Vector3(-40, b3, 32), 135); Spawn(new Vector3(40, b3, -32), -45); Spawn(new Vector3(8, b3, 32), 180);
+            Spawn(new Vector3(40, b3, 32), -135); Spawn(new Vector3(-8, b3, -32), 0); Spawn(new Vector3(24, b3, -32), 0);
             AddExtract(new Vector3(8, 0, 0), "Freight Elevator (B1)");
             AddExtract(new Vector3(-40, LevelY(2), -32), "Drainage Tunnel (B3)");
         }

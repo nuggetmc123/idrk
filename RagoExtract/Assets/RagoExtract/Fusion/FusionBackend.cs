@@ -634,16 +634,16 @@ namespace Rago.Net
             }
             Add(myName, _partyCode);
             foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) Add(n, _peerParty.TryGetValue(p, out var pc) ? pc : null);
-            var used = new HashSet<int>();
+            // each party (or solo player) gets its own number 0, 1, 2... in a fixed order everyone agrees on; the map hands
+            // out its spawn points farthest-apart first by that number, so nobody starts next to another group
             spot = 0; slot = 0;
+            int ordinal = 0;
             foreach (var kv in groups)
             {
-                int s0 = Fnv(kv.Key) % 20, s1 = s0;   // 20 spawn spots on the big maps
-                for (int i = 0; i < 20 && used.Contains(s1); i++) s1 = (s1 + 1) % 20;
-                used.Add(s1);
                 kv.Value.Sort(StringComparer.Ordinal);
                 int k = kv.Value.IndexOf(Key(myName));
-                if (k >= 0) { spot = s1; slot = k; }
+                if (k >= 0) { spot = ordinal; slot = k; }
+                ordinal++;
             }
         }
 
@@ -1006,7 +1006,7 @@ namespace Rago.Net
             if (!InSession) { _out.Clear(); return; }
             _flushT -= Time.unscaledDeltaTime;
             if (_flushT > 0f) return;
-            _flushT = Rtt > 0.3f ? 0.1f : 1f / 15f;
+            _flushT = Rtt > 0.3f ? 0.06f : 0f;   // out at the end of the frame it was made (waiting for a 15 Hz tick added up to 66 ms)
             foreach (var kv in _out) Flush(kv.Key, kv.Value);
         }
 

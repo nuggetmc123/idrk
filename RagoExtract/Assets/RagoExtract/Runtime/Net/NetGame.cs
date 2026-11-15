@@ -203,7 +203,7 @@ namespace Rago
                 float rtt = NetHub.Backend.Rtt;
                 float step = rtt < 0.25f ? 1f / 15f : rtt < 0.5f ? 1f / 10f : 1f / 6f;
                 int others = NetHub.Backend.Peers.Count;
-                if (others >= 2) step = Mathf.Max(step, others >= 3 ? 1f / 10f : 1f / 12f);   // more players: everyone sends a little less (it all goes through one connection)
+                if (others >= 3) step = Mathf.Max(step, 1f / 12f);   // a big group: a little less often (voice and raider updates were cut instead)
                 _poseT = step;
                 var w = W(Msg.Pose);
                 var root = p.transform.position;

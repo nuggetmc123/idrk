@@ -207,7 +207,7 @@ namespace Rago
         readonly System.Collections.Generic.List<Snap> _snaps = new System.Collections.Generic.List<Snap>();
         float _offset = float.MaxValue;   // our clock minus theirs, for the quickest packet seen (slowly relaxed)
         float _ia = 0.07f, _lastArrive;
-        float Delay => Mathf.Clamp(_ia * 2.5f, 0.12f, 0.4f);
+        float Delay => Mathf.Clamp(_ia * 1.6f, 0.07f, 0.25f);   // just enough buffer to stay smooth (was up to 0.4 s behind)
 
         public void CommitSnap(float senderT)
         {
@@ -257,7 +257,7 @@ namespace Rago
         void LateUpdate()
         {
             if (!_hasPose) return;
-            float dt = Time.deltaTime, k = 1f - Mathf.Exp(-30f * dt);
+            float dt = Time.deltaTime, k = 1f - Mathf.Exp(-45f * dt);
             Vector3 ahead = Vector3.zero;
             Vector3 tRoot = _root, tHead = _head, tHl = _hl, tHr = _hr; Quaternion tHeadR = _headR, tHlR = _hlR, tHrR = _hrR;
             if (Sample(out var sn))
