@@ -7,9 +7,10 @@ namespace Fusion {
  public struct PlayerRef : IEquatable<PlayerRef> { public int Raw; public int PlayerId => Raw; public bool Equals(PlayerRef o) => Raw == o.Raw; public static bool operator ==(PlayerRef a, PlayerRef b) => a.Raw == b.Raw; public static bool operator !=(PlayerRef a, PlayerRef b) => a.Raw != b.Raw; public override bool Equals(object o) => o is PlayerRef p && p.Raw == Raw; public override int GetHashCode() => Raw; public override string ToString() => "P" + Raw; }
  public struct ReliableKey { public static ReliableKey FromInts(int a = 0, int b = 0, int c = 0, int d = 0) => default; }
  public enum GameMode { Single, Shared, Server, Host, Client, AutoHostOrClient }
- public enum ShutdownReason { Ok, Error, GameNotFound }
+ public enum ShutdownReason { Ok, Error, GameNotFound, GameIsFull }
+ public enum SessionLobby { ClientServer, Shared, Custom }
  public class SessionProperty { public object V; public static implicit operator SessionProperty(int v) => new SessionProperty { V = v }; public static implicit operator SessionProperty(string v) => new SessionProperty { V = v }; public static explicit operator int(SessionProperty p) => p.V is int i ? i : 0; public override string ToString() => V?.ToString(); public bool IsString => V is string; public bool IsInt => V is int; public object PropertyValue => V; }
- public class SessionInfo { public string Name; public bool IsOpen { get; set; } = true; public bool IsVisible { get; set; } = true; public Dictionary<string, SessionProperty> Props = new Dictionary<string, SessionProperty>(); public IReadOnlyDictionary<string, SessionProperty> Properties => Props; public int PlayerCount, MaxPlayers;
+ public class SessionInfo { public string Name; public bool IsOpen { get; set; } = true; public bool IsVisible { get; set; } = true; public Dictionary<string, SessionProperty> Props = new Dictionary<string, SessionProperty>(); public IReadOnlyDictionary<string, SessionProperty> Properties => Props; public int MaxPlayers; public int PlayerCount { get; set; }
   public bool UpdateCustomProperties(Dictionary<string, SessionProperty> p) { foreach (var kv in p) Props[kv.Key] = kv.Value; return true; } }
  public interface INetworkSceneManager {}
  public class AuthenticationValues { public string UserId; public AuthenticationValues() {} public AuthenticationValues(string u) { UserId = u; } }
@@ -37,7 +38,13 @@ namespace Fusion {
   public class Room { public string Name; public List<NetworkRunner> Members = new List<NetworkRunner>(); public int Next = 1; public SessionInfo Info; public NetworkRunner Master => Members.Count > 0 ? Members[0] : null; }
   public static readonly Dictionary<string, Room> Rooms = new Dictionary<string, Room>();
   public static readonly List<(NetworkRunner to, PlayerRef label, byte[] data)> Queue = new List<(NetworkRunner, PlayerRef, byte[])>();
-  public static Action<NetworkRunner> BeforeDeliver;   // the driver switches "who's running" (statics like the profile)
+  public static Action<NetworkRunner> BeforeDeliver;
+  public static readonly List<NetworkRunner> Lobby = new List<NetworkRunner>();
+  public static void PushLists()
+  {
+   var list = Rooms.Values.Select(r => { r.Info.PlayerCount = r.Members.Count; return r.Info; }).ToList();
+   foreach (var l in Lobby.ToArray()) { BeforeDeliver?.Invoke(l); foreach (var cb in l.Cbs) cb.OnSessionListUpdated(l, new List<SessionInfo>(list)); }
+  }   // the driver switches "who's running" (statics like the profile)
   public static void Pump()
   {
    var q = Queue.ToArray(); Queue.Clear();
@@ -54,14 +61,17 @@ namespace Fusion {
   public IEnumerable<PlayerRef> ActivePlayers => Room == null ? Enumerable.Empty<PlayerRef>() : Room.Members.Select(m => m.LocalPlayer).ToList();
   public void AddCallbacks(params INetworkRunnerCallbacks[] c) => Cbs.AddRange(c);
   public string GetPlayerUserId(PlayerRef p) => Room?.Members.FirstOrDefault(m => m.LocalPlayer == p)?.Uid;
+  public Task<StartGameResult> JoinSessionLobby(SessionLobby lobby, string id = null) { if (!Cloud.Lobby.Contains(this)) Cloud.Lobby.Add(this); IsRunning = true; Cloud.PushLists(); return Task.FromResult(new StartGameResult { Ok = true }); }
   public Task<StartGameResult> StartGame(StartGameArgs a)
   {
    if (!Cloud.Rooms.TryGetValue(a.SessionName, out var room))
    {
     if (!a.EnableClientSessionCreation) return Task.FromResult(new StartGameResult { Ok = false, ShutdownReason = ShutdownReason.GameNotFound });
-    room = Cloud.Rooms[a.SessionName] = new Cloud.Room { Name = a.SessionName, Info = new SessionInfo { Name = a.SessionName } };
+    room = Cloud.Rooms[a.SessionName] = new Cloud.Room { Name = a.SessionName, Info = new SessionInfo { Name = a.SessionName, MaxPlayers = a.PlayerCount ?? 99 } };
     if (a.SessionProperties != null) room.Info.UpdateCustomProperties(a.SessionProperties);
    }
+   if (room.Members.Count >= (room.Info.MaxPlayers > 0 ? room.Info.MaxPlayers : 99)) return Task.FromResult(new StartGameResult { Ok = false, ShutdownReason = ShutdownReason.GameIsFull });
+   if (room.Members.Count == 0 && a.PlayerCount.HasValue) room.Info.MaxPlayers = a.PlayerCount.Value;
    Room = room; Uid = a.AuthValues?.UserId; SessionInfo = room.Info;
    LocalPlayer = new PlayerRef { Raw = room.Next++ };
    IsRunning = true;
@@ -73,6 +83,7 @@ namespace Fusion {
   }
   public Task Shutdown(bool destroyGameObject = true, ShutdownReason r = ShutdownReason.Ok, bool force = false)
   {
+   Cloud.Lobby.Remove(this);
    if (Room != null) { Room.Members.Remove(this); foreach (var m in Room.Members.ToArray()) { Cloud.BeforeDeliver?.Invoke(m); foreach (var cb in m.Cbs) cb.OnPlayerLeft(m, LocalPlayer); } Cloud.BeforeDeliver?.Invoke(this); if (Room.Members.Count == 0) Cloud.Rooms.Remove(Room.Name); }
    Room = null; IsRunning = false;
    return Task.CompletedTask;

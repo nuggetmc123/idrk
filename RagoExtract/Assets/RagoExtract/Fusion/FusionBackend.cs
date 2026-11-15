@@ -361,7 +361,9 @@ namespace Rago.Net
         }
 
         // ---------------------------------------------------------------- players online
-        int _listedPlayers = -1;
+        int _listedPlayers = -1, _partyListed;
+        float _listedAt = -999f;
+        readonly Dictionary<string, (int players, bool started)> _listed = new Dictionary<string, (int, bool)>();
         object _statsSrc; PropertyInfo _onMaster, _inRooms; float _statsSearchT;
 
         /// <summary>
@@ -376,11 +378,16 @@ namespace Rago.Net
             {
                 // Photon's own count (everyone connected, bunkers included) is only sent while you're in the lobby: keep
                 // the last one for a while so it doesn't drop to "just the people in my session" in the Market or a party
+                // Photon's count of connections, minus party members' second (lobby) connection; it's only updated
+                // while you're in the lobby, so an old number is only trusted for 30 s (it used to stick for 2 min)
                 int s = StatsCount();
-                if (s > 0) { _statsCache = s; _statsCacheT = Time.realtimeSinceStartup; }
-                int best = Mathf.Max(_listedPlayers, InSession ? _peers.Count + 1 : 1);
-                if (_statsCache > 0 && Time.realtimeSinceStartup - _statsCacheT < 120f) best = Mathf.Max(best, _statsCache);
-                return best;
+                if (s > 0) { _statsCache = Mathf.Max(1, s - _partyListed); _statsCacheT = Time.realtimeSinceStartup; }
+                int here = InSession ? _peers.Count + 1 : 1;
+                bool fresh = _statsCache > 0 && Time.realtimeSinceStartup - _statsCacheT < 30f;
+                bool listFresh = _listedPlayers > 0 && Time.realtimeSinceStartup - _listedAt < 30f;
+                if (fresh) return Mathf.Max(here, _statsCache);
+                if (listFresh) return Mathf.Max(here, _listedPlayers);
+                return here;
             }
         }
 
@@ -431,7 +438,23 @@ namespace Rago.Net
                 var pc = si.GetType().GetProperty("PlayerCount", Any);   // read by name so a Fusion version difference can't break the build
                 if (pc != null && pc.GetValue(si) is int c) sum += c;
             }
-            _listedPlayers = sum + 1;   // + you (in the lobby, not in a session)
+            // the online count: each party member is ALSO connected to the lobby (to hear invites), so Photon's own
+            // count has them twice - remember how many are in parties to take them off again
+            int inParties = 0; bool meListed = false;
+            _listed.Clear();
+            foreach (var si in sessionList)
+            {
+                int c = si.GetType().GetProperty("PlayerCount", Any)?.GetValue(si) is int pc2 ? pc2 : 0;
+                var pr = si.Properties;
+                string kind = pr != null && pr.TryGetValue("kind", out var kk2) ? Str(kk2) : "";
+                bool started = pr != null && (pr.ContainsKey("go") || kind.StartsWith("raid_started"));
+                if (kind == "party") inParties += c;
+                if (si.Name == _sessionId && InSession) meListed = true;
+                _listed[si.Name ?? ""] = (c, started);
+            }
+            _partyListed = inParties;
+            _listedAt = Time.realtimeSinceStartup;
+            _listedPlayers = sum + (meListed ? 0 : 1);   // + you, if you're not already counted in a listed session
             string me = Key(MyName());
             bool changed = false;
             foreach (var si in sessionList)   // everyone online in a party, raid or the Market: real players a friend can be added from
@@ -768,7 +791,7 @@ namespace Rago.Net
                     if (!PartyLeader) { failed?.Invoke("Only the party leader can start the queue"); _queueing = false; return; }
                     _wasLeader = true;
                     _queuePartySize = _peers.Count + 1;
-                    sessionName = "rago_raid_" + map + "_" + _partyCode + "_" + UnityEngine.Random.Range(1000, 9999);
+                    sessionName = ChooseSlot(map, night, _queuePartySize, 1);   // the same public queue as everyone else
                     // tell every member, and keep telling them until each one answers (up to 5 s): leaving the party session
                     // before a member heard it left them behind on their own - it looked like they'd been kicked
                     _acks.Clear();
@@ -795,8 +818,26 @@ namespace Rago.Net
                     await Task.Delay(300);   // let the last messages go out before leaving the party session
                 }
                 _queueNight = night;
-                // random join of an open queue for this map, or create one (a party gets its own session that randoms can still fill)
-                bool ok = await StartSession(sessionName, new Dictionary<string, SessionProperty> { { "kind", "raid_" + map + (night ? "_n" : "") } }, QueueRules.MaxFor(map));
+                // Everyone queueing for this map (and time of day) goes into the same numbered queue sessions -
+                // rago_q_<map>[_n]_1, _2, ... - the first one that hasn't launched and has room. Parties used to make
+                // their own session and solo players a random one, so a party of 2 and a 3rd player (or two solo
+                // players) each launched alone. A party follows its leader's pick; if that one launched meanwhile,
+                // everyone in the party steps to the next number by the same rule, so they stay together.
+                bool ok = false;
+                int startSlot = sessionName != null ? SlotOf(sessionName) : 1;
+                if (sessionName == null) sessionName = ChooseSlot(map, night, _queuePartySize, startSlot);
+                for (int attempt = 0; attempt < 12 && !_cancel; attempt++)
+                {
+                    ok = await StartSession(sessionName, new Dictionary<string, SessionProperty> { { "kind", "raid_" + map + (night ? "_n" : "") } }, QueueRules.MaxFor(map));
+                    var jp = ok ? _runner.SessionInfo.Properties : null;
+                    bool launched = jp != null && (jp.ContainsKey("go") || (jp.TryGetValue("kind", out var jk) && Str(jk).StartsWith("raid_started")));
+                    bool full = ok && _peers.Count + _queuePartySize > QueueRules.MaxFor(map) && _queuePartySize > 1 && _partyCode != null && _wasLeader;
+                    if (ok && !launched && !full) break;
+                    if (ok) { Debug.Log("[Rago] " + sessionName + (launched ? " already launched" : " too full for the party") + " - next one"); await Shutdown(); ok = false; }
+                    else Debug.Log("[Rago] couldn't get into " + sessionName + " - next one");
+                    sessionName = SlotName(map, night, SlotOf(sessionName) + 1);
+                }
+                Debug.Log("[Rago] queueing in " + sessionName + " with " + _peers.Count + " others");
                 if (ok) foreach (var p in _peers) { SendSys(p, 3, MyName()); if (_partyCode != null) SendSys(p, 4, _partyCode); }
                 if (!ok) { failed?.Invoke(_status); _queueing = false; return; }
                 float atTarget = -1f;
@@ -873,6 +914,23 @@ namespace Rago.Net
             }
             _queueing = false;
             RejoinParty();
+        }
+
+        static string SlotName(string map, bool night, int slot) => "rago_q_" + map + (night ? "_n" : "") + "_" + slot;
+        static int SlotOf(string name) { int u = name != null ? name.LastIndexOf('_') : -1; return u >= 0 && int.TryParse(name.Substring(u + 1), out int n) ? n : 1; }
+
+        /// <summary>The first queue session (from this number on) that, as far as the lobby list shows, hasn't launched
+        /// and has room for this many players. With no list: just this number (joining checks it anyway).</summary>
+        string ChooseSlot(string map, bool night, int partySize, int from)
+        {
+            bool fresh = Time.realtimeSinceStartup - _listedAt < 20f;
+            for (int i = from; i < from + 40; i++)
+            {
+                string n = SlotName(map, night, i);
+                if (!fresh || !_listed.TryGetValue(n, out var st)) return n;   // not listed: empty (it'll be made) or unknown
+                if (!st.started && st.players + partySize <= QueueRules.MaxFor(map)) return n;
+            }
+            return SlotName(map, night, from);
         }
 
         public void CancelQueue()

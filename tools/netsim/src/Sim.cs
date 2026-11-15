@@ -16,6 +16,7 @@ namespace Rago
 
         static int Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "queue") return QueueSim.Run();
             int fails = 0;
             fails += Run("3 players, Photon behaving", 3, false, false);
             fails += Run("4 players, Photon behaving", 4, false, false);

@@ -8,6 +8,7 @@ test checks every player hears every other one, under one id each, with the righ
 ```bash
 cd tools/netsim
 mkdir -p game && cp ../../RagoExtract/Assets/RagoExtract/Fusion/FusionBackend.cs ../../RagoExtract/Assets/RagoExtract/Runtime/Net/NetApi.cs game/
-dotnet run
+dotnet run            # transport: every player hears every other one, right ids and names
+dotnet run -- queue   # matchmaking: parties + solo players all land in the same raid, with correct spawns (~5 min, real time)
 ```
 `src/Shim.cs` / `src/TimeShim.cs` are a tiny stand-in for UnityEngine (enough to run the backend).
