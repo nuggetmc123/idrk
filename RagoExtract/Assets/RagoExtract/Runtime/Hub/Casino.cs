@@ -53,7 +53,7 @@ namespace Rago
     public class SlotMachine : MonoBehaviour
     {
         static readonly string[] Sym = { "7", "BAR", "BELL", "CHERRY", "SKULL" };
-        static readonly int[] Weight = { 1, 2, 3, 4, 6 };   // out of 16 per reel
+        // every symbol is equally likely on every reel - completely random (pays back ~94% on average)
         static readonly Color[] SymCol = { new Color(1f, 0.25f, 0.2f), new Color(0.9f, 0.9f, 0.9f), new Color(1f, 0.85f, 0.2f), new Color(0.95f, 0.3f, 0.45f), new Color(0.6f, 0.6f, 0.65f) };
         TextMesh[] _reels = new TextMesh[3];
         TextMesh _info, _bet, _result;
@@ -87,7 +87,7 @@ namespace Rago
             }
             UI.Text(transform, "SLOTS", new Vector3(0, 1.7f, -0.2f), 0.07f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
             _result = UI.Text(transform, "", new Vector3(0, 1.26f, -0.2f), 0.028f, Color.white);
-            UI.Text(transform, "777 x75   BAR x25   BELL x12\nCHERRY x6   2 cherries x2   1 cherry = bet back", new Vector3(0, 0.98f, -0.32f), 0.018f, new Color(0.95f, 0.85f, 0.6f));
+            UI.Text(transform, "777 x20   BAR x12   BELL x8\nCHERRY x6   2 cherries x2   1 cherry = bet back", new Vector3(0, 0.98f, -0.32f), 0.018f, new Color(0.95f, 0.85f, 0.6f));
             _bet = Casino.BetControls(transform, new Vector3(-0.08f, 1.14f, -0.33f), () => _betIx, v => _betIx = v, () => _spinning);
             UI.Button(transform, "SPIN", new Vector3(0.26f, 1.14f, -0.33f), new Vector2(0.16f, 0.09f), Spin, new Color(0.15f, 0.5f, 0.15f), BtnStyle.Key);
             Refresh();
@@ -95,7 +95,7 @@ namespace Rago
 
         void Refresh() { if (_bet != null) _bet.text = "BET $" + Casino.Bets[_betIx].ToString("N0") + "    CASH $" + Casino.Cash.ToString("N0"); }
 
-        static int Roll() { int r = Random.Range(0, 16); for (int i = 0; i < Weight.Length; i++) { if (r < Weight[i]) return i; r -= Weight[i]; } return 4; }
+        static int Roll() => Random.Range(0, Sym.Length);
 
         void Spin()
         {
@@ -130,7 +130,7 @@ namespace Rago
             int a = _final[0], b = _final[1], c = _final[2], bet = Casino.Bets[_betIx];
             int cherries = (a == 3 ? 1 : 0) + (b == 3 ? 1 : 0) + (c == 3 ? 1 : 0);
             int mult = 0; string what = "no luck";
-            if (a == b && b == c && a != 4) { mult = new[] { 75, 25, 12, 6, 0 }[a]; what = Sym[a] + " x3!"; }
+            if (a == b && b == c && a != 4) { mult = new[] { 20, 12, 8, 6, 0 }[a]; what = Sym[a] + " x3!"; }
             else if (cherries == 2) { mult = 2; what = "two cherries"; }
             else if (cherries == 1) { mult = 1; what = "a cherry - bet back"; }
             int win = bet * mult;
@@ -173,11 +173,11 @@ namespace Rago
             _player = UI.Text(transform, "", new Vector3(0, 1.4f, 0.47f), 0.045f, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
             _status = UI.Text(transform, "Place your bet and DEAL", new Vector3(0, 1.27f, 0.47f), 0.03f, new Color(0.95f, 0.85f, 0.4f));
             _bet = Casino.BetControls(transform, new Vector3(-0.45f, 1.1f, 0.47f), () => _betIx, v => _betIx = v, () => _inHand);
-            float x0 = -0.08f;
-            UI.Button(transform, "DEAL", new Vector3(x0, 1.1f, 0.47f), new Vector2(0.13f, 0.07f), Deal, new Color(0.15f, 0.5f, 0.15f), BtnStyle.Key);
-            UI.Button(transform, "HIT", new Vector3(x0 + 0.15f, 1.1f, 0.47f), new Vector2(0.13f, 0.07f), Hit, new Color(0.25f, 0.35f, 0.55f), BtnStyle.Key);
-            UI.Button(transform, "STAND", new Vector3(x0 + 0.3f, 1.1f, 0.47f), new Vector2(0.13f, 0.07f), Stand, new Color(0.55f, 0.25f, 0.15f), BtnStyle.Key);
-            UI.Button(transform, "DOUBLE", new Vector3(x0 + 0.45f, 1.1f, 0.47f), new Vector2(0.13f, 0.07f), Double, new Color(0.5f, 0.4f, 0.1f), BtnStyle.Key);
+            float x0 = -0.12f;
+            UI.Button(transform, "DEAL", new Vector3(x0, 1.1f, 0.465f), new Vector2(0.16f, 0.08f), Deal, new Color(0.15f, 0.5f, 0.15f), BtnStyle.Key);
+            UI.Button(transform, "HIT", new Vector3(x0 + 0.19f, 1.1f, 0.465f), new Vector2(0.16f, 0.08f), Hit, new Color(0.25f, 0.35f, 0.55f), BtnStyle.Key);
+            UI.Button(transform, "STAND", new Vector3(x0 + 0.38f, 1.1f, 0.465f), new Vector2(0.16f, 0.08f), Stand, new Color(0.55f, 0.25f, 0.15f), BtnStyle.Key);
+            UI.Button(transform, "DOUBLE", new Vector3(x0 + 0.57f, 1.1f, 0.465f), new Vector2(0.16f, 0.08f), Double, new Color(0.5f, 0.4f, 0.1f), BtnStyle.Key);
             Show();
         }
 
@@ -230,7 +230,7 @@ namespace Rago
 
         void Hit()
         {
-            if (!_inHand) return;
+            if (!_inHand) { _status.text = "DEAL first"; Sfx.UI(Synth.UiError(), 0.3f); return; }
             _p.Add(Draw()); Sfx.UI(Synth.UiClick(), 0.4f);
             if (Total(_p) > 21) { _hideHole = false; End("Bust", 0); return; }
             if (Total(_p) == 21) { Stand(); return; }
@@ -239,8 +239,10 @@ namespace Rago
 
         void Double()
         {
-            if (!_inHand || _p.Count != 2) return;
-            if (!Casino.Take(_stake)) return;
+            if (!_inHand) { _status.text = "DEAL first - DOUBLE doubles your bet for exactly one more card"; Sfx.UI(Synth.UiError(), 0.3f); return; }
+            if (_p.Count != 2) { _status.text = "You can only double on your first two cards"; Sfx.UI(Synth.UiError(), 0.3f); return; }
+            if (!Casino.Take(_stake)) { _status.text = "Not enough cash to double ($" + _stake.ToString("N0") + ")"; return; }
+            _status.text = "Doubled - one card"; Sfx.UI(Synth.Cash(), 0.4f);
             _stake *= 2;
             _p.Add(Draw());
             if (Total(_p) > 21) { _hideHole = false; End("Bust (doubled)", 0); return; }
@@ -249,7 +251,7 @@ namespace Rago
 
         void Stand()
         {
-            if (!_inHand) return;
+            if (!_inHand) { _status.text = "DEAL first"; Sfx.UI(Synth.UiError(), 0.3f); return; }
             _hideHole = false;
             while (Total(_d) < 17) _d.Add(Draw());
             int p = Total(_p), d = Total(_d);
@@ -272,8 +274,8 @@ namespace Rago
     // ============================================================================================ PRIZE WHEEL
     public class PrizeWheel : MonoBehaviour
     {
-        // 24 segments, ~96% back on average
-        static readonly int[] Seg = { 0, 2, 0, 1, 0, 5, 0, 1, 0, 3, 0, 2, 0, 1, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0 };
+        // 24 slices, each equally likely: 11 blanks, 7 x1 (bet back), 3 x2, 2 x3, 1 x5 - breaks even on average
+        static readonly int[] Seg = { 0, 1, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 5, 0, 1, 0, 2, 0, 1, 3, 0, 1, 0, 1 };
         Transform _wheel;
         TextMesh _bet, _result;
         int _betIx = 1; bool _spinning; float _from, _to, _t, _dur, _lastTick;
@@ -323,7 +325,7 @@ namespace Rago
             var mf = _wheel.gameObject.AddComponent<MeshFilter>(); mf.sharedMesh = mesh;
             _wheel.gameObject.AddComponent<MeshRenderer>().sharedMaterial = Mats.Lit("wheel_face", Color.white, 0f, 0.5f);
             UI.Text(transform, "PRIZE WHEEL", new Vector3(0, 3.1f, -0.06f), 0.08f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
-            _result = UI.Text(transform, "x8 x5 x3 x2 x1 - or nothing", new Vector3(0, 1.62f, -0.91f), 0.026f, Color.white);
+            _result = UI.Text(transform, "x5 x3 x2 x1 - or nothing", new Vector3(0, 1.62f, -0.91f), 0.026f, Color.white);
             _bet = Casino.BetControls(transform, new Vector3(0, 1.43f, -0.91f), () => _betIx, x => _betIx = x, () => _spinning);
             UI.Button(transform, "SPIN", new Vector3(0, 1.3f, -0.91f), new Vector2(0.2f, 0.08f), Spin, new Color(0.15f, 0.5f, 0.15f), BtnStyle.Key);
             Refresh();

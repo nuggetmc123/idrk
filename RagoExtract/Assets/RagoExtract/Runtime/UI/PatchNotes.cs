@@ -5,13 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
-            ("2.1", "Bags, spawns & less delay", new[] {
-                "Bags no longer flip round when you hold them: they hang from your hand facing away from you.",
-                "Put things in a bag by hand: they stay exactly where and how you put them (resting on what's below). Things only go in when you let go INSIDE the bag, not near it.",
-                "Less multiplayer delay: other players are shown much closer to real time, and updates go out the moment they're made.",
-                "Padlocks are on both sides of a locked door.",
-                "Players and parties spawn as far apart as the map allows, on every map.",
-                "Underground: you now start down on the bottom level (B3) and fight your way up.",
+            ("2.2", "Armor, casino & floor maps", new[] {
+                "Armor now works by penetration: every armour has a class (soft vest ~1.5 up to Juggernaut ~6.5) and every round a punch. Pistols mostly bounce off good armour (you still take a bruising), rifle rounds go through, .338 / .50 go through almost anything - the same for players, raiders and you.",
+                "Shots from other players now hurt properly through armour the same way raiders' shots do.",
+                "Casino: slots are completely random (every symbol equally likely), the prize wheel has fewer blanks and breaks even on average.",
+                "Blackjack: DOUBLE works and tells you when it can't (deal first, only on your first two cards); bigger buttons.",
+                "Underground field map shows the floor you're on (B1 / B2 / B3) and changes as you go up and down the stairs.",
+                "Also: steadier bags, put things in bags by hand, less delay, two-sided padlocks, spread-out spawns, Underground spawns on B3.",
             }),
         };
     }

@@ -153,7 +153,7 @@ namespace Rago
             if (RagoGame.I != null && RagoGame.I.SafeZone) return;
             float dmg = h.damage;
             // armour you're wearing (found in raids)
-            dmg *= ArmorDef.Reduction(h.part, rig.Gear.Helmet, rig.Gear.Vest);
+            dmg *= ArmorDef.Reduction(h.part, rig.Gear.Helmet, rig.Gear.Vest, h.gunId);
             Health -= dmg;
             rig.Hud.Damage(Mathf.Clamp01(dmg / 40f), h.dir);
             if (dmg > 12 && Random.value < (h.part == BodyPart.Thorax ? 0.7f : 0.45f)) Bleed = Mathf.Min(4f, Bleed + (h.part == BodyPart.Thorax ? 0.9f : 0.6f));

@@ -571,6 +571,7 @@ namespace Rago
             // down on the bottom level (B3), round its outer corridor - you fight your way UP. Kept away from the
             // Drainage Tunnel extract (B3, south-west corner).
             float b3 = LevelY(2) + 0.05f;
+            MapFloors = new[] { LevelY(0), LevelY(1), LevelY(2) }; MapFloorNames = new[] { "B1", "B2", "B3" }; MapFloorHeight = Ht;
             Spawn(new Vector3(-40, b3, 32), 135); Spawn(new Vector3(40, b3, -32), -45); Spawn(new Vector3(8, b3, 32), 180);
             Spawn(new Vector3(40, b3, 32), -135); Spawn(new Vector3(-8, b3, -32), 0); Spawn(new Vector3(24, b3, -32), 0);
             AddExtract(new Vector3(8, 0, 0), "Freight Elevator (B1)");

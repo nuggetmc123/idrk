@@ -26,14 +26,14 @@ namespace Rago
             return f;
         }
 
-        Texture2D Photograph()
+        Texture2D Photograph(float camY = 400f, float near = 1f, float far = 1400f)
         {
             const int Res = 1024;
             var camGo = new GameObject("MapCamera");
             var cam = camGo.AddComponent<Camera>();
             cam.orthographic = true; cam.orthographicSize = _half;
-            cam.transform.SetPositionAndRotation(new Vector3(0, 400, 0), Quaternion.Euler(90, 0, 0));
-            cam.nearClipPlane = 1f; cam.farClipPlane = 1400f;   // tall cliffs and the giant maps
+            cam.transform.SetPositionAndRotation(new Vector3(0, camY, 0), Quaternion.Euler(90, 0, 0));
+            cam.nearClipPlane = near; cam.farClipPlane = far;   // tall cliffs and the giant maps / one floor of a building
             cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0.18f, 0.27f, 0.33f);
             int mask = ~0;
             foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) mask &= ~(1 << l);
@@ -85,43 +85,85 @@ namespace Rago
             return tex;
         }
 
+        readonly List<Transform> _pages = new List<Transform>();
+        float[] _floors;
+        int _page = -1;
+
         void Build(MapBase map, string title)
         {
-            var tex = Photograph();
             _sheet = new GameObject("Sheet").transform;
             _sheet.SetParent(transform, false);
             float h = Size / 2;
+            _floors = map.MapFloors;
+            int pages = _floors != null && _floors.Length > 0 ? _floors.Length : 1;
+            for (int pg = 0; pg < pages; pg++)
+            {
+                var page = new GameObject("Page" + pg).transform;
+                page.SetParent(_sheet, false);
+                _pages.Add(page);
+                // one floor: the camera just under that floor's ceiling, looking down to just below its floor
+                var tex = _floors != null ? Photograph(_floors[pg] + map.MapFloorHeight - 0.05f, 0.01f, map.MapFloorHeight + 0.4f) : Photograph();
+                if (tex != null)
+                {
+                    var img = new MB().Quad(new Vector3(-h, -h, 0), new Vector3(h, -h, 0), new Vector3(h, h, 0), new Vector3(-h, h, 0), Color.white, Vector2.one);
+                    img.Build("Photo", page, Mats.Unlit(null, Color.white, tex, Mats.BlendKind.Alpha, true));
+                }
+                string floorName = _floors != null && map.MapFloorNames != null && pg < map.MapFloorNames.Length ? "  -  " + map.MapFloorNames[pg] : "";
+                UI.Text(page, title.ToUpper() + floorName + "  -  FIELD MAP", new Vector3(-h, h + 0.035f, -0.002f), 0.022f, UI.PaperInk, TextAnchor.MiddleLeft, FontStyle.Bold);
+                BuildExtracts(map, page, pg);
+            }
+            BuildCommon(map);
+        }
+
+        /// <summary>Which page (floor) a height belongs to: the highest floor at or below it.</summary>
+        int FloorOf(float y)
+        {
+            if (_floors == null) return 0;
+            int best = _floors.Length - 1;
+            for (int i = 0; i < _floors.Length; i++) if (y >= _floors[i] - 0.6f) { best = i; break; }
+            return best;
+        }
+
+        void BuildExtracts(MapBase map, Transform page, int pg)
+        {
+            float h = Size / 2;
             // paper backing with a title strip at the top
+            BuildExtractMarks(map, page, pg);
+        }
+
+        void BuildCommon(MapBase map)
+        {
+            float h = Size / 2;
             var paper = new MB();
             paper.Box(new Vector3(0, 0.025f, 0.004f), new Vector3(Size + 0.04f, Size + 0.1f, 0.004f), UI.Lin(new Color(0.86f, 0.82f, 0.7f)), 0f);
             paper.Build("Paper", _sheet, Mats.Lit("map_paper", Color.white, 0f, 0.1f, Mats.Noise, null, 0.25f, 0f));
-            if (tex != null)
-            {
-                var img = new MB().Quad(new Vector3(-h, -h, 0), new Vector3(h, -h, 0), new Vector3(h, h, 0), new Vector3(-h, h, 0), Color.white, Vector2.one);
-                img.Build("Photo", _sheet, Mats.Unlit(null, Color.white, tex, Mats.BlendKind.Alpha, true));
-            }
-            UI.Text(_sheet, title.ToUpper() + "  -  FIELD MAP", new Vector3(-h, h + 0.035f, -0.002f), 0.022f, UI.PaperInk, TextAnchor.MiddleLeft, FontStyle.Bold);
             UI.Text(_sheet, "N", new Vector3(h - 0.01f, h + 0.045f, -0.002f), 0.024f, UI.StampRed, TextAnchor.MiddleCenter, FontStyle.Bold);
             UI.Text(_sheet, "^", new Vector3(h - 0.01f, h + 0.025f, -0.002f), 0.024f, UI.StampRed, TextAnchor.MiddleCenter, FontStyle.Bold);
             UI.Text(_sheet, "(o) extract", new Vector3(-h, -h - 0.02f, -0.002f), 0.016f, new Color(0.1f, 0.45f, 0.15f), TextAnchor.MiddleLeft, FontStyle.Bold);
             UI.Text(_sheet, "you", new Vector3(-h + 0.11f, -h - 0.02f, -0.002f), 0.016f, UI.StampRed, TextAnchor.MiddleLeft, FontStyle.Bold);
-            // extracts
+            BuildArrow();
+        }
+
+        void BuildExtractMarks(MapBase map, Transform page, int pg)
+        {
+            float h = Size / 2;
+            // extracts (on a floor map: only the ones on this floor)
             var green = Mats.Unlit("map_extract", new Color(0.1f, 0.7f, 0.2f, 1f));
             var dots = new List<Vector3>();
-            foreach (var e in map.Extracts) if (e != null) dots.Add(ToSheet(e.transform.position));
+            foreach (var e in map.Extracts) if (e != null && FloorOf(e.transform.position.y) == pg) dots.Add(ToSheet(e.transform.position));
             var taken = new List<Rect>();
             foreach (var e in map.Extracts)
             {
-                if (e == null) continue;
+                if (e == null || FloorOf(e.transform.position.y) != pg) continue;
                 var p = ToSheet(e.transform.position);
                 var m = new MB();
                 m.Sector(Vector3.zero, Quaternion.identity, 0.009f, 0, 360, 18, Color.white);
-                var dot = m.Build("Extract", _sheet, green);
+                var dot = m.Build("Extract", page, green);
                 dot.transform.localPosition = p + new Vector3(0, 0, -0.003f);
                 // ring around it
                 var ring = new MB();
                 for (int i = 0; i < 16; i++) { float a = i * 22.5f; ring.Box(Quaternion.Euler(0, 0, a) * new Vector3(0.016f, 0, 0), new Vector3(0.003f, 0.006f, 0.0005f), Color.white, 0f, 0, Quaternion.Euler(0, 0, a)); }
-                var rg = ring.Build("Ring", _sheet, green);
+                var rg = ring.Build("Ring", page, green);
                 rg.transform.localPosition = p + new Vector3(0, 0, -0.003f);
                 // the name on one line, when it opens underneath; put beside the dot wherever it doesn't run into
                 // another extract or another label (right, left, above, below), staying on the sheet
@@ -149,9 +191,14 @@ namespace Rago
                 }
                 taken.Add(bestR);
                 var ink = new Color(0.05f, 0.35f, 0.1f);
-                var lbl = UI.Text(_sheet, name + "\n<size=48>" + when + "</size>", p + best + new Vector3(0, 0, -0.003f), sz, ink, bestA, FontStyle.Bold);
+                var lbl = UI.Text(page, name + "\n<size=48>" + when + "</size>", p + best + new Vector3(0, 0, -0.003f), sz, ink, bestA, FontStyle.Bold);
                 lbl.richText = true;
             }
+        }
+
+        void BuildArrow()
+        {
+            float h = Size / 2;
             // you
             _arrow = new GameObject("You").transform; _arrow.SetParent(_sheet, false);
             var arrow = new MB();
@@ -192,6 +239,9 @@ namespace Rago
             _sheet.position = pos;
             var look = pos - head;
             if (look.sqrMagnitude > 0.0001f) _sheet.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
+            // the page for the floor you're on
+            int want = FloorOf(p.transform.position.y);
+            if (want != _page) { _page = want; for (int i = 0; i < _pages.Count; i++) _pages[i].gameObject.SetActive(i == want); }
             // you
             var me = ToSheet(p.transform.position);
             me.x = Mathf.Clamp(me.x, -Size / 2, Size / 2); me.y = Mathf.Clamp(me.y, -Size / 2, Size / 2);

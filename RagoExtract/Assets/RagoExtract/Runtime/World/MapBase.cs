@@ -13,6 +13,9 @@ namespace Rago
         public bool KeepFog;                 // indoor maps keep their own fog (raids otherwise get a light haze and see the whole island)
         public WorldBuilder B;
         public readonly List<Pose> PlayerSpawns = new List<Pose>();
+        /// <summary>Maps with several floors (Underground): each floor's floor height, top first, its name and the
+        /// room height - the field map gets a page per floor and shows the one you're on.</summary>
+        public float[] MapFloors; public string[] MapFloorNames; public float MapFloorHeight = 3f;
         public readonly List<NpcSpawn> NpcSpawns = new List<NpcSpawn>();
         public readonly List<LootCrate> Crates = new List<LootCrate>();
         public readonly List<Extraction> Extracts = new List<Extraction>();

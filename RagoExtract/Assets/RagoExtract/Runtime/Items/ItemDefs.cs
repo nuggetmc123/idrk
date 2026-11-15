@@ -100,13 +100,47 @@ namespace Rago
         public int style;         // visual variant
         public Color color, trim;
 
-        /// <summary>Damage multiplier for a hit given the helmet and vest worn (null = none).</summary>
-        public static float Reduction(BodyPart part, ArmorDef helmet, ArmorDef vest)
+        /// <summary>Armour class 1..6 (from how protective it is): soft vest ~1.5, plate carrier 3, heavy 4, assault 5, juggernaut 6.5.</summary>
+        public float Class => protection * 10f;
+
+        /// <summary>How hard a round punches through armour (same scale as the armour class).</summary>
+        public static float Penetration(string gunId)
         {
-            if (part == BodyPart.Head && helmet != null) return 1f - helmet.protection;
-            if (part == BodyPart.Thorax && vest != null) return 1f - vest.protection;
-            if (part == BodyPart.Stomach && vest != null) return 1f - vest.protection * 0.6f;
-            return 1f;
+            if (gunId == "frag") return 3.2f;   // fragments
+            var g = !string.IsNullOrEmpty(gunId) ? Db.Get<GunDef>(gunId) : null;
+            if (g == null) return 0.8f;          // fists, knives
+            switch (g.cal)
+            {
+                case Caliber.C9mm: return 2.0f;
+                case Caliber.C45: return 2.0f;
+                case Caliber.C357: return 2.6f;
+                case Caliber.C50AE: return 3.2f;
+                case Caliber.C57: return 3.6f;
+                case Caliber.C12g: return 1.4f;
+                case Caliber.C556: return 4.4f;
+                case Caliber.C545: return 4.4f;
+                case Caliber.C762: return 4.8f;
+                case Caliber.C308: return 5.6f;
+                case Caliber.C338: return 6.6f;
+                case Caliber.C50BMG: return 8.5f;
+            }
+            return 3f;
+        }
+
+        /// <summary>Damage multiplier for a hit given the helmet and vest worn (null = none) and what it was hit with.
+        /// A round weaker than the armour is stopped (you still take a bruising 12-35%); a stronger one goes through
+        /// (70-100%); right around the armour's class it's a coin flip.</summary>
+        public static float Reduction(BodyPart part, ArmorDef helmet, ArmorDef vest, string gunId = null)
+        {
+            ArmorDef a = part == BodyPart.Head ? helmet : (part == BodyPart.Thorax || part == BodyPart.Stomach) ? vest : null;
+            if (a == null) return 1f;
+            float cls = a.Class * (part == BodyPart.Stomach ? 0.7f : 1f);   // the vest covers the belly less well
+            if (cls <= 0.01f) return 1f;
+            float pen = Penetration(gunId);
+            float diff = pen - cls;
+            bool through = diff >= 0.7f || (diff > -0.7f && Random.value < 0.5f + diff / 1.4f);
+            if (through) return Mathf.Clamp(0.72f + 0.08f * Mathf.Max(0f, diff), 0.72f, 1f);
+            return Mathf.Clamp(0.12f + 0.2f * Mathf.Clamp01(pen / cls), 0.12f, 0.35f);
         }
     }
 

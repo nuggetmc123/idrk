@@ -592,7 +592,7 @@ namespace Rago
             KillerId = h.attacker == 0 ? Levels.MyKillerId : h.attacker < 1000 ? h.attacker : 0;
             KillerHeadshot = h.part == BodyPart.Head; KillerGun = h.gunId;
             float dmg = h.damage;
-            dmg *= ArmorDef.Reduction(h.part, Helmet, Vest);
+            dmg *= ArmorDef.Reduction(h.part, Helmet, Vest, h.gunId);
             Health -= dmg;
             if (Puppet)
             {
