@@ -69,6 +69,7 @@ namespace Rago.Net
         readonly Dictionary<ulong, float> _nameAsk = new Dictionary<ulong, float>();   // when we last asked a player who they are
         float _pingT;
         string _lastRaid;
+        bool _pendingNight, _queueNight;
         NetworkRunner _lobby;
         public string PartyCode => _partyCode;
         // the leader is whoever the party is named after - not whoever got back to their bunker first (that player opened
@@ -668,10 +669,12 @@ namespace Rago.Net
             {
                 status?.Invoke(new QueueStatus { players = 1, max = QueueRules.MaxFor(map), text = "Finding a raid..." });
                 string sessionName = null; _queuePartySize = 1;
+                bool night = RaidChoice.Night;   // night raids are matched with other night players only
                 if (_pendingRaidSession != null)
                 {
-                    // following the party leader into their raid session
+                    // following the party leader into their raid session (at their time of day)
                     sessionName = _pendingRaidSession; _queuePartySize = _pendingPartySize; _pendingRaidSession = null;
+                    night = _pendingNight; RaidChoice.Night = night;
                 }
                 else if (_partyCode != null && _inPartySession)
                 {
@@ -683,7 +686,7 @@ namespace Rago.Net
                     // before a member heard it left them behind on their own - it looked like they'd been kicked
                     _acks.Clear();
                     var members = new List<ulong>(_peers);
-                    string go6 = map + "|" + sessionName + "|" + _queuePartySize;
+                    string go6 = map + "|" + sessionName + "|" + _queuePartySize + "|" + (night ? 1 : 0);
                     if (IsHost)
                         try
                         {
@@ -704,8 +707,9 @@ namespace Rago.Net
                     }
                     await Task.Delay(300);   // let the last messages go out before leaving the party session
                 }
+                _queueNight = night;
                 // random join of an open queue for this map, or create one (a party gets its own session that randoms can still fill)
-                bool ok = await StartSession(sessionName, new Dictionary<string, SessionProperty> { { "kind", "raid_" + map } }, QueueRules.MaxFor(map));
+                bool ok = await StartSession(sessionName, new Dictionary<string, SessionProperty> { { "kind", "raid_" + map + (night ? "_n" : "") } }, QueueRules.MaxFor(map));
                 if (ok) foreach (var p in _peers) { SendSys(p, 3, MyName()); if (_partyCode != null) SendSys(p, 4, _partyCode); }
                 if (!ok) { failed?.Invoke(_status); _queueing = false; return; }
                 float atTarget = -1f;
@@ -715,7 +719,7 @@ namespace Rago.Net
                     var props = _runner.SessionInfo.Properties;
                     // the host said go (message) or closed the session with a "go" on it (property - can't get lost)
                     if (_pendingStart == null && !IsHost && props != null && props.ContainsKey("go") && props.TryGetValue("seed", out var gs))
-                        _pendingStart = new RaidStart { map = map, seed = (int)gs, spawnIndex = -1, players = _peers.Count + 1, online = true };
+                        _pendingStart = new RaidStart { map = map, seed = (int)gs, spawnIndex = -1, players = _peers.Count + 1, online = true, night = night };
                     if (_pendingStart != null)
                     {
                         var rs = _pendingStart; _pendingStart = null; _queueing = false;
@@ -724,7 +728,7 @@ namespace Rago.Net
                         return;
                     }
                     if (IsHost && (props == null || !props.ContainsKey("t0")))
-                        try { _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty> { { "kind", "raid_" + map }, { "t0", (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000) }, { "seed", UnityEngine.Random.Range(1, 999999) } }); }
+                        try { _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty> { { "kind", "raid_" + map + (night ? "_n" : "") }, { "t0", (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000) }, { "seed", UnityEngine.Random.Range(1, 999999) } }); }
                         catch (Exception e) { Debug.LogWarning("[Rago] couldn't set the queue start time: " + e.Message); }
                     int t0 = props != null && props.TryGetValue("t0", out var tp) ? (int)tp : (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000);
                     float elapsed = (float)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000 - t0);
@@ -750,7 +754,7 @@ namespace Rago.Net
                         SpawnFor(MyName(), out int mySpot, out int mySlot);
                         _queueing = false;
                         _status = "Raid (" + players + " players)";
-                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = mySpot, players = players, online = true, partySlot = mySlot });
+                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = mySpot, players = players, online = true, partySlot = mySlot, night = night });
                         return;
                     }
                     // not the host and the host's go never came (left, lagging, message lost): don't sit past 1:00 - go in
@@ -761,7 +765,7 @@ namespace Rago.Net
                         _queueing = false;
                         _status = "Raid (" + players + " players)";
                         SpawnFor(MyName(), out int sp1, out int sl1);
-                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = sp1, players = players, online = true, partySlot = sl1 });
+                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = sp1, players = players, online = true, partySlot = sl1, night = night });
                         return;
                     }
                     await Task.Delay(500);
@@ -933,7 +937,7 @@ namespace Rago.Net
                 if (code == 1)
                 {
                     var p = text.Split('|');
-                    if (p.Length >= 4) _pendingStart = new RaidStart { map = p[0], seed = int.Parse(p[1]), spawnIndex = int.Parse(p[2]), players = int.Parse(p[3]), online = true, partySlot = p.Length >= 5 ? int.Parse(p[4]) : 0 };
+                    if (p.Length >= 4) _pendingStart = new RaidStart { map = p[0], seed = int.Parse(p[1]), spawnIndex = int.Parse(p[2]), players = int.Parse(p[3]), online = true, partySlot = p.Length >= 5 ? int.Parse(p[4]) : 0, night = _queueNight };
                 }
                 else if (code == 3)
                 {
@@ -963,7 +967,7 @@ namespace Rago.Net
                     // the leader queued: follow them into their raid session
                     var p = text.Split('|');
                     SendSys(fromId, 10, "ok");
-                    if (p.Length >= 3 && _pendingRaidSession != p[1] && _lastRaid != p[1]) { _lastRaid = p[1]; _pendingRaidSession = p[1]; _pendingPartySize = int.Parse(p[2]); _wasLeader = false; OnPartyQueue?.Invoke(p[0]); }
+                    if (p.Length >= 3 && _pendingRaidSession != p[1] && _lastRaid != p[1]) { _lastRaid = p[1]; _pendingRaidSession = p[1]; _pendingPartySize = int.Parse(p[2]); _pendingNight = p.Length >= 4 && p[3] == "1"; _wasLeader = false; OnPartyQueue?.Invoke(p[0]); }
                 }
                 else if (code == 6) SendSys(fromId, 10, "ok");     // already on our way: still answer so the leader stops asking
                 else if (code == 10) _acks.Add(fromId);
@@ -1084,9 +1088,9 @@ namespace Rago.Net
                         && _runner.SessionInfo.Properties.TryGetValue("raid", out var rv))
                     {
                         var rp = Str(rv).Split('|');
-                        if (rp.Length >= 4 && rp[1] != _lastRaid && long.TryParse(rp[3], out var when) && DateTimeOffset.UtcNow.ToUnixTimeSeconds() - when < 25)
+                        if (rp.Length >= 5 && rp[1] != _lastRaid && long.TryParse(rp[4], out var when) && DateTimeOffset.UtcNow.ToUnixTimeSeconds() - when < 25)
                         {
-                            _lastRaid = rp[1]; _pendingRaidSession = rp[1]; int.TryParse(rp[2], out _pendingPartySize); _wasLeader = false;
+                            _lastRaid = rp[1]; _pendingRaidSession = rp[1]; int.TryParse(rp[2], out _pendingPartySize); _pendingNight = rp[3] == "1"; _wasLeader = false;
                             OnPartyQueue?.Invoke(rp[0]);
                         }
                     }

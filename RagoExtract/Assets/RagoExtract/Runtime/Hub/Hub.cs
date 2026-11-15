@@ -97,6 +97,9 @@ namespace Rago
             console.localPosition = new Vector3(0, 1.124f, -0.131f); console.localRotation = Quaternion.Euler(55, 0, 0);
             _queueBtn = UI.Button(console, "QUEUE", new Vector3(0.1f, 0, 0), new Vector2(0.34f, 0.15f), ToggleQueue, new Color(0.2f, 0.42f, 0.2f), BtnStyle.Key);
             UI.Text(console, "PRESS TO\nDEPLOY", new Vector3(-0.3f, 0, -0.002f), 0.03f, UI.Stencil, TextAnchor.MiddleCenter, FontStyle.Bold);
+            // day or night: night raids are matched with other night players (rain and fog are a chance either way)
+            _timeBtn = UI.Button(console, "", new Vector3(0.1f, -0.13f, 0), new Vector2(0.34f, 0.08f), ToggleTime, new Color(0.25f, 0.3f, 0.4f), BtnStyle.Key);
+            RefreshTime();
             // your party, on a little screen beside the QUEUE key: who's in it and who leads
             var pp = UI.Panel(console, "PartyScreen", new Vector3(0.56f, 0, -0.003f), Quaternion.identity, new Vector2(0.5f, 0.34f), null, true, Skin.Crt);
             UI.Text(pp, "PARTY", new Vector3(-0.22f, 0.13f, 0), 0.03f, UI.CrtGreen, TextAnchor.MiddleLeft, FontStyle.Bold);
@@ -106,6 +109,24 @@ namespace Rago
         }
 
         TextMesh _online, _party;
+        WorldButton _timeBtn;
+
+        void ToggleTime()
+        {
+            if (_queued) { RagoGame.I.Player.Toast("Cancel the queue to change the time of day"); Sfx.UI(Synth.UiError(), 0.3f); return; }
+            if (NetHub.Online && NetHub.Backend.PartyCode != null && !NetHub.Backend.PartyLeader) { RagoGame.I.Player.Toast("Your party leader picks day or night"); Sfx.UI(Synth.UiError(), 0.3f); return; }
+            RaidChoice.Night = !RaidChoice.Night;
+            Sfx.UI(Synth.Beep(), 0.4f);
+            RefreshTime();
+            RagoGame.I.Player.Toast(RaidChoice.Night ? "NIGHT raid: dark - bring a weapon light or night vision. Raiders see less far too." : "DAY raid");
+        }
+
+        void RefreshTime()
+        {
+            if (_timeBtn == null) return;
+            _timeBtn.SetText(RaidChoice.Night ? "TIME: NIGHT" : "TIME: DAY");
+            _timeBtn.SetColor(RaidChoice.Night ? new Color(0.12f, 0.14f, 0.3f) : new Color(0.55f, 0.5f, 0.2f));
+        }
         float _onlineT, _partyT;
 
         /// <summary>The party screen on the console: members (leader marked), or how to start one.</summary>
@@ -142,7 +163,7 @@ namespace Rago
             {
                 if (NetHub.Online) NetHub.Backend.CancelQueue();
                 RagoGame.I?.Player?.Toast("No raid found in time - deploying solo");
-                OnStart(new RaidStart { map = _map, seed = Random.Range(1, 1000000), spawnIndex = Random.Range(0, 10), players = 1, online = false });
+                OnStart(new RaidStart { map = _map, seed = Random.Range(1, 1000000), spawnIndex = Random.Range(0, 10), players = 1, online = false, night = RaidChoice.Night });
             }
             float on = _queued && Mathf.Repeat(Time.time, 0.8f) < 0.4f ? 1f : 0f;
             if (_beacon != null) _beacon.SetColor("_EmissionColor", new Color(3f, 1.4f, 0.2f) * on);
@@ -255,7 +276,7 @@ namespace Rago
                 t += Time.deltaTime;
                 yield return null;
             }
-            OnStart(new RaidStart { map = _map, seed = Random.Range(1, 1000000), spawnIndex = Random.Range(0, 10), players = 1, online = false });
+            OnStart(new RaidStart { map = _map, seed = Random.Range(1, 1000000), spawnIndex = Random.Range(0, 10), players = 1, online = false, night = RaidChoice.Night });
         }
 
         void OnDestroy()
@@ -276,6 +297,7 @@ namespace Rago
             Select(map);
             RagoGame.I.Player.Toast("Your party leader started the queue: " + Maps.Name(map));
             StartQueue();
+            RefreshTime();
         }
 
         void OnPartyCancelled()
@@ -515,6 +537,7 @@ namespace Rago
             foreach (var m in Db.Misc) if (m.kind == ItemKind.Ammo || m.kind == ItemKind.Throwable || m.kind == ItemKind.Melee) arms.stock.Add(m.id);
             // basic bags only; better bags and all armour have to be found in raids
             arms.stock.Add("pack_day"); arms.stock.Add("pack_assault");
+            arms.stock.Add("nvg");   // night vision for night raids
             arms.buys = d => d.kind == ItemKind.Gun || d.kind == ItemKind.Sight || d.kind == ItemKind.Attachment || d.kind == ItemKind.Armor || d.kind == ItemKind.Backpack || d.kind == ItemKind.Magazine;
             var medic = new TraderDef { name = "Doc Hale", title = "Medic - meds & stims", outfit = Outfit.Medic, color = new Color(0.8f, 0.2f, 0.2f), sellRate = 0.6f };
             foreach (var m in Db.Misc) if (m.kind == ItemKind.Med) medic.stock.Add(m.id);

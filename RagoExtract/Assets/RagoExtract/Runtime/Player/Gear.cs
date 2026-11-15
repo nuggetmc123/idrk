@@ -200,6 +200,42 @@ namespace Rago
             return true;
         }
 
+        // ---- night vision goggles
+        public bool NvgWorn, NvgOn;
+        public Vector3 NvgPoint => _p.Head.position + _p.Head.forward * 0.09f + _p.Head.up * 0.05f;
+
+        public bool TryWearNvg(Item nvg, Hand h)
+        {
+            if (NvgWorn || Vector3.Distance(nvg.transform.position, _p.Head.position + Vector3.up * 0.03f) > 0.3f) return false;
+            NvgWorn = true;
+            nvg.Consumed = true;
+            Destroy(nvg.gameObject);
+            Sfx.Play(Synth.Zipper(), _p.Head.position, 0.45f, 1.4f, 0.5f, 6f);
+            h.Haptic(0.4f, 0.1f);
+            _p.Toast("Night vision on your head - reach to your forehead and pull the trigger to flip it down" + (XRInputs.VR ? "" : " (V)"));
+            Changed();
+            return true;
+        }
+
+        public Item TakeOffNvg(Vector3 p, Quaternion rot)
+        {
+            if (!NvgWorn) return null;
+            NvgWorn = false; SetNvg(false);
+            Sfx.Play(Synth.Zipper(), p, 0.4f, 1.3f, 0.5f, 6f);
+            Changed();
+            return ItemFactory.Spawn("nvg", p, rot);
+        }
+
+        public void ToggleNvg() { if (NvgWorn) { SetNvg(!NvgOn); Sfx.Play(Synth.MagIn(), _p.Head.position, 0.35f, 1.8f, 0.3f, 4f); } }
+
+        public void SetNvg(bool on)
+        {
+            on = on && NvgWorn;
+            if (on == NvgOn) return;
+            NvgOn = on;
+            NightVision.Set(on, _p);
+        }
+
         /// <summary>Takes worn armour off into the hand.</summary>
         public Item TakeOff(ArmorSlot slot, Vector3 p, Quaternion rot)
         {
@@ -240,6 +276,8 @@ namespace Rago
             // armour: grab the helmet anywhere on top of your head; grab the vest at your collar / upper chest.
             // Both follow your head (not the slower body turn), so they're where you reach even with your head turned.
             Vector3 hp = _p.Head.position;
+            // night vision: grab it at your forehead
+            if (NvgWorn && Vector3.Distance(p, NvgPoint) < 0.13f) return TakeOffNvg(p, h.Anchor.rotation);
             if (Helmet != null && (Vector3.Distance(p, HeadTop) < 0.19f || (Vector3.Distance(p, hp) < 0.18f && p.y > hp.y + 0.02f)))
                 return TakeOff(ArmorSlot.Helmet, p, h.Anchor.rotation);
             if (Vest != null && Vector3.Distance(p, VestGrab) < 0.17f) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);
@@ -265,6 +303,7 @@ namespace Rago
             l.packId = packOnMe ? Pack.def.id : "";
             l.pack = packOnMe ? Pack.SaveContents() : new List<ItemData>();
             l.helmet = Helmet != null ? Helmet.id : "";
+            l.nvg = NvgWorn;
             l.vest = Vest != null ? Vest.id : "";
             // items held in hands go to the best matching slot
             foreach (var hand in new[] { _p.HandL, _p.HandR })
@@ -301,6 +340,7 @@ namespace Rago
             if (Pack != null && packHeld) Destroy(Pack.gameObject);
             Pack = null;
             Helmet = null; Vest = null;
+            NvgWorn = false; SetNvg(false);
             for (int i = 0; i < Ammo.Length; i++) Ammo[i] = 0;
             Changed();
         }
@@ -317,6 +357,7 @@ namespace Rago
                 Pack.Fill(l.pack);
             }
             Helmet = string.IsNullOrEmpty(l.helmet) ? null : Db.Get<ArmorDef>(l.helmet);
+            NvgWorn = l.nvg; SetNvg(false);
             Vest = string.IsNullOrEmpty(l.vest) ? null : Db.Get<ArmorDef>(l.vest);
             Changed();
             if (l.ammo != null) for (int i = 0; i < Mathf.Min(Ammo.Length, l.ammo.Length); i++) Ammo[i] = l.ammo[i];
@@ -341,6 +382,7 @@ namespace Rago
             else all.AddRange(l.pack);
             if (!string.IsNullOrEmpty(l.helmet)) all.Add(new ItemData(l.helmet));
             if (!string.IsNullOrEmpty(l.vest)) all.Add(new ItemData(l.vest));
+            if (l.nvg) all.Add(new ItemData("nvg"));
             return all;
         }
 
@@ -423,6 +465,7 @@ namespace Rago
         public string packId = "";                 // which backpack (BackpackDef id)
         public List<ItemData> pack = new List<ItemData>();
         public string helmet = "", vest = "";      // worn armour (ArmorDef ids, "" = none)
+        public bool nvg;                           // night vision goggles worn
         public int[] ammo;
     }
 

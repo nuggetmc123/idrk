@@ -343,6 +343,7 @@ namespace Rago
             }
             if (Desktop.Reload && gun != null) Gear.DesktopReload(gun);
             try { if (gun != null && Input.GetKeyDown(KeyCode.L)) gun.ToggleSide(); } catch { }   // desktop: L switches the light / laser
+            try { if (Input.GetKeyDown(KeyCode.V)) Gear.ToggleNvg(); } catch { }                  // desktop: V flips the night vision
             if (Desktop.Equip >= 0) Gear.DesktopEquip(Desktop.Equip);
             if (Desktop.Backpack) Gear.DesktopBackpack();
             if (Desktop.Armor) Gear.DesktopArmor();

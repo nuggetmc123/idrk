@@ -279,6 +279,8 @@ namespace Rago
             _flashR = Overlay(cam, quad, 0.085f, "hud_flash", new Color(1, 1, 1, 0), null, out _flashM, 95);
             _flashR.transform.localScale = Vector3.one * 0.085f * 8f;
             _flashR.enabled = false;
+            _nvg = Overlay(cam, quad, 0.092f, "hud_nvg", new Color(0.02f, 0.12f, 0.03f, 0.9f), Mats.Vignette, out _nvgM, 85);
+            _nvg.enabled = false;
             _toast = UI.Text(cam, "", new Vector3(0, -0.12f, 0.6f), 0.02f, Color.white);
             _toast.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_toast);
             _center = UI.Text(cam, "", new Vector3(0, 0.06f, 0.8f), 0.04f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -339,6 +341,9 @@ namespace Rago
         // a short red pulse round the edge of your view - never a red-out you can't see through
         public void Damage(float a, Vector3 dir) { _dmg = Mathf.Min(0.45f, _dmg + a * 0.35f + 0.12f); }
         public void Suppress(float a) { _sup = Mathf.Clamp01(_sup + a); }
+        MeshRenderer _nvg; Material _nvgM;
+        /// <summary>Night vision: the dark round edge of the tubes around your view, with a green cast.</summary>
+        public void SetNightVision(bool on) { if (_nvg != null) _nvg.enabled = on; }
         /// <summary>Flashbanged: white-out that fades over a few seconds, with a ringing in your ears.</summary>
         public void Flashbang(float strength)
         {

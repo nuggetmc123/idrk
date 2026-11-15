@@ -42,6 +42,11 @@ namespace Rago
             cam.targetTexture = rt;
             bool fog = RenderSettings.fog;
             RenderSettings.fog = false;
+            // photographed in plain daylight, whatever the weather / time of day
+            Color aS = RenderSettings.ambientSkyColor, aE = RenderSettings.ambientEquatorColor, aG = RenderSettings.ambientGroundColor;
+            var sunL = RenderSettings.sun; float sunI = sunL != null ? sunL.intensity : 0f;
+            RenderSettings.ambientSkyColor = new Color(0.6f, 0.65f, 0.7f); RenderSettings.ambientEquatorColor = new Color(0.55f, 0.55f, 0.52f); RenderSettings.ambientGroundColor = new Color(0.3f, 0.3f, 0.25f);
+            if (sunL != null) sunL.intensity = Mathf.Max(sunI, 1f);
             // indoor maps: take the photo without the ceiling (its material is named *_ceiling)
             var hidden = new List<Renderer>();
             foreach (var r in transform.parent.GetComponentsInChildren<Renderer>())
@@ -70,6 +75,8 @@ namespace Rago
             }
             catch (System.Exception e) { Debug.LogWarning("[Rago Extract] field map photo failed: " + e.Message); }
             RenderSettings.fog = fog;
+            RenderSettings.ambientSkyColor = aS; RenderSettings.ambientEquatorColor = aE; RenderSettings.ambientGroundColor = aG;
+            if (sunL != null) sunL.intensity = sunI;
             foreach (var r in hidden) if (r != null) r.enabled = true;
             cam.targetTexture = null;
             rt.Release();

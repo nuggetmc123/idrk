@@ -19,6 +19,7 @@ namespace Rago
         public int players;
         public bool online;
         public int partySlot;   // 0 = first of your party at that spawn spot, 1 = next to them, ...
+        public bool night;      // a night raid (picked on the raid terminal)
     }
 
     /// <summary>

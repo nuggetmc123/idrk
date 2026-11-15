@@ -26,6 +26,7 @@ namespace Rago
         public bool Indoor;   // every walkable spot has a roof over it (bunker, Market, Underground): open sky = you got out
         NavMeshDataInstance _nav;
         Light _sun;
+        public Light Sun => _sun;
 
         public struct NpcSpawn { public Vector3 pos; public int count; public bool heavy; public string boss; public float chance; public bool guard; }   // guard: always spawns (vault guards)
 

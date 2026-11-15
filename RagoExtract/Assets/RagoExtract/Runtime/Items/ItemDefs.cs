@@ -337,6 +337,8 @@ namespace Rago
             var trauma = M("trauma_kit", "Trauma Kit", ItemKind.Med, R, 2400, 1, new Color(0.15f, 0.35f, 0.75f), "Surgical trauma kit: heals 90 HP over a few seconds.");
             trauma.heal = 90; trauma.stopsBleed = true; trauma.healTime = 5f;
             var stim = M("stim", "Adrenal Stim", ItemKind.Med, R, 1200, 2, new Color(0.2f, 0.75f, 0.9f), "Instant 30 HP and a burst of stamina.");
+            // night vision goggles: put them on your head, flip them down with an empty hand at your forehead + trigger
+            M("nvg", "PNV-10 Night Vision", ItemKind.Valuable, Rarity.Epic, 9500, 0, new Color(0.18f, 0.2f, 0.17f), "Night vision goggles. Hold them to your head and let go to wear them; reach to your forehead with an empty hand and pull the trigger to flip them down / up (desktop: V). Grab at your forehead to take them off.");
             // energy drinks: hold the can to your mouth and pull the trigger
             var volt = M("energy_volt", "Volt Energy", ItemKind.Med, C, 260, 5, new Color(0.35f, 0.85f, 0.2f), "Energy drink. Full stamina and faster sprinting for 30 s, +5 HP.");
             volt.heal = 5; volt.energy = 30f;

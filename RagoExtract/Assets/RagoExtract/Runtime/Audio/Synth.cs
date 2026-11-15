@@ -554,6 +554,23 @@ namespace Rago
             return Clip("planedrone", d, true, 0.8f, true);
         });
 
+        /// <summary>Steady rain (loops): soft broadband hiss with patter.</summary>
+        public static AudioClip RainLoop() => One("rainloop", () =>
+        {
+            var d = Buf(4f);
+            var lp = new LP(3500); var lp2 = new LP(600);
+            var rr = new System.Random(3);
+            for (int i = 0; i < d.Length; i++)
+            {
+                float hiss = lp.P(N()) * 0.6f + lp2.P(N()) * 0.5f;
+                float drop = rr.NextDouble() < 0.0025 ? (float)(rr.NextDouble() * 1.2) : 0f;
+                d[i] = hiss + drop;
+            }
+            int fade = SR / 10;
+            for (int i = 0; i < fade; i++) { float k = i / (float)fade; d[i] = d[i] * k + d[d.Length - fade + i] * (1f - k); }   // seamless loop
+            return Clip("rainloop", d, true, 0.7f, true);
+        });
+
         /// <summary>A pane of glass shattering: a sharp crack, then a shower of tinkling pieces.</summary>
         public static AudioClip GlassBreak() => One("glassbreak", () =>
         {

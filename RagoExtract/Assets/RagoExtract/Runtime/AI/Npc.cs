@@ -223,12 +223,12 @@ namespace Rago
             {
                 Vector3 to = cand.aim.position - eye;
                 float dist = to.magnitude;
-                if (dist > 70f) continue;
+                if (dist > 70f * Weather.SightMul) continue;   // night and fog: they see much less far
                 float ang = Vector3.Angle(fwd, to);
                 bool inCone = ang < 65f || dist < 4f;
                 if (!inCone) continue;
                 if (!ClearLine(eye, cand.aim.position, cand.d)) continue; // blocked
-                float score = (1f - dist / 70f) * (ang < 30f ? 1.4f : 0.8f);
+                float score = (1f - dist / (70f * Weather.SightMul)) * (ang < 30f ? 1.4f : 0.8f);
                 if (score > bestScore) { bestScore = score; best = cand; best.valid = true; }
             }
             if (best.valid)

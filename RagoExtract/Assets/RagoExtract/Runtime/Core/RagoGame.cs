@@ -228,6 +228,7 @@ namespace Rago
             if (from == Area.Market && to != Area.Market) { NetGame.I.End(); if (to != Area.Raid || rs == null || !rs.online) NetHub.Backend?.Leave(); }
             if (from == Area.Raid) { NetGame.I.End(); NetHub.Backend?.Leave(); }
             Kiosk.AnyQueued = false;
+            NightVision.Reset(Player); if (Player != null && Player.Gear != null) Player.Gear.NvgOn = false;   // goggles up when you leave
             if (MapRoot != null) { Fx.ClearMapEffects(); Destroy(MapRoot.gameObject); }
             yield return null;
             System.GC.Collect();
@@ -252,7 +253,12 @@ namespace Rago
                 {
                     far = 2600f;   // the giant maps: see right across
                     if (RenderSettings.fog) RenderSettings.fogDensity = Mathf.Min(RenderSettings.fogDensity, 0.00045f);
+                    // this raid's weather and time of day (night if picked; rain / fog by chance - the same for everyone)
+                    Weather.Apply(Map, rs != null ? rs.seed : Random.Range(1, 99999), rs != null && rs.night);
+                    if (Weather.Fog) far = 420f;          // you can't see past the fog anyway: don't draw it
+                    else if (Weather.Night) far = 1200f;
                 }
+                else Weather.Clear();
                 Player.Cam.farClipPlane = far;
                 var cull = new float[32];
                 if (Layers.Items > 0) cull[Layers.Items] = 70f;   // small loose items vanish past 70 m
@@ -418,7 +424,8 @@ namespace Rago
                 I.StartCoroutine(I.DropLater(ar.Range(150f, 480f), dz, ar.Range(0f, 360f)));
             var dir = NpcDirector.Create(map.transform);
             dir.SpawnSquads(map.NpcSpawns, rs.seed, online && !NetHub.Backend.IsHost, map.PlayerSpawns, map.NpcSafeRadius, map.MaxRaiders);
-            g.Player.Hud.Center(map.DisplayName.ToUpper() + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>", 6f);
+            string wx = Weather.Describe();
+            g.Player.Hud.Center(map.DisplayName.ToUpper() + (wx.Length > 0 ? "  -  " + wx : "") + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>", 6f);
         }
 
         System.Collections.IEnumerator DropLater(float after, Vector3 zone, float heading)
