@@ -374,7 +374,7 @@ namespace Rago
                 if (off.sqrMagnitude > 1e-6f) Cc.Move(off);
                 _vy = 0f; MoveVelocity = Vector3.zero; _wasClimbing = true;
                 if ((climb.ClimbAnchor - climb.TrackedPosition).sqrMagnitude > 0.8f * 0.8f) climb.StopClimbing();   // stretched too far: let go
-                Vitals.Stamina = Mathf.Max(0f, Vitals.Stamina - dt * 3f);
+                Vitals.Stamina = Mathf.Max(0f, Vitals.Stamina - dt * 2f);
                 return;
             }
 
@@ -411,7 +411,7 @@ namespace Rago
             if (jump && Cc.isGrounded && !Frozen && !Dead && Vitals.Stamina > 6f)
             {
                 _vy = 4.4f;                                   // about 1 m of air
-                Vitals.Stamina -= 8f;
+                Vitals.Stamina -= 5f;
                 Crouched = false; if (!XRInputs.VR) Desktop.Crouch = false;
                 Sfx.Play(Synth.Footstep(GroundSurface(), Random.Range(0, 8), true), transform.position, 0.35f, 0.95f, 1f, 20f);   // push off
             }
@@ -428,7 +428,7 @@ namespace Rago
                 _smoothY = Mathf.Abs(_smoothY) > 0.5f ? 0f : Mathf.Lerp(_smoothY, 0f, 1f - Mathf.Exp(-12f * dt));
                 var o = Origin.localPosition; o.y = _smoothY; Origin.localPosition = o;
             }
-            if (Sprinting) Vitals.Stamina -= dt * 14f;
+            if (Sprinting) Vitals.Stamina -= dt * 7f;   // half the old drain: you can run about twice as far
 
             // footsteps: left, right, left... from each foot, heel-then-toe, heavier when running
             float planar = MoveVelocity.magnitude;

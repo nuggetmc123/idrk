@@ -12,6 +12,7 @@ namespace Rago
         public string name = "Operator";
         public int money = 6000;
         public int outfitSeed;
+        public bool colorLocked;   // your colour was fixed when you picked your callsign: it never changes after that
         public int raids, extracts, deaths, kills, xp;
         public List<ItemData> stash = new List<ItemData>();
         public int[] stashAmmo = new int[System.Enum.GetValues(typeof(Caliber)).Length];
@@ -99,12 +100,28 @@ namespace Rago
             if (loadout.hasPack && Db.Get<BackpackDef>(loadout.packId) == null) loadout.packId = "pack_assault";
             if (!string.IsNullOrEmpty(loadout.helmet) && Db.Get<ArmorDef>(loadout.helmet) == null) loadout.helmet = "";
             if (!string.IsNullOrEmpty(loadout.vest) && Db.Get<ArmorDef>(loadout.vest) == null) loadout.vest = "";
+            if (!colorLocked && nameSet) LockColor();   // players from before: their colour is fixed now, from their callsign
             if (version < 3)
             {
                 // players from before the training existed don't have to sit through it
                 if (raids > 0 || extracts > 0) tutorialDone = true;
                 version = 3;
             }
+        }
+
+        /// <summary>
+        /// Give this operator their own colour, for good: worked out from their callsign (name + tag), which nobody
+        /// else has, so every operator gets a different shade - and everyone sees the same colour for them.
+        /// </summary>
+        public void LockColor()
+        {
+            unchecked
+            {
+                int h = (int)2166136261;
+                foreach (char c in DisplayName.ToLowerInvariant()) h = (h ^ c) * 16777619;
+                outfitSeed = (h & 0x7fffffff) % 9999991 + 1;
+            }
+            colorLocked = true;
         }
 
         public static Profile NewProfile()

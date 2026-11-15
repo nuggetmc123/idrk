@@ -170,7 +170,14 @@ namespace Rago
             switch (o)
             {
                 case Outfit.Operator:
-                    c = rng.Pick(new[] { new Color(0.98f, 0.78f, 0.1f), new Color(0.97f, 0.5f, 0.1f), new Color(0.92f, 0.92f, 0.9f), new Color(0.12f, 0.6f, 0.68f), new Color(0.85f, 0.7f, 0.45f), new Color(0.32f, 0.6f, 0.26f) });
+                    {
+                        // your own colour: spread over the whole colour wheel (golden-ratio steps) plus shade and
+                        // brightness, so practically no two operators look the same (6 colours used to repeat a lot)
+                        float u = seed * 0.6180339887f; u -= Mathf.Floor(u);
+                        float v = seed * 0.3819660113f; v -= Mathf.Floor(v);
+                        float w = seed * 0.1213203436f; w -= Mathf.Floor(w);
+                        c = Color.HSVToRGB(u, Mathf.Lerp(0.45f, 0.9f, v), Mathf.Lerp(0.7f, 0.97f, w));
+                    }
                     break;
                 case Outfit.Raider:
                 case Outfit.RaiderHeavy:

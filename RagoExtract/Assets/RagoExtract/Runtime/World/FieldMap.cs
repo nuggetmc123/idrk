@@ -33,7 +33,7 @@ namespace Rago
             var cam = camGo.AddComponent<Camera>();
             cam.orthographic = true; cam.orthographicSize = _half;
             cam.transform.SetPositionAndRotation(new Vector3(0, 400, 0), Quaternion.Euler(90, 0, 0));
-            cam.nearClipPlane = 1f; cam.farClipPlane = 700f;
+            cam.nearClipPlane = 1f; cam.farClipPlane = 1400f;   // tall cliffs and the giant maps
             cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0.18f, 0.27f, 0.33f);
             int mask = ~0;
             foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) mask &= ~(1 << l);

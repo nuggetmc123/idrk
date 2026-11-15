@@ -22,7 +22,7 @@ namespace Rago
         void OnDestroy() { if (I == this) I = null; }
 
         /// <summary>Spawn squads at the given points. Deterministic so every client builds the same NPC set.</summary>
-        public const int MaxNpcs = 16;   // raiders per raid (spread over the whole map)
+        public const int MaxNpcs = 26;   // raiders per raid (spread over the whole map)
 
         public void SpawnSquads(List<MapBase.NpcSpawn> spawns, int seed, bool puppets, List<Pose> avoid = null, float safeRadius = 110f, int maxNpcs = MaxNpcs)
         {

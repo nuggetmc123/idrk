@@ -468,15 +468,15 @@ namespace Rago
             // pick locations on a ring around the core
             var spots = new List<Vector3>();
             int tries = 0;
-            while (spots.Count < pois && tries++ < 400)
+            while (spots.Count < pois && tries++ < 900)
             {
                 float ang = b.Rng.Range(0f, Mathf.PI * 2f);   // spacing below keeps them spread around the core
-                float r = b.Rng.Range(0.5f, 0.82f) * half;
+                float r = b.Rng.Range(0.3f, 0.86f) * half;
                 var p = new Vector3(Mathf.Cos(ang) * r, 0, Mathf.Sin(ang) * r);
                 if (Mathf.Abs(p.x) > land - 35 || Mathf.Abs(p.z) > land - 35 || !OnLand(p, 45f)) continue;
                 if (p.x > core.xMin - 45 && p.x < core.xMax + 45 && p.z > core.yMin - 45 && p.z < core.yMax + 45) continue;
                 if (seaEast && p.x > core.xMax - 20) continue;
-                bool clash = false; foreach (var o in spots) if ((o - p).sqrMagnitude < (tries > 250 ? 80 * 80 : 120 * 120)) clash = true;
+                bool clash = false; foreach (var o in spots) if ((o - p).sqrMagnitude < (tries > 250 ? 90 * 90 : 130 * 130)) clash = true;
                 if (clash) continue;
                 spots.Add(p);
             }
@@ -489,8 +489,9 @@ namespace Rago
                 Road(edge, p, roadMat); roads.Add((edge, p));
                 float yaw = Mathf.Atan2(edge.x - p.x, edge.z - p.z) * Mathf.Rad2Deg; // locations face their road
                 var pts = new List<Vector3>();
-                switch (kind++ % 6)
+                switch (kind++ % 8)
                 {
+                    case 6: case 7: pts = Hamlet(p, yaw, wooden); break;   // villages: lots more houses
                     case 0: pts = Farm(p, yaw); break;
                     case 1: pts = ArmyCamp(p, yaw); break;
                     case 2: pts = GasStation(p, yaw); break;
@@ -499,7 +500,7 @@ namespace Rago
                     default: pts = Neighborhood(p + Quaternion.Euler(0, yaw + 90, 0) * new Vector3(-27, 0, 0), yaw + 90, 4, 13.5f, wooden); break;
                 }
                 ScatterLoot(pts, 0.85f);
-                Squad(p + new Vector3(b.Rng.Range(-8f, 8f), 0, b.Rng.Range(-8f, 8f)), b.Rng.Range(2, 4), kind % 6 == 2);
+                Squad(p + new Vector3(b.Rng.Range(-8f, 8f), 0, b.Rng.Range(-8f, 8f)), b.Rng.Range(2, 4), kind % 8 == 2);
                 ExtraNav.Add(new Bounds(p + Vector3.up * 5, new Vector3(80, 30, 80)));
             }
             // only 3 extracts per map: the first one in town, plus two far out on opposite sides
@@ -509,6 +510,13 @@ namespace Rago
             var picks = new List<Vector3>();
             if (far.Count > 0) picks.Add(far[0]);
             if (far.Count > 1) { var best = far[1]; foreach (var f in far) if ((f - far[0]).sqrMagnitude > (best - far[0]).sqrMagnitude) best = f; picks.Add(best); }
+            if (far.Count > 2)
+            {
+                // a third one out to the side of the other two
+                Vector3 best = far[2]; float bs = -1f;
+                foreach (var f in far) { float sc = Mathf.Min((f - picks[0]).sqrMagnitude, (f - picks[1]).sqrMagnitude); if (sc > bs && f.sqrMagnitude > half * half * 0.25f) { bs = sc; best = f; } }
+                picks.Add(best);
+            }
             for (int i = 0; i < picks.Count && i < extractNames.Length; i++)
             {
                 var dir = new Vector3(picks[i].x, 0, picks[i].z).normalized;
@@ -519,7 +527,9 @@ namespace Rago
                 AddExtract(e, extractNames[i]);
             }
             // forest + rocks everywhere else
-            int trees = wooden ? 700 : 420;
+            float area = Mathf.Clamp((half * half) / (500f * 500f), 1f, 4f);   // the bigger the map, the more of everything
+            CliffsAndCover(core, land, spots, roads, seaEast, wooden);
+            int trees = Mathf.RoundToInt((wooden ? 700 : 420) * area * 0.85f);
             for (int i = 0; i < trees; i++)
             {
                 var t = new Vector3(b.Rng.Range(-land + 3, land - 3), 0, b.Rng.Range(-land + 3, land - 3));
@@ -534,7 +544,7 @@ namespace Rago
                 if (b.Rng.Value < 0.35f) { var o = b.Rng.InCircle() * 3f; b.Fern(t + new Vector3(o.x, y, o.y), b.Rng.Range(0.6f, 1.0f)); }
             }
             // bushes you can walk through (and hide in)
-            for (int i = 0; i < 520; i++)
+            for (int i = 0; i < Mathf.RoundToInt(520 * area * 0.85f); i++)
             {
                 var t = new Vector3(b.Rng.Range(-land + 3, land - 3), y, b.Rng.Range(-land + 3, land - 3));
                 if (t.x > core.xMin - 4 && t.x < core.xMax + 4 && t.z > core.yMin - 4 && t.z < core.yMax + 4) continue;
@@ -543,7 +553,7 @@ namespace Rago
                 b.Bush(t, b.Rng.Range(1.1f, 2.2f));
             }
             // patches of tall grass and ferns on the ground
-            for (int i = 0; i < 260; i++)
+            for (int i = 0; i < Mathf.RoundToInt(260 * area * 0.7f); i++)
             {
                 var c = new Vector3(b.Rng.Range(-land + 3, land - 3), y, b.Rng.Range(-land + 3, land - 3));
                 if (c.x > core.xMin - 4 && c.x < core.xMax + 4 && c.z > core.yMin - 4 && c.z < core.yMax + 4) continue;
@@ -557,7 +567,7 @@ namespace Rago
                     if (b.Rng.Value < 0.82f) b.GrassTuft(p, b.Rng.Range(0.45f, 0.85f)); else b.Fern(p, b.Rng.Range(0.5f, 0.9f));
                 }
             }
-            for (int i = 0; i < 90; i++)
+            for (int i = 0; i < Mathf.RoundToInt(90 * area); i++)
             {
                 var t = new Vector3(b.Rng.Range(-land + 3, land - 3), 0, b.Rng.Range(-land + 3, land - 3));
                 if (t.x > core.xMin - 6 && t.x < core.xMax + 6 && t.z > core.yMin - 6 && t.z < core.yMax + 6) continue;
@@ -577,14 +587,14 @@ namespace Rago
             // to search before you move out, and the rest are out in the open (a wrecked car, a rock pile, a sandbag nest).
             PlayerSpawns.Clear();
             int sites = 0;
-            for (int i = 0; i < 70 && sites < 10; i++)
+            for (int i = 0; i < 160 && sites < 20; i++)
             {
-                float ang = (sites + i * 0.37f) / 10f * Mathf.PI * 2f;
+                float ang = (sites + i * 0.37f) / 20f * Mathf.PI * 2f;
                 var hp = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (land * b.Rng.Range(0.84f, 0.93f));
                 hp.x = Mathf.Clamp(hp.x, -land + 20, land - 20); hp.z = Mathf.Clamp(hp.z, -land + 20, land - 20);
                 if (seaEast && hp.x > core.xMax - 25) continue;
                 if (Near(hp, spots, 75f) || NearRoad(hp, roads, 10f) || !OnLand(hp, 25f)) continue;
-                bool crowded = false; foreach (var sp in PlayerSpawns) if ((sp.position - hp).sqrMagnitude < 120 * 120) crowded = true;
+                bool crowded = false; foreach (var sp in PlayerSpawns) if ((sp.position - hp).sqrMagnitude < 110 * 110) crowded = true;
                 if (crowded) continue;
                 if (sites % 2 == 0) LootSpawn(hp, sites / 2 % 4, wooden); else OpenSpawn(hp, sites / 2 % 3);
                 sites++;
@@ -857,6 +867,126 @@ namespace Rago
             b.Cyl(p, p + Vector3.up * 0.4f, 1.2f, 1.2f, 14, Maps.Concrete, new Color(0.5f, 0.5f, 0.5f), true); // fire pit
             AddCrate(p + new Vector3(2, 0, 2), 0, LootCrate.Kind.Duffel);
             return pts;
+        }
+
+        /// <summary>
+        /// A village: 5-8 houses (one or two storeys, brick / plaster / timber) round a crossroads, with a well,
+        /// garden walls and parked wrecks. Every house has loot spots.
+        /// </summary>
+        List<Vector3> Hamlet(Vector3 p, float yaw, bool wooden)
+        {
+            var b = B; var pts = new List<Vector3>();
+            var q = Quaternion.Euler(0, yaw, 0);
+            var roadMat = wooden ? Maps.GroundDirt : Maps.Asphalt;
+            // crossroads
+            b.Box(p + Vector3.up * 0.01f, new Vector3(60f, 0.02f, 7f), roadMat, Color.white, q, false);
+            b.Box(p + Vector3.up * 0.012f, new Vector3(7f, 0.02f, 60f), roadMat, Color.white, q, false);
+            Material[] walls = wooden ? new[] { Maps.WoodPlank, Maps.WoodPlank, Maps.Plaster } : new[] { Maps.Brick, Maps.Plaster, Maps.WoodPlank, Maps.Brick };
+            Color[] tints = { new Color(0.85f, 0.8f, 0.72f), new Color(0.75f, 0.68f, 0.6f), new Color(0.9f, 0.88f, 0.82f), new Color(0.65f, 0.55f, 0.45f), new Color(0.8f, 0.82f, 0.75f) };
+            int houses = b.Rng.Range(5, 9);
+            for (int i = 0; i < houses; i++)
+            {
+                // one per quarter of the crossroads, then a second row behind
+                int quad = i % 4, row = i / 4;
+                float sx = (quad % 2 == 0 ? 1 : -1), sz = (quad < 2 ? 1 : -1);
+                var size = new Vector2(b.Rng.Range(7f, 10f), b.Rng.Range(6f, 8.5f));
+                var lp = new Vector3(sx * (10f + size.x * 0.5f + row * 14f), 0, sz * (9f + size.y * 0.5f + b.Rng.Range(0f, 4f)));
+                var hp = p + q * lp;
+                float hy = yaw + (sz > 0 ? 180f : 0f);   // the front door faces the road
+                int floors = b.Rng.Chance(0.4f) ? 2 : 1;
+                var wall = b.Rng.Pick(walls);
+                pts.AddRange(b.Building(hp, hy, size, floors, wall, b.Rng.Pick(tints), Maps.WoodPlank, Maps.ConcreteDark, 0, true, false));
+                // garden wall at the back (low cover)
+                if (b.Rng.Chance(0.6f)) b.Box(hp + Quaternion.Euler(0, hy, 0) * new Vector3(0, 0.5f, size.y * 0.5f + 2.5f), new Vector3(size.x + 3f, 1.0f, 0.35f), Maps.Brick, new Color(0.7f, 0.6f, 0.5f), Quaternion.Euler(0, hy, 0), true, Synth.Surface.Concrete);
+            }
+            // a well in the square and a couple of wrecks
+            b.Cyl(p + q * new Vector3(5.5f, 0, 5.5f), p + q * new Vector3(5.5f, 0.9f, 5.5f), 0.9f, 0.9f, 14, Maps.ConcreteDark, new Color(0.6f, 0.6f, 0.58f), true);
+            if (b.Rng.Chance(0.7f)) b.CarWreck(p + q * new Vector3(-2f, 0, 14f), yaw + b.Rng.Range(-15f, 15f), new Color(0.4f, 0.3f, 0.25f));
+            if (b.Rng.Chance(0.5f)) b.CarWreck(p + q * new Vector3(15f, 0, 2f), yaw + 90 + b.Rng.Range(-15f, 15f), new Color(0.25f, 0.3f, 0.35f));
+            return pts;
+        }
+
+        /// <summary>
+        /// Relief and cover across the open country: rocky cliff ridges (5-16 m high, steep, climbable at the low ends)
+        /// that break the island up into valleys, and lots of small cover in the fields - stone walls, rock clusters,
+        /// hay bales, log piles, sandbag nests and wrecks - so crossing open ground is never a sprint with nowhere to hide.
+        /// </summary>
+        void CliffsAndCover(Rect core, float land, List<Vector3> spots, List<(Vector3, Vector3)> roads, bool seaEast, bool wooden)
+        {
+            var b = B;
+            var rockMat = Mats.Lit("cliff", Color.white, 0f, 0.18f, Mats.Concrete, null, 0.7f, 0.1f, true, 0.35f);
+            bool Free(Vector3 t, float poi, float road)
+            {
+                if (t.x > core.xMin - 25 && t.x < core.xMax + 25 && t.z > core.yMin - 25 && t.z < core.yMax + 25) return false;
+                if (seaEast && t.x > core.xMax - 10) return false;
+                return !Near(t, spots, poi) && !NearRoad(t, roads, road) && OnLand(t, 20f);
+            }
+            // cliff ridges: a long wall of overlapping, jagged rock - tallest in the middle (up to ~22 m), tapering to
+            // scrambling height at the ends, with a broken top line and buttresses at the foot
+            int ridges = Mathf.RoundToInt(land / 75f);
+            for (int r = 0; r < ridges; r++)
+            {
+                var start = new Vector3(b.Rng.Range(-land + 60, land - 60), 0, b.Rng.Range(-land + 60, land - 60));
+                float heading = b.Rng.Range(0f, 360f);
+                int segs = b.Rng.Range(12, 26);
+                float peak = b.Rng.Range(10f, 22f);
+                var pos = start;
+                for (int k = 0; k < segs; k++)
+                {
+                    heading += b.Rng.Range(-12f, 12f);
+                    var dir = Quaternion.Euler(0, heading, 0) * Vector3.forward;
+                    var side = Quaternion.Euler(0, heading + 90, 0) * Vector3.forward;
+                    pos += dir * b.Rng.Range(6.5f, 8.5f);
+                    float t = (float)k / Mathf.Max(1, segs - 1);
+                    float h = Mathf.Lerp(2.2f, peak, Mathf.Pow(Mathf.Sin(t * Mathf.PI), 0.6f)) * b.Rng.Range(0.85f, 1.12f);
+                    // the draws happen whether or not this piece is built, so the ridge's shape doesn't depend on gaps
+                    float len = b.Rng.Range(11f, 15f), dep = b.Rng.Range(7f, 10f), lean = b.Rng.Range(-6f, 6f), tw = b.Rng.Range(-14f, 14f);
+                    float topH = h * b.Rng.Range(0.25f, 0.45f), off = b.Rng.Range(-2f, 2f), tt = b.Rng.Range(-20f, 20f);
+                    float bh = h * b.Rng.Range(0.3f, 0.55f), bs = b.Rng.Chance(0.5f) ? 1f : -1f; bool tree = b.Rng.Chance(0.3f), boulder = b.Rng.Chance(0.6f);
+                    if (!Free(pos, 55f, 14f)) continue;   // gaps where a road or a place is: you can always get through
+                    Color tone = new Color(0.5f, 0.48f, 0.45f) * b.Rng.Range(0.82f, 1.08f);
+                    // main body
+                    b.Box(pos + Vector3.up * (h * 0.5f - 1f), new Vector3(len, h + 1f, dep), rockMat, tone, Quaternion.Euler(lean, heading + tw, lean * 0.5f), true, Synth.Surface.Concrete, 0.8f);
+                    // a jagged crown on top
+                    b.Box(pos + side * off + Vector3.up * (h + topH * 0.35f - 0.5f), new Vector3(len * 0.55f, topH, dep * 0.6f), rockMat, tone * 0.94f, Quaternion.Euler(lean + 8f, heading + tt, -lean), true, Synth.Surface.Concrete, 0.6f);
+                    // a buttress at the foot on one side (makes the face uneven - and somewhere to climb)
+                    b.Box(pos + side * (bs * dep * 0.6f) + Vector3.up * (bh * 0.5f - 0.5f), new Vector3(len * 0.6f, bh, dep * 0.55f), rockMat, tone * 0.9f, Quaternion.Euler(b.Rng.Range(-12f, 12f), heading + b.Rng.Range(-35f, 35f), b.Rng.Range(-12f, 12f)), true, Synth.Surface.Concrete, 0.6f);
+                    if (boulder) b.Rock(pos + side * (-bs * dep * 0.85f), b.Rng.Range(1.2f, 2.8f));
+                    if (tree) b.Pine(pos + Vector3.up * (h - 0.6f), b.Rng.Range(5f, 9f));   // a tree clinging to the top
+                }
+            }
+            // field cover
+            int cover = Mathf.RoundToInt(land * 0.55f);
+            for (int i = 0; i < cover; i++)
+            {
+                var t = new Vector3(b.Rng.Range(-land + 10, land - 10), 0, b.Rng.Range(-land + 10, land - 10));
+                if (!Free(t, 35f, 5f)) continue;
+                float yaw = b.Rng.Range(0f, 360f);
+                var q = Quaternion.Euler(0, yaw, 0);
+                switch (b.Rng.Range(0, 6))
+                {
+                    case 0:   // dry-stone wall, waist to chest high
+                        float len = b.Rng.Range(6f, 16f), wh = b.Rng.Range(0.9f, 1.4f);
+                        b.Box(t + Vector3.up * (wh * 0.5f), new Vector3(len, wh, 0.6f), rockMat, new Color(0.6f, 0.58f, 0.52f), q, true, Synth.Surface.Concrete, 0.15f);
+                        break;
+                    case 1:   // rock cluster
+                        for (int k = 0; k < 3; k++) { var o = b.Rng.InCircle() * 2.5f; b.Rock(t + new Vector3(o.x, 0, o.y), b.Rng.Range(1f, 2.4f)); }
+                        break;
+                    case 2:   // hay bales
+                        for (int k = 0; k < b.Rng.Range(2, 5); k++) b.Cyl(t + q * new Vector3(k * 1.7f, 0.75f, -0.8f), t + q * new Vector3(k * 1.7f, 0.75f, 0.8f), 0.75f, 0.75f, 14, Mats.Lit("hay", new Color(0.78f, 0.66f, 0.35f), 0f, 0.1f, Mats.Fabric, null, 0.5f, 0f), Color.white, true, Synth.Surface.Dirt);
+                        break;
+                    case 3:   // log pile
+                        for (int k = 0; k < 5; k++) { int row = k < 3 ? 0 : 1; float x = (k < 3 ? k - 1 : k - 3.5f) * 0.55f; b.Cyl(t + q * new Vector3(x, 0.28f + row * 0.48f, -2.2f), t + q * new Vector3(x, 0.28f + row * 0.48f, 2.2f), 0.28f, 0.28f, 10, Maps.WoodPlank, new Color(0.45f, 0.33f, 0.22f), true, Synth.Surface.Wood); }
+                        break;
+                    case 4:   // sandbag nest
+                        b.Sandbags(t + q * new Vector3(-2f, 0, 0), t + q * new Vector3(2f, 0, 0));
+                        b.Sandbags(t + q * new Vector3(2f, 0, 0), t + q * new Vector3(2.8f, 0, 2f));
+                        break;
+                    default:  // a wreck
+                        b.CarWreck(t, yaw, new Color(b.Rng.Range(0.2f, 0.5f), b.Rng.Range(0.2f, 0.4f), b.Rng.Range(0.2f, 0.4f)));
+                        break;
+                }
+            }
         }
 
         /// <summary>Scatter random loot crates around interior points.</summary>

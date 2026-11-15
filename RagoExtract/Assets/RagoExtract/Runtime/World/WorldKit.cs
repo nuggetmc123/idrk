@@ -101,6 +101,9 @@ namespace Rago
             if (mb.VertexCount == 0) return;
             var go = mb.Build("Mesh_" + m.name, Root, m);
             go.isStatic = true;
+            // ground cover (grass tufts, ferns): drawn only near you - on the giant maps thousands of tufts far away
+            // were costing frame rate for things you can't see from there anyway
+            if (m == GrassMat || m == FernMat) go.layer = GroundCoverLayer;
         }
 
         public void Finish()
@@ -139,6 +142,8 @@ namespace Rago
                 if (t != null && t.enabled && t.Raycast(ray, out var h, 900f) && h.point.y > best) best = h.point.y;
             return best;
         }
+
+        public const int GroundCoverLayer = 1;   // (Unity's spare "TransparentFX" layer): culled past ~160 m by the player camera
 
         /// <summary>Tables and shelves (floor centre, rotation, half footprint, height): loot crates never go underneath them.</summary>
         public readonly List<(Vector3 c, Quaternion q, Vector2 half, float h)> Furniture = new List<(Vector3, Quaternion, Vector2, float)>();

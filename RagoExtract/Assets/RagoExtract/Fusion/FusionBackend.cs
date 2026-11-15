@@ -548,8 +548,8 @@ namespace Rago.Net
             spot = 0; slot = 0;
             foreach (var kv in groups)
             {
-                int s0 = Fnv(kv.Key) % 10, s1 = s0;
-                for (int i = 0; i < 10 && used.Contains(s1); i++) s1 = (s1 + 1) % 10;
+                int s0 = Fnv(kv.Key) % 20, s1 = s0;   // 20 spawn spots on the big maps
+                for (int i = 0; i < 20 && used.Contains(s1); i++) s1 = (s1 + 1) % 20;
                 used.Add(s1);
                 kv.Value.Sort(StringComparer.Ordinal);
                 int k = kv.Value.IndexOf(Key(myName));

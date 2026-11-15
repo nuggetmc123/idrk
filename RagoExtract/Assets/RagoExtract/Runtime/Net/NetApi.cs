@@ -22,20 +22,20 @@ namespace Rago
     }
 
     /// <summary>
-    /// Matchmaking rules for raids: 4-10 players per raid. The queue tries to reach 8 players;
+    /// Matchmaking rules for raids: 4-16 players per raid. The queue tries to reach 12 players;
     /// at 10 it starts immediately, and once the queue timer hits the max wait (1 minute) it starts
     /// with however many players are in the queue.
     /// </summary>
     public static class QueueRules
     {
-        public const int Min = 4, Target = 8, Max = 10;
+        public const int Min = 4, Target = 12, Max = 16;   // bigger maps, bigger raids
         public const float MaxWait = 60f;      // "if the timer goes to 1 minute just put them in"
         public const float TargetGrace = 5f;   // once 8+ are in, wait a few seconds for stragglers
 
         // per map: the Underground Sector is a tight 6-player raid with squads of up to 2
-        public static int MaxFor(string map) => map == "underground" ? 6 : Max;
+        public static int MaxFor(string map) => map == "underground" ? 8 : Max;
         public static int MinFor(string map) => map == "underground" ? 2 : Min;
-        public static int TargetFor(string map) => map == "underground" ? 6 : Target;
+        public static int TargetFor(string map) => map == "underground" ? 8 : Target;
         public static int PartyMaxFor(string map) => map == "underground" ? 2 : Max;
 
         /// <summary>Should the host start the raid now?</summary>

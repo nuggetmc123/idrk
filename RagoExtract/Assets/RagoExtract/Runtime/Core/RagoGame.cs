@@ -250,12 +250,13 @@ namespace Rago
                 if (to == Area.Raid && Map.KeepFog) far = 220f;   // indoors: its own murky air
                 else if (to == Area.Raid)
                 {
-                    far = 1600f;
+                    far = 2600f;   // the giant maps: see right across
                     if (RenderSettings.fog) RenderSettings.fogDensity = Mathf.Min(RenderSettings.fogDensity, 0.00045f);
                 }
                 Player.Cam.farClipPlane = far;
                 var cull = new float[32];
                 if (Layers.Items > 0) cull[Layers.Items] = 70f;   // small loose items vanish past 70 m
+                cull[WorldBuilder.GroundCoverLayer] = 160f;      // grass and ferns only near you
                 Player.Cam.layerCullDistances = cull;
                 Player.Cam.layerCullSpherical = true;
             }

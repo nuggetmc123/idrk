@@ -6,7 +6,7 @@ namespace Rago
 {
     // ======================================================================================= KIOSK
     /// <summary>
-    /// Raid kiosk: pick a map, queue up and wait for other operators. Raids hold 4-10 players; the queue tries to
+    /// Raid kiosk: pick a map, queue up and wait for other operators. Raids hold 4-16 players; the queue tries to
     /// reach 8 and launches with whoever is queued once the timer hits 1 minute.
     /// </summary>
     public class Kiosk : MonoBehaviour

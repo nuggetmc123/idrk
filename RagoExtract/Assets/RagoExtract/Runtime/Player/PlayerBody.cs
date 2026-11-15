@@ -203,7 +203,7 @@ namespace Rago
                 if (God) { Health = MaxHealth; Bleed = 0; }   // tester god mode
                 if (Health <= 0) { Health = 0; LastDeathReason = "Bled out"; rig.OnDeath(Vector3.zero, rig.Head.position); OnLocalDeath?.Invoke(-1); }
             }
-            if (!rig.Sprinting) Stamina = Mathf.Min(MaxStamina, Stamina + dt * (StimBoost > 0 ? 30f : 12f));
+            if (!rig.Sprinting) Stamina = Mathf.Min(MaxStamina, Stamina + dt * (StimBoost > 0 ? 30f : 15f));
             StimBoost = Mathf.Max(0, StimBoost - dt);
             Sfx.Heartbeat(Health < 35 ? 1f - Health / 35f : 0f);
         }

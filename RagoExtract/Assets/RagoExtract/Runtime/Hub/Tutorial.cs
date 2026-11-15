@@ -111,6 +111,7 @@ namespace Rago
             p.name = _name;
             if (p.tag <= 0) p.tag = Profile.NewTagFor();
             p.nameSet = true;
+            if (!p.colorLocked) p.LockColor();   // your colour, fixed from now on
             p.Save();
             _locked = true;
             Sfx.UI(Synth.Ding(), 0.5f);
