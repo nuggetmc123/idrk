@@ -51,7 +51,7 @@ namespace Rago
             {
                 var me = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.transform.position : Vector3.zero;
                 bool near = false;
-                foreach (var rp in Remotes.Values) if (rp != null && (rp.transform.position - me).sqrMagnitude < 70f * 70f) { near = true; break; }
+                foreach (var rp in Remotes.Values) if (rp != null && (rp.transform.position - me).sqrMagnitude < 50f * 50f) { near = true; break; }
                 if (!near) return;
             }
             var w = W(Msg.Voice);
@@ -112,9 +112,30 @@ namespace Rago
         {
             bool raid = InRaid;
             End();
-            // lost the raid: back to your bunker with what you're carrying; RECONNECT on the raid terminal gets you back in
-            if (raid && RaidManager.I != null && !RaidManager.I.Done) { RaidManager.I.Disconnected(); return; }
+            // Photon dropped us mid-raid: you stay right where you are and keep playing (the raiders carry on on your
+            // machine) while the game quietly gets you back into the same raid - no trip to the bunker, no reload
+            if (raid && RaidManager.I != null && !RaidManager.I.Done) { NpcDirector.I?.BecomeAuthority(); StartCoroutine(QuietRejoin()); return; }
             RagoGame.I?.Player?.Toast("Lost connection to the other players");
+        }
+
+        System.Collections.IEnumerator QuietRejoin()
+        {
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                if (RaidManager.I == null || RaidManager.I.Done || NetHub.Backend == null) yield break;
+                bool? result = null;
+                if (NetHub.Backend.CanReconnect) NetHub.Backend.Reconnect(ok => result = ok); else result = false;
+                float until = Time.realtimeSinceStartup + 25f;
+                while (result == null && Time.realtimeSinceStartup < until) yield return null;
+                if (result == true && RaidManager.I != null && !RaidManager.I.Done)
+                {
+                    Begin(true);
+                    Debug.Log("[Rago] back in the raid after a dropped connection");
+                    yield break;
+                }
+                yield return new WaitForSecondsRealtime(4f);
+            }
+            Debug.Log("[Rago] couldn't get back into the raid - carrying on alone");
         }
 
         float _lastRx, _staleT, _helloT = 4f;
@@ -127,7 +148,7 @@ namespace Rago
             _staleT = 1f;
             List<ulong> gone = null;
             foreach (var kv in Remotes)
-                if (kv.Value == null || (Time.time - kv.Value.LastHeard > 10f && !kv.Value.IsDead)) (gone ??= new List<ulong>()).Add(kv.Key);
+                if (kv.Value == null || (Time.time - kv.Value.LastHeard > 30f && !kv.Value.IsDead)) (gone ??= new List<ulong>()).Add(kv.Key);
             if (gone != null) foreach (var id in gone) { if (Remotes[id] != null) Destroy(Remotes[id].gameObject); Remotes.Remove(id); }
             // say who we are every few seconds: someone still loading when the first hello went out missed it
             // (they saw you as "Operator"), and a player who reconnects needs it again
@@ -181,7 +202,8 @@ namespace Rago
                 // 15 a second normally; fewer when the line to the other players is backing up (it only ever needs the latest)
                 float rtt = NetHub.Backend.Rtt;
                 float step = rtt < 0.25f ? 1f / 15f : rtt < 0.5f ? 1f / 10f : 1f / 6f;
-                if (NetHub.Backend.Peers.Count >= 3) step = Mathf.Max(step, 1f / 12f);   // a full raid: everyone sends a little less
+                int others = NetHub.Backend.Peers.Count;
+                if (others >= 2) step = Mathf.Max(step, others >= 3 ? 1f / 10f : 1f / 12f);   // more players: everyone sends a little less (it all goes through one connection)
                 _poseT = step;
                 var w = W(Msg.Pose);
                 var root = p.transform.position;
@@ -241,6 +263,14 @@ namespace Rago
             return sb.ToString();
         }
         int MyNpcs() { int c = 0; if (NpcDirector.I != null) foreach (var n in NpcDirector.I.Npcs) if (n != null && n.Alive && !n.Puppet) c++; return c; }
+
+        bool NearAnyPlayer(Vector3 p, float r)
+        {
+            var me = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.transform.position : p;
+            if ((me - p).sqrMagnitude < r * r) return true;
+            foreach (var rp in Remotes.Values) if (rp != null && (rp.transform.position - p).sqrMagnitude < r * r) return true;
+            return false;
+        }
 
         float _ownT;
         static readonly List<ulong> _everyone = new List<ulong>();
@@ -474,6 +504,7 @@ namespace Rago
             foreach (var n in list)
             {
                 if (n == null || n.Puppet) continue;   // only the raiders this player runs
+                if (!NearAnyPlayer(n.transform.position, 300f)) continue;   // nobody's anywhere near it: nothing to send
                 byte st = (byte)((byte)n.State | (n.Alive ? 0x80 : 0));
                 if (!full && _npcSent.TryGetValue(n.Id, out var last) && last.st == st && (last.pos - n.transform.position).sqrMagnitude < 0.0036f
                     && Mathf.Abs(Mathf.DeltaAngle(last.yaw, n.Yaw)) < 3f && (last.aim - n.AimPoint).sqrMagnitude < 0.04f) continue;

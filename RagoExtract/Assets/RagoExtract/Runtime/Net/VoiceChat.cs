@@ -94,9 +94,11 @@ namespace Rago
                 _hangover -= FrameSamples / (float)MicRate;
                 if (send)
                 {
-                    var frame = new byte[FrameSamples / 2];
-                    for (int i = 0; i < frame.Length; i++) frame[i] = MuLaw.Encode((_pending[i * 2] + _pending[i * 2 + 1]) * 0.5f * 1.6f);
-                    NetGame.I.SendVoice(frame);
+                    // 8 kHz, 4-bit ADPCM: half the size of the old u-law frames (voice was by far the biggest thing sent,
+                    // and with 3+ players it all goes through one player's connection)
+                    var pcm = new float[FrameSamples / 2];
+                    for (int i = 0; i < pcm.Length; i++) pcm[i] = (_pending[i * 2] + _pending[i * 2 + 1]) * 0.5f * 1.6f;
+                    NetGame.I.SendVoice(Adpcm.Encode(pcm));
                 }
                 _pending.RemoveRange(0, FrameSamples);
             }
@@ -135,7 +137,7 @@ namespace Rago
             lock (_lock)
             {
                 if (_buf.Count > Rate / 2) _buf.Clear(); // more than 0.5 s behind: drop to stay in sync
-                foreach (var b in frame) _buf.Enqueue(MuLaw.Decode(b));
+                foreach (var f in Adpcm.Decode(frame)) _buf.Enqueue(f);
             }
         }
 
@@ -143,6 +145,55 @@ namespace Rago
         {
             lock (_lock)
                 for (int i = 0; i < data.Length; i++) data[i] = _buf.Count > 0 ? _buf.Dequeue() : 0f;
+        }
+    }
+
+    /// <summary>IMA ADPCM: 4 bits per voice sample. Frame = [predictor s16][step index u8][samples, 2 per byte].</summary>
+    public static class Adpcm
+    {
+        static readonly int[] Steps = { 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45, 50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230, 253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963, 1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327, 3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767 };
+        static readonly int[] Index = { -1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8 };
+        static int _encPred, _encIdx;   // carried between frames (the decoder starts each frame from the header)
+
+        public static byte[] Encode(float[] pcm)
+        {
+            var o = new byte[3 + (pcm.Length + 1) / 2];
+            o[0] = (byte)(_encPred & 0xff); o[1] = (byte)((_encPred >> 8) & 0xff); o[2] = (byte)_encIdx;
+            int pred = _encPred, idx = _encIdx;
+            for (int i = 0; i < pcm.Length; i++)
+            {
+                int s = Mathf.Clamp((int)(pcm[i] * 32767f), -32768, 32767);
+                int step = Steps[idx], diff = s - pred, code = 0;
+                if (diff < 0) { code = 8; diff = -diff; }
+                int delta = step >> 3;
+                if (diff >= step) { code |= 4; diff -= step; delta += step; }
+                step >>= 1; if (diff >= step) { code |= 2; diff -= step; delta += step; }
+                step >>= 1; if (diff >= step) { code |= 1; delta += step; }
+                pred = Mathf.Clamp((code & 8) != 0 ? pred - delta : pred + delta, -32768, 32767);
+                idx = Mathf.Clamp(idx + Index[code], 0, 88);
+                if ((i & 1) == 0) o[3 + i / 2] = (byte)code; else o[3 + i / 2] |= (byte)(code << 4);
+            }
+            _encPred = pred; _encIdx = idx;
+            return o;
+        }
+
+        public static float[] Decode(byte[] f)
+        {
+            if (f == null || f.Length < 4) return new float[0];
+            int pred = (short)(f[0] | (f[1] << 8)), idx = Mathf.Clamp(f[2], 0, 88);
+            var o = new float[(f.Length - 3) * 2];
+            for (int i = 0; i < o.Length; i++)
+            {
+                int code = (i & 1) == 0 ? f[3 + i / 2] & 0x0f : f[3 + i / 2] >> 4;
+                int step = Steps[idx], delta = step >> 3;
+                if ((code & 4) != 0) delta += step;
+                if ((code & 2) != 0) delta += step >> 1;
+                if ((code & 1) != 0) delta += step >> 2;
+                pred = Mathf.Clamp((code & 8) != 0 ? pred - delta : pred + delta, -32768, 32767);
+                idx = Mathf.Clamp(idx + Index[code], 0, 88);
+                o[i] = pred / 32768f;
+            }
+            return o;
         }
     }
 

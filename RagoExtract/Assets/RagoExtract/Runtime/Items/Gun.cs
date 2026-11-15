@@ -303,6 +303,10 @@ namespace Rago
             if (twoHand) rec *= 0.45f;
             if (g.TwoHanded && !twoHand) rec *= 1.6f;
             if (rig.butt != null && RagoGame.I.Player.ShoulderNear(rig.butt.position)) rec *= 0.6f;
+            // full-power rifle rounds out of bolt guns / marksman rifles: a big shove into the shoulder and the scope
+            // jumps right off the target - you have to bring it back down for the next shot
+            float heavy = g.cls == GunClass.Sniper ? 1.7f : g.cls == GunClass.DMR ? 1.3f : 1f;
+            rec *= heavy;
             primaryHand.AddRecoil(rec, g.TwoHanded);
             secondaryHand?.AddRecoil(rec * 0.6f, g.TwoHanded);
             // muzzle climb: every gun walks up and drifts to its own side (most a little right, some left), more with
@@ -312,7 +316,7 @@ namespace Rago
             _burst = now - _lastShotT < 0.3f ? _burst + 1 : 0;
             _lastShotT = now;
             float bias = (DriftOf(g.id) - 0.35f) * 0.9f;
-            float pitch = (g.TwoHanded ? 1.6f : 2.8f) * rec * (1f + Mathf.Min(_burst, 10) * 0.08f);
+            float pitch = (g.TwoHanded ? 1.6f : 2.8f) * rec * (1f + Mathf.Min(_burst, 10) * 0.08f) * (heavy > 1f ? 1.6f : 1f);
             float yaw = (bias + Random.Range(-0.5f, 0.5f)) * rec * (g.TwoHanded ? 0.9f : 1.2f);
             primaryHand.Climb(new Vector2(pitch, yaw), Vector3.zero);
             if (secondaryHand != null)
