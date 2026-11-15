@@ -328,7 +328,7 @@ namespace Rago
             int pages = all.Length;
             _page = Mathf.Clamp(_page, 0, pages - 1);
             var (ver, title, lines) = all[_page];
-            Line("UPDATE " + ver + "  -  " + title.ToUpper() + (_page == 0 ? "   (latest)" : ""), 0.22f, 0.03f, UI.Accent);
+            Line("UPDATE " + ver + "  -  " + title.ToUpper() + (_page == 0 ? "   (latest update)" : ""), 0.22f, 0.03f, UI.Accent);
             float y = 0.15f;
             foreach (var l in lines)
             {
@@ -337,9 +337,12 @@ namespace Rago
                 var tm = UI.Text(_content, wrapped, new Vector3(-0.52f, y, 0), 0.021f, Color.white, TextAnchor.UpperLeft);
                 y -= rows * 0.032f + 0.018f;
             }
-            Btn("< NEWER", -0.3f, -0.39f, 0.18f, () => _page = Mathf.Max(0, _page - 1));
-            Line((_page + 1) + "/" + pages, -0.39f, 0.024f, UI.Dim, -0.035f);
-            Btn("OLDER >", 0.12f, -0.39f, 0.18f, () => _page = Mathf.Min(pages - 1, _page + 1));
+            if (pages > 1)
+            {
+                Btn("< NEWER", -0.3f, -0.39f, 0.18f, () => _page = Mathf.Max(0, _page - 1));
+                Line((_page + 1) + "/" + pages, -0.39f, 0.024f, UI.Dim, -0.035f);
+                Btn("OLDER >", 0.12f, -0.39f, 0.18f, () => _page = Mathf.Min(pages - 1, _page + 1));
+            }
         }
 
         void DrawRecent()
