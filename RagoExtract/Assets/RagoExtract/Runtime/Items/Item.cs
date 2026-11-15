@@ -29,6 +29,7 @@ namespace Rago
         public Hand primaryHand, secondaryHand;
         public Slot slot;
         public int netId;             // shared id for multiplayer (0 = local only)
+        public bool Consumed;         // used up (a med, a radio): never "dropped" to the other players on its way out
         public float holdOffsetScale = 1f;
         public Bounds localBounds;
         protected Collider[] cols;
@@ -361,6 +362,7 @@ namespace Rago
                     pl.Vitals.HealOverTime(sd.heal, sd.healTime);
                 }
                 h.Haptic(0.4f, 0.2f);
+                Consumed = true;
                 h.ForceRelease();
                 Destroy(gameObject);
             }

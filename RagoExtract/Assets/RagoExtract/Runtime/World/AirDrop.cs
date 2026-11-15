@@ -344,6 +344,7 @@ namespace Rago
             Sfx.Play(Synth.Beep(), transform.position, 0.6f, 0.8f, 0.5f, 10f);
             h.Haptic(0.5f, 0.15f);
             AirDrop.Call(zone, Random.Range(0f, 360f), Random.value < 0.3f, true);
+            Consumed = true;   // used up: it must not drop to the floor for the other players (it did, and they could use it again)
             h.ForceRelease();
             Destroy(gameObject);
         }

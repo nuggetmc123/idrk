@@ -237,7 +237,14 @@ namespace Rago
                 // host simulates NPC bullets: forward their damage to the player that got hit
                 return; // only report our own hits (raider shots are worked out by each player against themselves)
             }
-            if (z.owner is RemotePlayer)
+            if (z.owner is RemotePlayer mrp && (h.gunId == "fist" || (Db.Get(h.gunId) is ItemDef md && md.kind == ItemKind.Melee)))
+            {
+                // a punch / knife: the victim can't replay it, so tell them
+                var w = W(Msg.HitPlayer);
+                w.Write(mrp.NetId); w.Write(h.damage); w.Write((byte)h.part); V3(w, h.point); V3(w, h.dir); w.Write(h.force);
+                Send(true, mrp.NetId);
+            }
+            else if (z.owner is RemotePlayer)
             {
                 // nothing to send: every player replays everyone's shots (Msg.Fire) against their own body and takes the
                 // damage there - the target's id never has to match up, and grenades work the same way
@@ -275,7 +282,7 @@ namespace Rago
 
         public void OnItemDropped(Item it)
         {
-            if (!InRaid || it is Magazine || it is Backpack) return;
+            if (!InRaid || it is Magazine || it is Backpack || it.Consumed) return;
             it.netId = NewDropId();
             Items[it.netId] = it;
             var w = W(Msg.ItemSpawned);

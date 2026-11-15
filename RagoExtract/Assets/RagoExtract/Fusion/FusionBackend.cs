@@ -498,10 +498,22 @@ namespace Rago.Net
         }
 
         /// <summary>Read a player's callsign and party from their user id.</summary>
+        string _myUid; bool _uidBad;
         void LearnFromUserId(ulong id, PlayerRef p)
         {
+            if (_uidBad) return;
             var uid = UserIdOf(p);
             if (string.IsNullOrEmpty(uid)) return;
+            // some Photon versions hand back YOUR id for every player: then everyone got your name and your party
+            // (same names, parties spawning apart). If that happens, stop trusting ids and use the name messages.
+            if (uid == _myUid || (!string.IsNullOrEmpty(_myUid) && uid.StartsWith(MyName() + "@")))
+            {
+                _uidBad = true;
+                foreach (var k in new List<ulong>(_names.Keys)) if (Key(_names[k]) == Key(MyName())) _names.Remove(k);
+                foreach (var k in new List<ulong>(_peerParty.Keys)) _peerParty.Remove(k);
+                _nameAsk.Clear();   // ask everyone again
+                return;
+            }
             int at = uid.IndexOf('@'), tl = uid.LastIndexOf('~');
             string name = at >= 0 ? uid.Substring(0, at) : tl >= 0 ? uid.Substring(0, tl) : uid;
             string party = at >= 0 ? uid.Substring(at + 1, (tl > at ? tl : uid.Length) - at - 1) : "";
@@ -598,7 +610,9 @@ namespace Rago.Net
                 SceneManager = sceneManager,
             };
             UseAppId(ref args, AppId());
-            UseUserId(ref args, MyName() + "@" + (_partyCode ?? "") + "~" + UnityEngine.Random.Range(1000, 9999));
+            _myUid = MyName() + "@" + (_partyCode ?? "") + "~" + UnityEngine.Random.Range(1000, 9999);
+            _uidBad = false;
+            UseUserId(ref args, _myUid);
             if (!allowCreate) { object boxed = args; if (Set(boxed, "EnableClientSessionCreation", false)) args = (StartGameArgs)boxed; }   // joining a party: never create an empty one
             var res = await _runner.StartGame(args);
             if (!res.Ok)

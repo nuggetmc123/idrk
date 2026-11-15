@@ -104,6 +104,7 @@ namespace Rago
             if (_fuse > 0) return;
             _armed = false;
             Vector3 p = transform.position;
+            Consumed = true;
             if (primaryHand != null) primaryHand.ForceRelease(true);
             if (slot != null) slot.Release(this);
             try { Blast.Detonate(p, Flash, 0, true); }

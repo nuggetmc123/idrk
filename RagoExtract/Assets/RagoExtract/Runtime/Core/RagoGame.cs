@@ -509,6 +509,7 @@ namespace Rago
             }
             else by = "yourself";
             if (def != null) with = def.name + (h.part == BodyPart.Head ? " (headshot)" : "");
+            else if (h.gunId == "fist") with = "bare fists" + (h.part == BodyPart.Head ? " (to the head)" : "");
         }
 
         IEnumerator BackToBunker()

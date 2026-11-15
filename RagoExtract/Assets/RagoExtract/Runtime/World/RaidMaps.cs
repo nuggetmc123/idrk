@@ -152,7 +152,7 @@ namespace Rago
             Squad(new Vector3(-120, 0, 8), 3); Squad(new Vector3(-150, 0, -10), 2); Squad(new Vector3(-105, 0, -12), 2, true);
             Spawn(new Vector3(-178, 0.1f, 22), 90);
             // ---- the open country around the docks: 1 km x 1 km
-            Outskirts(new Rect(-185, -90, 255, 180), 720, new[] { "Lighthouse Road", "Old Quarry", "Ferry Landing", "North Cliffs" }, false, true, Maps.GroundGrass, 18);
+            Outskirts(new Rect(-185, -90, 255, 180), 800, new[] { "Lighthouse Road", "Old Quarry", "Ferry Landing", "North Cliffs" }, false, true, Maps.GroundGrass, 20);
             NavBounds = new Bounds(new Vector3(-57, 5, 0), new Vector3(260, 40, 190));
         }
 
@@ -327,7 +327,7 @@ namespace Rago
             Squad(new Vector3(-30, 0, 132), 3); Squad(new Vector3(40, 0, 135), 2); Squad(new Vector3(0, 0, 150), 2, true);
             Spawn(new Vector3(-85, 0.2f, 172), 135);
             // ---- endless forest around the valley: 1 km x 1 km
-            Outskirts(new Rect(-95, -95, 190, 274), 720, new[] { "Ranger Station", "Dam Spillway", "Mountain Pass", "Eagle Ridge" }, true, false, Maps.GroundGrass, 18);
+            Outskirts(new Rect(-95, -95, 190, 274), 800, new[] { "Ranger Station", "Dam Spillway", "Mountain Pass", "Eagle Ridge" }, true, false, Maps.GroundGrass, 20);
         }
     }
 
@@ -414,7 +414,7 @@ namespace Rago
             Squad(new Vector3(-40, 0, 128), 3); Squad(new Vector3(30, 0, 132), 2); Squad(new Vector3(0, 0, 150), 2, true);
             Spawn(new Vector3(60, 0.1f, 168), 180);
             // ---- farmland and villages around the town: 1 km x 1 km
-            Outskirts(new Rect(-90, -90, 180, 271), 720, new[] { "Highway Bridge", "Rail Depot", "County Road", "Quarry Rim" }, false, false, Maps.GroundGrass, 18);
+            Outskirts(new Rect(-90, -90, 180, 271), 800, new[] { "Highway Bridge", "Rail Depot", "County Road", "Quarry Rim" }, false, false, Maps.GroundGrass, 20);
         }
 
         void Bank(Vector3 c)

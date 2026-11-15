@@ -133,13 +133,46 @@ namespace Rago
 
         public void Haptic(float amp, float dur) => XRInputs.Haptic(left, amp, dur);
 
+        // ---- fists: swing an empty hand into someone. The faster the swing, the harder it lands (head hits hurt most).
+        Vector3 _punchLast; bool _punchTrack;
+        readonly System.Collections.Generic.Dictionary<IDamageable, float> _punchCool = new System.Collections.Generic.Dictionary<IDamageable, float>();
+        static readonly Collider[] _punchCols = new Collider[16];
+        void Punch(float dt)
+        {
+            if (!XRInputs.VR || Held != null || Climbing || Racking != null || rig.Dead || dt <= 0f) { _punchTrack = false; return; }
+            Vector3 p = TrackedPosition;
+            float speed = _punchTrack ? (p - _punchLast).magnitude / dt - rig.MoveVelocity.magnitude : 0f;   // your own walking doesn't count
+            Vector3 dir = _punchTrack ? (p - _punchLast).normalized : transform.forward;
+            _punchLast = p; _punchTrack = true;
+            if (speed < 2.4f) return;
+            int n = Physics.OverlapSphereNonAlloc(p, 0.08f, _punchCols, ~0, QueryTriggerInteraction.Collide);
+            for (int i = 0; i < n; i++)
+            {
+                var zone = _punchCols[i].GetComponentInParent<HitZone>();
+                if (zone == null || zone.owner == null || !zone.owner.Alive || zone.owner == (IDamageable)rig.Vitals) continue;
+                if (_punchCool.TryGetValue(zone.owner, out var until) && Time.time < until) continue;
+                _punchCool[zone.owner] = Time.time + 0.45f;
+                float mult = zone.part == BodyPart.Head ? 1.7f : zone.part == BodyPart.Thorax || zone.part == BodyPart.Stomach ? 1f : 0.6f;
+                float dmg = Mathf.Lerp(8f, 22f, Mathf.InverseLerp(2.4f, 7f, speed)) * mult;
+                Vector3 at = _punchCols[i].ClosestPoint(p);
+                var info = new HitInfo { damage = dmg, part = zone.part, point = at, dir = dir, normal = -dir, attacker = 0, gunId = "fist", force = 3f };
+                zone.owner.TakeHit(info, zone);
+                Ballistics.ReportHit(info, zone);
+                Sfx.Play(Synth.Impact(Synth.Surface.Flesh, Random.Range(0, 3)), at, 0.9f, 0.8f, 1f, 15f);
+                Haptic(0.9f, 0.08f);
+                Noise.Emit(at, 5f, 0);
+                break;
+            }
+        }
+
         public void AddRecoil(float strength, bool rifle)
         {
             // real kick: the gun drives back into your hand (cm) and the muzzle flips up (degrees), then the spring brings it
             // back. It used to be scaled down to a millimetre and a fraction of a degree - you couldn't feel any recoil.
             // Full auto stacks the kicks, so the muzzle climbs unless you hold it with both hands on the shoulder.
-            _recoilVel += new Vector3(Random.Range(-0.08f, 0.08f) * strength, 0.06f * strength, -0.9f * strength) * (rifle ? 0.8f : 1f);
-            _recoilAngVel += new Vector3(-(rifle ? 150f : 260f) * strength, Random.Range(-30f, 30f) * strength, Random.Range(-20f, 20f) * strength);
+            // (stronger again: about 1.6x the last version)
+            _recoilVel += new Vector3(Random.Range(-0.12f, 0.12f) * strength, 0.1f * strength, -1.45f * strength) * (rifle ? 0.8f : 1f);
+            _recoilAngVel += new Vector3(-(rifle ? 245f : 400f) * strength, Random.Range(-48f, 48f) * strength, Random.Range(-30f, 30f) * strength);
         }
 
         // ---------------------------------------------------------------------------------- per frame
@@ -158,9 +191,10 @@ namespace Rago
             _recoilPos += _recoilVel * dt;
             _recoilAngVel += (-_recoilRot * 220f - _recoilAngVel * 22f) * dt;
             _recoilRot += _recoilAngVel * dt;
-            _recoilPos = Vector3.ClampMagnitude(_recoilPos, 0.08f);
-            _recoilRot = Vector3.ClampMagnitude(_recoilRot, 25f);
+            _recoilPos = Vector3.ClampMagnitude(_recoilPos, 0.11f);
+            _recoilRot = Vector3.ClampMagnitude(_recoilRot, 32f);
 
+            Punch(dt);
             // rack with the free hand on the slide / charging handle: hold the TRIGGER (or grip), pull back, let go
             if (Racking == null && Held == null && _interact == null && input.TriggerDown && Other.Held is Gun rg && !Other.HeldAsSecondary && rg.TryStartRack(this))
             {

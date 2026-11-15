@@ -526,6 +526,20 @@ namespace Rago
                 Road(picks[i], e, roadMat); roads.Add((picks[i], e));
                 AddExtract(e, extractNames[i]);
             }
+            // player spawn sites are picked now (built at the end), so the hills can leave flat ground for them
+            var sitePos = new List<Vector3>();
+            for (int i = 0; i < 160 && sitePos.Count < 20; i++)
+            {
+                float ang = (sitePos.Count + i * 0.37f) / 20f * Mathf.PI * 2f;
+                var hp = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (land * b.Rng.Range(0.84f, 0.93f));
+                hp.x = Mathf.Clamp(hp.x, -land + 20, land - 20); hp.z = Mathf.Clamp(hp.z, -land + 20, land - 20);
+                if (seaEast && hp.x > core.xMax - 25) continue;
+                if (Near(hp, spots, 75f) || NearRoad(hp, roads, 10f) || !OnLand(hp, 25f)) continue;
+                bool crowded = false; foreach (var sp in sitePos) if ((sp - hp).sqrMagnitude < 110 * 110) crowded = true;
+                if (crowded) continue;
+                sitePos.Add(hp);
+            }
+            BuildHills(core, slab, spots, roads, sitePos, seaEast, ground);
             // forest + rocks everywhere else
             float area = Mathf.Clamp((half * half) / (500f * 500f), 1f, 4f);   // the bigger the map, the more of everything
             CliffsAndCover(core, land, spots, roads, seaEast, wooden);
@@ -537,6 +551,7 @@ namespace Rago
                 if (seaEast && t.x > core.xMax - 4) continue;
                 if (Near(t, spots, 42f) || NearRoad(t, roads, 6f) || !OnLand(t)) continue;
                 // mixed woods: mostly pines in pine country, mostly leafy trees (some birches) elsewhere
+                t.y = HillY(t);
                 float pineShare = wooden ? 0.65f : 0.3f;
                 if (b.Rng.Value < pineShare) b.Pine(t, b.Rng.Range(8f, 15f));
                 else b.LeafyTree(t, b.Rng.Range(7f, 13f), b.Rng.Value < 0.25f);
@@ -550,6 +565,7 @@ namespace Rago
                 if (t.x > core.xMin - 4 && t.x < core.xMax + 4 && t.z > core.yMin - 4 && t.z < core.yMax + 4) continue;
                 if (seaEast && t.x > core.xMax - 4) continue;
                 if (Near(t, spots, 30f) || NearRoad(t, roads, 4f) || !OnLand(t)) continue;
+                t.y = y + HillY(t);
                 b.Bush(t, b.Rng.Range(1.1f, 2.2f));
             }
             // patches of tall grass and ferns on the ground
@@ -564,6 +580,7 @@ namespace Rago
                 {
                     var o = b.Rng.InCircle() * 5f;
                     var p = c + new Vector3(o.x, 0, o.y);
+                    p.y = y + HillY(p);
                     if (b.Rng.Value < 0.82f) b.GrassTuft(p, b.Rng.Range(0.45f, 0.85f)); else b.Fern(p, b.Rng.Range(0.5f, 0.9f));
                 }
             }
@@ -572,6 +589,7 @@ namespace Rago
                 var t = new Vector3(b.Rng.Range(-land + 3, land - 3), 0, b.Rng.Range(-land + 3, land - 3));
                 if (t.x > core.xMin - 6 && t.x < core.xMax + 6 && t.z > core.yMin - 6 && t.z < core.yMax + 6) continue;
                 if ((seaEast && t.x > core.xMax - 4) || Near(t, spots, 42f) || NearRoad(t, roads, 6f) || !OnLand(t)) continue;
+                t.y = HillY(t);
                 b.Rock(t, b.Rng.Range(1f, 3.5f));
             }
             // the edge of the world is out in the shallows: invisible walls (no fence - it's an island)
@@ -587,15 +605,8 @@ namespace Rago
             // to search before you move out, and the rest are out in the open (a wrecked car, a rock pile, a sandbag nest).
             PlayerSpawns.Clear();
             int sites = 0;
-            for (int i = 0; i < 160 && sites < 20; i++)
+            foreach (var hp in sitePos)
             {
-                float ang = (sites + i * 0.37f) / 20f * Mathf.PI * 2f;
-                var hp = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (land * b.Rng.Range(0.84f, 0.93f));
-                hp.x = Mathf.Clamp(hp.x, -land + 20, land - 20); hp.z = Mathf.Clamp(hp.z, -land + 20, land - 20);
-                if (seaEast && hp.x > core.xMax - 25) continue;
-                if (Near(hp, spots, 75f) || NearRoad(hp, roads, 10f) || !OnLand(hp, 25f)) continue;
-                bool crowded = false; foreach (var sp in PlayerSpawns) if ((sp.position - hp).sqrMagnitude < 110 * 110) crowded = true;
-                if (crowded) continue;
                 if (sites % 2 == 0) LootSpawn(hp, sites / 2 % 4, wooden); else OpenSpawn(hp, sites / 2 % 3);
                 sites++;
             }
@@ -944,6 +955,7 @@ namespace Rago
                     float topH = h * b.Rng.Range(0.25f, 0.45f), off = b.Rng.Range(-2f, 2f), tt = b.Rng.Range(-20f, 20f);
                     float bh = h * b.Rng.Range(0.3f, 0.55f), bs = b.Rng.Chance(0.5f) ? 1f : -1f; bool tree = b.Rng.Chance(0.3f), boulder = b.Rng.Chance(0.6f);
                     if (!Free(pos, 55f, 14f)) continue;   // gaps where a road or a place is: you can always get through
+                    pos.y = HillY(pos);
                     Color tone = new Color(0.5f, 0.48f, 0.45f) * b.Rng.Range(0.82f, 1.08f);
                     // main body
                     b.Box(pos + Vector3.up * (h * 0.5f - 1f), new Vector3(len, h + 1f, dep), rockMat, tone, Quaternion.Euler(lean, heading + tw, lean * 0.5f), true, Synth.Surface.Concrete, 0.8f);
@@ -961,6 +973,7 @@ namespace Rago
             {
                 var t = new Vector3(b.Rng.Range(-land + 10, land - 10), 0, b.Rng.Range(-land + 10, land - 10));
                 if (!Free(t, 35f, 5f)) continue;
+                t.y = HillY(t);
                 float yaw = b.Rng.Range(0f, 360f);
                 var q = Quaternion.Euler(0, yaw, 0);
                 switch (b.Rng.Range(0, 6))
@@ -987,6 +1000,62 @@ namespace Rago
                         break;
                 }
             }
+        }
+
+        // ---- hills: real rolling hills over the open country (up to ~35 m), flat where the towns, places, roads,
+        // player spawns and the shore are, so everything built there still stands on level ground
+        bool _hills; float _hox, _hoz, _hSlab; Rect _hCore; bool _hSea;
+        readonly List<Vector3> _hFlat = new List<Vector3>();
+        readonly List<float> _hFlatR = new List<float>();
+        List<(Vector3, Vector3)> _hRoads;
+
+        /// <summary>Height of the hills at p (0 where it's flat, or on maps / places without hills).</summary>
+        public float HillY(Vector3 p)
+        {
+            if (!_hills) return 0f;
+            float x = p.x, z = p.z;
+            float edge = _hSlab - Mathf.Max(Mathf.Abs(x), Mathf.Abs(z));
+            if (edge <= 0f) return 0f;
+            float f = Mathf.SmoothStep(0f, 1f, edge / 90f);
+            // the town in the middle
+            float dx = Mathf.Max(Mathf.Max(_hCore.xMin - 20 - x, 0f), x - _hCore.xMax - 20), dz = Mathf.Max(Mathf.Max(_hCore.yMin - 20 - z, 0f), z - _hCore.yMax - 20);
+            f = Mathf.Min(f, Mathf.SmoothStep(0f, 1f, Mathf.Sqrt(dx * dx + dz * dz) / 70f));
+            if (_hSea && x > _hCore.xMax - 40) f = Mathf.Min(f, Mathf.SmoothStep(0f, 1f, (_hCore.xMax - 20 - x) / 40f));
+            if (f <= 0f) return 0f;
+            for (int i = 0; i < _hFlat.Count; i++)
+            {
+                float d = new Vector2(x - _hFlat[i].x, z - _hFlat[i].z).magnitude - _hFlatR[i];
+                if (d < 50f) f = Mathf.Min(f, Mathf.SmoothStep(0f, 1f, d / 50f));
+                if (f <= 0f) return 0f;
+            }
+            if (_hRoads != null)
+                foreach (var (ra, rb) in _hRoads)
+                {
+                    Vector3 rd = rb - ra; float rl2 = rd.sqrMagnitude; if (rl2 < 1f) continue;
+                    float t = Mathf.Clamp01(((x - ra.x) * rd.x + (z - ra.z) * rd.z) / rl2);
+                    float d = new Vector2(x - (ra.x + rd.x * t), z - (ra.z + rd.z * t)).magnitude - 8f;
+                    if (d < 32f) f = Mathf.Min(f, Mathf.SmoothStep(0f, 1f, d / 32f));
+                    if (f <= 0f) return 0f;
+                }
+            float n = Mathf.PerlinNoise(x * 0.0032f + _hox, z * 0.0032f + _hoz);
+            float n2 = Mathf.PerlinNoise(x * 0.011f + _hoz, z * 0.011f + _hox);
+            float h = Mathf.Pow(Mathf.Clamp01((n - 0.22f) / 0.78f), 1.5f) * 36f + n2 * 4f;
+            return h * f;
+        }
+
+        void BuildHills(Rect core, float slab, List<Vector3> spots, List<(Vector3, Vector3)> roads, List<Vector3> sites, bool seaEast, Material ground)
+        {
+            var b = B;
+            _hox = b.Rng.Range(0f, 100f); _hoz = b.Rng.Range(0f, 100f);
+            _hSlab = slab; _hCore = core; _hSea = seaEast; _hRoads = roads;
+            _hFlat.Clear(); _hFlatR.Clear();
+            foreach (var s in spots) { _hFlat.Add(s); _hFlatR.Add(55f); }
+            foreach (var s in sites) { _hFlat.Add(s); _hFlatR.Add(24f); }
+            foreach (var e in Extracts) if (e != null) { _hFlat.Add(e.transform.position); _hFlatR.Add(22f); }
+            _hills = true;
+            float size = slab * 2f;
+            int res = Mathf.Clamp(Mathf.RoundToInt(size / 6.5f), 60, 240);
+            b.Terrain(new Vector3(-slab, 0, -slab), size, res, (x, z) => HillY(new Vector3(x, 0, z)), ground, (x, z) => Color.white, Synth.Surface.Grass);
         }
 
         /// <summary>Scatter random loot crates around interior points.</summary>
