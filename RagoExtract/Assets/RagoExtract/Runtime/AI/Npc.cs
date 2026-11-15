@@ -504,6 +504,7 @@ namespace Rago
         public void ApplyNetState(Vector3 pos, float yaw, NpcState st, Vector3 aim, bool alive)
         {
             if (!Puppet) return;
+            if (!alive && Alive) { Die(pos + Vector3.up, Vector3.zero, true); return; }   // missed its death message (joined late / reconnected)
             // how fast it's going between updates, so in between it keeps moving instead of stopping and jumping
             float now = Time.time;
             if (_netInit && now - _netT > 0.02f) _netVel = Vector3.ClampMagnitude((pos - _netPos) / (now - _netT), 7f);

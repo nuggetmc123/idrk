@@ -22,6 +22,7 @@ namespace Rago
         bool _poseL, _poseR, _supL, _supR;
         Vector3 _gl, _gr, _sGl, _sGr; Quaternion _glR = Quaternion.identity, _grR = Quaternion.identity, _sGlR = Quaternion.identity, _sGrR = Quaternion.identity;
         bool _dead, _hasPose;
+        public bool IsDead => _dead;
         float _packetT;
         float _yaw;
         public bool Alive => !_dead;
@@ -155,6 +156,7 @@ namespace Rago
 
         VoicePlayback _voice;
         public float LastVoiceTime = -10f;
+        public float LastHeard;   // Time.time of their last movement update
 
         public void PlayVoice(byte[] frame)
         {

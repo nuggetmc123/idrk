@@ -67,7 +67,35 @@ namespace Rago.Net
         string _sessionKind = "";
         readonly HashSet<ulong> _acks = new HashSet<ulong>();           // members who answered the leader's "follow me"
         readonly Dictionary<ulong, float> _nameAsk = new Dictionary<ulong, float>();   // when we last asked a player who they are
-        float _pingT;
+        float _pingT, _lastSendWarn;
+        // ---- reconnecting to a raid you dropped out of
+        string _lastRaidSession, _lastRaidMap; bool _lastRaidNight; float _lastRaidAt = -999f;
+        public bool CanReconnect => _ready && _lastRaidSession != null && Time.realtimeSinceStartup - _lastRaidAt < 300f && !_queueing;
+        public async void Reconnect(Action<bool> done)
+        {
+            if (!CanReconnect) { done?.Invoke(false); return; }
+            _status = "Reconnecting...";
+            bool ok = false;
+            // a dropped connection can take a few seconds to clear on Photon's side: try a few times
+            for (int tryN = 0; tryN < 3 && !ok; tryN++)
+            {
+                if (tryN > 0) await Task.Delay(2500);
+                ok = await StartSession(_lastRaidSession, new Dictionary<string, SessionProperty> { { "kind", "raid_started_" + _lastRaidMap } }, QueueRules.MaxFor(_lastRaidMap), false);
+            }
+            if (ok)
+            {
+                // the other players can take a moment to show up after joining
+                float until = Time.realtimeSinceStartup + 4f;
+                while (_peers.Count == 0 && Time.realtimeSinceStartup < until && InSession) { await Task.Delay(200); RefreshPeers(); }
+                if (_peers.Count == 0) { ok = false; await Shutdown(); }   // nobody left in it: the raid is over
+            }
+            if (ok) foreach (var p in _peers) { SendSys(p, 3, MyName()); if (_partyCode != null) SendSys(p, 4, _partyCode); }
+            _status = ok ? "Raid (reconnected)" : (_ready ? "Online (Photon)" : _status);
+            if (!ok) _lastRaidSession = null;
+            done?.Invoke(ok);
+            if (!ok) RejoinParty();
+        }
+        public void ForgetRaid() { _lastRaidSession = null; }
         string _lastRaid;
         bool _pendingNight, _queueNight;
         NetworkRunner _lobby;
@@ -190,7 +218,7 @@ namespace Rago.Net
                 if (_inPartySession) { props["kind"] = "party"; props["lead"] = MyName(); props["inv"] = string.Join(",", _invited.ConvertAll(Key)); }
                 _runner.SessionInfo.UpdateCustomProperties(props);
             }
-            catch (Exception e) { Debug.LogWarning("[Rago] couldn't publish player names: " + e.Message); }
+            catch (Exception e) { Debug.Log("[Rago] couldn't publish player names: " + e.Message); }
         }
 
         string NamesHere()
@@ -208,7 +236,7 @@ namespace Rago.Net
                 _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty>
                     { { "kind", "party" }, { "lead", MyName() }, { "inv", string.Join(",", _invited.ConvertAll(Key)) }, { "names", NamesHere() } });
             }
-            catch (Exception e) { Debug.LogWarning("[Rago] couldn't publish party invites: " + e.Message); }
+            catch (Exception e) { Debug.Log("[Rago] couldn't publish party invites: " + e.Message); }
         }
 
         public async void AcceptInvite(PartyInvite inv)
@@ -296,7 +324,7 @@ namespace Rago.Net
                 if (m.Invoke(r, args) is Task t) await t;
                 if (!_inPartySession && (_status.StartsWith("Starting") || _status.StartsWith("Joining") || _status.StartsWith("Party"))) _status = "Online (Photon)";
             }
-            catch (Exception e) { Debug.LogWarning("[Rago] couldn't join the session lobby: " + e.Message); }
+            catch (Exception e) { Debug.Log("[Rago] couldn't join the session lobby: " + e.Message); }
         }
 
         async Task LeaveLobby()
@@ -537,7 +565,7 @@ namespace Rago.Net
                 if (_setMaster == null) _setMaster = typeof(NetworkRunner).GetMethod("SetMasterClient", Any, null, new[] { typeof(PlayerRef) }, null);
                 _setMaster?.Invoke(_runner, new object[] { p });
             }
-            catch (Exception e) { Debug.LogWarning("[Rago] couldn't hand over the party: " + e.Message); }
+            catch (Exception e) { Debug.Log("[Rago] couldn't hand over the party: " + e.Message); }
         }
 
         static int Fnv(string s) { unchecked { int h = (int)2166136261; foreach (char c in s ?? "") h = (h ^ c) * 16777619; return h & 0x7fffffff; } }
@@ -700,7 +728,7 @@ namespace Rago.Net
                             pp["raid"] = go6 + "|" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                             _runner.SessionInfo.UpdateCustomProperties(pp);
                         }
-                        catch (Exception e) { Debug.LogWarning("[Rago] couldn't post the raid to the party: " + e.Message); }
+                        catch (Exception e) { Debug.Log("[Rago] couldn't post the raid to the party: " + e.Message); }
                     float until = Time.realtimeSinceStartup + 5f;
                     while (Time.realtimeSinceStartup < until && InSession)
                     {
@@ -727,13 +755,14 @@ namespace Rago.Net
                     if (_pendingStart != null)
                     {
                         var rs = _pendingStart; _pendingStart = null; _queueing = false;
+                        _lastRaidSession = _sessionId; _lastRaidMap = map; _lastRaidNight = night; _lastRaidAt = Time.realtimeSinceStartup;
                         if (rs.spawnIndex < 0) { SpawnFor(MyName(), out int sp0, out int sl0); rs.spawnIndex = sp0; rs.partySlot = sl0; }
                         start?.Invoke(rs);
                         return;
                     }
                     if (IsHost && (props == null || !props.ContainsKey("t0")))
                         try { _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty> { { "kind", "raid_" + map + (night ? "_n" : "") }, { "t0", (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000) }, { "seed", UnityEngine.Random.Range(1, 999999) } }); }
-                        catch (Exception e) { Debug.LogWarning("[Rago] couldn't set the queue start time: " + e.Message); }
+                        catch (Exception e) { Debug.Log("[Rago] couldn't set the queue start time: " + e.Message); }
                     int t0 = props != null && props.TryGetValue("t0", out var tp) ? (int)tp : (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000);
                     float elapsed = (float)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000 - t0);
                     // the session's start time may never sync (or the host changed): never wait longer than our own timer says
@@ -749,15 +778,19 @@ namespace Rago.Net
                             var gp = new Dictionary<string, SessionProperty>();
                             if (props != null) foreach (var kv in props) gp[kv.Key] = kv.Value;
                             gp["seed"] = seed; gp["go"] = players;
+                            // started: the matchmaking tag changes so nobody new joins by chance, but it stays open so a
+                            // player who drops out can reconnect to it by name
+                            gp["kind"] = "raid_started_" + map;
+                            gp["map"] = map; gp["night"] = night ? 1 : 0;
                             _runner.SessionInfo.UpdateCustomProperties(gp);
-                            _runner.SessionInfo.IsOpen = false;   // closed (nobody can join) but still listed, so its players count as online
                         }
-                        catch (Exception e) { Debug.LogWarning("[Rago] couldn't close the raid session: " + e.Message); }
+                        catch (Exception e) { Debug.Log("[Rago] couldn't close the raid session: " + e.Message); }
                         // each party shares one spawn spot (members stand side by side); everyone else gets their own
                         foreach (var p in _peers) SendSys(p, 1, map + "|" + seed + "|-1|" + players + "|0");   // everyone works out their own spot
                         SpawnFor(MyName(), out int mySpot, out int mySlot);
                         _queueing = false;
                         _status = "Raid (" + players + " players)";
+                        _lastRaidSession = _sessionId; _lastRaidMap = map; _lastRaidNight = night; _lastRaidAt = Time.realtimeSinceStartup;
                         start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = mySpot, players = players, online = true, partySlot = mySlot, night = night });
                         return;
                     }
@@ -769,6 +802,7 @@ namespace Rago.Net
                         _queueing = false;
                         _status = "Raid (" + players + " players)";
                         SpawnFor(MyName(), out int sp1, out int sl1);
+                        _lastRaidSession = _sessionId; _lastRaidMap = map; _lastRaidNight = night; _lastRaidAt = Time.realtimeSinceStartup;
                         start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = sp1, players = players, online = true, partySlot = sl1, night = night });
                         return;
                     }
@@ -810,7 +844,13 @@ namespace Rago.Net
         public void Send(byte[] data, bool reliable, ulong target = ulong.MaxValue)
         {
             if (!InSession || data == null || data.Length == 0 || data.Length > 60000) return;
-            if (target == ulong.MaxValue) { foreach (var p in _peers) Queue(p, data); }
+            if (target == ulong.MaxValue)
+            {
+                // not the host: ONE copy to the host, which hands it to everyone (was a copy per player - 3+ players
+                // were sending so much that Photon dropped them)
+                if (!IsHost && _hostId != 0 && _refs.ContainsKey(_hostId)) Queue(Bcast, data);
+                else foreach (var p in _peers) Queue(p, data);
+            }
             else if (target != LocalId) Queue(target, data);
         }
 
@@ -823,10 +863,21 @@ namespace Rago.Net
             if (ms.Length > 16000) Flush(id, ms);
         }
 
+        const ulong Bcast = ulong.MaxValue - 1;
         void Flush(ulong id, System.IO.MemoryStream ms)
         {
             if (ms.Length == 0) return;
-            if (_peers.Contains(id)) SendTo(id, ms.ToArray());
+            if (id == Bcast)
+            {
+                var data = ms.ToArray();
+                if (!IsHost && _hostId != 0 && _refs.TryGetValue(_hostId, out var hp))
+                {
+                    var w = new byte[data.Length + 1]; w[0] = 5; Buffer.BlockCopy(data, 0, w, 1, data.Length);
+                    try { _runner.SendReliableDataToPlayer(hp, GameKey, w); } catch { }
+                }
+                else foreach (var p in _peers) SendTo(p, data);   // we became the host meanwhile
+            }
+            else if (_peers.Contains(id)) SendTo(id, ms.ToArray());
             ms.SetLength(0);
         }
 
@@ -867,10 +918,10 @@ namespace Rago.Net
                 var w = new byte[packet.Length + 9];
                 w[0] = 3; Buffer.BlockCopy(BitConverter.GetBytes(id), 0, w, 1, 8);
                 Buffer.BlockCopy(packet, 0, w, 9, packet.Length);
-                try { _runner.SendReliableDataToPlayer(hp, GameKey, w); } catch (Exception e) { Debug.LogWarning("[Rago] relay send failed: " + e.Message); }
+                try { _runner.SendReliableDataToPlayer(hp, GameKey, w); } catch { }
                 return;
             }
-            try { _runner.SendReliableDataToPlayer(p, GameKey, packet); } catch (Exception e) { Debug.LogWarning("[Rago] send failed: " + e.Message); }
+            try { _runner.SendReliableDataToPlayer(p, GameKey, packet); } catch (Exception e) { if (Time.realtimeSinceStartup - _lastSendWarn > 10f) { _lastSendWarn = Time.realtimeSinceStartup; Debug.Log("[Rago] send skipped: " + e.Message); } }
         }
 
         readonly Dictionary<ulong, float> _lastHeard = new Dictionary<ulong, float>();
@@ -905,6 +956,20 @@ namespace Rago.Net
             _lastHeard[direct] = Time.realtimeSinceStartup;
             if (_relayTo.Remove(direct)) Debug.Log("[Rago] direct link to player " + direct + " works again");
             byte ch = data.Array[data.Offset];
+            if (ch == 5)
+            {
+                // a player's broadcast sent to us as the hub: use it ourselves and hand it to every other player
+                // (even if we're not the master any more - the sender picked us, so nobody else will pass it on)
+                var inner = new ArraySegment<byte>(data.Array, data.Offset + 1, data.Count - 1);
+                {
+                    var fwd = new byte[inner.Count + 9];
+                    fwd[0] = 4; Buffer.BlockCopy(BitConverter.GetBytes(direct), 0, fwd, 1, 8);
+                    Buffer.BlockCopy(inner.Array, inner.Offset, fwd, 9, inner.Count);
+                    foreach (var p in _peers) if (p != direct && _refs.TryGetValue(p, out var pr)) try { _runner.SendReliableDataToPlayer(pr, GameKey, fwd); } catch { }
+                }
+                Process(direct, inner);
+                return;
+            }
             if (ch == 3)
             {
                 // host: a player who can't reach another one directly - pass it on, marked with who it's from
@@ -1125,7 +1190,7 @@ namespace Rago.Net
                 _pingT -= Time.unscaledDeltaTime;
                 if (_pingT <= 0f && _peers.Count > 0)
                 {
-                    _pingT = 1f;
+                    _pingT = 2f;
                     string ts = Time.realtimeSinceStartup.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
                     foreach (var p in _peers) SendSys(p, 11, ts);
                     CheckLinks();

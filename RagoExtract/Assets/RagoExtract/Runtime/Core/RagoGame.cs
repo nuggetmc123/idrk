@@ -142,6 +142,16 @@ namespace Rago
         // ------------------------------------------------------------------------------------------ travel
         public void GoTo(Area a) { if (!_travelling) StartCoroutine(Safe(Travel(a, null))); }
         public void StartRaid(RaidStart rs) { if (!_travelling) StartCoroutine(Safe(Travel(Area.Raid, rs))); }
+        Vector3? _rejoinPos; float _rejoinYaw;
+        /// <summary>Back into the raid you dropped out of (RECONNECT on the raid terminal).</summary>
+        public void Rejoin()
+        {
+            var info = RaidReconnect.Info;
+            if (info == null || _travelling) return;
+            _rejoinPos = info.pos; _rejoinYaw = info.yaw;
+            var rs = new RaidStart { map = info.rs.map, seed = info.rs.seed, spawnIndex = info.rs.spawnIndex, players = info.rs.players, online = true, partySlot = info.rs.partySlot, night = info.rs.night, reconnect = true };
+            StartRaid(rs);
+        }
 
         /// <summary>Runs a travel step by step; if any step throws, the screen fades back in instead of staying black.</summary>
         IEnumerator Safe(IEnumerator inner)
@@ -299,6 +309,7 @@ namespace Rago
                 spawn.position += side;
             }
             Player.Teleport(spawn.position, spawn.rotation.eulerAngles.y);
+            if (to == Area.Raid && rs != null && rs.reconnect && _rejoinPos.HasValue) { Player.Teleport(_rejoinPos.Value + Vector3.up * 0.1f, _rejoinYaw); _rejoinPos = null; }
             if (ElevatorArrival)
             {
                 ElevatorArrival = false;
@@ -383,7 +394,7 @@ namespace Rago
 
     public class RaidResult
     {
-        public bool extracted;
+        public bool extracted, lost;   // lost = the connection to the raid dropped
         public string map, exit, killer, weapon;
         public int value, kills;
         public float time;
@@ -408,8 +419,11 @@ namespace Rago
             go.transform.SetParent(map.transform, false);
             I = go.AddComponent<RaidManager>();
             I._g = g; I._map = map; I._rs = rs; I._start = Time.time;
+            var back = rs.reconnect ? RaidReconnect.Info : null;
+            if (back != null) { I.TimeLeft = back.timeLeft; I._start = Time.time - back.elapsed; }
             var prof = Profile.Current;
-            prof.raids++;
+            if (back == null) prof.raids++;
+            RaidReconnect.Clear();
             // pack ammo from the stash for the guns you brought
             prof.loadout = g.Player.Gear.SaveLoadout();
             prof.loadout.ammo = new int[prof.stashAmmo.Length];
@@ -428,10 +442,14 @@ namespace Rago
             AirDrop.ResetCount();
             var ar = new Rng(rs.seed * 31 + 5);
             if (map.Id != "underground" && ar.Chance(AirDrop.RandomChance) && AirDrop.PickSpot(map, ar, out var dz))
-                I.StartCoroutine(I.DropLater(ar.Range(150f, 480f), dz, ar.Range(0f, 360f)));
+            {
+                float when = ar.Range(150f, 480f) - (back != null ? back.elapsed : 0f), hd = ar.Range(0f, 360f);
+                if (when > 0f) I.StartCoroutine(I.DropLater(when, dz, hd));
+            }
             var dir = NpcDirector.Create(map.transform);
             dir.SpawnSquads(map.NpcSpawns, rs.seed, online && !NetHub.Backend.IsHost, map.PlayerSpawns, map.NpcSafeRadius, map.MaxRaiders);
             string wx = Weather.Describe();
+            if (back != null) { g.Player.Hud.Center("RECONNECTED\n<size=40>" + map.DisplayName + " - " + Mathf.FloorToInt(back.timeLeft / 60f) + " min left</size>", 5f); return; }
             g.Player.Hud.Center(map.DisplayName.ToUpper() + (wx.Length > 0 ? "  -  " + wx : "") + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>", 6f);
         }
 
@@ -458,6 +476,7 @@ namespace Rago
         {
             if (Done) return;
             Done = true;
+            RaidReconnect.Clear(); NetHub.Backend?.ForgetRaid();
             var prof = Profile.Current;
             prof.extracts++;
             BunkerJobs.RaidFinished(prof);
@@ -474,10 +493,36 @@ namespace Rago
             _g.GoTo(Area.Bunker);
         }
 
+        /// <summary>The connection to the raid dropped: back to your bunker with everything you're carrying. For 5 minutes
+        /// the raid terminal offers RECONNECT, which puts you back where you were with the same raid clock.</summary>
+        public void Disconnected()
+        {
+            if (Done) return;
+            Done = true;
+            var prof = Profile.Current;
+            var gear = _g.Player.Gear;
+            var p = _g.Player.transform.position;
+            RaidReconnect.Info = new RaidReconnect { rs = _rs, pos = p, yaw = _g.Player.Cam != null ? _g.Player.Cam.transform.eulerAngles.y : 0f, timeLeft = TimeLeft, elapsed = Elapsed, at = Time.realtimeSinceStartup };
+            prof.loadout = gear.SaveLoadout();
+            for (int i = 0; i < prof.stashAmmo.Length; i++) prof.stashAmmo[i] += gear.Ammo[i];
+            prof.loadout.ammo = null;
+            prof.Save();
+            _g.LastResult = new RaidResult { lost = true, map = _map.DisplayName, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
+            _g.Player.Hud.Center("CONNECTION LOST\n<size=40>Returning to your bunker - you keep your gear.\nPress RECONNECT on the raid terminal to get back in.</size>", 5f);
+            StartCoroutine(LostToBunker());
+        }
+
+        IEnumerator LostToBunker()
+        {
+            yield return new WaitForSeconds(3f);
+            _g.GoTo(Area.Bunker);
+        }
+
         public void Died(int killer)
         {
             if (Done) return;
             Done = true;
+            RaidReconnect.Clear(); NetHub.Backend?.ForgetRaid();
             var prof = Profile.Current;
             prof.deaths++;
             BunkerJobs.RaidFinished(prof);
@@ -535,6 +580,15 @@ namespace Rago
         }
     }
 
+    /// <summary>Where you were when your connection to a raid dropped, so RECONNECT can put you back.</summary>
+    public class RaidReconnect
+    {
+        public static RaidReconnect Info;
+        public RaidStart rs; public Vector3 pos; public float yaw, timeLeft, elapsed, at;
+        public static bool Valid => Info != null && Time.realtimeSinceStartup - Info.at < 300f && Info.timeLeft > 30f;
+        public static void Clear() { Info = null; }
+    }
+
     /// <summary>Post-raid summary board in the bunker.</summary>
     public static class ResultsBoard
     {
@@ -544,8 +598,8 @@ namespace Rago
             root.SetParent(parent, false);
             root.position = new Vector3(0, 1.6f, 1.2f);
             var p = UI.Panel(root, "Panel", Vector3.zero, Quaternion.identity, new Vector2(1.3f, 0.75f));
-            UI.Text(p, r.extracted ? "EXTRACTED" : "DIED IN ACTION", new Vector3(0, 0.27f, 0), 0.07f, r.extracted ? new Color(0.4f, 1f, 0.5f) : new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
-            string body = r.map + "\n" + (r.extracted ? "Exit: " + r.exit + "\nLoot gained: $" + r.value.ToString("N0")
+            UI.Text(p, r.lost ? "CONNECTION LOST" : r.extracted ? "EXTRACTED" : "DIED IN ACTION", new Vector3(0, 0.27f, 0), 0.07f, r.lost ? new Color(1f, 0.8f, 0.3f) : r.extracted ? new Color(0.4f, 1f, 0.5f) : new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            string body = r.lost ? r.map + "\nYou kept everything you were carrying.\nRECONNECT on the raid terminal (5 min)\nKills: " + r.kills : r.map + "\n" + (r.extracted ? "Exit: " + r.exit + "\nLoot gained: $" + r.value.ToString("N0")
                                        : (r.weapon != null ? "Killed by " + r.killer + "\nwith " + r.weapon : r.killer) + "\nYour gear was lost") +
                           "\nKills: " + r.kills + "     Time: " + Mathf.FloorToInt(r.time / 60) + "m " + Mathf.FloorToInt(r.time % 60) + "s";
             UI.Text(p, body, new Vector3(0, -0.03f, 0), 0.032f, Color.white);

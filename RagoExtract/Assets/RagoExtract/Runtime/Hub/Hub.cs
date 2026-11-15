@@ -100,6 +100,9 @@ namespace Rago
             // day or night: night raids are matched with other night players (rain and fog are a chance either way)
             _timeBtn = UI.Button(console, "", new Vector3(0.1f, -0.13f, 0), new Vector2(0.34f, 0.08f), ToggleTime, new Color(0.25f, 0.3f, 0.4f), BtnStyle.Key);
             RefreshTime();
+            // dropped out of a raid in the last 5 minutes: get back in
+            _reconBtn = UI.Button(console, "RECONNECT", new Vector3(0.1f, 0.13f, 0), new Vector2(0.34f, 0.08f), Reconnect, new Color(0.7f, 0.5f, 0.1f), BtnStyle.Key);
+            _reconBtn.gameObject.SetActive(false);
             // your party, on a little screen beside the QUEUE key: who's in it and who leads
             var pp = UI.Panel(console, "PartyScreen", new Vector3(0.56f, 0, -0.003f), Quaternion.identity, new Vector2(0.5f, 0.34f), null, true, Skin.Crt);
             UI.Text(pp, "PARTY", new Vector3(-0.22f, 0.13f, 0), 0.03f, UI.CrtGreen, TextAnchor.MiddleLeft, FontStyle.Bold);
@@ -109,7 +112,34 @@ namespace Rago
         }
 
         TextMesh _online, _party;
-        WorldButton _timeBtn;
+        WorldButton _timeBtn, _reconBtn;
+        bool _reconnecting;
+
+        static bool ReconnectAvailable => RaidReconnect.Valid && NetHub.Online && NetHub.Backend.CanReconnect;
+
+        void Reconnect()
+        {
+            if (_reconnecting || _queued) return;
+            if (!ReconnectAvailable) { RagoGame.I.Player.Toast("That raid is over"); Sfx.UI(Synth.UiError(), 0.3f); RaidReconnect.Clear(); return; }
+            _reconnecting = true;
+            Sfx.UI(Synth.Beep(), 0.5f);
+            _status.text = "> RECONNECTING TO YOUR RAID...";
+            HudQueue("RECONNECTING", true);
+            RagoGame.I.SaveHubState();
+            NetHub.Backend.Reconnect(ok =>
+            {
+                _reconnecting = false;
+                HudQueue("");
+                if (ok) { _status.text = "> RECONNECTED"; RagoGame.I.Rejoin(); }
+                else
+                {
+                    RaidReconnect.Clear();
+                    _status.text = "> COULDN'T RECONNECT - THE RAID HAS ENDED";
+                    RagoGame.I.Player.Toast("Couldn't reconnect - that raid has ended");
+                    Sfx.UI(Synth.UiError(), 0.4f);
+                }
+            });
+        }
 
         void ToggleTime()
         {
@@ -157,7 +187,11 @@ namespace Rago
             _onlineT -= Time.deltaTime;
             if (_onlineT <= 0f) { _onlineT = 2f; UpdateOnline(); }
             _partyT -= Time.deltaTime;
-            if (_partyT <= 0f) { _partyT = 1f; UpdateParty(); }
+            if (_partyT <= 0f)
+            {
+                _partyT = 1f; UpdateParty();
+                if (_reconBtn != null) _reconBtn.gameObject.SetActive(ReconnectAvailable || _reconnecting);
+            }
             // safety net: a queue still searching at 1:15 (nobody to match with, or the network never answered) deploys you solo
             if (_queued && !_joining && Time.time - _queueStart > 75f)
             {

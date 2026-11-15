@@ -20,6 +20,7 @@ namespace Rago
         public bool online;
         public int partySlot;   // 0 = first of your party at that spawn spot, 1 = next to them, ...
         public bool night;      // a night raid (picked on the raid terminal)
+        public bool reconnect;  // getting back into a raid you dropped out of: same place, same clock
     }
 
     /// <summary>
@@ -84,6 +85,10 @@ namespace Rago
         IReadOnlyList<ulong> Peers { get; }
         /// <summary>Players connected to the game right now (all regions' servers this client can see), or -1 if unknown.</summary>
         int OnlineCount { get; }
+        /// <summary>You dropped out of a raid in the last 5 minutes and can try to get back into it.</summary>
+        bool CanReconnect { get; }
+        void Reconnect(Action<bool> done);
+        void ForgetRaid();
         /// <summary>Round trip to the other players in seconds (0 = unknown / alone). High = the line is backed up: send less.</summary>
         float Rtt { get; }
         void Init(Action<bool> done);

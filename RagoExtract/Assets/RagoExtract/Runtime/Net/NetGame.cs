@@ -46,6 +46,14 @@ namespace Rago
         {
             if (!Live || Spectator.Active) return;
             if (NetHub.Backend.Rtt > 0.45f) return;   // the line is backed up: voice is the biggest thing we send, skip it until it clears
+            // voice is by far the biggest thing we send: only when someone is close enough to hear it (raids are huge)
+            if (InRaid)
+            {
+                var me = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.transform.position : Vector3.zero;
+                bool near = false;
+                foreach (var rp in Remotes.Values) if (rp != null && (rp.transform.position - me).sqrMagnitude < 70f * 70f) { near = true; break; }
+                if (!near) return;
+            }
             var w = W(Msg.Voice);
             w.Write((short)frame.Length); w.Write(frame);
             Send(false);
@@ -68,6 +76,7 @@ namespace Rago
             if (b == null || !b.InSession) return;
             _active = true;
             InRaid = raid;
+            _lastRx = Time.time;
             _wasHost = !raid || b.IsHost;
             b.OnData += OnData;
             b.OnPeerJoined += OnPeerJoined;
@@ -101,12 +110,33 @@ namespace Rago
 
         void OnDisconnected()
         {
-            // the host left: keep playing locally, NPCs fall back to local AI
-            foreach (var r in Remotes.Values) if (r != null) Destroy(r.gameObject);
-            Remotes.Clear();
-            _active = false;
-            NpcDirector.I?.BecomeAuthority();
-            RagoGame.I?.Player?.Toast("Lost connection - continuing offline");
+            bool raid = InRaid;
+            End();
+            // lost the raid: back to your bunker with what you're carrying; RECONNECT on the raid terminal gets you back in
+            if (raid && RaidManager.I != null && !RaidManager.I.Done) { RaidManager.I.Disconnected(); return; }
+            RagoGame.I?.Player?.Toast("Lost connection to the other players");
+        }
+
+        float _lastRx, _staleT;
+        /// <summary>Players we stopped hearing from (crashed, or their connection died without Photon noticing yet):
+        /// take their frozen body out of the world. They come back on their next update.</summary>
+        void CheckStale()
+        {
+            _staleT -= Time.deltaTime;
+            if (_staleT > 0f) return;
+            _staleT = 1f;
+            List<ulong> gone = null;
+            foreach (var kv in Remotes)
+                if (kv.Value == null || (Time.time - kv.Value.LastHeard > 10f && !kv.Value.IsDead)) (gone ??= new List<ulong>()).Add(kv.Key);
+            if (gone != null) foreach (var id in gone) { if (Remotes[id] != null) Destroy(Remotes[id].gameObject); Remotes.Remove(id); }
+            // we're in a raid with other players but nothing has arrived from anyone for 20 s: our connection is dead
+            if (InRaid && NetHub.Backend.Peers.Count > 0 && _lastRx > 0f && Time.time - _lastRx > 20f && RaidManager.I != null && !RaidManager.I.Done)
+            {
+                Debug.Log("[Rago] nothing received for 20 s - treating the raid connection as lost");
+                End();
+                NetHub.Backend.Leave();
+                RaidManager.I.Disconnected();
+            }
         }
 
         void OnPeerJoined(ulong id) { SendHello(id); }
@@ -144,6 +174,8 @@ namespace Rago
 
         void Update()
         {
+            if (!Live) return;
+            CheckStale();
             if (!Live) return;
             var p = RagoGame.I != null ? RagoGame.I.Player : null;
             if (p == null) return;
@@ -414,6 +446,7 @@ namespace Rago
         void OnData(ulong from, byte[] data)
         {
             if (data == null || data.Length == 0) return;
+            _lastRx = Time.time;
             try
             {
                 using (var ms = new MemoryStream(data))
@@ -442,6 +475,7 @@ namespace Rago
                         case Msg.Pose:
                             {
                                 var rp = GetRemote(from, (int)from * 31);
+                                rp.LastHeard = Time.time;
                                 if (_helloSent.Add(from)) SendHello(from);   // their movement got here before their hello: introduce ourselves
                                 byte f = r.ReadByte(), f2 = r.ReadByte();
                                 float st = r.ReadSingle();
@@ -632,6 +666,7 @@ namespace Rago
         {
             if (Remotes.TryGetValue(id, out var rp) && rp != null) return rp;
             rp = RemotePlayer.Create(id, seed);
+            rp.LastHeard = Time.time;
             Remotes[id] = rp;
             return rp;
         }
