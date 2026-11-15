@@ -262,7 +262,14 @@ namespace Rago
                 Player.Cam.farClipPlane = far;
                 var cull = new float[32];
                 if (Layers.Items > 0) cull[Layers.Items] = 70f;   // small loose items vanish past 70 m
-                cull[WorldBuilder.GroundCoverLayer] = 160f;      // grass and ferns only near you
+                // graphics setting (Settings): how far grass, bushes and trees are drawn, and the overall view distance
+                int ql = Profile.Current != null ? Mathf.Clamp(Profile.Current.quality, 0, 2) : 1;
+                cull[WorldBuilder.GroundCoverLayer] = ql == 0 ? 70f : ql == 1 ? 130f : 200f;
+                cull[WorldBuilder.TreeLayer] = ql == 0 ? 320f : ql == 1 ? 600f : 0f;   // 0 = no limit
+                if (to == Area.Raid && !Map.KeepFog) far = Mathf.Min(far, ql == 0 ? 800f : ql == 1 ? 1500f : 2600f);
+                Player.Cam.farClipPlane = far;
+                if (ql == 0 && to == Area.Raid && !Map.KeepFog && !Weather.Fog) { RenderSettings.fog = true; RenderSettings.fogDensity = Mathf.Max(RenderSettings.fogDensity, 0.0018f); }   // low: a light haze hides where things stop
+                if (to == Area.Raid) QualitySettings.shadows = ql == 0 || Application.platform == RuntimePlatform.Android ? ShadowQuality.Disable : ShadowQuality.HardOnly;
                 Player.Cam.layerCullDistances = cull;
                 Player.Cam.layerCullSpherical = true;
             }
@@ -490,6 +497,8 @@ namespace Rago
             if (prof.stashAmmo[(int)Caliber.C9mm] < 34) prof.stashAmmo[(int)Caliber.C9mm] = 34;
             prof.Save();
             DeathCause(killer, out string by, out string with);
+            string me = Profile.Current != null ? Profile.Current.DisplayName : "You";
+            NetGame.KillFeed(with != null ? by + " killed " + me + "  -  " + with : me + ": " + by);
             _g.LastResult = new RaidResult { extracted = false, map = _map.DisplayName, killer = by, weapon = with, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
             _g.Player.Hud.Center("DIED IN ACTION\n<size=40>" + (with != null ? "Killed by " + by + " - " + with : by) + "</size>", 6f);
             StartCoroutine(BackToBunker());

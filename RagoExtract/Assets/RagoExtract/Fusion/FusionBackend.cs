@@ -1016,6 +1016,13 @@ namespace Rago.Net
             if (runner != _runner) return;
             _peers.Remove(Id(player)); _refs.Remove(Id(player));
             _names.Remove(Id(player));
+            // the host left: someone else is host now - find out who straight away (relaying and the raiders depend on it)
+            if (Id(player) == _hostId)
+            {
+                _hostId = 0;
+                if (IsHost) { _hostId = LocalId; foreach (var p in _peers) SendSys(p, 2, "host"); }
+                else foreach (var p in _peers) SendSys(p, 13, "?");
+            }
             PublishNames();
             OnPeerLeft?.Invoke(Id(player));
             if (_inPartySession) OnPartyChanged?.Invoke();

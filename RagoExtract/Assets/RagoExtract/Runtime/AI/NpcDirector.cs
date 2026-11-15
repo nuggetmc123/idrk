@@ -106,6 +106,9 @@ namespace Rago
             Kills++;
             if (Profile.Current != null) Profile.Current.kills++;
             int xp = (n.IsBoss ? Levels.BossXp : Levels.KillXp) + (n.KillerHeadshot ? Levels.HeadshotXp : 0);
+            var gd = !string.IsNullOrEmpty(n.KillerGun) ? Db.Get(n.KillerGun) : null;
+            string gun = gd != null ? gd.name : n.KillerGun == "fist" ? "fists" : n.KillerGun == "frag" ? "grenade" : null;
+            NetGame.KillFeed((Profile.Current != null ? Profile.Current.DisplayName : "You") + " killed " + (n.IsBoss ? n.BossName : n.Heavy ? "a Heavy Scav" : "a Scav") + (gun != null ? "  -  " + gun : "") + (n.KillerHeadshot ? "  (headshot)" : ""));
             Levels.Award(xp, (n.IsBoss ? "boss killed" : "kill") + (n.KillerHeadshot ? " - HEADSHOT" : ""));
         }
 

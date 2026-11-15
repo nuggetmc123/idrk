@@ -12,7 +12,8 @@ namespace Rago
         public string name = "Operator";
         public int money = 6000;
         public int outfitSeed;
-        public bool colorLocked;   // your colour was fixed when you picked your callsign: it never changes after that
+        public bool colorLocked;
+        public int quality = 1;    // graphics: 0 low, 1 medium, 2 high (how far grass, bushes and trees are drawn, shadows)   // your colour was fixed when you picked your callsign: it never changes after that
         public int raids, extracts, deaths, kills, xp;
         public List<ItemData> stash = new List<ItemData>();
         public int[] stashAmmo = new int[System.Enum.GetValues(typeof(Caliber)).Length];

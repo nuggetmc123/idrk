@@ -580,14 +580,14 @@ namespace Rago
 
         // ------------------------------------------------------------------------------- damage
         /// <summary>Who landed the killing hit (Levels.MyKillerId of that player; 0 = a raider / nobody) and was it the head.</summary>
-        public int KillerId; public bool KillerHeadshot;
+        public int KillerId; public bool KillerHeadshot; public string KillerGun;
 
         public void TakeHit(HitInfo h, HitZone zone)
         {
             if (!Alive) return;
             // credit goes to whoever's hit this is: our own (attacker 0) or another player's (their network id + 1)
             KillerId = h.attacker == 0 ? Levels.MyKillerId : h.attacker < 1000 ? h.attacker : 0;
-            KillerHeadshot = h.part == BodyPart.Head;
+            KillerHeadshot = h.part == BodyPart.Head; KillerGun = h.gunId;
             float dmg = h.damage;
             dmg *= ArmorDef.Reduction(h.part, Helmet, Vest);
             Health -= dmg;

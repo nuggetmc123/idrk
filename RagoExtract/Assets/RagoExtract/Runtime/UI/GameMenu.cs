@@ -386,6 +386,9 @@ namespace Rago
             Line("Volume:  " + Mathf.RoundToInt(Sfx.MasterVolume * 100) + "%", y);
             Btn("-", 0.25f, y, 0.1f, () => { Sfx.MasterVolume = Mathf.Max(0f, Sfx.MasterVolume - 0.1f); AudioListener.volume = Sfx.MasterVolume; SaveSettings(); });
             Btn("+", 0.4f, y, 0.1f, () => { Sfx.MasterVolume = Mathf.Min(1f, Sfx.MasterVolume + 0.1f); AudioListener.volume = Sfx.MasterVolume; SaveSettings(); }); y -= 0.085f;
+            int q = p != null ? Mathf.Clamp(p.quality, 0, 2) : 1;
+            Line("Graphics:  " + (q == 0 ? "Low (fastest)" : q == 1 ? "Medium" : "High") + "  - next map you load", y);
+            Btn("CHANGE", 0.32f, y, 0.24f, () => { if (Profile.Current != null) { Profile.Current.quality = (Mathf.Clamp(Profile.Current.quality, 0, 2) + 1) % 3; SaveSettings(); } }); y -= 0.085f;
             Line("Microphone:  " + (NetHub.Voice == null ? "not installed" : NetHub.Voice.Muted ? "muted" : "on"), y);
             if (NetHub.Voice != null) Btn(NetHub.Voice.Muted ? "UNMUTE" : "MUTE", 0.32f, y, 0.24f, () => { NetHub.Voice.SetMuted(!NetHub.Voice.Muted); SaveSettings(); });
             y -= 0.1f;

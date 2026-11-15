@@ -281,6 +281,9 @@ namespace Rago
             _flashR.enabled = false;
             _nvg = Overlay(cam, quad, 0.092f, "hud_nvg", new Color(0.02f, 0.12f, 0.03f, 0.9f), Mats.Vignette, out _nvgM, 85);
             _nvg.enabled = false;
+            // kill feed, top right of your view
+            _feed = UI.Text(cam, "", new Vector3(0.21f, 0.13f, 0.6f), 0.016f, new Color(1f, 0.9f, 0.8f), TextAnchor.UpperRight);
+            _feed.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_feed);
             _toast = UI.Text(cam, "", new Vector3(0, -0.12f, 0.6f), 0.02f, Color.white);
             _toast.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_toast);
             _center = UI.Text(cam, "", new Vector3(0, 0.06f, 0.8f), 0.04f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -352,6 +355,23 @@ namespace Rago
             Sfx.UI(Synth.Ringing(), Mathf.Clamp01(strength) * 0.6f);
         }
         public void Toast(string s) { _toast.text = s; _toastT = 2.5f; }
+        TextMesh _feed;
+        readonly System.Collections.Generic.List<(string s, float t)> _feedLines = new System.Collections.Generic.List<(string, float)>();
+        /// <summary>A line in the kill feed (top right): "X killed Y - Gun". The last 5, each for 8 s.</summary>
+        public void Feed(string s)
+        {
+            _feedLines.Add((s, Time.time + 8f));
+            while (_feedLines.Count > 5) _feedLines.RemoveAt(0);
+            RefreshFeed();
+        }
+        void RefreshFeed()
+        {
+            if (_feed == null) return;
+            _feedLines.RemoveAll(l => Time.time > l.t);
+            var sb = new System.Text.StringBuilder();
+            foreach (var l in _feedLines) sb.Append(l.s).Append('\n');
+            _feed.text = sb.ToString();
+        }
         public void Center(string s, float time = 3f) { _center.text = s; _centerT = time; }
         /// <summary>Top-left matchmaking line (FINDING RAID 0:12 / RAID FOUND / JOINING RAID); empty hides it.</summary>
         public void Queue(string s, bool timer = false) { _queueLabel = s ?? ""; _queueTimer = timer && _queueLabel.Length > 0; _queueStart = Time.unscaledTime; if (_queue != null) _queue.text = _queueTimer ? _queueLabel + "  0:00" : _queueLabel; }
@@ -360,6 +380,7 @@ namespace Rago
 
         public void Tick(float dt)
         {
+            if (_feedLines.Count > 0 && Time.frameCount % 15 == 0) RefreshFeed();
             float target = Mathf.Max(_fadeTarget, _blocked ? 0.92f : 0f);
             _fadeCur = Mathf.MoveTowards(_fadeCur, target, dt * 2.2f);
             _fadeM.SetColor("_Color", new Color(0, 0, 0, _fadeCur));

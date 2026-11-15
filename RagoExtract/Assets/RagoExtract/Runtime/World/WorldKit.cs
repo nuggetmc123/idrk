@@ -105,6 +105,7 @@ namespace Rago
             // ground cover (grass tufts, ferns): drawn only near you - on the giant maps thousands of tufts far away
             // were costing frame rate for things you can't see from there anyway
             if (m == GrassMat || m == FernMat) go.layer = GroundCoverLayer;
+            else if (m == NeedleMat || m == LeafMat || m == CanopyCore) go.layer = TreeLayer;   // leaves: drawn as far as the graphics setting allows
         }
 
         public void Finish()
@@ -144,7 +145,8 @@ namespace Rago
             return best;
         }
 
-        public const int GroundCoverLayer = 1;   // (Unity's spare "TransparentFX" layer): culled past ~160 m by the player camera
+        public const int GroundCoverLayer = 1;
+        public const int TreeLayer = 3;          // (Unity's empty layer 3) tree leaves / bushes: the graphics setting limits how far they're drawn   // (Unity's spare "TransparentFX" layer): culled past ~160 m by the player camera
 
         /// <summary>Tables and shelves (floor centre, rotation, half footprint, height): loot crates never go underneath them.</summary>
         public readonly List<(Vector3 c, Quaternion q, Vector2 half, float h)> Furniture = new List<(Vector3, Quaternion, Vector2, float)>();
