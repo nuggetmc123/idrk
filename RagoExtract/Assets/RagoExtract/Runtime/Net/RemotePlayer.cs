@@ -203,7 +203,8 @@ namespace Rago
         struct Snap { public float t; public Vector3 root, head, hl, hr, gl, gr, vel; public Quaternion headR, hlR, hrR, glR, grR; }
         readonly System.Collections.Generic.List<Snap> _snaps = new System.Collections.Generic.List<Snap>();
         float _offset = float.MaxValue;   // our clock minus theirs, for the quickest packet seen (slowly relaxed)
-        const float Delay = 0.12f;
+        float _ia = 0.07f, _lastArrive;
+        float Delay => Mathf.Clamp(_ia * 2.5f, 0.12f, 0.4f);
 
         public void CommitSnap(float senderT)
         {
@@ -211,6 +212,9 @@ namespace Rago
             if (_snaps.Count > 0 && senderT - _snaps[_snaps.Count - 1].t > 2f) _snaps.Clear();   // a long gap: start over
             float off = Time.time - senderT;
             if (off < _offset) _offset = off;
+            // how evenly poses arrive: the show-delay grows with the jitter (relayed through the host, a busy line)
+            if (_lastArrive > 0f) _ia = Mathf.Lerp(_ia, Time.time - _lastArrive, 0.1f);
+            _lastArrive = Time.time;
             _snaps.Add(new Snap { t = senderT, root = _root, head = _head, hl = _hl, hr = _hr, gl = _gl, gr = _gr, vel = _vel, headR = _headR, hlR = _hlR, hrR = _hrR, glR = _glR, grR = _grR });
             if (_snaps.Count > 30) _snaps.RemoveAt(0);
         }

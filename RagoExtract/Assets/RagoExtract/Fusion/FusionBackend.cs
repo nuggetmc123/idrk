@@ -855,14 +855,16 @@ namespace Rago.Net
             if (_runner == null || !_refs.TryGetValue(id, out var p)) return;
             // no direct link to this player (Photon's shared mode may only carry data between the host and each
             // player): send it to the host to pass on. With 3+ players, the two non-hosts couldn't see each other.
-            if (_relayTo.Contains(id) && !IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
+            // Everything between two non-host players goes through the host, always (a star): Photon's shared mode
+            // only reliably carries data between the host and each player, and waiting to detect a dead link left
+            // 3-player raids with players who couldn't see each other, lag and broken parties.
+            if (!IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
             {
                 var w = new byte[packet.Length + 9];
                 w[0] = 3; Buffer.BlockCopy(BitConverter.GetBytes(id), 0, w, 1, 8);
                 Buffer.BlockCopy(packet, 0, w, 9, packet.Length);
                 try { _runner.SendReliableDataToPlayer(hp, GameKey, w); } catch (Exception e) { Debug.LogWarning("[Rago] relay send failed: " + e.Message); }
-                // keep trying the direct line now and then too (pings), so it switches back if it starts working
-                if (!(packet.Length > 1 && packet[0] == 1 && packet[1] == 11)) return;
+                return;
             }
             try { _runner.SendReliableDataToPlayer(p, GameKey, packet); } catch (Exception e) { Debug.LogWarning("[Rago] send failed: " + e.Message); }
         }
@@ -934,6 +936,7 @@ namespace Rago.Net
                 byte code = data.Array[data.Offset + 1];
                 string text = System.Text.Encoding.UTF8.GetString(data.Array, data.Offset + 2, data.Count - 2);
                 if (code == 2) { _hostId = fromId; return; }
+                if (code == 13) { if (IsHost) SendSys(fromId, 2, "host"); return; }   // "who's the host?" 
                 if (code == 1)
                 {
                     var p = text.Split('|');
@@ -1064,6 +1067,7 @@ namespace Rago.Net
             LearnFromUserId(id, p);
             if (_peers.Contains(id)) return;
             _peers.Add(id);
+            if (IsHost) SendSys(id, 2, "host"); else if (_hostId == 0) SendSys(id, 13, "?");
             SendSys(id, 3, MyName());
             if (!_inPartySession && _queueing && _partyCode != null) SendSys(id, 4, _partyCode);
             OnPeerJoined?.Invoke(id);
@@ -1121,7 +1125,7 @@ namespace Rago.Net
             if (!InSession || !IsHost) return;
             _announce -= Time.unscaledDeltaTime;
             if (_announce > 0) return;
-            _announce = 2f;
+            _announce = 1f;
             _hostId = LocalId;
             foreach (var p in _peers) SendSys(p, 2, "host");
         }
