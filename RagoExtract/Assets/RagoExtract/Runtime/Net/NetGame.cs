@@ -51,7 +51,7 @@ namespace Rago
             {
                 var me = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.transform.position : Vector3.zero;
                 bool near = false;
-                foreach (var rp in Remotes.Values) if (rp != null && (rp.transform.position - me).sqrMagnitude < 50f * 50f) { near = true; break; }
+                foreach (var kv in Remotes) if (kv.Value != null && ((kv.Value.transform.position - me).sqrMagnitude < 50f * 50f || NetHub.Backend.IsTeammate(kv.Key))) { near = true; break; }   // your squad hears you on the radio at any distance
                 if (!near) return;
             }
             var w = W(Msg.Voice);
@@ -59,7 +59,7 @@ namespace Rago
             Send(false);
         }
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed }
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed, LockBroken }
 
         public static void Ensure()
         {
@@ -485,6 +485,8 @@ namespace Rago
             var w = W(Msg.NpcDied); w.Write(id); V3(w, point); V3(w, impulse); w.Write(killer); w.Write(head); Send(true);
         }
 
+        public void LockBroken(int doorId) { if (!Live) return; var w = W(Msg.LockBroken); w.Write(doorId); Send(true); }
+
         public void VaultOpened(int id) { if (!Live) return; var w = W(Msg.Vault); w.Write(id); Send(true); }
 
         public void NpcDamageToRemote(ulong target, HitInfo h)
@@ -675,6 +677,13 @@ namespace Rago
                                 if (Remotes.TryGetValue(from, out var hp) && hp != null) hp.HiddenFromAi = hid;   // a tester made themselves invisible to raiders
                                 break;
                             }
+                        case Msg.LockBroken:
+                            {
+                                int did = r.ReadInt32();
+                                var door = SwingDoor.All.Find(x => x != null && x.Id == did);
+                                if (door != null) door.BreakLock(false);
+                                break;
+                            }
                         case Msg.WindowBroken:
                             {
                                 int wid = r.ReadInt32();
@@ -741,7 +750,14 @@ namespace Rago
                             {
                                 int n = r.ReadInt16();
                                 var frame = r.ReadBytes(n);
-                                if (Remotes.TryGetValue(from, out var rp) && rp != null) rp.PlayVoice(frame);
+                                if (Remotes.TryGetValue(from, out var rp) && rp != null)
+                                {
+                                    // a squad mate further than shouting distance comes over the radio; anyone else only in earshot
+                                    var me = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.transform.position : rp.transform.position;
+                                    bool far = (rp.transform.position - me).sqrMagnitude > 25f * 25f;
+                                    bool squad = InRaid && NetHub.Backend.IsTeammate(from);
+                                    if (!far || squad) rp.PlayVoice(frame, far && squad);
+                                }
                                 break;
                             }
                         case Msg.Vault:

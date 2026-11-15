@@ -120,7 +120,12 @@ namespace Rago
         public float Stamina = 100, MaxStamina = 100;
         public float StimBoost;
         public float Bleed;      // hp per second
-        public float LegPenalty = 1f;
+        public float LegPenalty = 1f;   // leg wounds: < 1 slows you (and below 0.7 you can't sprint)
+        public float ArmInjury;         // 0..1: your hands shake (aim wobbles)
+        public float GutInjury;         // 0..1: stamina drains faster
+        public bool CanSprint => LegPenalty >= 0.7f;
+        /// <summary>A medkit / surgery: every injury fixed.</summary>
+        public void TreatInjuries() { LegPenalty = 1f; ArmInjury = 0f; GutInjury = 0f; }
         public bool God;
         float _hot, _hotRate, _dripT, _regenDelay, _clotT = 5f;
         public bool Alive => Health > 0;
@@ -130,7 +135,7 @@ namespace Rago
         public static HitInfo LastKillHit;      // the hit that killed you (who, with what, where)
         public static string LastDeathReason;   // no killer: "Bled out", "Drowned", raid time ran out...
 
-        public void ResetFull() { Health = MaxHealth; Stamina = MaxStamina; Bleed = 0; LegPenalty = 1; _hot = 0; StimBoost = 0; }
+        public void ResetFull() { Health = MaxHealth; Stamina = MaxStamina; Bleed = 0; LegPenalty = 1; ArmInjury = 0; GutInjury = 0; _hot = 0; StimBoost = 0; }
 
         public void Heal(float hp) { Health = Mathf.Min(MaxHealth, Health + hp); }
         public void HealOverTime(float hp, float secs) { _hot += hp; _hotRate = hp / Mathf.Max(0.1f, secs); }
@@ -151,8 +156,29 @@ namespace Rago
             dmg *= ArmorDef.Reduction(h.part, rig.Gear.Helmet, rig.Gear.Vest);
             Health -= dmg;
             rig.Hud.Damage(Mathf.Clamp01(dmg / 40f), h.dir);
-            if (dmg > 12 && Random.value < 0.45f) Bleed = Mathf.Min(4f, Bleed + 0.6f);
-            if (h.part == BodyPart.Leg) LegPenalty = Mathf.Max(0.6f, LegPenalty - 0.15f);
+            if (dmg > 12 && Random.value < (h.part == BodyPart.Thorax ? 0.7f : 0.45f)) Bleed = Mathf.Min(4f, Bleed + (h.part == BodyPart.Thorax ? 0.9f : 0.6f));
+            // where you're hit matters
+            if (dmg > 3f && Health > 0f)
+                switch (h.part)
+                {
+                    case BodyPart.Leg:
+                        bool wasOk = LegPenalty >= 0.7f;
+                        LegPenalty = Mathf.Max(0.45f, LegPenalty - 0.2f);
+                        if (wasOk && LegPenalty < 0.7f) rig.Toast("LEG HIT - you're limping and can't sprint (bandage or medkit)");
+                        break;
+                    case BodyPart.Arm:
+                        if (ArmInjury <= 0f) rig.Toast("ARM HIT - your aim shakes (medkit)");
+                        ArmInjury = Mathf.Min(1f, ArmInjury + 0.4f);
+                        break;
+                    case BodyPart.Stomach:
+                        if (GutInjury <= 0f) rig.Toast("GUT SHOT - you tire much faster (medkit)");
+                        GutInjury = Mathf.Min(1f, GutInjury + 0.5f);
+                        break;
+                    case BodyPart.Head:
+                        rig.Hud.Suppress(1f);
+                        Sfx.UI(Synth.Ringing(), 0.35f);
+                        break;
+                }
             OnLocalDamaged?.Invoke(h);
             if (Health <= 0)
             {

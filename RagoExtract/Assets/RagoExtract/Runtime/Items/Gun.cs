@@ -628,17 +628,65 @@ namespace Rago
             base.OnGrab(h);
         }
 
+        // Loading like a real gun: line the mag up under the magwell (upright, rounds forward), get its top into the
+        // mouth of the well, and push it up - it slides along the well and clicks in when it seats. Pull it back down or
+        // twist it off line and it comes out again. The well has to be empty first (drop the old mag with B / Y).
+        // Revolvers and tube-fed guns (internal mags) still just load when you bring the rounds close.
+        Gun _rail;   // the gun whose magwell this mag is sliding in
+
+        public override void GetHeldPose(out Vector3 pos, out Quaternion rot)
+        {
+            base.GetHeldPose(out pos, out rot);
+            if (_rail == null || _rail.rig == null || _rail.rig.magwell == null) return;
+            var w = _rail.rig.magwell;
+            float y = Mathf.Clamp(w.InverseTransformPoint(pos).y, -0.14f, 0f);
+            pos = w.TransformPoint(new Vector3(0, y, 0));
+            rot = w.rotation;
+        }
+
         public override void HeldUpdate(Hand h, HandInput input)
         {
-            // auto-insert when brought to the magwell of a gun held in the other hand
             var other = h.Other;
             var gun = other != null ? other.Held as Gun : null;
-            if (gun == null || cal != gun.g.cal) return;
-            if (Vector3.Distance(transform.position, gun.rig.magwell.position) > (gun.Internal ? 0.12f : 0.1f)) return;   // forgiving: near the magwell is enough
-            // a mag already in: swap - the old one drops out as the new one goes in
-            if (!gun.Internal && gun.mag != null && gun.mag != this) gun.EjectMag();
-            if (gun.Accepts(this)) { gun.InsertMag(this); other.Haptic(0.5f, 0.06f); }
+            if (gun == null || cal != gun.g.cal || gun.rig == null || gun.rig.magwell == null) { _rail = null; return; }
+            if (gun.Internal)
+            {
+                if (Vector3.Distance(transform.position, gun.rig.magwell.position) > 0.12f) return;
+                if (gun.Accepts(this)) { gun.InsertMag(this); other.Haptic(0.5f, 0.06f); }
+                return;
+            }
+            if (gun.mag != null && gun.mag != this) { _rail = null; return; }   // full: drop the old one first
+            // where the hand is putting the mag, in the magwell's frame
+            var saved = _rail; _rail = null;
+            base.GetHeldPose(out var wantPos, out var wantRot);
+            _rail = saved;
+            var w = gun.rig.magwell;
+            Vector3 l = w.InverseTransformPoint(wantPos);
+            float upAng = Vector3.Angle(wantRot * Vector3.up, w.up), fwdAng = Vector3.Angle(wantRot * Vector3.forward, w.forward);
+            if (_rail == null)
+            {
+                // engage: top of the mag in the mouth of the well, roughly upright and facing the right way
+                if (Mathf.Abs(l.x) < 0.03f && Mathf.Abs(l.z) < 0.035f && l.y > -0.07f && l.y < 0.015f && upAng < 35f && fwdAng < 55f)
+                {
+                    _rail = gun;
+                    other.Haptic(0.2f, 0.02f); h.Haptic(0.2f, 0.02f);
+                    Sfx.Play(Synth.Grab(1), w.position, 0.25f, 1.4f, 0.5f, 5f);
+                }
+                return;
+            }
+            if (_rail != gun) { _rail = null; return; }
+            // on the rail: pulled away or twisted off line - it comes back out
+            if (Mathf.Abs(l.x) > 0.07f || Mathf.Abs(l.z) > 0.08f || l.y < -0.17f || upAng > 50f) { _rail = null; return; }
+            // pushed home: click
+            if (l.y > -0.006f)
+            {
+                _rail = null;
+                gun.InsertMag(this);
+                other.Haptic(0.7f, 0.07f); h.Haptic(0.5f, 0.05f);
+            }
         }
+
+        public override void OnRelease(Hand h, Vector3 vel, Vector3 angVel) { _rail = null; base.OnRelease(h, vel, angVel); }
 
         protected override bool TrySlot(Hand h)
         {

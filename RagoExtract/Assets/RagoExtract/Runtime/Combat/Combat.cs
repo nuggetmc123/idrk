@@ -251,7 +251,7 @@ namespace Rago
         }
 
         /// <summary>Call every frame with the walker's feet position; plays a step every stride.</summary>
-        public static void Track(ref Vector3 last, ref float dist, ref bool leftFoot, Vector3 feet, Vector3 forward, float dt, float volume)
+        public static void Track(ref Vector3 last, ref float dist, ref bool leftFoot, Vector3 feet, Vector3 forward, float dt, float volume, float runMul = 1.3f, float runRange = 30f)
         {
             Vector3 d = feet - last; d.y = 0;
             last = feet;
@@ -267,7 +267,7 @@ namespace Rago
             forward.y = 0; forward = forward.sqrMagnitude > 0.01f ? forward.normalized : Vector3.forward;
             Vector3 side = Vector3.Cross(Vector3.up, forward) * (leftFoot ? -0.12f : 0.12f);
             Sfx.Play(Synth.Footstep(SurfaceUnder(feet), Random.Range(0, 8), run), feet + side + Vector3.up * 0.05f,
-                volume * (run ? 1.3f : 1f) * Random.Range(0.85f, 1.1f), Random.Range(0.94f, 1.06f), 1f, run ? 30f : 22f);
+                volume * (run ? runMul : 1f) * Random.Range(0.85f, 1.1f), Random.Range(0.94f, 1.06f), 1f, run ? runRange : 22f);
         }
     }
 }

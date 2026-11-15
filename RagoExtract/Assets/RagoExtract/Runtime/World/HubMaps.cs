@@ -544,6 +544,9 @@ namespace Rago
             }
             // ---- the Exchange: a few steps from the lift doors, facing them
             SellStation.Create(transform, new Vector3(W / 2 - 7.5f, 0, -6f), -90f);
+            // ---- the casino: along the south wall, east of the roller door (customers face the wall)
+            Casino.Build(transform, new Vector3(8.6f, 0, -D / 2 + 1.0f), 180f);
+            b.AddLight(new Vector3(8.6f, 4.2f, -D / 2 + 2.6f), new Color(1f, 0.75f, 0.45f), 7f, 1.3f);
             // ---- Bruno the Foreman on the west wall, facing the room
             Foreman = QuestStall.Create(transform, new Vector3(-W / 2 + 3.6f, 0, -1f), -90f, 211);
             b.AddLight(new Vector3(-W / 2 + 4.6f, 3.6f, -1f), new Color(1f, 0.8f, 0.55f), 7f, 1.2f);

@@ -311,6 +311,61 @@ namespace Rago
                                 mb.Sub(0).Sphere(new Vector3(Mathf.Cos(a + 0.52f) * 0.061f, 0.0f, Mathf.Sin(a + 0.52f) * 0.061f), Vector3.one * 0.007f, 8, i % 2 == 0 ? c : new Color(0.2f, 0.5f, 1f));
                             }
                             break;
+                        case 20: // duct tape
+                            mb.Sub(0).Tube(new Vector3(0, -0.024f, 0), new Vector3(0, 0.024f, 0), 0.05f, 0.032f, 20, c);
+                            mb.Sub(1).Tube(new Vector3(0, -0.024f, 0), new Vector3(0, 0.024f, 0), 0.032f, 0.028f, 20, new Color(0.7f, 0.6f, 0.45f));
+                            break;
+                        case 21: // box of screws
+                            mb.Sub(0).Box(Vector3.zero, new Vector3(0.09f, 0.05f, 0.06f), c, 0.003f);
+                            mb.Sub(1).Box(new Vector3(0, 0.026f, 0), new Vector3(0.05f, 0.002f, 0.03f), new Color(0.9f, 0.85f, 0.7f), 0.001f);
+                            break;
+                        case 22: // copper wire coil
+                            for (int i = 0; i < 4; i++) mb.Sub(1).Tube(new Vector3(0, -0.02f + i * 0.012f, 0), new Vector3(0, -0.01f + i * 0.012f, 0), 0.06f, 0.05f, 18, c);
+                            break;
+                        case 23: // light bulb
+                            mb.Sub(0).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(0f, 0.06f), new Vector2(0.025f, 0.05f), new Vector2(0.03f, 0.03f), new Vector2(0.025f, 0.0f), new Vector2(0.013f, -0.015f), new Vector2(0f, -0.016f) }, 14, c);
+                            mb.Sub(1).Cyl(new Vector3(0, -0.035f, 0), new Vector3(0, -0.012f, 0), 0.013f, 0.013f, 12, new Color(0.7f, 0.7f, 0.7f));
+                            break;
+                        case 24: // toilet paper
+                            mb.Sub(0).Tube(new Vector3(0, -0.05f, 0), new Vector3(0, 0.05f, 0), 0.055f, 0.02f, 20, c);
+                            break;
+                        case 25: // matches
+                            mb.Sub(0).Box(Vector3.zero, new Vector3(0.05f, 0.015f, 0.035f), c, 0.002f);
+                            mb.Sub(1).Box(new Vector3(0, 0, 0.0185f), new Vector3(0.044f, 0.01f, 0.002f), new Color(0.35f, 0.2f, 0.12f), 0.0005f);
+                            break;
+                        case 26: // bolts
+                            for (int i = 0; i < 3; i++)
+                            {
+                                var o = new Vector3(-0.025f + i * 0.025f, 0, (i % 2) * 0.012f);
+                                mb.Sub(1).Cyl(o + new Vector3(0, -0.03f, 0), o + new Vector3(0, 0.02f, 0), 0.006f, 0.006f, 8, c);
+                                mb.Sub(1).Cyl(o + new Vector3(0, 0.02f, 0), o + new Vector3(0, 0.03f, 0), 0.011f, 0.011f, 6, c);
+                            }
+                            break;
+                        case 27: // car battery
+                            mb.Sub(0).Box(Vector3.zero, new Vector3(0.24f, 0.17f, 0.17f), c, 0.008f, 2);
+                            mb.Sub(1).Cyl(new Vector3(-0.08f, 0.085f, 0.05f), new Vector3(-0.08f, 0.105f, 0.05f), 0.012f, 0.012f, 10, new Color(0.8f, 0.15f, 0.1f));
+                            mb.Sub(1).Cyl(new Vector3(0.08f, 0.085f, 0.05f), new Vector3(0.08f, 0.105f, 0.05f), 0.012f, 0.012f, 10, new Color(0.2f, 0.2f, 0.2f));
+                            mb.Sub(1).Box(new Vector3(0, 0.03f, -0.0855f), new Vector3(0.14f, 0.05f, 0.002f), new Color(0.9f, 0.7f, 0.1f), 0.001f);
+                            break;
+                        case 28: // circuit board
+                            mb.Sub(0).Box(Vector3.zero, new Vector3(0.14f, 0.004f, 0.1f), c, 0.001f);
+                            for (int i = 0; i < 5; i++) mb.Sub(1).Box(new Vector3(-0.05f + i * 0.025f, 0.005f, (i % 2 == 0 ? 0.02f : -0.02f)), new Vector3(0.018f, 0.006f, 0.014f), new Color(0.08f, 0.08f, 0.08f), 0.001f);
+                            break;
+                        case 29: // instant coffee
+                            mb.Sub(0).Cyl(new Vector3(0, -0.055f, 0), new Vector3(0, 0.04f, 0), 0.04f, 0.04f, 16, new Color(0.55f, 0.4f, 0.25f));
+                            mb.Sub(1).Cyl(new Vector3(0, 0.04f, 0), new Vector3(0, 0.058f, 0), 0.042f, 0.042f, 16, c);
+                            mb.Sub(0).Cyl(new Vector3(0, -0.03f, 0), new Vector3(0, 0.015f, 0), 0.0405f, 0.0405f, 16, new Color(0.85f, 0.2f, 0.15f), false);
+                            break;
+                        case 30: // dog tags
+                            mb.Sub(1).Box(new Vector3(0, 0, 0), new Vector3(0.028f, 0.05f, 0.002f), c, 0.004f);
+                            mb.Sub(1).Box(new Vector3(0.006f, -0.006f, 0.003f), new Vector3(0.028f, 0.05f, 0.002f), c * 0.92f, 0.004f, 1, Quaternion.Euler(0, 0, 12));
+                            for (int i = 0; i < 10; i++) mb.Sub(1).Sphere(new Vector3(Mathf.Sin(i * 0.4f) * 0.02f, 0.03f + i * 0.008f, 0), Vector3.one * 0.0018f, 6, c);
+                            break;
+                        case 31: // rusty wrench
+                            mb.Sub(0).Box(Vector3.zero, new Vector3(0.16f, 0.006f, 0.018f), c, 0.002f);
+                            mb.Sub(0).Tube(new Vector3(0.09f, -0.004f, 0), new Vector3(0.09f, 0.004f, 0), 0.02f, 0.011f, 10, c);
+                            mb.Sub(0).Box(new Vector3(-0.09f, 0, 0), new Vector3(0.03f, 0.008f, 0.03f), c, 0.002f);
+                            break;
                         default:
                             var prof = new List<Vector2> { new Vector2(0.0f, -0.02f), new Vector2(0.022f, 0.004f), new Vector2(0.016f, 0.012f), new Vector2(0.0f, 0.013f) };
                             mb.Sub(1).Lathe(Vector3.zero, Quaternion.identity, prof, 8, c);

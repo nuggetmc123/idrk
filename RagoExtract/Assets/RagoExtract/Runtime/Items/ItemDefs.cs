@@ -371,6 +371,19 @@ namespace Rago
             M("junk_whiskey", "Whiskey Bottle", ItemKind.Valuable, U, 650, 13, new Color(0.55f, 0.3f, 0.1f), "Aged twelve years. Mostly full.");
             M("val_phone", "Smartphone", ItemKind.Valuable, U, 950, 14, new Color(0.08f, 0.08f, 0.1f), "Cracked screen, good parts.");
             M("val_radio", "Military Radio", ItemKind.Valuable, R, 3500, 15, new Color(0.3f, 0.33f, 0.24f), "Encrypted military handset. In a raid, hold it and pull the trigger to call in an AIR DROP where you stand (not underground). Found only at a few spots on each map.");
+            // more junk: cheap stuff lying around everywhere, sells for a little at the Exchange
+            M("junk_tape", "Duct Tape", ItemKind.Valuable, C, 120, 20, new Color(0.55f, 0.56f, 0.58f), "Fixes everything. Traders love it.");
+            M("junk_screws", "Box of Screws", ItemKind.Valuable, C, 70, 21, new Color(0.6f, 0.45f, 0.25f), "Rattles when you shake it.");
+            M("junk_wire", "Copper Wire", ItemKind.Valuable, C, 180, 22, new Color(0.85f, 0.5f, 0.25f), "A coil of salvaged copper.");
+            M("junk_bulb", "Light Bulb", ItemKind.Valuable, C, 45, 23, new Color(0.95f, 0.95f, 0.85f), "Might still work. Probably doesn't.");
+            M("junk_tp", "Toilet Paper", ItemKind.Valuable, C, 90, 24, new Color(0.95f, 0.95f, 0.93f), "Worth more than gold, some days.");
+            M("junk_matches", "Matches", ItemKind.Valuable, C, 35, 25, new Color(0.75f, 0.2f, 0.15f), "A full box. Keep them dry.");
+            M("junk_bolts", "Bolts", ItemKind.Valuable, C, 55, 26, new Color(0.5f, 0.5f, 0.52f), "Heavy hex bolts. Someone needs these.");
+            M("junk_carbattery", "Car Battery", ItemKind.Valuable, U, 520, 27, new Color(0.15f, 0.15f, 0.16f), "Heavy, but still holds a charge.");
+            M("junk_board", "Circuit Board", ItemKind.Valuable, U, 380, 28, new Color(0.1f, 0.45f, 0.2f), "Pulled from something electronic.");
+            M("junk_coffee", "Instant Coffee", ItemKind.Valuable, C, 140, 29, new Color(0.35f, 0.2f, 0.12f), "Half a jar. Smells like heaven.");
+            M("junk_tags", "Dog Tags", ItemKind.Valuable, U, 450, 30, new Color(0.75f, 0.75f, 0.78f), "Somebody's name. Somebody's story.");
+            M("junk_wrench", "Rusty Wrench", ItemKind.Valuable, C, 95, 31, new Color(0.5f, 0.35f, 0.25f), "Seized up, but it's good steel.");
             M("val_ring", "Silver Ring", ItemKind.Valuable, U, 1100, 16, new Color(0.85f, 0.85f, 0.9f), "Engraved. Not yours.");
             M("val_laptop", "Rugged Laptop", ItemKind.Valuable, R, 6500, 17, new Color(0.25f, 0.27f, 0.25f), "Field laptop full of data.");
             M("val_idol", "Gold Idol", ItemKind.Valuable, E, 16000, 18, new Color(1f, 0.75f, 0.25f), "A small golden statue. Huge payday.");

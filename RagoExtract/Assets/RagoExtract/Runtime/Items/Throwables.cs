@@ -123,6 +123,7 @@ namespace Rago
         bool _track;
         float _damage = 45f;
         readonly Dictionary<IDamageable, float> _cool = new Dictionary<IDamageable, float>();
+        float _lockCool;
         static readonly RaycastHit[] _hits = new RaycastHit[12];
 
         public static Knife Create(SimpleDef d, Vector3 pos, Quaternion rot)
@@ -189,6 +190,8 @@ namespace Rago
 
         bool TryHit(Collider c, Vector3 point, Vector3 dir, float speed, Hand h)
         {
+            var lk = c.GetComponentInParent<Padlock>();
+            if (lk != null && speed > 2f) { if (Time.time < _lockCool) return false; _lockCool = Time.time + 0.4f; lk.Damage(_damage * 0.4f, point); h.Haptic(0.8f, 0.08f); return true; }
             var zone = c.GetComponentInParent<HitZone>();
             if (zone == null || zone.owner == null || !zone.owner.Alive) return false;
             if (zone.owner == (IDamageable)RagoGame.I.Player.Vitals) return false;   // not yourself

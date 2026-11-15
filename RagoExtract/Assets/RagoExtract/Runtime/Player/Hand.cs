@@ -183,6 +183,16 @@ namespace Rago
         /// full auto keeps walking it, and it only settles once you stop firing - like a real shooter pulling it back
         /// down. rot: degrees (pitch up, yaw right) for the grip hand; pos: metres (world) for the support hand, which is
         /// what actually tips a two-handed gun.</summary>
+        /// <summary>An arm wound: the hand shakes (a slow wobble plus a fine tremor), a few degrees at worst.</summary>
+        Vector3 Tremor()
+        {
+            float a = rig != null && rig.Vitals != null ? rig.Vitals.ArmInjury : 0f;
+            if (a <= 0f || Held == null) return Vector3.zero;
+            float t = Time.time, s = (this == rig.HandL ? 7.3f : 0f);
+            return new Vector3(Mathf.PerlinNoise(t * 0.9f, s) - 0.5f + (Mathf.PerlinNoise(t * 9f, s + 3f) - 0.5f) * 0.3f,
+                               Mathf.PerlinNoise(s + 11f, t * 0.8f) - 0.5f + (Mathf.PerlinNoise(s + 5f, t * 8f) - 0.5f) * 0.3f, 0f) * (5f * a);
+        }
+
         public void Climb(Vector2 rot, Vector3 pos)
         {
             _climbRot += new Vector3(-rot.x, rot.y, 0);
@@ -295,7 +305,7 @@ namespace Rago
             if (rig.Dead || rb == null || !_snapOk) return;
             tr = Compat.SafeRot(tr);
             tp += _sag + tr * _recoilPos + _climbPos;
-            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot + _climbRot));
+            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot + _climbRot + Tremor()));
             if ((rb.position - tp).sqrMagnitude > 0.6f * 0.6f) return;   // a big jump (teleport, respawn): let physics catch up first
             transform.SetPositionAndRotation(tp, tr);
         }
@@ -328,7 +338,7 @@ namespace Rago
             _sag = Vector3.Lerp(_sag, Vector3.down * heavy * 0.06f, dt * 6f);
             tp += _sag;
             tp += tr * _recoilPos + _climbPos;
-            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot + _climbRot));
+            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot + _climbRot + Tremor()));
             // the hand draws exactly on the controller unless something solid stopped it last step (it ended up well short
             // of where it was sent): then it stays against the wall. Comparing with the aim - not with the controller -
             // means walking and running never count as "blocked", however fast you go.

@@ -113,7 +113,24 @@ namespace Rago
         const int Rate = 8000;
         readonly Queue<float> _buf = new Queue<float>(Rate);
         readonly object _lock = new object();
+        readonly System.Random _noise = new System.Random();
         AudioSource _src;
+        AudioHighPassFilter _hp; AudioLowPassFilter _lp;
+        bool _radio; float _radioOn;
+        /// <summary>Squad radio: in your ears (not from their position), thin and band-limited with a bit of static,
+        /// and a squelch click when they key up.</summary>
+        public bool Radio
+        {
+            set
+            {
+                if (value == _radio) return;
+                _radio = value;
+                _src.spatialBlend = value ? 0f : 1f;
+                _hp.enabled = value; _lp.enabled = value;
+                _src.volume = value ? 0.75f : 1f;
+                if (value) Sfx.UI(Synth.UiClick(), 0.25f);
+            }
+        }
 
         public static VoicePlayback Create(Transform parent)
         {
@@ -128,6 +145,8 @@ namespace Rago
             v._src.dopplerLevel = 0f;
             v._src.loop = true;
             v._src.clip = AudioClip.Create("voice", Rate * 2, 1, Rate, true, v.OnRead);
+            v._hp = go.AddComponent<AudioHighPassFilter>(); v._hp.cutoffFrequency = 450f; v._hp.enabled = false;
+            v._lp = go.AddComponent<AudioLowPassFilter>(); v._lp.cutoffFrequency = 2800f; v._lp.enabled = false;
             v._src.Play();
             return v;
         }
@@ -144,7 +163,12 @@ namespace Rago
         void OnRead(float[] data)
         {
             lock (_lock)
-                for (int i = 0; i < data.Length; i++) data[i] = _buf.Count > 0 ? _buf.Dequeue() : 0f;
+                for (int i = 0; i < data.Length; i++)
+                {
+                    float s = _buf.Count > 0 ? _buf.Dequeue() : 0f;
+                    if (_radio && s != 0f) s = Mathf.Clamp(s * 1.6f, -0.8f, 0.8f) + (float)(_noise.NextDouble() - 0.5) * 0.03f;   // a little crunch and hiss
+                    data[i] = s;
+                }
         }
     }
 

@@ -31,6 +31,7 @@ namespace Rago
             go.transform.SetParent(parent, false);
             go.transform.SetPositionAndRotation(hinge, Quaternion.LookRotation(Vector3.Cross(along, Vector3.up), Vector3.up));
             var d = go.AddComponent<SwingDoor>();
+            d.Id = seed;
             d.Build(width, height, seed);
             return d;
         }
@@ -63,6 +64,8 @@ namespace Rago
             leafGo.AddComponent<SurfaceTag>().surface = wood ? Synth.Surface.Wood : Synth.Surface.Metal;
             // some doors are already open when the raid starts (same on every player's game: it comes from the map seed)
             if (rng.Chance(0.35f)) _angle = rng.Range(55f, 95f) * (rng.Chance(0.5f) ? 1 : -1);
+            // ...and some closed ones are padlocked: shoot the lock off (or smash it with a knife) to get in
+            else if (rng.Chance(0.18f) && RagoGame.I != null && RagoGame.I.Area == Area.Raid) AddLock(rng.Chance(0.5f) ? 1f : -1f);
             Apply();
         }
 
@@ -116,6 +119,61 @@ namespace Rago
             Apply();
         }
 
+        public int Id;
+        public bool Locked;
+        GameObject _lock;
+        float _lockHp = 35f, _rattleT;
+
+        void AddLock(float side)
+        {
+            Locked = true;
+            _lock = new GameObject("Padlock");
+            _lock.transform.SetParent(_leaf, false);
+            _lock.transform.localPosition = new Vector3(_w - 0.12f, 1.12f, 0.06f * side);
+            var mb = new MB(2);
+            Color steel = UI.Lin(new Color(0.55f, 0.55f, 0.55f)), brass = UI.Lin(new Color(0.75f, 0.58f, 0.2f));
+            mb.Sub(0).Box(new Vector3(0.05f, 0, -0.02f * side), new Vector3(0.18f, 0.035f, 0.01f), steel, 0.003f);       // hasp across the gap
+            mb.Sub(1).Box(new Vector3(0, -0.06f, 0), new Vector3(0.06f, 0.065f, 0.025f), brass, 0.006f);                   // lock body
+            mb.Sub(0).Cyl(new Vector3(-0.018f, -0.03f, 0), new Vector3(-0.018f, 0.0f, 0), 0.006f, 0.006f, 6, steel);      // shackle
+            mb.Sub(0).Cyl(new Vector3(0.018f, -0.03f, 0), new Vector3(0.018f, 0.0f, 0), 0.006f, 0.006f, 6, steel);
+            mb.Sub(0).Box(new Vector3(0, 0.003f, 0), new Vector3(0.048f, 0.008f, 0.008f), steel, 0.002f);
+            mb.Build("Lock", _lock.transform, Mats.Lit("lock_steel", Color.white, 0.9f, 0.6f, Mats.Metal, null, 0.3f, 0.3f), Mats.Lit("lock_brass", Color.white, 0.9f, 0.55f, Mats.Metal, null, 0.3f, 0.3f));
+            var bc = _lock.AddComponent<BoxCollider>(); bc.center = new Vector3(0, -0.04f, 0); bc.size = new Vector3(0.09f, 0.12f, 0.06f);   // a little bigger than it looks: easier to hit
+            _lock.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
+            _lock.AddComponent<Padlock>().door = this;
+        }
+
+        /// <summary>Bullets / knives on the padlock. tell: it was us - tell the others.</summary>
+        public void DamageLock(float dmg, bool tell)
+        {
+            if (!Locked) return;
+            _lockHp -= dmg;
+            Sfx.Play(Synth.Impact(Synth.Surface.Metal, Random.Range(0, 3)), _lock != null ? _lock.transform.position : _center, 0.8f, 1.2f, 1f, 25f);
+            if (_lockHp <= 0f) BreakLock(tell);
+        }
+
+        public void BreakLock(bool tell)
+        {
+            if (!Locked) return;
+            Locked = false;
+            if (_lock != null)
+            {
+                Sfx.Play(Synth.MagOut(), _lock.transform.position, 0.9f, 0.7f, 1f, 25f);
+                Fx.Impact(_lock.transform.position, _lock.transform.forward, Vector3.down, Synth.Surface.Metal, null, 1f);
+                Destroy(_lock);
+            }
+            if (tell && NetGame.Live) NetGame.I.LockBroken(Id);
+        }
+
+        /// <summary>Someone tried to open it: it rattles and won't budge.</summary>
+        public void Rattle()
+        {
+            if (Time.time < _rattleT) return;
+            _rattleT = Time.time + 0.8f;
+            Sfx.Play(Synth.SlideBack(), _center, 0.35f, 1.6f, 1f, 15f);
+            RagoGame.I?.Player?.Toast("Padlocked - shoot the lock off or smash it with a knife");
+        }
+
         public bool Held;
         bool _started;
         int _side = 1;   // the way a door that starts open hangs: into the roomier side
@@ -128,6 +186,7 @@ namespace Rago
 
         public void DriveWithHand(Vector3 hand, float offset)
         {
+            if (Locked) { Rattle(); return; }
             float dt = Mathf.Max(Time.deltaTime, 0.001f);
             float target = Mathf.Clamp(HandAngle(hand) + offset, Lo, Hi);
             float step = Mathf.Clamp(Mathf.DeltaAngle(_angle, target), -720f * dt, 720f * dt);
@@ -145,7 +204,7 @@ namespace Rago
         }
 
         // ---- who can push doors this frame (shared by every door)
-        struct Pusher { public Vector3 p; public float r; }
+        struct Pusher { public Vector3 p; public float r; public bool npc; }
         static readonly List<Pusher> _pushers = new List<Pusher>();
         static int _frame = -1;
 
@@ -164,7 +223,7 @@ namespace Rago
             }
             if (NpcDirector.I != null)
                 foreach (var n in NpcDirector.I.Npcs)
-                    if (n != null && n.Alive) _pushers.Add(new Pusher { p = n.transform.position + Vector3.up * 1.0f, r = 0.6f });   // reach a little ahead: their agents don't stop for doors
+                    if (n != null && n.Alive) _pushers.Add(new Pusher { p = n.transform.position + Vector3.up * 1.0f, r = 0.6f, npc = true });   // reach a little ahead: their agents don't stop for doors
             if (NetGame.Live)
                 foreach (var r in NetGame.I.Remotes.Values)
                     if (r != null && r.Alive && r.Chest != null) _pushers.Add(new Pusher { p = r.Chest.position, r = 0.4f });
@@ -190,6 +249,11 @@ namespace Rago
                 float dist = Vector3.Dot(l, nrm);
                 float need = u.r + 0.05f - Mathf.Abs(dist);
                 if (need <= 0f) continue;
+                if (Locked)
+                {
+                    if (u.npc) { BreakLock(false); }   // raiders have the keys
+                    else continue;                      // it won't budge for you
+                }
                 // swing the leaf away from whoever is touching it: just enough to clear them
                 float da = need / Mathf.Max(0.25f, along) * Mathf.Rad2Deg * (dist >= 0 ? 1f : -1f);
                 if (Mathf.Abs(da) > Mathf.Abs(push)) push = da;
@@ -215,13 +279,20 @@ namespace Rago
         }
     }
 
+    /// <summary>The padlock on a locked door: bullets (and knives) break it.</summary>
+    public class Padlock : MonoBehaviour, IBreakable
+    {
+        public SwingDoor door;
+        public void Damage(float d, Vector3 p) { if (door != null) door.DamageLock(d, true); }
+    }
+
     /// <summary>Grab a door with the grip button: it swings with your hand round the hinge.</summary>
     public class DoorGrip : Interactable
     {
         public SwingDoor door;
         float _offset;
         public override bool CanGrab(Hand h) => door != null;
-        public override void OnGrab(Hand h) { _offset = door.GrabOffset(h.TrackedPosition); door.Held = true; h.Haptic(0.2f, 0.03f); }
+        public override void OnGrab(Hand h) { _offset = door.GrabOffset(h.TrackedPosition); door.Held = true; h.Haptic(0.2f, 0.03f); if (door.Locked) door.Rattle(); }
         public override void HoldUpdate(Hand h) { if (door != null) door.DriveWithHand(h.TrackedPosition, _offset); }
         public override void OnRelease(Hand h) { if (door != null) door.Held = false; }
     }

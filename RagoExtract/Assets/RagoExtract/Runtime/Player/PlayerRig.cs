@@ -388,7 +388,7 @@ namespace Rago
             // sprint: click the left stick, stays on while you keep moving forward
             if (XRInputs.VR) { if (XRInputs.Left.StickClickDown) _sprintLatch = !_sprintLatch; if (move.magnitude < 0.2f) _sprintLatch = false; }
             else _sprintLatch = Desktop.Sprint;
-            Sprinting = _sprintLatch && move.y > 0.3f && Vitals.Stamina > 1f && !Crouched;
+            Sprinting = _sprintLatch && move.y > 0.3f && Vitals.Stamina > 1f && !Crouched && Vitals.CanSprint;
             // crouch toggle: right stick click (and physically crouching always works)
             if (XRInputs.VR && XRInputs.Right.StickClickDown) Crouched = !Crouched;
             if (!XRInputs.VR) Crouched = Desktop.Crouch;
@@ -458,7 +458,7 @@ namespace Rago
                 _smoothY = Mathf.Abs(_smoothY) > 0.5f ? 0f : Mathf.Lerp(_smoothY, 0f, 1f - Mathf.Exp(-12f * dt));
                 var o = Origin.localPosition; o.y = _smoothY; Origin.localPosition = o;
             }
-            if (Sprinting) Vitals.Stamina -= dt * 7f;   // half the old drain: you can run about twice as far
+            if (Sprinting) Vitals.Stamina -= dt * 7f * (1f + Vitals.GutInjury * 1.5f);   // a gut wound: you run out of breath fast
 
             // footsteps: left, right, left... from each foot, heel-then-toe, heavier when running
             float planar = MoveVelocity.magnitude;
