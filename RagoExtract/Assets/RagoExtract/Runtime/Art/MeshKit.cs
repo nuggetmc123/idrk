@@ -31,6 +31,10 @@ namespace Rago
 
         int V(Vector3 p, Vector3 n, Vector2 uv, Color c)
         {
+            // a bad number (NaN / infinity) anywhere poisons the whole merged mesh ("abnormal mesh bounds" / "Invalid
+            // AABB"): never let one in
+            if (!(Mathf.Abs(p.x) < 1e6f && Mathf.Abs(p.y) < 1e6f && Mathf.Abs(p.z) < 1e6f)) p = Vector3.zero;
+            if (!(Mathf.Abs(n.x) <= 1e6f && Mathf.Abs(n.y) <= 1e6f && Mathf.Abs(n.z) <= 1e6f)) n = Vector3.up;
             _v.Add(_m.MultiplyPoint3x4(p));
             _n.Add(_m.MultiplyVector(n).normalized);
             _uv.Add(uv * UvScale);

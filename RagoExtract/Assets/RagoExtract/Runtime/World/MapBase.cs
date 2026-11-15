@@ -938,7 +938,7 @@ namespace Rago
                     var side = Quaternion.Euler(0, heading + 90, 0) * Vector3.forward;
                     pos += dir * b.Rng.Range(6.5f, 8.5f);
                     float t = (float)k / Mathf.Max(1, segs - 1);
-                    float h = Mathf.Lerp(2.2f, peak, Mathf.Pow(Mathf.Sin(t * Mathf.PI), 0.6f)) * b.Rng.Range(0.85f, 1.12f);
+                    float h = Mathf.Lerp(2.2f, peak, Mathf.Pow(Mathf.Max(0f, Mathf.Sin(t * Mathf.PI)), 0.6f)) * b.Rng.Range(0.85f, 1.12f);
                     // the draws happen whether or not this piece is built, so the ridge's shape doesn't depend on gaps
                     float len = b.Rng.Range(11f, 15f), dep = b.Rng.Range(7f, 10f), lean = b.Rng.Range(-6f, 6f), tw = b.Rng.Range(-14f, 14f);
                     float topH = h * b.Rng.Range(0.25f, 0.45f), off = b.Rng.Range(-2f, 2f), tt = b.Rng.Range(-20f, 20f);

@@ -49,6 +49,7 @@ namespace Rago
 
         public void Collider(Vector3 c, Vector3 size, Quaternion rot, Synth.Surface s)
         {
+            if (!(Mathf.Abs(c.x + c.y + c.z) < 1e6f) || !(size.x > 0f && size.y > 0f && size.z > 0f && size.sqrMagnitude < 1e12f)) return;   // never a broken collider ("Invalid AABB")
             var go = new GameObject("c");
             go.transform.SetParent(ColRoot(s), false);
             go.transform.SetPositionAndRotation(c, rot);
