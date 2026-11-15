@@ -1008,7 +1008,7 @@ namespace Rago
     // ===================================================================================== loot crates
     public class LootCrate : MonoBehaviour
     {
-        public enum Kind { Crate, WeaponCase, Optics, Medical, Safe, Duffel, ArmorCase }
+        public enum Kind { Crate, WeaponCase, Optics, Medical, Safe, Duffel, ArmorCase, AirDrop }
         public Kind kind;
         public int index;
         public bool opened;
@@ -1036,6 +1036,7 @@ namespace Rago
                 case Kind.Safe: size = new Vector3(0.5f, 0.5f, 0.45f); mat = Mats.Lit("safe", new Color(0.2f, 0.22f, 0.24f), 0.8f, 0.4f, Mats.Metal, Mats.MetalN, 0.4f, 0.5f); col = Color.white; break;
                 case Kind.ArmorCase: size = new Vector3(0.72f, 0.4f, 0.5f); mat = Mats.Lit("case_armor", new Color(0.24f, 0.27f, 0.2f), 0.15f, 0.35f, Mats.Noise, null, 0.45f, 0.35f); col = Color.white; break;
                 case Kind.Duffel: size = new Vector3(0.6f, 0.28f, 0.36f); mat = Mats.Lit("duffel", new Color(0.15f, 0.15f, 0.14f), 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f); col = Color.white; break;
+                case Kind.AirDrop: size = new Vector3(1.8f, 0.95f, 1.2f); mat = Mats.Lit("crate_airdrop", new Color(0.3f, 0.34f, 0.24f), 0.1f, 0.35f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
                 default: size = new Vector3(0.9f, 0.5f, 0.55f); mat = Mats.Lit("crate_mil", new Color(0.33f, 0.36f, 0.26f), 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
             }
             c.Size = size;
@@ -1080,8 +1081,8 @@ namespace Rago
             var lc = c._lid.gameObject.AddComponent<BoxCollider>();
             lc.center = new Vector3(0, 0.015f, size.z * 0.5f); lc.size = new Vector3(size.x, 0.03f, size.z);
             // item cells
-            int cols = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? 2 : 3;
-            int rows = kind == Kind.WeaponCase || kind == Kind.ArmorCase ? 1 : 2;
+            int cols = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? 2 : kind == Kind.AirDrop ? 4 : 3;
+            int rows = kind == Kind.WeaponCase || kind == Kind.ArmorCase ? 1 : kind == Kind.AirDrop ? 3 : 2;
             float fit = kind == Kind.WeaponCase ? 1.1f : Mathf.Min(size.x / cols, size.z / rows) * 0.95f;
             c._box = ItemContainer.Grid(go.transform, new Vector3(0, 0.06f, 0), Quaternion.identity, cols, rows, new Vector2(size.x / cols, size.z / rows), fit,
                 null, kind == Kind.WeaponCase ? Quaternion.Euler(0, 90, 0) * Quaternion.Euler(0, 0, 90) : Quaternion.identity);   // the gun lies along the case
@@ -1126,7 +1127,7 @@ namespace Rago
             foreach (var s in _box.slots) s.enabled = true;
             var rng = new Rng(_map.Seed * 7349 + index * 131);
             var table = vaultGrade ? Db.LootTable.Vault : kind == Kind.WeaponCase ? Db.LootTable.WeaponCase : kind == Kind.Optics ? Db.LootTable.OpticsBox : kind == Kind.Medical ? Db.LootTable.Medical : kind == Kind.Safe ? Db.LootTable.Safe : kind == Kind.ArmorCase ? Db.LootTable.Armor : Db.LootTable.Crate;
-            int n = vaultGrade ? Mathf.Min(_box.slots.Count, rng.Range(2, 5)) : kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? rng.Range(1, 3) : rng.Range(1, 5);
+            int n = kind == Kind.AirDrop ? Mathf.Min(_box.slots.Count, rng.Range(5, 9)) : vaultGrade ? Mathf.Min(_box.slots.Count, rng.Range(2, 5)) : kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? rng.Range(1, 3) : rng.Range(1, 5);
             for (int i = 0; i < n && i < _box.slots.Count; i++)
             {
                 var def = Db.Roll(table, rng);

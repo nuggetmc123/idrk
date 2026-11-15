@@ -184,18 +184,18 @@ namespace Rago
             }
             // the crate itself while falling (the real, lootable crate replaces it on landing)
             var mb = new MB();
-            mb.Box(new Vector3(0, 0.45f, 0), new Vector3(1.2f, 0.9f, 1.2f), new Color(0.3f, 0.34f, 0.24f), 0.05f);
-            mb.Box(new Vector3(0, 0.45f, 0), new Vector3(1.24f, 0.12f, 1.24f), new Color(0.15f, 0.15f, 0.14f), 0.02f);
+            mb.Box(new Vector3(0, 0.5f, 0), new Vector3(1.8f, 1.0f, 1.25f), new Color(0.3f, 0.34f, 0.24f), 0.05f);
+            mb.Box(new Vector3(0, 0.5f, 0), new Vector3(1.84f, 0.14f, 1.29f), new Color(0.15f, 0.15f, 0.14f), 0.02f);
             mb.Build("Falling", go.transform, Mats.Lit("drop_crate", Color.white, 0.1f, 0.35f, Mats.Wood, Mats.WoodN, 0.4f, 0.2f));
             // parachute: a wide dome with lines down to the crate
             d._chute = new GameObject("Chute").transform;
             d._chute.SetParent(go.transform, false);
             var cm = new MB();
-            cm.Sphere(new Vector3(0, 7f, 0), new Vector3(4.2f, 1.6f, 4.2f), 16, new Color(0.35f, 0.38f, 0.28f));
+            cm.Sphere(new Vector3(0, 8.5f, 0), new Vector3(6f, 2.2f, 6f), 16, new Color(0.35f, 0.38f, 0.28f));
             for (int i = 0; i < 8; i++)
             {
                 float a = i * Mathf.PI / 4f;
-                cm.Cyl(new Vector3(Mathf.Cos(a) * 0.5f, 0.9f, Mathf.Sin(a) * 0.5f), new Vector3(Mathf.Cos(a) * 3.8f, 6.6f, Mathf.Sin(a) * 3.8f), 0.015f, 0.015f, 4, new Color(0.8f, 0.8f, 0.75f));
+                cm.Cyl(new Vector3(Mathf.Cos(a) * 0.7f, 1.0f, Mathf.Sin(a) * 0.7f), new Vector3(Mathf.Cos(a) * 5.4f, 7.9f, Mathf.Sin(a) * 5.4f), 0.018f, 0.018f, 4, new Color(0.8f, 0.8f, 0.75f));
             }
             cm.Build("Canopy", d._chute, Mats.Lit("chute", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.3f, 0f));
             d._beacon = new GameObject("Beacon").AddComponent<Light>();
@@ -234,7 +234,7 @@ namespace Rago
             var map = RagoGame.I != null ? RagoGame.I.Map : null;
             if (map == null) return;
             // the real crate: vault-grade loot, the same on every machine (same index, same raid seed)
-            var crate = LootCrate.Create(map, _index, at, _index * 37f, LootCrate.Kind.Crate);
+            var crate = LootCrate.Create(map, _index, at, _index * 37f, LootCrate.Kind.AirDrop);
             crate.vaultGrade = true;
             _crate = crate;
             crate.transform.SetParent(transform, true);
