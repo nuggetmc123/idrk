@@ -127,6 +127,8 @@ namespace Rago
         public int ActorId => 0;
         public static System.Action<HitInfo> OnLocalDamaged;
         public static System.Action<int> OnLocalDeath; // killer actor id
+        public static HitInfo LastKillHit;      // the hit that killed you (who, with what, where)
+        public static string LastDeathReason;   // no killer: "Bled out", "Drowned", raid time ran out...
 
         public void ResetFull() { Health = MaxHealth; Stamina = MaxStamina; Bleed = 0; LegPenalty = 1; _hot = 0; StimBoost = 0; }
 
@@ -155,6 +157,7 @@ namespace Rago
             if (Health <= 0)
             {
                 Health = 0;
+                LastKillHit = h; LastDeathReason = null;
                 rig.OnDeath(h.dir * Mathf.Max(30f, h.force * 25f), h.point);
                 OnLocalDeath?.Invoke(h.attacker);
             }
@@ -164,6 +167,7 @@ namespace Rago
         {
             if (!Alive || God) return;   // god mode (tester): nothing kills you
             Health = 0;
+            LastDeathReason = reason;
             rig.OnDeath(Vector3.zero, rig.Head.position);
             rig.Toast(reason);
             OnLocalDeath?.Invoke(-1);
@@ -197,7 +201,7 @@ namespace Rago
                 _dripT -= dt;
                 if (_dripT <= 0) { _dripT = Random.Range(0.3f, 0.8f) / Bleed; Fx.Drip(rig.Body.Rig.spine.position + Random.insideUnitSphere * 0.1f); }
                 if (God) { Health = MaxHealth; Bleed = 0; }   // tester god mode
-                if (Health <= 0) { Health = 0; rig.OnDeath(Vector3.zero, rig.Head.position); OnLocalDeath?.Invoke(-1); }
+                if (Health <= 0) { Health = 0; LastDeathReason = "Bled out"; rig.OnDeath(Vector3.zero, rig.Head.position); OnLocalDeath?.Invoke(-1); }
             }
             if (!rig.Sprinting) Stamina = Mathf.Min(MaxStamina, Stamina + dt * (StimBoost > 0 ? 30f : 12f));
             StimBoost = Mathf.Max(0, StimBoost - dt);

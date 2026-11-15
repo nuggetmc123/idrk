@@ -369,7 +369,7 @@ namespace Rago
     public class RaidResult
     {
         public bool extracted;
-        public string map, exit, killer;
+        public string map, exit, killer, weapon;
         public int value, kills;
         public float time;
     }
@@ -480,10 +480,33 @@ namespace Rago
             if (!hasGun) prof.loadout.pistol = new ItemData("p9");
             if (prof.stashAmmo[(int)Caliber.C9mm] < 34) prof.stashAmmo[(int)Caliber.C9mm] = 34;
             prof.Save();
-            string by = killer >= 1000 ? "Raider" : killer > 0 ? "another operator" : killer == 0 ? "yourself" : "the environment";
-            _g.LastResult = new RaidResult { extracted = false, map = _map.DisplayName, killer = by, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
-            _g.Player.Hud.Center("KILLED IN ACTION", 5f);
+            DeathCause(killer, out string by, out string with);
+            _g.LastResult = new RaidResult { extracted = false, map = _map.DisplayName, killer = by, weapon = with, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
+            _g.Player.Hud.Center("DIED IN ACTION\n<size=40>" + (with != null ? "Killed by " + by + " - " + with : by) + "</size>", 6f);
             StartCoroutine(BackToBunker());
+        }
+
+        /// <summary>Who or what killed you, and with what: "Scav" / "The Courier" / a player's callsign, and the gun's name.</summary>
+        static void DeathCause(int killer, out string by, out string with)
+        {
+            var h = Vitals.LastKillHit;
+            with = null;
+            if (killer < 0) { by = Vitals.LastDeathReason ?? "Died"; return; }
+            var def = !string.IsNullOrEmpty(h.gunId) ? Db.Get(h.gunId) : null;
+            if (killer >= 1000)
+            {
+                var npc = NpcDirector.I != null ? NpcDirector.I.Get(killer - 1000) : null;
+                by = npc == null ? "Scav" : npc.IsBoss ? npc.BossName : npc.Heavy ? "Heavy Scav" : "Scav";
+                if (def == null && npc != null) def = npc.Weapon;
+            }
+            else if (killer > 0)
+            {
+                RemotePlayer rp = null;
+                if (NetGame.I != null) NetGame.I.Remotes.TryGetValue((ulong)(killer - 1), out rp);
+                by = rp != null && !string.IsNullOrEmpty(rp.DisplayName) ? rp.DisplayName : "another operator";
+            }
+            else by = "yourself";
+            if (def != null) with = def.name + (h.part == BodyPart.Head ? " (headshot)" : "");
         }
 
         IEnumerator BackToBunker()
@@ -504,8 +527,9 @@ namespace Rago
             root.SetParent(parent, false);
             root.position = new Vector3(0, 1.6f, 1.2f);
             var p = UI.Panel(root, "Panel", Vector3.zero, Quaternion.identity, new Vector2(1.3f, 0.75f));
-            UI.Text(p, r.extracted ? "EXTRACTED" : "KILLED IN ACTION", new Vector3(0, 0.27f, 0), 0.07f, r.extracted ? new Color(0.4f, 1f, 0.5f) : new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
-            string body = r.map + "\n" + (r.extracted ? "Exit: " + r.exit + "\nLoot gained: $" + r.value.ToString("N0") : "Killed by " + r.killer + "\nYour gear was lost") +
+            UI.Text(p, r.extracted ? "EXTRACTED" : "DIED IN ACTION", new Vector3(0, 0.27f, 0), 0.07f, r.extracted ? new Color(0.4f, 1f, 0.5f) : new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            string body = r.map + "\n" + (r.extracted ? "Exit: " + r.exit + "\nLoot gained: $" + r.value.ToString("N0")
+                                       : (r.weapon != null ? "Killed by " + r.killer + "\nwith " + r.weapon : r.killer) + "\nYour gear was lost") +
                           "\nKills: " + r.kills + "     Time: " + Mathf.FloorToInt(r.time / 60) + "m " + Mathf.FloorToInt(r.time % 60) + "s";
             UI.Text(p, body, new Vector3(0, -0.03f, 0), 0.032f, Color.white);
             UI.Button(p, "OK", new Vector3(0, -0.27f, 0), new Vector2(0.3f, 0.1f), () => Object.Destroy(root.gameObject));
