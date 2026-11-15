@@ -176,6 +176,7 @@ namespace Rago
             var pl = RagoGame.I.Player;
             if (!NetHub.Online) { pl.Toast("Multiplayer isn't set up (Rago Extract > Multiplayer in Unity)"); return; }
             if (Kiosk.AnyQueued) { pl.Toast("You're in the raid queue - invite them after"); return; }
+            if (NetHub.Backend.PartyCode != null && NetHub.Backend.PartyMembers.Count >= QueueRules.PartyMax) { pl.Toast("Your party is full (" + QueueRules.PartyMax + " players)"); return; }
             NetHub.Backend.InviteToParty(callsign);
             pl.Toast("Invited " + callsign + (RagoGame.I.Area == Area.Raid ? " - you'll team up back in your bunkers" : ""));
             Sfx.UI(Synth.Beep(), 0.3f);
@@ -326,6 +327,13 @@ namespace Rago
             var here = NetHub.Online ? NetHub.Backend.SessionPlayers : null;
             if (here != null) foreach (var n in here) list.Add(n);
             foreach (var n in prof.recent) if (!FindIn(list, n)) list.Add(n);
+            // what this machine can see of the others - screenshot this when multiplayer misbehaves
+            if (NetHub.Online)
+            {
+                string info = NetHub.Backend.DebugInfo + (NetGame.Live ? NetGame.I.DebugInfo() : "");
+                var np = UI.Panel(_content, "NetInfo", new Vector3(0.88f, 0, 0), Quaternion.identity, new Vector2(0.6f, 0.9f), null, true, Skin.Steel);
+                UI.Text(np, info, new Vector3(-0.28f, 0.42f, -0.002f), 0.016f, new Color(0.6f, 0.85f, 1f), TextAnchor.UpperLeft);
+            }
             if (list.Count == 0) { Line("Nobody yet: people you raid, party or meet in the Market with show up here.", 0.2f, 0.028f); return; }
             DrawList(list, 0.2f, name => (name, here != null && FindIn(here, name) ? "in this raid" : ""), (name, y) =>
             {

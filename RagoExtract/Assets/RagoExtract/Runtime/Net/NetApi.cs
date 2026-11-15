@@ -38,7 +38,8 @@ namespace Rago
         public static int MaxFor(string map) => map == "underground" ? 8 : Max;
         public static int MinFor(string map) => map == "underground" ? 2 : Min;
         public static int TargetFor(string map) => map == "underground" ? 8 : Target;
-        public static int PartyMaxFor(string map) => map == "underground" ? 2 : Max;
+        public const int PartyMax = 3;         // a party is you + up to 2 friends
+        public static int PartyMaxFor(string map) => map == "underground" ? 2 : PartyMax;
 
         /// <summary>Should the host start the raid now?</summary>
         public static bool ShouldStart(int players, float elapsed, float timeAtTarget, int partySize = 1, string map = null)
@@ -89,6 +90,8 @@ namespace Rago
         bool CanReconnect { get; }
         void Reconnect(Action<bool> done);
         void ForgetRaid();
+        /// <summary>A few lines on who this machine can hear (menu > RECENT, for testing).</summary>
+        string DebugInfo { get; }
         /// <summary>Round trip to the other players in seconds (0 = unknown / alone). High = the line is backed up: send less.</summary>
         float Rtt { get; }
         void Init(Action<bool> done);

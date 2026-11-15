@@ -48,23 +48,7 @@ namespace Rago.Net
         // through the host showed up as a second, frozen body with someone else's name.)
         readonly Dictionary<PlayerRef, ulong> _idOf = new Dictionary<PlayerRef, ulong>();
         static MethodInfo _actorOf;
-        ulong Id(PlayerRef p)
-        {
-            if (_idOf.TryGetValue(p, out var known)) return known;
-            ulong id = (ulong)p.PlayerId;
-            try
-            {
-                if (_runner != null)
-                {
-                    if (_actorOf == null) _actorOf = typeof(NetworkRunner).GetMethod("GetPlayerActorId", Any, null, new[] { typeof(PlayerRef) }, null);
-                    var v = _actorOf?.Invoke(_runner, new object[] { p });
-                    if (v is int a && a > 0) id = (ulong)a;
-                }
-            }
-            catch { }
-            if (_runner != null && p.PlayerId >= 0) _idOf[p] = id;   // a player's number never changes during a session
-            return id;
-        }
+        ulong Id(PlayerRef p) => (ulong)p.PlayerId;
 
         // ------------------------------------------------------------------------------------ party
         // A party is its own small Photon session ("rago_party_<leader>") that members sit in while they're in
@@ -117,6 +101,25 @@ namespace Rago.Net
             if (!ok) RejoinParty();
         }
         public void ForgetRaid() { _lastRaidSession = null; }
+
+        public string DebugInfo
+        {
+            get
+            {
+                if (_runner == null || !InSession) return "NET: not in a session  (" + _status + ")";
+                var sb = new System.Text.StringBuilder();
+                float now = Time.realtimeSinceStartup;
+                sb.Append("NET ").Append(_sessionKind).Append("  me ").Append(LocalId).Append(" (f").Append(_runner.LocalPlayer.PlayerId).Append(")")
+                  .Append(IsHost ? "  MASTER" : "  master " + _hostId).Append("  rtt ").Append((_rtt * 1000f).ToString("0")).Append("ms\n");
+                foreach (var p in _peers)
+                {
+                    _refs.TryGetValue(p, out var pr);
+                    sb.Append(p).Append(" (f").Append(pr.PlayerId).Append(") ").Append(_names.TryGetValue(p, out var n) ? n : "?")
+                      .Append("  heard ").Append(_lastHeard.TryGetValue(p, out var h) ? (now - h).ToString("0.0") + "s" : "never").Append("\n");
+                }
+                return sb.ToString();
+            }
+        }
         string _lastRaid;
         bool _pendingNight, _queueNight;
         NetworkRunner _lobby;
@@ -200,6 +203,7 @@ namespace Rago.Net
         {
             if (!_ready || string.IsNullOrWhiteSpace(callsign)) return;
             if (Key(callsign) == Key(MyName())) return;
+            if (_partyCode != null && PartyMembers.Count >= QueueRules.PartyMax) { Debug.Log("[Rago] party full"); return; }
             // in a raid (or the Market) with them: tell them directly
             if (InSession && !_inPartySession)
             {
@@ -307,7 +311,7 @@ namespace Rago.Net
             _status = (create ? "Starting" : "Joining") + " party...";
             _names.Clear();
             // "inv" exists from the start (empty): properties added later may not be shown to other players' lobbies
-            bool ok = await StartSession(PartySession(id), new Dictionary<string, SessionProperty> { { "kind", "party" }, { "lead", id }, { "inv", create ? string.Join(",", _invited.ConvertAll(Key)) : "" } }, QueueRules.Max, create);
+            bool ok = await StartSession(PartySession(id), new Dictionary<string, SessionProperty> { { "kind", "party" }, { "lead", id }, { "inv", create ? string.Join(",", _invited.ConvertAll(Key)) : "" } }, QueueRules.PartyMax, create);
             if (ok && !create && _peers.Count == 0) { ok = false; await Shutdown(); }   // nobody there
             if (!ok) { OnPartyChanged?.Invoke(); return false; }
             _partyCode = id; _inPartySession = true;
@@ -926,7 +930,7 @@ namespace Rago.Net
                 if (!IsHost && _hostId != 0 && _refs.TryGetValue(_hostId, out var hp))
                 {
                     var w = new byte[data.Length + 1]; w[0] = 5; Buffer.BlockCopy(data, 0, w, 1, data.Length);
-                    try { _runner.SendReliableDataToPlayer(hp, GameKey, w); } catch { }
+                    Raw(hp, w);
                 }
                 else foreach (var p in _peers) SendTo(p, data);   // we became the host meanwhile
             }
@@ -958,6 +962,21 @@ namespace Rago.Net
             SendTo(to, packet);
         }
 
+        // Every packet starts with WHO sent it ([0xA5][sender id]). Photon's own "this came from player X" can't be
+        // trusted in shared mode: with 3+ players it labelled several players' data as the same one - everyone saw a
+        // single frozen body with one name that kept changing. Now each packet says who it's from.
+        const byte Stamp = 0xA5;
+        void Raw(PlayerRef to, byte[] packet)
+        {
+            if (_runner == null) return;
+            var w = new byte[packet.Length + 9];
+            w[0] = Stamp; Buffer.BlockCopy(BitConverter.GetBytes(LocalId), 0, w, 1, 8);
+            Buffer.BlockCopy(packet, 0, w, 9, packet.Length);
+            try { _runner.SendReliableDataToPlayer(to, GameKey, w); }
+            catch (Exception e) { if (Time.realtimeSinceStartup - _lastSendWarn > 10f) { _lastSendWarn = Time.realtimeSinceStartup; Debug.Log("[Rago] send skipped: " + e.Message); } }
+        }
+        bool _mislabelLogged;
+
         void SendTo(ulong id, byte[] packet)
         {
             if (_runner == null || !_refs.TryGetValue(id, out var p)) return;
@@ -967,10 +986,10 @@ namespace Rago.Net
                 var w = new byte[packet.Length + 9];
                 w[0] = 3; Buffer.BlockCopy(BitConverter.GetBytes(id), 0, w, 1, 8);
                 Buffer.BlockCopy(packet, 0, w, 9, packet.Length);
-                try { _runner.SendReliableDataToPlayer(hp, GameKey, w); } catch { }
+                Raw(hp, w);
                 return;
             }
-            try { _runner.SendReliableDataToPlayer(p, GameKey, packet); } catch (Exception e) { if (Time.realtimeSinceStartup - _lastSendWarn > 10f) { _lastSendWarn = Time.realtimeSinceStartup; Debug.Log("[Rago] send skipped: " + e.Message); } }
+            Raw(p, packet);
         }
 
         readonly Dictionary<ulong, float> _lastHeard = new Dictionary<ulong, float>();
@@ -1002,6 +1021,15 @@ namespace Rago.Net
             if (data.Array == null || data.Count < 1) return;
             NotePeer(player);   // they can reach us, so we can reach them: never ignore a player we hear from
             ulong direct = Id(player);
+            if (data.Count >= 10 && data.Array[data.Offset] == Stamp)
+            {
+                ulong stamped = BitConverter.ToUInt64(data.Array, data.Offset + 1);
+                if (stamped != direct && !_mislabelLogged) { _mislabelLogged = true; Debug.Log("[Rago] Photon said a packet came from " + direct + " but it's from " + stamped + " - using the packet's own label"); }
+                direct = stamped;
+                data = new ArraySegment<byte>(data.Array, data.Offset + 9, data.Count - 9);
+                if (direct == LocalId) return;   // our own packet bounced back
+                if (!_peers.Contains(direct)) foreach (var ap in _runner.ActivePlayers) if (Id(ap) == direct) NotePeer(ap);
+            }
             _lastHeard[direct] = Time.realtimeSinceStartup;
             if (_relayTo.Remove(direct)) Debug.Log("[Rago] direct link to player " + direct + " works again");
             byte ch = data.Array[data.Offset];
@@ -1014,7 +1042,7 @@ namespace Rago.Net
                     var fwd = new byte[inner.Count + 9];
                     fwd[0] = 4; Buffer.BlockCopy(BitConverter.GetBytes(direct), 0, fwd, 1, 8);
                     Buffer.BlockCopy(inner.Array, inner.Offset, fwd, 9, inner.Count);
-                    foreach (var p in _peers) if (p != direct && _refs.TryGetValue(p, out var pr)) try { _runner.SendReliableDataToPlayer(pr, GameKey, fwd); } catch { }
+                    foreach (var p in _peers) if (p != direct && _refs.TryGetValue(p, out var pr)) Raw(pr, fwd);
                 }
                 Process(direct, inner);
                 return;
@@ -1029,7 +1057,7 @@ namespace Rago.Net
                 var fwd = new byte[inner.Count + 9];
                 fwd[0] = 4; Buffer.BlockCopy(BitConverter.GetBytes(direct), 0, fwd, 1, 8);
                 Buffer.BlockCopy(inner.Array, inner.Offset, fwd, 9, inner.Count);
-                if (_refs.TryGetValue(dest, out var dp)) try { _runner.SendReliableDataToPlayer(dp, GameKey, fwd); } catch { }
+                if (_refs.TryGetValue(dest, out var dp)) Raw(dp, fwd);
                 return;
             }
             if (ch == 4)

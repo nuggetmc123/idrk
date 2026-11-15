@@ -232,6 +232,16 @@ namespace Rago
             if (_voiceT <= 0 && NetHub.Voice != null && NetHub.Voice.Ready) { _voiceT = 0.25f; NetHub.Voice.UpdatePosition(p.Head); }
         }
 
+        /// <summary>The bodies this machine shows (menu > RECENT, for testing).</summary>
+        public string DebugInfo()
+        {
+            var sb = new System.Text.StringBuilder("BODIES (" + Remotes.Count + ")" + (InRaid ? "  raiders I run: " + MyNpcs() : "") + "\n");
+            foreach (var kv in Remotes)
+                if (kv.Value != null) sb.Append(kv.Key).Append(" ").Append(kv.Value.DisplayName).Append("  moved ").Append((Time.time - kv.Value.LastHeard).ToString("0.0")).Append("s ago\n");
+            return sb.ToString();
+        }
+        int MyNpcs() { int c = 0; if (NpcDirector.I != null) foreach (var n in NpcDirector.I.Npcs) if (n != null && n.Alive && !n.Puppet) c++; return c; }
+
         float _ownT;
         static readonly List<ulong> _everyone = new List<ulong>();
         /// <summary>Which player runs this raider's brain. Nobody is in charge: each raider is given to one of the
