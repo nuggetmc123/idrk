@@ -290,7 +290,8 @@ namespace Rago
                 ElevatorArrival = false;
                 Elevator lift = null;
                 foreach (var el in Elevator.All) if (el != null && el.transform.IsChildOf(MapRoot)) { lift = el; break; }
-                if (lift != null && to != Area.Raid) { Player.Teleport(lift.ArrivePosition, lift.ArriveYaw); lift.Arrive(); }
+                // a little to one side or the other, so players arriving together don't land inside each other
+                if (lift != null && to != Area.Raid) { var off = Random.insideUnitCircle * 0.9f; Player.Teleport(lift.ArrivePosition + new Vector3(off.x, 0, off.y), lift.ArriveYaw); lift.Arrive(); }
             }
             // back in your bunker: rejoin your party (it pauses while you're in the Market or a raid), or listen for invites
             if (to == Area.Bunker && NetHub.Online) NetHub.Backend.RejoinParty();

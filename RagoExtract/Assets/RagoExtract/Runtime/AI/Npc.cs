@@ -28,7 +28,7 @@ namespace Rago
         public bool Alive => Health > 0;
         public int ActorId => 1000 + Id;
         public System.Action<Npc> OnDied;
-        const float HearClose = 45f;   // gunshots closer than this make raiders come and check; farther ones only make them look
+        const float HearClose = 28f;   // gunshots closer than this make raiders come and check; farther ones only make them look
         public ArmorDef Helmet, Vest;
 
         Vector3 _home;
@@ -242,7 +242,7 @@ namespace Rago
                     _lastKnown = best.aim.position;
                     _lastSeenT = Time.time;
                     if (State != NpcState.Cover) State = NpcState.Combat;
-                    NpcDirector.I?.Alert(transform.position, _lastKnown, 18f, this);
+                    NpcDirector.I?.Alert(transform.position, _lastKnown, 12f, this);   // only their close buddies join in
                 }
             }
             else _awareness = Mathf.Max(0, _awareness - dt * 0.15f);
@@ -314,6 +314,9 @@ namespace Rago
         {
             if (_blind > 0) { Stop(); return; }   // flashed: standing there, blinking
             bool hasLos = _target.valid && Time.time - _lastSeenT < 0.35f;
+            // a leash: once they've lost you and wandered far from their post, they head back instead of hunting on
+            if ((State == NpcState.Search || State == NpcState.Investigate) && !IsBoss && (transform.position - _home).sqrMagnitude > 55f * 55f)
+            { State = NpcState.Patrol; _awareness = 0.1f; Go(_home, 1.6f); }
             switch (State)
             {
                 case NpcState.Patrol:
@@ -328,7 +331,7 @@ namespace Rago
                         {
                             _waitT = _rng.Range(12f, 25f);
                             // now and then they roam towards where the players are, so fights actually happen
-                            if (!IsBoss && _rng.Chance(0.25f) && RoamTarget(out var roam)) Go(roam, 1.6f);
+                            if (!IsBoss && _rng.Chance(0.07f) && RoamTarget(out var roam)) Go(roam, 1.6f);
                             else { _patrolIdx = (_patrolIdx + 1) % _patrol.Count; Go(_patrol[_patrolIdx], 1.4f); }
                         }
                     }
@@ -336,18 +339,19 @@ namespace Rago
                 case NpcState.Investigate:
                     Go(_lastKnown, 2.6f);
                     _searchT -= 0.2f;
-                    if (_searchT <= 0 || (AgentOk && Agent.remainingDistance < 1.5f && !Agent.pathPending)) { State = NpcState.Search; _searchT = 8f; }
+                    if (_searchT <= 0 || (AgentOk && Agent.remainingDistance < 1.5f && !Agent.pathPending)) { State = NpcState.Search; _searchT = 6f; }
                     break;
                 case NpcState.Search:
                     _searchT -= 0.2f;
                     if (AgentOk && Agent.remainingDistance < 1f) { var c = _rng.InCircle() * 8f; Go(_lastKnown + new Vector3(c.x, 0, c.y), 1.8f); }
-                    if (_searchT <= 0) { State = NpcState.Patrol; _awareness = 0.3f; }
+                    // gave up: back to where they were guarding (they don't hunt you across the map)
+                    if (_searchT <= 0) { State = NpcState.Patrol; _awareness = 0.1f; Go(_home, 1.4f); }
                     break;
                 case NpcState.Combat:
                     if (!_target.valid || !_target.d.Alive) { if (_target.valid && !_target.d.Alive) Say(ScavVoice.Line.Kill, 0.9f, true); State = NpcState.Search; _searchT = 10f; break; }
                     if (!hasLos)
                     {
-                        if (Time.time - _lastSeenT > 4f) { State = NpcState.Search; _searchT = 14f; Go(_lastKnown, 3.2f); Say(ScavVoice.Line.Lost, 0.8f); }
+                        if (Time.time - _lastSeenT > 4f) { State = NpcState.Search; _searchT = 7f; Go(_lastKnown, 2.6f); Say(ScavVoice.Line.Lost, 0.8f); }
                         else Go(_lastKnown, 2.8f);
                     }
                     else

@@ -46,11 +46,24 @@ namespace Rago
                 z.part = PlayerBody.PartFor(c.transform, rp._rig);
                 z.mult = HitZone.MultFor(z.part);
             }
+            rp.IgnoreLocalBody();
             rp._tag = UI.Text(go.transform, "", Vector3.zero, 0.05f, new Color(0.7f, 0.9f, 1f));
             // teammate marker: a green dot over their head, seen through walls and kept a readable size at any distance
             rp._dot = new MB().Sphere(Vector3.zero, Vector3.one * 0.5f, 10, Color.white).Build("TeamDot", go.transform, Mats.Unlit("team_dot", new Color(0.2f, 1f, 0.35f, 0.95f), null, Mats.BlendKind.Alpha, false, 50, true));
             rp._dot.SetActive(false);
             return rp;
+        }
+
+        /// <summary>
+        /// Another player's body never shoves you about: standing in the same spot (arriving in the Market lift, spawning
+        /// side by side) the movement capsule used to push you out of their body every frame - you jumped around.
+        /// Bullets still hit them as before.
+        /// </summary>
+        void IgnoreLocalBody()
+        {
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl == null || pl.Cc == null || _rig == null) return;
+            foreach (var c in _rig.colliders) if (c != null) Physics.IgnoreCollision(c, pl.Cc, true);
         }
 
         public void ApplyHeld(string heldL, string heldR)
@@ -179,19 +192,76 @@ namespace Rago
             Destroy(_rig.root);
             _rig = HumanRig.Build(Outfit.Operator, (int)NetId * 31, transform);
             foreach (var c in _rig.colliders) { var z = c.gameObject.AddComponent<HitZone>(); z.owner = this; z.part = PlayerBody.PartFor(c.transform, _rig); z.mult = HitZone.MultFor(z.part); }
+            IgnoreLocalBody();
             var g = _gear; _gear = null; ApplyGear(g);
+        }
+
+        // ---- snapshot interpolation: every pose carries the sender's clock; we show them a fixed moment (~0.12 s) in
+        // the past, smoothly between the two poses either side of it. Packets arriving in bunches (3+ players, a busy
+        // line) no longer make players jump, overshoot and snap back - the old "keep moving and correct" did, and with
+        // several players it looked like everyone teleporting into each other.
+        struct Snap { public float t; public Vector3 root, head, hl, hr, gl, gr, vel; public Quaternion headR, hlR, hrR, glR, grR; }
+        readonly System.Collections.Generic.List<Snap> _snaps = new System.Collections.Generic.List<Snap>();
+        float _offset = float.MaxValue;   // our clock minus theirs, for the quickest packet seen (slowly relaxed)
+        const float Delay = 0.12f;
+
+        public void CommitSnap(float senderT)
+        {
+            if (_snaps.Count > 0 && senderT <= _snaps[_snaps.Count - 1].t) return;   // old or duplicate
+            if (_snaps.Count > 0 && senderT - _snaps[_snaps.Count - 1].t > 2f) _snaps.Clear();   // a long gap: start over
+            float off = Time.time - senderT;
+            if (off < _offset) _offset = off;
+            _snaps.Add(new Snap { t = senderT, root = _root, head = _head, hl = _hl, hr = _hr, gl = _gl, gr = _gr, vel = _vel, headR = _headR, hlR = _hlR, hrR = _hrR, glR = _glR, grR = _grR });
+            if (_snaps.Count > 30) _snaps.RemoveAt(0);
+        }
+
+        bool Sample(out Snap s)
+        {
+            s = default;
+            if (_snaps.Count == 0) return false;
+            _offset += Time.deltaTime * 0.02f;   // let the clock estimate drift back up if the line got slower
+            float rt = Time.time - _offset - Delay;
+            int n = _snaps.Count;
+            if (rt <= _snaps[0].t) { s = _snaps[0]; return true; }
+            if (rt >= _snaps[n - 1].t)
+            {
+                s = _snaps[n - 1];
+                Vector3 a = new Vector3(s.vel.x, 0, s.vel.z) * Mathf.Min(rt - s.t, 0.1f);   // a short hold-over, never far
+                s.root += a; s.head += a; s.hl += a; s.hr += a; s.gl += a; s.gr += a;
+                return true;
+            }
+            for (int i = n - 2; i >= 0; i--)
+            {
+                if (_snaps[i].t > rt) continue;
+                var p = _snaps[i]; var q = _snaps[i + 1];
+                float k = Mathf.Clamp01((rt - p.t) / Mathf.Max(0.001f, q.t - p.t));
+                s.t = rt;
+                s.root = Vector3.Lerp(p.root, q.root, k); s.head = Vector3.Lerp(p.head, q.head, k); s.hl = Vector3.Lerp(p.hl, q.hl, k); s.hr = Vector3.Lerp(p.hr, q.hr, k);
+                s.gl = Vector3.Lerp(p.gl, q.gl, k); s.gr = Vector3.Lerp(p.gr, q.gr, k); s.vel = Vector3.Lerp(p.vel, q.vel, k);
+                s.headR = Quaternion.Slerp(p.headR, q.headR, k); s.hlR = Quaternion.Slerp(p.hlR, q.hlR, k); s.hrR = Quaternion.Slerp(p.hrR, q.hrR, k);
+                s.glR = Quaternion.Slerp(p.glR, q.glR, k); s.grR = Quaternion.Slerp(p.grR, q.grR, k);
+                if (i > 2) _snaps.RemoveRange(0, i - 2);
+                return true;
+            }
+            s = _snaps[n - 1];
+            return true;
         }
 
         void LateUpdate()
         {
             if (!_hasPose) return;
-            float dt = Time.deltaTime, k = 1f - Mathf.Exp(-16f * dt);
-            // keep them moving between updates at the speed they're walking (up to 0.25 s ahead), then ease in: packets
-            // arrive in bunches over the network and plain easing made other players stutter and lag behind
-            Vector3 ahead = _dead ? Vector3.zero : new Vector3(_vel.x, 0, _vel.z) * Mathf.Min(Time.time - _packetT, 0.25f);
-            _sRoot = Vector3.Lerp(_sRoot, _root + ahead, k); _sHead = Vector3.Lerp(_sHead, _head + ahead, k);
-            _sHl = Vector3.Lerp(_sHl, _hl + ahead, k); _sHr = Vector3.Lerp(_sHr, _hr + ahead, k);
-            _sHeadR = Quaternion.Slerp(_sHeadR, _headR, k); _sHlR = Quaternion.Slerp(_sHlR, _hlR, k); _sHrR = Quaternion.Slerp(_sHrR, _hrR, k);
+            float dt = Time.deltaTime, k = 1f - Mathf.Exp(-30f * dt);
+            Vector3 ahead = Vector3.zero;
+            Vector3 tRoot = _root, tHead = _head, tHl = _hl, tHr = _hr; Quaternion tHeadR = _headR, tHlR = _hlR, tHrR = _hrR;
+            if (Sample(out var sn))
+            {
+                tRoot = sn.root; tHead = sn.head; tHl = sn.hl; tHr = sn.hr; tHeadR = sn.headR; tHlR = sn.hlR; tHrR = sn.hrR;
+                _gl = sn.gl; _gr = sn.gr; _glR = sn.glR; _grR = sn.grR;
+            }
+            if ((_sRoot - tRoot).sqrMagnitude > 9f) k = 1f;   // a real jump (respawn, fell through): go there at once
+            _sRoot = Vector3.Lerp(_sRoot, tRoot + ahead, k); _sHead = Vector3.Lerp(_sHead, tHead + ahead, k);
+            _sHl = Vector3.Lerp(_sHl, tHl + ahead, k); _sHr = Vector3.Lerp(_sHr, tHr + ahead, k);
+            _sHeadR = Quaternion.Slerp(_sHeadR, tHeadR, k); _sHlR = Quaternion.Slerp(_sHlR, tHlR, k); _sHrR = Quaternion.Slerp(_sHrR, tHrR, k);
             if (_dead) return;
             Footsteps.Track(ref _stepLast, ref _stepDist, ref _stepLeft, _sRoot, _sHeadR * Vector3.forward, dt, 0.4f);
             float hy = _sHeadR.eulerAngles.y;

@@ -174,6 +174,7 @@ namespace Rago
                 if (_gearT <= 0f) _gearT = 2f;
                 byte f2 = (byte)((keys ? 1 : 0) | (gear ? 2 : 0));
                 w.Write(f); w.Write(f2);
+                w.Write(Time.time);   // our clock: the others show us smoothly at a fixed delay (no jumping when packets bunch up)
                 V3(w, root);
                 S3(w, p.Head.position - root, 0.001f); Q(w, p.Head.rotation);
                 S3(w, p.HandL.Visual.position - root, 0.001f); Q(w, p.HandL.Visual.rotation);
@@ -436,6 +437,7 @@ namespace Rago
                                 var rp = GetRemote(from, (int)from * 31);
                                 if (_helloSent.Add(from)) SendHello(from);   // their movement got here before their hello: introduce ourselves
                                 byte f = r.ReadByte(), f2 = r.ReadByte();
+                                float st = r.ReadSingle();
                                 var root = V3(r); var hp = root + S3(r, 0.001f); var hr = Q(r); var lp = root + S3(r, 0.001f); var lr = Q(r); var rpp = root + S3(r, 0.001f); var rr = Q(r); var vel = S3(r, 0.01f);
                                 Vector3 glp = default, grp = default; Quaternion glr = Quaternion.identity, grr = Quaternion.identity;
                                 if ((f & 8) != 0) { glp = root + S3(r, 0.001f); glr = Q(r); }
@@ -444,6 +446,7 @@ namespace Rago
                                 if ((f2 & 2) != 0) rp.ApplyGear(r.ReadString());
                                 rp.ApplyPose((f & 1) != 0, root, hp, hr, lp, lr, rpp, rr, vel);
                                 rp.ApplyHeldPose((f & 8) != 0, glp, glr, (f & 16) != 0, grp, grr, (f & 32) != 0, (f & 64) != 0, (f & 128) != 0);
+                                rp.CommitSnap(st);
                                 break;
                             }
                         case Msg.Blast:
