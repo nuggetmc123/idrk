@@ -145,6 +145,7 @@ namespace Rago
             Vector3 dir = _punchTrack ? (p - _punchLast).normalized : transform.forward;
             _punchLast = p; _punchTrack = true;
             if (speed < 2.4f) return;
+            if (!rig.CanReach(p)) return;   // no punching through walls
             int n = Physics.OverlapSphereNonAlloc(p, 0.08f, _punchCols, ~0, QueryTriggerInteraction.Collide);
             for (int i = 0; i < n; i++)
             {
@@ -314,7 +315,9 @@ namespace Rago
                 rb.isKinematic = false;
                 Vector3 delta = tp - rb.position;
                 if (delta.magnitude > 0.5f) _stuckTime += dt; else _stuckTime = 0;
-                if (_stuckTime > 0.4f || delta.magnitude > 1.5f) { rb.position = tp; rb.rotation = tr; rb.SetVel(Vector3.zero); _stuckTime = 0; _aim = tp; }
+                // stuck on something for a moment: jump to the controller - but never through a wall
+                if ((_stuckTime > 0.4f || delta.magnitude > 1.5f) && !rig.CanReach(tp)) { _stuckTime = 0; if (delta.magnitude > 1.5f) { rb.position = rig.SafeEye(); rb.SetVel(Vector3.zero); _aim = rb.position; } }
+                else if (_stuckTime > 0.4f || delta.magnitude > 1.5f) { rb.position = tp; rb.rotation = tr; rb.SetVel(Vector3.zero); _stuckTime = 0; _aim = tp; }
                 else
                 {
                     // carry the hand along with your body's movement, then close the gap to the controller; a heavy gun
@@ -423,6 +426,7 @@ namespace Rago
                     if (it == Other.Held && !Other.HeldAsSecondary) { if (it is Gun) continue; }
                     if (it is Magazine mm && mm.inGun != null && mm.inGun.Held && mm.inGun.primaryHand == this) continue;
                     if (!it.CanGrab(this)) continue;
+                    if (!rig.CanReach(c.ClosestPoint(p))) continue;   // on the other side of a wall
                     float d = (c.ClosestPoint(p) - p).sqrMagnitude;
                     // prefer magazines in guns and sights on guns when very close
                     if (d < bd) { bd = d; best = it; }

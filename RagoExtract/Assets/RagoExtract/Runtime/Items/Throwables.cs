@@ -256,7 +256,7 @@ namespace Rago
                 }
                 else if (!flash && d < FragRadius * 2.5f) pl.Hud.Suppress(Mathf.Clamp01(1.2f - d / (FragRadius * 2.5f)));
             }
-            bool authority = !NetGame.Live || (NetHub.Backend != null && NetHub.Backend.IsHost);
+            bool authority = true;   // each player blinds the raiders they run (puppets are skipped below)
             if (flash && authority)
             {
                 // raiders who can see it are blinded and stagger
@@ -264,7 +264,7 @@ namespace Rago
                 if (NpcDirector.I != null)
                     foreach (var npc in NpcDirector.I.Npcs)
                     {
-                        if (npc == null || !npc.Alive) continue;
+                        if (npc == null || !npc.Alive || npc.Puppet) continue;
                         float d = Vector3.Distance(npc.transform.position, p);
                         if (d > FlashRadius) continue;
                         if (ClearLine(p, npc.transform.position + Vector3.up * 1.6f) || ClearLine(p, npc.transform.position + Vector3.up * 1.1f))

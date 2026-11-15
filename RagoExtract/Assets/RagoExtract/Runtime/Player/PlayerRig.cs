@@ -10,6 +10,31 @@ namespace Rago
     public class PlayerRig : MonoBehaviour
     {
         public Transform Origin, Head;
+
+        /// <summary>Your eye - unless your real head is leaning through a wall: then the point where it went in. Everything
+        /// you do with your hands (shooting, grabbing, punching, letting go) is measured from here, so poking your head,
+        /// hand or gun through a wall never gets anything to the other side.</summary>
+        public Vector3 SafeEye()
+        {
+            Vector3 eye = Head.position;
+            if (Cc == null) return eye;
+            Vector3 body = transform.TransformPoint(Cc.center);
+            body.y = Mathf.Min(eye.y, transform.position.y + Mathf.Max(0.5f, Cc.height - 0.35f));
+            Vector3 d = eye - body; float len = d.magnitude;
+            if (len > 0.01f && Physics.Raycast(body, d / len, out var h, len, Ballistics.WallMask, QueryTriggerInteraction.Ignore) && h.collider.attachedRigidbody == null)
+                return h.point - d / len * 0.05f;
+            return eye;
+        }
+
+        /// <summary>Nothing solid between you and this point (a little slack right at the far end, for things on shelves / in crates).</summary>
+        public bool CanReach(Vector3 to)
+        {
+            Vector3 e = SafeEye(); Vector3 d = to - e; float len = d.magnitude;
+            if (len < 0.05f) return true;
+            if (!Physics.Raycast(e, d / len, out var h, len, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) return true;
+            if (h.collider.attachedRigidbody != null || h.collider.GetComponentInParent<LootCrate>() != null) return true;
+            return len - h.distance < 0.06f;
+        }
         public Camera Cam;
         public Hand HandL, HandR;
         public CharacterController Cc;

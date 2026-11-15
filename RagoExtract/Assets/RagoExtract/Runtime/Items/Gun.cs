@@ -289,7 +289,7 @@ namespace Rago
             var shot = Quiet ? g.Quiet : g;   // a screwed-on suppressor makes it a quiet gun
             dir = Quaternion.Euler(Random.Range(-spr, spr), Random.Range(-spr, spr), 0) * dir;
             bool tracer = g.cls == GunClass.LMG || (g.TwoHanded && Random.value < 0.25f);
-            Vector3 origin = Ballistics.SafeOrigin(RagoGame.I.Player.Head.position, rig.muzzle.position);   // barrel through a wall: you shoot the wall
+            Vector3 origin = Ballistics.SafeOrigin(RagoGame.I.Player.SafeEye(), rig.muzzle.position);   // barrel through a wall: you shoot the wall
             Ballistics.Fire(origin, dir, shot, 0, transform, RagoGame.I.Player.Vitals, false, tracer);
             Fx.MuzzleFlash(muzzleAtt != null && muzzleAtt.ad.suppress ? MuzzleEnd : rig.muzzle, g.TwoHanded ? (g.cal == Caliber.C50BMG ? 2f : 1.2f) : 0.7f, shot.suppressed);
             Sfx.Gunshot(shot, rig.muzzle.position, true);

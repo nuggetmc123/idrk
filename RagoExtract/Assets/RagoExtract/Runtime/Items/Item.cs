@@ -91,6 +91,7 @@ namespace Rago
             h.Haptic(0.25f, 0.04f);
         }
 
+        Hand primaryHandWas;
         public virtual void OnRelease(Hand h, Vector3 vel, Vector3 angVel)
         {
             if (h == secondaryHand) { secondaryHand = null; return; }
@@ -112,6 +113,7 @@ namespace Rago
                 return;
             }
             primaryHand = null;
+            primaryHandWas = h;   // let go by a hand (not thrown out by code): Drop keeps it on your side of walls
             // onto a gun first (a suppressor at the muzzle, a mag at the magwell, a sight on the rail) - otherwise a pouch
             // close by (your chest pouch is right where you fit a suppressor) took it instead and it never went on
             if (TryAttach()) return;
@@ -206,6 +208,22 @@ namespace Rago
             float half = Mathf.Max(0.02f, Mathf.Abs(m.m10) * e.x + Mathf.Abs(m.m11) * e.y + Mathf.Abs(m.m12) * e.z);
             float floor = FloorBelow(mid + Vector3.up * 0.4f, 0.4f + half + 0.05f);
             if (!float.IsNaN(floor) && mid.y - half < floor) transform.position += Vector3.up * (floor - (mid.y - half) + 0.01f);
+            // let go with your hand (and the item) through a wall: it lands on your side
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl != null && primaryHandWas != null)
+            {
+                Vector3 eye0 = pl.SafeEye(); mid = transform.TransformPoint(localBounds.center);
+                Vector3 dd = mid - eye0; float len = dd.magnitude;
+                if (len > 0.05f && Physics.Raycast(eye0, dd / len, out var wh, len, Ballistics.WallMask, QueryTriggerInteraction.Ignore)
+                    && wh.collider.attachedRigidbody == null && wh.collider.GetComponentInParent<LootCrate>() == null)
+                {
+                    Vector3 ext = Vector3.Scale(localBounds.extents, transform.lossyScale);
+                    float r = Mathf.Max(0.05f, Mathf.Max(Mathf.Abs(ext.x), Mathf.Max(Mathf.Abs(ext.y), Mathf.Abs(ext.z))));
+                    transform.position += (wh.point - dd / len * Mathf.Min(r + 0.03f, wh.distance * 0.9f)) - mid;
+                    vel = Vector3.zero;
+                }
+            }
+            primaryHandWas = null;
             _trackFree = false;
             rb.isKinematic = false;
             SetCollidersTrigger(false);

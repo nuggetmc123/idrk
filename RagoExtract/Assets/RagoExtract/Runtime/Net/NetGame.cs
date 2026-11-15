@@ -219,20 +219,68 @@ namespace Rago
                 Send(false);
             }
             if (_flying.Count > 0) TrackFlying();
-            if (InRaid && NetHub.Backend.IsHost && NpcDirector.I != null)
+            if (InRaid && NpcDirector.I != null)
             {
-                if (!_wasHost) { _wasHost = true; NpcDirector.I.BecomeAuthority(); } // host migrated to us: run the NPCs
+                // no host: every player runs its share of the raiders and tells the others where they are
+                _ownT -= Time.deltaTime;
+                if (_ownT <= 0f) { _ownT = 0.5f; ShareOutNpcs(); }
                 _npcT -= Time.deltaTime;
                 if (_npcT <= 0)
                 {
-                    // the host sends raider updates to every other player: with more players, a bit less often
                     float rtt = NetHub.Backend.Rtt; int others = NetHub.Backend.Peers.Count;
-                    _npcT = (rtt < 0.3f ? 0.15f : rtt < 0.6f ? 0.3f : 0.5f) * (others >= 3 ? 1.6f : others >= 2 ? 1.3f : 1f);
+                    _npcT = (rtt < 0.3f ? 0.15f : rtt < 0.6f ? 0.3f : 0.5f) * (others >= 3 ? 1.3f : 1f);
                     SendNpcStates(_npcT);
                 }
             }
             _voiceT -= Time.deltaTime;
             if (_voiceT <= 0 && NetHub.Voice != null && NetHub.Voice.Ready) { _voiceT = 0.25f; NetHub.Voice.UpdatePosition(p.Head); }
+        }
+
+        float _ownT;
+        static readonly List<ulong> _everyone = new List<ulong>();
+        /// <summary>Which player runs this raider's brain. Nobody is in charge: each raider is given to one of the
+        /// players by a hash of (raider, player) - every machine works out the same answer, and when a player leaves
+        /// only their raiders move to someone else.</summary>
+        public static ulong OwnerOf(int npcId)
+        {
+            var b = NetHub.Backend;
+            if (!Live || b == null) return 0;
+            ulong best = b.LocalId; uint bestH = Mix(npcId, b.LocalId);
+            foreach (var p in b.Peers) { uint h = Mix(npcId, p); if (h > bestH || (h == bestH && p < best)) { bestH = h; best = p; } }
+            return best;
+        }
+        static uint Mix(int npc, ulong player)
+        {
+            unchecked
+            {
+                uint x = (uint)npc * 0x9E3779B1u ^ (uint)player * 0x85EBCA77u ^ (uint)(player >> 32);
+                x ^= x >> 16; x *= 0x7FEB352Du; x ^= x >> 15; x *= 0x846CA68Bu; x ^= x >> 16;
+                return x;
+            }
+        }
+        /// <summary>This player runs this raider (offline: always).</summary>
+        public static bool Mine(int npcId) => !Live || NetHub.Backend == null || OwnerOf(npcId) == NetHub.Backend.LocalId;
+        /// <summary>One player, the same on every machine, for one-off jobs (spawning the air drop's guards).</summary>
+        public static bool FirstPlayer
+        {
+            get
+            {
+                var b = NetHub.Backend;
+                if (!Live || b == null) return true;
+                foreach (var p in b.Peers) if (p < b.LocalId) return false;
+                return true;
+            }
+        }
+
+        void ShareOutNpcs()
+        {
+            foreach (var n in NpcDirector.I.Npcs)
+            {
+                if (n == null || !n.Alive) continue;
+                bool mine = Mine(n.Id);
+                if (mine && n.Puppet) n.BecomeAuthority();
+                else if (!mine && !n.Puppet) n.MakePuppet();
+            }
         }
 
         string _lastKl, _lastKr;
@@ -269,17 +317,15 @@ namespace Rago
                 // host simulates NPC bullets: forward their damage to the player that got hit
                 return; // only report our own hits (raider shots are worked out by each player against themselves)
             }
-            if (z.owner is RemotePlayer mrp && (h.gunId == "fist" || (Db.Get(h.gunId) is ItemDef md && md.kind == ItemKind.Melee)))
+            if (z.owner is RemotePlayer && h.gunId == "frag") { }   // grenades: each player works out their own shrapnel (Msg.Blast)
+            else if (z.owner is RemotePlayer mrp)
             {
-                // a punch / knife: the victim can't replay it, so tell them
+                // you hit another player on YOUR screen: they take it (bullets, punches, knives). Working shots out on
+                // the target's machine missed whenever they were moving - they'd already moved on from where you saw them.
                 var w = W(Msg.HitPlayer);
                 w.Write(mrp.NetId); w.Write(h.damage); w.Write((byte)h.part); V3(w, h.point); V3(w, h.dir); w.Write(h.force);
+                w.Write(h.gunId ?? "");
                 Send(true, mrp.NetId);
-            }
-            else if (z.owner is RemotePlayer)
-            {
-                // nothing to send: every player replays everyone's shots (Msg.Fire) against their own body and takes the
-                // damage there - the target's id never has to match up, and grenades work the same way
             }
             else if (z.owner is Npc npc)
             {
@@ -373,27 +419,27 @@ namespace Rago
         /// <summary>Tester: spawn a raider in an online raid. The host makes it and tells everyone (with its id).</summary>
         public void RequestNpc(int kind, Vector3 pos, float yaw)
         {
-            if (NetHub.Backend.IsHost) { HostSpawnNpc(kind, pos, yaw); return; }
-            var w = W(Msg.NpcSpawnAsk); w.Write((byte)kind); V3(w, pos); w.Write(yaw); Send(true);
+            HostSpawnNpc(kind, pos, yaw);   // no host: whoever spawns it makes it and tells everyone (with its id)
         }
 
         void HostSpawnNpc(int kind, Vector3 pos, float yaw)
         {
             if (NpcDirector.I == null) return;
-            int id = NpcDirector.I.NextTesterId(), seed = Random.Range(1, 99999);
+            // each player's spawns get their own id block, so two players spawning at once never clash
+            int id = Mathf.Max(NpcDirector.I.NextTesterId(), 9000 + (int)(NetHub.Backend.LocalId % 40) * 500), seed = Random.Range(1, 99999);
             NpcDirector.I.SpawnNet(id, pos, yaw, seed, kind >= 1, Tester.BossFor(kind), false);
             var w = W(Msg.NpcSpawned); w.Write(id); w.Write((byte)kind); V3(w, pos); w.Write(yaw); w.Write(seed); Send(true);
         }
 
         public void NpcVoice(int id, byte line, byte idx)
         {
-            if (!Live || !NetHub.Backend.IsHost) return;
+            if (!Live) return;
             var w = W(Msg.NpcVoice); w.Write(id); w.Write(line); w.Write(idx); Send(false);
         }
 
         public void NpcFire(int id, Vector3 origin, Vector3 dir)
         {
-            if (!Live || !NetHub.Backend.IsHost) return;
+            if (!Live) return;
             var w = W(Msg.NpcFire); w.Write(id); V3(w, origin); V3(w, dir); Send(false);
         }
 
@@ -421,7 +467,7 @@ namespace Rago
             var send = new List<Npc>();
             foreach (var n in list)
             {
-                if (n == null) continue;
+                if (n == null || n.Puppet) continue;   // only the raiders this player runs
                 byte st = (byte)((byte)n.State | (n.Alive ? 0x80 : 0));
                 if (!full && _npcSent.TryGetValue(n.Id, out var last) && last.st == st && (last.pos - n.transform.position).sqrMagnitude < 0.0036f
                     && Mathf.Abs(Mathf.DeltaAngle(last.yaw, n.Yaw)) < 3f && (last.aim - n.AimPoint).sqrMagnitude < 0.04f) continue;
@@ -511,7 +557,8 @@ namespace Rago
                                 if (sup) g = g.Quiet;
                                 Remotes.TryGetValue(from, out var rp);
                                 // another player's shot: it can hurt us here (we're the only ones who know where we really are)
-                                Ballistics.Fire(o, d, g, (int)from + 1, rp != null ? rp.transform : null, rp, true, g.cls == GunClass.LMG, InRaid);
+                                // just the shot you see and hear - the shooter tells whoever they hit (Msg.HitPlayer)
+                                Ballistics.Fire(o, d, g, (int)from + 1, rp != null ? rp.transform : null, rp, true, g.cls == GunClass.LMG, false);
                                 Sfx.Gunshot(g, o, false);
                                 if (rp != null) rp.MuzzleFlash(g); else Fx.TracerLine(o, o + d * 50f);
                                 break;
@@ -519,9 +566,11 @@ namespace Rago
                         case Msg.HitPlayer:
                             {
                                 ulong target = r.ReadUInt64(); float dmg = r.ReadSingle(); var part = (BodyPart)r.ReadByte(); var pt = V3(r); var dir = V3(r); float force = r.ReadSingle();
-                                if (target != NetHub.Backend.LocalId) break;
+                                string hg = r.BaseStream.Position < r.BaseStream.Length ? r.ReadString() : "";
+                                // it was sent only to us, so it's ours (not checking the id: a mismatch must never make you bulletproof)
+                                if (RagoGame.I == null || RagoGame.I.Player == null || RagoGame.I.Player.Dead) break;
                                 var v = RagoGame.I.Player.Vitals;
-                                v.TakeHit(new HitInfo { damage = dmg, part = part, point = pt, dir = dir, attacker = (int)from + 1, fromNet = true, force = force }, null);
+                                v.TakeHit(new HitInfo { damage = dmg, part = part, point = pt, dir = dir, attacker = (int)from + 1, fromNet = true, force = force, gunId = hg }, null);
                                 break;
                             }
                         case Msg.Died:
@@ -565,12 +614,13 @@ namespace Rago
                             }
                         case Msg.NpcStates:
                             {
-                                if (NetHub.Backend.IsHost || NpcDirector.I == null) break;
+                                if (NpcDirector.I == null) break;
                                 int n = r.ReadInt16();
                                 for (int i = 0; i < n; i++)
                                 {
                                     int id = r.ReadInt16(); var pos = P3(r); float yaw = r.ReadByte() / 255f * 360f; byte sb = r.ReadByte(); var aim = P3(r);
-                                    NpcDirector.I.Get(id)?.ApplyNetState(pos, yaw, (NpcState)(sb & 0x7f), aim, (sb & 0x80) != 0);
+                                    var sn = NpcDirector.I.Get(id);
+                                    if (sn != null && sn.Puppet) sn.ApplyNetState(pos, yaw, (NpcState)(sb & 0x7f), aim, (sb & 0x80) != 0);   // ones we run ourselves: ours wins
                                 }
                                 break;
                             }
@@ -620,13 +670,13 @@ namespace Rago
                         case Msg.NpcSpawnAsk:
                             {
                                 int kind = r.ReadByte(); var pos = V3(r); float yaw = r.ReadSingle();
-                                if (NetHub.Backend.IsHost) HostSpawnNpc(kind, pos, yaw);
+                                HostSpawnNpc(kind, pos, yaw);   // an older client asking: make it for them
                                 break;
                             }
                         case Msg.NpcSpawned:
                             {
                                 int id = r.ReadInt32(); int kind = r.ReadByte(); var pos = V3(r); float yaw = r.ReadSingle(); int seed = r.ReadInt32();
-                                if (NpcDirector.I != null && !NetHub.Backend.IsHost) NpcDirector.I.SpawnNet(id, pos, yaw, seed, kind >= 1, Tester.BossFor(kind), true);
+                                if (NpcDirector.I != null) NpcDirector.I.SpawnNet(id, pos, yaw, seed, kind >= 1, Tester.BossFor(kind), !Mine(id));
                                 break;
                             }
                         case Msg.NpcVoice:

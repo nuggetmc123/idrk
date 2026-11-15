@@ -866,10 +866,8 @@ namespace Rago.Net
             if (!InSession || data == null || data.Length == 0 || data.Length > 60000) return;
             if (target == ulong.MaxValue)
             {
-                // not the host: ONE copy to the host, which hands it to everyone (was a copy per player - 3+ players
-                // were sending so much that Photon dropped them)
-                if (!IsHost && _hostId != 0 && _refs.ContainsKey(_hostId)) Queue(Bcast, data);
-                else foreach (var p in _peers) Queue(p, data);
+                // no host: straight to every player in the raid (batched, one packet per player per tick)
+                foreach (var p in _peers) Queue(p, data);
             }
             else if (target != LocalId) Queue(target, data);
         }
@@ -928,12 +926,9 @@ namespace Rago.Net
         void SendTo(ulong id, byte[] packet)
         {
             if (_runner == null || !_refs.TryGetValue(id, out var p)) return;
-            // no direct link to this player (Photon's shared mode may only carry data between the host and each
-            // player): send it to the host to pass on. With 3+ players, the two non-hosts couldn't see each other.
-            // Everything between two non-host players goes through the host, always (a star): Photon's shared mode
-            // only reliably carries data between the host and each player, and waiting to detect a dead link left
-            // 3-player raids with players who couldn't see each other, lag and broken parties.
-            if (!IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
+            // Every player talks straight to every other player - there is no host. Only if we've heard NOTHING from
+            // a player for 4 s (a broken link between the two of you) is their data passed through another player.
+            if (_relayTo.Contains(id) && !IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
             {
                 var w = new byte[packet.Length + 9];
                 w[0] = 3; Buffer.BlockCopy(BitConverter.GetBytes(id), 0, w, 1, 8);

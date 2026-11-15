@@ -64,7 +64,7 @@ namespace Rago
             float len = ScavVoice.Play(l, idx, Voice, Rig.head.position, urgent);
             if (len <= 0f) return;
             _talkT = Time.time + len + Random.Range(2f, 4f);
-            if (NetGame.Live && NetGame.IsHost) NetGame.I.NpcVoice(Id, (byte)l, (byte)idx);
+            if (NetGame.Live && !Puppet) NetGame.I.NpcVoice(Id, (byte)l, (byte)idx);
         }
 
         /// <summary>The host's raider said something: play it here too.</summary>
@@ -202,7 +202,7 @@ namespace Rago
             var targets = new List<Vector3>();
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (pl != null && pl.Vitals.Alive && !RagoGame.I.SafeZone && !Tester.Invisible) targets.Add(pl.transform.position);
-            if (NetGame.Live && NetGame.IsHost) foreach (var r in NetGame.I.Remotes.Values) if (r != null && r.Alive && !r.HiddenFromAi) targets.Add(r.transform.position);
+            if (NetGame.Live && !Puppet) foreach (var r in NetGame.I.Remotes.Values) if (r != null && r.Alive && !r.HiddenFromAi) targets.Add(r.transform.position);
             if (targets.Count == 0) return false;
             var t = targets[_rng.Range(0, targets.Count)];
             Vector2 o = _rng.InCircle() * 30f;
@@ -277,7 +277,7 @@ namespace Rago
             var p = RagoGame.I != null ? RagoGame.I.Player : null;
             if (p != null && p.Vitals.Alive && !RagoGame.I.SafeZone && !Tester.Invisible)
                 yield return new Target { d = p.Vitals, aim = p.Body.Rig.chest, vel = p.MoveVelocity };
-            if (NetGame.Live && NetGame.IsHost)
+            if (NetGame.Live && !Puppet)
                 foreach (var r in NetGame.I.Remotes.Values)
                     if (r != null && r.Alive && !r.HiddenFromAi) yield return new Target { d = r, aim = r.Chest, vel = Vector3.zero };
         }
@@ -485,7 +485,7 @@ namespace Rago
             Fx.EjectCasing(GunModel.ejectPort, Vector3.zero, Weapon.cal == Caliber.C12g, false);
             Sfx.Gunshot(Weapon, o, false);
             _recoil = 1f;
-            NetGame.I?.NpcFire(Id, o, dir);
+            if (!Puppet) NetGame.I?.NpcFire(Id, o, dir);
         }
 
         float _recoil;
@@ -539,6 +539,8 @@ namespace Rago
         public void MakePuppet()
         {
             Puppet = true;
+            // handed to another player: carry on from right here until their first update arrives
+            _netPos = transform.position; _netYaw = Yaw; _netAim = AimPoint; _netVel = Vector3.zero; _netT = Time.time; _netInit = true;
             if (Agent != null) Agent.enabled = false;
         }
 

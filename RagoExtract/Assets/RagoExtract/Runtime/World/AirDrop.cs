@@ -239,8 +239,8 @@ namespace Rago
             _crate = crate;
             crate.transform.SetParent(transform, true);
             Physics.SyncTransforms();
-            // The Courier and two heavies land with a random drop (the host runs raiders: only it spawns them)
-            if (_boss && NpcDirector.I != null && (!NetGame.Live || NetHub.Backend.IsHost))
+            // The Courier and two heavies land with a random drop (one player - the same on every machine - spawns them for everyone)
+            if (_boss && NpcDirector.I != null && NetGame.FirstPlayer)
             {
                 var q = Quaternion.Euler(0, _index * 37f, 0);
                 Spawn(1, at + q * new Vector3(-2.5f, 0, 1.5f), _index * 37f + 150f);
@@ -305,7 +305,7 @@ namespace Rago
             if (!down) return;
             Vector3 at = hit.collider != null ? hit.point : new Vector3(p.x, _target.y, p.z);
             Sfx.Play(Synth.BodyFall(), at, 0.9f, 0.9f, 2f, 40f);
-            if (NpcDirector.I != null && (!NetGame.Live || NetHub.Backend.IsHost))
+            if (NpcDirector.I != null && NetGame.FirstPlayer)
             {
                 if (UnityEngine.AI.NavMesh.SamplePosition(at, out var nh, 4f, UnityEngine.AI.NavMesh.AllAreas)) at = nh.position;
                 if (NetGame.Live) NetGame.I.RequestNpc(6, at, _index * 37f + 180f);

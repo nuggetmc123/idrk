@@ -447,7 +447,7 @@ namespace Rago
                 if (when > 0f) I.StartCoroutine(I.DropLater(when, dz, hd));
             }
             var dir = NpcDirector.Create(map.transform);
-            dir.SpawnSquads(map.NpcSpawns, rs.seed, online && !NetHub.Backend.IsHost, map.PlayerSpawns, map.NpcSafeRadius, map.MaxRaiders);
+            dir.SpawnSquads(map.NpcSpawns, rs.seed, false, map.PlayerSpawns, map.NpcSafeRadius, map.MaxRaiders);
             string wx = Weather.Describe();
             if (back != null) { g.Player.Hud.Center("RECONNECTED\n<size=40>" + map.DisplayName + " - " + Mathf.FloorToInt(back.timeLeft / 60f) + " min left</size>", 5f); return; }
             g.Player.Hud.Center(map.DisplayName.ToUpper() + (wx.Length > 0 ? "  -  " + wx : "") + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>", 6f);

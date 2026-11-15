@@ -261,7 +261,7 @@ namespace Rago
             Line(NpcKinds[_npcKind], y, 0.026f, Color.white, -0.41f);
             Btn(">", 0.1f, y, 0.08f, () => _npcKind = (_npcKind + 1) % NpcKinds.Length);
             Btn("SPAWN NPC", 0.36f, y, 0.2f, () => { Show(false); Tester.BeginPlace(null, _npcKind); }, Stop); y -= 0.08f;
-            Line("NPCs only spawn in a raid (and only the host's, in multiplayer).", y, 0.02f, UI.Dim);
+            Line("NPCs only spawn in a raid (in multiplayer, everyone sees them).", y, 0.02f, UI.Dim);
         }
 
         void DrawParty()
