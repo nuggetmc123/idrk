@@ -892,6 +892,7 @@ namespace Rago
             go.transform.SetPositionAndRotation(pos, Quaternion.Euler(0, yaw, 0));
             var c = go.AddComponent<LootCrate>();
             c.kind = kind; c.index = index; c._map = map;
+            ByIndex[index] = c;
             Vector3 size; Material mat; Color col;
             switch (kind)
             {
@@ -954,6 +955,10 @@ namespace Rago
             return c;
         }
 
+        /// <summary>Every crate by its index, so another player opening one opens it here too.</summary>
+        public static readonly System.Collections.Generic.Dictionary<int, LootCrate> ByIndex = new System.Collections.Generic.Dictionary<int, LootCrate>();
+        void OnDestroy() { if (ByIndex.TryGetValue(index, out var c) && c == this) ByIndex.Remove(index); }
+
         static void AddBox(Transform t, Vector3 c, Vector3 s) { var b = t.gameObject.AddComponent<BoxCollider>(); b.center = c; b.size = s; }
 
         void Update()
@@ -975,10 +980,14 @@ namespace Rago
             }
         }
 
-        public void Open()
+        public void Open() => Open(true);
+
+        /// <param name="tell">we opened it: tell the other players, so it's open (with the same loot inside) for them too</param>
+        public void Open(bool tell)
         {
             if (opened) return;
             opened = true;
+            if (tell && NetGame.Live) NetGame.I.CrateOpened(index);
             Sfx.Play(kind == Kind.Safe ? Synth.SlideBack() : Synth.Grab(1), transform.position, 0.6f, kind == Kind.Safe ? 0.6f : 0.8f, 1f, 10f);
             foreach (var s in _box.slots) s.enabled = true;
             var rng = new Rng(_map.Seed * 7349 + index * 131);

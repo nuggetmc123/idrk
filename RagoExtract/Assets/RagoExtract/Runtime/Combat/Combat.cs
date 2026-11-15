@@ -73,7 +73,7 @@ namespace Rago
             public string gunId;
             public Transform ignore;
             public IDamageable ignoreOwner;
-            public bool tracer, visualOnly, cracked, localOnly;
+            public bool tracer, visualOnly, cracked, localOnly, passCapsule;
         }
 
         readonly List<Bullet> _bullets = new List<Bullet>();
@@ -91,6 +91,7 @@ namespace Rago
                 if (_wallMask != 0) return _wallMask;
                 int m = ~0;
                 foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) m &= ~(1 << l);
+                m &= ~(1 << Window.Layer);   // window glass: you (and raiders) see through it, lights shine through - bullets still hit it
                 return _wallMask = m;
             }
         }
@@ -117,7 +118,7 @@ namespace Rago
                 I._bullets.Add(new Bullet
                 {
                     pos = origin, vel = d.normalized * gun.velocity, damage = gun.damage, life = 2.5f, shooter = shooter, gunId = gun.id,
-                    ignore = ignore, ignoreOwner = ignoreOwner, tracer = tracer && p == 0, visualOnly = visualOnly, localOnly = localOnly,
+                    ignore = ignore, ignoreOwner = ignoreOwner, tracer = tracer && p == 0, visualOnly = visualOnly, localOnly = localOnly, passCapsule = Random.value < 0.5f,
                     force = Mathf.Clamp(gun.damage * 0.06f, 1.2f, 9f)
                 });
             }
@@ -152,8 +153,14 @@ namespace Rago
                         {
                             var hit = _hits[h];
                             if (hit.collider.isTrigger && SurfaceTag.Of(hit.collider) != Synth.Surface.Water) continue;
-                            if (hit.collider is CharacterController && b.shooter == 0) continue;   // your own shots pass your own capsule; raider shots stop at it, as before
+                            // a player's movement capsule wraps their body: your own shots and other players' shots go on to the body's
+                            // hit zones; a raider's shot gets through half the time (raiders hitting less often, as asked earlier) -
+                            // stopping them all at the capsule made you invincible to everything
+                            if (hit.collider is CharacterController && (b.shooter < 1000 || b.passCapsule)) continue;
                             if (b.ignore != null && hit.collider.transform.IsChildOf(b.ignore)) continue;
+                            // window glass shatters and the bullet carries on through
+                            var win = hit.collider.GetComponent<Window>();
+                            if (win != null) { win.Break(dir: step / len, tell: b.shooter == 0 && !b.visualOnly); continue; }
                             var zone = hit.collider.GetComponent<HitZone>();
                             if (zone != null && b.ignoreOwner != null && zone.owner == b.ignoreOwner) continue;
                             if (zone != null && zone.owner != null && !zone.owner.Alive) zone = null; // corpses just take impacts

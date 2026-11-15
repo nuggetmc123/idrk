@@ -135,8 +135,11 @@ namespace Rago
 
         public void AddRecoil(float strength, bool rifle)
         {
-            _recoilVel += new Vector3(Random.Range(-0.15f, 0.15f) * strength, 0.25f * strength, -1.0f * strength) * (rifle ? 0.7f : 1f);
-            _recoilAngVel += new Vector3(-(rifle ? 220f : 380f) * strength, Random.Range(-60f, 60f) * strength, Random.Range(-40f, 40f) * strength);
+            // real kick: the gun drives back into your hand (cm) and the muzzle flips up (degrees), then the spring brings it
+            // back. It used to be scaled down to a millimetre and a fraction of a degree - you couldn't feel any recoil.
+            // Full auto stacks the kicks, so the muzzle climbs unless you hold it with both hands on the shoulder.
+            _recoilVel += new Vector3(Random.Range(-0.08f, 0.08f) * strength, 0.06f * strength, -0.9f * strength) * (rifle ? 0.8f : 1f);
+            _recoilAngVel += new Vector3(-(rifle ? 150f : 260f) * strength, Random.Range(-30f, 30f) * strength, Random.Range(-20f, 20f) * strength);
         }
 
         // ---------------------------------------------------------------------------------- per frame
@@ -153,19 +156,21 @@ namespace Rago
             float dt = Time.deltaTime;
             _recoilVel += (-_recoilPos * 260f - _recoilVel * 22f) * dt;
             _recoilPos += _recoilVel * dt;
-            _recoilAngVel += (-_recoilRot * 280f - _recoilAngVel * 24f) * dt;
+            _recoilAngVel += (-_recoilRot * 220f - _recoilAngVel * 22f) * dt;
             _recoilRot += _recoilAngVel * dt;
+            _recoilPos = Vector3.ClampMagnitude(_recoilPos, 0.08f);
+            _recoilRot = Vector3.ClampMagnitude(_recoilRot, 25f);
 
             // rack with the free hand on the slide / charging handle: hold the TRIGGER (or grip), pull back, let go
             if (Racking == null && Held == null && _interact == null && input.TriggerDown && Other.Held is Gun rg && !Other.HeldAsSecondary && rg.TryStartRack(this))
             {
                 BeginRack(rg); Haptic(0.2f, 0.03f);
             }
-            // light / laser on the gun: the support hand's trigger switches it (on the handguard, or empty and not pointing
-            // at a button or racking)
+            // light / laser on the gun: ONLY while this hand is on the gun's handguard (support grip) - an empty off hand
+            // pulling its trigger used to switch it too
             else if (input.TriggerDown && Racking == null && _interact == null && _hoverBtn == null)
             {
-                Gun lg = HeldAsSecondary ? Held as Gun : Held == null && !Other.HeldAsSecondary ? Other.Held as Gun : null;
+                Gun lg = HeldAsSecondary ? Held as Gun : null;
                 if (lg != null && lg.sideAtt != null) { lg.ToggleSide(); Haptic(0.15f, 0.02f); }
             }
             if (Racking != null)
@@ -220,8 +225,8 @@ namespace Rago
         {
             if (rig.Dead || rb == null || !_snapOk) return;
             tr = Compat.SafeRot(tr);
-            tp += _sag + tr * _recoilPos * 0.04f;
-            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot * 0.05f));
+            tp += _sag + tr * _recoilPos;
+            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot));
             if ((rb.position - tp).sqrMagnitude > 0.6f * 0.6f) return;   // a big jump (teleport, respawn): let physics catch up first
             transform.SetPositionAndRotation(tp, tr);
         }
@@ -253,8 +258,8 @@ namespace Rago
             if (held != null && held.rb != null && held.secondaryHand == null && held is Gun gg && gg.g.TwoHanded) heavy = Mathf.Clamp01(held.rb.mass / 9f);
             _sag = Vector3.Lerp(_sag, Vector3.down * heavy * 0.06f, dt * 6f);
             tp += _sag;
-            tp += tr * _recoilPos * 0.04f;
-            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot * 0.05f));
+            tp += tr * _recoilPos;
+            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot));
             // the hand draws exactly on the controller unless something solid stopped it last step (it ended up well short
             // of where it was sent): then it stays against the wall. Comparing with the aim - not with the controller -
             // means walking and running never count as "blocked", however fast you go.

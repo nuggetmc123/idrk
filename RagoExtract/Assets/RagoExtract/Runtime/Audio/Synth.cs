@@ -554,6 +554,25 @@ namespace Rago
             return Clip("planedrone", d, true, 0.8f, true);
         });
 
+        /// <summary>A pane of glass shattering: a sharp crack, then a shower of tinkling pieces.</summary>
+        public static AudioClip GlassBreak() => One("glassbreak", () =>
+        {
+            var d = Buf(1.4f);
+            var hp = new LP(9000);
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)SR;
+                d[i] = (N() - hp.P(N()) * 0.3f) * Mathf.Exp(-t * 30f) * 1.2f;
+            }
+            var r = new System.Random(7);
+            for (int k = 0; k < 26; k++)
+            {
+                float at = 0.03f + (float)r.NextDouble() * 1.0f * (float)r.NextDouble();
+                MetalClick(d, at, 0.15f + (float)r.NextDouble() * 0.35f, 3000 + (float)r.NextDouble() * 6000, 0.015f + (float)r.NextDouble() * 0.04f);
+            }
+            return Clip("glassbreak", d);
+        });
+
         /// <summary>The spoon flying off as the grenade leaves your hand: a springy metal "ping".</summary>
         public static AudioClip SpoonFly() => One("spoonfly", () =>
         {

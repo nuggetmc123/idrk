@@ -95,6 +95,18 @@ namespace Rago
 
         // ---------------------------------------------------------------- grenades
         /// <summary>Frag: fireball, sparks, a dust ring and a column of smoke. Flashbang: a blinding white pop and a puff.</summary>
+        /// <summary>Glass shards flying out of a broken window.</summary>
+        public static void GlassShatter(Vector3 c, Vector3 size, Quaternion rot, Vector3 push)
+        {
+            if (I == null) return;
+            var ps = I._debris != null ? I._debris : I._sparks;
+            for (int i = 0; i < 40; i++)
+            {
+                var p = c + rot * new Vector3(0, Random.Range(-0.5f, 0.5f) * size.y, Random.Range(-0.5f, 0.5f) * size.z);
+                Emit(ps, p, push * Random.Range(1f, 4f) + Random.insideUnitSphere * 1.2f + Vector3.down * 0.5f, Random.Range(0.01f, 0.04f), Random.Range(0.8f, 1.6f), new Color(0.75f, 0.85f, 0.9f, 0.8f), Random.Range(0f, 360f));
+            }
+        }
+
         /// <summary>A puff of coloured marker smoke (air drop flare / landing zone).</summary>
         public static void SignalSmoke(Vector3 p, Color c)
         {

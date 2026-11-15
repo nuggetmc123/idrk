@@ -10,7 +10,9 @@ namespace Rago
     public static class Levels
     {
         public const int Max = 30;
-        public const int KillXp = 60, BossXp = 600, ExtractXp = 250;
+        public const int KillXp = 60, BossXp = 600, ExtractXp = 250, HeadshotXp = 50;
+        /// <summary>This player's id in kill credit (1 offline; their network id + 1 online).</summary>
+        public static int MyKillerId => NetGame.Live ? (int)(NetHub.Backend.LocalId % 100000) + 1 : 1;
 
         /// <summary>Total XP needed to reach a level (level 1 = 0).</summary>
         public static int XpFor(int level)

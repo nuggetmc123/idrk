@@ -22,6 +22,7 @@ namespace Rago
         bool _poseL, _poseR, _supL, _supR;
         Vector3 _gl, _gr, _sGl, _sGr; Quaternion _glR = Quaternion.identity, _grR = Quaternion.identity, _sGlR = Quaternion.identity, _sGrR = Quaternion.identity;
         bool _dead, _hasPose;
+        float _packetT;
         float _yaw;
         public bool Alive => !_dead;
         public bool HiddenFromAi;   // tester: raiders ignore this player (other players still see them)
@@ -74,6 +75,7 @@ namespace Rago
             if (dead && !_dead) Die();
             if (!dead && _dead) Revive();
             _root = root; _head = head; _headR = headR; _hl = hl; _hlR = hlR; _hr = hr; _hrR = hrR; _vel = vel;
+            _packetT = Time.time;
             if (!_hasPose) { _hasPose = true; _sRoot = root; _sHead = head; _sHl = hl; _sHr = hr; _sHeadR = headR; _sHlR = hlR; _sHrR = hrR; }
         }
 
@@ -183,16 +185,19 @@ namespace Rago
         void LateUpdate()
         {
             if (!_hasPose) return;
-            float dt = Time.deltaTime, k = 1f - Mathf.Exp(-14f * dt);
-            _sRoot = Vector3.Lerp(_sRoot, _root, k); _sHead = Vector3.Lerp(_sHead, _head, k);
-            _sHl = Vector3.Lerp(_sHl, _hl, k); _sHr = Vector3.Lerp(_sHr, _hr, k);
+            float dt = Time.deltaTime, k = 1f - Mathf.Exp(-16f * dt);
+            // keep them moving between updates at the speed they're walking (up to 0.25 s ahead), then ease in: packets
+            // arrive in bunches over the network and plain easing made other players stutter and lag behind
+            Vector3 ahead = _dead ? Vector3.zero : new Vector3(_vel.x, 0, _vel.z) * Mathf.Min(Time.time - _packetT, 0.25f);
+            _sRoot = Vector3.Lerp(_sRoot, _root + ahead, k); _sHead = Vector3.Lerp(_sHead, _head + ahead, k);
+            _sHl = Vector3.Lerp(_sHl, _hl + ahead, k); _sHr = Vector3.Lerp(_sHr, _hr + ahead, k);
             _sHeadR = Quaternion.Slerp(_sHeadR, _headR, k); _sHlR = Quaternion.Slerp(_sHlR, _hlR, k); _sHrR = Quaternion.Slerp(_sHrR, _hrR, k);
             if (_dead) return;
             Footsteps.Track(ref _stepLast, ref _stepDist, ref _stepLeft, _sRoot, _sHeadR * Vector3.forward, dt, 0.4f);
             float hy = _sHeadR.eulerAngles.y;
             if (Mathf.Abs(Mathf.DeltaAngle(_yaw, hy)) > 35f || _vel.sqrMagnitude > 0.3f) _yaw = Mathf.MoveTowardsAngle(_yaw, hy, dt * 220f);
             // what they hold sits exactly where it is for them; their hands go on its grips (like the raiders' hands)
-            _sGl = Vector3.Lerp(_sGl, _gl, k); _sGr = Vector3.Lerp(_sGr, _gr, k);
+            _sGl = Vector3.Lerp(_sGl, _gl + ahead, k); _sGr = Vector3.Lerp(_sGr, _gr + ahead, k);
             _sGlR = Quaternion.Slerp(_sGlR, _glR, k); _sGrR = Quaternion.Slerp(_sGrR, _grR, k);
             Vector3 hlP = _sHl, hrP = _sHr; Quaternion hlQ = _sHlR, hrQ = _sHrR;
             if (_itemR != null)

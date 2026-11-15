@@ -165,6 +165,7 @@ namespace Rago
         Transform _chute;
         float _smokeT, _life;
         Light _beacon;
+        LootCrate _crate;
 
         public static void Make(Vector3 from, Vector3 target, int index, bool boss)
         {
@@ -175,6 +176,12 @@ namespace Rago
             go.transform.position = from;
             var d = go.AddComponent<DropCrate>();
             d._target = target; d._index = index; d._boss = boss;
+            // The Courier jumps with the crate and comes down under his own canopy a few metres beside it
+            if (boss)
+            {
+                var side = Quaternion.Euler(0, index * 37f, 0) * new Vector3(3f, 0, 0.5f);
+                ParaBoss.Make(from + side + Vector3.up * 6f, target + side, index);
+            }
             // the crate itself while falling (the real, lootable crate replaces it on landing)
             var mb = new MB();
             mb.Box(new Vector3(0, 0.45f, 0), new Vector3(1.2f, 0.9f, 1.2f), new Color(0.3f, 0.34f, 0.24f), 0.05f);
@@ -202,6 +209,7 @@ namespace Rago
             _life += dt;
             if (_beacon != null) _beacon.intensity = Mathf.Repeat(Time.time, 1f) < 0.5f ? 2.5f : 0.3f;
             _smokeT -= dt;
+            if (_crate != null && _crate.opened) { if (_beacon != null) _beacon.enabled = false; _life = Mathf.Max(_life, 999f); }
             if (_smokeT <= 0f && _life < 150f) { _smokeT = 0.35f; Fx.SignalSmoke(transform.position + Vector3.up * (_landed ? 0.9f : 0.2f), new Color(0.75f, 0.12f, 0.08f, 0.55f)); }
             if (_landed) { if (_life > 300f) Destroy(this); return; }
             // drift down onto the drop zone, swaying a little under the canopy
@@ -228,13 +236,13 @@ namespace Rago
             // the real crate: vault-grade loot, the same on every machine (same index, same raid seed)
             var crate = LootCrate.Create(map, _index, at, _index * 37f, LootCrate.Kind.Crate);
             crate.vaultGrade = true;
+            _crate = crate;
             crate.transform.SetParent(transform, true);
             Physics.SyncTransforms();
             // The Courier and two heavies land with a random drop (the host runs raiders: only it spawns them)
             if (_boss && NpcDirector.I != null && (!NetGame.Live || NetHub.Backend.IsHost))
             {
                 var q = Quaternion.Euler(0, _index * 37f, 0);
-                Spawn(6, at + q * new Vector3(2.5f, 0, 0.5f), _index * 37f + 180f);
                 Spawn(1, at + q * new Vector3(-2.5f, 0, 1.5f), _index * 37f + 150f);
                 Spawn(1, at + q * new Vector3(0.5f, 0, -3f), _index * 37f + 220f);
             }
@@ -247,6 +255,63 @@ namespace Rago
             if (UnityEngine.AI.NavMesh.SamplePosition(pos, out var h, 4f, UnityEngine.AI.NavMesh.AllAreas)) pos = h.position;
             if (NetGame.Live) NetGame.I.RequestNpc(kind, pos, yaw);
             else NpcDirector.I.SpawnNow(pos, yaw, kind >= 1, Tester.BossFor(kind));
+        }
+    }
+
+    /// <summary>The Courier under his parachute; on landing he becomes the real boss (the host spawns him for everyone).</summary>
+    public class ParaBoss : MonoBehaviour
+    {
+        Vector3 _target; int _index; float _life;
+        HumanRig _rig;
+
+        public static void Make(Vector3 from, Vector3 target, int index)
+        {
+            var g = RagoGame.I;
+            if (g == null || g.Map == null) return;
+            var go = new GameObject("CourierChute");
+            go.transform.SetParent(g.Map.transform, false);
+            go.transform.position = from;
+            var p = go.AddComponent<ParaBoss>();
+            p._target = target; p._index = index;
+            try
+            {
+                p._rig = HumanRig.Build(Outfit.BossCourier, index * 13 + 5, go.transform);
+                p._rig.SetCollidersEnabled(false);
+                ArmorBuilder.Dress(p._rig, Db.Get<ArmorDef>("boss_helm_courier"), Db.Get<ArmorDef>("boss_vest_courier"), null, false);
+                var gun = GunBuilder.Build(Db.Get<GunDef>("boss_tommy"), p._rig.chest);
+                gun.root.transform.localPosition = new Vector3(0.12f, -0.1f, 0.18f); gun.root.transform.localRotation = Quaternion.Euler(60, -30, 0);
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Rago] courier chute model: " + e.Message); }
+            var cm = new MB();
+            cm.Sphere(new Vector3(0, 7.2f, 0), new Vector3(3.6f, 1.4f, 3.6f), 16, new Color(0.18f, 0.18f, 0.2f));
+            for (int i = 0; i < 6; i++)
+            {
+                float a = i * Mathf.PI / 3f;
+                cm.Cyl(new Vector3(Mathf.Cos(a) * 0.25f, 1.6f, Mathf.Sin(a) * 0.25f), new Vector3(Mathf.Cos(a) * 3.2f, 6.9f, Mathf.Sin(a) * 3.2f), 0.012f, 0.012f, 4, new Color(0.8f, 0.8f, 0.75f));
+            }
+            cm.Build("Canopy", go.transform, Mats.Lit("chute_boss", Color.white, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.3f, 0f));
+        }
+
+        void Update()
+        {
+            float dt = Time.deltaTime;
+            _life += dt;
+            Vector3 p = transform.position;
+            Vector3 to = _target - p; to.y = 0;
+            p += Vector3.ClampMagnitude(to, 4.5f * dt) + Vector3.down * 6.5f * dt;
+            transform.position = p;
+            transform.rotation = Quaternion.Euler(Mathf.Sin(_life * 1.1f) * 6f, _index * 37f + 180f + Mathf.Sin(_life * 0.4f) * 20f, Mathf.Cos(_life * 0.9f) * 6f);
+            bool down = Physics.Raycast(p + Vector3.up * 0.5f, Vector3.down, out var hit, 0.6f + 7f * dt, Ballistics.WallMask, QueryTriggerInteraction.Ignore) || p.y < _target.y - 0.2f || _life > 90f;
+            if (!down) return;
+            Vector3 at = hit.collider != null ? hit.point : new Vector3(p.x, _target.y, p.z);
+            Sfx.Play(Synth.BodyFall(), at, 0.9f, 0.9f, 2f, 40f);
+            if (NpcDirector.I != null && (!NetGame.Live || NetHub.Backend.IsHost))
+            {
+                if (UnityEngine.AI.NavMesh.SamplePosition(at, out var nh, 4f, UnityEngine.AI.NavMesh.AllAreas)) at = nh.position;
+                if (NetGame.Live) NetGame.I.RequestNpc(6, at, _index * 37f + 180f);
+                else NpcDirector.I.SpawnNow(at, _index * 37f + 180f, true, Tester.BossFor(6));
+            }
+            Destroy(gameObject);
         }
     }
 

@@ -140,6 +140,9 @@ namespace Rago
             return best;
         }
 
+        /// <summary>Set while building houses: their windows get breakable glass.</summary>
+        public bool GlassWindows;
+
         /// <summary>Wall from a to b (on the ground plane) with rectangular openings (centre distance along the wall, width, bottom, top).</summary>
         public void Wall(Vector3 a, Vector3 b, float height, float thick, Material m, Color tint, List<Vector4> openings = null, Synth.Surface s = Synth.Surface.Concrete)
         {
@@ -161,6 +164,9 @@ namespace Rago
                 if (o0 > cursor) Seg(a, dir, rot, cursor, o0, 0, height, thick, m, tint, s);
                 if (o.z > 0.01f) Seg(a, dir, rot, o0, o1, 0, o.z, thick, m, tint, s);           // below window
                 if (o.w < height - 0.01f) Seg(a, dir, rot, o0, o1, o.w, height, thick, m, tint, s); // lintel
+                // a window (not a doorway): glass in it that shatters when shot
+                if (GlassWindows && o.z >= 0.5f && o1 - o0 > 0.3f && o.w - o.z > 0.3f)
+                    Window.Create(Root, a + dir * ((o0 + o1) * 0.5f) + Vector3.up * ((o.z + o.w) * 0.5f), new Vector3(0.02f, o.w - o.z, o1 - o0), rot);
                 cursor = Mathf.Max(cursor, o1);
             }
             if (cursor < len) Seg(a, dir, rot, cursor, len, 0, height, thick, m, tint, s);
@@ -203,7 +209,9 @@ namespace Rago
                     }
                     bool keep = NoSwingDoors;
                     NoSwingDoors = keep || (f == 0 && side == vaultSide);   // the vault's own door goes there
+                    GlassWindows = windows;
                     Wall(P(a.x, y, a.z), P(b.x, y, b.z), floorH, t, wall, tint, ops);
+                    GlassWindows = false;
                     NoSwingDoors = keep;
                 }
                 // floor slab (with a stair hole on upper floors)

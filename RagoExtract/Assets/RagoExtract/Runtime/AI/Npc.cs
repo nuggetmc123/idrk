@@ -46,7 +46,7 @@ namespace Rago
         }
         int _burst, _rounds;
         Vector3 _lastKnown, _flinchDir;
-        Vector3 _netPos, _netAim; float _netYaw; bool _netInit;
+        Vector3 _netPos, _netAim, _netVel; float _netYaw, _netT; bool _netInit;
         Target _target;
         bool _crouch;
         float _aimErr = 1f;
@@ -107,9 +107,29 @@ namespace Rago
             string bossGun = "grizzly";
             if (boss != null) BossKit(boss, out bossGun, out _, out _);
             n.Weapon = Db.Get<GunDef>(boss != null ? bossGun : heavy ? n._rng.Pick(heavyGuns) : n._rng.Pick(common)) ?? Db.Get<GunDef>("grizzly");
-            n.GunModel = GunBuilder.Build(n.Weapon, go.transform);
             n._rounds = n.Weapon.magSize;
-            var mag = GunBuilder.BuildMag(n.GunModel.magStyle, n.GunModel.magwell, n.Weapon.furniture, out _);
+            // bosses carry their gun kitted out (sight, muzzle device, light / laser, grip) - shown on them, working
+            // (their light and laser are on), and dropped with it all still fitted
+            if (boss != null)
+            {
+                n._gunData = BossAttachments(boss, n.Weapon);
+                var disp = ItemFactory.Spawn(new ItemData(n.Weapon.id) { sight = n._gunData.sight, muzzle = n._gunData.muzzle, side = n._gunData.side, gripAtt = n._gunData.gripAtt, rounds = n.Weapon.magSize }, pos, Quaternion.identity) as Gun;
+                if (disp != null)
+                {
+                    foreach (var it in disp.GetComponentsInChildren<Item>(true)) { Item.All.Remove(it); if (it.rb != null) { it.rb.isKinematic = true; it.rb.detectCollisions = false; } }
+                    foreach (var c in disp.GetComponentsInChildren<Collider>(true)) Destroy(c);
+                    disp.transform.SetParent(go.transform, false);
+                    disp.transform.localPosition = Vector3.zero; disp.transform.localRotation = Quaternion.identity;
+                    disp.RemoteOn = true; disp.SideOn = true;
+                    n._dispGun = disp;
+                    n.GunModel = disp.rig;
+                }
+            }
+            if (n.GunModel == null)
+            {
+                n.GunModel = GunBuilder.Build(n.Weapon, go.transform);
+                GunBuilder.BuildMag(n.GunModel.magStyle, n.GunModel.magwell, n.Weapon.furniture, out _);
+            }
             n.Yaw = yaw;
             n._home = pos;
             n.AimPoint = pos + Quaternion.Euler(0, yaw, 0) * Vector3.forward * 10f + Vector3.up * 1.4f;
@@ -134,6 +154,23 @@ namespace Rago
         {
             string b = boss.ToLowerInvariant();
             return b.Contains("kessler") ? Outfit.BossKessler : b.Contains("harbor") ? Outfit.BossHarbor : b.Contains("warden") ? Outfit.BossWarden : b.Contains("banker") ? Outfit.BossBanker : b.Contains("courier") ? Outfit.BossCourier : Outfit.RaiderHeavy;
+        }
+
+        ItemData _gunData;
+        Gun _dispGun;
+
+        /// <summary>The attachments each boss runs on their gun.</summary>
+        static ItemData BossAttachments(string boss, GunDef g)
+        {
+            string b = boss.ToLowerInvariant();
+            var d = new ItemData(g.id);
+            if (b.Contains("kessler")) { d.sight = "hex_holo"; d.side = "laser_green"; d.gripAtt = "grip_angled"; }
+            else if (b.Contains("harbor")) { d.sight = "reflex_pan"; d.side = "light_wml"; d.gripAtt = "grip_vertical"; }
+            else if (b.Contains("warden")) { d.sight = "scope_8x"; d.side = "laser_red"; }
+            else if (b.Contains("banker")) { d.sight = "prism_3x"; d.muzzle = "comp_triport"; d.side = "combo_peq"; d.gripAtt = "grip_angled"; }
+            else if (b.Contains("courier")) { d.sight = "holo_ex3"; d.muzzle = "sup_compact"; d.side = "combo_peq"; }
+            else { d.sight = "holo_ex3"; d.side = "light_wml"; }
+            return d;
         }
 
         public static void BossKit(string boss, out string gun, out string helmet, out string vest)
@@ -463,6 +500,11 @@ namespace Rago
         public void ApplyNetState(Vector3 pos, float yaw, NpcState st, Vector3 aim, bool alive)
         {
             if (!Puppet) return;
+            // how fast it's going between updates, so in between it keeps moving instead of stopping and jumping
+            float now = Time.time;
+            if (_netInit && now - _netT > 0.02f) _netVel = Vector3.ClampMagnitude((pos - _netPos) / (now - _netT), 7f);
+            if ((pos - _netPos).sqrMagnitude > 25f) _netVel = Vector3.zero;   // a big jump: no extrapolating from it
+            _netT = now;
             _netPos = pos; _netYaw = yaw; _netAim = aim; State = st;
             if (!_netInit) { _netInit = true; transform.position = pos; Yaw = yaw; AimPoint = aim; }
         }
@@ -471,7 +513,10 @@ namespace Rago
         {
             if (!_netInit) return;
             Vector3 before = transform.position;
-            transform.position = Vector3.Lerp(transform.position, _netPos, 1f - Mathf.Exp(-10f * dt));
+            // dead reckoning: where it will be by now if it kept going (up to 0.3 s), smoothed - no stop-start rubber-banding
+            Vector3 aimPos = _netPos + _netVel * Mathf.Min(Time.time - _netT, 0.3f);
+            if (State == NpcState.Dead || _netVel.sqrMagnitude < 0.01f) aimPos = _netPos;
+            transform.position = Vector3.Lerp(transform.position, aimPos, 1f - Mathf.Exp(-12f * dt));
             _puppetVel = (transform.position - before) / Mathf.Max(dt, 0.001f);
             Yaw = Mathf.LerpAngle(Yaw, _netYaw, 1f - Mathf.Exp(-10f * dt));
             AimPoint = Vector3.Lerp(AimPoint, _netAim, 1f - Mathf.Exp(-10f * dt));
@@ -530,9 +575,15 @@ namespace Rago
         }
 
         // ------------------------------------------------------------------------------- damage
+        /// <summary>Who landed the killing hit (Levels.MyKillerId of that player; 0 = a raider / nobody) and was it the head.</summary>
+        public int KillerId; public bool KillerHeadshot;
+
         public void TakeHit(HitInfo h, HitZone zone)
         {
             if (!Alive) return;
+            // credit goes to whoever's hit this is: our own (attacker 0) or another player's (their network id + 1)
+            KillerId = h.attacker == 0 ? Levels.MyKillerId : h.attacker < 1000 ? h.attacker : 0;
+            KillerHeadshot = h.part == BodyPart.Head;
             float dmg = h.damage;
             dmg *= ArmorDef.Reduction(h.part, Helmet, Vest);
             Health -= dmg;
@@ -570,7 +621,10 @@ namespace Rago
             // drop the weapon as a real item + loot
             var gpos = GunModel.root.transform.position; var grot = GunModel.root.transform.rotation;
             Destroy(GunModel.root);
-            var gun = ItemFactory.Spawn(new ItemData(Weapon.id) { rounds = Mathf.Max(0, _rounds), chambered = _rounds > 0 }, gpos, grot);
+            if (_dispGun != null) Destroy(_dispGun.gameObject);
+            var gd = new ItemData(Weapon.id) { rounds = Mathf.Max(0, _rounds), chambered = _rounds > 0 };
+            if (_gunData != null) { gd.sight = _gunData.sight; gd.muzzle = _gunData.muzzle; gd.side = _gunData.side; gd.gripAtt = _gunData.gripAtt; }
+            var gun = ItemFactory.Spawn(gd, gpos, grot);
             if (gun != null) { gun.netId = 60000 + Id * 8; gun.rb.SetVel(impulse * 0.02f); NetGame.I?.Register(gun); }
             var rng = new Rng(Id * 7919 + 17);
             int n = rng.Range(1, Heavy ? 4 : 3);
@@ -604,7 +658,7 @@ namespace Rago
             // ammo for the dropped gun
             var ammo = ItemFactory.Spawn(Db.AmmoIdFor(Weapon.cal), Rig.hips.position + Vector3.up * 0.3f, Random.rotation);
             if (ammo != null) { ammo.netId = 60000 + Id * 8 + 7; NetGame.I?.Register(ammo); }
-            if (!fromNet) NetGame.I?.NpcDied(Id, point, impulse);
+            if (!fromNet) NetGame.I?.NpcDied(Id, point, impulse, KillerId, KillerHeadshot);
             OnDied?.Invoke(this);
         }
 

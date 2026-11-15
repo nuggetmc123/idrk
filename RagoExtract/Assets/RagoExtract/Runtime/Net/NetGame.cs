@@ -51,7 +51,7 @@ namespace Rago
             Send(false);
         }
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop }
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken }
 
         public static void Ensure()
         {
@@ -92,6 +92,7 @@ namespace Rago
             Remotes.Clear();
             Items.Clear();
             _taken.Clear();
+            _flying.Clear();
             _helloSent.Clear();
             Gun.OnLocalFire = null;
             Ballistics.OnHitActor = null;
@@ -183,6 +184,7 @@ namespace Rago
                 if (gear) { w.Write(gk); _lastGear = gk; }
                 Send(false);
             }
+            if (_flying.Count > 0) TrackFlying();
             if (InRaid && NetHub.Backend.IsHost && NpcDirector.I != null)
             {
                 if (!_wasHost) { _wasHost = true; NpcDirector.I.BecomeAuthority(); } // host migrated to us: run the NPCs
@@ -227,11 +229,10 @@ namespace Rago
                 // host simulates NPC bullets: forward their damage to the player that got hit
                 return; // only report our own hits (raider shots are worked out by each player against themselves)
             }
-            if (z.owner is RemotePlayer rp)
+            if (z.owner is RemotePlayer)
             {
-                var w = W(Msg.HitPlayer);
-                w.Write(rp.NetId); w.Write(h.damage); w.Write((byte)h.part); V3(w, h.point); V3(w, h.dir); w.Write(h.force);
-                Send(true, rp.NetId);
+                // nothing to send: every player replays everyone's shots (Msg.Fire) against their own body and takes the
+                // damage there - the target's id never has to match up, and grenades work the same way
             }
             else if (z.owner is Npc npc)
             {
@@ -271,7 +272,10 @@ namespace Rago
             Items[it.netId] = it;
             var w = W(Msg.ItemSpawned);
             w.Write(it.netId); w.Write(JsonUtility.ToJson(it.Save())); V3(w, it.transform.position); Q(w, it.transform.rotation);
+            // how it was thrown: everyone sees it fly the same way, and its resting spot is sent when it stops
+            V3(w, it.rb != null ? it.rb.Vel() : Vector3.zero); V3(w, it.rb != null ? it.rb.angularVelocity : Vector3.zero);
             Send(true);
+            _flying.Add((it, Time.time));
         }
 
         readonly HashSet<int> _taken = new HashSet<int>();
@@ -291,6 +295,25 @@ namespace Rago
         {
             if (!Live) return;
             var w = W(Msg.Hidden); w.Write(hidden); Send(true);
+        }
+
+        public void WindowBroken(int id) { if (!Live) return; var w = W(Msg.WindowBroken); w.Write(id); Send(true); }
+
+        public void CrateOpened(int index) { if (!Live || !InRaid) return; var w = W(Msg.CrateOpen); w.Write(index); Send(true); }
+
+        // items we dropped / threw: once they come to rest, everyone puts them in the same final spot
+        readonly List<(Item it, float t)> _flying = new List<(Item, float)>();
+        void TrackFlying()
+        {
+            for (int i = _flying.Count - 1; i >= 0; i--)
+            {
+                var (it, t) = _flying[i];
+                if (it == null || it.netId == 0 || it.Held || it.slot != null) { _flying.RemoveAt(i); continue; }
+                bool rest = it.rb == null || it.rb.isKinematic || it.rb.IsSleeping() || it.rb.Vel().sqrMagnitude < 0.01f && Time.time - t > 0.6f;
+                if (!rest && Time.time - t < 6f) continue;
+                _flying.RemoveAt(i);
+                var w = W(Msg.ItemRest); w.Write(it.netId); V3(w, it.transform.position); Q(w, it.transform.rotation); Send(true);
+            }
         }
 
         /// <summary>A radio air drop called in by us: everyone sees the same plane and crate.</summary>
@@ -327,10 +350,10 @@ namespace Rago
             var w = W(Msg.NpcFire); w.Write(id); V3(w, origin); V3(w, dir); Send(false);
         }
 
-        public void NpcDied(int id, Vector3 point, Vector3 impulse)
+        public void NpcDied(int id, Vector3 point, Vector3 impulse, int killer = 0, bool head = false)
         {
-            if (!Live || !NetHub.Backend.IsHost) return;
-            var w = W(Msg.NpcDied); w.Write(id); V3(w, point); V3(w, impulse); Send(true);
+            if (!Live) return;
+            var w = W(Msg.NpcDied); w.Write(id); V3(w, point); V3(w, impulse); w.Write(killer); w.Write(head); Send(true);
         }
 
         public void VaultOpened(int id) { if (!Live) return; var w = W(Msg.Vault); w.Write(id); Send(true); }
@@ -429,7 +452,8 @@ namespace Rago
                                 if (g == null) break;
                                 if (sup) g = g.Quiet;
                                 Remotes.TryGetValue(from, out var rp);
-                                Ballistics.Fire(o, d, g, (int)from + 1, rp != null ? rp.transform : null, rp, true, g.cls == GunClass.LMG);
+                                // another player's shot: it can hurt us here (we're the only ones who know where we really are)
+                                Ballistics.Fire(o, d, g, (int)from + 1, rp != null ? rp.transform : null, rp, true, g.cls == GunClass.LMG, InRaid);
                                 Sfx.Gunshot(g, o, false);
                                 if (rp != null) rp.MuzzleFlash(g); else Fx.TracerLine(o, o + d * 50f);
                                 break;
@@ -470,9 +494,15 @@ namespace Rago
                         case Msg.ItemSpawned:
                             {
                                 int id = r.ReadInt32(); var d = JsonUtility.FromJson<ItemData>(r.ReadString()); var pos = V3(r); var rot = Q(r);
+                                Vector3 vel = Vector3.zero, ang = Vector3.zero;
+                                if (r.BaseStream.Position < r.BaseStream.Length) { vel = V3(r); ang = V3(r); }
                                 if (Items.ContainsKey(id)) break;
                                 var it = ItemFactory.Spawn(d, pos, rot);
-                                if (it != null) { it.netId = id; Items[id] = it; }
+                                if (it != null)
+                                {
+                                    it.netId = id; Items[id] = it;
+                                    if (it.rb != null) { it.rb.isKinematic = false; it.SetCollidersTrigger(false); it.rb.SetVel(vel); it.rb.angularVelocity = ang; }
+                                }
                                 break;
                             }
                         case Msg.NpcStates:
@@ -498,6 +528,29 @@ namespace Rago
                             {
                                 bool hid = r.ReadBoolean();
                                 if (Remotes.TryGetValue(from, out var hp) && hp != null) hp.HiddenFromAi = hid;   // a tester made themselves invisible to raiders
+                                break;
+                            }
+                        case Msg.WindowBroken:
+                            {
+                                int wid = r.ReadInt32();
+                                var win = global::Rago.Window.All.Find(x => x != null && x.Id == wid);
+                                if (win != null) win.Break();
+                                break;
+                            }
+                        case Msg.CrateOpen:
+                            {
+                                int ix = r.ReadInt32();
+                                if (LootCrate.ByIndex.TryGetValue(ix, out var cr) && cr != null) cr.Open(false);
+                                break;
+                            }
+                        case Msg.ItemRest:
+                            {
+                                int id = r.ReadInt32(); var pos = V3(r); var rot = Q(r);
+                                if (Items.TryGetValue(id, out var it) && it != null && !it.Held && it.slot == null)
+                                {
+                                    if (it.rb != null) { it.rb.SetVel(Vector3.zero); it.rb.angularVelocity = Vector3.zero; it.rb.position = pos; it.rb.rotation = rot; }
+                                    it.transform.SetPositionAndRotation(pos, rot);
+                                }
                                 break;
                             }
                         case Msg.AirDrop:
@@ -533,7 +586,10 @@ namespace Rago
                         case Msg.NpcDied:
                             {
                                 int id = r.ReadInt32(); var pt = V3(r); var imp = V3(r);
-                                NpcDirector.I?.Get(id)?.Die(pt, imp, true);
+                                int killer = r.BaseStream.Position < r.BaseStream.Length ? r.ReadInt32() : 0;
+                                bool head = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean();
+                                var dn = NpcDirector.I?.Get(id);
+                                if (dn != null && dn.Alive) { if (killer != 0) { dn.KillerId = killer; dn.KillerHeadshot = head; } dn.Die(pt, imp, true); }
                                 break;
                             }
                         case Msg.Voice:

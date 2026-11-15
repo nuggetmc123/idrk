@@ -101,10 +101,12 @@ namespace Rago
 
         void OnNpcDied(Npc n)
         {
+            // only the player who killed it gets the kill and the XP (+ a bonus for a headshot)
+            if (n.KillerId != Levels.MyKillerId) return;
             Kills++;
             if (Profile.Current != null) Profile.Current.kills++;
-            if (n.IsBoss) Levels.Award(Levels.BossXp, "boss killed");
-            else Levels.Award(Levels.KillXp, "kill");
+            int xp = (n.IsBoss ? Levels.BossXp : Levels.KillXp) + (n.KillerHeadshot ? Levels.HeadshotXp : 0);
+            Levels.Award(xp, (n.IsBoss ? "boss killed" : "kill") + (n.KillerHeadshot ? " - HEADSHOT" : ""));
         }
 
         public Npc Get(int id) => _byId.TryGetValue(id, out var n) ? n : null;

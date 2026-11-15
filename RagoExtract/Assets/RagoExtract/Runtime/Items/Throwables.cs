@@ -270,7 +270,25 @@ namespace Rago
                             npc.Flash(Mathf.Lerp(7f, 2.5f, d / FlashRadius));
                     }
             }
-            if (!local) return;
+            // the blast shatters windows near it (every machine does this itself)
+            if (!flash)
+                foreach (var w in new List<Window>(Window.All))
+                    if (w != null && (w.transform.position - p).sqrMagnitude < FragRadius * FragRadius * 0.7f) w.Break((w.transform.position - p).normalized);
+            if (!local)
+            {
+                // someone else's frag: it hurts us here (each player takes their own shrapnel)
+                if (!flash && pl != null && !pl.Dead && RagoGame.I.Area == Area.Raid)
+                {
+                    Vector3 at = pl.Body != null && pl.Body.Rig != null ? pl.Body.Rig.chest.position : pl.Head.position;
+                    float d2 = Vector3.Distance(at, p);
+                    if (d2 < FragRadius && (ClearLine(p, at) || ClearLine(p, pl.Head.position)))
+                    {
+                        float k = Mathf.Clamp01(1f - d2 / FragRadius);
+                        pl.Vitals.TakeHit(new HitInfo { damage = 25f + 210f * k * k, part = BodyPart.Thorax, point = at, dir = (at - p).normalized, attacker = attacker, gunId = "frag", force = 6f * k + 1f, fromNet = true }, null);
+                    }
+                }
+                return;
+            }
             Noise.Emit(p, flash ? 45f : 80f, attacker, true);
             if (NetGame.Live) NetGame.I.SendBlast(p, flash);
             if (flash) return;

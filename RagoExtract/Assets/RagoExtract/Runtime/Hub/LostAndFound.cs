@@ -54,6 +54,8 @@ namespace Rago
             _count = UI.Text(transform, "", new Vector3(-0.62f, 0.68f, -0.39f), 0.03f, new Color(0.95f, 0.9f, 0.8f), TextAnchor.MiddleLeft);
             _next = UI.Button(transform, "MORE >", new Vector3(0.62f, 0.68f, -0.39f), new Vector2(0.26f, 0.08f), NextPage);
             _next.gameObject.SetActive(false);
+            // SELL ALL: everything in the bin and underneath it, at the best price any trader pays (press twice to confirm)
+            _sell = UI.Button(transform, "SELL ALL", new Vector3(0, 0.68f, -0.39f), new Vector2(0.3f, 0.08f), SellAll, new Color(0.6f, 0.14f, 0.1f));
             _bin = ItemContainer.Grid(transform, new Vector3(0, 0.395f, 0), Quaternion.identity, 4, 2, new Vector2(0.4f, 0.33f), 0.38f);
             _bin.onChanged = Refresh;
             Refresh();
@@ -81,6 +83,37 @@ namespace Rago
             return l;
         }
 
+        WorldButton _sell; float _confirmT; int _quote;
+
+        void SellAll()
+        {
+            int n = 0, total = 0;
+            foreach (var s in _bin.slots) if (s.item != null) { total += SellStation.Offer(s.item, out _); n++; }
+            foreach (var d in _extra)
+            {
+                Item tmp = null;
+                try { tmp = ItemFactory.Spawn(d, new Vector3(0, -900f, 0), Quaternion.identity); } catch { }
+                if (tmp != null) { total += SellStation.Offer(tmp, out _); Compat.Kill(tmp.gameObject); }
+                n++;
+            }
+            if (n == 0) { Sfx.UI(Synth.UiError(), 0.3f); RagoGame.I?.Player?.Toast("The Lost & Found is empty"); return; }
+            if (Time.time > _confirmT || total != _quote)
+            {
+                _confirmT = Time.time + 4f; _quote = total;
+                _sell.SetText("SELL $" + total.ToString("N0") + "?");
+                RagoGame.I?.Player?.Toast("Sell all " + n + " item(s) for $" + total.ToString("N0") + "? Press again to confirm");
+                return;
+            }
+            _confirmT = 0f;
+            foreach (var s in _bin.slots) if (s.item != null) { var it = s.item; s.Release(it); Destroy(it.gameObject); }
+            _extra.Clear();
+            Profile.Current.money += total;
+            Profile.Current.Save();
+            Sfx.UI(Synth.Cash(), 0.7f);
+            RagoGame.I?.Player?.Toast("Sold " + n + " item(s) for $" + total.ToString("N0"));
+            Refresh();
+        }
+
         void NextPage()
         {
             if (_extra.Count == 0) return;
@@ -104,6 +137,7 @@ namespace Rago
         /// <summary>Every couple of seconds: items left lying on the floor for a while (or fallen out of the world) come here.</summary>
         void Update()
         {
+            if (_sell != null && _confirmT > 0f && Time.time > _confirmT) { _confirmT = 0f; _sell.SetText("SELL ALL"); }
             if (Time.time < _scanT) return;
             _scanT = Time.time + 1f;
             Refresh();
