@@ -44,6 +44,7 @@ namespace Rago
             if (I != null && I != this) { Destroy(gameObject); return; }
             I = this;
             DontDestroyOnLoad(gameObject);
+            Application.runInBackground = true;   // the Quest menu / a lost focus doesn't stop the game (and its connection) ticking
             try { Boot2(); }
             catch (System.Exception e) { Debug.LogError("[Rago Extract] startup failed - please send this error:\n" + e); }
         }
@@ -247,7 +248,9 @@ namespace Rago
             Area = to;
             string id = to == Area.Bunker ? "bunker" : to == Area.Market ? "market" : to == Area.Welcome ? "welcome" : rs.map;
             int seed = to == Area.Raid ? rs.seed : 1234;
+            float buildT = Time.realtimeSinceStartup;
             Map = Maps.Create(id, MapRoot, seed);
+            Debug.Log("[Rago] built " + id + " in " + (Time.realtimeSinceStartup - buildT).ToString("0.0") + " s");
             SafeZone = Map.Safe;
             // raids: the world is merged into big 100 m chunks, so a per-pixel lamp would redraw a whole chunk. Lamps are
             // cheap vertex lights there, and on Quest the sun casts no shadows in raids (hubs keep both).

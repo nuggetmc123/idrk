@@ -58,10 +58,11 @@ namespace Rago.Net
                 {
                     if (_actorOf == null) _actorOf = typeof(NetworkRunner).GetMethod("GetPlayerActorId", Any, null, new[] { typeof(PlayerRef) }, null);
                     var v = _actorOf?.Invoke(_runner, new object[] { p });
-                    if (v is int a && a > 0) { id = (ulong)a; _idOf[p] = id; }
+                    if (v is int a && a > 0) id = (ulong)a;
                 }
             }
             catch { }
+            if (_runner != null && p.PlayerId >= 0) _idOf[p] = id;   // a player's number never changes during a session
             return id;
         }
 
@@ -625,6 +626,35 @@ namespace Rago.Net
             var f = t.GetField(name, Any); return f?.GetValue(o);
         }
 
+        static bool _timeoutDone;
+        /// <summary>Fusion drops a player it hasn't heard from for ~10 s. Building a big raid map on a Quest can freeze
+        /// the game for that long, so give it 40 s (if this Fusion version lets us).</summary>
+        static void LongerTimeout()
+        {
+            if (_timeoutDone) return;
+            _timeoutDone = true;
+            try
+            {
+                var cfgType = Type.GetType("Fusion.NetworkProjectConfig, Fusion.Runtime");
+                var global = cfgType?.GetProperty("Global", Any)?.GetValue(null);
+                if (global == null) { Debug.Log("[Rago] no NetworkProjectConfig - default connection timeout"); return; }
+                var nf = cfgType.GetField("Network", Any); var np = nf == null ? cfgType.GetProperty("Network", Any) : null;
+                object net = nf != null ? nf.GetValue(global) : np?.GetValue(global);
+                if (net == null) { Debug.Log("[Rago] no network config - default connection timeout"); return; }
+                bool any = false;
+                foreach (var name in new[] { "ConnectionTimeout", "ConnectionTimeoutSeconds" })
+                {
+                    var f = net.GetType().GetField(name, Any);
+                    if (f != null) { f.SetValue(net, Convert.ChangeType(40, f.FieldType)); any = true; continue; }
+                    var p = net.GetType().GetProperty(name, Any);
+                    if (p != null && p.CanWrite) { p.SetValue(net, Convert.ChangeType(40, p.PropertyType)); any = true; }
+                }
+                if (net.GetType().IsValueType) { if (nf != null) nf.SetValue(global, net); else np?.SetValue(global, net); }
+                Debug.Log(any ? "[Rago] connection timeout set to 40 s" : "[Rago] this Fusion has no ConnectionTimeout setting");
+            }
+            catch (Exception e) { Debug.Log("[Rago] couldn't change the connection timeout: " + e.Message); }
+        }
+
         static bool Set(object o, string name, object value)
         {
             if (o == null) return false;
@@ -664,6 +694,7 @@ namespace Rago.Net
                 SceneManager = sceneManager,
             };
             UseAppId(ref args, AppId());
+            LongerTimeout();
             _myUid = MyName() + "@" + (_partyCode ?? "") + "~" + UnityEngine.Random.Range(1000, 9999);
             _uidBad = false;
             UseUserId(ref args, _myUid);
@@ -866,8 +897,12 @@ namespace Rago.Net
             if (!InSession || data == null || data.Length == 0 || data.Length > 60000) return;
             if (target == ulong.MaxValue)
             {
-                // no host: straight to every player in the raid (batched, one packet per player per tick)
-                foreach (var p in _peers) Queue(p, data);
+                // Photon's shared mode only reliably carries this data between its master client and each player -
+                // straight between two other players it went missing (the "can't see the 3rd player" bug). So: one
+                // copy to the master client, which hands it to everyone. It's only a postman - it runs nothing for
+                // anyone, and when it leaves Photon picks another one at once.
+                if (!IsHost && _hostId != 0 && _refs.ContainsKey(_hostId)) Queue(Bcast, data);
+                else foreach (var p in _peers) Queue(p, data);
             }
             else if (target != LocalId) Queue(target, data);
         }
@@ -926,9 +961,8 @@ namespace Rago.Net
         void SendTo(ulong id, byte[] packet)
         {
             if (_runner == null || !_refs.TryGetValue(id, out var p)) return;
-            // Every player talks straight to every other player - there is no host. Only if we've heard NOTHING from
-            // a player for 4 s (a broken link between the two of you) is their data passed through another player.
-            if (_relayTo.Contains(id) && !IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
+            // to one other player: through the master client too (see Send)
+            if (!IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
             {
                 var w = new byte[packet.Length + 9];
                 w[0] = 3; Buffer.BlockCopy(BitConverter.GetBytes(id), 0, w, 1, 8);
@@ -1112,6 +1146,7 @@ namespace Rago.Net
             PublishNames();
             OnPeerLeft?.Invoke(Id(player));
             if (_inPartySession) OnPartyChanged?.Invoke();
+            _idOf.Remove(player);   // the slot can be reused by someone else
         }
 
         public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
