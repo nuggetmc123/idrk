@@ -290,6 +290,8 @@ namespace Rago
             foreach (var c in Crates)
             {
                 if (c == null) continue;
+                try {   // each crate on its own: one going wrong must never leave all the others where they were
+                float spotY = c.transform.position.y;
                 // under the terrain (a slope higher than the spot): start from the terrain's surface, or the probe below
                 // starts inside the hill, sees nothing and leaves the crate buried
                 float tt = B != null ? B.TerrainTop(c.transform.position) : float.NegativeInfinity;
@@ -310,12 +312,17 @@ namespace Rago
                         if (t.IsChildOf(c.transform)) continue;
                         var other = t.GetComponentInParent<LootCrate>();
                         if (other != null && other != c) continue;   // stacked spots: ignore other crates, settle on the floor
-                        if (hits[i].normal.y < 0.5f || hits[i].point.y > p.y + 1.4f) continue;   // not walls, not a shelf or ceiling far above
+                        if (hits[i].normal.y < 0.85f || hits[i].point.y > p.y + 1.4f) continue;   // flat surfaces only (not walls, tent roofs or slopes), not a shelf or ceiling far above
                         if (hits[i].point.y > top) top = hits[i].point.y;
                     }
                     if (top > best) best = top;
                 }
-                if (best > float.NegativeInfinity) { p.y = best + 0.004f; c.transform.position = p; }
+                if (best > float.NegativeInfinity) p.y = best + 0.004f;
+                // never below the spot it was made for (every spot is written at its floor's top surface), and a touch
+                // above whatever it's on - a crate a few mm high looks right, one sunk into the floor never does
+                p.y = Mathf.Max(p.y, spotY) + 0.015f;
+                c.transform.position = p;
+                } catch (System.Exception e) { Debug.LogWarning("[Rago] settling crate " + c.name + ": " + e.Message); var q = c.transform.position; q.y += 0.12f; c.transform.position = q; }
             }
             Physics.SyncTransforms();
             // no crate inside a wall, furniture, stairs or another crate: move it to the nearest clear spot, or drop it
