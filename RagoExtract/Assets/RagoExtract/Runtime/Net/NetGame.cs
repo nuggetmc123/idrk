@@ -45,7 +45,7 @@ namespace Rago
         public void SendVoice(byte[] frame)
         {
             if (!Live || Spectator.Active) return;
-            if (NetHub.Backend.Rtt > 0.8f) return;   // the line is backed up: voice is the biggest thing we send, skip it until it clears
+            if (NetHub.Backend.Rtt > 0.45f) return;   // the line is backed up: voice is the biggest thing we send, skip it until it clears
             var w = W(Msg.Voice);
             w.Write((short)frame.Length); w.Write(frame);
             Send(false);
@@ -153,6 +153,7 @@ namespace Rago
                 // 15 a second normally; fewer when the line to the other players is backing up (it only ever needs the latest)
                 float rtt = NetHub.Backend.Rtt;
                 float step = rtt < 0.25f ? 1f / 15f : rtt < 0.5f ? 1f / 10f : 1f / 6f;
+                if (NetHub.Backend.Peers.Count >= 3) step = Mathf.Max(step, 1f / 12f);   // a full raid: everyone sends a little less
                 _poseT = step;
                 var w = W(Msg.Pose);
                 var root = p.transform.position;
@@ -189,7 +190,13 @@ namespace Rago
             {
                 if (!_wasHost) { _wasHost = true; NpcDirector.I.BecomeAuthority(); } // host migrated to us: run the NPCs
                 _npcT -= Time.deltaTime;
-                if (_npcT <= 0) { float rtt = NetHub.Backend.Rtt; _npcT = rtt < 0.3f ? 0.15f : rtt < 0.6f ? 0.3f : 0.5f; SendNpcStates(_npcT); }
+                if (_npcT <= 0)
+                {
+                    // the host sends raider updates to every other player: with more players, a bit less often
+                    float rtt = NetHub.Backend.Rtt; int others = NetHub.Backend.Peers.Count;
+                    _npcT = (rtt < 0.3f ? 0.15f : rtt < 0.6f ? 0.3f : 0.5f) * (others >= 3 ? 1.6f : others >= 2 ? 1.3f : 1f);
+                    SendNpcStates(_npcT);
+                }
             }
             _voiceT -= Time.deltaTime;
             if (_voiceT <= 0 && NetHub.Voice != null && NetHub.Voice.Ready) { _voiceT = 0.25f; NetHub.Voice.UpdatePosition(p.Head); }

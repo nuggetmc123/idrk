@@ -1275,6 +1275,30 @@ namespace Rago
         public static Vault Find(int id) { foreach (var v in _all) if (v != null && v.Id == id) return v; return null; }
         void OnDestroy() { _all.Remove(this); if (_alarm != null) _alarm.Stop(); }
 
+        /// <summary>
+        /// The vault alarm on its own speaker (the shared sound pool used to hand its speaker to the next gunshot, cutting
+        /// it off). In the Underground it's heard everywhere: loud, long range and partly "in your head" through the
+        /// tunnels; elsewhere it carries a long way round the vault.
+        /// </summary>
+        void StartAlarm()
+        {
+            bool under = _map != null && _map.Id == "underground";
+            if (_alarm == null)
+            {
+                var go = new GameObject("VaultAlarm");
+                go.transform.SetParent(transform, false);
+                go.transform.localPosition = Vector3.up * 2.5f;
+                _alarm = go.AddComponent<AudioSource>();
+                _alarm.playOnAwake = false;
+            }
+            _alarm.clip = Synth.Alarm(); _alarm.loop = true;
+            _alarm.volume = (under ? 1f : 0.8f) * Sfx.MasterVolume;
+            _alarm.spatialBlend = under ? 0.55f : 1f;   // underground: you hear it wherever you are, louder the closer you get
+            _alarm.rolloffMode = AudioRolloffMode.Linear;
+            _alarm.minDistance = under ? 20f : 8f; _alarm.maxDistance = under ? 400f : 160f;
+            _alarm.Play();
+        }
+
         /// <summary>Builds a 6x5m vault room. pos = centre of the doorway, the room extends along +Z (local).</summary>
         /// <param name="width">inside width; a vault built across a room uses the room's width</param>
         /// <param name="sides">false: the room's own side walls are the vault's sides</param>
@@ -1367,9 +1391,9 @@ namespace Rago
             IsOpen = true;
             _status.text = "VAULT OPEN";
             _status.color = new Color(0.4f, 1f, 0.5f);
-            Sfx.Play(Synth.VaultDoor(), transform.position, 1f, 1f, 3f, 60f);
-            _alarm = Sfx.Play(Synth.Alarm(), transform.position + Vector3.up * 2.5f, 0.7f, 1f, 5f, 120f);
-            if (_alarm != null) _alarm.loop = true;
+            bool under = _map != null && _map.Id == "underground";
+            Sfx.Play(Synth.VaultDoor(), transform.position, 1f, 1f, under ? 15f : 3f, under ? 300f : 60f);
+            StartAlarm();
             _alarmT = 25f;
             NpcDirector.I?.AlertAll(transform.position, 80f);
             Noise.Emit(transform.position, 80f, 0, true);   // the vault alarm really does pull everyone nearby
@@ -1421,8 +1445,7 @@ namespace Rago
         public void Alarm()
         {
             if (_alarm != null && _alarm.isPlaying) return;
-            _alarm = Sfx.Play(Synth.Alarm(), transform.position + Vector3.up * 2.5f, 0.7f, 1f, 5f, 120f);
-            if (_alarm != null) _alarm.loop = true;
+            StartAlarm();
             _alarmT = 40f;
             NpcDirector.I?.AlertAll(transform.position, 90f);
         }

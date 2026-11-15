@@ -870,9 +870,10 @@ namespace Rago
                     break;
                 case MagStyle.Drum:
                     mb.Sub(1).Box(new Vector3(0, -0.025f, 0), new Vector3(0.026f, 0.05f, 0.05f), w, 0.004f);
-                    mb.Sub(0).Cyl(new Vector3(-0.03f, -0.09f, 0.0f), new Vector3(0.03f, -0.09f, 0.0f), 0.065f, 0.065f, 24, w);
-                    mb.Sub(1).Cyl(new Vector3(0.03f, -0.09f, 0), new Vector3(0.036f, -0.09f, 0), 0.03f, 0.022f, 18, w);
-                    size = new Vector3(0.07f, 0.16f, 0.13f);
+                    // the drum faces forward: its round face looks down the barrel, the winding key on the back
+                    mb.Sub(0).Cyl(new Vector3(0, -0.09f, -0.03f), new Vector3(0, -0.09f, 0.03f), 0.065f, 0.065f, 24, w);
+                    mb.Sub(1).Cyl(new Vector3(0, -0.09f, -0.03f), new Vector3(0, -0.09f, -0.036f), 0.03f, 0.022f, 18, w);
+                    size = new Vector3(0.13f, 0.16f, 0.07f);
                     break;
                 case MagStyle.BeltBox:
                     mb.Sub(0).Box(new Vector3(0, -0.06f, 0), new Vector3(0.07f, 0.12f, 0.11f), w, 0.008f, 2);

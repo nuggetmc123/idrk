@@ -807,10 +807,17 @@ namespace Rago.Net
             ms.SetLength(0);
         }
 
+        // Sent at a steady 15 packets a second per player (10 when the line is backing up) instead of every frame: at
+        // 72-90 fps with 3+ players that was hundreds of separate reliable sends a second, the line backed up and
+        // everyone lagged and teleported. 15 a second matches the pose rate, so nothing goes out later than it did.
+        float _flushT;
         void LateUpdate()
         {
             if (_out.Count == 0) return;
             if (!InSession) { _out.Clear(); return; }
+            _flushT -= Time.unscaledDeltaTime;
+            if (_flushT > 0f) return;
+            _flushT = Rtt > 0.3f ? 0.1f : 1f / 15f;
             foreach (var kv in _out) Flush(kv.Key, kv.Value);
         }
 
