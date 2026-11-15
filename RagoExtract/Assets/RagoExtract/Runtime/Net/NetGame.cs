@@ -312,14 +312,6 @@ namespace Rago
             var w = W(Msg.Hidden); w.Write(hidden); Send(true);
         }
 
-        /// <summary>A line for everyone's kill feed (and ours).</summary>
-        public static void KillFeed(string line)
-        {
-            RagoGame.I?.Player?.Hud?.Feed(line);
-            if (I == null || !Live || !I.InRaid) return;
-            var w = W(Msg.Feed); w.Write(line); Send(true);
-        }
-
         public void WindowBroken(int id) { if (!Live) return; var w = W(Msg.WindowBroken); w.Write(id); Send(true); }
 
         public void CrateOpened(int index) { if (!Live || !InRaid) return; var w = W(Msg.CrateOpen); w.Write(index); Send(true); }
@@ -553,12 +545,6 @@ namespace Rago
                             {
                                 bool hid = r.ReadBoolean();
                                 if (Remotes.TryGetValue(from, out var hp) && hp != null) hp.HiddenFromAi = hid;   // a tester made themselves invisible to raiders
-                                break;
-                            }
-                        case Msg.Feed:
-                            {
-                                string line = r.ReadString();
-                                if (InRaid) RagoGame.I?.Player?.Hud?.Feed(line);
                                 break;
                             }
                         case Msg.WindowBroken:

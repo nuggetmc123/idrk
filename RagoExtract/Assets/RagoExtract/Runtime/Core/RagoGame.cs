@@ -497,8 +497,6 @@ namespace Rago
             if (prof.stashAmmo[(int)Caliber.C9mm] < 34) prof.stashAmmo[(int)Caliber.C9mm] = 34;
             prof.Save();
             DeathCause(killer, out string by, out string with);
-            string me = Profile.Current != null ? Profile.Current.DisplayName : "You";
-            NetGame.KillFeed(with != null ? by + " killed " + me + "  -  " + with : me + ": " + by);
             _g.LastResult = new RaidResult { extracted = false, map = _map.DisplayName, killer = by, weapon = with, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
             _g.Player.Hud.Center("DIED IN ACTION\n<size=40>" + (with != null ? "Killed by " + by + " - " + with : by) + "</size>", 6f);
             StartCoroutine(BackToBunker());
