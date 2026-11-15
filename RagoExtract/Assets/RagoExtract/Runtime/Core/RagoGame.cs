@@ -255,6 +255,14 @@ namespace Rago
             // raids: the world is merged into big 100 m chunks, so a per-pixel lamp would redraw a whole chunk. Lamps are
             // cheap vertex lights there, and on Quest the sun casts no shadows in raids (hubs keep both).
             if (to == Area.Raid) foreach (var l in MapRoot.GetComponentsInChildren<Light>(true)) if (l.type != LightType.Directional) l.renderMode = LightRenderMode.ForceVertex;
+            // bunker / Market: every room lamp is a full (pixel) light. With Quest's one-pixel-light limit each wall and
+            // object picked its own "most important" lamp, the pick changed as you turned your head (lights out of view
+            // are dropped), and patches of wall and floor kept snapping dark and bright. Lamps only reach a few metres
+            // in these small rooms, so it's a handful of lights per surface. (Flickering lamps stay cheap vertex lights.)
+            if (to != Area.Raid)
+                foreach (var l in MapRoot.GetComponentsInChildren<Light>(true))
+                    if (l.type != LightType.Directional && l.GetComponent<Flicker>() == null) l.renderMode = LightRenderMode.ForcePixel;
+            QualitySettings.pixelLightCount = to == Area.Raid ? (Application.platform == RuntimePlatform.Android ? 1 : 3) : 4;
             if (Application.platform == RuntimePlatform.Android) QualitySettings.shadows = to == Area.Raid ? ShadowQuality.Disable : ShadowQuality.HardOnly;
             if (Player.Cam != null)
             {
