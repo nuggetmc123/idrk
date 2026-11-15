@@ -42,6 +42,7 @@ namespace Rago
         GameObject _laserDot;
         WorldButton _hoverBtn;
         Vector3 _recoilPos; Vector3 _recoilRot; Vector3 _recoilVel; Vector3 _recoilAngVel;
+        Vector3 _climbRot, _climbPos; float _lastKickT = -9f;   // muzzle climb that stays until you pull it back down
         Vector3 _lastPos;
         float _stuckTime;
         Slot _hintSlot;
@@ -178,6 +179,19 @@ namespace Rago
             }
         }
 
+        /// <summary>Muzzle climb that doesn't spring straight back: each shot walks the gun up (and a little to the side),
+        /// full auto keeps walking it, and it only settles once you stop firing - like a real shooter pulling it back
+        /// down. rot: degrees (pitch up, yaw right) for the grip hand; pos: metres (world) for the support hand, which is
+        /// what actually tips a two-handed gun.</summary>
+        public void Climb(Vector2 rot, Vector3 pos)
+        {
+            _climbRot += new Vector3(-rot.x, rot.y, 0);
+            _climbPos += pos;
+            _climbRot = Vector3.ClampMagnitude(_climbRot, 28f);
+            _climbPos = Vector3.ClampMagnitude(_climbPos, 0.16f);
+            _lastKickT = Time.time;
+        }
+
         public void AddRecoil(float strength, bool rifle)
         {
             // real kick: the gun drives back into your hand (cm) and the muzzle flips up (degrees), then the spring brings it
@@ -206,6 +220,11 @@ namespace Rago
             _recoilRot += _recoilAngVel * dt;
             _recoilPos = Vector3.ClampMagnitude(_recoilPos, 0.11f);
             _recoilRot = Vector3.ClampMagnitude(_recoilRot, 32f);
+            // climb recovery: barely while the trigger's still working (a burst keeps climbing), then you bring it down
+            float rec = Time.time - _lastKickT < 0.15f ? 0.6f : 4f;
+            float kd = 1f - Mathf.Exp(-rec * dt);
+            _climbRot = Vector3.Lerp(_climbRot, Vector3.zero, kd);
+            _climbPos = Vector3.Lerp(_climbPos, Vector3.zero, kd);
 
             Punch(dt);
             // night vision: an empty hand at your forehead + trigger flips the goggles down / up
@@ -275,8 +294,8 @@ namespace Rago
         {
             if (rig.Dead || rb == null || !_snapOk) return;
             tr = Compat.SafeRot(tr);
-            tp += _sag + tr * _recoilPos;
-            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot));
+            tp += _sag + tr * _recoilPos + _climbPos;
+            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot + _climbRot));
             if ((rb.position - tp).sqrMagnitude > 0.6f * 0.6f) return;   // a big jump (teleport, respawn): let physics catch up first
             transform.SetPositionAndRotation(tp, tr);
         }
@@ -308,8 +327,8 @@ namespace Rago
             if (held != null && held.rb != null && held.secondaryHand == null && held is Gun gg && gg.g.TwoHanded) heavy = Mathf.Clamp01(held.rb.mass / 9f);
             _sag = Vector3.Lerp(_sag, Vector3.down * heavy * 0.06f, dt * 6f);
             tp += _sag;
-            tp += tr * _recoilPos;
-            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot));
+            tp += tr * _recoilPos + _climbPos;
+            tr = Compat.SafeRot(tr * Quaternion.Euler(_recoilRot + _climbRot));
             // the hand draws exactly on the controller unless something solid stopped it last step (it ended up well short
             // of where it was sent): then it stays against the wall. Comparing with the aim - not with the controller -
             // means walking and running never count as "blocked", however fast you go.

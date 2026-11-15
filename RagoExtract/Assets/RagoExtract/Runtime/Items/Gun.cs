@@ -279,6 +279,9 @@ namespace Rago
 
         public static System.Action<Gun> OnShot, OnReloaded;   // local player's guns (used by the training)
 
+        int _burst; float _lastShotT = -9f;
+        static float DriftOf(string id) { int h = 17; foreach (char c in id ?? "") h = h * 31 + c; return (h & 1023) / 1023f; }
+
         void Fire()
         {
             OnShot?.Invoke(this);
@@ -302,8 +305,25 @@ namespace Rago
             if (rig.butt != null && RagoGame.I.Player.ShoulderNear(rig.butt.position)) rec *= 0.6f;
             primaryHand.AddRecoil(rec, g.TwoHanded);
             secondaryHand?.AddRecoil(rec * 0.6f, g.TwoHanded);
-            primaryHand.Haptic(Mathf.Clamp01(0.4f + g.recoil * 0.3f), 0.06f);
-            secondaryHand?.Haptic(Mathf.Clamp01(0.3f + g.recoil * 0.2f), 0.05f);
+            // muzzle climb: every gun walks up and drifts to its own side (most a little right, some left), more with
+            // each shot of a burst; it stays climbed until you stop and bring it back down. Shouldered with both hands
+            // it's controllable; one-handed pistols and rifles fired from the hip climb hard.
+            float now = Time.time;
+            _burst = now - _lastShotT < 0.3f ? _burst + 1 : 0;
+            _lastShotT = now;
+            float bias = (DriftOf(g.id) - 0.35f) * 0.9f;
+            float pitch = (g.TwoHanded ? 1.6f : 2.8f) * rec * (1f + Mathf.Min(_burst, 10) * 0.08f);
+            float yaw = (bias + Random.Range(-0.5f, 0.5f)) * rec * (g.TwoHanded ? 0.9f : 1.2f);
+            primaryHand.Climb(new Vector2(pitch, yaw), Vector3.zero);
+            if (secondaryHand != null)
+            {
+                float reach = Mathf.Clamp(Vector3.Distance(primaryHand.Anchor.position, secondaryHand.Anchor.position), 0.15f, 0.6f);
+                Vector3 up = transform.up, right = transform.right;
+                secondaryHand.Climb(Vector2.zero, (up * Mathf.Sin(pitch * Mathf.Deg2Rad) + right * Mathf.Sin(yaw * Mathf.Deg2Rad)) * reach);
+            }
+            // a sharp jolt you feel, bigger guns harder
+            primaryHand.Haptic(Mathf.Clamp01(0.55f + g.recoil * 0.25f), 0.07f);
+            secondaryHand?.Haptic(Mathf.Clamp01(0.4f + g.recoil * 0.2f), 0.06f);
             _slideAnim = 1f;
             switch (g.action)
             {

@@ -140,11 +140,49 @@ namespace Rago
                 }
                 b.Box(gc + new Vector3(-1.38f, 1.0f, -0.2f), new Vector3(0.03f, 0.07f, 0.07f), Mats.Lit("gen_run", new Color(0.1f, 0.4f, 0.1f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(0.2f, 2f, 0.3f)), Color.white, null, false);
                 b.Cyl(gc + new Vector3(-1.37f, 1.0f, 0.2f), gc + new Vector3(-1.41f, 1.0f, 0.2f), 0.04f, 0.035f, 14, Mats.Lit("gen_stop", new Color(0.8f, 0.08f, 0.06f), 0.1f, 0.5f), Color.white, false);
-                // muffler, exhaust pipe up through the ceiling, lifting eye
-                b.Cyl(gc + new Vector3(0.6f, 1.95f, 0.25f), gc + new Vector3(-0.4f, 1.95f, 0.25f), 0.14f, 0.14f, 14, steel, new Color(0.35f, 0.3f, 0.26f), false);
-                b.Cyl(gc + new Vector3(-0.4f, 1.95f, 0.25f), gc + new Vector3(-0.45f, Ht, 0.25f), 0.06f, 0.06f, 10, steel, dk, false);
-                b.Cyl(gc + new Vector3(0, 1.82f, -0.2f), gc + new Vector3(0, 1.98f, -0.2f), 0.06f, 0.06f, 10, steel, mid, false);
-                for (int i = 0; i < 4; i++) b.Cyl(new Vector3(8.2f, 0.2f + i * 0.12f, 9.0f), new Vector3(6.3f, 0.2f + i * 0.12f, 9.0f + i * 0.1f), 0.025f, 0.025f, 6, Maps.Metal, new Color(0.12f, 0.12f, 0.12f), false); // cables
+                // exhaust: a stub from the engine through the canopy roof, an elbow into the muffler (sitting on two saddle
+                // brackets), and the tailpipe rising off the muffler's top through a collar in the ceiling
+                Color soot = new Color(0.22f, 0.2f, 0.18f), rust = new Color(0.36f, 0.3f, 0.25f);
+                Vector3 mA = gc + new Vector3(0.55f, 1.98f, 0.25f), mB = gc + new Vector3(-0.45f, 1.98f, 0.25f);
+                b.Cyl(mA, mB, 0.15f, 0.15f, 16, steel, rust, false);                                                     // muffler drum
+                b.Cyl(mA, mA + new Vector3(0.02f, 0, 0), 0.155f, 0.155f, 16, steel, soot, false);                        // end caps
+                b.Cyl(mB, mB - new Vector3(0.02f, 0, 0), 0.155f, 0.155f, 16, steel, soot, false);
+                foreach (var x in new[] { 0.35f, -0.25f })
+                {
+                    b.Box(gc + new Vector3(x, 1.86f, 0.25f), new Vector3(0.05f, 0.08f, 0.3f), steel, dk, null, false);  // saddle bracket
+                    b.Cyl(gc + new Vector3(x - 0.015f, 1.98f, 0.25f), gc + new Vector3(x + 0.015f, 1.98f, 0.25f), 0.158f, 0.158f, 16, steel, dk, false);   // strap
+                }
+                Vector3 ex0 = gc + new Vector3(0.85f, 1.83f, 0.25f), ex1 = gc + new Vector3(0.85f, 1.98f, 0.25f);
+                b.Cyl(ex0 - new Vector3(0, 0.01f, 0), ex0 + new Vector3(0, 0.02f, 0), 0.1f, 0.1f, 14, steel, dk, false);  // roof flange
+                b.Cyl(ex0, ex1, 0.065f, 0.065f, 12, steel, soot, false);                                                  // engine outlet
+                b.Sphere(ex1, Vector3.one * 0.068f, 10, steel, soot, false);                                                                    // elbow
+                b.Cyl(ex1, mA + new Vector3(0.02f, 0, 0), 0.065f, 0.065f, 12, steel, soot, false);                        // into the muffler
+                Vector3 tp0 = gc + new Vector3(-0.3f, 2.1f, 0.25f), tp1 = gc + new Vector3(-0.3f, Ht, 0.25f);
+                b.Cyl(tp0 - new Vector3(0, 0.03f, 0), tp1, 0.07f, 0.07f, 12, steel, soot, false);                         // tailpipe
+                b.Cyl(tp1 - new Vector3(0, 0.04f, 0), tp1, 0.14f, 0.14f, 14, steel, dk, false);                           // ceiling collar
+                foreach (float y in new[] { 2.6f, 3.1f }) b.Cyl(gc + new Vector3(-0.3f, y, 0.25f), gc + new Vector3(-0.3f, y + 0.03f, 0.25f), 0.078f, 0.078f, 12, steel, dk, false);   // clamps
+                b.Cyl(gc + new Vector3(0, 1.82f, -0.2f), gc + new Vector3(0, 1.98f, -0.2f), 0.06f, 0.06f, 10, steel, mid, false);   // lifting eye
+                // power cables: out of the bottom of the control panel, down to the floor, along it to the back wall and
+                // up into a junction box (they used to hang in mid-air and run out through the wall)
+                var cable = new Color(0.08f, 0.08f, 0.08f);
+                for (int i = 0; i < 3; i++)
+                {
+                    float x = gc.x - 1.55f - i * 0.07f, y0 = 0.045f;
+                    Vector3 c0 = new Vector3(gc.x - 1.39f, 0.85f, gc.z + 0.12f + i * 0.08f);
+                    Vector3 c1 = new Vector3(x, 0.85f, c0.z), c2 = new Vector3(x, y0, c0.z), c3 = new Vector3(x, y0, 12.82f), c4 = new Vector3(x, 1.25f, 12.82f);
+                    b.Cyl(c0, c1, 0.022f, 0.022f, 8, Maps.Metal, cable, false);
+                    b.Sphere(c1, Vector3.one * 0.023f, 6, Maps.Metal, cable, false);
+                    b.Cyl(c1, c2, 0.022f, 0.022f, 8, Maps.Metal, cable, false);
+                    b.Sphere(c2, Vector3.one * 0.023f, 6, Maps.Metal, cable, false);
+                    b.Cyl(c2, c3, 0.022f, 0.022f, 8, Maps.Metal, cable, false);
+                    b.Sphere(c3, Vector3.one * 0.023f, 6, Maps.Metal, cable, false);
+                    b.Cyl(c3, c4, 0.022f, 0.022f, 8, Maps.Metal, cable, false);
+                }
+                // cable cover strip over the floor run, wall clips and the junction box
+                b.Box(new Vector3(gc.x - 1.62f, 0.03f, (gc.z + 12.82f) / 2 + 0.1f), new Vector3(0.3f, 0.025f, 12.82f - gc.z - 0.1f), Maps.Metal, new Color(0.75f, 0.62f, 0.1f), null, false);
+                foreach (float y in new[] { 0.45f, 0.85f }) b.Box(new Vector3(gc.x - 1.62f, y, 12.86f), new Vector3(0.26f, 0.04f, 0.05f), Maps.Metal, mid, null, false);
+                b.Box(new Vector3(gc.x - 1.62f, 1.42f, 12.85f), new Vector3(0.4f, 0.4f, 0.14f), Maps.Metal, new Color(0.35f, 0.37f, 0.35f), null, false);
+                b.Box(new Vector3(gc.x - 1.62f, 1.42f, 12.775f), new Vector3(0.3f, 0.04f, 0.01f), Mats.Lit("gen_warn", new Color(0.9f, 0.75f, 0.1f), 0f, 0.5f), Color.white, null, false);
                 var l = b.AddLight(new Vector3(9.6f, 1.6f, 8.0f), new Color(0.4f, 1f, 0.5f), 3f, 0.6f);
                 l.gameObject.AddComponent<Flicker>();
                 GeneratorPanel.Create(transform, new Vector3(9.5f, 1.5f, 12.8f), 0);
