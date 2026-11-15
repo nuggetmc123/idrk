@@ -593,6 +593,7 @@ namespace Rago.Net
             await LeaveLobby();
             _inPartySession = false;
             _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear(); _rtt = 0f; _pingOut = -1f;
+            _lastHeard.Clear(); _peerSince.Clear(); _relayTo.Clear(); _hostId = 0;
             _sessionKind = props != null && props.TryGetValue("kind", out var kp) ? Str(kp) : "";
             var go = new GameObject("FusionRunner");
             DontDestroyOnLoad(go);
@@ -848,7 +849,35 @@ namespace Rago.Net
         void SendTo(ulong id, byte[] packet)
         {
             if (_runner == null || !_refs.TryGetValue(id, out var p)) return;
+            // no direct link to this player (Photon's shared mode may only carry data between the host and each
+            // player): send it to the host to pass on. With 3+ players, the two non-hosts couldn't see each other.
+            if (_relayTo.Contains(id) && !IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
+            {
+                var w = new byte[packet.Length + 9];
+                w[0] = 3; Buffer.BlockCopy(BitConverter.GetBytes(id), 0, w, 1, 8);
+                Buffer.BlockCopy(packet, 0, w, 9, packet.Length);
+                try { _runner.SendReliableDataToPlayer(hp, GameKey, w); } catch (Exception e) { Debug.LogWarning("[Rago] relay send failed: " + e.Message); }
+                // keep trying the direct line now and then too (pings), so it switches back if it starts working
+                if (!(packet.Length > 1 && packet[0] == 1 && packet[1] == 11)) return;
+            }
             try { _runner.SendReliableDataToPlayer(p, GameKey, packet); } catch (Exception e) { Debug.LogWarning("[Rago] send failed: " + e.Message); }
+        }
+
+        readonly Dictionary<ulong, float> _lastHeard = new Dictionary<ulong, float>();
+        readonly Dictionary<ulong, float> _peerSince = new Dictionary<ulong, float>();
+        readonly HashSet<ulong> _relayTo = new HashSet<ulong>();
+
+        /// <summary>Every player pings every second: a player we haven't heard from directly for 4 s gets relayed.</summary>
+        void CheckLinks()
+        {
+            float now = Time.realtimeSinceStartup;
+            foreach (var p in _peers)
+            {
+                if (!_peerSince.ContainsKey(p)) _peerSince[p] = now;
+                if (p == _hostId || IsHost) continue;
+                float heard = _lastHeard.TryGetValue(p, out var h) ? h : _peerSince[p];
+                if (now - heard > 4f && _relayTo.Add(p)) Debug.Log("[Rago] no direct link to player " + p + " - relaying through the host");
+            }
         }
 
         // Fusion 2.0.x (current) passes the bytes as ReadOnlySpan<byte>; older 2.0 builds used ArraySegment<byte>.
@@ -862,13 +891,45 @@ namespace Rago.Net
         {
             if (data.Array == null || data.Count < 1) return;
             NotePeer(player);   // they can reach us, so we can reach them: never ignore a player we hear from
+            ulong direct = Id(player);
+            _lastHeard[direct] = Time.realtimeSinceStartup;
+            if (_relayTo.Remove(direct)) Debug.Log("[Rago] direct link to player " + direct + " works again");
+            byte ch = data.Array[data.Offset];
+            if (ch == 3)
+            {
+                // host: a player who can't reach another one directly - pass it on, marked with who it's from
+                if (data.Count < 9) return;
+                ulong dest = BitConverter.ToUInt64(data.Array, data.Offset + 1);
+                var inner = new ArraySegment<byte>(data.Array, data.Offset + 9, data.Count - 9);
+                if (dest == LocalId) { Process(direct, inner); return; }
+                var fwd = new byte[inner.Count + 9];
+                fwd[0] = 4; Buffer.BlockCopy(BitConverter.GetBytes(direct), 0, fwd, 1, 8);
+                Buffer.BlockCopy(inner.Array, inner.Offset, fwd, 9, inner.Count);
+                if (_refs.TryGetValue(dest, out var dp)) try { _runner.SendReliableDataToPlayer(dp, GameKey, fwd); } catch { }
+                return;
+            }
+            if (ch == 4)
+            {
+                // relayed by the host from another player
+                if (data.Count < 9) return;
+                ulong src = BitConverter.ToUInt64(data.Array, data.Offset + 1);
+                _lastHeard[src] = Time.realtimeSinceStartup;
+                Process(src, new ArraySegment<byte>(data.Array, data.Offset + 9, data.Count - 9));
+                return;
+            }
+            Process(direct, data);
+        }
+
+        void Process(ulong fromId, ArraySegment<byte> data)
+        {
+            if (data.Array == null || data.Count < 1) return;
             byte channel = data.Array[data.Offset];
             if (channel == 1)
             {
                 if (data.Count < 2) return;
                 byte code = data.Array[data.Offset + 1];
                 string text = System.Text.Encoding.UTF8.GetString(data.Array, data.Offset + 2, data.Count - 2);
-                if (code == 2) { _hostId = Id(player); return; }
+                if (code == 2) { _hostId = fromId; return; }
                 if (code == 1)
                 {
                     var p = text.Split('|');
@@ -877,7 +938,7 @@ namespace Rago.Net
                 else if (code == 3)
                 {
                     // someone's callsign (sent to everyone in a session)
-                    _names[Id(player)] = text;
+                    _names[fromId] = text;
                     KnownPlayers.Add(text);
                     PublishNames();
                     OnMetPlayer?.Invoke(text);   // raid, Market or party: a real player you've met (RECENT, and you can add them as a friend)
@@ -895,19 +956,19 @@ namespace Rago.Net
                         OnPartyChanged?.Invoke();
                     }
                 }
-                else if (code == 4) { _peerParty[Id(player)] = text; }                                         // which party a raid peer is in
+                else if (code == 4) { _peerParty[fromId] = text; }                                         // which party a raid peer is in
                 else if (code == 5 && _queueing && text == _partyCode) { _cancel = true; OnPartyQueueCancelled?.Invoke(); }   // leader cancelled
                 else if (code == 6 && _inPartySession && !_queueing)
                 {
                     // the leader queued: follow them into their raid session
                     var p = text.Split('|');
-                    SendSys(Id(player), 10, "ok");
+                    SendSys(fromId, 10, "ok");
                     if (p.Length >= 3 && _pendingRaidSession != p[1] && _lastRaid != p[1]) { _lastRaid = p[1]; _pendingRaidSession = p[1]; _pendingPartySize = int.Parse(p[2]); _wasLeader = false; OnPartyQueue?.Invoke(p[0]); }
                 }
-                else if (code == 6) SendSys(Id(player), 10, "ok");     // already on our way: still answer so the leader stops asking
-                else if (code == 10) _acks.Add(Id(player));
-                else if (code == 9) { SendSys(Id(player), 3, MyName()); if (_partyCode != null && !_inPartySession) SendSys(Id(player), 4, _partyCode); }   // "who are you?"
-                else if (code == 11) SendSys(Id(player), 12, text);    // ping: echo it back
+                else if (code == 6) SendSys(fromId, 10, "ok");     // already on our way: still answer so the leader stops asking
+                else if (code == 10) _acks.Add(fromId);
+                else if (code == 9) { SendSys(fromId, 3, MyName()); if (_partyCode != null && !_inPartySession) SendSys(fromId, 4, _partyCode); }   // "who are you?"
+                else if (code == 11) SendSys(fromId, 12, text);    // ping: echo it back
                 else if (code == 12 && float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var sentAt))
                 {
                     float rtt = Time.realtimeSinceStartup - sentAt;
@@ -925,13 +986,13 @@ namespace Rago.Net
                     if (len <= 0 || i + len > end) break;
                     var msg = new byte[len];
                     Buffer.BlockCopy(data.Array, i, msg, 0, len); i += len;
-                    try { OnData?.Invoke(Id(player), msg); } catch (Exception e) { Debug.LogWarning("[Rago] packet handler: " + e.Message); }
+                    try { OnData?.Invoke(fromId, msg); } catch (Exception e) { Debug.LogWarning("[Rago] packet handler: " + e.Message); }
                 }
                 return;
             }
             var payload = new byte[data.Count - 1];
             Buffer.BlockCopy(data.Array, data.Offset + 1, payload, 0, payload.Length);
-            OnData?.Invoke(Id(player), payload);
+            OnData?.Invoke(fromId, payload);
         }
 
         // ------------------------------------------------------------------------------------ callbacks
@@ -1048,6 +1109,7 @@ namespace Rago.Net
                     _pingT = 1f;
                     string ts = Time.realtimeSinceStartup.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
                     foreach (var p in _peers) SendSys(p, 11, ts);
+                    CheckLinks();
                     if (_pingOut < 0f) _pingOut = Time.realtimeSinceStartup;
                 }
             }
