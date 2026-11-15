@@ -192,6 +192,9 @@ namespace Rago
             var free = new List<LootSpot>();
             foreach (var s in _spots)
             {
+                // never under a table or a shelf (the overlap check only saw the table top / shelf boards, so a crate
+                // could sit underneath one - it looked like it was in the floor)
+                if (!s.desk && B != null && B.InFurniture(s.pos, 0.45f, 0.28f)) continue;
                 if (!rng.Chance(s.chance)) { free.Add(s); continue; }
                 LootCrate.Kind k;
                 if (s.kind.HasValue) k = s.kind.Value;
@@ -356,6 +359,7 @@ namespace Rago
         {
             Vector3 size = c.Size.sqrMagnitude > 0 ? c.Size : new Vector3(0.6f, 0.4f, 0.5f);
             if (B != null && B.InDoorway(p, c.transform.rotation, size.x * 0.5f, size.z * 0.5f, 0.7f)) return true;   // keep doorways walkable
+            if (B != null && c.transform.position.y - p.y < 0.5f && B.InFurniture(p + Vector3.up * 0.05f, size.x * 0.5f, size.z * 0.5f)) return true;   // not under a table / shelf
             Vector3 he = new Vector3(size.x * 0.47f, size.y * 0.45f, size.z * 0.47f);
             Vector3 center = p + Vector3.up * (size.y * 0.5f + 0.03f);
             int n = Physics.OverlapBoxNonAlloc(center, he, cols, c.transform.rotation, mask, QueryTriggerInteraction.Ignore);

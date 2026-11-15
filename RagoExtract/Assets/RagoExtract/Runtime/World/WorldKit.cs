@@ -140,6 +140,22 @@ namespace Rago
             return best;
         }
 
+        /// <summary>Tables and shelves (floor centre, rotation, half footprint, height): loot crates never go underneath them.</summary>
+        public readonly List<(Vector3 c, Quaternion q, Vector2 half, float h)> Furniture = new List<(Vector3, Quaternion, Vector2, float)>();
+
+        /// <summary>Would a crate standing at p (footprint half-size hx, hz) be under / inside a table or shelf?</summary>
+        public bool InFurniture(Vector3 p, float hx, float hz)
+        {
+            float r = Mathf.Max(hx, hz);
+            foreach (var f in Furniture)
+            {
+                if (p.y < f.c.y - 0.3f || p.y > f.c.y + f.h - 0.1f) continue;   // another floor, or on top of it (a desk spot)
+                var l = Quaternion.Inverse(f.q) * (p - f.c);
+                if (Mathf.Abs(l.x) < f.half.x + r + 0.05f && Mathf.Abs(l.z) < f.half.y + r + 0.05f) return true;   // whole crate clear of it, whichever way it faces
+            }
+            return false;
+        }
+
         /// <summary>Set while building houses: their windows get breakable glass.</summary>
         public bool GlassWindows;
 
@@ -661,6 +677,7 @@ namespace Rago
                     if (!InDoorway(pos + q * new Vector3(sl, 0, 0), q, w / 2, 0.3f)) { pos += q * new Vector3(sl, 0, 0); ok = true; break; }
                 if (!ok) return null;
             }
+            Furniture.Add((pos, q, new Vector2(w / 2 + 0.05f, 0.32f), 2.0f));
             for (int i = 0; i < 4; i++) Box(pos + q * new Vector3(0, 0.1f + i * 0.6f, 0), new Vector3(w, 0.04f, 0.6f), m, Color.white, q, true, Synth.Surface.Metal);
             foreach (var sx in new[] { -w / 2, w / 2 }) foreach (var sz in new[] { -0.28f, 0.28f }) Box(pos + q * new Vector3(sx, 1f, sz), new Vector3(0.05f, 2f, 0.05f), m, Color.white, q, false);
             // cardboard boxes on the bottom and top shelves (the middle one is kept clear for loot)
@@ -674,6 +691,7 @@ namespace Rago
             var m = Mats.Lit("table", Color.white, 0f, 0.35f, Mats.Wood, Mats.WoodN, 0.4f, 0.2f, true, 1f);
             Quaternion q = Quaternion.Euler(0, yaw, 0);
             if (InDoorway(pos, q, size.x / 2, size.y / 2)) return false;
+            Furniture.Add((pos, q, size * 0.5f, h));
             Box(pos + Vector3.up * h, new Vector3(size.x, 0.05f, size.y), m, new Color(0.55f, 0.42f, 0.3f), q, true, Synth.Surface.Wood, 0.01f);
             foreach (var sx in new[] { -1, 1 }) foreach (var sz in new[] { -1, 1 })
                     Box(pos + q * new Vector3(sx * (size.x / 2 - 0.06f), h / 2, sz * (size.y / 2 - 0.06f)), new Vector3(0.05f, h, 0.05f), m, new Color(0.4f, 0.3f, 0.22f), q, false);
