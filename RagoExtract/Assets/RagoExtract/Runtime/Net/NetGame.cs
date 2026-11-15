@@ -466,6 +466,13 @@ namespace Rago
                                     RagoGame.I?.Player?.Toast("Another operator is " + name + " - your tag is now #" + me.tag.ToString("0000"));
                                     SendHello(ulong.MaxValue);
                                 }
+                                // the same operator under another id (they reconnected, or an old relayed copy): one body only
+                                if (!string.IsNullOrEmpty(name))
+                                {
+                                    List<ulong> dup = null;
+                                    foreach (var kv in Remotes) if (kv.Key != from && kv.Value != null && kv.Value.DisplayName == name) (dup ??= new List<ulong>()).Add(kv.Key);
+                                    if (dup != null) foreach (var d in dup) { Destroy(Remotes[d].gameObject); Remotes.Remove(d); }
+                                }
                                 var rp = GetRemote(from, seed);
                                 if (rp.DisplayName != name && !string.IsNullOrEmpty(name)) RagoGame.I?.Player?.Toast(name + " is here");
                                 rp.DisplayName = name;

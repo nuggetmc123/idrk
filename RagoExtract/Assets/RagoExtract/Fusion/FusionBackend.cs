@@ -43,7 +43,27 @@ namespace Rago.Net
         public event Action<ulong> OnPeerLeft;
         public event Action OnDisconnected;
 
-        static ulong Id(PlayerRef p) => (ulong)p.PlayerId;
+        // Who a player is, as a number EVERY client agrees on: Photon's actor number for them in the room. (Fusion's
+        // own player index isn't guaranteed to be the same on every machine - and when it wasn't, a player relayed
+        // through the host showed up as a second, frozen body with someone else's name.)
+        readonly Dictionary<PlayerRef, ulong> _idOf = new Dictionary<PlayerRef, ulong>();
+        static MethodInfo _actorOf;
+        ulong Id(PlayerRef p)
+        {
+            if (_idOf.TryGetValue(p, out var known)) return known;
+            ulong id = (ulong)p.PlayerId;
+            try
+            {
+                if (_runner != null)
+                {
+                    if (_actorOf == null) _actorOf = typeof(NetworkRunner).GetMethod("GetPlayerActorId", Any, null, new[] { typeof(PlayerRef) }, null);
+                    var v = _actorOf?.Invoke(_runner, new object[] { p });
+                    if (v is int a && a > 0) { id = (ulong)a; _idOf[p] = id; }
+                }
+            }
+            catch { }
+            return id;
+        }
 
         // ------------------------------------------------------------------------------------ party
         // A party is its own small Photon session ("rago_party_<leader>") that members sit in while they're in
@@ -626,7 +646,7 @@ namespace Rago.Net
             if (!party) await LeaveLobby();
             _inPartySession = false;
             _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear(); _rtt = 0f; _pingOut = -1f;
-            _lastHeard.Clear(); _peerSince.Clear(); _relayTo.Clear(); _hostId = 0;
+            _lastHeard.Clear(); _peerSince.Clear(); _relayTo.Clear(); _hostId = 0; _idOf.Clear();
             _sessionKind = props != null && props.TryGetValue("kind", out var kp) ? Str(kp) : "";
             var go = new GameObject("FusionRunner");
             DontDestroyOnLoad(go);
@@ -1143,6 +1163,7 @@ namespace Rago.Net
             LearnFromUserId(id, p);
             if (_peers.Contains(id)) return;
             _peers.Add(id);
+            Debug.Log("[Rago] player joined: id " + id + " (fusion #" + p.PlayerId + ", uid " + (UserIdOf(p) ?? "?") + "), me = " + LocalId + (IsHost ? " (host)" : ", host = " + _hostId));
             if (IsHost) SendSys(id, 2, "host"); else if (_hostId == 0) SendSys(id, 13, "?");
             SendSys(id, 3, MyName());
             if (!_inPartySession && _queueing && _partyCode != null) SendSys(id, 4, _partyCode);
