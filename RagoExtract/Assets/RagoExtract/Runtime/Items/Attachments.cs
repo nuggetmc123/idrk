@@ -40,6 +40,7 @@ namespace Rago
                 a._light.shadowStrength = 1f; a._light.shadowNearPlane = 0.1f;
                 a._light.shadowResolution = UnityEngine.Rendering.LightShadowResolution.Low;
                 a._light.enabled = false;
+                a._light.renderMode = LightRenderMode.ForcePixel;   // always its own pixel light: never takes the room lamp's slot
             }
             if (def.laser && a._emit != null)
             {

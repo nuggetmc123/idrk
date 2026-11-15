@@ -59,6 +59,7 @@ namespace Rago.Net
         readonly Dictionary<ulong, string> _names = new Dictionary<ulong, string>();
         readonly Dictionary<ulong, string> _peerParty = new Dictionary<ulong, string>();
         readonly List<string> _members = new List<string>();
+        readonly List<string> _roster = new List<string>();   // the other members, as last seen together
         readonly List<string> _sessionPlayers = new List<string>();
         readonly List<PartyInvite> _invites = new List<PartyInvite>();
         readonly List<string> _invited = new List<string>();     // leader: callsigns invited to this party
@@ -92,9 +93,24 @@ namespace Rago.Net
                 _members.Clear();
                 if (_partyCode == null) return _members;
                 _members.Add(MyName() + (PartyLeader ? "  (leader)" : ""));
-                if (_inPartySession) foreach (var p in _peers) _members.Add(_names.TryGetValue(p, out var n) ? n : "joining...");
-                else if (InSession)   // in a raid together: the party carries on, list the teammates who are in here with you
-                    foreach (var p in _peers) if (IsTeammate(p)) _members.Add(_names.TryGetValue(p, out var n) ? n : "teammate");
+                if (_inPartySession)
+                {
+                    foreach (var p in _peers) _members.Add(_names.TryGetValue(p, out var n) ? n : "joining...");
+                    // remember who's in the party: while everyone moves from the party lobby into the raid (and back)
+                    // people leave and arrive one by one - the list kept showing them kicked and rejoining
+                    if (_queueing || _pendingRaidSession != null)
+                    {
+                        // heading into the raid: members who already went on ahead are still in the party
+                        foreach (var n in _roster) if (!_members.Exists(x => Key(x) == Key(n))) _members.Add(n);
+                    }
+                    else if (_peers.Count > 0 && _names.Count >= _peers.Count) { _roster.Clear(); foreach (var p in _peers) if (_names.TryGetValue(p, out var n2)) _roster.Add(n2); }
+                }
+                else
+                {
+                    foreach (var n in _roster) _members.Add(n);
+                    if (InSession)   // in a raid together: anyone else from the party who's in here
+                        foreach (var p in _peers) if (IsTeammate(p) && _names.TryGetValue(p, out var n) && !_roster.Exists(x => Key(x) == Key(n))) { _roster.Add(n); _members.Add(n); }
+                }
                 return _members;
             }
         }
@@ -216,7 +232,7 @@ namespace Rago.Net
 
         public async void LeaveParty()
         {
-            _partyCode = null; _wasLeader = false; _invited.Clear();
+            _partyCode = null; _wasLeader = false; _invited.Clear(); _roster.Clear();
             if (_inPartySession) { _inPartySession = false; await Shutdown(); }
             _status = _ready ? "Online (Photon)" : _status;
             OnPartyChanged?.Invoke();

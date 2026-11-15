@@ -567,7 +567,9 @@ namespace Rago
     public class Flicker : MonoBehaviour
     {
         Light _l; float _base;
-        void Start() { _l = GetComponent<Light>(); _base = _l.intensity; }
+        // a flickering light is a cheap vertex light: as a pixel light its changing brightness kept stealing the room's one
+        // pixel-light slot (Quest) from the ceiling lamp, and the whole bunker went dark and bright again
+        void Start() { _l = GetComponent<Light>(); _base = _l.intensity; _l.renderMode = LightRenderMode.ForceVertex; }
         void Update() { _l.intensity = _base * (0.75f + Mathf.PerlinNoise(Time.time * 6f, GetInstanceID()) * 0.5f); }
     }
 }
