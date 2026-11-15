@@ -134,7 +134,9 @@ namespace Rago
         public void Haptic(float amp, float dur) => XRInputs.Haptic(left, amp, dur);
 
         // ---- fists: swing an empty hand into someone. The faster the swing, the harder it lands (head hits hurt most).
-        Vector3 _punchLast; bool _punchTrack;
+        Vector3 _punchLast, _punchPrevFist; bool _punchTrack;
+        static readonly Collider[] _tmpPunch = new Collider[16];
+        static int CopyPunch(int m, int at) { int k = 0; for (int i = 0; i < m && at + k < _punchCols.Length; i++) _punchCols[at + k++] = _tmpPunch[i]; return k; }
         readonly System.Collections.Generic.Dictionary<IDamageable, float> _punchCool = new System.Collections.Generic.Dictionary<IDamageable, float>();
         static readonly Collider[] _punchCols = new Collider[16];
         void Punch(float dt)
@@ -144,9 +146,19 @@ namespace Rago
             float speed = _punchTrack ? (p - _punchLast).magnitude / dt - rig.MoveVelocity.magnitude : 0f;   // your own walking doesn't count
             Vector3 dir = _punchTrack ? (p - _punchLast).normalized : transform.forward;
             _punchLast = p; _punchTrack = true;
-            if (speed < 2.4f) return;
-            if (!rig.CanReach(p)) return;   // no punching through walls
-            int n = Physics.OverlapSphereNonAlloc(p, 0.08f, _punchCols, ~0, QueryTriggerInteraction.Collide);
+            if (speed < 2.4f) { _punchPrevFist = p + TrackedRotation * Vector3.forward * 0.05f; return; }
+            Vector3 fist = p + TrackedRotation * Vector3.forward * 0.05f;   // knuckles, a little ahead of the grip
+            if (!rig.CanReach(fist)) return;   // no punching through walls
+            Vector3 from = _punchPrevFist; _punchPrevFist = fist;
+            Vector3 sweep = fist - from; float sl = sweep.magnitude;
+            int n;
+            if (sl > 0.01f && sl < 1f)
+            {
+                var hs = Physics.SphereCastAll(from, 0.09f, sweep / sl, sl, ~0, QueryTriggerInteraction.Collide);
+                n = 0; foreach (var hh in hs) if (n < _punchCols.Length) _punchCols[n++] = hh.collider;
+                if (n < _punchCols.Length) n += Physics.OverlapSphereNonAlloc(fist, 0.1f, _tmpPunch, ~0, QueryTriggerInteraction.Collide) is int m2 ? CopyPunch(m2, n) : 0;
+            }
+            else n = Physics.OverlapSphereNonAlloc(fist, 0.1f, _punchCols, ~0, QueryTriggerInteraction.Collide);
             for (int i = 0; i < n; i++)
             {
                 var zone = _punchCols[i].GetComponentInParent<HitZone>();

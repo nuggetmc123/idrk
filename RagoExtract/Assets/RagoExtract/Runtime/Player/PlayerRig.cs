@@ -32,7 +32,7 @@ namespace Rago
             Vector3 e = SafeEye(); Vector3 d = to - e; float len = d.magnitude;
             if (len < 0.05f) return true;
             if (!Physics.Raycast(e, d / len, out var h, len, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) return true;
-            if (h.collider.attachedRigidbody != null || h.collider.GetComponentInParent<LootCrate>() != null) return true;
+            if (h.collider.attachedRigidbody != null || h.collider.GetComponentInParent<LootCrate>() != null || h.collider.GetComponentInParent<HitZone>() != null) return true;   // a person isn't a wall
             return len - h.distance < 0.06f;
         }
         public Camera Cam;

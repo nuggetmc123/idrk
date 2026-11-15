@@ -117,7 +117,7 @@ namespace Rago
             RagoGame.I?.Player?.Toast("Lost connection to the other players");
         }
 
-        float _lastRx, _staleT;
+        float _lastRx, _staleT, _helloT = 4f;
         /// <summary>Players we stopped hearing from (crashed, or their connection died without Photon noticing yet):
         /// take their frozen body out of the world. They come back on their next update.</summary>
         void CheckStale()
@@ -129,14 +129,10 @@ namespace Rago
             foreach (var kv in Remotes)
                 if (kv.Value == null || (Time.time - kv.Value.LastHeard > 10f && !kv.Value.IsDead)) (gone ??= new List<ulong>()).Add(kv.Key);
             if (gone != null) foreach (var id in gone) { if (Remotes[id] != null) Destroy(Remotes[id].gameObject); Remotes.Remove(id); }
-            // we're in a raid with other players but nothing has arrived from anyone for 20 s: our connection is dead
-            if (InRaid && NetHub.Backend.Peers.Count > 0 && _lastRx > 0f && Time.time - _lastRx > 20f && RaidManager.I != null && !RaidManager.I.Done)
-            {
-                Debug.Log("[Rago] nothing received for 20 s - treating the raid connection as lost");
-                End();
-                NetHub.Backend.Leave();
-                RaidManager.I.Disconnected();
-            }
+            // say who we are every few seconds: someone still loading when the first hello went out missed it
+            // (they saw you as "Operator"), and a player who reconnects needs it again
+            _helloT -= 1f;
+            if (_helloT <= 0f) { _helloT = 4f; SendHello(ulong.MaxValue); }
         }
 
         void OnPeerJoined(ulong id) { SendHello(id); }

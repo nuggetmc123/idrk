@@ -1004,6 +1004,8 @@ namespace Rago.Net
                 if (data.Count < 9) return;
                 ulong src = BitConverter.ToUInt64(data.Array, data.Offset + 1);
                 _lastHeard[src] = Time.realtimeSinceStartup;
+                // they had to send it the long way round: our direct packets probably aren't reaching them either
+                if (_relayTo.Add(src)) Debug.Log("[Rago] player " + src + " is relaying to us - relaying back");
                 Process(src, new ArraySegment<byte>(data.Array, data.Offset + 9, data.Count - 9));
                 return;
             }
@@ -1116,6 +1118,7 @@ namespace Rago.Net
         {
             if (_leaving || runner != _runner) return;
             _status = "Disconnected (" + shutdownReason + ")";
+            Debug.LogWarning("[Rago] Photon session ended: " + shutdownReason + " (players here: " + _peers.Count + ", rtt " + _rtt.ToString("0.00") + ")");
             _peers.Clear();
             if (_inPartySession) { _inPartySession = false; OnPartyChanged?.Invoke(); }
             OnDisconnected?.Invoke();
@@ -1125,6 +1128,7 @@ namespace Rago.Net
         {
             if (_leaving || runner != _runner) return;
             _status = "Disconnected (" + reason + ")";
+            Debug.LogWarning("[Rago] disconnected from Photon: " + reason + " (rtt " + _rtt.ToString("0.00") + ")");
             OnDisconnected?.Invoke();
         }
 

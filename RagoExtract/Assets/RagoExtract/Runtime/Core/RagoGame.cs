@@ -507,7 +507,7 @@ namespace Rago
             for (int i = 0; i < prof.stashAmmo.Length; i++) prof.stashAmmo[i] += gear.Ammo[i];
             prof.loadout.ammo = null;
             prof.Save();
-            _g.LastResult = new RaidResult { lost = true, map = _map.DisplayName, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
+            _g.LastResult = new RaidResult { lost = true, exit = NetHub.Backend != null ? NetHub.Backend.Status : null, map = _map.DisplayName, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
             _g.Player.Hud.Center("CONNECTION LOST\n<size=40>Returning to your bunker - you keep your gear.\nPress RECONNECT on the raid terminal to get back in.</size>", 5f);
             StartCoroutine(LostToBunker());
         }
@@ -599,7 +599,7 @@ namespace Rago
             root.position = new Vector3(0, 1.6f, 1.2f);
             var p = UI.Panel(root, "Panel", Vector3.zero, Quaternion.identity, new Vector2(1.3f, 0.75f));
             UI.Text(p, r.lost ? "CONNECTION LOST" : r.extracted ? "EXTRACTED" : "DIED IN ACTION", new Vector3(0, 0.27f, 0), 0.07f, r.lost ? new Color(1f, 0.8f, 0.3f) : r.extracted ? new Color(0.4f, 1f, 0.5f) : new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
-            string body = r.lost ? r.map + "\nYou kept everything you were carrying.\nRECONNECT on the raid terminal (5 min)\nKills: " + r.kills : r.map + "\n" + (r.extracted ? "Exit: " + r.exit + "\nLoot gained: $" + r.value.ToString("N0")
+            string body = r.lost ? r.map + "\n" + (r.exit ?? "") + "\nYou kept everything you were carrying.\nRECONNECT on the raid terminal (5 min)"  : r.map + "\n" + (r.extracted ? "Exit: " + r.exit + "\nLoot gained: $" + r.value.ToString("N0")
                                        : (r.weapon != null ? "Killed by " + r.killer + "\nwith " + r.weapon : r.killer) + "\nYour gear was lost") +
                           "\nKills: " + r.kills + "     Time: " + Mathf.FloorToInt(r.time / 60) + "m " + Mathf.FloorToInt(r.time % 60) + "s";
             UI.Text(p, body, new Vector3(0, -0.03f, 0), 0.032f, Color.white);
