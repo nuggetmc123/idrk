@@ -702,7 +702,7 @@ namespace Rago.Net
             bool party = props != null && props.TryGetValue("kind", out var kk) && Str(kk) == "party";
             if (!party) await LeaveLobby();
             _inPartySession = false;
-            _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear(); _rtt = 0f; _pingOut = -1f;
+            _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear(); _fwdOut.Clear(); _rtt = 0f; _pingOut = -1f;
             _lastHeard.Clear(); _peerSince.Clear(); _relayTo.Clear(); _hostId = 0; _idOf.Clear();
             _sessionKind = props != null && props.TryGetValue("kind", out var kp) ? Str(kp) : "";
             var go = new GameObject("FusionRunner");
@@ -1002,12 +1002,31 @@ namespace Rago.Net
         float _flushT;
         void LateUpdate()
         {
-            if (_out.Count == 0) return;
-            if (!InSession) { _out.Clear(); return; }
+            if (_out.Count == 0 && _fwdOut.Count == 0) return;
+            if (!InSession) { _out.Clear(); _fwdOut.Clear(); return; }
             _flushT -= Time.unscaledDeltaTime;
             if (_flushT > 0f) return;
-            _flushT = Rtt > 0.3f ? 0.06f : 0f;   // out at the end of the frame it was made (waiting for a 15 Hz tick added up to 66 ms)
+            _flushT = Rtt > 0.3f ? 0.1f : 0.05f;   // 20 batched packets a second per player: sending every frame (2.1) meant hundreds of reliable sends a second and the line backed up again
             foreach (var kv in _out) Flush(kv.Key, kv.Value);
+            foreach (var kv in _fwdOut) FlushFwd(kv.Key, kv.Value);
+        }
+
+        // the relay's outgoing batches: everything other players sent that has to go on to this player
+        readonly Dictionary<ulong, System.IO.MemoryStream> _fwdOut = new Dictionary<ulong, System.IO.MemoryStream>();
+        void QueueFwd(ulong to, ulong src, ArraySegment<byte> packet)
+        {
+            if (!_peers.Contains(to)) return;
+            if (!_fwdOut.TryGetValue(to, out var ms)) _fwdOut[to] = ms = new System.IO.MemoryStream(1024);
+            if (ms.Length == 0) ms.WriteByte(6);
+            ms.Write(BitConverter.GetBytes(src), 0, 8); ms.Write(BitConverter.GetBytes(packet.Count), 0, 4);
+            ms.Write(packet.Array, packet.Offset, packet.Count);
+            if (ms.Length > 30000) FlushFwd(to, ms);
+        }
+        void FlushFwd(ulong to, System.IO.MemoryStream ms)
+        {
+            if (ms.Length == 0) return;
+            if (_refs.TryGetValue(to, out var pr)) Raw(pr, ms.ToArray());
+            ms.SetLength(0);
         }
 
         void SendSys(ulong to, byte code, string text)
@@ -1096,12 +1115,7 @@ namespace Rago.Net
                 // a player's broadcast sent to us as the hub: use it ourselves and hand it to every other player
                 // (even if we're not the master any more - the sender picked us, so nobody else will pass it on)
                 var inner = new ArraySegment<byte>(data.Array, data.Offset + 1, data.Count - 1);
-                {
-                    var fwd = new byte[inner.Count + 9];
-                    fwd[0] = 4; Buffer.BlockCopy(BitConverter.GetBytes(direct), 0, fwd, 1, 8);
-                    Buffer.BlockCopy(inner.Array, inner.Offset, fwd, 9, inner.Count);
-                    foreach (var p in _peers) if (p != direct && _refs.TryGetValue(p, out var pr)) Raw(pr, fwd);
-                }
+                foreach (var p in _peers) if (p != direct) QueueFwd(p, direct, inner);   // batched: one packet per player per tick, not one per packet
                 Process(direct, inner);
                 return;
             }
@@ -1112,10 +1126,21 @@ namespace Rago.Net
                 ulong dest = BitConverter.ToUInt64(data.Array, data.Offset + 1);
                 var inner = new ArraySegment<byte>(data.Array, data.Offset + 9, data.Count - 9);
                 if (dest == LocalId) { Process(direct, inner); return; }
-                var fwd = new byte[inner.Count + 9];
-                fwd[0] = 4; Buffer.BlockCopy(BitConverter.GetBytes(direct), 0, fwd, 1, 8);
-                Buffer.BlockCopy(inner.Array, inner.Offset, fwd, 9, inner.Count);
-                if (_refs.TryGetValue(dest, out var dp)) Raw(dp, fwd);
+                QueueFwd(dest, direct, inner);
+                return;
+            }
+            if (ch == 6)
+            {
+                // a batch of other players' packets passed on by the relay: [src u64][len i32][packet]...
+                int o = data.Offset + 1, end = data.Offset + data.Count;
+                float now6 = Time.realtimeSinceStartup;
+                while (o + 12 <= end)
+                {
+                    ulong src = BitConverter.ToUInt64(data.Array, o); int len = BitConverter.ToInt32(data.Array, o + 8); o += 12;
+                    if (len < 0 || o + len > end) break;
+                    if (src != LocalId) { _lastHeard[src] = now6; Process(src, new ArraySegment<byte>(data.Array, o, len)); }
+                    o += len;
+                }
                 return;
             }
             if (ch == 4)

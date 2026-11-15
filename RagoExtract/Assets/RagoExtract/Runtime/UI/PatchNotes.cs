@@ -5,13 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
-            ("2.2", "Armor, casino & floor maps", new[] {
-                "Armor now works by penetration: every armour has a class (soft vest ~1.5 up to Juggernaut ~6.5) and every round a punch. Pistols mostly bounce off good armour (you still take a bruising), rifle rounds go through, .338 / .50 go through almost anything - the same for players, raiders and you.",
-                "Shots from other players now hurt properly through armour the same way raiders' shots do.",
-                "Casino: slots are completely random (every symbol equally likely), the prize wheel has fewer blanks and breaks even on average.",
-                "Blackjack: DOUBLE works and tells you when it can't (deal first, only on your first two cards); bigger buttons.",
-                "Underground field map shows the floor you're on (B1 / B2 / B3) and changes as you go up and down the stairs.",
-                "Also: steadier bags, put things in bags by hand, less delay, two-sided padlocks, spread-out spawns, Underground spawns on B3.",
+            ("2.3", "Multiplayer lag fix", new[] {
+                "Fixed the lag and delay that came back in 2.1: the game was sending a separate packet every frame (hundreds a second with 3+ players) and the line backed up. Updates are batched again, 20 a second.",
+                "The player passing data on for everyone now sends each other player ONE combined packet per tick instead of one per incoming packet - far less traffic on their connection.",
+                "Other players get a slightly bigger smoothing buffer again, so a late packet doesn't make them jump.",
+                "From 2.2: armour penetration by calibre, random slots, working blackjack DOUBLE, per-floor Underground map.",
             }),
         };
     }
