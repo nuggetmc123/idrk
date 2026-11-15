@@ -266,13 +266,14 @@ namespace Rago.Net
             _status = "Party (" + (_peers.Count + 1) + ")";
             foreach (var p in _peers) SendSys(p, 3, MyName());
             OnPartyChanged?.Invoke();
+            _ = EnterLobby();   // keep receiving invites from other parties while you're in this one
             return true;
         }
 
         // ---- the session lobby: lets you receive bunker invites while you're not in any session
         async Task EnterLobby()
         {
-            if (_lobby != null || InSession) return;
+            if (_lobby != null || (InSession && !_inPartySession)) return;   // in a party (even just you): keep listening
             try
             {
                 var go = new GameObject("FusionLobby");
@@ -293,7 +294,7 @@ namespace Rago.Net
                     else args[i] = ps[i].HasDefaultValue ? ps[i].DefaultValue : (pt.IsValueType ? Activator.CreateInstance(pt) : null);
                 }
                 if (m.Invoke(r, args) is Task t) await t;
-                if (_status.StartsWith("Starting") || _status.StartsWith("Joining") || _status.StartsWith("Party")) _status = "Online (Photon)";
+                if (!_inPartySession && (_status.StartsWith("Starting") || _status.StartsWith("Joining") || _status.StartsWith("Party"))) _status = "Online (Photon)";
             }
             catch (Exception e) { Debug.LogWarning("[Rago] couldn't join the session lobby: " + e.Message); }
         }
@@ -591,7 +592,10 @@ namespace Rago.Net
         async Task<bool> StartSession(string name, Dictionary<string, SessionProperty> props, int maxPlayers, bool allowCreate = true)
         {
             await Shutdown();
-            await LeaveLobby();
+            // a party lobby keeps the invite listener running (invites to you only arrive through it); a raid or the
+            // Market doesn't need it
+            bool party = props != null && props.TryGetValue("kind", out var kk) && Str(kk) == "party";
+            if (!party) await LeaveLobby();
             _inPartySession = false;
             _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear(); _rtt = 0f; _pingOut = -1f;
             _lastHeard.Clear(); _peerSince.Clear(); _relayTo.Clear(); _hostId = 0;
