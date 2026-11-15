@@ -75,7 +75,7 @@ namespace Rago
             cam.transform.localPosition = new Vector3(0, 1.65f, 0);
             p.Head = cam.transform;
             p.Cam = cam.AddComponent<Camera>();
-            p.Cam.nearClipPlane = 0.03f;
+            p.Cam.nearClipPlane = 0.07f;   // 3 cm left too little depth precision far away: distant walls and trims flickered (z-fighting)
             p.Cam.farClipPlane = 900f;
             p.Cam.clearFlags = CameraClearFlags.Skybox;
             p.Cam.tag = "MainCamera";
@@ -287,6 +287,10 @@ namespace Rago
             HandR.Tick(XRInputs.Right, rp, rr);
             if (!XRInputs.VR) DesktopActions();
             Gear.Tick();
+            // your real head pushed into a wall: fade to black instead of showing the inside of the level (the black,
+            // glitching view). Comes back as soon as you lean out.
+            if (XRInputs.VR && !Frozen && Cc != null && Cc.enabled) Hud.SetBlocked((SafeEye() - Head.position).sqrMagnitude > 0.06f * 0.06f);
+            else Hud.SetBlocked(false);
             Hud.Tick(dt);
         }
 

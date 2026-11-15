@@ -654,7 +654,8 @@ namespace Rago
             go.transform.position = pos;
             var l = go.AddComponent<Light>();
             l.type = LightType.Point; l.color = c; l.range = range; l.intensity = intensity;
-            l.shadows = shadows ? LightShadows.Soft : LightShadows.None;
+            l.shadows = shadows && Application.platform != RuntimePlatform.Android ? LightShadows.Soft : LightShadows.None;   // Quest: point-light shadow maps flickered black
+            l.shadowBias = 0.05f; l.shadowNormalBias = 0.6f;
             l.renderMode = LightRenderMode.Auto;
             return l;
         }

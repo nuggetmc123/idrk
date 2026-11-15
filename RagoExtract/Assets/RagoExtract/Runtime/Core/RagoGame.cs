@@ -261,7 +261,8 @@ namespace Rago
             // in these small rooms, so it's a handful of lights per surface. (Flickering lamps stay cheap vertex lights.)
             if (to != Area.Raid)
                 foreach (var l in MapRoot.GetComponentsInChildren<Light>(true))
-                    if (l.type != LightType.Directional && l.GetComponent<Flicker>() == null) l.renderMode = LightRenderMode.ForcePixel;
+                    if (l.type != LightType.Directional && l.GetComponent<Flicker>() == null)
+                        l.renderMode = l.range >= 4f && l.intensity >= 0.6f ? LightRenderMode.ForcePixel : LightRenderMode.ForceVertex;   // small accent lights stay cheap
             QualitySettings.pixelLightCount = to == Area.Raid ? (Application.platform == RuntimePlatform.Android ? 1 : 3) : 4;
             if (Application.platform == RuntimePlatform.Android) QualitySettings.shadows = to == Area.Raid ? ShadowQuality.Disable : ShadowQuality.HardOnly;
             if (Player.Cam != null)
