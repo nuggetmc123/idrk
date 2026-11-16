@@ -102,8 +102,8 @@ namespace Rago
             else { if (ar.Chance(0.2f)) n.Helmet = Db.Get<ArmorDef>("helm_bump"); if (ar.Chance(0.3f)) n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_carrier" : "vest_soft"); }
             ArmorBuilder.Dress(n.Rig, n.Helmet, n.Vest, null, false);
             n.Rig.root.SetLayerRecursive(Layers.Npc);
-            string[] common = { "vostok74", "vostokm", "vanguard", "kestrel", "breacher", "wasp", "comrade", "bandit", "p9", "nomad" };
-            string[] heavyGuns = { "sentinel", "grizzly", "lancer", "fennec", "vostokm", "riot", "hailstorm" };
+            string[] common = { "vostok74", "vostokm", "vanguard", "kestrel", "breacher", "wasp", "comrade", "bandit", "p9", "nomad", "falcon10", "harvester", "vostoksu" };
+            string[] heavyGuns = { "sentinel", "grizzly", "lancer", "fennec", "vostokm", "riot", "hailstorm", "corsair", "tundra", "reaper" };
             string bossGun = "grizzly";
             if (boss != null) BossKit(boss, out bossGun, out _, out _);
             n.Weapon = Db.Get<GunDef>(boss != null ? bossGun : heavy ? n._rng.Pick(heavyGuns) : n._rng.Pick(common)) ?? Db.Get<GunDef>("grizzly");

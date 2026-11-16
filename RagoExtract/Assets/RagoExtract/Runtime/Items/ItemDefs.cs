@@ -251,6 +251,9 @@ namespace Rago
             G("viper17", "Viper 17", GunClass.Pistol, GunStyle.Pistol, FireAction.Semi, Caliber.C9mm, 29, 480, 17, 0.55f, 1.0f, U, 800, true, Finish.Black, Finish.Fde, 0.12f, "Competition-tuned frame with an optic cut.");
             G("hornet", "Hornet MP", GunClass.Pistol, GunStyle.Pistol, FireAction.Auto, Caliber.C9mm, 24, 1100, 25, 0.8f, 2.2f, U, 1400, true, Finish.Black, Finish.Od, 0.12f, "Full-auto machine pistol. Hold on tight.");
             G("talon50", "Talon .50", GunClass.Pistol, GunStyle.Pistol, FireAction.Semi, Caliber.C50AE, 62, 220, 7, 2.2f, 1.1f, R, 3200, true, Finish.Chrome, Finish.Black, 0.16f, "Hand cannon. Big recoil, bigger holes.");
+            G("falcon10", "Falcon Compact", GunClass.Pistol, GunStyle.Pistol, FireAction.Semi, Caliber.C9mm, 27, 480, 15, 0.5f, 1.1f, C, 550, true, Finish.Black, Finish.Od, 0.1f, "Compact striker 9mm with an OD frame. Easy to shoot.");
+            G("warhawk", "Warhawk .45", GunClass.Pistol, GunStyle.Pistol, FireAction.Semi, Caliber.C45, 38, 380, 10, 0.9f, 1.1f, U, 1500, true, Finish.Fde, Finish.Fde, 0.13f, "Full-size .45 in flat dark earth. Hits like a truck.");
+            G("frontier", "Frontier Six", GunClass.Revolver, GunStyle.Revolver, FireAction.Revolver, Caliber.C357, 54, 240, 6, 1.6f, 0.8f, U, 1700, false, Finish.Chrome, Finish.Wood, 0.16f, "Polished long-barrel .357 with walnut grips.");
             G("sovereign", "Gilded Sovereign", GunClass.Pistol, GunStyle.Pistol, FireAction.Semi, Caliber.C45, 44, 420, 10, 0.7f, 0.8f, V, 9000, true, Finish.Gold, Finish.Wood, 0.13f, "Vault-only. Gold plated, hand-fitted, deadly accurate.");
             G("ranger357", "Ranger .357", GunClass.Revolver, GunStyle.Revolver, FireAction.Revolver, Caliber.C357, 48, 260, 6, 1.4f, 1.0f, C, 700, false, Finish.Gray, Finish.Wood, 0.1f, "Six rounds of dependable stopping power.");
             G("bulldog44", "Bulldog Hunter", GunClass.Revolver, GunStyle.Revolver, FireAction.Revolver, Caliber.C357, 58, 220, 6, 1.8f, 0.7f, R, 2600, true, Finish.Chrome, Finish.Black, 0.2f, "Long-barrel hunting revolver with a top rail.");
@@ -264,12 +267,15 @@ namespace Rago
             G("cyclone", "Cyclone 45", GunClass.SMG, GunStyle.SmgVector, FireAction.Auto, Caliber.C45, 30, 1150, 25, 0.35f, 1.3f, R, 4800, true, Finish.Black, Finish.Fde, 0.16f, "Recoil-mitigating chassis. Lasers at close range.");
             G("stinger", "Stinger PDW", GunClass.SMG, GunStyle.Bullpup, FireAction.Auto, Caliber.C57, 25, 900, 50, 0.35f, 1.2f, E, 6200, true, Finish.Tan, Finish.Black, 0.26f, "Bullpup PDW with a 50-round top magazine.");
             var ph = G("phantom", "Phantom SD", GunClass.SMG, GunStyle.SmgBox, FireAction.Auto, Caliber.C9mm, 28, 850, 30, 0.35f, 1.0f, V, 11000, true, Finish.Black, Finish.Black, 0.3f, "Vault-only. Integrally suppressed. Quiet death.");
+            G("vespa", "Vespa 9", GunClass.SMG, GunStyle.SmgVector, FireAction.Auto, Caliber.C9mm, 25, 1000, 33, 0.4f, 1.4f, U, 2800, true, Finish.Gray, Finish.Black, 0.18f, "Recoil-redirecting 9mm. Hoses a room flat.");
+            G("reaper", "Reaper 45", GunClass.SMG, GunStyle.SmgBox, FireAction.Auto, Caliber.C45, 31, 700, 30, 0.55f, 1.5f, R, 3800, true, Finish.Black, Finish.Black, 0.22f, "Heavy-hitting .45 sub-gun with a long handguard.");
             ph.suppressed = true;
 
             // ---------------- SHOTGUNS (6)
             G("breacher", "Breacher 870", GunClass.Shotgun, GunStyle.Pump, FireAction.Pump, Caliber.C12g, 14, 70, 6, 2.0f, 4.5f, C, 1500, true, Finish.Black, Finish.Black, 0.48f, "Pump-action door opener.");
             G("homestead", "Homestead Double", GunClass.Shotgun, GunStyle.Double, FireAction.Break, Caliber.C12g, 15, 300, 2, 2.4f, 5f, C, 900, false, Finish.Gray, Finish.Wood, 0.6f, "Grandpa's side-by-side. Two shots, make them count.");
             G("riot", "Riot Pump", GunClass.Shotgun, GunStyle.Pump, FireAction.Pump, Caliber.C12g, 14, 80, 8, 1.8f, 4.8f, U, 2200, true, Finish.Black, Finish.Od, 0.42f, "Tactical pump with pistol grip and extended tube.");
+            G("harvester", "Harvester Pump", GunClass.Shotgun, GunStyle.Pump, FireAction.Pump, Caliber.C12g, 14, 75, 7, 2.0f, 4.6f, C, 1300, true, Finish.Black, Finish.Wood, 0.5f, "Farm-house pump with a walnut stock. Reliable.");
             G("mauler", "Mauler 12", GunClass.Shotgun, GunStyle.BoxShotgun, FireAction.Semi, Caliber.C12g, 13, 300, 8, 1.9f, 4.5f, R, 4600, true, Finish.Black, Finish.Black, 0.45f, "Box-fed semi-auto shotgun on a rifle chassis.");
             var th = G("thunder", "Thunder Auto-12", GunClass.Shotgun, GunStyle.BoxShotgun, FireAction.Auto, Caliber.C12g, 12, 330, 20, 1.6f, 5f, E, 7800, true, Finish.Od, Finish.Black, 0.4f, "Full-auto drum shotgun. Rooms get very quiet.");
             th.drum = true;
@@ -284,6 +290,9 @@ namespace Rago
             G("sentinel", "Sentinel M4", GunClass.Rifle, GunStyle.AR, FireAction.Auto, Caliber.C556, 32, 800, 30, 0.6f, 1.0f, U, 4200, true, Finish.Black, Finish.Black, 0.37f, "The standard. Modular, light, accurate.");
             G("fennec", "Fennec Bullpup", GunClass.Rifle, GunStyle.Bullpup, FireAction.Auto, Caliber.C556, 32, 700, 30, 0.55f, 0.9f, U, 4600, true, Finish.Od, Finish.Od, 0.45f, "Compact bullpup with a long barrel.");
             G("hailstorm", "Hailstorm A2", GunClass.Rifle, GunStyle.AR, FireAction.Burst, Caliber.C556, 33, 850, 30, 0.6f, 0.8f, U, 3800, true, Finish.Black, Finish.Black, 0.5f, "Three-round-burst rifleman's rifle.");
+            G("corsair", "Corsair CQB", GunClass.Rifle, GunStyle.AR, FireAction.Auto, Caliber.C556, 30, 850, 30, 0.62f, 1.15f, U, 3600, true, Finish.Fde, Finish.Fde, 0.26f, "Short-barrel 5.56 carbine for room clearing.");
+            G("vostoksu", "Vostok SU", GunClass.Rifle, GunStyle.AK, FireAction.Auto, Caliber.C545, 29, 700, 30, 0.6f, 1.4f, U, 2900, true, Finish.Black, Finish.Black, 0.22f, "Stubby folding-stock 5.45. Loud and handy.");
+            G("tundra", "Tundra AK-12", GunClass.Rifle, GunStyle.AK, FireAction.Auto, Caliber.C545, 31, 700, 30, 0.5f, 1.1f, R, 5400, true, Finish.Gray, Finish.Black, 0.41f, "Modern railed AK. Soft-shooting and accurate.");
             G("tundra", "Tundra AN-9", GunClass.Rifle, GunStyle.AK, FireAction.Burst, Caliber.C545, 33, 1000, 30, 0.45f, 0.9f, R, 5200, true, Finish.Black, Finish.Black, 0.42f, "Hyper-burst rifle. Two rounds before the recoil arrives.");
             G("spectre", "Spectre ACR", GunClass.Rifle, GunStyle.AR, FireAction.Auto, Caliber.C556, 33, 750, 30, 0.5f, 0.9f, R, 5800, true, Finish.Fde, Finish.Black, 0.4f, "Adaptive combat rifle with an ambi chassis.");
             G("reaper", "Reaper 416", GunClass.Rifle, GunStyle.AR, FireAction.Auto, Caliber.C556, 34, 850, 30, 0.5f, 0.85f, R, 6400, true, Finish.Tan, Finish.Black, 0.36f, "Piston-driven premium carbine.");
@@ -294,7 +303,9 @@ namespace Rago
             G("grizzly", "Grizzly G3", GunClass.BattleRifle, GunStyle.Battle, FireAction.Auto, Caliber.C308, 52, 550, 20, 1.2f, 1.0f, U, 5200, true, Finish.Black, Finish.Od, 0.45f, "Heavy roller-delayed battle rifle.");
             G("longshot", "Longshot 14", GunClass.DMR, GunStyle.Battle, FireAction.Semi, Caliber.C308, 58, 400, 20, 1.1f, 0.4f, U, 4800, true, Finish.Gray, Finish.Wood, 0.56f, "Wood-stocked marksman rifle.");
             G("bastion", "Bastion 17H", GunClass.BattleRifle, GunStyle.Battle, FireAction.Auto, Caliber.C308, 54, 600, 20, 1.1f, 0.8f, R, 7400, true, Finish.Fde, Finish.Black, 0.41f, "Modern 7.62 rifle with a folding stock.");
+            G("bulwark", "Bulwark 308", GunClass.BattleRifle, GunStyle.Battle, FireAction.Auto, Caliber.C308, 50, 600, 20, 1.15f, 0.95f, R, 7800, true, Finish.Tan, Finish.Black, 0.43f, "Tan 7.62 battle rifle. Slow, heavy, punches through plates.");
             G("vigil", "Vigil DMR", GunClass.DMR, GunStyle.AR, FireAction.Semi, Caliber.C308, 62, 450, 20, 0.95f, 0.3f, R, 7000, true, Finish.Black, Finish.Fde, 0.5f, "Precision gas gun. One shot, one problem solved.");
+            G("sentry", "Sentry SR-25", GunClass.DMR, GunStyle.AR, FireAction.Semi, Caliber.C308, 60, 450, 20, 1.0f, 0.3f, R, 7600, true, Finish.Fde, Finish.Fde, 0.5f, "Semi-auto 7.62 marksman AR with a cheek riser.");
             G("lynx", "Lynx Marksman", GunClass.DMR, GunStyle.Bolt, FireAction.Semi, Caliber.C308, 66, 350, 10, 1.3f, 0.25f, E, 8200, true, Finish.Black, Finish.Wood, 0.62f, "Long semi-auto marksman rifle with a skeleton stock.");
             G("executioner", "Executioner .50", GunClass.DMR, GunStyle.AntiMat, FireAction.Semi, Caliber.C50BMG, 140, 180, 5, 3.0f, 0.2f, V, 22000, true, Finish.Black, Finish.Tan, 0.74f, "Vault-only. Semi-auto anti-materiel rifle.");
 
@@ -310,6 +321,7 @@ namespace Rago
             G("ranger", "Ranger Scout", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C308, 78, 55, 5, 1.4f, 0.16f, U, 3200, false, Finish.Black, Finish.Od, 0.5f, "Short, handy scout rifle with proper notch-and-post iron sights.");
             G("prairie", "Prairie Varmint", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C556, 58, 65, 5, 0.75f, 0.1f, C, 1500, true, Finish.Gray, Finish.Wood, 0.66f, "Light 5.56 bolt gun with a rail. Soft kick, quick follow-ups.");
             G("harrier", "Harrier LR", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C338, 120, 45, 5, 2.0f, 0.07f, R, 10500, true, Finish.Black, Finish.Tan, 0.68f, "Long-range .338 chassis rifle with a 5-round box.");
+            G("glacier", "Glacier .338", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C338, 118, 45, 5, 2.0f, 0.07f, E, 13000, true, Finish.Gray, Finish.Black, 0.72f, "White-and-grey arctic .338. Reaches across the whole map.");
 
             // ---------------- BOSS-ONLY GUNS: only a map boss carries one; kill the boss to take it
             var lancet = G("boss_lancet", "Kessler's Lancet", GunClass.SMG, GunStyle.SmgVector, FireAction.Auto, Caliber.C57, 30, 1100, 40, 0.3f, 0.7f, Rarity.Boss, 18000, true, Finish.Chrome, Finish.Black, 0.3f, "Boss-only (Doctor Kessler, Underground). Chrome, integrally suppressed, 1100 rounds a minute.");
@@ -327,6 +339,7 @@ namespace Rago
             var lan = G("lancer", "Lancer RPK", GunClass.LMG, GunStyle.AK, FireAction.Auto, Caliber.C545, 31, 600, 75, 0.6f, 1.4f, U, 6200, true, Finish.Black, Finish.Wood, 0.59f, "Squad support AK with a 75-round drum.");
             lan.drum = true;
             G("brute", "Brute 249", GunClass.LMG, GunStyle.Lmg, FireAction.Auto, Caliber.C556, 32, 750, 100, 0.65f, 1.6f, R, 9800, true, Finish.Black, Finish.Fde, 0.47f, "Belt-fed suppression machine.");
+            G("anvil", "Anvil LMG", GunClass.LMG, GunStyle.Lmg, FireAction.Auto, Caliber.C556, 31, 800, 100, 0.6f, 1.7f, E, 10500, true, Finish.Od, Finish.Black, 0.45f, "Lightweight belt-fed 5.56 in olive drab.");
             G("hammer", "Hammer PKM", GunClass.LMG, GunStyle.Lmg, FireAction.Auto, Caliber.C308, 48, 650, 100, 1.0f, 1.6f, E, 11500, true, Finish.Gray, Finish.Wood, 0.6f, "General-purpose 7.62 machine gun.");
             G("goliath", "Goliath MG3", GunClass.LMG, GunStyle.Lmg, FireAction.Auto, Caliber.C308, 50, 1200, 100, 1.1f, 1.8f, V, 20000, true, Finish.Black, Finish.Black, 0.56f, "Vault-only. Buzzsaw. 1200 rounds a minute.");
 

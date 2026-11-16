@@ -5,11 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
-            ("2.3", "Multiplayer lag fix", new[] {
-                "Fixed the lag and delay that came back in 2.1: the game was sending a separate packet every frame (hundreds a second with 3+ players) and the line backed up. Updates are batched again, 20 a second.",
-                "The player passing data on for everyone now sends each other player ONE combined packet per tick instead of one per incoming packet - far less traffic on their connection.",
-                "Other players get a slightly bigger smoothing buffer again, so a late packet doesn't make them jump.",
-                "From 2.2: armour penetration by calibre, random slots, working blackjack DOUBLE, per-floor Underground map.",
+            ("2.4", "New guns & remodels", new[] {
+                "Every gun remodelled with real detail: textured grips with a beavertail and base, proper trigger guards and curved triggers, rubber buttpads, sling swivels, crowned muzzles.",
+                "ARs: ejection port + dust cover, forward assist, bolt catch, mag release, selector, takedown pins, flared magwell, castle nut. AKs: rivets, ribbed dust cover, hooded front sight, cleaning rod, vented handguard.",
+                "Pistols: raked grips, chamfered slides, front + rear serrations, real ejection port, slide stop, guide rod, hammer and grip safety on the .45s. Revolvers show their chambers, ejector rod and latch.",
+                "Bolt rifles: proper actions, bolt shroud, checkering; shotguns: loading port, slide bars, mag cap; SMGs, LMGs and .50s got their own details too.",
+                "13 NEW GUNS: Falcon Compact, Warhawk .45, Frontier Six (.357), Vespa 9, Reaper 45, Corsair CQB, Vostok SU, Tundra AK-12, Bulwark 308, Sentry SR-25, Glacier .338, Anvil LMG, Harvester Pump. In the shops, in loot, and some raiders carry them.",
             }),
         };
     }
