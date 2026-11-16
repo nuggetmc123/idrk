@@ -322,6 +322,7 @@ namespace Rago
             if (held != null && held.Held && held.primaryHand == this && held.rb != null)
             {
                 held.GetHeldPose(out var p, out var r);
+                held.KeepOutOfWalls(ref p, r);
                 if (!float.IsNaN(p.x)) held.transform.SetPositionAndRotation(p, Compat.SafeRot(r));
             }
             UpdateVisualPose();
@@ -383,6 +384,7 @@ namespace Rago
             if (held != null && held.Held && held.primaryHand == this)
             {
                 held.GetHeldPose(out var p, out var r);
+                held.KeepOutOfWalls(ref p, r);
                 if (!float.IsNaN(p.x)) held.rb.MovePosition(p);
                 held.rb.MoveRotation(Compat.SafeRot(r));
             }

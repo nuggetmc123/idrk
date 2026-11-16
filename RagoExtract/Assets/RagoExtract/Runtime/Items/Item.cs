@@ -311,6 +311,28 @@ namespace Rago
             return new Vector3(0, 0, Mathf.Sign(v.z));
         }
 
+        /// <summary>The far end of the item (in its own space) - the muzzle of a gun, the tip of a knife: the part that
+        /// would poke through a wall first.</summary>
+        public virtual Vector3 LocalTip => localBounds.center + Vector3.forward * localBounds.extents.z;
+
+        /// <summary>A held item never goes through a wall: if the line from your eyes to its tip runs into one, the whole
+        /// thing slides back towards you until the tip is on your side (it was only the shots that were stopped before).</summary>
+        public void KeepOutOfWalls(ref Vector3 pos, Quaternion rot)
+        {
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl == null || float.IsNaN(pos.x)) return;
+            Vector3 eye = pl.SafeEye();
+            foreach (var local in new[] { LocalTip, localBounds.center })
+            {
+                Vector3 tip = pos + rot * Vector3.Scale(local, transform.lossyScale);
+                Vector3 d = tip - eye; float len = d.magnitude;
+                if (len < 0.02f) continue;
+                if (Physics.Raycast(eye, d / len, out var h, len, Ballistics.WallMask, QueryTriggerInteraction.Ignore)
+                    && (h.collider.attachedRigidbody == null || h.collider.attachedRigidbody.isKinematic) && h.collider.GetComponentInParent<Item>() == null)
+                    pos -= tip - (h.point - d / len * 0.03f);
+            }
+        }
+
         public virtual void GetHeldPose(out Vector3 pos, out Quaternion rot)
         {
             var a = primaryHand.Anchor;

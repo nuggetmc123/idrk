@@ -280,6 +280,9 @@ namespace Rago
 
         public static System.Action<Gun> OnShot, OnReloaded;   // local player's guns (used by the training)
 
+        // the muzzle (or the end of a screwed-on suppressor) is the part that would go through a wall
+        public override Vector3 LocalTip => rig != null && rig.muzzle != null ? transform.InverseTransformPoint(MuzzleEnd.position) : base.LocalTip;
+
         int _burst; float _lastShotT = -9f;
         public AmmoType internalAmmo;
         /// <summary>The round about to be fired: whatever the mag (or the tube / cylinder) is loaded with.</summary>
