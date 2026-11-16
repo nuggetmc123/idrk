@@ -180,6 +180,16 @@ namespace Rago
         Vector3 HipMagR => Root.TransformPoint(new Vector3(0.15f, -0.62f, 0.13f));
         public bool NearMagPouch(Vector3 p) => Vector3.Distance(p, HipMagL) < 0.16f || Vector3.Distance(p, HipMagR) < 0.16f;
 
+        /// <summary>Switch what the next mag from your pouch is loaded with: STANDARD -> AP -> INCENDIARY.</summary>
+        public void CycleAmmo(Hand h)
+        {
+            NextAmmo = (AmmoType)(((int)NextAmmo + 1) % 3);
+            Sfx.Play(Synth.Grab(1), h != null ? h.transform.position : _p.transform.position, 0.4f, 1.5f, 0.5f, 5f);
+            h?.Haptic(0.25f, 0.03f);
+            string what = NextAmmo == AmmoType.AP ? "AP - armour-piercing, goes through walls" : NextAmmo == AmmoType.Incendiary ? "INCENDIARY - sets them on fire" : "STANDARD";
+            _p.Toast("Pouch: " + what);
+        }
+
         // ---------------------------------------------------------------------- armour
         /// <summary>Wear an armour item released near your head (helmet) or chest (vest). Swaps out what you had on.</summary>
         public bool TryWear(ArmorItem a, Hand h)

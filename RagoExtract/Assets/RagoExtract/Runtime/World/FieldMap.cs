@@ -218,7 +218,7 @@ namespace Rago
             if (p == null || _sheet == null) return;
             if (!_hinted && Time.timeSinceLevelLoad > 0) { _hinted = true; p.Toast(XRInputs.VR ? "Your map: press Y" : "Your map: press M"); }
             // Y on the left controller (unless the left hand is holding a gun - then Y works the gun)
-            bool toggle = XRInputs.VR ? XRInputs.Left.SecondaryDown && !(p.HandL.Held is Gun && !p.HandL.HeldAsSecondary) : Desktop.MapKey;
+            bool toggle = XRInputs.VR ? XRInputs.Left.SecondaryDown && !(p.HandL.Held is Gun && !p.HandL.HeldAsSecondary) && !(p.HandL.Held == null && p.Gear.NearMagPouch(p.HandL.transform.position)) : Desktop.MapKey;
             if (toggle) { _open = !_open; _sheet.gameObject.SetActive(_open); Sfx.Play(Synth.Grab(1), p.Head.position, 0.3f, 1.4f, 0f, 3f); }
             if (!_open) return;
             if (p.Dead) { _open = false; _sheet.gameObject.SetActive(false); return; }

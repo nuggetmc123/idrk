@@ -285,15 +285,7 @@ namespace Rago
         /// <summary>The round about to be fired: whatever the mag (or the tube / cylinder) is loaded with.</summary>
         public AmmoType CurrentAmmo => Internal ? internalAmmo : mag != null ? mag.ammoType : AmmoType.Standard;
 
-        void CycleAmmo(Hand h)
-        {
-            var gear = RagoGame.I.Player.Gear;
-            gear.NextAmmo = (AmmoType)(((int)gear.NextAmmo + 1) % 3);
-            Sfx.Play(Synth.Grab(1), transform.position, 0.4f, 1.5f, 0.5f, 5f);
-            h.Haptic(0.25f, 0.03f);
-            string what = gear.NextAmmo == AmmoType.AP ? "AP - armour-piercing, goes through walls" : gear.NextAmmo == AmmoType.Incendiary ? "INCENDIARY - sets them on fire" : "STANDARD";
-            RagoGame.I.Player.Toast("Next " + (Internal ? "reload" : "mag") + ": " + what);
-        }
+        void CycleAmmo(Hand h) => RagoGame.I.Player.Gear.CycleAmmo(h);
         static float DriftOf(string id) { int h = 17; foreach (char c in id ?? "") h = h * 31 + c; return (h & 1023) / 1023f; }
 
         void Fire()

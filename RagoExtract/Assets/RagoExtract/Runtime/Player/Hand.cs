@@ -237,6 +237,8 @@ namespace Rago
             _climbPos = Vector3.Lerp(_climbPos, Vector3.zero, kd);
 
             Punch(dt);
+            // an empty hand at your mag pouch + B / Y: switch the ammo type your next mags come out with
+            if (XRInputs.VR && Held == null && input.SecondaryDown && rig.Gear != null && rig.Gear.NearMagPouch(TrackedPosition)) rig.Gear.CycleAmmo(this);
             // night vision: an empty hand at your forehead + trigger flips the goggles down / up
             if (Held == null && Racking == null && input.TriggerDown && rig.Gear.NvgWorn && Vector3.Distance(TrackedPosition, rig.Gear.NvgPoint) < 0.16f)
                 rig.Gear.ToggleNvg();
