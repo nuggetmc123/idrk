@@ -8,7 +8,9 @@ namespace Rago
     public enum ArmorSlot { Helmet, Vest }
     public enum GunClass { Pistol, Revolver, SMG, Shotgun, Rifle, BattleRifle, DMR, Sniper, LMG }
     public enum FireAction { Semi, Auto, Burst, Bolt, Pump, Break, Revolver }
-    public enum Caliber { C9mm, C45, C57, C556, C545, C762, C308, C338, C50BMG, C12g, C50AE, C357 }
+    public enum Caliber { C9mm, C45, C57, C556, C545, C762, C308, C338, C50BMG, C12g, C50AE, C357, C20mm }
+    /// <summary>What's loaded in a magazine: standard ball, armour-piercing, or incendiary (sets people on fire).</summary>
+    public enum AmmoType : byte { Standard, AP, Incendiary }
     public enum GunStyle { Pistol, Revolver, SmgBox, SmgMac, SmgVector, Bullpup, AR, AK, Battle, Bolt, Pump, Double, BoxShotgun, Lmg, AntiMat, Tommy }
     public enum Finish { Black, Fde, Od, Wood, Chrome, Gold, Tan, Plum, Gray }
 
@@ -123,6 +125,7 @@ namespace Rago
                 case Caliber.C308: return 5.6f;
                 case Caliber.C338: return 6.6f;
                 case Caliber.C50BMG: return 8.5f;
+                case Caliber.C20mm: return 11f;
             }
             return 3f;
         }
@@ -130,13 +133,13 @@ namespace Rago
         /// <summary>Damage multiplier for a hit given the helmet and vest worn (null = none) and what it was hit with.
         /// A round weaker than the armour is stopped (you still take a bruising 12-35%); a stronger one goes through
         /// (70-100%); right around the armour's class it's a coin flip.</summary>
-        public static float Reduction(BodyPart part, ArmorDef helmet, ArmorDef vest, string gunId = null)
+        public static float Reduction(BodyPart part, ArmorDef helmet, ArmorDef vest, string gunId = null, AmmoType ammo = AmmoType.Standard)
         {
             ArmorDef a = part == BodyPart.Head ? helmet : (part == BodyPart.Thorax || part == BodyPart.Stomach) ? vest : null;
             if (a == null) return 1f;
             float cls = a.Class * (part == BodyPart.Stomach ? 0.7f : 1f);   // the vest covers the belly less well
             if (cls <= 0.01f) return 1f;
-            float pen = Penetration(gunId);
+            float pen = Penetration(gunId) + (ammo == AmmoType.AP ? 2.2f : ammo == AmmoType.Incendiary ? -0.6f : 0f);
             float diff = pen - cls;
             bool through = diff >= 0.7f || (diff > -0.7f && Random.value < 0.5f + diff / 1.4f);
             if (through) return Mathf.Clamp(0.72f + 0.08f * Mathf.Max(0f, diff), 0.72f, 1f);
@@ -200,6 +203,7 @@ namespace Rago
                 case Caliber.C50BMG: return ".50 BMG";
                 case Caliber.C12g: return "12 Gauge";
                 case Caliber.C50AE: return ".50 AE";
+                case Caliber.C20mm: return "20mm";
                 default: return ".357 Mag";
             }
         }
@@ -322,6 +326,7 @@ namespace Rago
             G("prairie", "Prairie Varmint", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C556, 58, 65, 5, 0.75f, 0.1f, C, 1500, true, Finish.Gray, Finish.Wood, 0.66f, "Light 5.56 bolt gun with a rail. Soft kick, quick follow-ups.");
             G("harrier", "Harrier LR", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C338, 120, 45, 5, 2.0f, 0.07f, R, 10500, true, Finish.Black, Finish.Tan, 0.68f, "Long-range .338 chassis rifle with a 5-round box.");
             G("glacier", "Glacier .338", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C338, 118, 45, 5, 2.0f, 0.07f, E, 13000, true, Finish.Gray, Finish.Black, 0.72f, "White-and-grey arctic .338. Reaches across the whole map.");
+            G("anzio", "Anzio 20mm", GunClass.Sniper, GunStyle.AntiMat, FireAction.Bolt, Caliber.C20mm, 260, 30, 3, 4.2f, 0.05f, E, 32000, true, Finish.Gray, Finish.Black, 0.95f, "A 20mm anti-materiel rifle. Punches straight through a wall and whoever is behind it. Kicks like a car crash.");
 
             // ---------------- BOSS-ONLY GUNS: only a map boss carries one; kill the boss to take it
             var lancet = G("boss_lancet", "Kessler's Lancet", GunClass.SMG, GunStyle.SmgVector, FireAction.Auto, Caliber.C57, 30, 1100, 40, 0.3f, 0.7f, Rarity.Boss, 18000, true, Finish.Chrome, Finish.Black, 0.3f, "Boss-only (Doctor Kessler, Underground). Chrome, integrally suppressed, 1100 rounds a minute.");
@@ -407,6 +412,7 @@ namespace Rago
             Ammo("ammo_556", Caliber.C556, 60, 200); Ammo("ammo_545", Caliber.C545, 60, 180); Ammo("ammo_762", Caliber.C762, 60, 220);
             Ammo("ammo_308", Caliber.C308, 40, 300); Ammo("ammo_338", Caliber.C338, 15, 450); Ammo("ammo_50", Caliber.C50BMG, 10, 600);
             Ammo("ammo_12g", Caliber.C12g, 24, 140); Ammo("ammo_50ae", Caliber.C50AE, 21, 260); Ammo("ammo_357", Caliber.C357, 24, 160);
+            Ammo("ammo_20", Caliber.C20mm, 6, 900);
 
             // ---------------- VALUABLES (sell to the Fence)
             // junk & barter loot: sell it to the Fence (cheap scrap up to jackpots)

@@ -210,6 +210,7 @@ namespace Rago
                 int take = Mathf.Max(0, Mathf.Min(m.rounds, g.magSize - internalRounds - (chamberCounts && chambered ? 1 : 0)));
                 internalRounds += take;
                 m.rounds -= take;
+                internalAmmo = m.ammoType;
                 if (sound) Sfx.Play(Synth.MagIn(), transform.position, 0.7f, 1.15f, 0.5f, 10f);
                 if (!chambered && (g.action == FireAction.Revolver || g.action == FireAction.Break) && internalRounds > 0) { chambered = true; internalRounds--; }
                 if (m.rounds <= 0) { m.primaryHand?.ForceRelease(); Destroy(m.gameObject); }
@@ -280,6 +281,19 @@ namespace Rago
         public static System.Action<Gun> OnShot, OnReloaded;   // local player's guns (used by the training)
 
         int _burst; float _lastShotT = -9f;
+        public AmmoType internalAmmo;
+        /// <summary>The round about to be fired: whatever the mag (or the tube / cylinder) is loaded with.</summary>
+        public AmmoType CurrentAmmo => Internal ? internalAmmo : mag != null ? mag.ammoType : AmmoType.Standard;
+
+        void CycleAmmo(Hand h)
+        {
+            var gear = RagoGame.I.Player.Gear;
+            gear.NextAmmo = (AmmoType)(((int)gear.NextAmmo + 1) % 3);
+            Sfx.Play(Synth.Grab(1), transform.position, 0.4f, 1.5f, 0.5f, 5f);
+            h.Haptic(0.25f, 0.03f);
+            string what = gear.NextAmmo == AmmoType.AP ? "AP - armour-piercing, goes through walls" : gear.NextAmmo == AmmoType.Incendiary ? "INCENDIARY - sets them on fire" : "STANDARD";
+            RagoGame.I.Player.Toast("Next " + (Internal ? "reload" : "mag") + ": " + what);
+        }
         static float DriftOf(string id) { int h = 17; foreach (char c in id ?? "") h = h * 31 + c; return (h & 1023) / 1023f; }
 
         void Fire()
@@ -293,7 +307,7 @@ namespace Rago
             dir = Quaternion.Euler(Random.Range(-spr, spr), Random.Range(-spr, spr), 0) * dir;
             bool tracer = g.cls == GunClass.LMG || (g.TwoHanded && Random.value < 0.25f);
             Vector3 origin = Ballistics.SafeOrigin(RagoGame.I.Player.SafeEye(), rig.muzzle.position);   // barrel through a wall: you shoot the wall
-            Ballistics.Fire(origin, dir, shot, 0, transform, RagoGame.I.Player.Vitals, false, tracer);
+            Ballistics.Fire(origin, dir, shot, 0, transform, RagoGame.I.Player.Vitals, false, tracer, false, CurrentAmmo);
             Fx.MuzzleFlash(muzzleAtt != null && muzzleAtt.ad.suppress ? MuzzleEnd : rig.muzzle, g.TwoHanded ? (g.cal == Caliber.C50BMG ? 2f : 1.2f) : 0.7f, shot.suppressed);
             Sfx.Gunshot(shot, rig.muzzle.position, true);
             OnLocalFire?.Invoke(this, origin, dir);
@@ -401,12 +415,14 @@ namespace Rago
             }
             if (XRInputs.VR)
             {
-                // B / Y: tap drops the mag, hold switches fire mode. No rack button: rack it by hand.
-                if (MagButton(h, input)) EjectMag();
+                // B / Y: tap drops the mag, hold switches fire mode. With the well empty (or a tube / cylinder gun), a tap
+                // switches the ammo type for your next mag. No rack button: rack it by hand.
+                if (MagButton(h, input)) { if (Internal || mag == null) CycleAmmo(h); else EjectMag(); }
                 return;
             }
-            // desktop: X drops the mag, F racks or switches fire mode
+            // desktop: X drops the mag, F racks or switches fire mode, T switches ammo type
             if (input.PrimaryDown) EjectMag();
+            if (Desktop.AmmoKey) CycleAmmo(h);
             if (input.SecondaryDown)
             {
                 if (chambered && !needsCycle && (g.action == FireAction.Auto || g.action == FireAction.Burst))
@@ -553,6 +569,7 @@ namespace Rago
     public class Magazine : Item
     {
         public Caliber cal;
+        public AmmoType ammoType;
         public MagStyle style;
         public int rounds, capacity;
         public string gunId;
@@ -588,7 +605,7 @@ namespace Rago
             grip.localRotation = Quaternion.LookRotation(Vector3.up, Vector3.back);   // hand's fist axis = mag's up, hand's back = mag's back
         }
 
-        public override string Label => Db.CalName(cal) + "  " + rounds + "/" + capacity;
+        public override string Label => Db.CalName(cal) + (ammoType == AmmoType.AP ? " AP" : ammoType == AmmoType.Incendiary ? " INCENDIARY" : "") + "  " + rounds + "/" + capacity;
         public override int Value => 0;
 
         GameObject _model;

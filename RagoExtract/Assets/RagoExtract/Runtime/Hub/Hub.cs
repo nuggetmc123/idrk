@@ -563,6 +563,7 @@ namespace Rago
             Db.Init();
             var gunsmith = new TraderDef { name = "Viktor", title = "Gunsmith - rifles & shotguns", outfit = Outfit.Gunsmith, color = new Color(0.75f, 0.45f, 0.2f), sellRate = 0.5f };
             foreach (var g in Db.Guns) if (g.TwoHanded && g.rarity <= Rarity.Rare && g.cls != GunClass.SMG) gunsmith.stock.Add(g.id);
+            gunsmith.stock.Add("anzio");   // the 20mm: expensive, but you can buy it
             gunsmith.buys = d => d.kind == ItemKind.Gun;
             var arms = new TraderDef { name = "Mara", title = "Quartermaster - sidearms, SMGs, optics, attachments, ammo, bags", outfit = Outfit.Quartermaster, color = new Color(0.35f, 0.55f, 0.3f), sellRate = 0.5f };
             foreach (var g in Db.Guns) if ((!g.TwoHanded || g.cls == GunClass.SMG) && g.rarity <= Rarity.Rare) arms.stock.Add(g.id);

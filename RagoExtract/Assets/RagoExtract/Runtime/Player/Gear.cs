@@ -23,6 +23,8 @@ namespace Rago
         public ArmorDef Helmet, Vest;
         public System.Action OnGearChanged;
         public int[] Ammo = new int[System.Enum.GetValues(typeof(Caliber)).Length];
+        /// <summary>What the next mag you pull from your pouch is loaded with (switch with B / Y on an empty magwell, or T).</summary>
+        public AmmoType NextAmmo = AmmoType.Standard;
         float _yaw, _magHintT;
 
         public void Init(PlayerRig p)
@@ -269,6 +271,7 @@ namespace Rago
                     int n = Mathf.Min(have, gun.g.magSize);
                     Ammo[(int)gun.g.cal] -= n;
                     var m = Magazine.Create(gun, n, p, h.Anchor.rotation);
+                    m.ammoType = NextAmmo;
                     Sfx.Play(Synth.Zipper(), p, 0.35f, 1.4f, 0.5f, 5f);
                     return m;
                 }
@@ -397,6 +400,7 @@ namespace Rago
                 if (n <= 0) { _p.Toast(have <= 0 ? "No ammo" : "Full"); return; }
                 Ammo[(int)gun.g.cal] -= n;
                 var m = Magazine.Create(gun, n, gun.transform.position, gun.transform.rotation);
+                m.ammoType = NextAmmo;
                 gun.InsertMag(m);
                 if (!gun.chambered) gun.Rack();
                 return;
@@ -407,6 +411,7 @@ namespace Rago
             int k = Mathf.Min(have2, gun.g.magSize);
             Ammo[(int)gun.g.cal] -= k;
             var mag = Magazine.Create(gun, k, gun.transform.position, gun.transform.rotation);
+            mag.ammoType = NextAmmo;
             gun.InsertMag(mag);
             if (!gun.chambered) gun.Rack();
         }

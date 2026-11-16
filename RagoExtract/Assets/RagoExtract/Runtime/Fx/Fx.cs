@@ -108,6 +108,18 @@ namespace Rago
         }
 
         /// <summary>A puff of coloured marker smoke (air drop flare / landing zone).</summary>
+        /// <summary>One puff of fire from something burning: rising flame tongues, a few embers and dark smoke.</summary>
+        public static void Flames(Vector3 p, float strength = 1f)
+        {
+            var I2 = I;
+            if (I2 == null || I2._flashSprite == null) return;
+            for (int i = 0; i < 2; i++)
+                Emit(I2._flashSprite, p + Random.insideUnitSphere * 0.06f * strength, Vector3.up * Random.Range(0.5f, 1.1f), Random.Range(0.08f, 0.16f) * strength, Random.Range(0.18f, 0.32f),
+                     Color.Lerp(new Color(1f, 0.45f, 0.08f, 1f), new Color(1f, 0.8f, 0.3f, 1f), Random.value), Random.Range(0f, 360f));
+            if (Random.value < 0.35f) Emit(I2._sparks, p, Vector3.up * Random.Range(0.6f, 1.6f) + Random.insideUnitSphere * 0.4f, 0.006f, Random.Range(0.3f, 0.7f), new Color(1f, 0.6f, 0.2f));
+            if (Random.value < 0.25f) Emit(I2._smoke, p + Vector3.up * 0.15f, Vector3.up * Random.Range(0.4f, 0.8f), Random.Range(0.15f, 0.3f), Random.Range(1f, 1.8f), new Color(0.15f, 0.13f, 0.12f, 0.45f));
+        }
+
         public static void SignalSmoke(Vector3 p, Color c)
         {
             if (I == null || I._smoke == null) return;

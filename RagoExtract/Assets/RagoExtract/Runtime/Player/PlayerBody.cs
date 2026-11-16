@@ -153,7 +153,7 @@ namespace Rago
             if (RagoGame.I != null && RagoGame.I.SafeZone) return;
             float dmg = h.damage;
             // armour you're wearing (found in raids)
-            dmg *= ArmorDef.Reduction(h.part, rig.Gear.Helmet, rig.Gear.Vest, h.gunId);
+            dmg *= ArmorDef.Reduction(h.part, rig.Gear.Helmet, rig.Gear.Vest, h.gunId, h.ammo);
             Health -= dmg;
             rig.Hud.Damage(Mathf.Clamp01(dmg / 40f), h.dir);
             if (dmg > 12 && Random.value < (h.part == BodyPart.Thorax ? 0.7f : 0.45f)) Bleed = Mathf.Min(4f, Bleed + (h.part == BodyPart.Thorax ? 0.9f : 0.6f));
@@ -179,6 +179,7 @@ namespace Rago
                         Sfx.UI(Synth.Ringing(), 0.35f);
                         break;
                 }
+            if (h.ammo == AmmoType.Incendiary && Health > 0) Ignite(h);
             OnLocalDamaged?.Invoke(h);
             if (Health <= 0)
             {
@@ -188,6 +189,43 @@ namespace Rago
                 OnLocalDeath?.Invoke(h.attacker);
             }
         }
+
+        /// <summary>An incendiary round set you alight where it hit: it burns (and makes you bleed) until it goes out or
+        /// you pat it out with your other hand.</summary>
+        void Ignite(HitInfo h)
+        {
+            var r = rig.Body != null ? rig.Body.Rig : null;
+            if (r == null) return;
+            Transform bone; Hand notThis = null;
+            switch (h.part)
+            {
+                case BodyPart.Arm:
+                    bool left = (h.point - r.faL.position).sqrMagnitude < (h.point - r.faR.position).sqrMagnitude;
+                    bone = left ? r.faL : r.faR; notThis = left ? rig.HandL : rig.HandR; break;
+                case BodyPart.Leg: bone = (h.point - r.thL.position).sqrMagnitude < (h.point - r.thR.position).sqrMagnitude ? r.thL : r.thR; break;
+                case BodyPart.Head: bone = r.chest; break;   // the collar - somewhere you can reach
+                case BodyPart.Stomach: bone = r.spine; break;
+                default: bone = r.chest; break;
+            }
+            bool first = !Burning.AnyOn(r.hips != null ? r.hips.root : rig.transform);
+            Bleed = Mathf.Min(4f, Bleed + 0.4f);
+            var hit = h;
+            Burning.Ignite(bone, 7f, dt =>
+            {
+                if (!Alive || God) return;
+                Health -= 4f * dt * 2f;   // 8 a second
+                rig.Hud.Damage(0.25f, Vector3.up);
+                if (Health <= 0f)
+                {
+                    Health = 0; LastKillHit = hit; LastDeathReason = null;
+                    rig.OnDeath(Vector3.up * 10f, rig.Body.Rig.chest.position);
+                    OnLocalDeath?.Invoke(hit.attacker);
+                }
+            }, true, notThis);
+            if (first) rig.Toast("YOU'RE ON FIRE - pat the flames out with your other hand!");
+        }
+
+        public bool OnFire => rig != null && rig.Body != null && rig.Body.Rig != null && Burning.AnyOn(rig.Body.Rig.hips.root);
 
         public void Kill(string reason)
         {

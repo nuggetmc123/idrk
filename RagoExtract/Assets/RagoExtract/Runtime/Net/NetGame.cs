@@ -222,7 +222,7 @@ namespace Rago
                 _gearT -= step;
                 bool keys = kl != _lastKl || kr != _lastKr || _gearT <= 0f, gear = gk != _lastGear || _gearT <= 0f;
                 if (_gearT <= 0f) _gearT = 2f;
-                byte f2 = (byte)((keys ? 1 : 0) | (gear ? 2 : 0));
+                byte f2 = (byte)((keys ? 1 : 0) | (gear ? 2 : 0) | (p.Vitals.OnFire ? 4 : 0));
                 w.Write(f); w.Write(f2);
                 w.Write(Time.time);   // our clock: the others show us smoothly at a fixed delay (no jumping when packets bunch up)
                 V3(w, root);
@@ -335,6 +335,7 @@ namespace Rago
         {
             var w = W(Msg.Fire);
             w.Write(g.Quiet && !g.g.suppressed ? g.g.id + "~s" : g.g.id); V3(w, origin); V3(w, dir);   // ~s: a suppressor is screwed on
+            w.Write((byte)g.CurrentAmmo);
             Send(true);
         }
 
@@ -361,6 +362,7 @@ namespace Rago
                 var w = W(Msg.HitPlayer);
                 w.Write(mrp.NetId); w.Write(h.damage); w.Write((byte)h.part); V3(w, h.point); V3(w, h.dir); w.Write(h.force);
                 w.Write(h.gunId ?? "");
+                w.Write((byte)h.ammo);
                 Send(true, mrp.NetId);
             }
             else if (z.owner is Npc npc)
@@ -369,6 +371,7 @@ namespace Rago
                 // takes them to zero kills them for all
                 var w = W(Msg.NpcHit);
                 w.Write(npc.Id); w.Write(h.damage); w.Write((byte)h.part); V3(w, h.point); V3(w, h.dir); w.Write(h.force);
+                w.Write((byte)h.ammo); w.Write(h.gunId ?? "");
                 Send(true);
             }
         }
@@ -570,6 +573,7 @@ namespace Rago
                                 rp.LastHeard = Time.time;
                                 if (_helloSent.Add(from)) SendHello(from);   // their movement got here before their hello: introduce ourselves
                                 byte f = r.ReadByte(), f2 = r.ReadByte();
+                                if ((f2 & 4) != 0) rp.ShowBurning();
                                 float st = r.ReadSingle();
                                 var root = V3(r); var hp = root + S3(r, 0.001f); var hr = Q(r); var lp = root + S3(r, 0.001f); var lr = Q(r); var rpp = root + S3(r, 0.001f); var rr = Q(r); var vel = S3(r, 0.01f);
                                 Vector3 glp = default, grp = default; Quaternion glr = Quaternion.identity, grr = Quaternion.identity;
@@ -592,12 +596,13 @@ namespace Rago
                             {
                                 string gid = r.ReadString(); bool sup = gid.EndsWith("~s"); if (sup) gid = gid.Substring(0, gid.Length - 2);
                                 var g = Db.Get<GunDef>(gid); var o = V3(r); var d = V3(r);
+                                var fa = r.BaseStream.Position < r.BaseStream.Length ? (AmmoType)r.ReadByte() : AmmoType.Standard;
                                 if (g == null) break;
                                 if (sup) g = g.Quiet;
                                 Remotes.TryGetValue(from, out var rp);
                                 // another player's shot: it can hurt us here (we're the only ones who know where we really are)
                                 // just the shot you see and hear - the shooter tells whoever they hit (Msg.HitPlayer)
-                                Ballistics.Fire(o, d, g, (int)from + 1, rp != null ? rp.transform : null, rp, true, g.cls == GunClass.LMG, false);
+                                Ballistics.Fire(o, d, g, (int)from + 1, rp != null ? rp.transform : null, rp, true, g.cls == GunClass.LMG, false, fa);
                                 Sfx.Gunshot(g, o, false);
                                 if (rp != null) rp.MuzzleFlash(g); else Fx.TracerLine(o, o + d * 50f);
                                 break;
@@ -606,10 +611,11 @@ namespace Rago
                             {
                                 ulong target = r.ReadUInt64(); float dmg = r.ReadSingle(); var part = (BodyPart)r.ReadByte(); var pt = V3(r); var dir = V3(r); float force = r.ReadSingle();
                                 string hg = r.BaseStream.Position < r.BaseStream.Length ? r.ReadString() : "";
+                                var ha = r.BaseStream.Position < r.BaseStream.Length ? (AmmoType)r.ReadByte() : AmmoType.Standard;
                                 // it was sent only to us, so it's ours (not checking the id: a mismatch must never make you bulletproof)
                                 if (RagoGame.I == null || RagoGame.I.Player == null || RagoGame.I.Player.Dead) break;
                                 var v = RagoGame.I.Player.Vitals;
-                                v.TakeHit(new HitInfo { damage = dmg, part = part, point = pt, dir = dir, attacker = (int)from + 1, fromNet = true, force = force, gunId = hg }, null);
+                                v.TakeHit(new HitInfo { damage = dmg, part = part, point = pt, dir = dir, attacker = (int)from + 1, fromNet = true, force = force, gunId = hg, ammo = ha }, null);
                                 break;
                             }
                         case Msg.Died:
@@ -666,9 +672,11 @@ namespace Rago
                         case Msg.NpcHit:
                             {
                                 int id = r.ReadInt32(); float dmg = r.ReadSingle(); var part = (BodyPart)r.ReadByte(); var pt = V3(r); var dir = V3(r); float force = r.ReadSingle();
+                                var na = r.BaseStream.Position < r.BaseStream.Length ? (AmmoType)r.ReadByte() : AmmoType.Standard;
+                                string ng = r.BaseStream.Position < r.BaseStream.Length ? r.ReadString() : null;
                                 if (NpcDirector.I == null) break;
                                 var npc = NpcDirector.I.Get(id);
-                                npc?.TakeHit(new HitInfo { damage = dmg, part = part, point = pt, dir = dir, attacker = (int)from + 1, fromNet = true, force = force }, null);
+                                npc?.TakeHit(new HitInfo { damage = dmg, part = part, point = pt, dir = dir, attacker = (int)from + 1, fromNet = true, force = force, ammo = na, gunId = ng }, null);
                                 break;
                             }
                         case Msg.Hidden:

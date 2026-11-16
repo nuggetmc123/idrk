@@ -29,6 +29,13 @@ namespace Rago
         public bool HiddenFromAi;   // tester: raiders ignore this player (other players still see them)
         public int ActorId => (int)NetId + 1;
         public Transform Chest => _rig != null ? _rig.chest : transform;
+
+        /// <summary>They're on fire (their own game says so): flames on their chest while it lasts.</summary>
+        public void ShowBurning()
+        {
+            var b = Burning.Ignite(Chest, 0.6f, null);
+            if (b != null) b.timeLeft = Mathf.Max(b.timeLeft, 0.6f);
+        }
         public Vector3 HeadPos => _sHead;
         public Quaternion HeadRot => _sHeadR;
         public string HoldingRight => _heldR;

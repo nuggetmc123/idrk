@@ -14,6 +14,7 @@ namespace Rago
         public string gunId;
         public bool fromNet;
         public float force;
+        public AmmoType ammo;     // incendiary sets them on fire; AP punches armour
     }
 
     public interface IDamageable
@@ -74,6 +75,9 @@ namespace Rago
             public Transform ignore;
             public IDamageable ignoreOwner;
             public bool tracer, visualOnly, cracked, localOnly, passCapsule;
+            public AmmoType ammo;
+            public float punch;    // what's left to push through walls (calibre + AP)
+            public int walls;      // walls it has gone through
         }
 
         readonly List<Bullet> _bullets = new List<Bullet>();
@@ -108,8 +112,9 @@ namespace Rago
             return muzzle;
         }
 
-        public static void Fire(Vector3 origin, Vector3 dir, GunDef gun, int shooter, Transform ignore, IDamageable ignoreOwner, bool visualOnly, bool tracer, bool localOnly = false)
+        public static void Fire(Vector3 origin, Vector3 dir, GunDef gun, int shooter, Transform ignore, IDamageable ignoreOwner, bool visualOnly, bool tracer, bool localOnly = false, AmmoType ammo = AmmoType.Standard)
         {
+            if (ammo == AmmoType.Incendiary) tracer = true;   // incendiary rounds glow as they fly
             int pellets = Mathf.Max(1, gun.pellets);
             for (int p = 0; p < pellets; p++)
             {
@@ -117,7 +122,9 @@ namespace Rago
                 if (pellets > 1) d = Quaternion.Euler(Random.Range(-1f, 1f) * gun.spread, Random.Range(-1f, 1f) * gun.spread, 0) * dir;
                 I._bullets.Add(new Bullet
                 {
-                    pos = origin, vel = d.normalized * gun.velocity, damage = gun.damage, life = 2.5f, shooter = shooter, gunId = gun.id,
+                    pos = origin, vel = d.normalized * gun.velocity, life = 2.5f, shooter = shooter, gunId = gun.id, ammo = ammo,
+                    damage = gun.damage * (ammo == AmmoType.AP ? 0.9f : ammo == AmmoType.Incendiary ? 0.85f : 1f),
+                    punch = (pellets > 1 ? 0.6f : ArmorDef.Penetration(gun.id)) + (ammo == AmmoType.AP ? 2.5f : 0f),
                     ignore = ignore, ignoreOwner = ignoreOwner, tracer = tracer && p == 0, visualOnly = visualOnly, localOnly = localOnly, passCapsule = Random.value < 0.5f,
                     force = Mathf.Clamp(gun.damage * 0.06f, 1.2f, 9f)
                 });
@@ -126,7 +133,7 @@ namespace Rago
             {
                 Vector3 end = origin + dir.normalized * 350f;
                 if (Physics.Raycast(origin + dir.normalized * 0.3f, dir, out var th, 350f, BulletMask, QueryTriggerInteraction.Ignore)) end = th.point;
-                Fx.TracerLine(origin + dir.normalized * 0.5f, end, gun.velocity);
+                Fx.TracerLine(origin + dir.normalized * 0.5f, end, gun.velocity, ammo == AmmoType.Incendiary ? new Color(1f, 0.45f, 0.1f) : (Color?)null);
             }
             Noise.Emit(origin, gun.suppressed ? 14f : 140f, shooter);   // a suppressed shot: raiders only hear it within ~14 m
         }
@@ -145,6 +152,7 @@ namespace Rago
                 bool done = b.life <= 0;
                 if (!done)
                 {
+                    pierced = false;
                     int n = Physics.RaycastNonAlloc(b.pos, step / len, _hits, len, BulletMask, QueryTriggerInteraction.Collide);
                     if (n > 0)
                     {
@@ -164,12 +172,15 @@ namespace Rago
                             var zone = hit.collider.GetComponent<HitZone>();
                             if (zone != null && b.ignoreOwner != null && zone.owner == b.ignoreOwner) continue;
                             if (zone != null && zone.owner != null && !zone.owner.Alive) zone = null; // corpses just take impacts
+                            // wall banging: a round with enough punch for this material goes through one layer of it
+                            if (zone == null && TryPierce(b, hit, step / len)) { pierced = true; break; }
                             Resolve(b, hit, zone);
                             done = true;
                             break;
                         }
                     }
                 }
+                if (!done && pierced) { b.life -= dt; continue; }   // carried on out the far side of the wall
                 if (!done)
                 {
                     // near-miss supersonic crack for the local player
@@ -193,6 +204,47 @@ namespace Rago
             }
         }
 
+        static bool pierced;
+
+        /// <summary>How hard a material is to shoot through (same scale as a round's punch). Ground and rock stop everything.</summary>
+        static float Resist(Collider c)
+        {
+            if (c is TerrainCollider || (c is MeshCollider mc && mc.gameObject.name == "Terrain")) return 99f;
+            if (c.attachedRigidbody != null && !c.attachedRigidbody.isKinematic) return 99f;   // loose objects just get knocked about
+            switch (SurfaceTag.Of(c))
+            {
+                case Synth.Surface.Wood: return 1.6f;
+                case Synth.Surface.Metal: return 3.2f;
+                case Synth.Surface.Concrete: return 7.2f;
+                case Synth.Surface.Flesh: return 99f;
+                default: return 99f;   // dirt, grass, water
+            }
+        }
+
+        /// <summary>The round goes through this wall: holes on both sides, it keeps going a little weaker. One wall only
+        /// (the 20mm too - "one layer").</summary>
+        static bool TryPierce(Bullet b, RaycastHit hit, Vector3 dir)
+        {
+            if (b.walls >= 1) return false;
+            float r = Resist(hit.collider);
+            if (b.punch <= r) return false;
+            var surf = SurfaceTag.Of(hit.collider);
+            float big = b.punch >= 10f ? 2.2f : 1f;
+            Fx.Impact(hit.point, hit.normal, dir, surf, null, big);
+            // exit hole: come back from the far side
+            Vector3 far = hit.point + dir * 1.2f;
+            var back = Physics.RaycastAll(far, -dir, 1.2f, BulletMask, QueryTriggerInteraction.Ignore);
+            Vector3 exit = hit.point + dir * 0.3f;
+            foreach (var bh in back) if (bh.collider == hit.collider) { exit = bh.point; Fx.Impact(bh.point, bh.normal, dir, surf, null, big); break; }
+            if (!b.visualOnly) { var br = hit.collider.GetComponentInParent<IBreakable>(); if (br != null) br.Damage(b.damage, hit.point); }
+            b.walls++;
+            b.damage *= Mathf.Clamp(1f - r / b.punch * 0.55f, 0.35f, 0.85f);
+            b.punch -= r;
+            b.pos = exit + dir * 0.02f;
+            Noise.Emit(hit.point, 25f, b.shooter);
+            return true;
+        }
+
         class HitCmp : IComparer<RaycastHit> { public static readonly HitCmp Inst = new HitCmp(); public int Compare(RaycastHit a, RaycastHit b) => a.distance.CompareTo(b.distance); }
 
         static void Resolve(Bullet b, RaycastHit hit, HitZone zone)
@@ -206,7 +258,7 @@ namespace Rago
                 var info = new HitInfo
                 {
                     damage = dmg * zone.mult, part = zone.part, point = hit.point, dir = dir, normal = hit.normal,
-                    attacker = b.shooter, gunId = b.gunId, force = b.force
+                    attacker = b.shooter, gunId = b.gunId, force = b.force, ammo = b.ammo
                 };
                 Fx.Blood(hit.point, dir, hit.normal, hit.collider.transform, info.damage);
                 // localOnly: a raider's shot replayed on this machine - it can hurt the player here, nobody else

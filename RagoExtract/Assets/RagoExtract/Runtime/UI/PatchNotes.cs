@@ -5,12 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
-            ("2.4", "New guns & remodels", new[] {
-                "Every gun remodelled with real detail: textured grips with a beavertail and base, proper trigger guards and curved triggers, rubber buttpads, sling swivels, crowned muzzles.",
-                "ARs: ejection port + dust cover, forward assist, bolt catch, mag release, selector, takedown pins, flared magwell, castle nut. AKs: rivets, ribbed dust cover, hooded front sight, cleaning rod, vented handguard.",
-                "Pistols: raked grips, chamfered slides, front + rear serrations, real ejection port, slide stop, guide rod, hammer and grip safety on the .45s. Revolvers show their chambers, ejector rod and latch.",
-                "Bolt rifles: proper actions, bolt shroud, checkering; shotguns: loading port, slide bars, mag cap; SMGs, LMGs and .50s got their own details too.",
-                "13 NEW GUNS: Falcon Compact, Warhawk .45, Frontier Six (.357), Vespa 9, Reaper 45, Corsair CQB, Vostok SU, Tundra AK-12, Bulwark 308, Sentry SR-25, Glacier .338, Anvil LMG, Harvester Pump. In the shops, in loot, and some raiders carry them.",
+            ("2.5", "20mm, special ammo & wall-banging", new[] {
+                "ANZIO 20mm: a huge anti-materiel rifle (Viktor sells it, 20mm ammo at Mara's). 260 damage, goes through any armour - and punches straight through a wall into whoever is behind it.",
+                "WALL-BANGING: every round can go through one wall if it hits hard enough. Wood: almost anything. Sheet metal: rifle rounds. Concrete: only AP rifle rounds, .50 and the 20mm. Ground and rock stop everything. You see the hole on both sides.",
+                "AMMO TYPES: STANDARD, AP (armour-piercing: much better against armour and walls, slightly less damage) and INCENDIARY (sets people on fire, a bit weaker against armour). Drop your mag, then tap B / Y again with the magwell empty to pick the next mag's ammo (T on desktop). Shotguns and revolvers: tap B / Y.",
+                "BURNING: an incendiary hit sets that part of the body alight - it burns, you bleed, you see the flames. Slap the flames on your arm or chest with your OTHER hand to pat them out. Raiders burn too, and everyone sees a burning player.",
             }),
         };
     }

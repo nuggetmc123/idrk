@@ -592,8 +592,9 @@ namespace Rago
             KillerId = h.attacker == 0 ? Levels.MyKillerId : h.attacker < 1000 ? h.attacker : 0;
             KillerHeadshot = h.part == BodyPart.Head; KillerGun = h.gunId;
             float dmg = h.damage;
-            dmg *= ArmorDef.Reduction(h.part, Helmet, Vest, h.gunId);
+            dmg *= ArmorDef.Reduction(h.part, Helmet, Vest, h.gunId, h.ammo);
             Health -= dmg;
+            if (h.ammo == AmmoType.Incendiary && Health > 0f) Ignite(h);
             if (Puppet)
             {
                 // every player's copy of this raider counts every hit (everyone's shots are sent to everyone), so whoever
@@ -610,6 +611,21 @@ namespace Rago
             if (State != NpcState.Combat && State != NpcState.Cover) { State = NpcState.Combat; _lastKnown = h.point - h.dir * 15f; _lastSeenT = Time.time - 0.5f; _coverT = 0; }
             if (Health <= 0) Die(h.point, h.dir * Mathf.Max(20f, h.force * 20f), false);
             else Say(ScavVoice.Line.Hit, 0.55f, true);
+        }
+
+        /// <summary>Set alight by an incendiary round: burns for a few seconds; the damage counts as the shooter's.</summary>
+        void Ignite(HitInfo h)
+        {
+            var bone = Rig != null ? (h.part == BodyPart.Leg ? Rig.thL : h.part == BodyPart.Arm ? Rig.uaR : Rig.chest) : transform;
+            var burn = h; burn.ammo = AmmoType.Standard; burn.force = 0.5f; burn.point = bone.position; burn.dir = Vector3.down;
+            Burning.Ignite(bone, 6f, dt =>
+            {
+                if (!Alive) return;
+                burn.damage = 7f * dt * 2f;
+                if (!Puppet) { _flinch = Mathf.Clamp01(_flinch + 0.3f); _aimErr = Mathf.Min(2f, _aimErr + 0.3f); }
+                TakeHit(burn, null);
+            });
+            Say(ScavVoice.Line.Hit, 0.9f, true);
         }
 
         public void Die(Vector3 point, Vector3 impulse, bool fromNet)

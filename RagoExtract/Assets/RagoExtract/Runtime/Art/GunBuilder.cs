@@ -955,9 +955,10 @@ namespace Rago
             rig.slide = bb.Build("Bolt", rig.root.transform, mats[FIN]).transform;
             rig.slideTravel = new Vector3(0, 0, -0.1f);
             float bl = d.barrel;
-            Barrel(mb, new Vector3(0, rig.boreY, 0.52f), bl - 0.25f, 0.014f, FIN);
-            for (int i = 0; i < 6; i++) mb.Sub(FIN).Cyl(new Vector3(0, rig.boreY, 0.55f + i * 0.04f), new Vector3(0, rig.boreY, 0.565f + i * 0.04f), 0.017f, 0.017f, 12, W); // flutes
-            Muzzle(mb, new Vector3(0, rig.boreY, 0.27f + bl), 0.014f, 2);
+            float br = d.cal == Caliber.C20mm ? 0.02f : 0.014f;   // the 20mm: a much fatter barrel and a huge brake
+            Barrel(mb, new Vector3(0, rig.boreY, 0.52f), bl - 0.25f, br, FIN);
+            for (int i = 0; i < 6; i++) mb.Sub(FIN).Cyl(new Vector3(0, rig.boreY, 0.55f + i * 0.04f), new Vector3(0, rig.boreY, 0.565f + i * 0.04f), br * 1.2f, br * 1.2f, 12, W); // flutes
+            Muzzle(mb, new Vector3(0, rig.boreY, 0.27f + bl), br, 2);
             Rail(mb, new Vector3(0, 0.113f, -0.1f), 0.42f, 0.024f);
             // big receiver details: ejection port, bolt release, buffer housing ribs, carry handle
             mb.Sub(DARK).Box(new Vector3(0.0285f, 0.085f, 0.03f), new Vector3(0.002f, 0.028f, 0.09f), W, 0.001f);
