@@ -533,7 +533,7 @@ namespace Rago
             // ---- traders along the back wall, each under a banner with their name
             var defs = TraderStall.Defaults();
             var fabric = Mats.Lit("banner", Color.white, 0f, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0f);
-            float[] stallX = { -3.5f, 3.5f };
+            float[] stallX = { -10.5f, -3.5f, 3.5f, 10.5f };
             for (int i = 0; i < defs.Count && i < stallX.Length; i++)
             {
                 Stalls.Add(TraderStall.Create(transform, new Vector3(stallX[i], 0, D / 2 - 3.6f), 0f, defs[i], 100 + i * 17));
@@ -545,10 +545,8 @@ namespace Rago
             }
             // ---- players' own trading: a trade table and four stalls anyone can claim
             TradeTable.Create(transform, new Vector3(-6.5f, 0, -3.5f), 90f);
-            PlayerStall.Create(transform, new Vector3(-10.5f, 0, D / 2 - 1.6f), 0f);
-            PlayerStall.Create(transform, new Vector3(10.5f, 0, D / 2 - 1.6f), 0f);
-            PlayerStall.Create(transform, new Vector3(-5.5f, 0, 3.2f), 0f);
-            PlayerStall.Create(transform, new Vector3(1.0f, 0, 3.2f), 0f);
+            for (int ps = 0; ps < 4; ps++) PlayerStall.Create(transform, new Vector3(-12f + ps * 5f, 0, 3.0f), 0f);   // a row through the middle of the hall
+            BlackMarket.Create(transform, new Vector3(W / 2 - 1.2f, 0, 4.5f), 90f);   // the black market computer, by the lift
             // ---- the Exchange: a few steps from the lift doors, facing them
             SellStation.Create(transform, new Vector3(W / 2 - 7.5f, 0, -6f), -90f);
             // ---- the casino: along the south wall, east of the roller door (customers face the wall)
@@ -558,7 +556,7 @@ namespace Rago
             Foreman = QuestStall.Create(transform, new Vector3(-W / 2 + 3.6f, 0, -1f), -90f, 211);
             b.AddLight(new Vector3(-W / 2 + 4.6f, 3.6f, -1f), new Color(1f, 0.8f, 0.55f), 7f, 1.2f);
             // ---- big hanging signs, readable from the lift and from the middle of the hall
-            HangingSign(new Vector3(0, 6.1f, D / 2 - 6.4f), 0f, "TRADERS", "ammo, grenades and meds", new Color(0.95f, 0.85f, 0.55f));
+            HangingSign(new Vector3(0, 6.1f, D / 2 - 6.4f), 0f, "TRADERS", "guns, gear, ammo and meds", new Color(0.95f, 0.85f, 0.55f));
             HangingSign(new Vector3(W / 2 - 7.5f, 4.6f, -6f), -90f, "SELL", "any loot - best price", UI.Accent);
             HangingSign(new Vector3(-W / 2 + 4.8f, 4.6f, -1f), -90f, "BUNKER JOBS", "Bruno builds new rooms", new Color(0.95f, 0.75f, 0.1f));
             // ---- a lounge in the south-west corner
@@ -579,7 +577,7 @@ namespace Rago
             // ---- directory board right by the lift doors
             var nb = UI.Panel(transform, "Directory", new Vector3(W / 2 - 0.2f, 1.9f, -2.2f), Quaternion.Euler(0, 90, 0), new Vector2(1.6f, 1.15f), null, true, Skin.Paper);
             UI.Text(nb, "THE MARKET", new Vector3(0, 0.47f, 0), 0.07f, UI.PaperInk, TextAnchor.MiddleCenter, FontStyle.Bold);
-            UI.Text(nb, "SELL  -  straight ahead (orange counter)\nAMMO + MEDIC  -  along the back wall\nPLAYER STALLS + TRADE TABLE  -  sell to other players\nBUNKER JOBS  -  Bruno, far wall\nLIFT  -  back down to your bunker\n\nSafe zone - weapons cold.", new Vector3(-0.74f, 0.33f, 0), 0.042f, UI.PaperInk, TextAnchor.UpperLeft);
+            UI.Text(nb, "SELL  -  straight ahead (orange counter)\nTRADERS  -  along the back wall (unlock with your level)\nBLACK MARKET  -  computer by the lift\nPLAYER STALLS + TRADE TABLE  -  sell to other players\nBUNKER JOBS  -  Bruno, far wall\nLIFT  -  back down to your bunker\n\nSafe zone - weapons cold.", new Vector3(-0.74f, 0.33f, 0), 0.042f, UI.PaperInk, TextAnchor.UpperLeft);
             b.Sign(new Vector3(0, 6.3f, D / 2 - 0.3f), Quaternion.identity, "THE MARKET", UI.Accent, 0.55f);
             Elevator.Create(b, transform, new Vector3(W / 2, 0, -6), 90, "Market", "Bunker", false, () => RagoGame.I.GoTo(Area.Bunker));
             b.Sign(new Vector3(W / 2 - 0.3f, 3.15f, -6), Quaternion.Euler(0, 90, 0), "LIFT - BUNKER", new Color(0.9f, 0.8f, 0.6f), 0.18f);

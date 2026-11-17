@@ -321,7 +321,8 @@ namespace Rago
                 Player.Cam.layerCullDistances = cull;
                 Player.Cam.layerCullSpherical = true;
             }
-            Sfx.SetAmbience(Synth.Ambience(Map.Ambience), to == Area.Bunker || to == Area.Welcome ? 0.06f : 0.12f);   // quiet background air / wind
+            if (to == Area.Bunker) { Sfx.SetAmbience(null, 0f); StartCoroutine(BunkerMusic()); }   // the bunker has its own music (no hum or static)
+            else Sfx.SetAmbience(Synth.Ambience(Map.Ambience), to == Area.Welcome ? 0.06f : 0.12f);   // quiet background air / wind
             yield return null;
             if (to == Area.Raid)
             {
@@ -397,7 +398,7 @@ namespace Rago
             var market = Map as MarketMap;
             var loose = new List<ItemData>();
             if (bunker != null) prof.stash = bunker.SaveStash();
-            if (market != null) { foreach (var s in market.Stalls) s.SweepToStash(loose); if (market.Foreman != null) market.Foreman.SweepToStash(loose); if (LostAndFound.I != null) loose.AddRange(LostAndFound.I.Save()); if (TradeTable.I != null) TradeTable.I.SweepToStash(loose); foreach (var ps in new List<PlayerStall>(PlayerStall.All)) ps.SweepToStash(loose); }   // the Market's Lost & Found goes home too
+            if (market != null) { foreach (var s in market.Stalls) s.SweepToStash(loose); if (market.Foreman != null) market.Foreman.SweepToStash(loose); if (LostAndFound.I != null) loose.AddRange(LostAndFound.I.Save()); if (TradeTable.I != null) TradeTable.I.SweepToStash(loose); foreach (var ps in new List<PlayerStall>(PlayerStall.All)) ps.SweepToStash(loose); foreach (var bm in FindObjectsOfType<BlackMarket>()) bm.SweepToStash(loose); }   // the Market's Lost & Found goes home too
             foreach (var ss in new List<SellStation>(SellStation.All)) if (ss != null) ss.SweepToStash(loose);   // unsold loot left in an Exchange bin
             // anything lying around the hub goes back to the stash
             if (MapRoot != null)
@@ -414,6 +415,14 @@ namespace Rago
             prof.loadout = Player.Gear.SaveLoadout();
             prof.loadout.ammo = null;
             prof.Save();
+        }
+
+        /// <summary>Starts the bunker track as soon as it's rendered (the first time takes a moment, in the background).</summary>
+        IEnumerator BunkerMusic()
+        {
+            AudioClip c;
+            while ((c = Music.Bunker()) == null) { if (Area != Area.Bunker) yield break; yield return new WaitForSeconds(0.25f); }
+            if (Area == Area.Bunker) Sfx.SetAmbience(c, 0.28f);
         }
 
         void OnLocalDeath(int killer)

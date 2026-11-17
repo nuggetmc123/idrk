@@ -20,6 +20,7 @@ namespace Rago
     public class NetGame : MonoBehaviour
     {
         public static NetGame I;
+        readonly HashSet<string> _warned = new HashSet<string>();
         public static bool Live => I != null && NetHub.Backend != null && NetHub.Backend.InSession && I._active;
         public static bool IsHost => !Live || NetHub.Backend.IsHost;
         public readonly Dictionary<ulong, RemotePlayer> Remotes = new Dictionary<ulong, RemotePlayer>();
@@ -59,7 +60,7 @@ namespace Rago
             Send(false);
         }
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed, LockBroken, Market }
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed, LockBroken, Market, Door }
 
         public static void Ensure()
         {
@@ -186,6 +187,11 @@ namespace Rago
             var w = W(Msg.Hello);
             w.Write(Profile.Current.DisplayName);
             w.Write(Profile.Current.outfitSeed);
+            // game version and a fingerprint of the map I built: a mismatch means we'd see different worlds
+            w.Write(PatchNotes.All[0].version);
+            var map = RagoGame.I != null ? RagoGame.I.Map : null;
+            w.Write(map != null ? map.Id ?? "" : "");
+            w.Write(map != null ? map.Fingerprint() : 0);
             Send(true, to);
         }
 
@@ -497,6 +503,8 @@ namespace Rago
             var w = W(Msg.NpcDied); w.Write(id); V3(w, point); V3(w, impulse); w.Write(killer); w.Write(head); Send(true);
         }
 
+        public void DoorAngle(int doorId, float angle) { if (!Live) return; var w = W(Msg.Door); w.Write(doorId); w.Write((short)Mathf.RoundToInt(angle * 10f)); Send(true); }
+
         public void LockBroken(int doorId) { if (!Live) return; var w = W(Msg.LockBroken); w.Write(doorId); Send(true); }
 
         public void VaultOpened(int id) { if (!Live) return; var w = W(Msg.Vault); w.Write(id); Send(true); }
@@ -555,6 +563,18 @@ namespace Rago
                         case Msg.Hello:
                             {
                                 string name = r.ReadString(); int seed = r.ReadInt32();
+                                if (r.BaseStream.Position < r.BaseStream.Length)
+                                {
+                                    string ver = r.ReadString(), mid = r.ReadString(); int fp = r.ReadInt32();
+                                    var mm = RagoGame.I != null ? RagoGame.I.Map : null;
+                                    string warnKey = name + ver + mid + fp;
+                                    if (!_warned.Contains(warnKey))
+                                    {
+                                        if (ver != PatchNotes.All[0].version) { _warned.Add(warnKey); RagoGame.I?.Player?.Toast(name + " is on version " + ver + ", you're on " + PatchNotes.All[0].version + " - you'll see different maps. Both update to the same version."); }
+                                        else if (mm != null && mid == mm.Id && fp != 0 && fp != mm.Fingerprint()) { _warned.Add(warnKey); RagoGame.I?.Player?.Toast("WARNING: " + name + "'s map is different from yours"); Debug.LogWarning("[Rago] map fingerprint mismatch with " + name + ": " + fp + " vs " + mm.Fingerprint()); }
+                                    }
+                                }
+                                else if (!_warned.Contains(name + "old")) { _warned.Add(name + "old"); RagoGame.I?.Player?.Toast(name + " is on an older version - you'll see different maps. Both update."); }
                                 var me = Profile.Current;
                                 if (me != null && name == me.DisplayName && from != NetHub.Backend.LocalId && NetHub.Backend.LocalId > from)
                                 {
@@ -695,6 +715,13 @@ namespace Rago
                             {
                                 bool hid = r.ReadBoolean();
                                 if (Remotes.TryGetValue(from, out var hp) && hp != null) hp.HiddenFromAi = hid;   // a tester made themselves invisible to raiders
+                                break;
+                            }
+                        case Msg.Door:
+                            {
+                                int did = r.ReadInt32(); float ang = r.ReadInt16() / 10f;
+                                var door = SwingDoor.All.Find(x => x != null && x.Id == did);
+                                if (door != null) door.NetAngle(ang);
                                 break;
                             }
                         case Msg.LockBroken:

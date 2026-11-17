@@ -165,6 +165,31 @@ namespace Rago
         public int MaxRaiders = NpcDirector.MaxNpcs;   // raiders alive at the start of a raid on this map
         public int LootSeed;
 
+        int _fp;
+        /// <summary>A fingerprint of the world geometry (terrain heights and the number of static pieces), the same on
+        /// every machine that built the same map - compared with other players to catch a mismatch.</summary>
+        public int Fingerprint()
+        {
+            if (_fp != 0) return _fp;
+            unchecked
+            {
+                int h = 17;
+                if (B != null)
+                    foreach (var t in B.Terrains)
+                    {
+                        if (t == null || t.sharedMesh == null) continue;
+                        var v = t.sharedMesh.vertices;
+                        h = h * 31 + v.Length;
+                        for (int i = 0; i < v.Length; i += 97) h = h * 31 + Mathf.RoundToInt(v[i].y * 10f);
+                    }
+                int statics = 0;
+                foreach (var c in GetComponentsInChildren<Collider>(true)) if (c.attachedRigidbody == null && c.gameObject.isStatic) statics++;
+                h = h * 31 + statics;
+                _fp = h == 0 ? 1 : h;
+            }
+            return _fp;
+        }
+
         /// <summary>After the map is built: pick this raid's crates from all the possible spots.</summary>
         public void FinalizeLoot()
         {

@@ -796,7 +796,7 @@ namespace Rago
                         float wave = Mathf.Pow(0.5f + 0.5f * Mathf.Sin(t * Mathf.PI * 2 / 4f), 3);
                         s = lp.P(pink) * (0.6f + gust * 0.5f) * 1.2f + bp.P(N()) * wave * 0.5f; break;
                     case Amb.Bunker:
-                        s = Mathf.Sin(t * 2 * Mathf.PI * 60) * 0.12f + Mathf.Sin(t * 2 * Mathf.PI * 120) * 0.04f + lp.P(lp.P(N())) * 0.12f; break;   // hum, barely any hiss
+                        s = Mathf.Sin(t * 2 * Mathf.PI * 60) * 0.08f + Mathf.Sin(t * 2 * Mathf.PI * 120) * 0.02f; break;   // a low hum only - no hiss / static
                     case Amb.Market:
                         float chatter = 0.5f + 0.5f * Mathf.Sin(t * 7.3f) * Mathf.Sin(t * 3.1f + 2);
                         s = bp.P(N()) * chatter * 0.3f + Mathf.Sin(t * 2 * Mathf.PI * 50) * 0.04f + lp.P(pink) * 0.35f; break;

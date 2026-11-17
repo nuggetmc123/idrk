@@ -765,7 +765,7 @@ namespace Rago.Net
         {
             if (!_ready) { done?.Invoke(false); return; }
             _status = "Joining the Market...";
-            bool ok = await StartSession("RagoMarket", new Dictionary<string, SessionProperty> { { "kind", "market" } }, 20);
+            bool ok = await StartSession("RagoMarket" + Ver, new Dictionary<string, SessionProperty> { { "kind", "market" } }, 20);
             if (ok) foreach (var p in _peers) SendSys(p, 3, MyName());
             _status = ok ? "Market (" + (_peers.Count + 1) + " players)" : _status;
             done?.Invoke(ok);
@@ -918,7 +918,10 @@ namespace Rago.Net
             RejoinParty();
         }
 
-        static string SlotName(string map, bool night, int slot) => "rago_q_" + map + (night ? "_n" : "") + "_" + slot;
+        static string SlotName(string map, bool night, int slot) => "rago_q_" + map + (night ? "_n" : "") + "_" + slot + Ver;
+        /// <summary>Only the same game version plays together: an older copy builds different maps (hills, buildings), so
+        /// mixed versions saw each other floating on ground the other didn't have.</summary>
+        static string Ver { get { try { return "_v" + PatchNotes.All[0].version.Replace('.', '_'); } catch { return ""; } } }
         static int SlotOf(string name) { int u = name != null ? name.LastIndexOf('_') : -1; return u >= 0 && int.TryParse(name.Substring(u + 1), out int n) ? n : 1; }
 
         /// <summary>The first queue session (from this number on) that, as far as the lobby list shows, hasn't launched

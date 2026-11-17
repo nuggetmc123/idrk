@@ -496,7 +496,7 @@ namespace Rago
             _wristHp.text = Mathf.CeilToInt(v.Health) + " HP" + (v.Bleed > 0 ? " <color=#ff4040>+</color>" : "");   // short, so the raid timer fits on the same row
             _wristHp.color = v.Bleed > 0 && Mathf.Repeat(Time.time, 0.8f) < 0.4f ? new Color(1f, 0.2f, 0.15f) : v.Health > 60 ? new Color(0.4f, 1f, 0.5f) : v.Health > 30 ? new Color(1f, 0.8f, 0.3f) : new Color(1f, 0.3f, 0.25f);   // bleeding: HP flashes red
             var prof = Profile.Current;
-            _wristInfo.text = "$" + (prof != null ? prof.money.ToString("N0") : "0") + "   STA " + Mathf.RoundToInt(v.Stamina);
+            _wristInfo.text = "LV " + Levels.Current + "   $" + (prof != null ? prof.money.ToString("N0") : "0") + "   STA " + Mathf.RoundToInt(v.Stamina);   // your level, money, stamina
             // raid timer: big, top right of the watch, goes red in the last 5 minutes
             if (_wristTimer != null)
             {

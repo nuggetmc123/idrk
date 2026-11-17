@@ -215,7 +215,7 @@ namespace Rago
         }
 
         // ---- who can push doors this frame (shared by every door)
-        struct Pusher { public Vector3 p; public float r; public bool npc; }
+        struct Pusher { public Vector3 p; public float r; public bool npc, local; }
         static readonly List<Pusher> _pushers = new List<Pusher>();
         static int _frame = -1;
 
@@ -228,9 +228,9 @@ namespace Rago
             if (pl != null && !pl.Dead)
             {
                 var hp = pl.Head.position;   // in VR your body is under your head, wherever you walk in the play space
-                _pushers.Add(new Pusher { p = new Vector3(hp.x, pl.transform.position.y + 1.0f, hp.z), r = 0.36f });
-                if (pl.HandL != null) _pushers.Add(new Pusher { p = pl.HandL.transform.position, r = 0.08f });
-                if (pl.HandR != null) _pushers.Add(new Pusher { p = pl.HandR.transform.position, r = 0.08f });
+                _pushers.Add(new Pusher { p = new Vector3(hp.x, pl.transform.position.y + 1.0f, hp.z), r = 0.36f, local = true });
+                if (pl.HandL != null) _pushers.Add(new Pusher { p = pl.HandL.transform.position, r = 0.08f, local = true });
+                if (pl.HandR != null) _pushers.Add(new Pusher { p = pl.HandR.transform.position, r = 0.08f, local = true });
             }
             if (NpcDirector.I != null)
                 foreach (var n in NpcDirector.I.Npcs)
@@ -240,9 +240,27 @@ namespace Rago
                     if (r != null && r.Alive && r.Chest != null) _pushers.Add(new Pusher { p = r.Chest.position, r = 0.4f });
         }
 
+        // ---- sync: whoever moves a door (pushing it or swinging it by hand) tells everyone where it is
+        float _sentAngle, _sendT; bool _mineMoving;
+        void SyncOut()
+        {
+            if (!NetGame.Live) return;
+            if (Mathf.Abs(_angle - _sentAngle) < 0.5f) { _mineMoving = false; return; }
+            if (Time.time < _sendT) return;
+            _sendT = Time.time + 0.1f; _sentAngle = _angle;
+            NetGame.I.DoorAngle(Id, _angle);
+        }
+        /// <summary>Another player moved this door.</summary>
+        public void NetAngle(float a)
+        {
+            if (Held) return;
+            _angle = Mathf.Clamp(a, Lo, Hi); _sentAngle = _angle; _vel = 0f;
+            Apply();
+        }
+
         void Update()
         {
-            if (Held) return;   // a hand is swinging it
+            if (Held) { _mineMoving = true; SyncOut(); return; }   // a hand is swinging it
             Gather();
             float dt = Time.deltaTime;
             float push = 0f;
@@ -267,7 +285,7 @@ namespace Rago
                 }
                 // swing the leaf away from whoever is touching it: just enough to clear them
                 float da = need / Mathf.Max(0.25f, along) * Mathf.Rad2Deg * (dist >= 0 ? 1f : -1f);
-                if (Mathf.Abs(da) > Mathf.Abs(push)) push = da;
+                if (Mathf.Abs(da) > Mathf.Abs(push)) { push = da; if (u.local) _mineMoving = true; }
             }
             if (push != 0f)
             {
@@ -287,7 +305,10 @@ namespace Rago
             if (_angle > Hi) { _angle = Hi; _vel = -_vel * 0.2f; }
             if (_angle < Lo) { _angle = Lo; _vel = -_vel * 0.2f; }
             Apply();
+            if (_mineMoving) SyncOut();
         }
+
+        void LateUpdate() { if (_mineMoving && Mathf.Abs(_vel) <= 1f) SyncOut(); }   // the last position once it stops
     }
 
     /// <summary>The padlock on a locked door: bullets (and knives) break it.</summary>

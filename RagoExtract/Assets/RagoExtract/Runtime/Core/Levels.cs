@@ -61,18 +61,9 @@ namespace Rago
         public static int Required(ItemDef d)
         {
             if (d == null) return 1;
-            if (d is GunDef g)
-            {
-                int tier = g.rarity == Rarity.Common ? 0 : g.rarity == Rarity.Uncommon ? 1 : g.rarity == Rarity.Rare ? 2 : 3;
-                int size = g.cls == GunClass.Pistol || g.cls == GunClass.Revolver ? 0 : g.cls == GunClass.SMG || g.cls == GunClass.Shotgun ? 1
-                         : g.cls == GunClass.Rifle ? 2 : g.cls == GunClass.LMG ? 4 : 3;   // battle rifles / DMRs / snipers 3
-                if (tier == 0) return size == 0 ? 1 : 1 + size;           // 1 .. 5
-                if (tier == 1) return 5 + size;                           // 5 .. 9
-                if (tier == 2) return 10 + size * 2;                      // 10 .. 18
-                return 20 + size;
-            }
-            if (d.kind == ItemKind.Sight || d.kind == ItemKind.Attachment || d.kind == ItemKind.Backpack || d.kind == ItemKind.Armor)
-                return d.rarity == Rarity.Common ? 1 : d.rarity == Rarity.Uncommon ? 4 : d.rarity == Rarity.Rare ? 9 : 15;
+            // one ladder for everything a trader sells: low tier at level 1, then every tier 5 levels further
+            if (d is GunDef || d.kind == ItemKind.Sight || d.kind == ItemKind.Attachment || d.kind == ItemKind.Backpack || d.kind == ItemKind.Armor || d.id == "nvg")
+                return d.rarity == Rarity.Common ? 1 : d.rarity == Rarity.Uncommon ? 5 : d.rarity == Rarity.Rare ? 10 : d.rarity == Rarity.Epic ? 15 : 20;
             return 1;   // ammo, meds, grenades, knives
         }
 

@@ -5,6 +5,15 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.14", "Traders are back, black market, bunker music, map sync", new[] {
+                "ALL TRADERS ARE BACK with everything they sold (Viktor, Mara, Doc Hale, Silas) - but gear unlocks with your LEVEL: low-tier guns and gear at level 1, then every tier 5 levels further (5, 10, 15, 20). AP / incendiary rounds are still found in raids only.",
+                "Your LEVEL is on your watch now (LV n, next to your money).",
+                "BLACK MARKET computer in the Market (by the lift): every player listing on one screen - BUY from there (it lands on the desk, your money is held until the seller's game hands it over), TRADE (asks the seller to meet you at the trade table), or put an item on the red pad, set a price and LIST it.",
+                "Player stalls moved to a row through the middle of the hall so they don't clash with the traders.",
+                "BUNKER MUSIC: an original track the game composes itself (warm lo-fi / synthwave: pads, electric piano, bass, soft drums, a lead with echo). The hum / static in the bunker is gone.",
+                "FIXED: players on different game versions ended up in the same raid and saw different worlds (hills and buildings one of them didn't have - they looked like they were floating). Raids and the Market now only match players on the same version, and if someone's version or map doesn't match yours your watch tells you.",
+                "Doors are synced: when someone pushes or swings a door, everyone sees it move.",
+            }),
             ("2.13", "Player trading, the bunker pug, gore, wounded scavs", new[] {
                 "PLAYER TRADING in the Market: a TRADE TABLE - each of you stands at a side, puts items (and cash) on your half and presses ACCEPT. It only swaps when both of you have accepted exactly what's on the table; any change un-accepts. What you get lands on your RECEIVED tray.",
                 "PLAYER STALLS: claim one of four stalls, hang items on the hooks and counter, dress the mannequin as a kit (helmet, vest, gun, bag - one price), set prices with + / -. Buyers press BUY: their money is held until your game hands the item over, or it's refunded. Unsold items go back to your stash when you leave.",
