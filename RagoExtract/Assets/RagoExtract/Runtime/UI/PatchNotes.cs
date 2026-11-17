@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.15", "Swap trades, booths for everyone, med fix", new[] {
+                "BLACK MARKET SWAPS: when you LIST, press WANT to ask for an item instead of money (any gun, a vault keycard, a military radio, armour, night vision, valuables, a bag, optics, AP / incendiary ammo). Buyers put what you want on the red OFFER square and press TRADE - both items are sent straight to the two players' bunkers.",
+                "You need to be LEVEL 5 to sell to other players (listing on the computer or claiming a booth).",
+                "Booths for everyone: 8 little booths through the middle of the Market - claim one and it's yours to display items and set prices while you're there.",
+                "FIXED: meds duplicating and piling up in the Lost & Found. The Med Bay cabinet keeps exactly what you left in it, it's stocked once, and meds you take out don't respawn.",
+            }),
             ("2.14", "Traders are back, black market, bunker music, map sync", new[] {
                 "ALL TRADERS ARE BACK with everything they sold (Viktor, Mara, Doc Hale, Silas) - but gear unlocks with your LEVEL: low-tier guns and gear at level 1, then every tier 5 levels further (5, 10, 15, 20). AP / incendiary rounds are still found in raids only.",
                 "Your LEVEL is on your watch now (LV n, next to your money).",

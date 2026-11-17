@@ -42,6 +42,7 @@ namespace Rago
         public int bunkerLevel;                              // how many expansions are built
         public List<int> jobProgress = new List<int>();      // items turned in for the current job, per requirement
         public int genCash;                                  // generator earnings waiting to be collected
+        public List<ItemData> medCabinet = new List<ItemData>(); public bool medStocked;   // the Med Bay cabinet's own contents
         public int medRestockRaid;                           // raid count when the Med Bay was last restocked   // set when you die: a basic helmet + vest wait in the Armor Room if you own none
 
         static string PathFile => Path.Combine(Application.persistentDataPath, "rago_profile.json");

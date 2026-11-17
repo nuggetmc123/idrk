@@ -15,7 +15,7 @@ namespace Rago
     /// </summary>
     public static class MarketNet
     {
-        public const byte Offer = 1, Release = 2, Accept = 3, Listing = 4, StallRelease = 5, BuyReq = 6, Sold = 7, NoSale = 8, TradeAsk = 9;
+        public const byte Offer = 1, Release = 2, Accept = 3, Listing = 4, StallRelease = 5, BuyReq = 6, Sold = 7, NoSale = 8, TradeAsk = 9, SwapReq = 10, SwapDone = 11, SwapNo = 12;
         static bool _hooked;
         public static void Hook() { if (_hooked) return; _hooked = true; NetGame.OnMarket += Receive; }
         public static ulong Me => NetHub.Backend != null ? NetHub.Backend.LocalId : 0;
@@ -322,12 +322,14 @@ namespace Rago
     public class PlayerStall : MonoBehaviour
     {
         public static readonly List<PlayerStall> All = new List<PlayerStall>();
-        const int Hooks = 6, Kit = 6, Slots = 10;   // 0-5 hooks / table, 6-9 the mannequin (helmet, vest, gun, bag) sold as one
+        const int Hooks = 6, Kit = 6, Slots = 10;
+        public const int SellLevel = 5;   // listing / claiming a booth needs level 5   // 0-5 hooks / table, 6-9 the mannequin (helmet, vest, gun, bag) sold as one
         int _index;
         ulong _owner; string _ownerName = "";
         readonly Slot[] _slot = new Slot[Slots];
         readonly int[] _price = new int[Slots];
         readonly string[] _json = new string[Slots];
+        readonly int[] _want = new int[Slots];   // 0 = money; otherwise what the seller wants in exchange (BlackMarket.Wants)
         readonly GameObject[] _ghost = new GameObject[Slots];
         readonly TextMesh[] _tag = new TextMesh[Hooks + 1];
         readonly WorldButton[] _buy = new WorldButton[Hooks + 1], _up = new WorldButton[Hooks + 1], _down = new WorldButton[Hooks + 1];
@@ -351,25 +353,26 @@ namespace Rago
         // the customer stands at local -Z
         void Build()
         {
+            // a little booth: counter, pegboard and header on the left, the mannequin at the right end
             var mb = new MB();
-            mb.Box(new Vector3(0, 0.45f, 0.1f), new Vector3(2.4f, 0.9f, 0.7f), Color.white, 0.02f);                          // counter
-            mb.Box(new Vector3(0, 1.6f, 0.55f), new Vector3(2.4f, 1.4f, 0.06f), Color.white * 0.75f, 0.01f);                  // pegboard
-            foreach (var x in new[] { -1.2f, 1.2f }) mb.Box(new Vector3(x, 1.25f, 0.5f), new Vector3(0.08f, 2.5f, 0.08f), Color.white * 0.6f);
-            mb.Box(new Vector3(0, 2.55f, 0.5f), new Vector3(2.6f, 0.3f, 0.08f), new Color(0.2f, 0.25f, 0.35f), 0.01f);       // header
+            mb.Box(new Vector3(-0.25f, 0.45f, 0.1f), new Vector3(1.6f, 0.9f, 0.6f), Color.white, 0.02f);                       // counter
+            mb.Box(new Vector3(-0.25f, 1.6f, 0.5f), new Vector3(1.6f, 1.3f, 0.05f), Color.white * 0.75f, 0.01f);              // pegboard
+            foreach (var x in new[] { -1.05f, 0.55f }) mb.Box(new Vector3(x, 1.2f, 0.47f), new Vector3(0.06f, 2.4f, 0.06f), Color.white * 0.6f);
+            mb.Box(new Vector3(0.1f, 2.45f, 0.47f), new Vector3(2.4f, 0.26f, 0.07f), new Color(0.2f, 0.25f, 0.35f), 0.01f);   // header
             mb.Build("Stall", transform, MarketNet.Wood);
-            var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.45f, 0.1f); col.size = new Vector3(2.4f, 0.9f, 0.7f);
-            _sign = MarketNet.Label(transform, "", new Vector3(0, 2.55f, 0.45f), 0.075f, Color.white);
+            var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(-0.25f, 0.45f, 0.1f); col.size = new Vector3(1.6f, 0.9f, 0.6f);
+            _sign = MarketNet.Label(transform, "", new Vector3(0.1f, 2.45f, 0.43f), 0.06f, Color.white);
             // six spots: three hooks on the board, three on the counter
             for (int i = 0; i < Hooks; i++)
             {
                 bool hook = i < 3;
-                Vector3 p = hook ? new Vector3(-0.75f + i * 0.75f, 1.75f, 0.42f) : new Vector3(-0.75f + (i - 3) * 0.75f, 0.95f, 0.15f);
-                _slot[i] = MakeSlot(p, 0.4f, i);
+                Vector3 p = hook ? new Vector3(-0.75f + i * 0.5f, 1.72f, 0.4f) : new Vector3(-0.75f + (i - 3) * 0.5f, 0.95f, 0.12f);
+                _slot[i] = MakeSlot(p, 0.38f, i);
                 if (hook) new MB().Cyl(p + new Vector3(0, 0.22f, 0.1f), p + new Vector3(0, 0.22f, -0.05f), 0.01f, 0.01f, 6, Color.gray).Build("Hook", transform, MarketNet.Steel);
                 Controls(i, p + (hook ? new Vector3(0, -0.32f, -0.05f) : new Vector3(0, -0.06f, -0.38f)), hook ? Quaternion.identity : Quaternion.Euler(50, 0, 0));
             }
             // the mannequin: a whole kit for one price
-            var mq = new Vector3(1.75f, 0, -0.1f);
+            var mq = new Vector3(0.85f, 0, 0.15f);
             var m = new MB();
             m.Cyl(mq, mq + new Vector3(0, 0.05f, 0), 0.25f, 0.25f, 16, Color.gray);
             m.Cyl(mq + new Vector3(0, 0.05f, 0), mq + new Vector3(0, 1.0f, 0), 0.025f, 0.025f, 8, Color.gray);
@@ -381,9 +384,9 @@ namespace Rago
             _slot[8] = MakeSlot(mq + new Vector3(0, 1.15f, -0.25f), 0.9f, 8, it => it is Gun);
             _slot[9] = MakeSlot(mq + new Vector3(0, 1.3f, 0.2f), 0.5f, 9, it => it is Backpack);
             Controls(Hooks, mq + new Vector3(0, 0.55f, -0.3f), Quaternion.identity);
-            _claim = UI.Button(transform, "CLAIM STALL", new Vector3(-0.95f, 1.05f, -0.26f), new Vector2(0.4f, 0.1f), Claim, new Color(0.2f, 0.4f, 0.6f), BtnStyle.Key);
+            _claim = UI.Button(transform, "CLAIM BOOTH", new Vector3(0.85f, 0.95f, -0.25f), new Vector2(0.34f, 0.09f), Claim, new Color(0.2f, 0.4f, 0.6f), BtnStyle.Key);
             _claim.transform.localRotation = Quaternion.Euler(50, 0, 0);
-            _pickup = new GameObject("Pickup").transform; _pickup.SetParent(transform, false); _pickup.localPosition = new Vector3(0.9f, 1.0f, -0.15f);
+            _pickup = new GameObject("Pickup").transform; _pickup.SetParent(transform, false); _pickup.localPosition = new Vector3(0.3f, 1.0f, -0.05f);
             Refresh();
         }
 
@@ -399,10 +402,10 @@ namespace Rago
         {
             int k = i;
             var root = new GameObject("Price" + i).transform; root.SetParent(transform, false); root.localPosition = p; root.localRotation = rot;
-            _tag[i] = UI.Text(root, "", new Vector3(0, 0.05f, -0.01f), 0.035f, new Color(1f, 0.9f, 0.4f), TextAnchor.MiddleCenter, FontStyle.Bold);
-            _down[i] = UI.Button(root, "-", new Vector3(-0.2f, -0.04f, 0), new Vector2(0.08f, 0.07f), () => Price(k, -1), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
-            _buy[i] = UI.Button(root, "BUY", new Vector3(0, -0.04f, 0), new Vector2(0.2f, 0.07f), () => Buy(k), new Color(0.2f, 0.5f, 0.2f), BtnStyle.Key);
-            _up[i] = UI.Button(root, "+", new Vector3(0.2f, -0.04f, 0), new Vector2(0.08f, 0.07f), () => Price(k, 1), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
+            _tag[i] = UI.Text(root, "", new Vector3(0, 0.04f, -0.01f), 0.028f, new Color(1f, 0.9f, 0.4f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            _down[i] = UI.Button(root, "-", new Vector3(-0.16f, -0.04f, 0), new Vector2(0.07f, 0.065f), () => Price(k, -1), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
+            _buy[i] = UI.Button(root, "BUY", new Vector3(0, -0.04f, 0), new Vector2(0.16f, 0.065f), () => Buy(k), new Color(0.2f, 0.5f, 0.2f), BtnStyle.Key);
+            _up[i] = UI.Button(root, "+", new Vector3(0.16f, -0.04f, 0), new Vector2(0.07f, 0.065f), () => Price(k, 1), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
         }
 
         int PriceIdx(int i) => i >= Kit ? Kit : i;
@@ -413,6 +416,7 @@ namespace Rago
             if (!NetGame.Live) { RagoGame.I.Player.Toast("Stalls need the Market online"); return; }
             if (Mine) { Release(); return; }
             if (_owner != 0) return;
+            if (Levels.Current < SellLevel) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I.Player.Toast("You need to be level " + SellLevel + " to sell to other players (you're " + Levels.Current + ")"); return; }
             foreach (var s in All) if (s != this && s.Mine) s.Release();
             _owner = MarketNet.Me; _ownerName = MarketNet.NameOf(_owner);
             Sfx.UI(Synth.UiClick(), 0.4f);
@@ -423,7 +427,7 @@ namespace Rago
         {
             if (!Mine) return;
             _owner = 0; _ownerName = "";
-            for (int i = 0; i < Slots; i++) { _json[i] = null; _price[i] = 0; }
+            for (int i = 0; i < Slots; i++) { _json[i] = null; _price[i] = 0; _want[i] = 0; }
             int st = _index;
             MarketNet.Send(w => { w.Write(MarketNet.StallRelease); w.Write((byte)st); });
             Refresh();
@@ -443,6 +447,7 @@ namespace Rago
             if (_quiet || !Mine) return;
             var it = _slot[i].item;
             _json[i] = it != null ? MarketNet.Json(it) : null;
+            if (it == null) _want[i] = 0;
             int pi = PriceIdx(i);
             if (it != null && _price[pi] <= 0) _price[pi] = Mathf.Max(100, Mathf.RoundToInt(SellStation.Offer(it, out _) * 1.3f / 100f) * 100);   // a starting price you can change
             if (pi == Kit) { int sum = 0; for (int k = Kit; k < Slots; k++) if (_slot[k].item != null) sum += SellStation.Offer(_slot[k].item, out _); if (sum > 0 && it != null) _price[Kit] = Mathf.Max(_price[Kit], Mathf.RoundToInt(sum * 1.2f / 100f) * 100); }
@@ -453,11 +458,12 @@ namespace Rago
         {
             if (!Mine) return;
             int st = _index; string name = _ownerName;
-            var js = (string[])_json.Clone(); var pr = (int[])_price.Clone();
+            var js = (string[])_json.Clone(); var pr = (int[])_price.Clone(); var wt = (int[])_want.Clone();
             MarketNet.Send(w =>
             {
                 w.Write(MarketNet.Listing); w.Write((byte)st); w.Write(name);
                 for (int i = 0; i < Slots; i++) { w.Write(js[i] ?? ""); w.Write(pr[i]); }
+                for (int i = 0; i < Slots; i++) w.Write((byte)wt[i]);
             });
         }
 
@@ -481,8 +487,37 @@ namespace Rago
 
         bool HasKit() { for (int k = Kit; k < Slots; k++) if (!string.IsNullOrEmpty(_json[k])) return true; return false; }
 
+        // ---- item-for-item swaps from the black market: both items go straight to the two players' bunker stashes
+        int _swapSlot = -1; string _swapOffer; ItemContainer _swapPad;
+        public bool SwapPending => _swapSlot >= 0;
+        public int WantOf(int slot) => slot >= 0 && slot < Slots ? _want[slot] : 0;
+        public void SwapRemote(int slot, Item offer, ItemContainer pad)
+        {
+            if (_owner == 0 || Mine || _swapSlot >= 0 || offer == null) return;
+            if (!BlackMarket.Matches(_want[slot], offer.def)) { RagoGame.I.Player.Toast("They want " + BlackMarket.WantName(_want[slot]) + " for that"); return; }
+            // your item leaves the pad (held for the swap) - it comes back if the seller says no or leaves
+            _swapOffer = MarketNet.Json(offer); _swapSlot = slot; _swapPad = pad;
+            if (offer.slot != null) offer.slot.Release(offer);
+            offer.Consumed = true; Destroy(offer.gameObject);
+            int st = _index; string j = _swapOffer;
+            MarketNet.Send(w => { w.Write(MarketNet.SwapReq); w.Write((byte)st); w.Write((byte)slot); w.Write(j); }, _owner);
+            RagoGame.I.Player.Toast("Swap offer sent to " + _ownerName + "...");
+        }
+        void SwapFailed(string why)
+        {
+            if (_swapSlot < 0) return;
+            var d = MarketNet.Data(_swapOffer);
+            if (d != null)
+            {
+                var it = ItemFactory.Spawn(d, transform.position + Vector3.up, Quaternion.identity);
+                if (it != null && !(_swapPad != null && _swapPad.Add(it)) && Profile.Current != null) { Profile.Current.stash.Add(it.Save()); Destroy(it.gameObject); why += " (it went to your stash)"; }
+            }
+            _swapSlot = -1; _swapOffer = null;
+            RagoGame.I?.Player?.Toast(why);
+        }
+
         // ---- used by the black market computer
-        public struct Listing { public PlayerStall stall; public int slot; public string name; public int price; public string seller; public ulong sellerId; }
+        public struct Listing { public PlayerStall stall; public int slot; public string name; public int price; public string seller; public ulong sellerId; public int want; }
         public void Listings(List<Listing> into)
         {
             if (_owner == 0) return;
@@ -490,10 +525,10 @@ namespace Rago
             {
                 string j = Mine ? (_slot[i].item != null ? MarketNet.Json(_slot[i].item) : null) : _json[i];
                 var d = MarketNet.Data(j); var def = d != null ? Db.Get(d.id) : null;
-                if (def != null) into.Add(new Listing { stall = this, slot = i, name = def.name, price = _price[i], seller = _ownerName, sellerId = _owner });
+                if (def != null) into.Add(new Listing { stall = this, slot = i, name = def.name, price = _price[i], seller = _ownerName, sellerId = _owner, want = _want[i] });
             }
             bool kit = Mine ? KitReal() : HasKit();
-            if (kit) into.Add(new Listing { stall = this, slot = Kit, name = "Mannequin kit", price = _price[Kit], seller = _ownerName, sellerId = _owner });
+            if (kit) into.Add(new Listing { stall = this, slot = Kit, name = "Mannequin kit", price = _price[Kit], seller = _ownerName, sellerId = _owner, want = _want[Kit] });
         }
         public bool IsMine => Mine;
         public bool IsFree => _owner == 0;
@@ -501,18 +536,19 @@ namespace Rago
         public void BuyRemote(int slot, Transform pickup) { _remotePickup = pickup; Buy(slot == Kit ? Hooks : slot); }
         Transform _remotePickup;
         /// <summary>List an item from the computer: claims this stall if needed and hangs it on a free hook at that price.</summary>
-        public bool ListFrom(Item it, int price)
+        public bool ListFrom(Item it, int price, int want = 0)
         {
             if (!NetGame.Live) return false;
+            if (Levels.Current < SellLevel) { RagoGame.I.Player.Toast("You need to be level " + SellLevel + " to sell (you're " + Levels.Current + ")"); return false; }
             if (_owner == 0) Claim();
             if (!Mine) return false;
             for (int i = 0; i < Hooks; i++)
                 if (_slot[i].item == null && (_slot[i].filter == null || _slot[i].filter(it)))
                 {
                     if (it.slot != null) it.slot.Release(it);
-                    _price[i] = Mathf.Max(0, price);
+                    _price[i] = Mathf.Max(0, price); _want[i] = want;
                     _slot[i].Store(it, true);
-                    _price[i] = Mathf.Max(0, price);
+                    _price[i] = Mathf.Max(0, price); _want[i] = want;
                     Broadcast(); Refresh();
                     return true;
                 }
@@ -528,13 +564,15 @@ namespace Rago
                     string name = r.ReadString();
                     var js = new string[Slots]; var pr = new int[Slots];
                     for (int i = 0; i < Slots; i++) { js[i] = r.ReadString(); pr[i] = r.ReadInt32(); }
+                    var wt = new int[Slots];
+                    if (r.BaseStream.Position < r.BaseStream.Length) for (int i = 0; i < Slots; i++) wt[i] = r.ReadByte();
                     if (Mine) { if (from < MarketNet.Me) Release(); else { Broadcast(); break; } }
                     _owner = from; _ownerName = name;
                     for (int i = 0; i < Slots; i++)
                     {
                         string j = string.IsNullOrEmpty(js[i]) ? null : js[i];
                         if (j != _json[i]) { _json[i] = j; Ghost(i); }
-                        _price[i] = pr[i];
+                        _price[i] = pr[i]; _want[i] = wt[i];
                     }
                     break;
                 }
@@ -591,6 +629,53 @@ namespace Rago
                     RagoGame.I.Player.Toast("Bought from " + _ownerName + " - it's on the counter");
                     break;
                 }
+                case MarketNet.SwapReq:
+                {
+                    int slot = r.ReadByte(); string offerJ = r.ReadString();
+                    if (!Mine) break;
+                    var od = MarketNet.Data(offerJ); var odef = od != null ? Db.Get(od.id) : null;
+                    var give = new List<string>();
+                    if (odef != null && _want[slot] != 0 && BlackMarket.Matches(_want[slot], odef))
+                    {
+                        _quiet = true;
+                        int a = slot == Kit ? Kit : slot, b = slot == Kit ? Slots : slot + 1;
+                        for (int k = a; k < b; k++)
+                        {
+                            var it = _slot[k].item; if (it == null) continue;
+                            give.Add(MarketNet.Json(it));
+                            _slot[k].Release(it); it.Consumed = true; Destroy(it.gameObject);
+                            _json[k] = null; _want[k] = 0;
+                        }
+                        _quiet = false;
+                    }
+                    int st = _index;
+                    if (give.Count > 0)
+                    {
+                        // what they gave you goes to your bunker
+                        Profile.Current.stash.Add(od); Profile.Current.Save();
+                        Sfx.UI(Synth.Cash(), 0.6f);
+                        RagoGame.I.Player.Toast("SWAPPED with " + MarketNet.NameOf(from) + ": you got " + odef.name + " - it's in your bunker");
+                        MarketNet.Send(w => { w.Write(MarketNet.SwapDone); w.Write((byte)st); w.Write((byte)slot); w.Write((byte)give.Count); foreach (var j in give) w.Write(j); }, from);
+                        Broadcast();
+                    }
+                    else MarketNet.Send(w => { w.Write(MarketNet.SwapNo); w.Write((byte)st); w.Write((byte)slot); }, from);
+                    break;
+                }
+                case MarketNet.SwapDone:
+                {
+                    int slot = r.ReadByte(); int n = r.ReadByte();
+                    var names = new List<string>();
+                    for (int i = 0; i < n; i++) { var d = MarketNet.Data(r.ReadString()); if (d == null) continue; Profile.Current?.stash.Add(d); var df = Db.Get(d.id); if (df != null) names.Add(df.name); }
+                    Profile.Current?.Save();
+                    _swapSlot = -1; _swapOffer = null;
+                    Sfx.UI(Synth.Cash(), 0.6f);
+                    RagoGame.I.Player.Toast("SWAP DONE: " + string.Join(", ", names) + " sent to your bunker");
+                    break;
+                }
+                case MarketNet.SwapNo:
+                    r.ReadByte();
+                    SwapFailed("Swap refused - your item is back on the pad");
+                    break;
                 case MarketNet.NoSale:
                 {
                     int slot = r.ReadByte();
@@ -613,7 +698,8 @@ namespace Rago
         void Clear()
         {
             _owner = 0; _ownerName = "";
-            for (int i = 0; i < Slots; i++) { _json[i] = null; _price[i] = 0; Ghost(i); }
+            for (int i = 0; i < Slots; i++) { _json[i] = null; _price[i] = 0; _want[i] = 0; Ghost(i); }
+            if (_swapSlot >= 0) SwapFailed("The seller left - your item is back on the pad");
             if (_pendingSlot >= 0) Refund("The seller left - refunded");
         }
 
@@ -636,8 +722,8 @@ namespace Rago
         void Refresh()
         {
             bool mine = Mine;
-            _sign.text = _owner == 0 ? "FREE STALL - claim it to sell" : mine ? "YOUR STALL" : _ownerName.Split('#')[0].ToUpper() + "'S STALL";
-            _claim.Label.text = mine ? "CLOSE STALL" : "CLAIM STALL";
+            _sign.text = _owner == 0 ? "FREE BOOTH - claim it to sell (level 5+)" : mine ? "YOUR BOOTH" : _ownerName.Split('#')[0].ToUpper() + "'S BOOTH";
+            _claim.Label.text = mine ? "CLOSE BOOTH" : "CLAIM BOOTH";
             _claim.Interactable = _owner == 0 || mine;
             for (int i = 0; i <= Hooks; i++)
             {
@@ -659,6 +745,7 @@ namespace Rago
                 if (_slot[i] != null && _slot[i].item != null) { var it = _slot[i].item; into.Add(it.Save()); _slot[i].Release(it); Destroy(it.gameObject); }
             if (Mine) Release();
             if (_pendingSlot >= 0) Refund("Left the Market - refunded");
+            if (_swapSlot >= 0) { var d = MarketNet.Data(_swapOffer); if (d != null) into.Add(d); _swapSlot = -1; }
         }
 
         void OnDestroy() { All.Remove(this); }
@@ -673,9 +760,32 @@ namespace Rago
     /// </summary>
     public class BlackMarket : MonoBehaviour
     {
+        // what a seller can ask for instead of money
+        public static readonly string[] Wants = { "MONEY", "ANY GUN", "VAULT KEYCARD", "MILITARY RADIO", "ANY ARMOUR", "NIGHT VISION", "ANY VALUABLE", "ANY BACKPACK", "ANY OPTIC / ATTACHMENT", "AP / INCENDIARY AMMO" };
+        public static string WantName(int w) => w >= 0 && w < Wants.Length ? Wants[w].ToLower() : "money";
+        public static bool Matches(int w, ItemDef d)
+        {
+            if (d == null) return false;
+            switch (w)
+            {
+                case 1: return d.kind == ItemKind.Gun;
+                case 2: return d.id == "key_vault";
+                case 3: return d.id == "val_radio";
+                case 4: return d.kind == ItemKind.Armor;
+                case 5: return d.id == "nvg";
+                case 6: return d.kind == ItemKind.Valuable;
+                case 7: return d.kind == ItemKind.Backpack;
+                case 8: return d.kind == ItemKind.Sight || d.kind == ItemKind.Attachment;
+                case 9: return d is SimpleDef sd && sd.kind == ItemKind.Ammo && sd.ammoType != AmmoType.Standard;
+                default: return false;
+            }
+        }
+        int _listWant;
+        ItemContainer _offer;
+
         readonly List<PlayerStall.Listing> _list = new List<PlayerStall.Listing>();
         readonly List<GameObject> _rows = new List<GameObject>();
-        Transform _screen, _pickup; ItemContainer _pad; TextMesh _status, _priceText;
+        Transform _screen, _pickup; ItemContainer _pad; TextMesh _status, _priceText, _wantText;
         int _page, _listPrice = 1000; float _refreshT;
 
         public static BlackMarket Create(Transform parent, Vector3 pos, float yaw)
@@ -696,7 +806,8 @@ namespace Rago
             mb.Box(new Vector3(0, 1.3f, 0.38f), new Vector3(1.3f, 0.85f, 0.08f), new Color(0.05f, 0.05f, 0.06f), 0.02f);     // monitor
             mb.Box(new Vector3(0, 0.85f, 0.38f), new Vector3(0.12f, 0.2f, 0.06f), new Color(0.1f, 0.1f, 0.1f));
             mb.Box(new Vector3(0, 0.79f, -0.05f), new Vector3(0.6f, 0.02f, 0.2f), new Color(0.08f, 0.08f, 0.09f), 0.005f);     // keyboard
-            mb.Box(new Vector3(0.6f, 0.785f, 0.0f), new Vector3(0.36f, 0.01f, 0.36f), new Color(0.5f, 0.1f, 0.1f), 0.003f);    // the LIST pad
+            mb.Box(new Vector3(0.6f, 0.785f, 0.0f), new Vector3(0.36f, 0.01f, 0.36f), new Color(0.15f, 0.25f, 0.6f), 0.003f);  // the blue LIST pad (what you sell)
+            mb.Box(new Vector3(-0.6f, 0.785f, 0.0f), new Vector3(0.36f, 0.01f, 0.36f), new Color(0.75f, 0.08f, 0.06f), 0.003f); // the red OFFER square (what they want)
             mb.Build("Desk", transform, MarketNet.Steel);
             var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.39f, 0.1f); col.size = new Vector3(1.8f, 0.78f, 0.8f);
             var glow = new GameObject("ScreenLight").AddComponent<Light>(); glow.transform.SetParent(transform, false); glow.transform.localPosition = new Vector3(0, 1.3f, 0.1f);
@@ -713,7 +824,13 @@ namespace Rago
             UI.Button(_screen, "-", new Vector3(0.02f, -0.33f, 0), new Vector2(0.07f, 0.07f), () => Step(-1), new Color(0.2f, 0.2f, 0.2f), BtnStyle.Key);
             UI.Button(_screen, "+", new Vector3(0.38f, -0.33f, 0), new Vector2(0.07f, 0.07f), () => Step(1), new Color(0.2f, 0.2f, 0.2f), BtnStyle.Key);
             UI.Button(_screen, "LIST", new Vector3(0.52f, -0.33f, 0), new Vector2(0.14f, 0.07f), List, new Color(0.5f, 0.15f, 0.12f), BtnStyle.Key);
-            _pickup = new GameObject("Pickup").transform; _pickup.SetParent(transform, false); _pickup.localPosition = new Vector3(-0.6f, 0.95f, 0f);
+            var offerRoot = new GameObject("Offer").transform; offerRoot.SetParent(transform, false); offerRoot.localPosition = new Vector3(-0.6f, 0.8f, 0f);
+            _offer = ItemContainer.Grid(offerRoot, Vector3.zero, Quaternion.identity, 1, 1, new Vector2(0.34f, 0.34f), 0.32f);
+            MarketNet.Label(transform, "OFFER", new Vector3(-0.6f, 0.79f, -0.2f), 0.025f, new Color(1f, 0.5f, 0.45f)).transform.localRotation = Quaternion.Euler(60, 0, 0);
+            MarketNet.Label(transform, "SELL", new Vector3(0.6f, 0.79f, -0.2f), 0.025f, new Color(0.5f, 0.7f, 1f)).transform.localRotation = Quaternion.Euler(60, 0, 0);
+            UI.Button(_screen, "WANT", new Vector3(-0.17f, -0.33f, 0), new Vector2(0.12f, 0.07f), () => { _listWant = (_listWant + 1) % Wants.Length; Draw(); }, new Color(0.45f, 0.15f, 0.4f), BtnStyle.Key);
+            _wantText = UI.Text(_screen, "", new Vector3(-0.17f, -0.39f, -0.003f), 0.016f, new Color(1f, 0.6f, 0.9f), TextAnchor.MiddleCenter);
+            _pickup = new GameObject("Pickup").transform; _pickup.SetParent(transform, false); _pickup.localPosition = new Vector3(0f, 0.95f, -0.2f);
             Draw();
         }
 
@@ -727,13 +844,14 @@ namespace Rago
         void List()
         {
             var it = _pad.slots[0].item;
-            if (it == null) { RagoGame.I.Player.Toast("Put the item on the red pad first"); return; }
+            if (it == null) { RagoGame.I.Player.Toast("Put the item on the blue SELL pad first"); return; }
+            if (Levels.Current < PlayerStall.SellLevel) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I.Player.Toast("You need to be level " + PlayerStall.SellLevel + " to sell (you're " + Levels.Current + ")"); return; }
             if (!NetGame.Live) { RagoGame.I.Player.Toast("The black market needs the Market online"); return; }
             PlayerStall target = PlayerStall.All.Find(x => x.IsMine) ?? PlayerStall.All.Find(x => x.IsFree);
             if (target == null) { RagoGame.I.Player.Toast("Every stall is taken - try the trade table"); return; }
-            if (!target.ListFrom(it, _listPrice)) { RagoGame.I.Player.Toast("Your stall is full"); return; }
+            if (!target.ListFrom(it, _listPrice, _listWant)) { RagoGame.I.Player.Toast("Your booth is full"); return; }
             Sfx.UI(Synth.Cash(), 0.4f);
-            RagoGame.I.Player.Toast("Listed for $" + _listPrice.ToString("N0") + " on your stall");
+            RagoGame.I.Player.Toast("Listed " + (_listWant == 0 ? "for $" + _listPrice.ToString("N0") : "- you want " + WantName(_listWant)) + " on your booth");
             Draw();
         }
 
@@ -750,7 +868,8 @@ namespace Rago
             int pages = Mathf.Max(1, (_list.Count + per - 1) / per);
             _page = Mathf.Clamp(_page, 0, pages - 1);
             _status.text = (NetGame.Live ? _list.Count + " listing(s)" : "OFFLINE") + "   page " + (_page + 1) + "/" + pages;
-            _priceText.text = "$" + _listPrice.ToString("N0");
+            _priceText.text = _listWant == 0 ? "$" + _listPrice.ToString("N0") : "swap";
+            if (_wantText != null) _wantText.text = "for: " + Wants[_listWant];
             if (_list.Count == 0)
             {
                 var e = UI.Text(_screen, "Nothing for sale right now.\nPut something on the red pad, set a price and press LIST.", new Vector3(0, 0.05f, -0.003f), 0.026f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleCenter);
@@ -765,12 +884,25 @@ namespace Rago
                 _rows.Add(row.gameObject);
                 bool mine = L.sellerId == MarketNet.Me;
                 UI.Text(row, L.name, new Vector3(-0.58f, 0, -0.003f), 0.022f, Color.white, TextAnchor.MiddleLeft);
-                UI.Text(row, "$" + L.price.ToString("N0"), new Vector3(0.02f, 0, -0.003f), 0.022f, new Color(1f, 0.9f, 0.4f), TextAnchor.MiddleLeft, FontStyle.Bold);
+                UI.Text(row, L.want == 0 ? "$" + L.price.ToString("N0") : "for " + Wants[L.want], new Vector3(0.02f, 0, -0.003f), L.want == 0 ? 0.022f : 0.016f, L.want == 0 ? new Color(1f, 0.9f, 0.4f) : new Color(1f, 0.6f, 0.9f), TextAnchor.MiddleLeft, FontStyle.Bold);
                 UI.Text(row, mine ? "you" : L.seller.Split('#')[0], new Vector3(0.2f, 0, -0.003f), 0.018f, UI.Dim, TextAnchor.MiddleLeft);
                 if (mine) continue;
                 var stall = L.stall; int slot = L.slot; ulong seller = L.sellerId; string nm = L.name;
-                UI.Button(row, "BUY", new Vector3(0.42f, 0, 0), new Vector2(0.1f, 0.055f), () => { stall.BuyRemote(slot, _pickup); Draw(); }, new Color(0.15f, 0.45f, 0.18f), BtnStyle.Key);
-                UI.Button(row, "TRADE", new Vector3(0.54f, 0, 0), new Vector2(0.11f, 0.055f), () => AskTrade(seller, nm), new Color(0.2f, 0.3f, 0.5f), BtnStyle.Key);
+                if (L.want == 0)
+                {
+                    UI.Button(row, "BUY", new Vector3(0.42f, 0, 0), new Vector2(0.1f, 0.055f), () => { stall.BuyRemote(slot, _pickup); Draw(); }, new Color(0.15f, 0.45f, 0.18f), BtnStyle.Key);
+                    UI.Button(row, "ASK", new Vector3(0.54f, 0, 0), new Vector2(0.1f, 0.055f), () => AskTrade(seller, nm), new Color(0.2f, 0.3f, 0.5f), BtnStyle.Key);
+                }
+                else
+                {
+                    // they want an item: put it on the red OFFER square and press TRADE - both items go to the two bunkers
+                    UI.Button(row, "TRADE", new Vector3(0.48f, 0, 0), new Vector2(0.2f, 0.055f), () =>
+                    {
+                        var off = _offer.slots[0].item;
+                        if (off == null) { RagoGame.I.Player.Toast("Put " + WantName(stall.WantOf(slot)) + " on the red OFFER square first"); return; }
+                        stall.SwapRemote(slot, off, _offer); Draw();
+                    }, new Color(0.6f, 0.15f, 0.12f), BtnStyle.Key);
+                }
             }
         }
 
@@ -782,8 +914,11 @@ namespace Rago
 
         public void SweepToStash(List<ItemData> into)
         {
-            var sl = _pad.slots[0];
-            if (sl.item != null) { var it = sl.item; into.Add(it.Save()); sl.Release(it); Destroy(it.gameObject); }
+            foreach (var c in new[] { _pad, _offer })
+            {
+                var sl = c.slots[0];
+                if (sl.item != null) { var it = sl.item; into.Add(it.Save()); sl.Release(it); Destroy(it.gameObject); }
+            }
         }
     }
 }

@@ -14,7 +14,8 @@ namespace Rago
         {
             var l = new List<ItemData>();
             foreach (var s in Stash) if (s != null) l.AddRange(s.Save());
-            if (_medCabinet != null) l.AddRange(_medCabinet.Save());
+            // the med cabinet keeps its own contents (it used to go into the stash too, so the meds came back twice and spilled into the Lost & Found)
+            if (_medCabinet != null && Profile.Current != null) Profile.Current.medCabinet = _medCabinet.Save();
             if (LostAndFound.I != null) l.AddRange(LostAndFound.I.Save());
             return l;
         }
@@ -207,24 +208,25 @@ namespace Rago
             else SealedDoor.Create(b, transform, new Vector3(4.5f, 0, 13), 0, "TROPHY VAULT", 4);
         }
 
+        /// <summary>The Med Bay cabinet: what you left in it stays exactly there. It's stocked once, the first time;
+        /// meds you take out are gone (no restocking, no copies).</summary>
         void RestockMedBay()
         {
             var prof = Profile.Current;
             if (_medCabinet == null || prof == null || !Application.isPlaying) return;
-            if (prof.raids <= prof.medRestockRaid) return;
-            prof.medRestockRaid = prof.raids;
-            var rng = new Rng(prof.raids * 977 + 5);
-            var ids = new List<string> { "ifak", "painkillers", "bandage" };
-            if (rng.Chance(0.35f)) ids.Add("trauma_kit");
-            if (rng.Chance(0.25f)) ids.Add("stim");
-            int n = 0;
-            foreach (var id in ids)
+            if (prof.medCabinet == null) prof.medCabinet = new List<ItemData>();
+            if (!prof.medStocked)
             {
-                var it = ItemFactory.Spawn(id, _medCabinet.transform.position, _medCabinet.transform.rotation);
-                if (it == null) continue;
-                if (_medCabinet.Add(it)) n++; else Destroy(it.gameObject);
+                prof.medStocked = true;
+                prof.medCabinet.Clear();
+                foreach (var id in new[] { "ifak", "painkillers", "bandage", "bandage" }) prof.medCabinet.Add(new ItemData(id));
             }
-            if (n > 0 && RagoGame.I != null && RagoGame.I.Player != null) RagoGame.I.Player.Toast("Med Bay restocked: +" + n + " meds");
+            foreach (var d in prof.medCabinet)
+            {
+                var it = ItemFactory.Spawn(d, _medCabinet.transform.position, _medCabinet.transform.rotation);
+                if (it == null) continue;
+                if (!_medCabinet.Add(it)) Destroy(it.gameObject);
+            }
         }
 
         public override void Build()
@@ -545,7 +547,7 @@ namespace Rago
             }
             // ---- players' own trading: a trade table and four stalls anyone can claim
             TradeTable.Create(transform, new Vector3(-6.5f, 0, -3.5f), 90f);
-            for (int ps = 0; ps < 4; ps++) PlayerStall.Create(transform, new Vector3(-12f + ps * 5f, 0, 3.0f), 0f);   // a row through the middle of the hall
+            for (int ps = 0; ps < 8; ps++) PlayerStall.Create(transform, new Vector3(-13.5f + ps * 3.5f, 0, 3.0f), 0f);   // eight little booths in a row through the middle: one each for whoever's selling
             BlackMarket.Create(transform, new Vector3(W / 2 - 1.2f, 0, 4.5f), 90f);   // the black market computer, by the lift
             // ---- the Exchange: a few steps from the lift doors, facing them
             SellStation.Create(transform, new Vector3(W / 2 - 7.5f, 0, -6f), -90f);
