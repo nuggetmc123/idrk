@@ -88,6 +88,7 @@ namespace Rago
             n.BossName = boss;
             n.MaxHealth = n.Health = boss != null ? 1400 : heavy ? 150 : 100;   // a boss soaks up a magazine or two
             n.Rig = HumanRig.Build(boss != null ? BossOutfit(boss) : heavy ? Outfit.RaiderHeavy : Outfit.Raider, seed, go.transform);
+            HumanRig.NameTape(n.Rig, boss != null ? boss.Replace("The ", "") : HumanRig.ScavName(seed));   // name on the chest
             foreach (var c in n.Rig.colliders)
             {
                 var z = c.gameObject.AddComponent<HitZone>();

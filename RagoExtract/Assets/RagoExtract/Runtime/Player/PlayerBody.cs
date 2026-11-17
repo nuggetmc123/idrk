@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace Rago
 {
@@ -125,7 +126,40 @@ namespace Rago
         public float GutInjury;         // 0..1: stamina drains faster
         public bool CanSprint => LegPenalty >= 0.7f;
         /// <summary>A medkit / surgery: every injury fixed.</summary>
-        public void TreatInjuries() { LegPenalty = 1f; ArmInjury = 0f; GutInjury = 0f; }
+        public void TreatInjuries() { LegPenalty = 1f; ArmInjury = 0f; GutInjury = 0f; for (int i = 0; i < PartDmg.Length; i++) PartDmg[i] *= 0.5f; }
+
+        // ---- body map (tap your watch): damage per part and where each hit landed
+        public enum Zone { Head, Thorax, Stomach, ArmL, ArmR, LegL, LegR }
+        public static readonly float[] PartMax = { 35f, 85f, 60f, 45f, 45f, 60f, 60f };
+        public readonly float[] PartDmg = new float[7];
+        public readonly List<(int zone, Vector2 at)> Hits = new List<(int, Vector2)>();   // 'at' = -1..1 inside that part
+        public float PartCondition(int z) => Mathf.Clamp01(1f - PartDmg[z] / PartMax[z]);
+        int ZoneOf(HitInfo h)
+        {
+            var r = rig != null && rig.Body != null ? rig.Body.Rig : null;
+            switch (h.part)
+            {
+                case BodyPart.Head: return (int)Zone.Head;
+                case BodyPart.Thorax: return (int)Zone.Thorax;
+                case BodyPart.Stomach: return (int)Zone.Stomach;
+                case BodyPart.Arm: return r != null && (h.point - r.faL.position).sqrMagnitude < (h.point - r.faR.position).sqrMagnitude ? (int)Zone.ArmL : (int)Zone.ArmR;
+                default: return r != null && (h.point - r.thL.position).sqrMagnitude < (h.point - r.thR.position).sqrMagnitude ? (int)Zone.LegL : (int)Zone.LegR;
+            }
+        }
+        void RecordHit(HitInfo h, float dmg)
+        {
+            int z = ZoneOf(h);
+            PartDmg[z] += dmg;
+            // where on that part: across from the body's facing, up/down from a hash of the point (bones move too much to be exact)
+            Vector2 at = new Vector2(Random.Range(-0.8f, 0.8f), Random.Range(-0.8f, 0.8f));
+            if (rig != null && rig.Body != null && rig.Body.Rig != null)
+            {
+                var bone = z == 0 ? rig.Body.Rig.head : z == 1 ? rig.Body.Rig.chest : z == 2 ? rig.Body.Rig.spine : null;
+                if (bone != null) { var lp = bone.InverseTransformPoint(h.point); at.x = Mathf.Clamp(lp.x / 0.18f, -0.85f, 0.85f); }
+            }
+            Hits.Add((z, at));
+            if (Hits.Count > 40) Hits.RemoveAt(0);
+        }
         public bool God;
         float _hot, _hotRate, _dripT, _regenDelay, _clotT = 5f;
         public bool Alive => Health > 0;
@@ -135,9 +169,9 @@ namespace Rago
         public static HitInfo LastKillHit;      // the hit that killed you (who, with what, where)
         public static string LastDeathReason;   // no killer: "Bled out", "Drowned", raid time ran out...
 
-        public void ResetFull() { Health = MaxHealth; Stamina = MaxStamina; Bleed = 0; LegPenalty = 1; ArmInjury = 0; GutInjury = 0; _hot = 0; StimBoost = 0; }
+        public void ResetFull() { System.Array.Clear(PartDmg, 0, PartDmg.Length); Hits.Clear(); Health = MaxHealth; Stamina = MaxStamina; Bleed = 0; LegPenalty = 1; ArmInjury = 0; GutInjury = 0; _hot = 0; StimBoost = 0; }
 
-        public void Heal(float hp) { Health = Mathf.Min(MaxHealth, Health + hp); }
+        public void Heal(float hp) { Health = Mathf.Min(MaxHealth, Health + hp); float k = Mathf.Clamp01(hp / MaxHealth); for (int i = 0; i < PartDmg.Length; i++) PartDmg[i] = Mathf.Max(0f, PartDmg[i] - PartMax[i] * k); }
         public void HealOverTime(float hp, float secs) { _hot += hp; _hotRate = hp / Mathf.Max(0.1f, secs); }
         static bool Pressing(Hand h)
         {
@@ -155,6 +189,7 @@ namespace Rago
             // armour you're wearing (found in raids)
             dmg *= ArmorDef.Reduction(h.part, rig.Gear.Helmet, rig.Gear.Vest, h.gunId, h.ammo);
             Health -= dmg;
+            RecordHit(h, dmg);
             rig.Hud.Damage(Mathf.Clamp01(dmg / 40f), h.dir);
             if (dmg > 12 && Random.value < (h.part == BodyPart.Thorax ? 0.7f : 0.45f)) Bleed = Mathf.Min(4f, Bleed + (h.part == BodyPart.Thorax ? 0.9f : 0.6f));
             // where you're hit matters

@@ -541,5 +541,38 @@ namespace Rago
             // foot: +Z of foot bone follows the shin direction (down), boot mesh extends along -Y (forward)
             ft.rotation = Quaternion.LookRotation(Vector3.down, -fwd);
         }
+
+        // ------------------------------------------------------------------------------------------- name tape
+        static readonly string[] Surnames = { "VOLKOV", "BRANDT", "KOVAC", "MERCER", "ORLOV", "DRAKE", "SOKOL", "HALE", "BECK", "NOVAK", "RUSSO", "PETROV", "GRANT", "MALIK", "KRAUSE", "VANCE", "IVANOV", "SHAW", "DUBOIS", "REYES", "LANG", "MORENO", "FISCHER", "KANE", "BOYD", "STROM", "ZAJAC", "HOLT", "MARSH", "PIKE", "CROSS", "WOLFE", "KESSEL", "YATES", "BRODY", "LUKIN" };
+        /// <summary>A surname for a scav, fixed by its seed.</summary>
+        public static string ScavName(int seed) { uint h = (uint)seed * 2654435761u; return Surnames[(int)(h % (uint)Surnames.Length)]; }
+
+        /// <summary>A sewn name tape high on the chest: the person's name (a player's name without the #tag).
+        /// Returns the text so it can be changed later; the tape goes away with the rig.</summary>
+        public static TextMesh NameTape(HumanRig r, string name)
+        {
+            if (r == null || r.chest == null) return null;
+            var root = new GameObject("NameTape").transform;
+            root.SetParent(r.chest, false);
+            root.localPosition = new Vector3(0, 0.165f, 0.195f);
+            root.localRotation = Quaternion.Euler(-12f, 0, 0);
+            var tape = new MB().Box(Vector3.zero, new Vector3(0.15f, 0.034f, 0.006f), new Color(0.2f, 0.22f, 0.16f), 0.002f)
+                .Build("Tape", root, Mats.Lit("name_tape", Color.white, 0f, 0.15f));
+            tape.layer = r.chest.gameObject.layer;
+            var tm = UI.Text(root, "", new Vector3(0, 0, 0.0065f), 0.02f, new Color(0.05f, 0.05f, 0.04f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            tm.transform.localRotation = Quaternion.Euler(0, 180f, 0);   // readable from the front (text faces away from its +Z)
+            tm.gameObject.layer = r.chest.gameObject.layer;
+            SetTape(tm, name);
+            return tm;
+        }
+        public static void SetTape(TextMesh tm, string name)
+        {
+            if (tm == null) return;
+            name = (name ?? "").Split('#')[0].Trim().ToUpperInvariant();
+            if (name.Length > 12) name = name.Substring(0, 12);
+            tm.text = name;
+            // shrink long names to fit the tape
+            tm.characterSize = 0.002f * Mathf.Min(1f, 9f / Mathf.Max(1, name.Length));
+        }
     }
 }

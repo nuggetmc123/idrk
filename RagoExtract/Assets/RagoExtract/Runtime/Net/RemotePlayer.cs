@@ -7,6 +7,7 @@ namespace Rago
     {
         public ulong NetId;
         public string DisplayName = "Operator";
+        TextMesh _tape; string _tapeName;
         HumanRig _rig;
         TextMesh _tag;
         GameObject _dot;
@@ -320,6 +321,9 @@ namespace Rago
                 _tag.text = (talking ? "<color=#7fff7f>(( </color>" : "") + DisplayName + (talking ? "<color=#7fff7f> ))</color>" : "");
                 float d = Vector3.Distance(cam.position, _sHead);
                 _tag.gameObject.SetActive(false);   // no name text over players (teammates keep the green dot)
+                // their name sewn on the chest instead (rebuilt if the body is rebuilt)
+                if (_tape == null) { _tape = HumanRig.NameTape(_rig, DisplayName); _tapeName = DisplayName; }
+                else if (_tapeName != DisplayName) { HumanRig.SetTape(_tape, DisplayName); _tapeName = DisplayName; }
             }
         }
     }

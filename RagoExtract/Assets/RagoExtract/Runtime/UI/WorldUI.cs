@@ -311,9 +311,92 @@ namespace Rago
             _wristQueue = UI.Text(_wrist, "", new Vector3(-0.032f, -0.027f, -0.008f), 0.0058f, new Color(0.55f, 1f, 0.6f), TextAnchor.MiddleLeft, FontStyle.Bold);
             _wristMsg = UI.Text(_wrist, "", new Vector3(-0.032f, -0.033f, -0.008f), 0.0052f, new Color(1f, 0.9f, 0.6f), TextAnchor.UpperLeft);
             _wristMsg.richText = true;
+            BuildBodyMap();
             // desktop crosshair
             _crosshair = new MB().Sphere(Vector3.zero, Vector3.one * 0.0018f, 8, Color.white).Build("crosshair", cam, Mats.Unlit("crosshair", new Color(1, 1, 1, 0.8f), null, Mats.BlendKind.Alpha, false, 200, true));
             _crosshair.transform.localPosition = new Vector3(0, 0, 0.5f);
+        }
+
+        // ------------------------------------------------------------------------------- body map (tap the watch)
+        // A little hologram of your body above the watch: each part goes green -> yellow -> red as it takes damage,
+        // a red dot for every hit (bigger red where you've been hit most), and a health bar underneath. No text.
+        static readonly Vector2[] MapC = { new Vector2(0, 1.62f), new Vector2(0, 1.30f), new Vector2(0, 1.02f), new Vector2(-0.29f, 1.17f), new Vector2(0.29f, 1.17f), new Vector2(-0.1f, 0.45f), new Vector2(0.1f, 0.45f) };
+        static readonly Vector2[] MapS = { new Vector2(0.2f, 0.24f), new Vector2(0.38f, 0.32f), new Vector2(0.32f, 0.22f), new Vector2(0.1f, 0.6f), new Vector2(0.1f, 0.6f), new Vector2(0.14f, 0.84f), new Vector2(0.14f, 0.84f) };
+        Transform _map; readonly Material[] _mapPart = new Material[7]; readonly Transform[] _mapDots = new Transform[40];
+        Transform _mapHpFill; Material _mapHpM, _mapOutlineM; bool _mapOn, _tapIn; float _mapT, _tapCd;
+
+        void BuildBodyMap()
+        {
+            _map = new GameObject("BodyMap").transform;
+            _map.SetParent(_wrist, false);
+            _map.localPosition = new Vector3(0, -0.07f, -0.05f);   // floats just off the watch face
+            _map.localRotation = Quaternion.identity;   // same way up as the watch face: you see it from behind (your left on the left)
+            _map.localScale = Vector3.one * 0.07f;                  // ~13 cm tall
+            Material M(string k, Color c, int q) => new Material(Mats.Unlit(k, c, null, Mats.BlendKind.Alpha, false, q, false));
+            _mapOutlineM = M("bodymap_bg", new Color(0.02f, 0.05f, 0.04f, 0.7f), 0);
+            new MB().Box(new Vector3(0, 0.82f, 0.02f), new Vector3(0.95f, 2.0f, 0.01f), Color.white, 0.04f).Build("Plate", _map, _mapOutlineM);
+            for (int i = 0; i < 7; i++)
+            {
+                _mapPart[i] = M("bodymap_part", new Color(0.3f, 1f, 0.4f, 0.85f), 1);
+                new MB().Box(new Vector3(MapC[i].x, MapC[i].y, 0), new Vector3(MapS[i].x, MapS[i].y, 0.02f), Color.white, i == 0 ? 0.08f : 0.03f).Build("Part" + i, _map, _mapPart[i]);
+            }
+            var dotM = M("bodymap_dot", new Color(1f, 0.15f, 0.1f, 1f), 2);
+            for (int i = 0; i < _mapDots.Length; i++)
+            {
+                _mapDots[i] = new MB().Sphere(Vector3.zero, Vector3.one * 0.028f, 6, Color.white).Build("Hit", _map, dotM).transform;
+                _mapDots[i].gameObject.SetActive(false);
+            }
+            new MB().Box(new Vector3(0, -0.08f, 0), new Vector3(0.8f, 0.07f, 0.02f), Color.white, 0.01f).Build("HpBack", _map, M("bodymap_hpbg", new Color(0.15f, 0.15f, 0.15f, 0.8f), 1));
+            _mapHpM = M("bodymap_hp", new Color(0.3f, 1f, 0.4f, 0.95f), 2);
+            var fill = new GameObject("HpFillPivot").transform; fill.SetParent(_map, false); fill.localPosition = new Vector3(-0.4f, -0.08f, -0.012f);
+            new MB().Box(new Vector3(0.4f, 0, 0), new Vector3(0.8f, 0.06f, 0.01f), Color.white).Build("HpFill", fill, _mapHpM);
+            _mapHpFill = fill;
+            _map.gameObject.SetActive(false);
+        }
+
+        static Color Cond(float c) => c > 0.5f ? Color.Lerp(new Color(1f, 0.85f, 0.2f), new Color(0.3f, 1f, 0.4f), (c - 0.5f) * 2f) : Color.Lerp(new Color(1f, 0.15f, 0.1f), new Color(1f, 0.85f, 0.2f), c * 2f);
+
+        void TickBodyMap(float dt)
+        {
+            if (_map == null) return;
+            var v = _p.Vitals;
+            // tap the watch with your empty right hand to show / hide it
+            if (XRInputs.VR && v.Alive)
+            {
+                bool inNow = _p.HandR.Held == null && Vector3.Distance(_p.HandR.transform.position, _wrist.position) < 0.09f;
+                if (inNow && !_tapIn && Time.time > _tapCd) { _mapOn = !_mapOn; _mapT = 15f; _tapCd = Time.time + 0.5f; _p.HandL.Haptic(0.4f, 0.05f); _p.HandR.Haptic(0.4f, 0.05f); Sfx.UI(Synth.UiClick(), 0.25f); }
+                _tapIn = inNow;
+            }
+            else _mapOn = false;
+            if (_mapOn) { _mapT -= dt; if (_mapT <= 0) _mapOn = false; }
+            if (_map.gameObject.activeSelf != _mapOn) _map.gameObject.SetActive(_mapOn);
+            if (!_mapOn) return;
+            // where you've been hit most pulses
+            int[] count = new int[7]; foreach (var h in v.Hits) count[h.zone]++;
+            int most = -1, best = 0; for (int i = 0; i < 7; i++) if (count[i] > best) { best = count[i]; most = i; }
+            float pulse = 0.65f + 0.35f * Mathf.Sin(Time.time * 6f);
+            bool burning = v.OnFire;
+            for (int i = 0; i < 7; i++)
+            {
+                var c = Cond(v.PartCondition(i));
+                if (i == most) c = Color.Lerp(c, new Color(1f, 0.1f, 0.1f), 0.35f * pulse);
+                if (burning) c = Color.Lerp(c, new Color(1f, 0.5f, 0.1f), 0.3f * pulse);
+                c.a = 0.85f;
+                _mapPart[i].SetColor("_Color", c);
+            }
+            for (int i = 0; i < _mapDots.Length; i++)
+            {
+                bool on = i < v.Hits.Count;
+                if (_mapDots[i].gameObject.activeSelf != on) _mapDots[i].gameObject.SetActive(on);
+                if (!on) continue;
+                var h = v.Hits[i];
+                _mapDots[i].localPosition = new Vector3(MapC[h.zone].x + h.at.x * MapS[h.zone].x * 0.45f, MapC[h.zone].y + h.at.y * MapS[h.zone].y * 0.45f, -0.02f);
+            }
+            float hp = Mathf.Clamp01(v.Health / v.MaxHealth);
+            _mapHpFill.localScale = new Vector3(Mathf.Max(0.001f, hp), 1, 1);
+            var hc = Cond(hp); if (v.Bleed > 0) hc = Color.Lerp(hc, new Color(1f, 0f, 0f), pulse * 0.5f); hc.a = 0.95f;
+            _mapHpM.SetColor("_Color", hc);
+            _mapOutlineM.SetColor("_Color", v.Bleed > 0 ? new Color(0.25f * pulse, 0.02f, 0.02f, 0.75f) : new Color(0.02f, 0.05f, 0.04f, 0.7f));   // bleeding: the plate glows red
         }
 
         Material TextOverlay(TextMesh t)
@@ -398,6 +481,7 @@ namespace Rago
             _supp.enabled = _sup > 0.01f;
             _toastT -= dt; if (_toastT <= 0) _toast.text = "";
             _msgT -= dt; if (_msgT <= 0 && _wristMsg != null) _wristMsg.text = "";
+            TickBodyMap(dt);
             if (XRInputs.VR && _wristQueue != null && _queueLabel.Length == 0) _wristQueue.text = UI.Wrap(_objText, 30);   // tutorial step on the watch
             if (_queueTimer && QueueText != null) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); QueueText.text = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
             _centerT -= dt; if (_centerT <= 0) _center.text = "";
