@@ -27,7 +27,7 @@ namespace Rago
 
         // who may spectate (as well as being in the Unity editor)
         static readonly string[] AllowedCallsigns = { "test#1714" };
-        /// <summary>The test account (the one that can spectate): it counts as level 99999 everywhere.</summary>
+        /// <summary>The test account (the one that can spectate): it counts as level 9999 everywhere.</summary>
         public static bool IsTestAccount => Allowed();
         static bool Allowed()
         {

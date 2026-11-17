@@ -10,7 +10,6 @@ namespace Rago
                 "MY MARKET (level 5+): press CREATE MY MARKET, put items on the red square, pick which one to sell, pick what you want for it (< >) and the price or how many, then LIST IT. UNLIST sends it back to your bunker. Your market is open whenever you're in the Market.",
                 "BUY holds your money until the seller's game hands it over; TRADE takes what they want off the red square. Whatever you get goes straight to your bunker (both sides).",
                 "TRADE TABLE: the board no longer runs its text together - your name, what you give and the money are on separate lines, and it shows clearly how much money you PAY and GET. A board over the table shows the whole deal to both traders and anyone watching. The control board now leans back towards you.",
-                "The test account (the one that can spectate) is level 99999: everything unlocked.",
                 "Items laid on the red square lie across it (guns no longer point at you or into the screen).",
             }),
             ("2.15", "Swap trades, booths for everyone, med fix", new[] {
