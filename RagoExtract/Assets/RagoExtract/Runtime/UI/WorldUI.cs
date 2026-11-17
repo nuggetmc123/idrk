@@ -255,7 +255,8 @@ namespace Rago
         bool _blocked;
         TextMesh _toast, _center, _objective, _queue;
         float _toastT, _centerT;
-        TextMesh _wristHp, _wristInfo, _wristAmmo;
+        TextMesh _wristHp, _wristInfo, _wristAmmo, _wristMsg, _wristQueue;
+        float _msgT;
         Transform _wrist;
         public string RaidTimer = "";
         GameObject _crosshair;
@@ -300,12 +301,16 @@ namespace Rago
             _wrist.localPosition = new Vector3(0.0f, 0.036f, -0.08f);
             _wrist.localRotation = Quaternion.LookRotation(Vector3.down, Vector3.left);
             var w = new MB(2);
-            w.Sub(0).Box(Vector3.zero, new Vector3(0.075f, 0.05f, 0.012f), Color.white, 0.006f, 2);
-            w.Sub(1).Box(new Vector3(0, 0, -0.0065f), new Vector3(0.068f, 0.043f, 0.001f), Color.white, 0);
+            // taller than before: messages (air drops, vaults, pick-ups...) and the queue timer live here now, not floating in your view
+            w.Sub(0).Box(new Vector3(0, -0.012f, 0), new Vector3(0.075f, 0.075f, 0.012f), Color.white, 0.006f, 2);
+            w.Sub(1).Box(new Vector3(0, -0.012f, -0.0065f), new Vector3(0.068f, 0.068f, 0.001f), Color.white, 0);
             w.Build("watch", _wrist, Mats.Polymer, Mats.Lit("watch_screen", new Color(0.02f, 0.03f, 0.03f), 0f, 0.9f));
             _wristHp = UI.Text(_wrist, "", new Vector3(-0.032f, 0.012f, -0.008f), 0.0085f, new Color(0.4f, 1f, 0.5f), TextAnchor.MiddleLeft, FontStyle.Bold);
             _wristInfo = UI.Text(_wrist, "", new Vector3(-0.032f, -0.004f, -0.008f), 0.0062f, UI.Dim, TextAnchor.MiddleLeft);
             _wristAmmo = UI.Text(_wrist, "", new Vector3(-0.032f, -0.017f, -0.008f), 0.0062f, UI.Accent, TextAnchor.MiddleLeft);
+            _wristQueue = UI.Text(_wrist, "", new Vector3(-0.032f, -0.027f, -0.008f), 0.0058f, new Color(0.55f, 1f, 0.6f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            _wristMsg = UI.Text(_wrist, "", new Vector3(-0.032f, -0.033f, -0.008f), 0.0052f, new Color(1f, 0.9f, 0.6f), TextAnchor.UpperLeft);
+            _wristMsg.richText = true;
             // desktop crosshair
             _crosshair = new MB().Sphere(Vector3.zero, Vector3.one * 0.0018f, 8, Color.white).Build("crosshair", cam, Mats.Unlit("crosshair", new Color(1, 1, 1, 0.8f), null, Mats.BlendKind.Alpha, false, 200, true));
             _crosshair.transform.localPosition = new Vector3(0, 0, 0.5f);
@@ -351,12 +356,31 @@ namespace Rago
             _flash = Mathf.Max(_flash, 1f + strength * 3.5f);
             Sfx.UI(Synth.Ringing(), Mathf.Clamp01(strength) * 0.6f);
         }
-        public void Toast(string s) { _toast.text = s; _toastT = 2.5f; }
-        public void Center(string s, float time = 3f) { _center.text = s; _centerT = time; }
+        /// <summary>A message: on your watch (with a buzz on that wrist), not floating in your view.</summary>
+        public void Toast(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return;
+            if (!XRInputs.VR) { _toast.text = s; _toastT = 2.5f; return; }   // desktop has no watch to look at
+            _wristMsg.text = UI.Wrap(s, 30);
+            _msgT = 6f;
+            _p.HandL.Haptic(0.25f, 0.06f);
+        }
+        /// <summary>A banner: on the watch too - only while the screen is black (loading) or you're dead does it go in the
+        /// middle of your view, where you can actually see it.</summary>
+        public void Center(string s, float time = 3f)
+        {
+            bool screen = !XRInputs.VR || _fadeCur > 0.5f || _fadeTarget > 0.5f || (_p.Vitals != null && !_p.Vitals.Alive) || (s != null && s.StartsWith("LOADING"));
+            if (screen || string.IsNullOrEmpty(s)) { _center.text = s; _centerT = time; return; }
+            _wristMsg.text = UI.Wrap(System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", ""), 30);
+            _msgT = Mathf.Max(6f, time);
+            _p.HandL.Haptic(0.35f, 0.1f);
+        }
         /// <summary>Top-left matchmaking line (FINDING RAID 0:12 / RAID FOUND / JOINING RAID); empty hides it.</summary>
-        public void Queue(string s, bool timer = false) { _queueLabel = s ?? ""; _queueTimer = timer && _queueLabel.Length > 0; _queueStart = Time.unscaledTime; if (_queue != null) _queue.text = _queueTimer ? _queueLabel + "  0:00" : _queueLabel; }
+        public void Queue(string s, bool timer = false) { _queueLabel = s ?? ""; _queueTimer = timer && _queueLabel.Length > 0; _queueStart = Time.unscaledTime; var q = QueueText; if (q != null) q.text = _queueTimer ? _queueLabel + "  0:00" : _queueLabel; }
+        TextMesh QueueText => XRInputs.VR && _wristQueue != null ? _wristQueue : _queue;   // VR: on the watch
         string _queueLabel = ""; bool _queueTimer; float _queueStart;
-        public void Objective(string s) { if (_objective != null) _objective.text = s ?? ""; }
+        string _objText = "";
+        public void Objective(string s) { _objText = s ?? ""; if (_objective != null) _objective.text = XRInputs.VR ? "" : _objText; }
 
         public void Tick(float dt)
         {
@@ -377,7 +401,9 @@ namespace Rago
             _suppM.SetColor("_Color", new Color(0, 0, 0, _sup * 0.75f));
             _supp.enabled = _sup > 0.01f;
             _toastT -= dt; if (_toastT <= 0) _toast.text = "";
-            if (_queueTimer && _queue != null) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); _queue.text = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
+            _msgT -= dt; if (_msgT <= 0 && _wristMsg != null) _wristMsg.text = "";
+            if (XRInputs.VR && _wristQueue != null && _queueLabel.Length == 0) _wristQueue.text = UI.Wrap(_objText, 30);   // tutorial step on the watch
+            if (_queueTimer && QueueText != null) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); QueueText.text = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
             _centerT -= dt; if (_centerT <= 0) _center.text = "";
             _crosshair.SetActive(!XRInputs.VR && !Desktop.Aiming && v.Alive);
             // wrist
@@ -386,8 +412,13 @@ namespace Rago
             var prof = Profile.Current;
             _wristInfo.text = (RaidTimer.Length > 0 ? RaidTimer + "   " : "") + "$" + (prof != null ? prof.money.ToString("N0") : "0") + "   STA " + Mathf.RoundToInt(v.Stamina);
             var gun = (_p.HandR.Held as Gun) ?? (_p.HandL.Held as Gun);
-            if (gun != null) _wristAmmo.text = gun.g.name + "  " + (gun.Rounds + (gun.chambered ? 1 : 0)) + "/" + gun.Capacity + "  [" + _p.Gear.Ammo[(int)gun.g.cal] + "]";
-            else _wristAmmo.text = "";
+            if (gun != null) _wristAmmo.text = gun.g.name + "  " + (gun.Rounds + (gun.chambered ? 1 : 0)) + "/" + gun.Capacity + "  [" + _p.Gear.Reserve(gun.CurrentAmmo)[(int)gun.g.cal] + (gun.CurrentAmmo != AmmoType.Standard ? " " + gun.CurrentAmmo.ToString().ToUpper() : "") + "]";
+            else
+            {
+                // whatever you're holding: its name and what it's worth
+                var held = _p.HandR.Held != null ? _p.HandR.Held : _p.HandL.Held;
+                _wristAmmo.text = held != null && held.def != null ? UI.Wrap(held.Label + "  ~$" + held.Value.ToString("N0"), 30) : "";
+            }
         }
     }
 }

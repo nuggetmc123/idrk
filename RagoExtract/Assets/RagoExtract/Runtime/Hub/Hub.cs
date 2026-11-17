@@ -569,7 +569,7 @@ namespace Rago
             foreach (var g in Db.Guns) if ((!g.TwoHanded || g.cls == GunClass.SMG) && g.rarity <= Rarity.Rare) arms.stock.Add(g.id);
             foreach (var s in Db.Sights) if (s.rarity <= Rarity.Rare) arms.stock.Add(s.id);
             foreach (var a in Db.Attachments) if (a.rarity <= Rarity.Rare) arms.stock.Add(a.id);
-            foreach (var m in Db.Misc) if (m.kind == ItemKind.Ammo || m.kind == ItemKind.Throwable || m.kind == ItemKind.Melee) arms.stock.Add(m.id);
+            foreach (var m in Db.Misc) if ((m.kind == ItemKind.Ammo && m.ammoType == AmmoType.Standard) || m.kind == ItemKind.Throwable || m.kind == ItemKind.Melee) arms.stock.Add(m.id);   // AP / incendiary: found only
             // basic bags only; better bags and all armour have to be found in raids
             arms.stock.Add("pack_day"); arms.stock.Add("pack_assault");
             arms.stock.Add("nvg");   // night vision for night raids

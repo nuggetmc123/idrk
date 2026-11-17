@@ -17,6 +17,7 @@ namespace Rago
         public int raids, extracts, deaths, kills, xp;
         public List<ItemData> stash = new List<ItemData>();
         public int[] stashAmmo = new int[System.Enum.GetValues(typeof(Caliber)).Length];
+        public int[] stashAp = new int[System.Enum.GetValues(typeof(Caliber)).Length], stashInc = new int[System.Enum.GetValues(typeof(Caliber)).Length];
         public Loadout loadout = new Loadout();
         public float gripPitch = 0f;
         public int aimVersion;   // 1 = guns follow the controller's aim pose (old grip-angle tweaks reset)
@@ -75,6 +76,8 @@ namespace Rago
         {
             int n = System.Enum.GetValues(typeof(Caliber)).Length;
             if (stashAmmo == null || stashAmmo.Length != n) { var a = new int[n]; if (stashAmmo != null) System.Array.Copy(stashAmmo, a, Mathf.Min(n, stashAmmo.Length)); stashAmmo = a; }
+            if (stashAp == null || stashAp.Length != n) { var a = new int[n]; if (stashAp != null) System.Array.Copy(stashAp, a, Mathf.Min(n, stashAp.Length)); stashAp = a; }
+            if (stashInc == null || stashInc.Length != n) { var a = new int[n]; if (stashInc != null) System.Array.Copy(stashInc, a, Mathf.Min(n, stashInc.Length)); stashInc = a; }
             if (stash == null) stash = new List<ItemData>();
             if (loadout == null) loadout = new Loadout();
             if (jobProgress == null) jobProgress = new List<int>();

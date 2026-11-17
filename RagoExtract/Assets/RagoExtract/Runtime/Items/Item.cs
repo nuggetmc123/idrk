@@ -430,7 +430,7 @@ namespace Rago
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (sd != null && sd.kind == ItemKind.Ammo && pl != null && pl.Gear.NearMagPouch(transform.position))
             {
-                pl.Gear.AddAmmo(sd.ammoCal, sd.ammoCount);
+                pl.Gear.AddAmmo(sd.ammoCal, sd.ammoCount, sd.ammoType);
                 Sfx.Play(Synth.Zipper(), transform.position, 0.5f, 1.2f, 0.5f, 6f);
                 Destroy(gameObject);
                 return true;

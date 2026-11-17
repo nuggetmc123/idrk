@@ -112,6 +112,7 @@ namespace Rago
             NetGame.Ensure();
             Player.Gear.LoadLoadout(prof.loadout);
             Player.Gear.Ammo = prof.stashAmmo; // in the hub you shoot from your stash ammo
+            Player.Gear.ApAmmo = prof.stashAp; Player.Gear.IncAmmo = prof.stashInc;
             if (NetHub.Backend != null) NetHub.Backend.Init(ok => { if (ok && NetHub.Voice != null) NetHub.Voice.Init(prof.DisplayName, null); });
             Vitals.OnLocalDeath = OnLocalDeath;
             // first launch: the welcome screen, where you pick your (permanent) callsign
@@ -332,6 +333,7 @@ namespace Rago
                 Player.Vitals.ResetFull();
                 Player.Hud.RaidTimer = "";
                 Player.Gear.Ammo = Profile.Current.stashAmmo;
+                Player.Gear.ApAmmo = Profile.Current.stashAp; Player.Gear.IncAmmo = Profile.Current.stashInc;
             }
             foreach (var sl in new[] { Player.Gear.Primary, Player.Gear.Secondary, Player.Gear.Pistol })
                 if (sl.item is Gun pg) { Synth.Gunshot(pg.g); Synth.GunshotDistant(pg.g); }
@@ -401,7 +403,7 @@ namespace Rago
             if (MapRoot != null)
                 foreach (var it in new List<Item>(Item.All))
                 {
-                    if (it is Magazine lm && lm.inGun == null && !it.Held && it.slot == null && it.transform.parent == null) { prof.stashAmmo[(int)lm.cal] += lm.rounds; Destroy(it.gameObject); continue; }   // a loose mag: its rounds go back to the reserve
+                    if (it is Magazine lm && lm.inGun == null && !it.Held && it.slot == null && it.transform.parent == null) { (lm.ammoType == AmmoType.AP ? prof.stashAp : lm.ammoType == AmmoType.Incendiary ? prof.stashInc : prof.stashAmmo)[(int)lm.cal] += lm.rounds; Destroy(it.gameObject); continue; }   // a loose mag: its rounds go back to the reserve
                     if (it == null || it.Held || it.slot != null || it is Magazine) continue;
                     if (!it.transform.IsChildOf(MapRoot) && it.transform.parent != null) continue;
                     loose.Add(it.Save());
@@ -452,6 +454,7 @@ namespace Rago
         float _start;
         public float Elapsed => Time.time - _start;
         int _startValue;
+        string _startHelmet, _startVest;   // the armour you wore in: it comes home if you die
 
         public static void Begin(RagoGame g, MapBase map, RaidStart rs)
         {
@@ -470,6 +473,10 @@ namespace Rago
             prof.loadout.ammo = new int[prof.stashAmmo.Length];
             prof.PackAmmoForLoadout();
             g.Player.Gear.Ammo = (int[])prof.loadout.ammo.Clone();
+            // AP / incendiary rounds you've found all come with you (and are lost if you die)
+            g.Player.Gear.ApAmmo = (int[])prof.stashAp.Clone(); g.Player.Gear.IncAmmo = (int[])prof.stashInc.Clone();
+            System.Array.Clear(prof.stashAp, 0, prof.stashAp.Length); System.Array.Clear(prof.stashInc, 0, prof.stashInc.Length);
+            I._startHelmet = prof.loadout.helmet; I._startVest = prof.loadout.vest;
             prof.Save();
             g.Player.Vitals.ResetFull();
             I._startValue = Value(g.Player.Gear);
@@ -534,7 +541,7 @@ namespace Rago
             var gear = _g.Player.Gear;
             prof.loadout = gear.SaveLoadout();
             // ammo you carried comes back to the stash
-            for (int i = 0; i < prof.stashAmmo.Length; i++) prof.stashAmmo[i] += gear.Ammo[i];
+            for (int i = 0; i < prof.stashAmmo.Length; i++) { prof.stashAmmo[i] += gear.Ammo[i]; prof.stashAp[i] += gear.ApAmmo[i]; prof.stashInc[i] += gear.IncAmmo[i]; }
             prof.loadout.ammo = null;
             int lootXp = Mathf.Clamp((Value(gear) - _startValue) / 100, 0, 500);   // $100 of loot brought out = 1 XP, up to 500
             Levels.Award(Levels.ExtractXp + lootXp, "extracted");   // kills already paid out as they happened
@@ -556,7 +563,7 @@ namespace Rago
             RaidReconnect.Info = new RaidReconnect { rs = _rs, pos = p, yaw = _g.Player.Cam != null ? _g.Player.Cam.transform.eulerAngles.y : 0f, timeLeft = TimeLeft, elapsed = Elapsed, at = Time.realtimeSinceStartup };
             prof.inRaid = false;
             prof.loadout = gear.SaveLoadout();
-            for (int i = 0; i < prof.stashAmmo.Length; i++) prof.stashAmmo[i] += gear.Ammo[i];
+            for (int i = 0; i < prof.stashAmmo.Length; i++) { prof.stashAmmo[i] += gear.Ammo[i]; prof.stashAp[i] += gear.ApAmmo[i]; prof.stashInc[i] += gear.IncAmmo[i]; }
             prof.loadout.ammo = null;
             prof.Save();
             _g.LastResult = new RaidResult { lost = true, exit = NetHub.Backend != null ? NetHub.Backend.Status : null, map = _map.DisplayName, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
@@ -576,7 +583,7 @@ namespace Rago
         {
             prof.inRaid = false;
             prof.deaths++;
-            prof.loadout = new Loadout { hasPack = true, packId = "pack_day" };
+            prof.loadout = new Loadout { hasPack = true, packId = "pack_day", helmet = prof.loadout != null ? prof.loadout.helmet ?? "" : "", vest = prof.loadout != null ? prof.loadout.vest ?? "" : "" };   // your raid armour comes back
             prof.freeArmor = true;
             bool hasGun = prof.stash.Exists(d => Db.Get<GunDef>(d.id) != null);
             if (!hasGun) prof.loadout.pistol = new ItemData("p9");
@@ -596,14 +603,16 @@ namespace Rago
             BunkerJobs.RaidFinished(prof);
             var gear = _g.Player.Gear;
             var carried = gear.AllCarried();
+            int hi = carried.FindIndex(d => !string.IsNullOrEmpty(_startHelmet) && d.id == _startHelmet); if (hi >= 0) carried.RemoveAt(hi);
+            int vi = carried.FindIndex(d => !string.IsNullOrEmpty(_startVest) && d.id == _startVest); if (vi >= 0) carried.RemoveAt(vi);
             // drop everything you carried as lootable items around your body
             var pos = _g.Player.Body.Rig.chest.position;
             NetGame.I?.LocalDied(pos, carried);
             if (!NetGame.Live)
                 foreach (var d in carried) ItemFactory.Spawn(d, pos + Vector3.up * 0.4f + Random.insideUnitSphere * 0.4f, Random.rotation);
             gear.ClearAll();
-            // everything is lost (armour too); a basic day pack and, if you're broke, a free sidearm
-            prof.loadout = new Loadout { hasPack = true, packId = "pack_day" };
+            // everything is lost except the armour you wore in (starter armour or what was on your armour stand) - that comes home
+            prof.loadout = new Loadout { hasPack = true, packId = "pack_day", helmet = _startHelmet ?? "", vest = _startVest ?? "" };
             prof.freeArmor = true;
             bool hasGun = prof.stash.Exists(d => Db.Get<GunDef>(d.id) != null);
             if (!hasGun) prof.loadout.pistol = new ItemData("p9");

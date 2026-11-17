@@ -628,7 +628,7 @@ namespace Rago
             if (rounds > capacity)
             {
                 var pl = RagoGame.I != null ? RagoGame.I.Player : null;
-                if (pl != null) pl.Gear.Ammo[(int)cal] += rounds - capacity;
+                if (pl != null) pl.Gear.Reserve(ammoType)[(int)cal] += rounds - capacity;
                 rounds = capacity;
             }
         }
@@ -706,7 +706,7 @@ namespace Rago
             if (pl != null && pl.Gear.NearMagPouch(transform.position))
             {
                 // put it back in the pouch: rounds return to your reserve
-                pl.Gear.AddAmmo(cal, rounds);
+                pl.Gear.AddAmmo(cal, rounds, ammoType);
                 Sfx.Play(Synth.Grab(1), transform.position, 0.5f, 0.9f, 0.5f, 6f);
                 Destroy(gameObject);
                 return true;

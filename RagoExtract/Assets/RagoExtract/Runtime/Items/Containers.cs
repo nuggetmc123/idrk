@@ -231,7 +231,7 @@ namespace Rago
                     break;
                 case ItemKind.Ammo:
                     mb.Sub(0).Box(Vector3.zero, new Vector3(0.12f, 0.07f, 0.08f), new Color(0.32f, 0.38f, 0.24f), 0.006f, 1);
-                    mb.Sub(0).Box(new Vector3(0, 0, 0.041f), new Vector3(0.09f, 0.03f, 0.003f), new Color(0.85f, 0.75f, 0.2f), 0.001f);
+                    mb.Sub(0).Box(new Vector3(0, 0, 0.041f), new Vector3(0.09f, 0.03f, 0.003f), d.ammoType == AmmoType.AP ? new Color(0.08f, 0.08f, 0.1f) : d.ammoType == AmmoType.Incendiary ? new Color(0.85f, 0.15f, 0.08f) : new Color(0.85f, 0.75f, 0.2f), 0.001f);   // AP = black label, incendiary = red
                     mb.Sub(1).Box(new Vector3(0, 0.04f, 0), new Vector3(0.05f, 0.012f, 0.015f), new Color(0.3f, 0.3f, 0.3f), 0.004f);
                     break;
                 case ItemKind.Key:

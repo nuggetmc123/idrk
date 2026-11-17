@@ -165,6 +165,7 @@ namespace Rago
         public float energy;            // energy drinks: seconds of boosted stamina / sprint
         public Caliber ammoCal;
         public int ammoCount;
+        public AmmoType ammoType;   // AP / incendiary boxes: found in raids only
         public int shape; // visual variant
         public Color color = Color.gray;
     }
@@ -413,6 +414,14 @@ namespace Rago
             Ammo("ammo_308", Caliber.C308, 40, 300); Ammo("ammo_338", Caliber.C338, 15, 450); Ammo("ammo_50", Caliber.C50BMG, 10, 600);
             Ammo("ammo_12g", Caliber.C12g, 24, 140); Ammo("ammo_50ae", Caliber.C50AE, 21, 260); Ammo("ammo_357", Caliber.C357, 24, 160);
             Ammo("ammo_20", Caliber.C20mm, 6, 900);
+            // special rounds: never sold - you find them in raids. The box says exactly what's in it.
+            foreach (Caliber c in System.Enum.GetValues(typeof(Caliber)))
+            {
+                if (c == Caliber.C12g) continue;   // no AP / incendiary buckshot
+                int n = c == Caliber.C20mm ? 3 : c == Caliber.C50BMG || c == Caliber.C338 ? 5 : c == Caliber.C308 ? 10 : 20;
+                SpecialAmmo("ammo_ap_" + c, c, n, AmmoType.AP);
+                SpecialAmmo("ammo_inc_" + c, c, n, AmmoType.Incendiary);
+            }
 
             // ---------------- VALUABLES (sell to the Fence)
             // junk & barter loot: sell it to the Fence (cheap scrap up to jackpots)
@@ -504,10 +513,20 @@ namespace Rago
             m.ammoCal = cal; m.ammoCount = count;
         }
 
+        static void SpecialAmmo(string id, Caliber cal, int count, AmmoType t)
+        {
+            bool ap = t == AmmoType.AP;
+            var m = M(id, CalName(cal) + (ap ? " AP" : " INCENDIARY") + " x" + count, ItemKind.Ammo, ap ? Rarity.Uncommon : Rarity.Rare, ap ? 400 : 550, 0,
+                      ap ? new Color(0.12f, 0.12f, 0.14f) : new Color(0.7f, 0.12f, 0.08f),
+                      ap ? "Armour-piercing rounds: much better against armour and walls. Store in your mag pouch, then switch to AP there (B / Y)."
+                         : "Incendiary rounds: set whoever they hit on fire. Store in your mag pouch, then switch to INCENDIARY there (B / Y).");
+            m.ammoCal = cal; m.ammoCount = count; m.ammoType = t;
+        }
+
         public static string AmmoIdFor(Caliber c)
         {
             Init();
-            foreach (var m in Misc) if (m.kind == ItemKind.Ammo && m.ammoCal == c) return m.id;
+            foreach (var m in Misc) if (m.kind == ItemKind.Ammo && m.ammoCal == c && m.ammoType == AmmoType.Standard) return m.id;
             return "ammo_9";
         }
 

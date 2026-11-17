@@ -25,6 +25,9 @@ namespace Rago
         public int[] Ammo = new int[System.Enum.GetValues(typeof(Caliber)).Length];
         /// <summary>What the next mag you pull from your pouch is loaded with (switch with B / Y on an empty magwell, or T).</summary>
         public AmmoType NextAmmo = AmmoType.Standard;
+        public int[] ApAmmo = new int[System.Enum.GetValues(typeof(Caliber)).Length], IncAmmo = new int[System.Enum.GetValues(typeof(Caliber)).Length];
+        /// <summary>The reserve a type of round comes out of.</summary>
+        public int[] Reserve(AmmoType t) => t == AmmoType.AP ? ApAmmo : t == AmmoType.Incendiary ? IncAmmo : Ammo;
         float _yaw, _magHintT;
 
         public void Init(PlayerRig p)
@@ -183,10 +186,17 @@ namespace Rago
         /// <summary>Switch what the next mag from your pouch is loaded with: STANDARD -> AP -> INCENDIARY.</summary>
         public void CycleAmmo(Hand h)
         {
-            NextAmmo = (AmmoType)(((int)NextAmmo + 1) % 3);
+            // only the rounds you actually have: for the gun in your other hand, its calibre; with no gun, any calibre
+            var gun = h != null && h.Other != null ? h.Other.Held as Gun : null;
+            bool Have(AmmoType t) => t == AmmoType.Standard || (gun != null ? Reserve(t)[(int)gun.g.cal] > 0 : System.Array.Exists(Reserve(t), x => x > 0));
+            var next = NextAmmo;
+            for (int i = 0; i < 3; i++) { next = (AmmoType)(((int)next + 1) % 3); if (Have(next)) break; }
             Sfx.Play(Synth.Grab(1), h != null ? h.transform.position : _p.transform.position, 0.4f, 1.5f, 0.5f, 5f);
             h?.Haptic(0.25f, 0.03f);
-            string what = NextAmmo == AmmoType.AP ? "AP - armour-piercing, goes through walls" : NextAmmo == AmmoType.Incendiary ? "INCENDIARY - sets them on fire" : "STANDARD";
+            if (next == NextAmmo && next == AmmoType.Standard) { _p.Toast("No AP or incendiary rounds - find them in raids"); return; }
+            NextAmmo = next;
+            string cal = gun != null ? " " + Db.CalName(gun.g.cal) + " (" + Reserve(next)[(int)gun.g.cal] + ")" : "";
+            string what = next == AmmoType.AP ? "AP" + cal + " - armour-piercing, goes through walls" : next == AmmoType.Incendiary ? "INCENDIARY" + cal + " - sets them on fire" : "STANDARD" + cal;
             _p.Toast("Pouch: " + what);
         }
 
@@ -276,10 +286,12 @@ namespace Rago
                 }
                 else
                 {
-                    int have = Ammo[(int)gun.g.cal];
+                    if (NextAmmo != AmmoType.Standard && Reserve(NextAmmo)[(int)gun.g.cal] <= 0) { _p.Toast("Out of " + (NextAmmo == AmmoType.AP ? "AP" : "incendiary") + " " + Db.CalName(gun.g.cal) + " - back to standard"); NextAmmo = AmmoType.Standard; }
+                    var res = Reserve(NextAmmo);
+                    int have = res[(int)gun.g.cal];
                     if (have <= 0) { _p.Toast("No " + Db.CalName(gun.g.cal) + " left"); Sfx.UI(Synth.UiError(), 0.3f); return null; }
                     int n = Mathf.Min(have, gun.g.magSize);
-                    Ammo[(int)gun.g.cal] -= n;
+                    res[(int)gun.g.cal] -= n;
                     var m = Magazine.Create(gun, n, p, h.Anchor.rotation);
                     m.ammoType = NextAmmo;
                     Sfx.Play(Synth.Zipper(), p, 0.35f, 1.4f, 0.5f, 5f);
@@ -300,7 +312,7 @@ namespace Rago
             return null;
         }
 
-        public void AddAmmo(Caliber c, int n) { Ammo[(int)c] += n; _p.Toast("+" + n + " " + Db.CalName(c)); }
+        public void AddAmmo(Caliber c, int n, AmmoType t = AmmoType.Standard) { Reserve(t)[(int)c] += n; _p.Toast("+" + n + " " + Db.CalName(c) + (t == AmmoType.AP ? " AP" : t == AmmoType.Incendiary ? " INCENDIARY" : "")); }
 
         // ---------------------------------------------------------------------- persistence
         public Loadout SaveLoadout()
@@ -404,11 +416,13 @@ namespace Rago
         {
             if (gun.Internal)
             {
-                int have = Ammo[(int)gun.g.cal];
+                if (Reserve(NextAmmo)[(int)gun.g.cal] <= 0) NextAmmo = AmmoType.Standard;
+                var res = Reserve(NextAmmo);
+                int have = res[(int)gun.g.cal];
                 int need = gun.g.magSize - gun.internalRounds;
                 int n = Mathf.Min(have, need);
                 if (n <= 0) { _p.Toast(have <= 0 ? "No ammo" : "Full"); return; }
-                Ammo[(int)gun.g.cal] -= n;
+                res[(int)gun.g.cal] -= n;
                 var m = Magazine.Create(gun, n, gun.transform.position, gun.transform.rotation);
                 m.ammoType = NextAmmo;
                 gun.InsertMag(m);
@@ -416,10 +430,12 @@ namespace Rago
                 return;
             }
             if (gun.mag != null) gun.EjectMag();
-            int have2 = Ammo[(int)gun.g.cal];
+            if (Reserve(NextAmmo)[(int)gun.g.cal] <= 0) NextAmmo = AmmoType.Standard;
+            var res2 = Reserve(NextAmmo);
+            int have2 = res2[(int)gun.g.cal];
             if (have2 <= 0) { _p.Toast("No " + Db.CalName(gun.g.cal) + " left"); return; }
             int k = Mathf.Min(have2, gun.g.magSize);
-            Ammo[(int)gun.g.cal] -= k;
+            res2[(int)gun.g.cal] -= k;
             var mag = Magazine.Create(gun, k, gun.transform.position, gun.transform.rotation);
             mag.ammoType = NextAmmo;
             gun.InsertMag(mag);

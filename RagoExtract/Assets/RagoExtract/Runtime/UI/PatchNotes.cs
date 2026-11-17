@@ -5,16 +5,14 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
-            ("2.7", "Less lag, spawn fix, leaving raids", new[] {
-                "LESS LAG with 3+ players: everyone now sends straight to everyone else instead of everything going through one player first (half the trips, and no one player's internet carries the whole raid). If two players can't reach each other directly, just those two go through a relay automatically.",
-                "Other players are shown closer to real time (smaller smoothing delay).",
-                "FIXED: party members (and friends) spawning a kilometre apart, so nobody ever saw each other - each party now always lands together again.",
-                "The raid start banner lists everyone in the raid with you, so you can tell straight away you're in the same raid.",
-                "Leaving the game mid-raid now counts as dying: everything you took in (and your bag) is lost.",
-                "Padlocks break much more easily: a hit on the door near the lock counts, rifle rounds through the door count, and you can punch them off.",
-                "Scavs hear your footsteps (walking ~8 m, running ~16 m) - crouch to sneak up silently. They hear other players too.",
-                "Other players' footsteps are louder.",
-                "From 2.5: Anzio 20mm, AP / incendiary ammo (switch at your mag pouch with B / Y), wall-banging, burning, guns can't go through walls.",
+            ("2.8", "Found ammo, watch messages, armour comes home", new[] {
+                "AP and INCENDIARY rounds are no longer sold - find them in raids. The box says exactly what's in it (e.g. \"5.56x45mm AP x20\"). Put it in your mag pouch to add it.",
+                "Each type has its own reserve per calibre. Switching at the pouch (B / Y) only offers AP / incendiary if you have some for the gun in your other hand, and shows how many.",
+                "Run out of special rounds and the pouch drops back to standard. Mags you put back return rounds to the right type.",
+                "Special rounds go into every raid with you: extract and you keep the rest, die and they're gone.",
+                "DIE IN A RAID and you get back the armour you wore in (your starter armour or whatever was on your armour stand). It isn't dropped on your body any more.",
+                "No more text on your screen in VR: pickups, the airdrop, vault messages, raid banners, the tutorial and everything else show on your wrist watch (with a buzz). The held item's name and value are on the watch too.",
+                "The watch is a bit bigger to fit the messages.",
             }),
         };
     }
