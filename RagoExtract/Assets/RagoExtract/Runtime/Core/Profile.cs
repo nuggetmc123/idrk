@@ -26,7 +26,8 @@ namespace Rago
         public float volume = 1f;
         public int version = 1;
         public bool freeArmor;
-        public float pugBowl = 0.5f;   // how full the bunker pug's bowl is (0..1)
+        public float pugBowl = 0.5f;
+        public List<ShopEntry> shop = new List<ShopEntry>(); public int shopNextId; public bool shopOpen;   // your black market shop (items listed, with a price or what you want)   // how full the bunker pug's bowl is (0..1)
         // callsign: name + a 4-digit tag, so no two operators ever show the same name (Discord-style)
         public int tag;
         public bool nameSet, tutorialDone;

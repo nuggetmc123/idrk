@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.16", "Player markets on screens, clearer trade table", new[] {
+                "The booths are gone - the hall is clear again. Instead there are BLACK MARKET SCREENS (by the lift and in the middle of the hall). PLAYER MARKETS lists everyone selling; OPEN one to see what they sell and what they want for each thing - money, or items (guns, armour, keycards, meds, anything on the list) and how many.",
+                "MY MARKET (level 5+): press CREATE MY MARKET, put items on the red square, pick which one to sell, pick what you want for it (< >) and the price or how many, then LIST IT. UNLIST sends it back to your bunker. Your market is open whenever you're in the Market.",
+                "BUY holds your money until the seller's game hands it over; TRADE takes what they want off the red square. Whatever you get goes straight to your bunker (both sides).",
+                "TRADE TABLE: the board no longer runs its text together - your name, what you give and the money are on separate lines, and it shows clearly how much money you PAY and GET. A board over the table shows the whole deal to both traders and anyone watching. The control board now leans back towards you.",
+                "Items laid on the red square lie across it (guns no longer point at you or into the screen).",
+            }),
             ("2.15", "Swap trades, booths for everyone, med fix", new[] {
                 "BLACK MARKET SWAPS: when you LIST, press WANT to ask for an item instead of money (any gun, a vault keycard, a military radio, armour, night vision, valuables, a bag, optics, AP / incendiary ammo). Buyers put what you want on the red OFFER square and press TRADE - both items are sent straight to the two players' bunkers.",
                 "You need to be LEVEL 5 to sell to other players (listing on the computer or claiming a booth).",

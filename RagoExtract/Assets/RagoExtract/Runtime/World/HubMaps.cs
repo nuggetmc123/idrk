@@ -547,8 +547,10 @@ namespace Rago
             }
             // ---- players' own trading: a trade table and four stalls anyone can claim
             TradeTable.Create(transform, new Vector3(-6.5f, 0, -3.5f), 90f);
-            for (int ps = 0; ps < 8; ps++) PlayerStall.Create(transform, new Vector3(-13.5f + ps * 3.5f, 0, 3.0f), 0f);   // eight little booths in a row through the middle: one each for whoever's selling
-            BlackMarket.Create(transform, new Vector3(W / 2 - 1.2f, 0, 4.5f), 90f);   // the black market computer, by the lift
+            // black market screens (players' shops): one by the lift, two in the middle of the hall
+            ShopScreen.Create(transform, new Vector3(W / 2 - 1.2f, 0, 4.5f), 90f);
+            ShopScreen.Create(transform, new Vector3(-9f, 0, 3.5f), 0f);
+            ShopScreen.Create(transform, new Vector3(-4f, 0, 3.5f), 0f);
             // ---- the Exchange: a few steps from the lift doors, facing them
             SellStation.Create(transform, new Vector3(W / 2 - 7.5f, 0, -6f), -90f);
             // ---- the casino: along the south wall, east of the roller door (customers face the wall)

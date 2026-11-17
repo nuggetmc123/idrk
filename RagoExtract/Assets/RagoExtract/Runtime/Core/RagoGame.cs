@@ -398,7 +398,7 @@ namespace Rago
             var market = Map as MarketMap;
             var loose = new List<ItemData>();
             if (bunker != null) prof.stash = bunker.SaveStash();
-            if (market != null) { foreach (var s in market.Stalls) s.SweepToStash(loose); if (market.Foreman != null) market.Foreman.SweepToStash(loose); if (LostAndFound.I != null) loose.AddRange(LostAndFound.I.Save()); if (TradeTable.I != null) TradeTable.I.SweepToStash(loose); foreach (var ps in new List<PlayerStall>(PlayerStall.All)) ps.SweepToStash(loose); foreach (var bm in FindObjectsOfType<BlackMarket>()) bm.SweepToStash(loose); }   // the Market's Lost & Found goes home too
+            if (market != null) { foreach (var s in market.Stalls) s.SweepToStash(loose); if (market.Foreman != null) market.Foreman.SweepToStash(loose); if (LostAndFound.I != null) loose.AddRange(LostAndFound.I.Save()); if (TradeTable.I != null) TradeTable.I.SweepToStash(loose); foreach (var sc in FindObjectsOfType<ShopScreen>()) sc.SweepToStash(loose); Shops.LeaveMarket(); }   // the Market's Lost & Found goes home too
             foreach (var ss in new List<SellStation>(SellStation.All)) if (ss != null) ss.SweepToStash(loose);   // unsold loot left in an Exchange bin
             // anything lying around the hub goes back to the stash
             if (MapRoot != null)

@@ -9,8 +9,10 @@ namespace Rago
     ///  - TRADE TABLE: two players each stand at a side, put items (and cash) on their half and press ACCEPT. The swap
     ///    only happens when both have accepted exactly the offers on the table - any change un-accepts both sides. Your
     ///    items never leave your side until then; what you get lands on your RECEIVED tray.
-    ///  - PLAYER STALLS: claim a stall, hang items on it and on the mannequin (sold as one kit), set prices. Buyers press
-    ///    BUY: their money is held, the seller's game checks the item is still there and sends it over (or refunds).
+    ///  - SHOPS on the black market screens: everyone (level 5+) has a shop. Pick a player's shop on a screen to see what
+    ///    they sell and what they want for it - money, or an item (a gun, armour, a keycard...). BUY holds your money until
+    ///    the seller's game hands it over; TRADE takes the item off your red OFFER square. Everything bought or swapped
+    ///    goes straight to the buyer's / seller's bunker.
     /// Everyone only ever touches their own real items; other players see display copies.
     /// </summary>
     public static class MarketNet
@@ -32,7 +34,7 @@ namespace Rago
             byte op = r.ReadByte();
             if (op == TradeAsk) { string what = r.ReadString(); RagoGame.I?.Player?.Toast(NameOf(from) + " wants to TRADE for your " + what + " - meet them at the TRADE TABLE"); Sfx.UI(Synth.UiClick(), 0.5f); return; }
             if (op <= Accept) { int t = r.ReadByte(); if (TradeTable.I != null && t == 0) TradeTable.I.OnNet(op, from, r); }
-            else { int st = r.ReadByte(); if (st < PlayerStall.All.Count) PlayerStall.All[st].OnNet(op, from, r); }
+            else Shops.OnNet(op, from, r);
         }
 
         public static string Json(Item it) => JsonUtility.ToJson(it.Save());
@@ -77,7 +79,7 @@ namespace Rago
             public bool accepted; public int accVa, accVb;
             public readonly List<string> items = new List<string>();
             public readonly List<GameObject> ghosts = new List<GameObject>();
-            public TextMesh sign, info; public WorldButton claim, accept, plus, minus;
+            public TextMesh sign, info, cash; public WorldButton claim, accept, plus, minus;
             public Transform root;
         }
         readonly Side[] _s = { new Side(), new Side() };
@@ -104,8 +106,13 @@ namespace Rago
             mb.Box(new Vector3(0, 0.925f, 0), new Vector3(2.2f, 0.01f, 0.03f), new Color(0.9f, 0.75f, 0.2f));   // the line down the middle
             mb.Build("Table", transform, MarketNet.Wood);
             var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.46f, 0); col.size = new Vector3(2.2f, 0.92f, 1.5f);
-            MarketNet.Label(transform, "TRADE TABLE", new Vector3(0, 1.9f, 0), 0.12f, UI.Accent);
-            MarketNet.Label(transform, "TRADE TABLE", new Vector3(0, 1.9f, 0.01f), 0.12f, UI.Accent).transform.localRotation = Quaternion.Euler(0, 180, 0);
+            // a sign board over the middle showing the whole deal, lettered on both faces
+            var sb = new MB().Box(new Vector3(0, 2.05f, 0), new Vector3(1.9f, 0.5f, 0.04f), new Color(0.08f, 0.08f, 0.09f), 0.01f)
+                .Box(new Vector3(-0.9f, 1.4f, 0), new Vector3(0.04f, 1.1f, 0.04f), new Color(0.2f, 0.2f, 0.2f)).Box(new Vector3(0.9f, 1.4f, 0), new Vector3(0.04f, 1.1f, 0.04f), new Color(0.2f, 0.2f, 0.2f));
+            sb.Build("DealBoard", transform, MarketNet.Steel);
+            _deal[0] = UI.Text(transform, "", new Vector3(0, 2.05f, -0.022f), 0.03f, new Color(1f, 0.9f, 0.5f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            _deal[1] = UI.Text(transform, "", new Vector3(0, 2.05f, 0.026f), 0.03f, new Color(1f, 0.9f, 0.5f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            _deal[1].transform.localRotation = Quaternion.Euler(0, 180, 0);
             for (int k = 0; k < 2; k++)
             {
                 var sd = _s[k];
@@ -117,13 +124,16 @@ namespace Rago
                 sd.grid = ItemContainer.Grid(sd.root, new Vector3(-0.25f, 0.02f, 0), Quaternion.identity, 3, 2, new Vector2(0.3f, 0.3f), 0.26f);
                 sd.grid.onChanged = () => OnGridChanged(kk);
                 sd.tray = ItemContainer.Grid(sd.root, new Vector3(0.78f, 0.02f, -0.05f), Quaternion.identity, 1, 2, new Vector2(0.3f, 0.3f), 0.26f);
-                var ui = UI.Panel(sd.root, "TradeUI", new Vector3(0, 0.28f, -0.36f), Quaternion.Euler(-25, 0, 0), new Vector2(1.9f, 0.32f), null, true, Skin.Steel);
-                sd.sign = UI.Text(ui, "", new Vector3(-0.9f, 0.1f, -0.003f), 0.03f, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
-                sd.info = UI.Text(ui, "", new Vector3(-0.9f, 0.04f, -0.003f), 0.022f, UI.Dim, TextAnchor.MiddleLeft);
-                sd.claim = UI.Button(ui, "TRADE HERE", new Vector3(-0.55f, -0.08f, 0), new Vector2(0.34f, 0.1f), () => Claim(kk), new Color(0.2f, 0.4f, 0.6f), BtnStyle.Key);
-                sd.minus = UI.Button(ui, "- $1000", new Vector3(-0.15f, -0.08f, 0), new Vector2(0.22f, 0.1f), () => Money(kk, -1000), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
-                sd.plus = UI.Button(ui, "+ $1000", new Vector3(0.1f, -0.08f, 0), new Vector2(0.22f, 0.1f), () => Money(kk, 1000), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
-                sd.accept = UI.Button(ui, "ACCEPT", new Vector3(0.55f, -0.08f, 0), new Vector2(0.34f, 0.1f), () => AcceptPress(kk), new Color(0.2f, 0.5f, 0.2f), BtnStyle.Key);
+                // the control board stands up on your edge of the table, leaning back towards you; three clear rows of
+                // text over a row of buttons (the text used to run together)
+                var ui = UI.Panel(sd.root, "TradeUI", new Vector3(0, 0.36f, -0.36f), Quaternion.Euler(20, 0, 0), new Vector2(1.9f, 0.56f), null, true, Skin.Steel);
+                sd.sign = UI.Text(ui, "", new Vector3(-0.88f, 0.21f, -0.003f), 0.026f, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
+                sd.info = UI.Text(ui, "", new Vector3(-0.88f, 0.13f, -0.003f), 0.02f, new Color(0.8f, 0.82f, 0.85f), TextAnchor.MiddleLeft);
+                sd.cash = UI.Text(ui, "", new Vector3(-0.88f, 0.04f, -0.003f), 0.024f, new Color(1f, 0.85f, 0.3f), TextAnchor.MiddleLeft, FontStyle.Bold);
+                sd.claim = UI.Button(ui, "TRADE HERE", new Vector3(-0.62f, -0.15f, 0), new Vector2(0.4f, 0.11f), () => Claim(kk), new Color(0.2f, 0.4f, 0.6f), BtnStyle.Key);
+                sd.minus = UI.Button(ui, "- $1000", new Vector3(-0.17f, -0.15f, 0), new Vector2(0.24f, 0.11f), () => Money(kk, -1000), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
+                sd.plus = UI.Button(ui, "+ $1000", new Vector3(0.12f, -0.15f, 0), new Vector2(0.24f, 0.11f), () => Money(kk, 1000), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
+                sd.accept = UI.Button(ui, "ACCEPT", new Vector3(0.6f, -0.15f, 0), new Vector2(0.4f, 0.11f), () => AcceptPress(kk), new Color(0.2f, 0.5f, 0.2f), BtnStyle.Key);
                 MarketNet.Label(sd.root, "RECEIVED", new Vector3(0.78f, 0.01f, 0.3f), 0.025f, UI.Dim).transform.localRotation = Quaternion.Euler(90, 0, 0);
             }
             Refresh();
@@ -291,22 +301,38 @@ namespace Rago
             Refresh();
         }
 
+        string Gives(Side sd)
+        {
+            var names = new List<string>();
+            foreach (var j in sd.items) { var d = MarketNet.Data(j); var df = d != null ? Db.Get(d.id) : null; if (df != null) names.Add(df.name); }
+            return names.Count == 0 ? "no items" : string.Join(", ", names);
+        }
+
         void Refresh()
         {
             int mine = Mine();
             for (int k = 0; k < 2; k++)
             {
-                var sd = _s[k]; bool own = sd.owner == MarketNet.Me && sd.owner != 0;
-                sd.sign.text = sd.owner == 0 ? "FREE - press TRADE HERE" : (own ? "YOU" : sd.name) + (sd.accepted ? "   <color=#66ff66>ACCEPTED</color>" : "");
+                var sd = _s[k]; var other = _s[1 - k]; bool own = sd.owner == MarketNet.Me && sd.owner != 0;
+                string who = sd.owner == 0 ? "" : own ? "YOU" : sd.name.Split('#')[0].ToUpper();
+                sd.sign.text = sd.owner == 0 ? "FREE - press TRADE HERE" : who + (sd.accepted ? "   <color=#66ff66>ACCEPTED</color>" : "   (not accepted yet)");
                 sd.sign.richText = true;
                 int val = 0; foreach (var j in sd.items) { var d = MarketNet.Data(j); if (d != null && Db.Get(d.id) != null) val += Db.Get(d.id).price; }
-                sd.info.text = sd.owner == 0 ? "" : sd.items.Count + " item(s)  ~$" + val.ToString("N0") + (sd.money > 0 ? "   + $" + sd.money.ToString("N0") + " cash" : "");
+                sd.info.text = sd.owner == 0 ? "" : UI.Wrap((own ? "YOU GIVE: " : who + " GIVES: ") + Gives(sd) + (val > 0 ? "  (~$" + val.ToString("N0") + ")" : ""), 70);
+                // the money, big and clear: what you're paying and what you're getting
+                sd.cash.text = sd.owner == 0 ? "" : (own ? "YOU PAY $" + sd.money.ToString("N0") : who + " PAYS $" + sd.money.ToString("N0"))
+                    + (other.owner != 0 ? "      " + (own ? "YOU GET $" + other.money.ToString("N0") : "") : "");
                 sd.claim.Label.text = own ? "LEAVE" : "TRADE HERE";
                 sd.claim.Interactable = sd.owner == 0 || own;
                 sd.accept.Interactable = own; sd.plus.Interactable = own; sd.minus.Interactable = own;
                 sd.accept.Label.text = own && sd.accepted ? "UN-ACCEPT" : "ACCEPT";
             }
+            // the deal, over the middle of the table - for both traders and anyone watching
+            string Line(Side x) => x.owner == 0 ? "(nobody)" : x.name.Split('#')[0].ToUpper() + ":  " + Gives(x) + "  +  $" + x.money.ToString("N0") + (x.accepted ? "  [OK]" : "");
+            string deal = Line(_s[0]) + "\n" + Line(_s[1]);
+            foreach (var t in _deal) if (t != null) t.text = _s[0].owner == 0 && _s[1].owner == 0 ? "TRADE TABLE\nstand at a side and press TRADE HERE" : deal;
         }
+        readonly TextMesh[] _deal = new TextMesh[2];
 
         public void SweepToStash(List<ItemData> into)
         {
@@ -318,450 +344,221 @@ namespace Rago
         void OnDestroy() { if (I == this) I = null; }
     }
 
-    // =========================================================================================== PLAYER STALLS
-    public class PlayerStall : MonoBehaviour
+    // =========================================================================================== SHOPS
+    /// <summary>One thing in a player's shop: the item, and either a price or what they want for it.</summary>
+    [System.Serializable]
+    public class ShopEntry { public int id; public ItemData item; public int price; public int want; }
+
+    public static class Shops
     {
-        public static readonly List<PlayerStall> All = new List<PlayerStall>();
-        const int Hooks = 6, Kit = 6, Slots = 10;
-        public const int SellLevel = 5;   // listing / claiming a booth needs level 5   // 0-5 hooks / table, 6-9 the mannequin (helmet, vest, gun, bag) sold as one
-        int _index;
-        ulong _owner; string _ownerName = "";
-        readonly Slot[] _slot = new Slot[Slots];
-        readonly int[] _price = new int[Slots];
-        readonly string[] _json = new string[Slots];
-        readonly int[] _want = new int[Slots];   // 0 = money; otherwise what the seller wants in exchange (BlackMarket.Wants)
-        readonly GameObject[] _ghost = new GameObject[Slots];
-        readonly TextMesh[] _tag = new TextMesh[Hooks + 1];
-        readonly WorldButton[] _buy = new WorldButton[Hooks + 1], _up = new WorldButton[Hooks + 1], _down = new WorldButton[Hooks + 1];
-        TextMesh _sign; WorldButton _claim;
-        Transform _pickup;
-        float _bcastT, _pendingT; int _pendingSlot = -1, _pendingPaid;
-        bool _quiet;
+        public const int SellLevel = 5;   // you need level 5 to sell to other players
+        public class Remote { public string name; public float heard; public readonly List<ShopEntry> entries = new List<ShopEntry>(); }
+        public static readonly Dictionary<ulong, Remote> Others = new Dictionary<ulong, Remote>();
+        public static System.Action Changed;
 
-        public static PlayerStall Create(Transform parent, Vector3 pos, float yaw)
+        static List<ShopEntry> Mine => Profile.Current != null ? (Profile.Current.shop ??= new List<ShopEntry>()) : new List<ShopEntry>();
+        public static List<ShopEntry> MyEntries => Mine;
+
+        // ---- pending purchases / swaps of mine, by (seller, entry id)
+        class Pending { public ulong seller; public int id; public bool swap; public int paid; public string offer; public float t; }
+        static readonly List<Pending> _pending = new List<Pending>();
+        public static bool IsPending(ulong seller, int id) => _pending.Exists(p => p.seller == seller && p.id == id);
+        static float _bcastT;
+
+        public static string ItemName(ItemData d) { var def = d != null ? Db.Get(d.id) : null; return def != null ? def.name : "?"; }
+
+        /// <summary>Called every frame by the screens in the Market.</summary>
+        static int _tickFrame = -1;
+        public static void Tick()
         {
-            var go = new GameObject("PlayerStall" + All.Count);
-            go.transform.SetParent(parent, false);
-            go.transform.SetPositionAndRotation(pos, Quaternion.Euler(0, yaw, 0));
-            var s = go.AddComponent<PlayerStall>();
-            s._index = All.Count; All.Add(s);
+            if (_tickFrame == Time.frameCount) return;   // several screens call this: once a frame
+            _tickFrame = Time.frameCount;
             MarketNet.Hook();
-            s.Build();
-            return s;
-        }
-
-        // the customer stands at local -Z
-        void Build()
-        {
-            // a little booth: counter, pegboard and header on the left, the mannequin at the right end
-            var mb = new MB();
-            mb.Box(new Vector3(-0.25f, 0.45f, 0.1f), new Vector3(1.6f, 0.9f, 0.6f), Color.white, 0.02f);                       // counter
-            mb.Box(new Vector3(-0.25f, 1.6f, 0.5f), new Vector3(1.6f, 1.3f, 0.05f), Color.white * 0.75f, 0.01f);              // pegboard
-            foreach (var x in new[] { -1.05f, 0.55f }) mb.Box(new Vector3(x, 1.2f, 0.47f), new Vector3(0.06f, 2.4f, 0.06f), Color.white * 0.6f);
-            mb.Box(new Vector3(0.1f, 2.45f, 0.47f), new Vector3(2.4f, 0.26f, 0.07f), new Color(0.2f, 0.25f, 0.35f), 0.01f);   // header
-            mb.Build("Stall", transform, MarketNet.Wood);
-            var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(-0.25f, 0.45f, 0.1f); col.size = new Vector3(1.6f, 0.9f, 0.6f);
-            _sign = MarketNet.Label(transform, "", new Vector3(0.1f, 2.45f, 0.43f), 0.06f, Color.white);
-            // six spots: three hooks on the board, three on the counter
-            for (int i = 0; i < Hooks; i++)
+            // shops of players who left disappear
+            List<ulong> gone = null;
+            foreach (var kv in Others) if (!MarketNet.Present(kv.Key)) (gone ??= new List<ulong>()).Add(kv.Key);
+            if (gone != null) { foreach (var g in gone) Others.Remove(g); Changed?.Invoke(); }
+            // a seller who left before answering: money back / your item back to your stash
+            for (int i = _pending.Count - 1; i >= 0; i--)
             {
-                bool hook = i < 3;
-                Vector3 p = hook ? new Vector3(-0.75f + i * 0.5f, 1.72f, 0.4f) : new Vector3(-0.75f + (i - 3) * 0.5f, 0.95f, 0.12f);
-                _slot[i] = MakeSlot(p, 0.38f, i);
-                if (hook) new MB().Cyl(p + new Vector3(0, 0.22f, 0.1f), p + new Vector3(0, 0.22f, -0.05f), 0.01f, 0.01f, 6, Color.gray).Build("Hook", transform, MarketNet.Steel);
-                Controls(i, p + (hook ? new Vector3(0, -0.32f, -0.05f) : new Vector3(0, -0.06f, -0.38f)), hook ? Quaternion.identity : Quaternion.Euler(50, 0, 0));
+                var p = _pending[i];
+                if (MarketNet.Present(p.seller) && Time.time - p.t < 30f) continue;
+                Undo(p, "The seller didn't answer");
+                _pending.RemoveAt(i);
             }
-            // the mannequin: a whole kit for one price
-            var mq = new Vector3(0.85f, 0, 0.15f);
-            var m = new MB();
-            m.Cyl(mq, mq + new Vector3(0, 0.05f, 0), 0.25f, 0.25f, 16, Color.gray);
-            m.Cyl(mq + new Vector3(0, 0.05f, 0), mq + new Vector3(0, 1.0f, 0), 0.025f, 0.025f, 8, Color.gray);
-            m.Box(mq + new Vector3(0, 1.3f, 0), new Vector3(0.36f, 0.55f, 0.22f), new Color(0.85f, 0.82f, 0.75f), 0.08f);
-            m.Sphere(mq + new Vector3(0, 1.72f, 0), new Vector3(0.11f, 0.13f, 0.12f), 12, new Color(0.85f, 0.82f, 0.75f));
-            m.Build("Mannequin", transform, MarketNet.Wood);
-            _slot[6] = MakeSlot(mq + new Vector3(0, 1.82f, 0), 0.32f, 6, it => it is ArmorItem a && a.ad.slot == ArmorSlot.Helmet);
-            _slot[7] = MakeSlot(mq + new Vector3(0, 1.3f, -0.08f), 0.5f, 7, it => it is ArmorItem a && a.ad.slot == ArmorSlot.Vest);
-            _slot[8] = MakeSlot(mq + new Vector3(0, 1.15f, -0.25f), 0.9f, 8, it => it is Gun);
-            _slot[9] = MakeSlot(mq + new Vector3(0, 1.3f, 0.2f), 0.5f, 9, it => it is Backpack);
-            Controls(Hooks, mq + new Vector3(0, 0.55f, -0.3f), Quaternion.identity);
-            _claim = UI.Button(transform, "CLAIM BOOTH", new Vector3(0.85f, 0.95f, -0.25f), new Vector2(0.34f, 0.09f), Claim, new Color(0.2f, 0.4f, 0.6f), BtnStyle.Key);
-            _claim.transform.localRotation = Quaternion.Euler(50, 0, 0);
-            _pickup = new GameObject("Pickup").transform; _pickup.SetParent(transform, false); _pickup.localPosition = new Vector3(0.3f, 1.0f, -0.05f);
-            Refresh();
+            if ((_bcastT -= Time.deltaTime) <= 0f) { _bcastT = 4f; Broadcast(); }
         }
 
-        Slot MakeSlot(Vector3 p, float fit, int i, System.Func<Item, bool> filter = null)
+        public static void Broadcast()
         {
-            var c = ItemContainer.Grid(transform, p, Quaternion.identity, 1, 1, new Vector2(fit, fit), fit, filter);
-            var sl = c.slots[0];
-            c.onChanged = () => OnSlotChanged(i);
-            return sl;
-        }
-
-        void Controls(int i, Vector3 p, Quaternion rot)
-        {
-            int k = i;
-            var root = new GameObject("Price" + i).transform; root.SetParent(transform, false); root.localPosition = p; root.localRotation = rot;
-            _tag[i] = UI.Text(root, "", new Vector3(0, 0.04f, -0.01f), 0.028f, new Color(1f, 0.9f, 0.4f), TextAnchor.MiddleCenter, FontStyle.Bold);
-            _down[i] = UI.Button(root, "-", new Vector3(-0.16f, -0.04f, 0), new Vector2(0.07f, 0.065f), () => Price(k, -1), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
-            _buy[i] = UI.Button(root, "BUY", new Vector3(0, -0.04f, 0), new Vector2(0.16f, 0.065f), () => Buy(k), new Color(0.2f, 0.5f, 0.2f), BtnStyle.Key);
-            _up[i] = UI.Button(root, "+", new Vector3(0.16f, -0.04f, 0), new Vector2(0.07f, 0.065f), () => Price(k, 1), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
-        }
-
-        int PriceIdx(int i) => i >= Kit ? Kit : i;
-        bool Mine => _owner != 0 && _owner == MarketNet.Me;
-
-        void Claim()
-        {
-            if (!NetGame.Live) { RagoGame.I.Player.Toast("Stalls need the Market online"); return; }
-            if (Mine) { Release(); return; }
-            if (_owner != 0) return;
-            if (Levels.Current < SellLevel) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I.Player.Toast("You need to be level " + SellLevel + " to sell to other players (you're " + Levels.Current + ")"); return; }
-            foreach (var s in All) if (s != this && s.Mine) s.Release();
-            _owner = MarketNet.Me; _ownerName = MarketNet.NameOf(_owner);
-            Sfx.UI(Synth.UiClick(), 0.4f);
-            Broadcast(); Refresh();
-        }
-
-        void Release()
-        {
-            if (!Mine) return;
-            _owner = 0; _ownerName = "";
-            for (int i = 0; i < Slots; i++) { _json[i] = null; _price[i] = 0; _want[i] = 0; }
-            int st = _index;
-            MarketNet.Send(w => { w.Write(MarketNet.StallRelease); w.Write((byte)st); });
-            Refresh();
-        }
-
-        void Price(int i, int dir)
-        {
-            if (!Mine) return;
-            int p = _price[i];
-            int step = p < 1000 ? 100 : p < 10000 ? 500 : p < 50000 ? 2500 : 10000;
-            _price[i] = Mathf.Clamp(p + dir * step, 0, 9999999);
-            Broadcast(); Refresh();
-        }
-
-        void OnSlotChanged(int i)
-        {
-            if (_quiet || !Mine) return;
-            var it = _slot[i].item;
-            _json[i] = it != null ? MarketNet.Json(it) : null;
-            if (it == null) _want[i] = 0;
-            int pi = PriceIdx(i);
-            if (it != null && _price[pi] <= 0) _price[pi] = Mathf.Max(100, Mathf.RoundToInt(SellStation.Offer(it, out _) * 1.3f / 100f) * 100);   // a starting price you can change
-            if (pi == Kit) { int sum = 0; for (int k = Kit; k < Slots; k++) if (_slot[k].item != null) sum += SellStation.Offer(_slot[k].item, out _); if (sum > 0 && it != null) _price[Kit] = Mathf.Max(_price[Kit], Mathf.RoundToInt(sum * 1.2f / 100f) * 100); }
-            Broadcast(); Refresh();
-        }
-
-        void Broadcast()
-        {
-            if (!Mine) return;
-            int st = _index; string name = _ownerName;
-            var js = (string[])_json.Clone(); var pr = (int[])_price.Clone(); var wt = (int[])_want.Clone();
+            if (!NetGame.Live || Profile.Current == null) return;
+            var mine = new List<ShopEntry>(Mine);
+            string name = Profile.Current.DisplayName;
             MarketNet.Send(w =>
             {
-                w.Write(MarketNet.Listing); w.Write((byte)st); w.Write(name);
-                for (int i = 0; i < Slots; i++) { w.Write(js[i] ?? ""); w.Write(pr[i]); }
-                for (int i = 0; i < Slots; i++) w.Write((byte)wt[i]);
+                w.Write(MarketNet.Listing); w.Write(name); w.Write((byte)Mathf.Min(mine.Count, 40));
+                for (int i = 0; i < mine.Count && i < 40; i++) { var e = mine[i]; w.Write(e.id); w.Write(JsonUtility.ToJson(e.item)); w.Write(e.price); w.Write((byte)e.want); }
             });
         }
 
-        void Buy(int i)
+        public static bool List(Item it, int price, int want)
         {
-            if (Mine || _owner == 0) return;
-            var prof = Profile.Current;
-            bool any = i == Hooks ? HasKit() : !string.IsNullOrEmpty(_json[i]);
-            if (!any || prof == null) return;
-            int slot = i == Hooks ? Kit : i;
-            int price = _price[slot];
-            if (_pendingSlot >= 0) { RagoGame.I.Player.Toast("Waiting for the last purchase..."); return; }
-            if (prof.money < price) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I.Player.Toast("Not enough money"); return; }
-            // hold the money until the seller's game confirms
-            prof.money -= price; _pendingSlot = slot; _pendingPaid = price; _pendingT = 20f;
-            int st = _index;
-            MarketNet.Send(w => { w.Write(MarketNet.BuyReq); w.Write((byte)st); w.Write((byte)slot); w.Write(price); }, _owner);
-            Sfx.UI(Synth.UiClick(), 0.4f);
-            Refresh();
-        }
-
-        bool HasKit() { for (int k = Kit; k < Slots; k++) if (!string.IsNullOrEmpty(_json[k])) return true; return false; }
-
-        // ---- item-for-item swaps from the black market: both items go straight to the two players' bunker stashes
-        int _swapSlot = -1; string _swapOffer; ItemContainer _swapPad;
-        public bool SwapPending => _swapSlot >= 0;
-        public int WantOf(int slot) => slot >= 0 && slot < Slots ? _want[slot] : 0;
-        public void SwapRemote(int slot, Item offer, ItemContainer pad)
-        {
-            if (_owner == 0 || Mine || _swapSlot >= 0 || offer == null) return;
-            if (!BlackMarket.Matches(_want[slot], offer.def)) { RagoGame.I.Player.Toast("They want " + BlackMarket.WantName(_want[slot]) + " for that"); return; }
-            // your item leaves the pad (held for the swap) - it comes back if the seller says no or leaves
-            _swapOffer = MarketNet.Json(offer); _swapSlot = slot; _swapPad = pad;
-            if (offer.slot != null) offer.slot.Release(offer);
-            offer.Consumed = true; Destroy(offer.gameObject);
-            int st = _index; string j = _swapOffer;
-            MarketNet.Send(w => { w.Write(MarketNet.SwapReq); w.Write((byte)st); w.Write((byte)slot); w.Write(j); }, _owner);
-            RagoGame.I.Player.Toast("Swap offer sent to " + _ownerName + "...");
-        }
-        void SwapFailed(string why)
-        {
-            if (_swapSlot < 0) return;
-            var d = MarketNet.Data(_swapOffer);
-            if (d != null)
-            {
-                var it = ItemFactory.Spawn(d, transform.position + Vector3.up, Quaternion.identity);
-                if (it != null && !(_swapPad != null && _swapPad.Add(it)) && Profile.Current != null) { Profile.Current.stash.Add(it.Save()); Destroy(it.gameObject); why += " (it went to your stash)"; }
-            }
-            _swapSlot = -1; _swapOffer = null;
-            RagoGame.I?.Player?.Toast(why);
-        }
-
-        // ---- used by the black market computer
-        public struct Listing { public PlayerStall stall; public int slot; public string name; public int price; public string seller; public ulong sellerId; public int want; }
-        public void Listings(List<Listing> into)
-        {
-            if (_owner == 0) return;
-            for (int i = 0; i < Hooks; i++)
-            {
-                string j = Mine ? (_slot[i].item != null ? MarketNet.Json(_slot[i].item) : null) : _json[i];
-                var d = MarketNet.Data(j); var def = d != null ? Db.Get(d.id) : null;
-                if (def != null) into.Add(new Listing { stall = this, slot = i, name = def.name, price = _price[i], seller = _ownerName, sellerId = _owner, want = _want[i] });
-            }
-            bool kit = Mine ? KitReal() : HasKit();
-            if (kit) into.Add(new Listing { stall = this, slot = Kit, name = "Mannequin kit", price = _price[Kit], seller = _ownerName, sellerId = _owner, want = _want[Kit] });
-        }
-        public bool IsMine => Mine;
-        public bool IsFree => _owner == 0;
-        /// <summary>Buy from anywhere (the computer): the item turns up at 'pickup' instead of this stall's counter.</summary>
-        public void BuyRemote(int slot, Transform pickup) { _remotePickup = pickup; Buy(slot == Kit ? Hooks : slot); }
-        Transform _remotePickup;
-        /// <summary>List an item from the computer: claims this stall if needed and hangs it on a free hook at that price.</summary>
-        public bool ListFrom(Item it, int price, int want = 0)
-        {
-            if (!NetGame.Live) return false;
+            if (Profile.Current == null || it == null) return false;
             if (Levels.Current < SellLevel) { RagoGame.I.Player.Toast("You need to be level " + SellLevel + " to sell (you're " + Levels.Current + ")"); return false; }
-            if (_owner == 0) Claim();
-            if (!Mine) return false;
-            for (int i = 0; i < Hooks; i++)
-                if (_slot[i].item == null && (_slot[i].filter == null || _slot[i].filter(it)))
-                {
-                    if (it.slot != null) it.slot.Release(it);
-                    _price[i] = Mathf.Max(0, price); _want[i] = want;
-                    _slot[i].Store(it, true);
-                    _price[i] = Mathf.Max(0, price); _want[i] = want;
-                    Broadcast(); Refresh();
-                    return true;
-                }
-            return false;
+            var prof = Profile.Current;
+            var e = new ShopEntry { id = ++prof.shopNextId, item = it.Save(), price = Mathf.Max(0, price), want = want };
+            Mine.Add(e);
+            if (it.slot != null) it.slot.Release(it);
+            it.Consumed = true; Object.Destroy(it.gameObject);
+            prof.Save(); Broadcast(); Changed?.Invoke();
+            return true;
         }
 
-        public void OnNet(byte op, ulong from, BinaryReader r)
+        /// <summary>Take something out of your shop: it goes back to your stash.</summary>
+        public static void Unlist(int id)
         {
+            var e = Mine.Find(x => x.id == id); if (e == null) return;
+            Mine.Remove(e);
+            Profile.Current.stash.Add(e.item); Profile.Current.Save();
+            RagoGame.I.Player.Toast(ItemName(e.item) + " taken off your shop - it's in your bunker");
+            Broadcast(); Changed?.Invoke();
+        }
+
+        public static void Buy(ulong seller, ShopEntry e)
+        {
+            var prof = Profile.Current;
+            if (prof == null || IsPending(seller, e.id)) return;
+            if (prof.money < e.price) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I.Player.Toast("Not enough money"); return; }
+            prof.money -= e.price;   // held until the seller's game answers
+            _pending.Add(new Pending { seller = seller, id = e.id, paid = e.price, t = Time.time });
+            int id = e.id, price = e.price;
+            MarketNet.Send(w => { w.Write(MarketNet.BuyReq); w.Write(id); w.Write(price); }, seller);
+            Sfx.UI(Synth.UiClick(), 0.4f);
+            Changed?.Invoke();
+        }
+
+        public static int Count(ShopEntry e) => e.want == 0 ? 1 : Mathf.Max(1, e.price);   // item wants: how many they want
+        public static void Swap(ulong seller, ShopEntry e, List<Item> onPad)
+        {
+            if (onPad == null || IsPending(seller, e.id)) return;
+            var give = onPad.FindAll(x => x != null && ShopScreen.Matches(e.want, x.def));
+            int need = Count(e);
+            if (give.Count < need) { RagoGame.I.Player.Toast("They want " + need + " x " + ShopScreen.WantName(e.want) + " - put " + (need - give.Count) + " more on the red square"); return; }
+            give = give.GetRange(0, need);
+            var js = new List<string>();
+            foreach (var it in give)
+            {
+                js.Add(JsonUtility.ToJson(it.Save()));
+                if (it.slot != null) it.slot.Release(it);
+                it.Consumed = true; Object.Destroy(it.gameObject);   // held for the swap: they come back if it falls through
+            }
+            string j = string.Join("\u0001", js);
+            _pending.Add(new Pending { seller = seller, id = e.id, swap = true, offer = j, t = Time.time });
+            int id = e.id;
+            MarketNet.Send(w => { w.Write(MarketNet.SwapReq); w.Write(id); w.Write((byte)js.Count); foreach (var x in js) w.Write(x); }, seller);
+            RagoGame.I.Player.Toast("Trade offer sent to " + MarketNet.NameOf(seller) + "...");
+            Changed?.Invoke();
+        }
+
+        static void Undo(Pending p, string why)
+        {
+            var prof = Profile.Current; if (prof == null) return;
+            if (p.swap) { foreach (var part in p.offer.Split('\u0001')) { var d = MarketNet.Data(part); if (d != null) prof.stash.Add(d); } why += " - your items are back in your bunker"; }
+            else { prof.money += p.paid; why += " - refunded"; }
+            prof.Save();
+            RagoGame.I?.Player?.Toast(why);
+            Changed?.Invoke();
+        }
+
+        public static void OnNet(byte op, ulong from, BinaryReader r)
+        {
+            var prof = Profile.Current;
             switch (op)
             {
                 case MarketNet.Listing:
                 {
-                    string name = r.ReadString();
-                    var js = new string[Slots]; var pr = new int[Slots];
-                    for (int i = 0; i < Slots; i++) { js[i] = r.ReadString(); pr[i] = r.ReadInt32(); }
-                    var wt = new int[Slots];
-                    if (r.BaseStream.Position < r.BaseStream.Length) for (int i = 0; i < Slots; i++) wt[i] = r.ReadByte();
-                    if (Mine) { if (from < MarketNet.Me) Release(); else { Broadcast(); break; } }
-                    _owner = from; _ownerName = name;
-                    for (int i = 0; i < Slots; i++)
-                    {
-                        string j = string.IsNullOrEmpty(js[i]) ? null : js[i];
-                        if (j != _json[i]) { _json[i] = j; Ghost(i); }
-                        _price[i] = pr[i]; _want[i] = wt[i];
-                    }
+                    string name = r.ReadString(); int n = r.ReadByte();
+                    if (!Others.TryGetValue(from, out var sh)) Others[from] = sh = new Remote();
+                    sh.name = name; sh.heard = Time.time; sh.entries.Clear();
+                    for (int i = 0; i < n; i++) { var e = new ShopEntry { id = r.ReadInt32(), item = MarketNet.Data(r.ReadString()), price = r.ReadInt32(), want = r.ReadByte() }; if (e.item != null) sh.entries.Add(e); }
+                    Changed?.Invoke();
                     break;
                 }
-                case MarketNet.StallRelease:
-                    if (_owner == from) Clear();
-                    break;
                 case MarketNet.BuyReq:
                 {
-                    int slot = r.ReadByte(), price = r.ReadInt32();
-                    if (!Mine) break;
-                    // still for sale at that price? hand it over
-                    var give = new List<string>();
-                    bool ok = price == _price[slot] && price >= 0;
-                    if (ok)
+                    int id = r.ReadInt32(), price = r.ReadInt32();
+                    var e = Mine.Find(x => x.id == id);
+                    if (e != null && e.want == 0 && e.price == price && prof != null)
                     {
-                        _quiet = true;
-                        int a = slot == Kit ? Kit : slot, b = slot == Kit ? Slots : slot + 1;
-                        for (int k = a; k < b; k++)
-                        {
-                            var it = _slot[k].item; if (it == null) continue;
-                            give.Add(MarketNet.Json(it));
-                            _slot[k].Release(it); it.Consumed = true; Destroy(it.gameObject);
-                            _json[k] = null;
-                        }
-                        _quiet = false;
-                        ok = give.Count > 0;
-                    }
-                    int st = _index;
-                    if (ok)
-                    {
-                        Profile.Current.money += price; Profile.Current.Save();
+                        Mine.Remove(e); prof.money += price; prof.Save();
                         Sfx.UI(Synth.Cash(), 0.6f);
-                        RagoGame.I.Player.Toast("SOLD to " + MarketNet.NameOf(from) + " for $" + price.ToString("N0"));
-                        MarketNet.Send(w => { w.Write(MarketNet.Sold); w.Write((byte)st); w.Write((byte)slot); w.Write(price); w.Write((byte)give.Count); foreach (var j in give) w.Write(j); }, from);
-                        Broadcast();
+                        RagoGame.I.Player.Toast("SOLD " + ItemName(e.item) + " to " + MarketNet.NameOf(from) + " for $" + price.ToString("N0"));
+                        string j = JsonUtility.ToJson(e.item);
+                        MarketNet.Send(w => { w.Write(MarketNet.Sold); w.Write(id); w.Write(price); w.Write(j); }, from);
+                        Broadcast(); Changed?.Invoke();
                     }
-                    else MarketNet.Send(w => { w.Write(MarketNet.NoSale); w.Write((byte)st); w.Write((byte)slot); }, from);
-                    break;
-                }
-                case MarketNet.Sold:
-                {
-                    int slot = r.ReadByte(); int paid = r.ReadInt32(); int n = r.ReadByte();
-                    // it arrived after we'd given up and refunded: still yours - pay for it now
-                    if (_pendingSlot != slot && Profile.Current != null) Profile.Current.money -= Mathf.Min(paid, Profile.Current.money);
-                    for (int i = 0; i < n; i++)
-                    {
-                        var d = MarketNet.Data(r.ReadString()); if (d == null) continue;
-                        var at = _remotePickup != null ? _remotePickup : _pickup;
-                        ItemFactory.Spawn(d, at.position + Vector3.up * 0.1f * i, at.rotation);
-                    }
-                    _pendingSlot = -1; _remotePickup = null;
-                    Profile.Current?.Save();
-                    Sfx.UI(Synth.Cash(), 0.6f);
-                    RagoGame.I.Player.Toast("Bought from " + _ownerName + " - it's on the counter");
+                    else MarketNet.Send(w => { w.Write(MarketNet.NoSale); w.Write(id); }, from);
                     break;
                 }
                 case MarketNet.SwapReq:
                 {
-                    int slot = r.ReadByte(); string offerJ = r.ReadString();
-                    if (!Mine) break;
-                    var od = MarketNet.Data(offerJ); var odef = od != null ? Db.Get(od.id) : null;
-                    var give = new List<string>();
-                    if (odef != null && _want[slot] != 0 && BlackMarket.Matches(_want[slot], odef))
+                    int id = r.ReadInt32(); int n = r.ReadByte();
+                    var offers = new List<ItemData>(); for (int i = 0; i < n; i++) { var od = MarketNet.Data(r.ReadString()); if (od != null) offers.Add(od); }
+                    var e = Mine.Find(x => x.id == id);
+                    bool ok = e != null && e.want != 0 && offers.Count >= Count(e) && offers.TrueForAll(o => ShopScreen.Matches(e.want, Db.Get(o.id)));
+                    if (ok && prof != null)
                     {
-                        _quiet = true;
-                        int a = slot == Kit ? Kit : slot, b = slot == Kit ? Slots : slot + 1;
-                        for (int k = a; k < b; k++)
-                        {
-                            var it = _slot[k].item; if (it == null) continue;
-                            give.Add(MarketNet.Json(it));
-                            _slot[k].Release(it); it.Consumed = true; Destroy(it.gameObject);
-                            _json[k] = null; _want[k] = 0;
-                        }
-                        _quiet = false;
-                    }
-                    int st = _index;
-                    if (give.Count > 0)
-                    {
-                        // what they gave you goes to your bunker
-                        Profile.Current.stash.Add(od); Profile.Current.Save();
+                        Mine.Remove(e); prof.stash.AddRange(offers); prof.Save();
                         Sfx.UI(Synth.Cash(), 0.6f);
-                        RagoGame.I.Player.Toast("SWAPPED with " + MarketNet.NameOf(from) + ": you got " + odef.name + " - it's in your bunker");
-                        MarketNet.Send(w => { w.Write(MarketNet.SwapDone); w.Write((byte)st); w.Write((byte)slot); w.Write((byte)give.Count); foreach (var j in give) w.Write(j); }, from);
-                        Broadcast();
+                        RagoGame.I.Player.Toast("TRADED " + ItemName(e.item) + " to " + MarketNet.NameOf(from) + " for " + offers.Count + " x " + ShopScreen.WantName(e.want) + " - in your bunker");
+                        string j = JsonUtility.ToJson(e.item);
+                        MarketNet.Send(w => { w.Write(MarketNet.SwapDone); w.Write(id); w.Write(j); }, from);
+                        Broadcast(); Changed?.Invoke();
                     }
-                    else MarketNet.Send(w => { w.Write(MarketNet.SwapNo); w.Write((byte)st); w.Write((byte)slot); }, from);
+                    else MarketNet.Send(w => { w.Write(MarketNet.SwapNo); w.Write(id); }, from);
                     break;
                 }
+                case MarketNet.Sold:
                 case MarketNet.SwapDone:
                 {
-                    int slot = r.ReadByte(); int n = r.ReadByte();
-                    var names = new List<string>();
-                    for (int i = 0; i < n; i++) { var d = MarketNet.Data(r.ReadString()); if (d == null) continue; Profile.Current?.stash.Add(d); var df = Db.Get(d.id); if (df != null) names.Add(df.name); }
-                    Profile.Current?.Save();
-                    _swapSlot = -1; _swapOffer = null;
+                    int id = r.ReadInt32(); int paid = op == MarketNet.Sold ? r.ReadInt32() : 0; var d = MarketNet.Data(r.ReadString());
+                    int pi = _pending.FindIndex(p => p.seller == from && p.id == id);
+                    if (pi >= 0) _pending.RemoveAt(pi);
+                    else if (op == MarketNet.Sold && prof != null) prof.money -= Mathf.Min(paid, prof.money);   // arrived after we'd refunded: pay now
+                    if (d != null && prof != null) { prof.stash.Add(d); prof.Save(); }
                     Sfx.UI(Synth.Cash(), 0.6f);
-                    RagoGame.I.Player.Toast("SWAP DONE: " + string.Join(", ", names) + " sent to your bunker");
+                    RagoGame.I.Player.Toast((op == MarketNet.Sold ? "BOUGHT " : "TRADE DONE: ") + ItemName(d) + " - it's in your bunker");
+                    Changed?.Invoke();
                     break;
                 }
-                case MarketNet.SwapNo:
-                    r.ReadByte();
-                    SwapFailed("Swap refused - your item is back on the pad");
-                    break;
                 case MarketNet.NoSale:
+                case MarketNet.SwapNo:
                 {
-                    int slot = r.ReadByte();
-                    if (_pendingSlot != slot) break;
-                    Refund("No longer for sale at that price - refunded");
+                    int id = r.ReadInt32();
+                    int pi = _pending.FindIndex(p => p.seller == from && p.id == id);
+                    if (pi >= 0) { var p = _pending[pi]; _pending.RemoveAt(pi); Undo(p, "Not available any more"); }
                     break;
                 }
             }
-            Refresh();
         }
 
-        void Refund(string why)
+        /// <summary>Leaving the Market with a purchase still waiting: undo it (money / item back).</summary>
+        public static void LeaveMarket()
         {
-            if (_pendingSlot < 0) return;
-            if (Profile.Current != null) Profile.Current.money += _pendingPaid;
-            _pendingSlot = -1; _pendingPaid = 0;
-            RagoGame.I?.Player?.Toast(why);
+            foreach (var p in _pending) Undo(p, "Left the Market");
+            _pending.Clear(); Others.Clear();
         }
-
-        void Clear()
-        {
-            _owner = 0; _ownerName = "";
-            for (int i = 0; i < Slots; i++) { _json[i] = null; _price[i] = 0; _want[i] = 0; Ghost(i); }
-            if (_swapSlot >= 0) SwapFailed("The seller left - your item is back on the pad");
-            if (_pendingSlot >= 0) Refund("The seller left - refunded");
-        }
-
-        void Ghost(int i)
-        {
-            if (_ghost[i] != null) Destroy(_ghost[i]);
-            _ghost[i] = null;
-            if (Mine || string.IsNullOrEmpty(_json[i])) return;
-            float fit = i == 8 ? 0.9f : i >= Kit ? 0.45f : 0.4f;
-            _ghost[i] = MarketNet.Ghost(MarketNet.Data(_json[i]), transform, _slot[i].transform.parent.localPosition, fit);
-        }
-
-        void Update()
-        {
-            if (_owner != 0 && !Mine && !MarketNet.Present(_owner)) { Clear(); Refresh(); }
-            if (_pendingSlot >= 0 && (_pendingT -= Time.deltaTime) <= 0f) { Refund("The seller didn't answer - refunded"); Refresh(); }
-            if (Mine && (_bcastT -= Time.deltaTime) <= 0f) { _bcastT = 4f; Broadcast(); }
-        }
-
-        void Refresh()
-        {
-            bool mine = Mine;
-            _sign.text = _owner == 0 ? "FREE BOOTH - claim it to sell (level 5+)" : mine ? "YOUR BOOTH" : _ownerName.Split('#')[0].ToUpper() + "'S BOOTH";
-            _claim.Label.text = mine ? "CLOSE BOOTH" : "CLAIM BOOTH";
-            _claim.Interactable = _owner == 0 || mine;
-            for (int i = 0; i <= Hooks; i++)
-            {
-                int pi = i == Hooks ? Kit : i;
-                bool has = i == Hooks ? (mine ? KitReal() : HasKit()) : (mine ? _slot[i].item != null : !string.IsNullOrEmpty(_json[i]));
-                _tag[i].text = has ? (i == Hooks ? "KIT  " : "") + "$" + _price[pi].ToString("N0") : "";
-                _up[i].gameObject.SetActive(mine && has); _down[i].gameObject.SetActive(mine && has);
-                _buy[i].gameObject.SetActive(!mine && has && _owner != 0);
-                if (_buy[i].Label != null) _buy[i].Label.text = _pendingSlot == pi ? "..." : "BUY";
-            }
-        }
-
-        bool KitReal() { for (int k = Kit; k < Slots; k++) if (_slot[k].item != null) return true; return false; }
-
-        /// <summary>Leaving the Market: unsold items go back to your stash.</summary>
-        public void SweepToStash(List<ItemData> into)
-        {
-            for (int i = 0; i < Slots; i++)
-                if (_slot[i] != null && _slot[i].item != null) { var it = _slot[i].item; into.Add(it.Save()); _slot[i].Release(it); Destroy(it.gameObject); }
-            if (Mine) Release();
-            if (_pendingSlot >= 0) Refund("Left the Market - refunded");
-            if (_swapSlot >= 0) { var d = MarketNet.Data(_swapOffer); if (d != null) into.Add(d); _swapSlot = -1; }
-        }
-
-        void OnDestroy() { All.Remove(this); }
     }
 
-    // =========================================================================================== BLACK MARKET
+    // =========================================================================================== SHOP SCREENS
     /// <summary>
-    /// The black market computer: every player listing in the Market on one screen. BUY from here (your money is held
-    /// until the seller's game hands it over - it lands on this desk), TRADE (asks the seller to meet you at the trade
-    /// table), or LIST: put an item on the desk pad, set a price and press LIST - it goes on a stall under your name.
-    /// Buyer and seller both have to be in the Market.
+    /// A black market screen. SHOPS lists everyone selling right now; open one to see what they sell and what they want
+    /// in return (money, or an item). BUY / TRADE from there - anything you get goes to your bunker. MY SHOP: put an item
+    /// on the blue SELL pad, pick a price or what you want for it (WANT), press LIST. You need level 5 to sell.
     /// </summary>
-    public class BlackMarket : MonoBehaviour
+    public class ShopScreen : MonoBehaviour
     {
-        // what a seller can ask for instead of money
-        public static readonly string[] Wants = { "MONEY", "ANY GUN", "VAULT KEYCARD", "MILITARY RADIO", "ANY ARMOUR", "NIGHT VISION", "ANY VALUABLE", "ANY BACKPACK", "ANY OPTIC / ATTACHMENT", "AP / INCENDIARY AMMO" };
+        public static readonly string[] Wants = { "MONEY", "ANY GUN", "VAULT KEYCARD", "MILITARY RADIO", "ANY ARMOUR", "NIGHT VISION", "ANY VALUABLE", "ANY BACKPACK", "ANY OPTIC / ATTACHMENT", "AP / INCENDIARY AMMO", "ANY MEDS" };
         public static string WantName(int w) => w >= 0 && w < Wants.Length ? Wants[w].ToLower() : "money";
         public static bool Matches(int w, ItemDef d)
         {
@@ -777,148 +574,193 @@ namespace Rago
                 case 7: return d.kind == ItemKind.Backpack;
                 case 8: return d.kind == ItemKind.Sight || d.kind == ItemKind.Attachment;
                 case 9: return d is SimpleDef sd && sd.kind == ItemKind.Ammo && sd.ammoType != AmmoType.Standard;
+                case 10: return d.kind == ItemKind.Med;
                 default: return false;
             }
         }
-        int _listWant;
-        ItemContainer _offer;
 
-        readonly List<PlayerStall.Listing> _list = new List<PlayerStall.Listing>();
-        readonly List<GameObject> _rows = new List<GameObject>();
-        Transform _screen, _pickup; ItemContainer _pad; TextMesh _status, _priceText, _wantText;
-        int _page, _listPrice = 1000; float _refreshT;
+        enum Page { Shops, Shop, Mine }
+        Page _page = Page.Shops; ulong _open; int _scroll;
+        Transform _screen, _content; ItemContainer _pad; TextMesh _title, _status;
+        int _price = 1000, _want, _count = 1, _pick; bool _dirty = true; float _redrawT;
+        List<Item> PadItems() { var l = new List<Item>(); foreach (var sl in _pad.slots) if (sl.item != null) l.Add(sl.item); return l; }
 
-        public static BlackMarket Create(Transform parent, Vector3 pos, float yaw)
+        public static ShopScreen Create(Transform parent, Vector3 pos, float yaw)
         {
-            var go = new GameObject("BlackMarket");
+            var go = new GameObject("ShopScreen");
             go.transform.SetParent(parent, false);
             go.transform.SetPositionAndRotation(pos, Quaternion.Euler(0, yaw, 0));
-            var b = go.AddComponent<BlackMarket>();
-            b.Build();
-            return b;
+            var s = go.AddComponent<ShopScreen>();
+            s.Build();
+            return s;
         }
 
+        // the customer stands at local -Z, facing +Z
         void Build()
         {
             var mb = new MB();
-            mb.Box(new Vector3(0, 0.75f, 0.1f), new Vector3(1.8f, 0.06f, 0.8f), new Color(0.15f, 0.15f, 0.16f), 0.01f);    // desk
-            foreach (var x in new[] { -0.85f, 0.85f }) mb.Box(new Vector3(x, 0.37f, 0.1f), new Vector3(0.06f, 0.74f, 0.75f), new Color(0.12f, 0.12f, 0.13f));
-            mb.Box(new Vector3(0, 1.3f, 0.38f), new Vector3(1.3f, 0.85f, 0.08f), new Color(0.05f, 0.05f, 0.06f), 0.02f);     // monitor
-            mb.Box(new Vector3(0, 0.85f, 0.38f), new Vector3(0.12f, 0.2f, 0.06f), new Color(0.1f, 0.1f, 0.1f));
-            mb.Box(new Vector3(0, 0.79f, -0.05f), new Vector3(0.6f, 0.02f, 0.2f), new Color(0.08f, 0.08f, 0.09f), 0.005f);     // keyboard
-            mb.Box(new Vector3(0.6f, 0.785f, 0.0f), new Vector3(0.36f, 0.01f, 0.36f), new Color(0.15f, 0.25f, 0.6f), 0.003f);  // the blue LIST pad (what you sell)
-            mb.Box(new Vector3(-0.6f, 0.785f, 0.0f), new Vector3(0.36f, 0.01f, 0.36f), new Color(0.75f, 0.08f, 0.06f), 0.003f); // the red OFFER square (what they want)
+            mb.Box(new Vector3(0, 0.75f, 0.1f), new Vector3(1.9f, 0.06f, 0.8f), new Color(0.15f, 0.15f, 0.16f), 0.01f);      // desk
+            foreach (var x in new[] { -0.9f, 0.9f }) mb.Box(new Vector3(x, 0.37f, 0.1f), new Vector3(0.06f, 0.74f, 0.75f), new Color(0.12f, 0.12f, 0.13f));
+            mb.Box(new Vector3(0, 1.42f, 0.42f), new Vector3(1.5f, 1.0f, 0.08f), new Color(0.05f, 0.05f, 0.06f), 0.02f);       // monitor
+            mb.Box(new Vector3(0, 0.9f, 0.42f), new Vector3(0.12f, 0.3f, 0.06f), new Color(0.1f, 0.1f, 0.1f));
+            mb.Box(new Vector3(0.45f, 0.785f, 0.02f), new Vector3(0.78f, 0.01f, 0.62f), new Color(0.75f, 0.08f, 0.06f), 0.003f); // the red square: what you sell, or what you offer
             mb.Build("Desk", transform, MarketNet.Steel);
-            var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.39f, 0.1f); col.size = new Vector3(1.8f, 0.78f, 0.8f);
-            var glow = new GameObject("ScreenLight").AddComponent<Light>(); glow.transform.SetParent(transform, false); glow.transform.localPosition = new Vector3(0, 1.3f, 0.1f);
-            glow.type = LightType.Point; glow.color = new Color(0.3f, 1f, 0.5f); glow.range = 2.5f; glow.intensity = 0.8f;
-            _screen = UI.Panel(transform, "BMScreen", new Vector3(0, 1.3f, 0.33f), Quaternion.identity, new Vector2(1.22f, 0.78f), new Color(0.02f, 0.06f, 0.03f), true, Skin.Steel);
-            UI.Text(_screen, "BLACK MARKET", new Vector3(-0.58f, 0.34f, -0.003f), 0.04f, new Color(0.3f, 1f, 0.45f), TextAnchor.MiddleLeft, FontStyle.Bold);
-            _status = UI.Text(_screen, "", new Vector3(0.58f, 0.34f, -0.003f), 0.02f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleRight);
-            UI.Button(_screen, "<", new Vector3(-0.5f, -0.33f, 0), new Vector2(0.1f, 0.07f), () => { _page = Mathf.Max(0, _page - 1); Draw(); }, new Color(0.1f, 0.25f, 0.12f), BtnStyle.Key);
-            UI.Button(_screen, ">", new Vector3(-0.38f, -0.33f, 0), new Vector2(0.1f, 0.07f), () => { _page++; Draw(); }, new Color(0.1f, 0.25f, 0.12f), BtnStyle.Key);
-            // listing your own: pad, price, LIST
-            var padRoot = new GameObject("Pad").transform; padRoot.SetParent(transform, false); padRoot.localPosition = new Vector3(0.6f, 0.8f, 0f);
-            _pad = ItemContainer.Grid(padRoot, Vector3.zero, Quaternion.identity, 1, 1, new Vector2(0.34f, 0.34f), 0.32f);
-            _priceText = UI.Text(_screen, "", new Vector3(0.2f, -0.33f, -0.003f), 0.024f, new Color(1f, 0.9f, 0.4f), TextAnchor.MiddleCenter, FontStyle.Bold);
-            UI.Button(_screen, "-", new Vector3(0.02f, -0.33f, 0), new Vector2(0.07f, 0.07f), () => Step(-1), new Color(0.2f, 0.2f, 0.2f), BtnStyle.Key);
-            UI.Button(_screen, "+", new Vector3(0.38f, -0.33f, 0), new Vector2(0.07f, 0.07f), () => Step(1), new Color(0.2f, 0.2f, 0.2f), BtnStyle.Key);
-            UI.Button(_screen, "LIST", new Vector3(0.52f, -0.33f, 0), new Vector2(0.14f, 0.07f), List, new Color(0.5f, 0.15f, 0.12f), BtnStyle.Key);
-            var offerRoot = new GameObject("Offer").transform; offerRoot.SetParent(transform, false); offerRoot.localPosition = new Vector3(-0.6f, 0.8f, 0f);
-            _offer = ItemContainer.Grid(offerRoot, Vector3.zero, Quaternion.identity, 1, 1, new Vector2(0.34f, 0.34f), 0.32f);
-            MarketNet.Label(transform, "OFFER", new Vector3(-0.6f, 0.79f, -0.2f), 0.025f, new Color(1f, 0.5f, 0.45f)).transform.localRotation = Quaternion.Euler(60, 0, 0);
-            MarketNet.Label(transform, "SELL", new Vector3(0.6f, 0.79f, -0.2f), 0.025f, new Color(0.5f, 0.7f, 1f)).transform.localRotation = Quaternion.Euler(60, 0, 0);
-            UI.Button(_screen, "WANT", new Vector3(-0.17f, -0.33f, 0), new Vector2(0.12f, 0.07f), () => { _listWant = (_listWant + 1) % Wants.Length; Draw(); }, new Color(0.45f, 0.15f, 0.4f), BtnStyle.Key);
-            _wantText = UI.Text(_screen, "", new Vector3(-0.17f, -0.39f, -0.003f), 0.016f, new Color(1f, 0.6f, 0.9f), TextAnchor.MiddleCenter);
-            _pickup = new GameObject("Pickup").transform; _pickup.SetParent(transform, false); _pickup.localPosition = new Vector3(0f, 0.95f, -0.2f);
-            Draw();
+            var col = gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.39f, 0.1f); col.size = new Vector3(1.9f, 0.78f, 0.8f);
+            var glow = new GameObject("ScreenLight").AddComponent<Light>(); glow.transform.SetParent(transform, false); glow.transform.localPosition = new Vector3(0, 1.4f, 0.0f);
+            glow.type = LightType.Point; glow.color = new Color(0.3f, 1f, 0.5f); glow.range = 2.5f; glow.intensity = 0.7f;
+            // the screen faces the customer (readable from -Z)
+            _screen = UI.Panel(transform, "Screen", new Vector3(0, 1.42f, 0.37f), Quaternion.identity, new Vector2(1.42f, 0.92f), new Color(0.02f, 0.06f, 0.03f), true, Skin.Steel);
+            _title = UI.Text(_screen, "", new Vector3(-0.67f, 0.4f, -0.003f), 0.036f, new Color(0.3f, 1f, 0.45f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            _status = UI.Text(_screen, "", new Vector3(0.67f, 0.4f, -0.003f), 0.018f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleRight);
+            UI.Button(_screen, "SHOPS", new Vector3(-0.55f, -0.4f, 0), new Vector2(0.24f, 0.07f), () => Go(Page.Shops), new Color(0.1f, 0.3f, 0.14f), BtnStyle.Key);
+            UI.Button(_screen, "MY MARKET", new Vector3(-0.28f, -0.4f, 0), new Vector2(0.26f, 0.07f), () => Go(Page.Mine), new Color(0.15f, 0.25f, 0.5f), BtnStyle.Key);
+            UI.Button(_screen, "^", new Vector3(0.56f, -0.4f, 0), new Vector2(0.08f, 0.07f), () => { _scroll = Mathf.Max(0, _scroll - 1); _dirty = true; }, new Color(0.15f, 0.15f, 0.15f), BtnStyle.Key);
+            UI.Button(_screen, "v", new Vector3(0.66f, -0.4f, 0), new Vector2(0.08f, 0.07f), () => { _scroll++; _dirty = true; }, new Color(0.15f, 0.15f, 0.15f), BtnStyle.Key);
+            _content = new GameObject("Content").transform; _content.SetParent(_screen, false);
+            // the red square: four spots; guns lie across it, barrel to the right (not pointing at you or the screen)
+            var padRoot = new GameObject("RedSquare").transform; padRoot.SetParent(transform, false); padRoot.localPosition = new Vector3(0.45f, 0.8f, 0.02f);
+            _pad = ItemContainer.Grid(padRoot, Vector3.zero, Quaternion.identity, 2, 2, new Vector2(0.38f, 0.3f), 0.34f, null, Quaternion.Euler(0, 90, 0));
+            _pad.onChanged = () => _dirty = true;
+            MarketNet.Label(transform, "PUT ITEMS HERE", new Vector3(0.45f, 0.792f, -0.3f), 0.024f, new Color(1f, 0.75f, 0.7f)).transform.localRotation = Quaternion.Euler(90, 0, 0);
+            Shops.Changed += () => _dirty = true;
+            MarketNet.Hook();
         }
 
-        void Step(int dir)
+        void Go(Page p) { _page = p; _scroll = 0; _dirty = true; Sfx.UI(Synth.UiClick(), 0.3f); }
+
+        void Update()
         {
-            int step = _listPrice < 1000 ? 100 : _listPrice < 10000 ? 500 : _listPrice < 50000 ? 2500 : 10000;
-            _listPrice = Mathf.Clamp(_listPrice + dir * step, 100, 9999999);
-            Draw();
+            Shops.Tick();
+            if ((_redrawT -= Time.deltaTime) <= 0f) { _redrawT = 2f; _dirty = true; }
+            if (_dirty) { _dirty = false; Draw(); }
         }
 
-        void List()
+        void Row(int i, string a, string b, Color bc, string sub = null)
         {
-            var it = _pad.slots[0].item;
-            if (it == null) { RagoGame.I.Player.Toast("Put the item on the blue SELL pad first"); return; }
-            if (Levels.Current < PlayerStall.SellLevel) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I.Player.Toast("You need to be level " + PlayerStall.SellLevel + " to sell (you're " + Levels.Current + ")"); return; }
-            if (!NetGame.Live) { RagoGame.I.Player.Toast("The black market needs the Market online"); return; }
-            PlayerStall target = PlayerStall.All.Find(x => x.IsMine) ?? PlayerStall.All.Find(x => x.IsFree);
-            if (target == null) { RagoGame.I.Player.Toast("Every stall is taken - try the trade table"); return; }
-            if (!target.ListFrom(it, _listPrice, _listWant)) { RagoGame.I.Player.Toast("Your booth is full"); return; }
-            Sfx.UI(Synth.Cash(), 0.4f);
-            RagoGame.I.Player.Toast("Listed " + (_listWant == 0 ? "for $" + _listPrice.ToString("N0") : "- you want " + WantName(_listWant)) + " on your booth");
-            Draw();
+            float y = 0.3f - i * 0.085f;
+            UI.Text(_content, a, new Vector3(-0.67f, y, -0.003f), 0.024f, Color.white, TextAnchor.MiddleLeft);
+            UI.Text(_content, b, new Vector3(0.0f, y, -0.003f), 0.022f, bc, TextAnchor.MiddleLeft, FontStyle.Bold);
+            if (sub != null) UI.Text(_content, sub, new Vector3(0.0f, y - 0.03f, -0.003f), 0.014f, UI.Dim, TextAnchor.MiddleLeft);
         }
-
-        void Update() { if ((_refreshT -= Time.deltaTime) <= 0f) { _refreshT = 1.5f; Draw(); } }
+        void Btn(int i, string label, float x, Color c, System.Action a, float w = 0.16f) => UI.Button(_content, label, new Vector3(x, 0.3f - i * 0.085f, 0), new Vector2(w, 0.06f), () => { a(); _dirty = true; }, c, BtnStyle.Key);
 
         void Draw()
         {
-            _list.Clear();
-            foreach (var s in PlayerStall.All) if (s != null) s.Listings(_list);
-            _list.Sort((a, b) => a.price.CompareTo(b.price));
-            foreach (var r in _rows) if (r != null) Destroy(r);
-            _rows.Clear();
+            foreach (Transform c in _content) Destroy(c.gameObject);
             const int per = 7;
-            int pages = Mathf.Max(1, (_list.Count + per - 1) / per);
-            _page = Mathf.Clamp(_page, 0, pages - 1);
-            _status.text = (NetGame.Live ? _list.Count + " listing(s)" : "OFFLINE") + "   page " + (_page + 1) + "/" + pages;
-            _priceText.text = _listWant == 0 ? "$" + _listPrice.ToString("N0") : "swap";
-            if (_wantText != null) _wantText.text = "for: " + Wants[_listWant];
-            if (_list.Count == 0)
+            bool live = NetGame.Live;
+            switch (_page)
             {
-                var e = UI.Text(_screen, "Nothing for sale right now.\nPut something on the red pad, set a price and press LIST.", new Vector3(0, 0.05f, -0.003f), 0.026f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleCenter);
-                _rows.Add(e.gameObject);
-                return;
-            }
-            for (int i = 0; i < per && _page * per + i < _list.Count; i++)
-            {
-                var L = _list[_page * per + i];
-                float y = 0.25f - i * 0.075f;
-                var row = new GameObject("Row").transform; row.SetParent(_screen, false); row.localPosition = new Vector3(0, y, 0);
-                _rows.Add(row.gameObject);
-                bool mine = L.sellerId == MarketNet.Me;
-                UI.Text(row, L.name, new Vector3(-0.58f, 0, -0.003f), 0.022f, Color.white, TextAnchor.MiddleLeft);
-                UI.Text(row, L.want == 0 ? "$" + L.price.ToString("N0") : "for " + Wants[L.want], new Vector3(0.02f, 0, -0.003f), L.want == 0 ? 0.022f : 0.016f, L.want == 0 ? new Color(1f, 0.9f, 0.4f) : new Color(1f, 0.6f, 0.9f), TextAnchor.MiddleLeft, FontStyle.Bold);
-                UI.Text(row, mine ? "you" : L.seller.Split('#')[0], new Vector3(0.2f, 0, -0.003f), 0.018f, UI.Dim, TextAnchor.MiddleLeft);
-                if (mine) continue;
-                var stall = L.stall; int slot = L.slot; ulong seller = L.sellerId; string nm = L.name;
-                if (L.want == 0)
+                case Page.Shops:
                 {
-                    UI.Button(row, "BUY", new Vector3(0.42f, 0, 0), new Vector2(0.1f, 0.055f), () => { stall.BuyRemote(slot, _pickup); Draw(); }, new Color(0.15f, 0.45f, 0.18f), BtnStyle.Key);
-                    UI.Button(row, "ASK", new Vector3(0.54f, 0, 0), new Vector2(0.1f, 0.055f), () => AskTrade(seller, nm), new Color(0.2f, 0.3f, 0.5f), BtnStyle.Key);
-                }
-                else
-                {
-                    // they want an item: put it on the red OFFER square and press TRADE - both items go to the two bunkers
-                    UI.Button(row, "TRADE", new Vector3(0.48f, 0, 0), new Vector2(0.2f, 0.055f), () =>
+                    _title.text = "BLACK MARKET - PLAYER MARKETS";
+                    var list = new List<KeyValuePair<ulong, Shops.Remote>>();
+                    foreach (var kv in Shops.Others) if (kv.Value.entries.Count > 0) list.Add(kv);
+                    _status.text = live ? list.Count + " shop(s) open" : "OFFLINE";
+                    if (list.Count == 0) { UI.Text(_content, live ? "Nobody's selling right now.\nOpen your own: MY MARKET." : "The Market isn't online.", new Vector3(0, 0.05f, -0.003f), 0.028f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleCenter); break; }
+                    _scroll = Mathf.Clamp(_scroll, 0, Mathf.Max(0, list.Count - per));
+                    for (int i = 0; i < per && _scroll + i < list.Count; i++)
                     {
-                        var off = _offer.slots[0].item;
-                        if (off == null) { RagoGame.I.Player.Toast("Put " + WantName(stall.WantOf(slot)) + " on the red OFFER square first"); return; }
-                        stall.SwapRemote(slot, off, _offer); Draw();
+                        var kv = list[_scroll + i]; ulong who = kv.Key;
+                        int money = 0, swaps = 0; foreach (var e in kv.Value.entries) if (e.want == 0) money++; else swaps++;
+                        Row(i, kv.Value.name.Split('#')[0].ToUpper() + "'S MARKET", kv.Value.entries.Count + " item(s)", new Color(1f, 0.9f, 0.4f), (money > 0 ? money + " for money" : "") + (money > 0 && swaps > 0 ? ", " : "") + (swaps > 0 ? swaps + " for trade" : ""));
+                        Btn(i, "OPEN", 0.55f, new Color(0.15f, 0.45f, 0.18f), () => { _open = who; Go(Page.Shop); });
+                    }
+                    break;
+                }
+                case Page.Shop:
+                {
+                    if (!Shops.Others.TryGetValue(_open, out var sh)) { _page = Page.Shops; Draw(); return; }
+                    _title.text = sh.name.Split('#')[0].ToUpper() + "'S MARKET";
+                    _status.text = "your $" + (Profile.Current != null ? Profile.Current.money.ToString("N0") : "0");
+                    _scroll = Mathf.Clamp(_scroll, 0, Mathf.Max(0, sh.entries.Count - per));
+                    for (int i = 0; i < per && _scroll + i < sh.entries.Count; i++)
+                    {
+                        var e = sh.entries[_scroll + i]; ulong who = _open;
+                        bool pend = Shops.IsPending(who, e.id);
+                        Row(i, Shops.ItemName(e.item), Asks(e), e.want == 0 ? new Color(1f, 0.9f, 0.4f) : new Color(1f, 0.6f, 0.9f));
+                        if (pend) { UI.Text(_content, "waiting...", new Vector3(0.55f, 0.3f - i * 0.085f, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleCenter); continue; }
+                        if (e.want == 0) Btn(i, "BUY", 0.55f, new Color(0.15f, 0.45f, 0.18f), () => Shops.Buy(who, e));
+                        else Btn(i, "TRADE", 0.55f, new Color(0.6f, 0.15f, 0.12f), () => Shops.Swap(who, e, PadItems()));
+                    }
+                    UI.Text(_content, "BUY: your money is held until they hand it over.  TRADE: put what they want on the red square.  It all goes to your bunker.", new Vector3(0, -0.31f, -0.003f), 0.014f, UI.Dim, TextAnchor.MiddleCenter);
+                    break;
+                }
+                case Page.Mine:
+                {
+                    var mine = Shops.MyEntries;
+                    bool can = Levels.Current >= Shops.SellLevel;
+                    _title.text = "MY MARKET";
+                    if (!can)
+                    {
+                        _status.text = "level " + Levels.Current;
+                        UI.Text(_content, "You need to be LEVEL " + Shops.SellLevel + " to open your own market.\nYou're level " + Levels.Current + " - raid, extract and get kills to level up.", new Vector3(0, 0.08f, -0.003f), 0.026f, new Color(1f, 0.6f, 0.5f), TextAnchor.MiddleCenter);
+                        break;
+                    }
+                    var prof = Profile.Current;
+                    if (prof != null && !prof.shopOpen)
+                    {
+                        _status.text = "";
+                        UI.Text(_content, "You don't have a market yet.", new Vector3(0, 0.15f, -0.003f), 0.03f, new Color(0.3f, 1f, 0.45f), TextAnchor.MiddleCenter);
+                        UI.Button(_content, "CREATE MY MARKET", new Vector3(0, 0.0f, 0), new Vector2(0.5f, 0.09f), () => { prof.shopOpen = true; prof.Save(); Sfx.UI(Synth.Cash(), 0.4f); _dirty = true; }, new Color(0.15f, 0.45f, 0.18f), BtnStyle.Key);
+                        break;
+                    }
+                    _status.text = (live ? "open" : "closed (offline)") + " - " + mine.Count + " for sale";
+                    // what's for sale now (top), the listing controls (bottom)
+                    int rows = 3;
+                    _scroll = Mathf.Clamp(_scroll, 0, Mathf.Max(0, mine.Count - rows));
+                    for (int i = 0; i < rows && _scroll + i < mine.Count; i++)
+                    {
+                        var e = mine[_scroll + i]; int id = e.id;
+                        Row(i, Shops.ItemName(e.item), Asks(e), e.want == 0 ? new Color(1f, 0.9f, 0.4f) : new Color(1f, 0.6f, 0.9f));
+                        Btn(i, "UNLIST", 0.55f, new Color(0.4f, 0.2f, 0.2f), () => Shops.Unlist(id));
+                    }
+                    if (mine.Count == 0) UI.Text(_content, "Nothing for sale yet - put items on the red square.", new Vector3(0, 0.25f, -0.003f), 0.022f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleCenter);
+                    // 1. which item on the red square
+                    var pad = PadItems();
+                    _pick = pad.Count == 0 ? 0 : (_pick % pad.Count + pad.Count) % pad.Count;
+                    float y = 0.0f;
+                    UI.Text(_content, "1. SELL:", new Vector3(-0.67f, y, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleLeft);
+                    UI.Text(_content, pad.Count == 0 ? "(put items on the red square)" : pad[_pick].def.name, new Vector3(-0.5f, y, -0.003f), 0.024f, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
+                    if (pad.Count > 1) UI.Button(_content, "NEXT ITEM", new Vector3(0.5f, y, 0), new Vector2(0.24f, 0.06f), () => { _pick++; _dirty = true; }, new Color(0.25f, 0.25f, 0.3f), BtnStyle.Key);
+                    // 2. what you want for it
+                    y -= 0.09f;
+                    UI.Text(_content, "2. FOR:", new Vector3(-0.67f, y, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleLeft);
+                    UI.Button(_content, "< ", new Vector3(-0.44f, y, 0), new Vector2(0.07f, 0.06f), () => { _want = (_want + Wants.Length - 1) % Wants.Length; _dirty = true; }, new Color(0.45f, 0.15f, 0.4f), BtnStyle.Key);
+                    UI.Text(_content, Wants[_want], new Vector3(-0.1f, y, -0.003f), 0.022f, new Color(1f, 0.6f, 0.9f), TextAnchor.MiddleCenter, FontStyle.Bold);
+                    UI.Button(_content, " >", new Vector3(0.24f, y, 0), new Vector2(0.07f, 0.06f), () => { _want = (_want + 1) % Wants.Length; _dirty = true; }, new Color(0.45f, 0.15f, 0.4f), BtnStyle.Key);
+                    // 3. how much / how many
+                    y -= 0.09f;
+                    UI.Text(_content, _want == 0 ? "3. PRICE:" : "3. HOW MANY:", new Vector3(-0.67f, y, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleLeft);
+                    UI.Button(_content, "-", new Vector3(-0.3f, y, 0), new Vector2(0.07f, 0.06f), () => { if (_want == 0) Step(-1); else _count = Mathf.Max(1, _count - 1); _dirty = true; }, new Color(0.2f, 0.2f, 0.2f), BtnStyle.Key);
+                    UI.Text(_content, _want == 0 ? "$" + _price.ToString("N0") : _count + " x", new Vector3(-0.1f, y, -0.003f), 0.026f, new Color(1f, 0.9f, 0.4f), TextAnchor.MiddleCenter, FontStyle.Bold);
+                    UI.Button(_content, "+", new Vector3(0.1f, y, 0), new Vector2(0.07f, 0.06f), () => { if (_want == 0) Step(1); else _count = Mathf.Min(4, _count + 1); _dirty = true; }, new Color(0.2f, 0.2f, 0.2f), BtnStyle.Key);
+                    UI.Button(_content, "LIST IT", new Vector3(0.5f, y, 0), new Vector2(0.24f, 0.07f), () =>
+                    {
+                        var items = PadItems();
+                        if (items.Count == 0) { RagoGame.I.Player.Toast("Put what you're selling on the red square first"); return; }
+                        var it = items[(_pick % items.Count + items.Count) % items.Count];
+                        if (Shops.List(it, _want == 0 ? _price : _count, _want)) { Sfx.UI(Synth.Cash(), 0.4f); RagoGame.I.Player.Toast(it.def.name + " is in your market"); }
+                        _dirty = true;
                     }, new Color(0.6f, 0.15f, 0.12f), BtnStyle.Key);
+                    UI.Text(_content, "Your market is open while you're in the Market. UNLIST sends an item back to your bunker.", new Vector3(0, -0.31f, -0.003f), 0.014f, UI.Dim, TextAnchor.MiddleCenter);
+                    break;
                 }
             }
         }
 
-        void AskTrade(ulong seller, string what)
+        static string Asks(ShopEntry e) => e.want == 0 ? "$" + e.price.ToString("N0") : "WANTS " + Shops.Count(e) + " x " + Wants[e.want];
+
+        void Step(int dir)
         {
-            MarketNet.Send(w => { w.Write(MarketNet.TradeAsk); w.Write(what); }, seller);
-            RagoGame.I.Player.Toast("Asked " + MarketNet.NameOf(seller) + " to trade - go to the TRADE TABLE");
+            int step = _price < 1000 ? 100 : _price < 10000 ? 500 : _price < 50000 ? 2500 : 10000;
+            _price = Mathf.Clamp(_price + dir * step, 100, 9999999);
         }
 
         public void SweepToStash(List<ItemData> into)
         {
-            foreach (var c in new[] { _pad, _offer })
-            {
-                var sl = c.slots[0];
+            foreach (var sl in _pad.slots)
                 if (sl.item != null) { var it = sl.item; into.Add(it.Save()); sl.Release(it); Destroy(it.gameObject); }
-            }
         }
     }
 }
