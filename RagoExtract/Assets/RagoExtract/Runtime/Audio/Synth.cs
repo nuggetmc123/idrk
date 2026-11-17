@@ -695,6 +695,25 @@ namespace Rago
             }
         }
 
+        // ---- the bunker pug
+        /// <summary>A pug's snort / snuffle: a short wheezy noise burst through a nasal band.</summary>
+        public static AudioClip PugSnort(int v) => Get("pug_snort", k => { var d = Buf(0.35f); var bp = new BP(300 + k * 80, 1400 + k * 200);
+            for (int i = 0; i < d.Length; i++) { float t = i / (float)SR; float env = Mathf.Sin(Mathf.Clamp01(t / 0.3f) * Mathf.PI) * (0.6f + 0.4f * Mathf.Sin(t * 70f)); d[i] = bp.P((float)(_r.NextDouble() * 2 - 1)) * env; }
+            return Clip("snort", d, true, 0.6f); }, 3)[Mathf.Abs(v) % 3];
+        /// <summary>A small dog's bark: a quick pitched yap with a noisy edge.</summary>
+        public static AudioClip PugBark() => One("pug_bark", () => { var d = Buf(0.22f); var bp = new BP(400, 3000);
+            for (int i = 0; i < d.Length; i++) { float t = i / (float)SR; float f = Mathf.Lerp(720f, 480f, t / 0.22f); float env = Mathf.Clamp01(t / 0.01f) * Mathf.Exp(-t / 0.07f);
+                d[i] = (Mathf.Sin(t * f * 6.283f) * 0.6f + Mathf.Sin(t * f * 2 * 6.283f) * 0.3f + bp.P((float)(_r.NextDouble() * 2 - 1)) * 0.5f) * env; }
+            return Clip("bark", d, true, 0.7f); });
+        /// <summary>Kibble pouring into a metal bowl.</summary>
+        public static AudioClip Kibble() => One("kibble", () => { var d = Buf(1.1f);
+            for (int n = 0; n < 70; n++) MetalClick(d, (float)_r.NextDouble() * 0.95f, 0.15f + (float)_r.NextDouble() * 0.25f, 2500 + (float)_r.NextDouble() * 3500, 0.004f);
+            return Clip("kibble", d, true, 0.6f); });
+        /// <summary>Crunching (eating).</summary>
+        public static AudioClip Crunch() => One("crunch", () => { var d = Buf(0.18f); var hp = new HP(900);
+            for (int i = 0; i < d.Length; i++) { float t = i / (float)SR; d[i] = hp.P((float)(_r.NextDouble() * 2 - 1)) * Mathf.Exp(-t / 0.04f) * (_r.NextDouble() < 0.3 ? 1f : 0.4f); }
+            return Clip("crunch", d, true, 0.5f); });
+
         public static AudioClip UiClick() => One("ui_click", () => { var d = Buf(0.06f); Tone(d, 0, 1800, 0.05f, 0.6f, 0.1f); MetalClick(d, 0, 0.3f, 4000, 0.003f); return Clip("click", d, true, 0.35f); });
         public static AudioClip UiHover() => One("ui_hover", () => { var d = Buf(0.04f); Tone(d, 0, 2600, 0.03f, 0.4f, 0f); return Clip("hover", d, true, 0.12f); });
         public static AudioClip UiError() => One("ui_err", () => { var d = Buf(0.3f); Tone(d, 0, 180, 0.12f, 1, 0.8f); Tone(d, 0.14f, 150, 0.15f, 1, 0.8f); return Clip("err", d, true, 0.4f); });

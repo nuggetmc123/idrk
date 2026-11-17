@@ -326,7 +326,7 @@ namespace Rago.Net
         // ---- the session lobby: lets you receive bunker invites while you're not in any session
         async Task EnterLobby()
         {
-            if (_lobby != null || (InSession && !_inPartySession)) return;   // in a party (even just you): keep listening
+            if (_lobby != null) return;   // one lobby listener, kept up everywhere
             try
             {
                 var go = new GameObject("FusionLobby");
@@ -450,6 +450,7 @@ namespace Rago.Net
                 bool started = pr != null && (pr.ContainsKey("go") || kind.StartsWith("raid_started"));
                 if (kind == "party") inParties += c;
                 if (si.Name == _sessionId && InSession) meListed = true;
+                try { if (_presence != null && _presence.SessionInfo != null && si.Name == _presence.SessionInfo.Name) meListed = true; } catch { }   // you, in the background online session
                 _listed[si.Name ?? ""] = (c, started);
             }
             _partyListed = inParties;
@@ -699,8 +700,9 @@ namespace Rago.Net
             await Shutdown();
             // a party lobby keeps the invite listener running (invites to you only arrive through it); a raid or the
             // Market doesn't need it
-            bool party = props != null && props.TryGetValue("kind", out var kk) && Str(kk) == "party";
-            if (!party) await LeaveLobby();
+            // keep the lobby listening everywhere (Market and raids too): it's what keeps the players-online count and
+            // party invites up to date - it used to close, so in the Market or a raid the count fell back to "1"
+            await LeavePresence();
             _inPartySession = false;
             _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear(); _fwdOut.Clear(); _rtt = 0f; _pingOut = -1f;
             _lastHeard.Clear(); _peerSince.Clear(); _relayTo.Clear(); _hostId = 0; _idOf.Clear();
@@ -1321,8 +1323,53 @@ namespace Rago.Net
             if (_inPartySession) OnPartyChanged?.Invoke();
         }
 
+        // ---- presence: someone sitting in their bunker isn't in any session, so nobody could count them. While you're
+        // idle in the bunker you sit in a tiny background "online" session (no traffic) that everyone's lobby lists.
+        NetworkRunner _presence; bool _presenceBusy; float _presenceT;
+        async Task JoinPresence()
+        {
+            if (_presence != null || _presenceBusy) return;
+            _presenceBusy = true;
+            try
+            {
+                for (int bucket = 0; bucket < 6 && _presence == null && !InSession; bucket++)
+                {
+                    var go = new GameObject("FusionPresence");
+                    DontDestroyOnLoad(go);
+                    var r = go.AddComponent<NetworkRunner>();
+                    r.ProvideInput = false;
+                    var args = new StartGameArgs { GameMode = GameMode.Shared, SessionName = "rago_online_" + bucket, PlayerCount = 60, SessionProperties = new Dictionary<string, SessionProperty> { { "kind", "online" } } };
+                    UseAppId(ref args, AppId());
+                    UseUserId(ref args, MyName() + "#online~" + UnityEngine.Random.Range(1000, 9999));
+                    StartGameResult res = null;
+                    try { res = await r.StartGame(args); } catch (Exception e) { Debug.Log("[Rago] presence: " + e.Message); }
+                    if (res != null && res.Ok) { _presence = r; break; }
+                    try { await r.Shutdown(); } catch { }
+                    if (go != null) Destroy(go);
+                }
+                if (_presence != null && InSession) await LeavePresence();   // a raid / the Market started meanwhile
+            }
+            finally { _presenceBusy = false; }
+        }
+        async Task LeavePresence()
+        {
+            var r = _presence; _presence = null;
+            if (r == null) return;
+            try { await r.Shutdown(); } catch { }
+            if (r != null) Destroy(r.gameObject);
+        }
+
         void Update()
         {
+            _presenceT -= Time.unscaledDeltaTime;
+            if (_presenceT <= 0f && _ready)
+            {
+                _presenceT = 4f;
+                bool idle = !InSession && !_leaving;
+                if (idle && _presence == null) _ = JoinPresence();
+                else if (!idle && _presence != null) _ = LeavePresence();
+                if (_lobby == null) _ = EnterLobby();   // the lobby is what hears the count: keep it up
+            }
             // keep the peer list in step with the session (players can show up after we joined)
             if (InSession)
             {

@@ -283,14 +283,43 @@ namespace Rago
         }
 
         /// <summary>Applies helmet / vest / backpack visuals to a character.</summary>
-        public static void Dress(HumanRig rig, ArmorDef helmet, ArmorDef vest, BackpackDef pack, bool local)
+        /// <summary>Night vision on the helmet's front mount: flipped up on the brow, or down over the eyes.</summary>
+        static void Nvg(MB mb, bool down)
+        {
+            Color body = new Color(0.12f, 0.13f, 0.11f), lens = new Color(0.1f, 0.35f, 0.15f);
+            mb.Sub(1).Box(new Vector3(0, 0.175f, 0.118f), new Vector3(0.05f, 0.035f, 0.02f), body, 0.004f);   // shroud on the helmet
+            if (down)
+            {
+                mb.Sub(1).Box(new Vector3(0, 0.135f, 0.14f), new Vector3(0.03f, 0.06f, 0.018f), body, 0.004f);  // arm down to the eyes
+                for (int s = -1; s <= 1; s += 2)
+                {
+                    mb.Sub(1).Cyl(new Vector3(s * 0.032f, 0.085f, 0.13f), new Vector3(s * 0.032f, 0.085f, 0.2f), 0.017f, 0.019f, 12, body);
+                    mb.Sub(1).Cyl(new Vector3(s * 0.032f, 0.085f, 0.2f), new Vector3(s * 0.032f, 0.085f, 0.203f), 0.016f, 0.016f, 12, lens);
+                }
+            }
+            else
+            {
+                mb.Sub(1).Box(new Vector3(0, 0.2f, 0.135f), new Vector3(0.03f, 0.03f, 0.03f), body, 0.004f);
+                for (int s = -1; s <= 1; s += 2)
+                {
+                    mb.Sub(1).Cyl(new Vector3(s * 0.032f, 0.205f, 0.14f), new Vector3(s * 0.032f, 0.25f, 0.105f), 0.017f, 0.019f, 12, body);   // tubes tipped up
+                    mb.Sub(1).Cyl(new Vector3(s * 0.032f, 0.25f, 0.105f), new Vector3(s * 0.032f, 0.252f, 0.103f), 0.016f, 0.016f, 12, lens);
+                }
+            }
+        }
+
+        public static void Dress(HumanRig rig, ArmorDef helmet, ArmorDef vest, BackpackDef pack, bool local) => Dress(rig, helmet, vest, pack, local, 0);
+        /// <param name="nvg">0 none, 1 goggles flipped up, 2 flipped down</param>
+        public static void Dress(HumanRig rig, ArmorDef helmet, ArmorDef vest, BackpackDef pack, bool local, int nvg)
         {
             foreach (var g in rig.gearVisuals) if (g != null) { rig.headRenderers.Remove(g.GetComponent<Renderer>()); Compat.Kill(g); }
             rig.headRenderers.RemoveAll(r => r == null);
             rig.gearVisuals.Clear();
             if (helmet != null)
             {
-                var g = Attach(Helmet(helmet), rig.head, "Helmet", local);
+                var hm = Helmet(helmet);
+                if (nvg > 0) Nvg(hm, nvg == 2);
+                var g = Attach(hm, rig.head, "Helmet", local);
                 rig.gearVisuals.Add(g);
                 if (local) rig.headRenderers.Add(g.GetComponent<Renderer>());
             }

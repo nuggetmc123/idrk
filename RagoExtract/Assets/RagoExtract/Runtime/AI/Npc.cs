@@ -49,6 +49,9 @@ namespace Rago
         Vector3 _netPos, _netAim, _netVel; float _netYaw, _netT; bool _netInit;
         Target _target;
         bool _crouch;
+        // ---- wounds: where they're hit changes how they move and shoot
+        float _armHurt, _legHurt, _down, _hunch, _armJerk, _limpPhase; bool _oneArm, _armLeft;
+        Vector3 _hitKick;   // which way the hit part was knocked (head / chest / hips)
         float _aimErr = 1f;
         Rng _rng;
         float _barkT, _talkT, _idleTalkT = 20f;
@@ -190,7 +193,8 @@ namespace Rago
         void Go(Vector3 p, float speed)
         {
             if (!AgentOk) return;
-            Agent.speed = speed * (_stagger > 0 ? 0.3f : 1f);
+            if (_down > 0) { Stop(); return; }
+            Agent.speed = speed * (_stagger > 0 ? 0.3f : 1f) * Mathf.Lerp(1f, 0.4f, Mathf.Clamp01(_legHurt));   // leg wounds: they limp along
             Agent.isStopped = false;
             Agent.SetDestination(p);
         }
@@ -254,7 +258,7 @@ namespace Rago
                 if (Time.time - e.time > 0.6f) break;
                 if (e.source >= 1000) continue;
                 float d = Vector3.Distance(e.pos, transform.position);
-                if (d >= e.radius) continue;
+                if (d >= e.radius * Noise.Through(e.pos, transform.position + Vector3.up * 0.5f)) continue;   // Underground: floors block most of it
                 // only a close noise (or an alarm) brings them over; a distant gunshot just makes them stop and look that way.
                 // They only come for you if they're really close or they actually see you (vision above).
                 bool close = e.alarm || d < Mathf.Min(e.radius, HearClose);
@@ -303,6 +307,10 @@ namespace Rago
             float dt = Time.deltaTime;
             _flinch = Mathf.MoveTowards(_flinch, 0, dt * 3f);
             _stagger -= dt;
+            _hunch = Mathf.MoveTowards(_hunch, 0, dt * 0.5f);
+            _armJerk = Mathf.MoveTowards(_armJerk, 0, dt * 4f);
+            _hitKick = Vector3.MoveTowards(_hitKick, Vector3.zero, dt * 0.8f);
+            if (_down > 0) { _down -= dt; if (!Puppet) Stop(); }   // knocked off their feet: down for a moment
             if (Alive) Footsteps.Track(ref _stepLast, ref _stepDist, ref _stepLeft, transform.position, transform.forward, dt, 0.45f);
             _blind -= dt;
             if (Puppet) { PuppetUpdate(dt); return; }
@@ -480,6 +488,8 @@ namespace Rago
             _rounds--;
             Vector3 o = Ballistics.SafeOrigin(Rig.head.position, GunModel.muzzle.position);
             float spr = Weapon.spread * 0.6f;
+            // arm wounds wreck their aim; one arm (or shooting from the ground) even more
+            spr *= 1f + Mathf.Clamp01(_armHurt) * 1.5f + (_oneArm ? 2.5f : 0f) + (_down > 0 ? 1.2f : 0f) + (_armJerk > 0.3f ? 1f : 0f);
             dir = Quaternion.Euler(Random.Range(-spr, spr), Random.Range(-spr, spr), 0) * dir;
             Ballistics.Fire(o, dir, Weapon, ActorId, transform, this, false, Random.value < 0.3f);
             Fx.MuzzleFlash(GunModel.muzzle, Weapon.TwoHanded ? 1.1f : 0.7f, Weapon.suppressed);
@@ -556,10 +566,18 @@ namespace Rago
             _recoil = Mathf.MoveTowards(_recoil, 0, dt * 8f);
             Vector3 root = transform.position;
             float h = _crouch ? 1.15f : 1.62f;
+            if (_down > 0) h = 0.75f;                                // knocked down: on their knees / backside
+            h -= _hunch * 0.28f;                                     // gut / chest hit: doubled over
+            Vector3 vel0 = Puppet ? _puppetVel : AgentOk ? Agent.velocity : Vector3.zero;
+            if (_legHurt > 0.15f && vel0.sqrMagnitude > 0.05f)       // limp: a dip on the bad leg every other step
+            {
+                _limpPhase += dt * vel0.magnitude * 2.2f;
+                h -= Mathf.Max(0f, Mathf.Sin(_limpPhase)) * 0.09f * Mathf.Clamp01(_legHurt);
+            }
             Quaternion yawQ = Quaternion.Euler(0, Yaw, 0);
-            Vector3 head = root + Vector3.up * h + yawQ * new Vector3(0, 0, 0.05f);
-            // flinch: knock the head/upper body away from the hit
-            head += _flinchDir * _flinch * 0.12f;
+            Vector3 head = root + Vector3.up * h + yawQ * new Vector3(0, 0, 0.05f + _hunch * 0.18f);
+            // flinch: knock the head/upper body away from the hit, the way the bullet was going
+            head += _flinchDir * _flinch * 0.12f + _hitKick;
             Vector3 toAim = AimPoint - head;
             if (toAim.sqrMagnitude < 0.01f) toAim = yawQ * Vector3.forward;
             Quaternion headRot = Quaternion.LookRotation(toAim.normalized, Vector3.up);
@@ -576,8 +594,18 @@ namespace Rago
             GunModel.root.transform.SetPositionAndRotation(gunPos, gunRot);
             Vector3 gripR = GunModel.root.transform.position;
             Vector3 gripL = GunModel.foregrip != null ? GunModel.foregrip.position : gripR + gunRot * new Vector3(-0.02f, -0.03f, 0.08f);
+            if (_armJerk > 0) { Vector3 j = new Vector3(Mathf.Sin(Time.time * 47f), Mathf.Cos(Time.time * 39f), 0) * 0.04f * _armJerk; GunModel.root.transform.position += gunRot * j; gripR = GunModel.root.transform.position; gripL = GunModel.foregrip != null ? GunModel.foregrip.position : gripL + gunRot * j; }
             Quaternion hr = gunRot;
             Quaternion hl = gunRot * Quaternion.Euler(0, 0, 70);
+            if (_oneArm)
+            {
+                // the hurt arm hangs by their side; the gun is held one-handed and droops
+                Vector3 side = yawQ * new Vector3(_armLeft ? -0.22f : 0.22f, 0, 0.05f);
+                Vector3 hang = root + Vector3.up * (h - 0.85f) + side;
+                if (_armLeft) { gripL = hang; hl = yawQ * Quaternion.Euler(90, 0, 0); }
+                else { gripL = gripR; hl = hr; gripR = hang; hr = yawQ * Quaternion.Euler(90, 0, 0); }   // right arm out: the left hand takes the grip
+                GunModel.root.transform.rotation *= Quaternion.Euler(8f + Mathf.Sin(Time.time * 3f) * 3f, 0, 0);
+            }
             Vector3 vel = Puppet ? _puppetVel : AgentOk ? Agent.velocity : Vector3.zero;
             Rig.Pose(root, Yaw, head, headRot, gripL, hl, gripR, hr, vel, dt);
         }
@@ -595,6 +623,7 @@ namespace Rago
             float dmg = h.damage;
             dmg *= ArmorDef.Reduction(h.part, Helmet, Vest, h.gunId, h.ammo);
             Health -= dmg;
+            if (Health > 0) Wound(h, dmg);
             if (h.ammo == AmmoType.Incendiary && Health > 0f) Ignite(h);
             if (Puppet)
             {
@@ -612,6 +641,36 @@ namespace Rago
             if (State != NpcState.Combat && State != NpcState.Cover) { State = NpcState.Combat; _lastKnown = h.point - h.dir * 15f; _lastSeenT = Time.time - 0.5f; _coverT = 0; }
             if (Health <= 0) Die(h.point, h.dir * Mathf.Max(20f, h.force * 20f), false);
             else Say(ScavVoice.Line.Hit, 0.55f, true);
+        }
+
+        /// <summary>React to where the hit landed: head snaps back, chest / gut doubles them over, arm hits ruin their aim
+        /// (enough and they drop the support hand and fight one-handed), leg hits make them limp or knock them down.</summary>
+        void Wound(HitInfo h, float dmg)
+        {
+            if (dmg < 2f || Rig == null) return;
+            Vector3 d = h.dir.sqrMagnitude > 0.001f ? h.dir.normalized : -transform.forward;
+            float k = Mathf.Clamp01(dmg / 40f);
+            switch (h.part)
+            {
+                case BodyPart.Head:
+                    _hitKick = d * (0.12f + 0.12f * k) + Vector3.up * 0.03f; _flinch = 1f; _stagger = Mathf.Max(_stagger, 0.8f);
+                    break;
+                case BodyPart.Thorax:
+                    _hitKick = d * (0.08f + 0.1f * k); _hunch = Mathf.Max(_hunch, 0.4f * k + 0.15f);
+                    break;
+                case BodyPart.Stomach:
+                    _hitKick = d * 0.06f; _hunch = Mathf.Max(_hunch, 0.6f * k + 0.3f); _stagger = Mathf.Max(_stagger, 0.5f);
+                    break;
+                case BodyPart.Arm:
+                    _armLeft = Rig.faL != null && Rig.faR != null && (h.point - Rig.faL.position).sqrMagnitude < (h.point - Rig.faR.position).sqrMagnitude;
+                    _armHurt += dmg / 35f; _armJerk = 1f;
+                    if (_armHurt >= 1f && !_oneArm) { _oneArm = true; Say(ScavVoice.Line.Hit, 1f, true); }
+                    break;
+                case BodyPart.Leg:
+                    _legHurt += dmg / 45f;
+                    if ((dmg > 28f || _legHurt >= 1f) && _down <= 0) { _down = Random.Range(1.8f, 3.2f); _stagger = Mathf.Max(_stagger, _down); }   // leg taken out: they go down
+                    break;
+            }
         }
 
         /// <summary>Set alight by an incendiary round: burns for a few seconds; the damage counts as the shooter's.</summary>

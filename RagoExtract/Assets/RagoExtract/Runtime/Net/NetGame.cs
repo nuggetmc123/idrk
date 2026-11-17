@@ -59,7 +59,7 @@ namespace Rago
             Send(false);
         }
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed, LockBroken }
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed, LockBroken, Market }
 
         public static void Ensure()
         {
@@ -174,7 +174,7 @@ namespace Rago
         {
             var g = p.Gear;
             var pack = g.PackSlot.item as Backpack;
-            return (g.Helmet != null ? g.Helmet.id : "") + "|" + (g.Vest != null ? g.Vest.id : "") + "|" + (pack != null ? pack.def.id : "");
+            return (g.Helmet != null ? g.Helmet.id : "") + "|" + (g.Vest != null ? g.Vest.id : "") + "|" + (pack != null ? pack.def.id : "") + "|" + (g.NvgWorn ? (g.NvgOn ? "2" : "1") : "0");
         }
 
         /// <summary>Introduce yourself to everyone (after you stop spectating).</summary>
@@ -340,6 +340,15 @@ namespace Rago
         }
 
         /// <summary>A grenade we threw went off: everyone else shows it (and works out their own flash).</summary>
+        /// <summary>Player market traffic (trade table, player stalls): the writer gets the payload after the message byte.</summary>
+        public static System.Action<ulong, BinaryReader> OnMarket;
+        public void SendMarket(System.Action<BinaryWriter> write, ulong target = ulong.MaxValue)
+        {
+            var w = W(Msg.Market);
+            write(w);
+            Send(true, target);
+        }
+
         public void SendBlast(Vector3 p, bool flash)
         {
             var w = W(Msg.Blast);
@@ -586,6 +595,9 @@ namespace Rago
                                 rp.CommitSnap(st);
                                 break;
                             }
+                        case Msg.Market:
+                            OnMarket?.Invoke(from, r);
+                            break;
                         case Msg.Blast:
                             {
                                 var bp = V3(r); bool fl = r.ReadBoolean();

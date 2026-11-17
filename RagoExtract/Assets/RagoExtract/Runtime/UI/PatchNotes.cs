@@ -5,6 +5,21 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.13", "Player trading, the bunker pug, gore, wounded scavs", new[] {
+                "PLAYER TRADING in the Market: a TRADE TABLE - each of you stands at a side, puts items (and cash) on your half and presses ACCEPT. It only swaps when both of you have accepted exactly what's on the table; any change un-accepts. What you get lands on your RECEIVED tray.",
+                "PLAYER STALLS: claim one of four stalls, hang items on the hooks and counter, dress the mannequin as a kit (helmet, vest, gun, bag - one price), set prices with + / -. Buyers press BUY: their money is held until your game hands the item over, or it's refunded. Unsold items go back to your stash when you leave.",
+                "A PUG lives in your bunker: it wanders about, follows you, sleeps on its bed and eats from its bowl. Fill the bowl by touching the DOG FOOD sack (or the bowl) with an empty hand and pulling the trigger. Stroke it and its tail goes mad. Hungry with an empty bowl? It sits at your feet and yaps.",
+                "Better gore: more blood, exit wounds with their own spray, wound holes, blood running down walls, headshots blow out the back, frags tear people up, bigger pools.",
+                "Scavs react to where they're hit: head snaps back, chest/gut hits double them over, arm hits ruin their aim (enough and they fight one-handed), leg hits make them limp or knock them down.",
+                "Night vision mounts on your HELMET now (you need one on) - you and everyone else see it flipped up or down. Take the helmet off and the goggles come with it.",
+                "UNDERGROUND: much darker, and 1 minute after the first extract opens the POWER CUTS - the lights flicker and die, only red emergency lamps are left. Scavs everywhere: every room on every level plus corridor patrols.",
+                "Sound through floors (Underground): you can't hear footsteps or scav voices from other levels any more, gunfire from another level is faint and muffled, and scavs can't hear you through the floors.",
+                "Suppressed shots: scavs only hear them within ~8 m.",
+                "NIGHT raids are really dark now - bring a light or night vision.",
+                "PLAYERS ONLINE count fixed: people sitting in their bunker are counted now, and players in the Market or a raid stay on the count (it used to say 1).",
+                "Bags turn with your hand when you hold them open.",
+                "Text is back: messages on your watch again (airdrops, vaults, pickups...), pouch ammo readout, vault LOCKED / HACKING / OPEN sign, tutorial on the watch.",
+            }),
             ("2.12", "Raid timer and item prices on the watch", new[] {
                 "The RAID TIMER is back on your watch: big, top right, and it turns red in the last 5 minutes.",
                 "Grab anything and your watch shows what it is and how much it sells for at the Exchange (guns still show their ammo).",

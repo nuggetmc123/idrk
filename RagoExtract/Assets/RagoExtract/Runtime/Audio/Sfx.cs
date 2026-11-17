@@ -75,6 +75,18 @@ namespace Rago
             s.loop = false;
             s.rolloffMode = AudioRolloffMode.Logarithmic;
             var lp = s.GetComponent<AudioLowPassFilter>(); if (lp != null) lp.enabled = false;
+            // Underground: footsteps, voices and small sounds don't carry through the concrete floors; gunshots and
+            // blasts come through faint and muffled
+            if (spatial > 0.5f && RagoGame.I != null && RagoGame.I.Player != null)
+            {
+                float f = Noise.Through(pos, RagoGame.I.Player.transform.position + Vector3.up * 0.3f);
+                if (f < 1f)
+                {
+                    if (maxDist >= 100f) f = Mathf.Sqrt(f) * 0.6f;
+                    s.volume *= f;
+                    if (lp != null) lp.enabled = true;
+                }
+            }
             s.Play();
             return s;
         }
@@ -88,7 +100,7 @@ namespace Rago
             var s = Play(clip, pos, vol, pitch, minDist, maxDist);
             if (s == null) return null;
             s.rolloffMode = AudioRolloffMode.Linear;
-            var lp = s.GetComponent<AudioLowPassFilter>(); if (lp != null) lp.enabled = muffled;
+            var lp = s.GetComponent<AudioLowPassFilter>(); if (lp != null) lp.enabled = muffled || lp.enabled;   // keeps the through-the-floor muffling
             return s;
         }
 

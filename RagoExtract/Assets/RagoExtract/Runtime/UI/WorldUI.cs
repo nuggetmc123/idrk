@@ -443,24 +443,29 @@ namespace Rago
         /// <summary>A message: on your watch (with a buzz on that wrist), not floating in your view.</summary>
         public void Toast(string s)
         {
-            // no pop-up text anywhere (screen or watch) - just a little buzz so you know something happened
             if (string.IsNullOrEmpty(s)) return;
-            if (XRInputs.VR) _p.HandL.Haptic(0.25f, 0.06f);
+            if (!XRInputs.VR) { _toast.text = s; _toastT = 2.5f; return; }   // desktop has no watch to look at
+            _wristMsg.text = UI.Wrap(s, 30);   // VR: on the watch, with a buzz
+            _msgT = 6f;
+            _p.HandL.Haptic(0.25f, 0.06f);
         }
         /// <summary>A banner: on the watch too - only while the screen is black (loading) or you're dead does it go in the
         /// middle of your view, where you can actually see it.</summary>
         public void Center(string s, float time = 3f)
         {
-            // no banner text anywhere - a buzz instead
-            if (_center != null) _center.text = "";
-            if (!string.IsNullOrEmpty(s) && XRInputs.VR) _p.HandL.Haptic(0.35f, 0.1f);
+            if (!XRInputs.VR || string.IsNullOrEmpty(s)) { _center.text = s; _centerT = time; return; }
+            // VR: on the watch, never on your screen
+            _center.text = "";
+            _wristMsg.text = UI.Wrap(System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", ""), 30);
+            _msgT = Mathf.Max(6f, time);
+            _p.HandL.Haptic(0.35f, 0.1f);
         }
         /// <summary>Top-left matchmaking line (FINDING RAID 0:12 / RAID FOUND / JOINING RAID); empty hides it.</summary>
         public void Queue(string s, bool timer = false) { _queueLabel = s ?? ""; _queueTimer = timer && _queueLabel.Length > 0; _queueStart = Time.unscaledTime; var q = QueueText; if (q != null) q.text = _queueTimer ? _queueLabel + "  0:00" : _queueLabel; }
         TextMesh QueueText => XRInputs.VR && _wristQueue != null ? _wristQueue : _queue;   // VR: on the watch
         string _queueLabel = ""; bool _queueTimer; float _queueStart;
         string _objText = "";
-        public void Objective(string s) { _objText = ""; if (_objective != null) _objective.text = ""; }   // no floating tutorial text
+        public void Objective(string s) { _objText = s ?? ""; if (_objective != null) _objective.text = XRInputs.VR ? "" : _objText; }   // VR: on the watch
 
         public void Tick(float dt)
         {

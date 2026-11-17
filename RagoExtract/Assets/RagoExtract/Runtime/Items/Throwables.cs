@@ -278,6 +278,19 @@ namespace Rago
             if (!flash)
                 foreach (var w in new List<Window>(Window.All))
                     if (w != null && (w.transform.position - p).sqrMagnitude < FragRadius * FragRadius * 0.7f) w.Break((w.transform.position - p).normalized);
+            // gore: anyone caught right next to a frag gets torn up (visual only, every machine)
+            if (!flash && NpcDirector.I != null)
+                try
+                {
+                    foreach (var npc in NpcDirector.I.Npcs)
+                    {
+                        if (npc == null || npc.Rig == null || npc.Rig.chest == null) continue;
+                        Vector3 c = npc.Rig.chest.position;
+                        float dn = Vector3.Distance(c, p);
+                        if (dn < FragRadius * 0.45f && ClearLine(p, c)) { Fx.Gibs(c, (c - p).normalized, 2f); Fx.BloodPool(c); }
+                    }
+                }
+                catch (System.Exception e) { Debug.LogWarning("[Rago] blast gore: " + e.Message); }
             if (!local)
             {
                 // someone else's frag: it hurts us here (each player takes their own shrapnel)

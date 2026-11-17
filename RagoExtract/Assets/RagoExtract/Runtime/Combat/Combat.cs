@@ -58,6 +58,16 @@ namespace Rago
             Recent.Add(new Event { pos = pos, radius = radius, source = source, time = Time.time, alarm = alarm });
             if (Recent.Count > 64) Recent.RemoveAt(0);
         }
+
+        /// <summary>How much of a sound gets from a to b through the Underground's concrete floors: 1 on the same level,
+        /// ~10% one floor away, ~2% two floors away. Everywhere else 1.</summary>
+        public static float Through(Vector3 a, Vector3 b)
+        {
+            if (!(RagoGame.I != null && RagoGame.I.Map is UndergroundMap)) return 1f;
+            int la = Mathf.FloorToInt((-a.y + 3.5f) / 3.9f), lb = Mathf.FloorToInt((-b.y + 3.5f) / 3.9f);
+            int n = Mathf.Abs(la - lb);
+            return n == 0 ? 1f : n == 1 ? 0.1f : 0.02f;
+        }
     }
 
     /// <summary>Simulated projectiles with drop and travel time (not hitscan).</summary>
@@ -135,7 +145,7 @@ namespace Rago
                 if (Physics.Raycast(origin + dir.normalized * 0.3f, dir, out var th, 350f, BulletMask, QueryTriggerInteraction.Ignore)) end = th.point;
                 Fx.TracerLine(origin + dir.normalized * 0.5f, end, gun.velocity, ammo == AmmoType.Incendiary ? new Color(1f, 0.45f, 0.1f) : (Color?)null);
             }
-            Noise.Emit(origin, gun.suppressed ? 14f : 140f, shooter);   // a suppressed shot: raiders only hear it within ~14 m
+            Noise.Emit(origin, gun.suppressed ? 8f : 140f, shooter);   // a suppressed shot: raiders only hear it within ~8 m (and not through floors)
         }
 
         void FixedUpdate()

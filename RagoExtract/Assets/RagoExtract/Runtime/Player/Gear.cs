@@ -124,7 +124,7 @@ namespace Rago
                     if (d < 0.16f && h.Held != null && !h.HeldAsSecondary && AmmoThing(h.Held)) ready = true;
                 }
                 _flap[k].SetColor("_Color", ready ? FlapReady : FlapIdle);
-                if (_pouchInfo[k] != null) _pouchInfo[k].text = "";   // no floating text over the pouch
+                if (_pouchInfo[k] != null) _pouchInfo[k].text = ready ? "LET GO TO STORE" : near ? ReserveText() : "";
             }
         }
 
@@ -229,12 +229,13 @@ namespace Rago
         public bool TryWearNvg(Item nvg, Hand h)
         {
             if (NvgWorn || Vector3.Distance(nvg.transform.position, _p.Head.position + Vector3.up * 0.03f) > 0.3f) return false;
+            if (Helmet == null) { _p.Toast("Night vision mounts on a helmet - put a helmet on first"); return false; }
             NvgWorn = true;
             nvg.Consumed = true;
             Destroy(nvg.gameObject);
             Sfx.Play(Synth.Zipper(), _p.Head.position, 0.45f, 1.4f, 0.5f, 6f);
             h.Haptic(0.4f, 0.1f);
-            _p.Toast("Night vision on your head - reach to your forehead and pull the trigger to flip it down" + (XRInputs.VR ? "" : " (V)"));
+            _p.Toast("Night vision mounted on your helmet - reach to the front of it and pull the trigger to flip it down" + (XRInputs.VR ? "" : " (V)"));
             Changed();
             return true;
         }
@@ -248,7 +249,7 @@ namespace Rago
             return ItemFactory.Spawn("nvg", p, rot);
         }
 
-        public void ToggleNvg() { if (NvgWorn) { SetNvg(!NvgOn); Sfx.Play(Synth.MagIn(), _p.Head.position, 0.35f, 1.8f, 0.3f, 4f); } }
+        public void ToggleNvg() { if (NvgWorn) { SetNvg(!NvgOn); Sfx.Play(Synth.MagIn(), _p.Head.position, 0.35f, 1.8f, 0.3f, 4f); Changed(); } }   // flips the goggles on the helmet for everyone
 
         public void SetNvg(bool on)
         {
@@ -265,6 +266,8 @@ namespace Rago
             if (d == null) return null;
             if (slot == ArmorSlot.Helmet) Helmet = null; else Vest = null;
             var it = ItemFactory.Spawn(d.id, p, rot);
+            // the goggles come off with the helmet (they're mounted on it): they drop just below it
+            if (slot == ArmorSlot.Helmet && NvgWorn) { NvgWorn = false; SetNvg(false); ItemFactory.Spawn("nvg", p + Vector3.down * 0.15f, rot); }
             Sfx.Play(Synth.Zipper(), p, 0.45f, 1.1f, 0.5f, 6f);
             Changed();
             return it;
@@ -808,12 +811,16 @@ namespace Rago
             // the hand up or down used to flip the bag right round. Turned smoothly, so it never snaps.
             var a = primaryHand.Anchor;
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
-            Vector3 fwd = pl != null ? a.position - pl.Head.position : a.forward; fwd.y = 0;
+            // the bag turns with your hand (where the hand points, flattened) and stays level, mouth up; with the hand
+            // pointing straight up or down it falls back to the back of the hand, then to head-to-hand
+            Vector3 fwd = a.forward; fwd.y = 0;
+            if (fwd.sqrMagnitude < 0.04f) { fwd = -a.up * Mathf.Sign(Vector3.Dot(a.forward, Vector3.down) + 0.0001f); fwd.y = 0; }
+            if (fwd.sqrMagnitude < 0.04f && pl != null) { fwd = a.position - pl.Head.position; fwd.y = 0; }
             if (fwd.sqrMagnitude < 0.0025f && pl != null) { fwd = pl.Head.forward; fwd.y = 0; }
             if (fwd.sqrMagnitude < 0.0001f) fwd = Vector3.forward;
             var want = Quaternion.LookRotation(fwd.normalized, Vector3.up);
             if (!_heldRotInit || Time.frameCount - _heldRotFrame > 2) _heldRot = want;
-            else if (Time.frameCount != _heldRotFrame) _heldRot = Quaternion.Slerp(_heldRot, want, 1f - Mathf.Exp(-10f * Time.deltaTime));
+            else if (Time.frameCount != _heldRotFrame) _heldRot = Quaternion.Slerp(_heldRot, want, 1f - Mathf.Exp(-18f * Time.deltaTime));   // follows the hand closely
             _heldRotInit = true; _heldRotFrame = Time.frameCount;
             rot = _heldRot;
             var n = In;

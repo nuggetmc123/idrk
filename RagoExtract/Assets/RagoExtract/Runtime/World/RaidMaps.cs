@@ -475,14 +475,15 @@ namespace Rago
         {
             Ambience = Synth.Amb.Bunker;
             KeepFog = true; Indoor = true;
-            NpcSafeRadius = 22f;
-            MaxRaiders = 22;
+            NpcSafeRadius = 14f;   // only keep them off your own spawn: they're everywhere down here
+            MaxRaiders = 32;
             float ex = NX * Pitch / 2f + 2f, ez = NZ * Pitch / 2f + 2f;   // outer walls (84 x 68)
             float yBot = LevelY(Levels - 1), yTop = LevelY(0) + Ht;
             // every floor, not the top of the roof slab
             NavBounds = new Bounds(new Vector3(0, (yBot - 0.3f + 3.0f) / 2f, 0), new Vector3(ex * 2 + 2, 3.0f - (yBot - 0.3f), ez * 2 + 2));
-            Lighting(new Color(0.9f, 0.95f, 1f), 0f, new Vector3(60, 30, 0), new Color(0.46f, 0.48f, 0.52f), new Color(0.38f, 0.38f, 0.39f), new Color(0.2f, 0.19f, 0.18f),
-                new Color(0.05f, 0.055f, 0.06f), 0.03f, new Color(0.03f, 0.03f, 0.035f), new Color(0.06f, 0.06f, 0.065f), 0f, 0.6f);
+            // darker than before: the corners and rooms away from the strip lights are properly gloomy
+            Lighting(new Color(0.9f, 0.95f, 1f), 0f, new Vector3(60, 30, 0), new Color(0.19f, 0.2f, 0.22f), new Color(0.14f, 0.14f, 0.15f), new Color(0.06f, 0.058f, 0.055f),
+                new Color(0.02f, 0.022f, 0.025f), 0.055f, new Color(0.03f, 0.03f, 0.035f), new Color(0.06f, 0.06f, 0.065f), 0f, 0.6f);
             var b = B;
             b.NoSwingDoors = true;   // doors here come only from the rooms' own doorways (CustomDoors), one per doorway
             var conc = Maps.Concrete;
@@ -491,6 +492,7 @@ namespace Rago
             var paint = Mats.Lit("ug_paint", new Color(0.26f, 0.32f, 0.3f), 0f, 0.35f, Mats.Plaster, null, 0.5f, 0.3f, true, 0.4f);
             var metal = Mats.Lit("ug_metal", Color.white, 0.7f, 0.45f, Mats.Metal, null, 0.35f, 0.4f);
             var lamp = Mats.Lit("ug_lamp", new Color(0.9f, 0.95f, 1f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2.3f, 2.4f));
+            var grid = gameObject.AddComponent<PowerGrid>(); grid.Lamp = lamp; grid.Map = this;
             var yellow = Mats.Lit("hazard_y", new Color(0.85f, 0.68f, 0.08f), 0f, 0.3f, Mats.Noise, null, 0.5f, 0.3f);
             Color wallCol = new Color(0.58f, 0.59f, 0.58f);
 
@@ -560,11 +562,16 @@ namespace Rago
                         if (type == "vault" || well != null) continue;
                         // raiders: the guarded rooms often hold a bigger group, elsewhere the odd pair
                         bool nest = type == "armory" || type == "server" || type == "generator" || type == "barracks";
-                        if (nest ? b.Rng.Chance(0.6f) : b.Rng.Chance(0.3f))
-                            Squad(c + new Vector3(b.Rng.Range(-1f, 1f), 0, -4.2f), nest ? b.Rng.Range(4, 6) : b.Rng.Range(2, 4), type == "armory" || type == "generator");
+                        // every room on every level has raiders: bigger groups in the guarded rooms, a pair or three elsewhere
+                        Squad(c + new Vector3(b.Rng.Range(-1f, 1f), 0, -4.2f), nest ? b.Rng.Range(4, 6) : b.Rng.Range(2, 4), type == "armory" || type == "generator");
                     }
             }
             foreach (var w in Wells) BuildStairwell(Cell(w.i, w.j, w.l), metal, conc, wallCol, yellow);
+            // and patrols out in the corridors of every level
+            for (int l = 0; l < Levels; l++)
+                for (int i = 0; i <= NX; i += 2)
+                    for (int j = 0; j <= NZ; j += 2)
+                        Squad(new Vector3((i - NX / 2f) * Pitch, LevelY(l) + 0.05f, (j - NZ / 2f) * Pitch), 2);
             ScatterLoot(pts, 0.9f);
 
             // ---- player spawns round the edge of B1; only two ways out
@@ -779,5 +786,80 @@ namespace Rago
                     break;
             }
         }
+    }
+
+    /// <summary>The Underground's power: one minute after the first extract opens the breakers trip - the strip lights
+    /// flicker and die, every room light goes out and only dim red emergency lamps are left. Same moment for everyone
+    /// (the extract times come from the raid seed).</summary>
+    public class PowerGrid : MonoBehaviour
+    {
+        public Material Lamp; public MapBase Map;
+        bool _cut; Color _lampEm; readonly List<Light> _red = new List<Light>();
+
+        void Start() { if (Lamp != null) _lampEm = Lamp.GetColor("_EmissionColor"); }
+
+        float CutAt()
+        {
+            float first = float.MaxValue;
+            foreach (var e in Map.Extracts) if (e != null) first = Mathf.Min(first, e.OpensAt);
+            return first == float.MaxValue ? float.MaxValue : first + 60f;
+        }
+
+        void Update()
+        {
+            if (_cut || Map == null || RaidManager.I == null || RaidManager.I.Done) return;
+            float at = CutAt();
+            if (at <= 0f || RaidManager.I.Elapsed < at) return;
+            _cut = true;
+            StartCoroutine(Cut(RaidManager.I.Elapsed - at < 5f));   // rejoined long after: just dark
+        }
+
+        System.Collections.IEnumerator Cut(bool flicker)
+        {
+            var lights = new List<Light>();
+            foreach (var l in Map.GetComponentsInChildren<Light>(true)) if (l.type != LightType.Directional && l.enabled) lights.Add(l);
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (flicker)
+            {
+                if (pl != null) { Sfx.Play(Synth.Alarm(), pl.Head.position + Vector3.up * 3f, 0.35f, 0.6f, 5f, 60f); pl.Hud.Center("POWER CUT\n<size=40>The lights are going out</size>", 4f); }
+                for (int i = 0; i < 6; i++)
+                {
+                    bool on = i % 2 == 1;
+                    Set(lights, on ? 1f : 0.05f);
+                    yield return new WaitForSeconds(Random.Range(0.08f, 0.35f));
+                }
+            }
+            Set(lights, 0f);
+            // ambient right down: only your flashlight / NVG and the red lamps
+            RenderSettings.ambientSkyColor *= 0.22f; RenderSettings.ambientEquatorColor *= 0.22f; RenderSettings.ambientGroundColor *= 0.25f;
+            // emergency lamps: a few dim red pools at the extracts and stairs
+            foreach (var e in Map.Extracts)
+                if (e != null) AddRed(e.transform.position + Vector3.up * 2.4f);
+            int n = 0;
+            foreach (var l in lights) if (l != null && (n++ % 5) == 0) AddRed(l.transform.position);
+        }
+
+        void AddRed(Vector3 p)
+        {
+            var go = new GameObject("EmergencyLight");
+            go.transform.SetParent(Map.transform, false); go.transform.position = p;
+            var l = go.AddComponent<Light>(); l.type = LightType.Point; l.color = new Color(1f, 0.08f, 0.05f); l.range = 7f; l.intensity = 0.9f; l.shadows = LightShadows.None;
+            _red.Add(l);
+        }
+
+        void Set(List<Light> lights, float k)
+        {
+            foreach (var l in lights) if (l != null) l.enabled = k > 0.5f;
+            if (Lamp != null) Lamp.SetColor("_EmissionColor", _lampEm * k);
+        }
+
+        void LateUpdate()
+        {
+            // the red lamps throb slowly
+            float a = 0.6f + 0.4f * Mathf.Sin(Time.time * 2.2f);
+            foreach (var l in _red) if (l != null) l.intensity = 0.9f * a;
+        }
+
+        void OnDestroy() { if (Lamp != null) Lamp.SetColor("_EmissionColor", _lampEm); }   // the lamp material is shared: lights back on for the next raid
     }
 }

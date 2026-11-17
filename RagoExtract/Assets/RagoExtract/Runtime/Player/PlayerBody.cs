@@ -45,7 +45,7 @@ namespace Rago
         public void ApplyGear()
         {
             if (Rig == null || _p == null || _p.Gear == null) return;
-            ArmorBuilder.Dress(Rig, _p.Gear.Helmet, _p.Gear.Vest, null, true);
+            ArmorBuilder.Dress(Rig, _p.Gear.Helmet, _p.Gear.Vest, null, true, _p.Gear.NvgWorn ? (_p.Gear.NvgOn ? 2 : 1) : 0);
             foreach (var g in Rig.gearVisuals) g.SetLayerRecursive(Layers.LocalBody);
         }
 

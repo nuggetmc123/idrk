@@ -48,19 +48,20 @@ namespace Rago
             if (Night)
             {
                 // moonlight: a faint cold light from high up, a dark blue sky; you'll want a weapon light (or night vision)
-                sun.intensity = 0.09f; sun.color = new Color(0.55f, 0.65f, 0.95f); sun.shadowStrength = 0.4f;
+                // really dark now: barely any moon, you can just make out shapes - a light or NVG is close to a must
+                sun.intensity = 0.03f; sun.color = new Color(0.5f, 0.6f, 0.95f); sun.shadowStrength = 0.3f;
                 sun.transform.rotation = Quaternion.Euler(52f, 210f, 0f);
-                sky = new Color(0.035f, 0.045f, 0.08f); eq = new Color(0.025f, 0.03f, 0.05f); gr = new Color(0.012f, 0.014f, 0.02f);
-                skyTop = new Color(0.01f, 0.015f, 0.035f); skyHor = new Color(0.04f, 0.05f, 0.09f); clouds = Rain || Fog ? 0.9f : 0.35f;
+                sky = new Color(0.011f, 0.014f, 0.026f); eq = new Color(0.007f, 0.009f, 0.016f); gr = new Color(0.003f, 0.004f, 0.006f);
+                skyTop = new Color(0.004f, 0.006f, 0.014f); skyHor = new Color(0.016f, 0.02f, 0.035f); clouds = Rain || Fog ? 0.9f : 0.35f;
                 RenderSettings.fog = true;
-                RenderSettings.fogColor = new Color(0.02f, 0.025f, 0.04f);
-                RenderSettings.fogDensity = Mathf.Max(RenderSettings.fogDensity, Fog ? 0.018f : 0.0025f);
+                RenderSettings.fogColor = new Color(0.006f, 0.008f, 0.014f);
+                RenderSettings.fogDensity = Mathf.Max(RenderSettings.fogDensity, Fog ? 0.025f : 0.007f);
             }
             RenderSettings.ambientSkyColor = sky; RenderSettings.ambientEquatorColor = eq; RenderSettings.ambientGroundColor = gr;
             RenderSettings.skybox = Mats.Sky(skyTop, skyHor, gr * 0.8f, sun.color, sun.transform.forward, clouds, Night ? new Color(0.06f, 0.07f, 0.1f) : Color.Lerp(skyHor, Color.white, 0.4f));
             RenderSettings.reflectionIntensity = Night ? 0.15f : 0.45f;
             DynamicGI.UpdateEnvironment();
-            SightMul = (Night ? 0.45f : 1f) * (Fog ? 0.5f : 1f) * (Rain ? 0.85f : 1f);
+            SightMul = (Night ? 0.32f : 1f) * (Fog ? 0.5f : 1f) * (Rain ? 0.85f : 1f);
             var go = new GameObject("Weather");
             go.transform.SetParent(map.transform, false);
             var w = go.AddComponent<Weather>();
