@@ -7,9 +7,9 @@ namespace Rago
         {
             ("2.16", "Player markets on screens, clearer trade table", new[] {
                 "The booths are gone - the hall is clear again. Instead there are BLACK MARKET SCREENS (by the lift and in the middle of the hall). PLAYER MARKETS lists everyone selling; OPEN one to see what they sell and what they want for each thing - money, or items (guns, armour, keycards, meds, anything on the list) and how many.",
-                "MY MARKET (level 5+): press CREATE MY MARKET, put items on the red square, pick which one to sell, pick what you want for it (< >) and the price or how many, then LIST IT. UNLIST sends it back to your bunker. Your market is open whenever you're in the Market.",
-                "BUY holds your money until the seller's game hands it over; TRADE takes what they want off the red square. Whatever you get goes straight to your bunker (both sides).",
-                "TRADE TABLE: the board no longer runs its text together - your name, what you give and the money are on separate lines, and it shows clearly how much money you PAY and GET. A board over the table shows the whole deal to both traders and anyone watching. The control board now leans back towards you.",
+                "MY MARKET (level 5+): press CREATE MY MARKET, put items on the red square, pick which one to sell, then pick what you want for it: MONEY (and the price) or ANY item in the game - choose the kind (guns, armour, bags, optics, attachments, meds, ammo, valuables & keys, grenades & melee, junk) and then the exact item, and how many. Press LIST IT. UNLIST sends it back to your bunker. Your market is open whenever you're in the Market.",
+                "Bigger text on the black market screens. BUY holds your money until the seller's game hands it over; TRADE takes what they want off the red square. Whatever you get goes straight to your bunker (both sides).",
+                "TRADE TABLE: the controls are a low console along your edge, tilted up towards you, so you can see the items on the table past it. The text no longer runs together - your name, what you give and the money are on separate lines, bigger, and it shows clearly how much money you PAY and GET. A board over the table shows the whole deal to both traders and anyone watching.",
                 "Items laid on the red square lie across it (guns no longer point at you or into the screen).",
             }),
             ("2.15", "Swap trades, booths for everyone, med fix", new[] {

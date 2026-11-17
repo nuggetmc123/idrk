@@ -110,8 +110,8 @@ namespace Rago
             var sb = new MB().Box(new Vector3(0, 2.05f, 0), new Vector3(1.9f, 0.5f, 0.04f), new Color(0.08f, 0.08f, 0.09f), 0.01f)
                 .Box(new Vector3(-0.9f, 1.4f, 0), new Vector3(0.04f, 1.1f, 0.04f), new Color(0.2f, 0.2f, 0.2f)).Box(new Vector3(0.9f, 1.4f, 0), new Vector3(0.04f, 1.1f, 0.04f), new Color(0.2f, 0.2f, 0.2f));
             sb.Build("DealBoard", transform, MarketNet.Steel);
-            _deal[0] = UI.Text(transform, "", new Vector3(0, 2.05f, -0.022f), 0.03f, new Color(1f, 0.9f, 0.5f), TextAnchor.MiddleCenter, FontStyle.Bold);
-            _deal[1] = UI.Text(transform, "", new Vector3(0, 2.05f, 0.026f), 0.03f, new Color(1f, 0.9f, 0.5f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            _deal[0] = UI.Text(transform, "", new Vector3(0, 2.05f, -0.022f), 0.05f, new Color(1f, 0.9f, 0.5f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            _deal[1] = UI.Text(transform, "", new Vector3(0, 2.05f, 0.026f), 0.05f, new Color(1f, 0.9f, 0.5f), TextAnchor.MiddleCenter, FontStyle.Bold);
             _deal[1].transform.localRotation = Quaternion.Euler(0, 180, 0);
             for (int k = 0; k < 2; k++)
             {
@@ -126,14 +126,15 @@ namespace Rago
                 sd.tray = ItemContainer.Grid(sd.root, new Vector3(0.78f, 0.02f, -0.05f), Quaternion.identity, 1, 2, new Vector2(0.3f, 0.3f), 0.26f);
                 // the control board stands up on your edge of the table, leaning back towards you; three clear rows of
                 // text over a row of buttons (the text used to run together)
-                var ui = UI.Panel(sd.root, "TradeUI", new Vector3(0, 0.36f, -0.36f), Quaternion.Euler(20, 0, 0), new Vector2(1.9f, 0.56f), null, true, Skin.Steel);
-                sd.sign = UI.Text(ui, "", new Vector3(-0.88f, 0.21f, -0.003f), 0.026f, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
-                sd.info = UI.Text(ui, "", new Vector3(-0.88f, 0.13f, -0.003f), 0.02f, new Color(0.8f, 0.82f, 0.85f), TextAnchor.MiddleLeft);
-                sd.cash = UI.Text(ui, "", new Vector3(-0.88f, 0.04f, -0.003f), 0.024f, new Color(1f, 0.85f, 0.3f), TextAnchor.MiddleLeft, FontStyle.Bold);
-                sd.claim = UI.Button(ui, "TRADE HERE", new Vector3(-0.62f, -0.15f, 0), new Vector2(0.4f, 0.11f), () => Claim(kk), new Color(0.2f, 0.4f, 0.6f), BtnStyle.Key);
-                sd.minus = UI.Button(ui, "- $1000", new Vector3(-0.17f, -0.15f, 0), new Vector2(0.24f, 0.11f), () => Money(kk, -1000), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
-                sd.plus = UI.Button(ui, "+ $1000", new Vector3(0.12f, -0.15f, 0), new Vector2(0.24f, 0.11f), () => Money(kk, 1000), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
-                sd.accept = UI.Button(ui, "ACCEPT", new Vector3(0.6f, -0.15f, 0), new Vector2(0.4f, 0.11f), () => AcceptPress(kk), new Color(0.2f, 0.5f, 0.2f), BtnStyle.Key);
+                // a low console along your edge of the table, tilted up like a lectern - you can see the items over it
+                var ui = UI.Panel(sd.root, "TradeUI", new Vector3(0, 0.1f, -0.52f), Quaternion.Euler(55, 0, 0), new Vector2(1.9f, 0.42f), null, true, Skin.Steel);
+                sd.sign = UI.Text(ui, "", new Vector3(-0.88f, 0.16f, -0.003f), 0.04f, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
+                sd.info = UI.Text(ui, "", new Vector3(-0.88f, 0.09f, -0.003f), 0.03f, new Color(0.85f, 0.87f, 0.9f), TextAnchor.MiddleLeft);
+                sd.cash = UI.Text(ui, "", new Vector3(-0.88f, 0.02f, -0.003f), 0.036f, new Color(1f, 0.85f, 0.3f), TextAnchor.MiddleLeft, FontStyle.Bold);
+                sd.claim = UI.Button(ui, "TRADE HERE", new Vector3(-0.62f, -0.12f, 0), new Vector2(0.4f, 0.11f), () => Claim(kk), new Color(0.2f, 0.4f, 0.6f), BtnStyle.Key);
+                sd.minus = UI.Button(ui, "- $1000", new Vector3(-0.17f, -0.12f, 0), new Vector2(0.24f, 0.11f), () => Money(kk, -1000), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
+                sd.plus = UI.Button(ui, "+ $1000", new Vector3(0.12f, -0.12f, 0), new Vector2(0.24f, 0.11f), () => Money(kk, 1000), new Color(0.35f, 0.35f, 0.35f), BtnStyle.Key);
+                sd.accept = UI.Button(ui, "ACCEPT", new Vector3(0.6f, -0.12f, 0), new Vector2(0.4f, 0.11f), () => AcceptPress(kk), new Color(0.2f, 0.5f, 0.2f), BtnStyle.Key);
                 MarketNet.Label(sd.root, "RECEIVED", new Vector3(0.78f, 0.01f, 0.3f), 0.025f, UI.Dim).transform.localRotation = Quaternion.Euler(90, 0, 0);
             }
             Refresh();
@@ -318,7 +319,7 @@ namespace Rago
                 sd.sign.text = sd.owner == 0 ? "FREE - press TRADE HERE" : who + (sd.accepted ? "   <color=#66ff66>ACCEPTED</color>" : "   (not accepted yet)");
                 sd.sign.richText = true;
                 int val = 0; foreach (var j in sd.items) { var d = MarketNet.Data(j); if (d != null && Db.Get(d.id) != null) val += Db.Get(d.id).price; }
-                sd.info.text = sd.owner == 0 ? "" : UI.Wrap((own ? "YOU GIVE: " : who + " GIVES: ") + Gives(sd) + (val > 0 ? "  (~$" + val.ToString("N0") + ")" : ""), 70);
+                sd.info.text = sd.owner == 0 ? "" : UI.Wrap((own ? "YOU GIVE: " : who + " GIVES: ") + Gives(sd) + (val > 0 ? "  (~$" + val.ToString("N0") + ")" : ""), 55);
                 // the money, big and clear: what you're paying and what you're getting
                 sd.cash.text = sd.owner == 0 ? "" : (own ? "YOU PAY $" + sd.money.ToString("N0") : who + " PAYS $" + sd.money.ToString("N0"))
                     + (other.owner != 0 ? "      " + (own ? "YOU GET $" + other.money.ToString("N0") : "") : "");
@@ -347,7 +348,7 @@ namespace Rago
     // =========================================================================================== SHOPS
     /// <summary>One thing in a player's shop: the item, and either a price or what they want for it.</summary>
     [System.Serializable]
-    public class ShopEntry { public int id; public ItemData item; public int price; public int want; }
+    public class ShopEntry { public int id; public ItemData item; public int price; public string want = ""; }   // want: "" = money, else the item id they want (price = how many)
 
     public static class Shops
     {
@@ -397,16 +398,16 @@ namespace Rago
             MarketNet.Send(w =>
             {
                 w.Write(MarketNet.Listing); w.Write(name); w.Write((byte)Mathf.Min(mine.Count, 40));
-                for (int i = 0; i < mine.Count && i < 40; i++) { var e = mine[i]; w.Write(e.id); w.Write(JsonUtility.ToJson(e.item)); w.Write(e.price); w.Write((byte)e.want); }
+                for (int i = 0; i < mine.Count && i < 40; i++) { var e = mine[i]; w.Write(e.id); w.Write(JsonUtility.ToJson(e.item)); w.Write(e.price); w.Write(e.want ?? ""); }
             });
         }
 
-        public static bool List(Item it, int price, int want)
+        public static bool List(Item it, int price, string want)
         {
             if (Profile.Current == null || it == null) return false;
             if (Levels.Current < SellLevel) { RagoGame.I.Player.Toast("You need to be level " + SellLevel + " to sell (you're " + Levels.Current + ")"); return false; }
             var prof = Profile.Current;
-            var e = new ShopEntry { id = ++prof.shopNextId, item = it.Save(), price = Mathf.Max(0, price), want = want };
+            var e = new ShopEntry { id = ++prof.shopNextId, item = it.Save(), price = Mathf.Max(0, price), want = want ?? "" };
             Mine.Add(e);
             if (it.slot != null) it.slot.Release(it);
             it.Consumed = true; Object.Destroy(it.gameObject);
@@ -437,7 +438,8 @@ namespace Rago
             Changed?.Invoke();
         }
 
-        public static int Count(ShopEntry e) => e.want == 0 ? 1 : Mathf.Max(1, e.price);   // item wants: how many they want
+        public static bool ForMoney(ShopEntry e) => string.IsNullOrEmpty(e.want);
+        public static int Count(ShopEntry e) => ForMoney(e) ? 1 : Mathf.Max(1, e.price);   // item wants: how many they want
         public static void Swap(ulong seller, ShopEntry e, List<Item> onPad)
         {
             if (onPad == null || IsPending(seller, e.id)) return;
@@ -480,7 +482,7 @@ namespace Rago
                     string name = r.ReadString(); int n = r.ReadByte();
                     if (!Others.TryGetValue(from, out var sh)) Others[from] = sh = new Remote();
                     sh.name = name; sh.heard = Time.time; sh.entries.Clear();
-                    for (int i = 0; i < n; i++) { var e = new ShopEntry { id = r.ReadInt32(), item = MarketNet.Data(r.ReadString()), price = r.ReadInt32(), want = r.ReadByte() }; if (e.item != null) sh.entries.Add(e); }
+                    for (int i = 0; i < n; i++) { var e = new ShopEntry { id = r.ReadInt32(), item = MarketNet.Data(r.ReadString()), price = r.ReadInt32(), want = r.ReadString() }; if (e.item != null) sh.entries.Add(e); }
                     Changed?.Invoke();
                     break;
                 }
@@ -488,7 +490,7 @@ namespace Rago
                 {
                     int id = r.ReadInt32(), price = r.ReadInt32();
                     var e = Mine.Find(x => x.id == id);
-                    if (e != null && e.want == 0 && e.price == price && prof != null)
+                    if (e != null && Shops.ForMoney(e) && e.price == price && prof != null)
                     {
                         Mine.Remove(e); prof.money += price; prof.Save();
                         Sfx.UI(Synth.Cash(), 0.6f);
@@ -505,7 +507,7 @@ namespace Rago
                     int id = r.ReadInt32(); int n = r.ReadByte();
                     var offers = new List<ItemData>(); for (int i = 0; i < n; i++) { var od = MarketNet.Data(r.ReadString()); if (od != null) offers.Add(od); }
                     var e = Mine.Find(x => x.id == id);
-                    bool ok = e != null && e.want != 0 && offers.Count >= Count(e) && offers.TrueForAll(o => ShopScreen.Matches(e.want, Db.Get(o.id)));
+                    bool ok = e != null && !Shops.ForMoney(e) && offers.Count >= Count(e) && offers.TrueForAll(o => ShopScreen.Matches(e.want, Db.Get(o.id)));
                     if (ok && prof != null)
                     {
                         Mine.Remove(e); prof.stash.AddRange(offers); prof.Save();
@@ -558,31 +560,40 @@ namespace Rago
     /// </summary>
     public class ShopScreen : MonoBehaviour
     {
-        public static readonly string[] Wants = { "MONEY", "ANY GUN", "VAULT KEYCARD", "MILITARY RADIO", "ANY ARMOUR", "NIGHT VISION", "ANY VALUABLE", "ANY BACKPACK", "ANY OPTIC / ATTACHMENT", "AP / INCENDIARY AMMO", "ANY MEDS" };
-        public static string WantName(int w) => w >= 0 && w < Wants.Length ? Wants[w].ToLower() : "money";
-        public static bool Matches(int w, ItemDef d)
+        // what you can ask for: money, or any specific item in the game - picked by category, then item
+        public static readonly string[] Cats = { "MONEY", "GUNS", "ARMOUR", "BACKPACKS", "OPTICS", "ATTACHMENTS", "MEDS", "AMMO", "VALUABLES & KEYS", "GRENADES & MELEE", "JUNK & OTHER" };
+        static readonly List<ItemDef>[] _catItems = new List<ItemDef>[Cats.Length];
+        public static List<ItemDef> CatItems(int c)
         {
-            if (d == null) return false;
-            switch (w)
+            if (_catItems[c] != null) return _catItems[c];
+            Db.Init();
+            var l = new List<ItemDef>();
+            switch (c)
             {
-                case 1: return d.kind == ItemKind.Gun;
-                case 2: return d.id == "key_vault";
-                case 3: return d.id == "val_radio";
-                case 4: return d.kind == ItemKind.Armor;
-                case 5: return d.id == "nvg";
-                case 6: return d.kind == ItemKind.Valuable;
-                case 7: return d.kind == ItemKind.Backpack;
-                case 8: return d.kind == ItemKind.Sight || d.kind == ItemKind.Attachment;
-                case 9: return d is SimpleDef sd && sd.kind == ItemKind.Ammo && sd.ammoType != AmmoType.Standard;
-                case 10: return d.kind == ItemKind.Med;
-                default: return false;
+                case 1: l.AddRange(Db.Guns); break;
+                case 2: l.AddRange(Db.Armor); break;
+                case 3: l.AddRange(Db.Packs); break;
+                case 4: l.AddRange(Db.Sights); break;
+                case 5: l.AddRange(Db.Attachments); break;
+                case 6: l.AddRange(Db.Misc.FindAll(m => m.kind == ItemKind.Med)); break;
+                case 7: l.AddRange(Db.Misc.FindAll(m => m.kind == ItemKind.Ammo)); break;
+                case 8: l.AddRange(Db.Misc.FindAll(m => m.kind == ItemKind.Valuable || m.kind == ItemKind.Key)); break;
+                case 9: l.AddRange(Db.Misc.FindAll(m => m.kind == ItemKind.Throwable || m.kind == ItemKind.Melee)); break;
+                case 10: l.AddRange(Db.Misc.FindAll(m => m.kind != ItemKind.Med && m.kind != ItemKind.Ammo && m.kind != ItemKind.Valuable && m.kind != ItemKind.Key && m.kind != ItemKind.Throwable && m.kind != ItemKind.Melee)); break;
             }
+            l.RemoveAll(d => d == null || d.rarity == Rarity.Boss);
+            l.Sort((a, b) => string.Compare(a.name, b.name, System.StringComparison.OrdinalIgnoreCase));
+            return _catItems[c] = l;
         }
+        public static string WantName(string id) { var d = string.IsNullOrEmpty(id) ? null : Db.Get(id); return d != null ? d.name : "money"; }
+        /// <summary>Does this item count as what they asked for? The same item (any condition / attachments).</summary>
+        public static bool Matches(string want, ItemDef d) => d != null && !string.IsNullOrEmpty(want) && d.id == want;
 
         enum Page { Shops, Shop, Mine }
         Page _page = Page.Shops; ulong _open; int _scroll;
         Transform _screen, _content; ItemContainer _pad; TextMesh _title, _status;
-        int _price = 1000, _want, _count = 1, _pick; bool _dirty = true; float _redrawT;
+        int _price = 1000, _cat, _item, _count = 1, _pick;
+        string WantId { get { if (_cat == 0) return ""; var l = CatItems(_cat); if (l.Count == 0) return ""; _item = (_item % l.Count + l.Count) % l.Count; return l[_item].id; } } bool _dirty = true; float _redrawT;
         List<Item> PadItems() { var l = new List<Item>(); foreach (var sl in _pad.slots) if (sl.item != null) l.Add(sl.item); return l; }
 
         public static ShopScreen Create(Transform parent, Vector3 pos, float yaw)
@@ -610,8 +621,8 @@ namespace Rago
             glow.type = LightType.Point; glow.color = new Color(0.3f, 1f, 0.5f); glow.range = 2.5f; glow.intensity = 0.7f;
             // the screen faces the customer (readable from -Z)
             _screen = UI.Panel(transform, "Screen", new Vector3(0, 1.42f, 0.37f), Quaternion.identity, new Vector2(1.42f, 0.92f), new Color(0.02f, 0.06f, 0.03f), true, Skin.Steel);
-            _title = UI.Text(_screen, "", new Vector3(-0.67f, 0.4f, -0.003f), 0.036f, new Color(0.3f, 1f, 0.45f), TextAnchor.MiddleLeft, FontStyle.Bold);
-            _status = UI.Text(_screen, "", new Vector3(0.67f, 0.4f, -0.003f), 0.018f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleRight);
+            _title = UI.Text(_screen, "", new Vector3(-0.67f, 0.4f, -0.003f), 0.045f, new Color(0.3f, 1f, 0.45f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            _status = UI.Text(_screen, "", new Vector3(0.67f, 0.4f, -0.003f), 0.026f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleRight);
             UI.Button(_screen, "SHOPS", new Vector3(-0.55f, -0.4f, 0), new Vector2(0.24f, 0.07f), () => Go(Page.Shops), new Color(0.1f, 0.3f, 0.14f), BtnStyle.Key);
             UI.Button(_screen, "MY MARKET", new Vector3(-0.28f, -0.4f, 0), new Vector2(0.26f, 0.07f), () => Go(Page.Mine), new Color(0.15f, 0.25f, 0.5f), BtnStyle.Key);
             UI.Button(_screen, "^", new Vector3(0.56f, -0.4f, 0), new Vector2(0.08f, 0.07f), () => { _scroll = Mathf.Max(0, _scroll - 1); _dirty = true; }, new Color(0.15f, 0.15f, 0.15f), BtnStyle.Key);
@@ -621,7 +632,7 @@ namespace Rago
             var padRoot = new GameObject("RedSquare").transform; padRoot.SetParent(transform, false); padRoot.localPosition = new Vector3(0.45f, 0.8f, 0.02f);
             _pad = ItemContainer.Grid(padRoot, Vector3.zero, Quaternion.identity, 2, 2, new Vector2(0.38f, 0.3f), 0.34f, null, Quaternion.Euler(0, 90, 0));
             _pad.onChanged = () => _dirty = true;
-            MarketNet.Label(transform, "PUT ITEMS HERE", new Vector3(0.45f, 0.792f, -0.3f), 0.024f, new Color(1f, 0.75f, 0.7f)).transform.localRotation = Quaternion.Euler(90, 0, 0);
+            MarketNet.Label(transform, "PUT ITEMS HERE", new Vector3(0.45f, 0.792f, -0.3f), 0.034f, new Color(1f, 0.75f, 0.7f)).transform.localRotation = Quaternion.Euler(90, 0, 0);
             Shops.Changed += () => _dirty = true;
             MarketNet.Hook();
         }
@@ -638,9 +649,9 @@ namespace Rago
         void Row(int i, string a, string b, Color bc, string sub = null)
         {
             float y = 0.3f - i * 0.085f;
-            UI.Text(_content, a, new Vector3(-0.67f, y, -0.003f), 0.024f, Color.white, TextAnchor.MiddleLeft);
-            UI.Text(_content, b, new Vector3(0.0f, y, -0.003f), 0.022f, bc, TextAnchor.MiddleLeft, FontStyle.Bold);
-            if (sub != null) UI.Text(_content, sub, new Vector3(0.0f, y - 0.03f, -0.003f), 0.014f, UI.Dim, TextAnchor.MiddleLeft);
+            UI.Text(_content, a, new Vector3(-0.67f, y, -0.003f), 0.032f, Color.white, TextAnchor.MiddleLeft);
+            UI.Text(_content, b, new Vector3(-0.05f, y, -0.003f), 0.03f, bc, TextAnchor.MiddleLeft, FontStyle.Bold);
+            if (sub != null) UI.Text(_content, sub, new Vector3(-0.05f, y - 0.035f, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleLeft);
         }
         void Btn(int i, string label, float x, Color c, System.Action a, float w = 0.16f) => UI.Button(_content, label, new Vector3(x, 0.3f - i * 0.085f, 0), new Vector2(w, 0.06f), () => { a(); _dirty = true; }, c, BtnStyle.Key);
 
@@ -662,7 +673,7 @@ namespace Rago
                     for (int i = 0; i < per && _scroll + i < list.Count; i++)
                     {
                         var kv = list[_scroll + i]; ulong who = kv.Key;
-                        int money = 0, swaps = 0; foreach (var e in kv.Value.entries) if (e.want == 0) money++; else swaps++;
+                        int money = 0, swaps = 0; foreach (var e in kv.Value.entries) if (Shops.ForMoney(e)) money++; else swaps++;
                         Row(i, kv.Value.name.Split('#')[0].ToUpper() + "'S MARKET", kv.Value.entries.Count + " item(s)", new Color(1f, 0.9f, 0.4f), (money > 0 ? money + " for money" : "") + (money > 0 && swaps > 0 ? ", " : "") + (swaps > 0 ? swaps + " for trade" : ""));
                         Btn(i, "OPEN", 0.55f, new Color(0.15f, 0.45f, 0.18f), () => { _open = who; Go(Page.Shop); });
                     }
@@ -678,12 +689,12 @@ namespace Rago
                     {
                         var e = sh.entries[_scroll + i]; ulong who = _open;
                         bool pend = Shops.IsPending(who, e.id);
-                        Row(i, Shops.ItemName(e.item), Asks(e), e.want == 0 ? new Color(1f, 0.9f, 0.4f) : new Color(1f, 0.6f, 0.9f));
+                        Row(i, Shops.ItemName(e.item), Asks(e), Shops.ForMoney(e) ? new Color(1f, 0.9f, 0.4f) : new Color(1f, 0.6f, 0.9f));
                         if (pend) { UI.Text(_content, "waiting...", new Vector3(0.55f, 0.3f - i * 0.085f, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleCenter); continue; }
-                        if (e.want == 0) Btn(i, "BUY", 0.55f, new Color(0.15f, 0.45f, 0.18f), () => Shops.Buy(who, e));
+                        if (Shops.ForMoney(e)) Btn(i, "BUY", 0.55f, new Color(0.15f, 0.45f, 0.18f), () => Shops.Buy(who, e));
                         else Btn(i, "TRADE", 0.55f, new Color(0.6f, 0.15f, 0.12f), () => Shops.Swap(who, e, PadItems()));
                     }
-                    UI.Text(_content, "BUY: your money is held until they hand it over.  TRADE: put what they want on the red square.  It all goes to your bunker.", new Vector3(0, -0.31f, -0.003f), 0.014f, UI.Dim, TextAnchor.MiddleCenter);
+                    UI.Text(_content, "BUY: your money is held until they hand it over.  TRADE: put what they want on the red square.  It all goes to your bunker.", new Vector3(0, -0.31f, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleCenter);
                     break;
                 }
                 case Page.Mine:
@@ -712,7 +723,7 @@ namespace Rago
                     for (int i = 0; i < rows && _scroll + i < mine.Count; i++)
                     {
                         var e = mine[_scroll + i]; int id = e.id;
-                        Row(i, Shops.ItemName(e.item), Asks(e), e.want == 0 ? new Color(1f, 0.9f, 0.4f) : new Color(1f, 0.6f, 0.9f));
+                        Row(i, Shops.ItemName(e.item), Asks(e), Shops.ForMoney(e) ? new Color(1f, 0.9f, 0.4f) : new Color(1f, 0.6f, 0.9f));
                         Btn(i, "UNLIST", 0.55f, new Color(0.4f, 0.2f, 0.2f), () => Shops.Unlist(id));
                     }
                     if (mine.Count == 0) UI.Text(_content, "Nothing for sale yet - put items on the red square.", new Vector3(0, 0.25f, -0.003f), 0.022f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleCenter);
@@ -720,36 +731,46 @@ namespace Rago
                     var pad = PadItems();
                     _pick = pad.Count == 0 ? 0 : (_pick % pad.Count + pad.Count) % pad.Count;
                     float y = 0.0f;
-                    UI.Text(_content, "1. SELL:", new Vector3(-0.67f, y, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleLeft);
-                    UI.Text(_content, pad.Count == 0 ? "(put items on the red square)" : pad[_pick].def.name, new Vector3(-0.5f, y, -0.003f), 0.024f, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
+                    UI.Text(_content, "1. SELL:", new Vector3(-0.67f, y, -0.003f), 0.026f, UI.Dim, TextAnchor.MiddleLeft);
+                    UI.Text(_content, pad.Count == 0 ? "(put items on the red square)" : pad[_pick].def.name, new Vector3(-0.45f, y, -0.003f), 0.03f, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
                     if (pad.Count > 1) UI.Button(_content, "NEXT ITEM", new Vector3(0.5f, y, 0), new Vector2(0.24f, 0.06f), () => { _pick++; _dirty = true; }, new Color(0.25f, 0.25f, 0.3f), BtnStyle.Key);
                     // 2. what you want for it
                     y -= 0.09f;
-                    UI.Text(_content, "2. FOR:", new Vector3(-0.67f, y, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleLeft);
-                    UI.Button(_content, "< ", new Vector3(-0.44f, y, 0), new Vector2(0.07f, 0.06f), () => { _want = (_want + Wants.Length - 1) % Wants.Length; _dirty = true; }, new Color(0.45f, 0.15f, 0.4f), BtnStyle.Key);
-                    UI.Text(_content, Wants[_want], new Vector3(-0.1f, y, -0.003f), 0.022f, new Color(1f, 0.6f, 0.9f), TextAnchor.MiddleCenter, FontStyle.Bold);
-                    UI.Button(_content, " >", new Vector3(0.24f, y, 0), new Vector2(0.07f, 0.06f), () => { _want = (_want + 1) % Wants.Length; _dirty = true; }, new Color(0.45f, 0.15f, 0.4f), BtnStyle.Key);
+                    // 2a. what kind of thing you want, 2b. exactly which one (every gun, armour, bag... in the game)
+                    UI.Text(_content, "2. FOR:", new Vector3(-0.67f, y, -0.003f), 0.026f, UI.Dim, TextAnchor.MiddleLeft);
+                    UI.Button(_content, "< ", new Vector3(-0.44f, y, 0), new Vector2(0.07f, 0.06f), () => { _cat = (_cat + Cats.Length - 1) % Cats.Length; _item = 0; _dirty = true; }, new Color(0.45f, 0.15f, 0.4f), BtnStyle.Key);
+                    UI.Text(_content, Cats[_cat], new Vector3(-0.22f, y, -0.003f), 0.026f, new Color(1f, 0.6f, 0.9f), TextAnchor.MiddleCenter, FontStyle.Bold);
+                    UI.Button(_content, " >", new Vector3(0.0f, y, 0), new Vector2(0.07f, 0.06f), () => { _cat = (_cat + 1) % Cats.Length; _item = 0; _dirty = true; }, new Color(0.45f, 0.15f, 0.4f), BtnStyle.Key);
+                    if (_cat != 0)
+                    {
+                        var cl = CatItems(_cat);
+                        string wid = WantId;
+                        UI.Button(_content, "<", new Vector3(0.1f, y, 0), new Vector2(0.06f, 0.06f), () => { _item--; _dirty = true; }, new Color(0.3f, 0.15f, 0.35f), BtnStyle.Key);
+                        UI.Text(_content, cl.Count == 0 ? "-" : WantName(wid) + "  (" + (_item + 1) + "/" + cl.Count + ")", new Vector3(0.42f, y, -0.003f), 0.024f, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+                        UI.Button(_content, ">", new Vector3(0.68f, y, 0), new Vector2(0.06f, 0.06f), () => { _item++; _dirty = true; }, new Color(0.3f, 0.15f, 0.35f), BtnStyle.Key);
+                    }
                     // 3. how much / how many
                     y -= 0.09f;
-                    UI.Text(_content, _want == 0 ? "3. PRICE:" : "3. HOW MANY:", new Vector3(-0.67f, y, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleLeft);
-                    UI.Button(_content, "-", new Vector3(-0.3f, y, 0), new Vector2(0.07f, 0.06f), () => { if (_want == 0) Step(-1); else _count = Mathf.Max(1, _count - 1); _dirty = true; }, new Color(0.2f, 0.2f, 0.2f), BtnStyle.Key);
-                    UI.Text(_content, _want == 0 ? "$" + _price.ToString("N0") : _count + " x", new Vector3(-0.1f, y, -0.003f), 0.026f, new Color(1f, 0.9f, 0.4f), TextAnchor.MiddleCenter, FontStyle.Bold);
-                    UI.Button(_content, "+", new Vector3(0.1f, y, 0), new Vector2(0.07f, 0.06f), () => { if (_want == 0) Step(1); else _count = Mathf.Min(4, _count + 1); _dirty = true; }, new Color(0.2f, 0.2f, 0.2f), BtnStyle.Key);
+                    UI.Text(_content, _cat == 0 ? "3. PRICE:" : "3. HOW MANY:", new Vector3(-0.67f, y, -0.003f), 0.026f, UI.Dim, TextAnchor.MiddleLeft);
+                    UI.Button(_content, "-", new Vector3(-0.3f, y, 0), new Vector2(0.07f, 0.06f), () => { if (_cat == 0) Step(-1); else _count = Mathf.Max(1, _count - 1); _dirty = true; }, new Color(0.2f, 0.2f, 0.2f), BtnStyle.Key);
+                    UI.Text(_content, _cat == 0 ? "$" + _price.ToString("N0") : _count + " x", new Vector3(-0.1f, y, -0.003f), 0.034f, new Color(1f, 0.9f, 0.4f), TextAnchor.MiddleCenter, FontStyle.Bold);
+                    UI.Button(_content, "+", new Vector3(0.1f, y, 0), new Vector2(0.07f, 0.06f), () => { if (_cat == 0) Step(1); else _count = Mathf.Min(4, _count + 1); _dirty = true; }, new Color(0.2f, 0.2f, 0.2f), BtnStyle.Key);
                     UI.Button(_content, "LIST IT", new Vector3(0.5f, y, 0), new Vector2(0.24f, 0.07f), () =>
                     {
                         var items = PadItems();
                         if (items.Count == 0) { RagoGame.I.Player.Toast("Put what you're selling on the red square first"); return; }
                         var it = items[(_pick % items.Count + items.Count) % items.Count];
-                        if (Shops.List(it, _want == 0 ? _price : _count, _want)) { Sfx.UI(Synth.Cash(), 0.4f); RagoGame.I.Player.Toast(it.def.name + " is in your market"); }
+                        if (_cat != 0 && string.IsNullOrEmpty(WantId)) { RagoGame.I.Player.Toast("Pick what you want for it"); return; }
+                        if (Shops.List(it, _cat == 0 ? _price : _count, WantId)) { Sfx.UI(Synth.Cash(), 0.4f); RagoGame.I.Player.Toast(it.def.name + " is in your market"); }
                         _dirty = true;
                     }, new Color(0.6f, 0.15f, 0.12f), BtnStyle.Key);
-                    UI.Text(_content, "Your market is open while you're in the Market. UNLIST sends an item back to your bunker.", new Vector3(0, -0.31f, -0.003f), 0.014f, UI.Dim, TextAnchor.MiddleCenter);
+                    UI.Text(_content, "Your market is open while you're in the Market. UNLIST sends an item back to your bunker.", new Vector3(0, -0.31f, -0.003f), 0.02f, UI.Dim, TextAnchor.MiddleCenter);
                     break;
                 }
             }
         }
 
-        static string Asks(ShopEntry e) => e.want == 0 ? "$" + e.price.ToString("N0") : "WANTS " + Shops.Count(e) + " x " + Wants[e.want];
+        static string Asks(ShopEntry e) => Shops.ForMoney(e) ? "$" + e.price.ToString("N0") : "WANTS " + Shops.Count(e) + " x " + WantName(e.want);
 
         void Step(int dir)
         {
