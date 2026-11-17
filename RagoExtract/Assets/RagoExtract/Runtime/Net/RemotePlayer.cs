@@ -319,7 +319,7 @@ namespace Rago
                 bool talking = Time.time - LastVoiceTime < 0.35f;
                 _tag.text = (talking ? "<color=#7fff7f>(( </color>" : "") + DisplayName + (talking ? "<color=#7fff7f> ))</color>" : "");
                 float d = Vector3.Distance(cam.position, _sHead);
-                _tag.gameObject.SetActive(d < 25f);
+                _tag.gameObject.SetActive(false);   // no name text over players (teammates keep the green dot)
             }
         }
     }

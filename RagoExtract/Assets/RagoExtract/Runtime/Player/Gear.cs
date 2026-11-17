@@ -83,7 +83,7 @@ namespace Rago
                 _flap[k] = flap.GetComponent<MeshRenderer>().material;
                 _flap[k].SetColor("_Color", FlapIdle);
                 // label and readout lie on top, tilted up towards your eyes (you look down at your hip)
-                var lbl = UI.Text(pv.transform, "AMMO", new Vector3(0, 0.052f, 0.021f), 0.016f, new Color(0.95f, 0.8f, 0.2f), TextAnchor.MiddleCenter, FontStyle.Bold);
+                var lbl = UI.Text(pv.transform, "", new Vector3(0, 0.052f, 0.021f), 0.016f, new Color(0.95f, 0.8f, 0.2f), TextAnchor.MiddleCenter, FontStyle.Bold);
                 lbl.transform.localRotation = Quaternion.Euler(70, 0, 0);
                 lbl.gameObject.layer = pv.layer;
                 _pouchInfo[k] = UI.Text(pv.transform, "", new Vector3(0, 0.1f, 0.06f), 0.016f, Color.white, TextAnchor.LowerCenter, FontStyle.Bold);
@@ -124,7 +124,7 @@ namespace Rago
                     if (d < 0.16f && h.Held != null && !h.HeldAsSecondary && AmmoThing(h.Held)) ready = true;
                 }
                 _flap[k].SetColor("_Color", ready ? FlapReady : FlapIdle);
-                if (_pouchInfo[k] != null) _pouchInfo[k].text = XRInputs.VR ? "" : ready ? "LET GO TO STORE" : near ? ReserveText() : "";   // VR: no floating text (the watch shows your reserve)
+                if (_pouchInfo[k] != null) _pouchInfo[k].text = "";   // no floating text over the pouch
             }
         }
 

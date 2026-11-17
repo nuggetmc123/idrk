@@ -1578,7 +1578,7 @@ namespace Rago
             reader.transform.SetParent(go.transform, false);
             reader.transform.localPosition = new Vector3(1.6f, 1.3f, face - 0.1f);
             reader.vault = v; reader.Build();
-            v._status = UI.Text(go.transform, "VAULT LOCKED", new Vector3(0, 2.6f, face - 0.1f), 0.07f, new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            v._status = UI.Text(go.transform, "", new Vector3(0, 2.6f, face - 0.1f), 0.07f, new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
             v._status.transform.localRotation = Quaternion.Euler(0, 0, 0);
             // racks inside
             B.Box(P(0, 1.0f, 4.6f), new Vector3(4.5f, 2f, 0.3f), steel, new Color(0.3f, 0.32f, 0.34f), q, true, Synth.Surface.Metal);
@@ -1604,7 +1604,7 @@ namespace Rago
         {
             if (IsOpen) return;
             IsOpen = true;
-            _status.text = "VAULT OPEN";
+            _status.text = "";
             _status.color = new Color(0.4f, 1f, 0.5f);
             bool under = _map != null && _map.Id == "underground";
             Sfx.Play(Synth.VaultDoor(), transform.position, 1f, 1f, under ? 15f : 3f, under ? 300f : 60f);
@@ -1654,7 +1654,7 @@ namespace Rago
                 _door.localRotation = Quaternion.Euler(0, 105f * Mathf.SmoothStep(0, 1, _anim), 0);
             }
             if (_alarm != null && _alarmT > 0) { _alarmT -= Time.deltaTime; if (_alarmT <= 0) _alarm.Stop(); }
-            if (!IsOpen && HackProgress > 0) _status.text = "HACKING  " + Mathf.FloorToInt(HackProgress * 100) + "%";
+            if (!IsOpen && HackProgress > 0) _status.text = "";
         }
 
         public void Alarm()
