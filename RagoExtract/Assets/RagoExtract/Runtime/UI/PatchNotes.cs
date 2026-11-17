@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.12", "Raid timer and item prices on the watch", new[] {
+                "The RAID TIMER is back on your watch: big, top right, and it turns red in the last 5 minutes.",
+                "Grab anything and your watch shows what it is and how much it sells for at the Exchange (guns still show their ammo).",
+                "FIXED: the Exchange now buys everything again - guns, armour and valuables were worth $0 after the gunsmith and fence left.",
+                "Bleeding: your HP on the watch flashes red (with a + mark) instead of the long BLEEDING word, so the timer fits.",
+            }),
             ("2.11", "Body map on your watch, name tapes", new[] {
                 "TAP YOUR WATCH with your empty right hand: a little hologram of your body pops up over it. Each part goes green, yellow, red as it's hurt, a red dot marks every hit you've taken, the part hit most pulses, and a bar underneath shows your health (it flashes red while you're bleeding). Tap again to hide it (it hides itself after 15 s).",
                 "Meds heal the body map too; a new raid starts it clean.",

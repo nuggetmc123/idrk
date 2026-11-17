@@ -255,7 +255,7 @@ namespace Rago
         bool _blocked;
         TextMesh _toast, _center, _objective, _queue;
         float _toastT, _centerT;
-        TextMesh _wristHp, _wristInfo, _wristAmmo, _wristMsg, _wristQueue;
+        TextMesh _wristTimer, _wristHp, _wristInfo, _wristAmmo, _wristMsg, _wristQueue;
         float _msgT;
         Transform _wrist;
         public string RaidTimer = "";
@@ -305,6 +305,7 @@ namespace Rago
             w.Sub(0).Box(new Vector3(0, -0.012f, 0), new Vector3(0.075f, 0.075f, 0.012f), Color.white, 0.006f, 2);
             w.Sub(1).Box(new Vector3(0, -0.012f, -0.0065f), new Vector3(0.068f, 0.068f, 0.001f), Color.white, 0);
             w.Build("watch", _wrist, Mats.Polymer, Mats.Lit("watch_screen", new Color(0.02f, 0.03f, 0.03f), 0f, 0.9f));
+            _wristTimer = UI.Text(_wrist, "", new Vector3(0.032f, 0.012f, -0.008f), 0.0085f, new Color(1f, 0.85f, 0.4f), TextAnchor.MiddleRight, FontStyle.Bold);
             _wristHp = UI.Text(_wrist, "", new Vector3(-0.032f, 0.012f, -0.008f), 0.0085f, new Color(0.4f, 1f, 0.5f), TextAnchor.MiddleLeft, FontStyle.Bold);
             _wristInfo = UI.Text(_wrist, "", new Vector3(-0.032f, -0.004f, -0.008f), 0.0062f, UI.Dim, TextAnchor.MiddleLeft);
             _wristAmmo = UI.Text(_wrist, "", new Vector3(-0.032f, -0.017f, -0.008f), 0.0062f, UI.Accent, TextAnchor.MiddleLeft);
@@ -487,17 +488,23 @@ namespace Rago
             _centerT -= dt; if (_centerT <= 0) _center.text = "";
             _crosshair.SetActive(!XRInputs.VR && !Desktop.Aiming && v.Alive);
             // wrist
-            _wristHp.text = Mathf.CeilToInt(v.Health) + " HP" + (v.Bleed > 0 ? "  <color=#ff4040>BLEEDING</color>" : "");
-            _wristHp.color = v.Health > 60 ? new Color(0.4f, 1f, 0.5f) : v.Health > 30 ? new Color(1f, 0.8f, 0.3f) : new Color(1f, 0.3f, 0.25f);
+            _wristHp.text = Mathf.CeilToInt(v.Health) + " HP" + (v.Bleed > 0 ? " <color=#ff4040>+</color>" : "");   // short, so the raid timer fits on the same row
+            _wristHp.color = v.Bleed > 0 && Mathf.Repeat(Time.time, 0.8f) < 0.4f ? new Color(1f, 0.2f, 0.15f) : v.Health > 60 ? new Color(0.4f, 1f, 0.5f) : v.Health > 30 ? new Color(1f, 0.8f, 0.3f) : new Color(1f, 0.3f, 0.25f);   // bleeding: HP flashes red
             var prof = Profile.Current;
-            _wristInfo.text = (RaidTimer.Length > 0 ? RaidTimer + "   " : "") + "$" + (prof != null ? prof.money.ToString("N0") : "0") + "   STA " + Mathf.RoundToInt(v.Stamina);
+            _wristInfo.text = "$" + (prof != null ? prof.money.ToString("N0") : "0") + "   STA " + Mathf.RoundToInt(v.Stamina);
+            // raid timer: big, top right of the watch, goes red in the last 5 minutes
+            if (_wristTimer != null)
+            {
+                _wristTimer.text = RaidTimer;
+                _wristTimer.color = RaidTimer.Length > 0 && RaidTimer.CompareTo("05:00") < 0 ? new Color(1f, 0.3f, 0.25f) : new Color(1f, 0.85f, 0.4f);
+            }
             var gun = (_p.HandR.Held as Gun) ?? (_p.HandL.Held as Gun);
             if (gun != null) _wristAmmo.text = gun.g.name + "  " + (gun.Rounds + (gun.chambered ? 1 : 0)) + "/" + gun.Capacity + "  [" + _p.Gear.Reserve(gun.CurrentAmmo)[(int)gun.g.cal] + (gun.CurrentAmmo != AmmoType.Standard ? " " + gun.CurrentAmmo.ToString().ToUpper() : "") + "]";
             else
             {
                 // whatever you're holding: its name and what it's worth
                 var held = _p.HandR.Held != null ? _p.HandR.Held : _p.HandL.Held;
-                _wristAmmo.text = "";   // no item labels
+                _wristAmmo.text = held != null && held.def != null ? UI.Wrap(held.def.name + "  SELLS $" + SellStation.Offer(held, out _).ToString("N0"), 30) : "";
             }
         }
     }

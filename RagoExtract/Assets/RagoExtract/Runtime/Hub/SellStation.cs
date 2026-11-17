@@ -94,6 +94,9 @@ namespace Rago
                 int v = Mathf.Max(1, Mathf.RoundToInt(it.Value * t.sellRate * (it.def.kind == ItemKind.Valuable ? t.valuableBonus : 1f)));
                 if (v > best) { best = v; who = t.name; }
             }
+            // the Exchange itself buys anything the traders don't (guns, armour, valuables...) - what the old fence paid
+            int ex = Mathf.Max(1, Mathf.RoundToInt(it.Value * 0.65f * (it.def.kind == ItemKind.Valuable ? 1.3f : 1f)));
+            if (ex > best) { best = ex; who = "Exchange"; }
             return best;
         }
 
