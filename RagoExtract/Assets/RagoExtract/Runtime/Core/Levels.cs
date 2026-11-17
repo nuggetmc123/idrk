@@ -30,7 +30,7 @@ namespace Rago
             return l;
         }
 
-        public static int Current => Profile.Current != null ? LevelOf(Profile.Current.xp) : 1;
+        public static int Current => Profile.Current == null ? 1 : Spectator.IsTestAccount ? 99999 : LevelOf(Profile.Current.xp);   // the test account is level 99999
 
         /// <summary>"Level 4  (1,230 / 1,950 XP)"</summary>
         public static string Describe(int xp)
