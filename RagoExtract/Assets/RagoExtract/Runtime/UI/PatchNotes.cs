@@ -18,6 +18,7 @@ namespace Rago
                 "NIGHT raids are really dark now - bring a light or night vision.",
                 "PLAYERS ONLINE count fixed: people sitting in their bunker are counted now, and players in the Market or a raid stay on the count (it used to say 1).",
                 "Bags turn with your hand when you hold them open.",
+                "The mag pouch readout shows what your next mag is LOADING (STANDARD / AP / INCENDIARY) and how many AP / incendiary rounds you have per calibre.",
                 "Text is back: messages on your watch again (airdrops, vaults, pickups...), pouch ammo readout, vault LOCKED / HACKING / OPEN sign, tutorial on the watch.",
             }),
             ("2.12", "Raid timer and item prices on the watch", new[] {

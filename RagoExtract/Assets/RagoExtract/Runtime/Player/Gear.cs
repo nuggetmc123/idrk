@@ -136,7 +136,15 @@ namespace Rago
             foreach (var h in new[] { _p.HandL, _p.HandR }) if (h != null && h.Held is Gun hg && !cals.Contains(hg.g.cal)) cals.Add(hg.g.cal);
             if (cals.Count == 0) return "AMMO POUCH";
             var sb = new System.Text.StringBuilder();
-            foreach (var c in cals) sb.Append(Db.CalName(c)).Append("  ").Append(Ammo[(int)c]).Append('\n');
+            // what the next mag is loaded with, then every calibre's reserve (with any AP / incendiary you've found)
+            sb.Append("LOADING: ").Append(NextAmmo == AmmoType.AP ? "AP" : NextAmmo == AmmoType.Incendiary ? "INCENDIARY" : "STANDARD").Append('\n');
+            foreach (var c in cals)
+            {
+                sb.Append(Db.CalName(c)).Append("  ").Append(Ammo[(int)c]);
+                if (ApAmmo[(int)c] > 0) sb.Append("  AP ").Append(ApAmmo[(int)c]);
+                if (IncAmmo[(int)c] > 0) sb.Append("  INC ").Append(IncAmmo[(int)c]);
+                sb.Append('\n');
+            }
             return sb.ToString().TrimEnd();
         }
 
