@@ -28,6 +28,7 @@ namespace Rago
         // callsign: name + a 4-digit tag, so no two operators ever show the same name (Discord-style)
         public int tag;
         public bool nameSet, tutorialDone;
+        public bool inRaid;   // set while a raid is on: still set at the next launch = you quit mid-raid, which counts as dying
         public int tutorialStep;
         public List<string> friends = new List<string>();   // callsigns you added (menu > FRIENDS)
         public List<string> pendingFriends = new List<string>();   // typed in but not seen online yet: "CALLSIGN#1234|day added"

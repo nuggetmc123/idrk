@@ -164,6 +164,7 @@ namespace Rago
         VoicePlayback _voice;
         public float LastVoiceTime = -10f;
         public float LastHeard;   // Time.time of their last movement update
+        float _noiseT;
 
         public void PlayVoice(byte[] frame, bool radio = false)
         {
@@ -277,7 +278,11 @@ namespace Rago
             _sHl = Vector3.Lerp(_sHl, tHl + ahead, k); _sHr = Vector3.Lerp(_sHr, tHr + ahead, k);
             _sHeadR = Quaternion.Slerp(_sHeadR, tHeadR, k); _sHlR = Quaternion.Slerp(_sHlR, tHlR, k); _sHrR = Quaternion.Slerp(_sHrR, tHrR, k);
             if (_dead) return;
-            Footsteps.Track(ref _stepLast, ref _stepDist, ref _stepLeft, _sRoot, _sHeadR * Vector3.forward, dt, 0.4f, 2.4f, 55f);   // another player running: loud thumps you can hear 50 m away; walking stays quiet
+            Footsteps.Track(ref _stepLast, ref _stepDist, ref _stepLeft, _sRoot, _sHeadR * Vector3.forward, dt, 0.65f, 1.8f, 55f);   // other players' footsteps: clearly audible walking, loud running (~50 m)
+            // raiders hear other players' footsteps too (unless they're crouched)
+            _noiseT -= dt;
+            float spd = new Vector2(_vel.x, _vel.z).magnitude;
+            if (_noiseT <= 0f && spd > 0.6f && _sHead.y - _sRoot.y > 1.25f) { _noiseT = 0.5f; Noise.Emit(_sRoot, spd > 3.4f ? 16f : 8f, (int)NetId + 1); }
             float hy = _sHeadR.eulerAngles.y;
             if (Mathf.Abs(Mathf.DeltaAngle(_yaw, hy)) > 35f || _vel.sqrMagnitude > 0.3f) _yaw = Mathf.MoveTowardsAngle(_yaw, hy, dt * 220f);
             // what they hold sits exactly where it is for them; their hands go on its grips (like the raiders' hands)

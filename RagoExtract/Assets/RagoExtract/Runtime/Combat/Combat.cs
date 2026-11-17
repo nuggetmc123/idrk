@@ -236,7 +236,12 @@ namespace Rago
             var back = Physics.RaycastAll(far, -dir, 1.2f, BulletMask, QueryTriggerInteraction.Ignore);
             Vector3 exit = hit.point + dir * 0.3f;
             foreach (var bh in back) if (bh.collider == hit.collider) { exit = bh.point; Fx.Impact(bh.point, bh.normal, dir, surf, null, big); break; }
-            if (!b.visualOnly) { var br = hit.collider.GetComponentInParent<IBreakable>(); if (br != null) br.Damage(b.damage, hit.point); }
+            if (!b.visualOnly)
+            {
+                var br = hit.collider.GetComponentInParent<IBreakable>();
+                if (br != null) br.Damage(b.damage, hit.point);
+                else { var sd = hit.collider.GetComponentInParent<SwingDoor>(); if (sd != null && sd.LockNear(hit.point)) sd.DamageLock(b.damage, true); }
+            }
             b.walls++;
             b.damage *= Mathf.Clamp(1f - r / b.punch * 0.55f, 0.35f, 0.85f);
             b.punch -= r;
@@ -278,6 +283,7 @@ namespace Rago
             if (rb != null && !rb.isKinematic) rb.AddForceAtPosition(dir * b.force * 0.6f, hit.point, ForceMode.Impulse);
             var dmgObj = hit.collider.GetComponentInParent<IBreakable>();
             if (dmgObj != null && !b.visualOnly) dmgObj.Damage(dmg, hit.point);
+            else if (!b.visualOnly) { var sd = hit.collider.GetComponentInParent<SwingDoor>(); if (sd != null && sd.LockNear(hit.point)) sd.DamageLock(dmg, true); }   // close enough to the padlock
         }
     }
 

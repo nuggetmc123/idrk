@@ -478,7 +478,7 @@ namespace Rago
             {
                 _stepDist = 0;
                 PlayStep(Sprinting, Crouched ? 0.12f : Sprinting ? 0.5f : 0.33f);
-                if (!Crouched) Noise.Emit(transform.position, Sprinting ? 5f : 1.8f, 0);   // scavs barely hear footsteps
+                if (!Crouched && Head.localPosition.y > 1.25f) Noise.Emit(transform.position, Sprinting ? 16f : 8f, 0);   // scavs hear you walking (8 m) and running (16 m); crouched you're silent
             }
             // stopping short from a walk or run: one scuff
             if (grounded && _lastPlanar > 1.2f && planar < 0.35f && !Crouched) { PlayStep(_lastPlanar > 3.4f, 0.22f); _stepDist = 0; }

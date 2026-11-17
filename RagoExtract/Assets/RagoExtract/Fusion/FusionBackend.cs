@@ -634,16 +634,16 @@ namespace Rago.Net
             }
             Add(myName, _partyCode);
             foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) Add(n, _peerParty.TryGetValue(p, out var pc) ? pc : null);
-            // each party (or solo player) gets its own number 0, 1, 2... in a fixed order everyone agrees on; the map hands
-            // out its spawn points farthest-apart first by that number, so nobody starts next to another group
+            // A group's spot comes ONLY from its own key (the party's name, or a solo player's callsign), so every member
+            // of a party works it out the same even if they don't all know about everyone else in the raid yet. (2.1
+            // numbered the groups 0, 1, 2... from the whole list - two party members with different lists got different
+            // numbers and spawned a kilometre apart.)
             spot = 0; slot = 0;
-            int ordinal = 0;
             foreach (var kv in groups)
             {
                 kv.Value.Sort(StringComparer.Ordinal);
                 int k = kv.Value.IndexOf(Key(myName));
-                if (k >= 0) { spot = ordinal; slot = k; }
-                ordinal++;
+                if (k >= 0) { spot = Fnv(kv.Key) & 0x7fffffff; slot = k; }
             }
         }
 

@@ -136,6 +136,7 @@ namespace Rago
 
         // ---- fists: swing an empty hand into someone. The faster the swing, the harder it lands (head hits hurt most).
         Vector3 _punchLast, _punchPrevFist; bool _punchTrack;
+        float _lockPunchT;
         static readonly Collider[] _tmpPunch = new Collider[16];
         static int CopyPunch(int m, int at) { int k = 0; for (int i = 0; i < m && at + k < _punchCols.Length; i++) _punchCols[at + k++] = _tmpPunch[i]; return k; }
         readonly System.Collections.Generic.Dictionary<IDamageable, float> _punchCool = new System.Collections.Generic.Dictionary<IDamageable, float>();
@@ -162,6 +163,8 @@ namespace Rago
             else n = Physics.OverlapSphereNonAlloc(fist, 0.1f, _punchCols, ~0, QueryTriggerInteraction.Collide);
             for (int i = 0; i < n; i++)
             {
+                var lk = _punchCols[i] != null ? _punchCols[i].GetComponentInParent<Padlock>() : null;
+                if (lk != null && Time.time > _lockPunchT) { _lockPunchT = Time.time + 0.4f; lk.Damage(10f, p); Haptic(0.9f, 0.08f); break; }   // punch a padlock off (takes a few)
                 var zone = _punchCols[i].GetComponentInParent<HitZone>();
                 if (zone == null || zone.owner == null || !zone.owner.Alive || zone.owner == (IDamageable)rig.Vitals) continue;
                 if (_punchCool.TryGetValue(zone.owner, out var until) && Time.time < until) continue;

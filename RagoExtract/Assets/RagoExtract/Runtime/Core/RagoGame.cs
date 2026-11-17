@@ -101,6 +101,8 @@ namespace Rago
             try { Mats.Foliage("_warm", Mats.LeafCard, Color.white); Shader.WarmupAllShaders(); }
             catch (System.Exception e) { Debug.LogWarning("[Rago Extract] shader warm-up skipped: " + e.Message); }
             var prof = Profile.LoadOrCreate();
+            bool leftRaid = prof.inRaid;
+            if (leftRaid) RaidManager.LoseRaidGear(prof);   // the game was closed mid-raid: like dying, everything you took in is gone
             if (prof.aimVersion < 1) { prof.gripPitch = 0f; prof.aimVersion = 1; prof.Save(); }   // the old tweak would now double the aim correction
             Hand.GripPitch = prof.gripPitch;
             PlayerRig.SmoothTurn = prof.smoothTurn;
@@ -114,6 +116,7 @@ namespace Rago
             Vitals.OnLocalDeath = OnLocalDeath;
             // first launch: the welcome screen, where you pick your (permanent) callsign
             GoTo(prof.nameSet ? Area.Bunker : Area.Welcome);
+            if (leftRaid) LastResult = new RaidResult { extracted = false, map = "Raid", killer = "You left the raid - everything you took in was lost", kills = 0, time = 0 };
         }
 
         public const string PreviewName = "Rago World (editor preview)";
@@ -336,8 +339,8 @@ namespace Rago
             // each player in a raid gets a different spawn spot; the raid seed shuffles which one
             // groups get spawn points in farthest-apart order (from a starting point picked by the raid seed): the 2nd group
             // as far as possible from the 1st, the 3rd as far as possible from both, ...
-            var order = SpawnOrder(Map.PlayerSpawns, rs != null ? rs.seed : Random.Range(0, 99999));
-            var spawn = order.Count > 0 ? order[(rs != null ? Mathf.Abs(rs.spawnIndex) : Random.Range(0, order.Count)) % order.Count] : new Pose(Vector3.up * 0.1f, Quaternion.identity);
+            var spots = Map.PlayerSpawns;
+            var spawn = spots.Count > 0 ? spots[(int)(((long)(rs != null ? rs.spawnIndex : Random.Range(0, 99999)) + Mathf.Abs(rs != null ? rs.seed : 0)) % spots.Count)] : new Pose(Vector3.up * 0.1f, Quaternion.identity);
             // party members share a spawn spot: stand them side by side
             if (rs != null && rs.partySlot > 0)
             {
@@ -460,6 +463,7 @@ namespace Rago
             if (back != null) { I.TimeLeft = back.timeLeft; I._start = Time.time - back.elapsed; }
             var prof = Profile.Current;
             if (back == null) prof.raids++;
+            prof.inRaid = true;   // quitting the game before you extract or die = you lose what you took in
             RaidReconnect.Clear();
             // pack ammo from the stash for the guns you brought
             prof.loadout = g.Player.Gear.SaveLoadout();
@@ -487,7 +491,16 @@ namespace Rago
             dir.SpawnSquads(map.NpcSpawns, rs.seed, false, map.PlayerSpawns, map.NpcSafeRadius, map.MaxRaiders);
             string wx = Weather.Describe();
             if (back != null) { g.Player.Hud.Center("RECONNECTED\n<size=40>" + map.DisplayName + " - " + Mathf.FloorToInt(back.timeLeft / 60f) + " min left</size>", 5f); return; }
-            g.Player.Hud.Center(map.DisplayName.ToUpper() + (wx.Length > 0 ? "  -  " + wx : "") + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>", 6f);
+            g.Player.Hud.Center(map.DisplayName.ToUpper() + (wx.Length > 0 ? "  -  " + wx : "") + "\n<size=40>" + (rs.players > 1 ? rs.players + " operators deployed" : "Solo deployment") + " - find an extract</size>" + WhoIsHere(online), 8f);
+        }
+
+        /// <summary>The callsigns of everyone in this raid (so you can tell straight away whether your friends are in it).</summary>
+        static string WhoIsHere(bool online)
+        {
+            if (!online || NetHub.Backend == null) return "";
+            var names = NetHub.Backend.SessionPlayers;
+            if (names == null || names.Count == 0) return "";
+            return "\n<size=34>in this raid with you: " + string.Join(", ", names) + "</size>";
         }
 
         System.Collections.IEnumerator DropLater(float after, Vector3 zone, float heading)
@@ -515,6 +528,7 @@ namespace Rago
             Done = true;
             RaidReconnect.Clear(); NetHub.Backend?.ForgetRaid();
             var prof = Profile.Current;
+            prof.inRaid = false;
             prof.extracts++;
             BunkerJobs.RaidFinished(prof);
             var gear = _g.Player.Gear;
@@ -540,6 +554,7 @@ namespace Rago
             var gear = _g.Player.Gear;
             var p = _g.Player.transform.position;
             RaidReconnect.Info = new RaidReconnect { rs = _rs, pos = p, yaw = _g.Player.Cam != null ? _g.Player.Cam.transform.eulerAngles.y : 0f, timeLeft = TimeLeft, elapsed = Elapsed, at = Time.realtimeSinceStartup };
+            prof.inRaid = false;
             prof.loadout = gear.SaveLoadout();
             for (int i = 0; i < prof.stashAmmo.Length; i++) prof.stashAmmo[i] += gear.Ammo[i];
             prof.loadout.ammo = null;
@@ -555,12 +570,28 @@ namespace Rago
             _g.GoTo(Area.Bunker);
         }
 
+        /// <summary>Leaving a raid without extracting: the same as dying - what you carried in is gone, you start again
+        /// with a day pack (and a free pistol and basic armour if you're broke).</summary>
+        public static void LoseRaidGear(Profile prof)
+        {
+            prof.inRaid = false;
+            prof.deaths++;
+            prof.loadout = new Loadout { hasPack = true, packId = "pack_day" };
+            prof.freeArmor = true;
+            bool hasGun = prof.stash.Exists(d => Db.Get<GunDef>(d.id) != null);
+            if (!hasGun) prof.loadout.pistol = new ItemData("p9");
+            if (prof.stashAmmo[(int)Caliber.C9mm] < 34) prof.stashAmmo[(int)Caliber.C9mm] = 34;
+            prof.Save();
+            Debug.Log("[Rago] the game was closed mid-raid: raid gear lost");
+        }
+
         public void Died(int killer)
         {
             if (Done) return;
             Done = true;
             RaidReconnect.Clear(); NetHub.Backend?.ForgetRaid();
             var prof = Profile.Current;
+            prof.inRaid = false;
             prof.deaths++;
             BunkerJobs.RaidFinished(prof);
             var gear = _g.Player.Gear;

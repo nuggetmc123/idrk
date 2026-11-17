@@ -122,7 +122,7 @@ namespace Rago
         public int Id;
         public bool Locked;
         readonly List<GameObject> _locks = new List<GameObject>();
-        float _lockHp = 35f, _rattleT;
+        float _lockHp = 24f, _rattleT;   // a rifle round or two pistol rounds
 
         void AddLock(float side)
         {
@@ -142,6 +142,14 @@ namespace Rago
             var bc = _lock.AddComponent<BoxCollider>(); bc.center = new Vector3(0, -0.04f, 0); bc.size = new Vector3(0.09f, 0.12f, 0.06f);   // a little bigger than it looks: easier to hit
             _lock.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
             _lock.AddComponent<Padlock>().door = this;
+        }
+
+        /// <summary>A hit on the door this close to a padlock counts as a hit on the padlock (it's small - near enough breaks it).</summary>
+        public bool LockNear(Vector3 p)
+        {
+            if (!Locked) return false;
+            foreach (var lk in _locks) if (lk != null && (lk.transform.position + lk.transform.up * -0.04f - p).sqrMagnitude < 0.22f * 0.22f) return true;
+            return false;
         }
 
         /// <summary>Bullets / knives on the padlock. tell: it was us - tell the others.</summary>
