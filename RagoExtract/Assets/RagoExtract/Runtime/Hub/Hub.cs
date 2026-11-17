@@ -409,8 +409,21 @@ namespace Rago
             var rng = new Rng(seed);
             for (int i = 0; i < Mathf.Min(6, _t.stock.Count); i++)
             {
-                var it = ItemFactory.Spawn(rng.Pick(_t.stock), transform.TransformPoint(new Vector3(-1.4f + i * 0.56f, 1.25f + (i % 2) * 0.6f, 1.75f)), transform.rotation * Quaternion.Euler(0, 90, 0));
-                if (it != null) { it.transform.SetParent(transform, true); var rb = it.rb; foreach (var c in it.GetComponentsInChildren<Collider>()) Compat.Kill(c); Compat.Kill(it); Compat.Kill(rb); }
+                float shelfTop = i % 2 == 0 ? 1.22f : 1.82f;
+                var it = ItemFactory.Spawn(rng.Pick(_t.stock), transform.TransformPoint(new Vector3(-1.4f + i * 0.56f, shelfTop + 0.3f, 1.75f)), transform.rotation * Quaternion.Euler(0, 90, 0));
+                if (it == null) continue;
+                it.transform.SetParent(transform, true);
+                var rb = it.rb; foreach (var c in it.GetComponentsInChildren<Collider>()) Compat.Kill(c); Compat.Kill(it); Compat.Kill(rb);
+                // sit it ON the shelf (it used to hang in the air above it), and shrink long guns to fit their spot
+                var rs = it.GetComponentsInChildren<Renderer>();
+                if (rs.Length > 0)
+                {
+                    var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+                    float big = Mathf.Max(b.size.x, b.size.z);
+                    if (big > 0.52f) { it.transform.localScale *= 0.52f / big; b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds); }
+                    float floor = transform.TransformPoint(new Vector3(0, shelfTop, 0)).y;
+                    it.transform.position += Vector3.up * (floor - b.min.y + 0.003f);
+                }
             }
             // menu panel standing on the counter, angled towards the customer
             // chalkboard price list propped on the counter
@@ -695,8 +708,9 @@ namespace Rago
                 mb.Sub(1).Sphere(new Vector3(x, 1.68f, z), new Vector3(0.085f, 0.11f, 0.095f), 14, form);
                 var stand = new GameObject("Stand" + i).transform;
                 stand.SetParent(transform, false);
-                Group(Single(stand, new Vector3(x, 1.27f, z), it => it is ArmorItem a && a.ad.slot == ArmorSlot.Vest, 0.3f));
-                Group(Single(stand, new Vector3(x, 1.75f, z), it => it is ArmorItem a && a.ad.slot == ArmorSlot.Helmet, 0.2f));
+                // the vest wraps the torso form and the helmet sits on the head form (they used to perch on top of them)
+                Group(OnForm(Single(stand, new Vector3(x, 1.25f, z), it => it is ArmorItem a && a.ad.slot == ArmorSlot.Vest, 0.3f)));
+                Group(OnForm(Single(stand, new Vector3(x, 1.72f, z), it => it is ArmorItem a && a.ad.slot == ArmorSlot.Helmet, 0.2f)));
             }
             Shelf(mb, 1.6f, 0.45f, 1.6f, 0.55f);
             Shelf(mb, 1.6f, 1.25f, 1.6f, 0.55f);
@@ -726,6 +740,8 @@ namespace Rago
             hooks.Build("Hooks", transform, Steel);
             return c;
         }
+
+        static ItemContainer OnForm(ItemContainer c) { foreach (var sl in c.slots) sl.restOnBase = false; return c; }   // centred on the form, not resting on top
 
         ItemContainer Single(Transform parent, Vector3 pos, System.Func<Item, bool> filter, float radius)
         {

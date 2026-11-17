@@ -76,6 +76,8 @@ namespace Rago
 
     public interface INetBackend
     {
+        /// <summary>Send whatever is queued right now (used right after a pose, so it doesn't wait for the next batch).</summary>
+        void FlushNow();
         string Status { get; }
         bool Ready { get; }
         bool InSession { get; }

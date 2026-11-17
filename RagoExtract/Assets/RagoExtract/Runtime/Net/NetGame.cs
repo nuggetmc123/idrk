@@ -207,9 +207,9 @@ namespace Rago
             {
                 // 15 a second normally; fewer when the line to the other players is backing up (it only ever needs the latest)
                 float rtt = NetHub.Backend.Rtt;
-                float step = rtt < 0.25f ? 1f / 15f : rtt < 0.5f ? 1f / 10f : 1f / 6f;
+                float step = rtt < 0.25f ? 1f / 20f : rtt < 0.5f ? 1f / 12f : 1f / 6f;   // 20 a second on a good line
                 int others = NetHub.Backend.Peers.Count;
-                if (others >= 3) step = Mathf.Max(step, 1f / 12f);   // a big group: a little less often (voice and raider updates were cut instead)
+                if (others >= 4) step = Mathf.Max(step, 1f / 15f);   // a big group: a little less often
                 _poseT = step;
                 var w = W(Msg.Pose);
                 var root = p.transform.position;
@@ -241,6 +241,7 @@ namespace Rago
                 if (keys) { w.Write(kl); w.Write(kr); _lastKl = kl; _lastKr = kr; }
                 if (gear) { w.Write(gk); _lastGear = gk; }
                 Send(false);
+                NetHub.Backend.FlushNow();   // out this frame - a pose shouldn't sit in the queue waiting for the next batch
             }
             if (_flying.Count > 0) TrackFlying();
             if (InRaid && NpcDirector.I != null)

@@ -211,13 +211,51 @@ namespace Rago.Net
                 foreach (var kv in _names) if (Key(kv.Value) == Key(callsign) && _peers.Contains(kv.Key)) { to = kv.Key; found = true; }
                 if (_partyCode == null) { _partyCode = MyName(); _wasLeader = true; OnPartyChanged?.Invoke(); }
                 if (found) SendSys(to, 8, MyName() + "|" + _partyCode);
-                else Remember(callsign);   // not here: send it from the bunker later
+                else { Remember(callsign); _ = InviteBeacon(); }   // not here: send it now through a little invite session (it used to wait until you were back in your bunker)
                 return;
             }
             if (_partyCode == null) { if (!await EnterParty(MyName(), true)) return; }
             else if (!_inPartySession) { if (!await EnterParty(_partyCode, true)) return; }
             if (IsHost) { Remember(callsign); PublishInvites(); }
             else foreach (var p in _peers) SendSys(p, 7, callsign);   // members ask the leader to invite
+        }
+
+        // ---- invite beacon: while you're in the Market / a raid, a one-person background session that carries your party
+        // invites, so a friend's lobby sees them straight away wherever you are
+        NetworkRunner _beacon; bool _beaconBusy; float _beaconUntil;
+        async Task InviteBeacon()
+        {
+            _beaconUntil = Time.realtimeSinceStartup + 300f;
+            var props = new Dictionary<string, SessionProperty> { { "kind", "party" }, { "lead", MyName() }, { "inv", string.Join(",", _invited.ConvertAll(Key)) }, { "names", MyName() } };
+            if (_beacon != null)
+            {
+                try { _beacon.SessionInfo.UpdateCustomProperties(props); } catch (Exception e) { Debug.Log("[Rago] invite beacon: " + e.Message); }
+                return;
+            }
+            if (_beaconBusy) return;
+            _beaconBusy = true;
+            try
+            {
+                var go = new GameObject("FusionInviteBeacon");
+                DontDestroyOnLoad(go);
+                var r = go.AddComponent<NetworkRunner>();
+                r.ProvideInput = false;
+                var args = new StartGameArgs { GameMode = GameMode.Shared, SessionName = "rago_inv_" + Key(MyName()).Replace('#', '_') + Ver, PlayerCount = 1, SessionProperties = props };
+                UseAppId(ref args, AppId());
+                UseUserId(ref args, MyName() + "#inv~" + UnityEngine.Random.Range(1000, 9999));
+                StartGameResult res = null;
+                try { res = await r.StartGame(args); } catch (Exception e) { Debug.Log("[Rago] invite beacon: " + e.Message); }
+                if (res != null && res.Ok) _beacon = r;
+                else { try { await r.Shutdown(); } catch { } if (go != null) Destroy(go); }
+            }
+            finally { _beaconBusy = false; }
+        }
+        async Task StopBeacon()
+        {
+            var r = _beacon; _beacon = null;
+            if (r == null) return;
+            try { await r.Shutdown(); } catch { }
+            if (r != null) Destroy(r.gameObject);
         }
 
         void Remember(string callsign)
@@ -435,6 +473,7 @@ namespace Rago.Net
             int sum = 0;
             foreach (var si in sessionList)
             {
+                if (si.Name != null && si.Name.StartsWith("rago_inv_")) continue;   // an invite beacon: that player is counted where they really are
                 var pc = si.GetType().GetProperty("PlayerCount", Any);   // read by name so a Fusion version difference can't break the build
                 if (pc != null && pc.GetValue(si) is int c) sum += c;
             }
@@ -1004,6 +1043,7 @@ namespace Rago.Net
         // 72-90 fps with 3+ players that was hundreds of separate reliable sends a second, the line backed up and
         // everyone lagged and teleported. 15 a second matches the pose rate, so nothing goes out later than it did.
         float _flushT;
+        public void FlushNow() { _flushT = 0f; }
         void LateUpdate()
         {
             if (_out.Count == 0 && _fwdOut.Count == 0) return;
@@ -1372,6 +1412,8 @@ namespace Rago.Net
                 if (idle && _presence == null) _ = JoinPresence();
                 else if (!idle && _presence != null) _ = LeavePresence();
                 if (_lobby == null) _ = EnterLobby();   // the lobby is what hears the count: keep it up
+                // the invite beacon only lives while you're away from your bunker, for 5 minutes after the last invite
+                if (_beacon != null && (!InSession || _inPartySession || Time.realtimeSinceStartup > _beaconUntil)) _ = StopBeacon();
             }
             // keep the peer list in step with the session (players can show up after we joined)
             if (InSession)
