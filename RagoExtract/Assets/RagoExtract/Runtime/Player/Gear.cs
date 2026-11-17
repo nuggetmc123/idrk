@@ -124,7 +124,7 @@ namespace Rago
                     if (d < 0.16f && h.Held != null && !h.HeldAsSecondary && AmmoThing(h.Held)) ready = true;
                 }
                 _flap[k].SetColor("_Color", ready ? FlapReady : FlapIdle);
-                if (_pouchInfo[k] != null) _pouchInfo[k].text = ready ? "LET GO TO STORE" : near ? ReserveText() : "";
+                if (_pouchInfo[k] != null) _pouchInfo[k].text = XRInputs.VR ? "" : ready ? "LET GO TO STORE" : near ? ReserveText() : "";   // VR: no floating text (the watch shows your reserve)
             }
         }
 

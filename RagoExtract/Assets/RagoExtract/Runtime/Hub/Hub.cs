@@ -561,26 +561,15 @@ namespace Rago
         public static List<TraderDef> Defaults()
         {
             Db.Init();
-            var gunsmith = new TraderDef { name = "Viktor", title = "Gunsmith - rifles & shotguns", outfit = Outfit.Gunsmith, color = new Color(0.75f, 0.45f, 0.2f), sellRate = 0.5f };
-            foreach (var g in Db.Guns) if (g.TwoHanded && g.rarity <= Rarity.Rare && g.cls != GunClass.SMG) gunsmith.stock.Add(g.id);
-            gunsmith.stock.Add("anzio");   // the 20mm: expensive, but you can buy it
-            gunsmith.buys = d => d.kind == ItemKind.Gun;
-            var arms = new TraderDef { name = "Mara", title = "Quartermaster - sidearms, SMGs, optics, attachments, ammo, bags", outfit = Outfit.Quartermaster, color = new Color(0.35f, 0.55f, 0.3f), sellRate = 0.5f };
-            foreach (var g in Db.Guns) if ((!g.TwoHanded || g.cls == GunClass.SMG) && g.rarity <= Rarity.Rare) arms.stock.Add(g.id);
-            foreach (var s in Db.Sights) if (s.rarity <= Rarity.Rare) arms.stock.Add(s.id);
-            foreach (var a in Db.Attachments) if (a.rarity <= Rarity.Rare) arms.stock.Add(a.id);
-            foreach (var m in Db.Misc) if ((m.kind == ItemKind.Ammo && m.ammoType == AmmoType.Standard) || m.kind == ItemKind.Throwable || m.kind == ItemKind.Melee) arms.stock.Add(m.id);   // AP / incendiary: found only
-            // basic bags only; better bags and all armour have to be found in raids
-            arms.stock.Add("pack_day"); arms.stock.Add("pack_assault");
-            arms.stock.Add("nvg");   // night vision for night raids
-            arms.buys = d => d.kind == ItemKind.Gun || d.kind == ItemKind.Sight || d.kind == ItemKind.Attachment || d.kind == ItemKind.Armor || d.kind == ItemKind.Backpack || d.kind == ItemKind.Magazine;
-            var medic = new TraderDef { name = "Doc Hale", title = "Medic - meds & stims", outfit = Outfit.Medic, color = new Color(0.8f, 0.2f, 0.2f), sellRate = 0.6f };
-            foreach (var m in Db.Misc) if (m.kind == ItemKind.Med) medic.stock.Add(m.id);
-            medic.buys = d => d.kind == ItemKind.Med || d.kind == ItemKind.Valuable;
-            var fence = new TraderDef { name = "Silas", title = "Fence - buys anything, best price for valuables", outfit = Outfit.Fence, color = new Color(0.8f, 0.65f, 0.25f), sellRate = 0.65f, valuableBonus = 1.3f };
-            fence.stock.Add("key_vault"); fence.stock.Add("val_intel"); fence.stock.Add("val_drive");
-            fence.buys = d => true;
-            return new List<TraderDef> { gunsmith, arms, medic, fence };
+            // only two traders now (plus Bruno's bunker jobs): guns, armour and the rest come from raids and other players
+            var arms = new TraderDef { name = "Mara", title = "Ammo - rounds & grenades", outfit = Outfit.Quartermaster, color = new Color(0.35f, 0.55f, 0.3f), sellRate = 0.5f };
+            foreach (var m in Db.Misc) if (m.kind == ItemKind.Ammo && m.ammoType == AmmoType.Standard) arms.stock.Add(m.id);   // AP / incendiary: found only
+            foreach (var m in Db.Misc) if (m.kind == ItemKind.Throwable) arms.stock.Add(m.id);
+            arms.buys = d => d.kind == ItemKind.Ammo || d.kind == ItemKind.Throwable || d.kind == ItemKind.Magazine;
+            var medic = new TraderDef { name = "Doc Hale", title = "Medic - bandages, medkits, stims", outfit = Outfit.Medic, color = new Color(0.8f, 0.2f, 0.2f), sellRate = 0.6f };
+            medic.stock.Add("bandage"); medic.stock.Add("medkit"); medic.stock.Add("stim");
+            medic.buys = d => d.kind == ItemKind.Med;
+            return new List<TraderDef> { arms, medic };
         }
     }
 

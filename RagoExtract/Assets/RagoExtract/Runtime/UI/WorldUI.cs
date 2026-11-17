@@ -369,7 +369,8 @@ namespace Rago
         /// middle of your view, where you can actually see it.</summary>
         public void Center(string s, float time = 3f)
         {
-            bool screen = !XRInputs.VR || _fadeCur > 0.5f || _fadeTarget > 0.5f || (_p.Vitals != null && !_p.Vitals.Alive) || (s != null && s.StartsWith("LOADING"));
+            if (XRInputs.VR && _center != null) _center.text = "";
+            bool screen = !XRInputs.VR;   // VR: never text on your screen - it all goes on the watch
             if (screen || string.IsNullOrEmpty(s)) { _center.text = s; _centerT = time; return; }
             _wristMsg.text = UI.Wrap(System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", ""), 30);
             _msgT = Mathf.Max(6f, time);

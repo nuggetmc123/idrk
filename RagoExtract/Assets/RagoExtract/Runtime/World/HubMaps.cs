@@ -532,7 +532,7 @@ namespace Rago
             // ---- traders along the back wall, each under a banner with their name
             var defs = TraderStall.Defaults();
             var fabric = Mats.Lit("banner", Color.white, 0f, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0f);
-            float[] stallX = { -10.5f, -3.5f, 3.5f, 10.5f };
+            float[] stallX = { -3.5f, 3.5f };
             for (int i = 0; i < defs.Count && i < stallX.Length; i++)
             {
                 Stalls.Add(TraderStall.Create(transform, new Vector3(stallX[i], 0, D / 2 - 3.6f), 0f, defs[i], 100 + i * 17));
@@ -572,7 +572,7 @@ namespace Rago
             // ---- directory board right by the lift doors
             var nb = UI.Panel(transform, "Directory", new Vector3(W / 2 - 0.2f, 1.9f, -2.2f), Quaternion.Euler(0, 90, 0), new Vector2(1.6f, 1.15f), null, true, Skin.Paper);
             UI.Text(nb, "THE MARKET", new Vector3(0, 0.47f, 0), 0.07f, UI.PaperInk, TextAnchor.MiddleCenter, FontStyle.Bold);
-            UI.Text(nb, "SELL  -  straight ahead (orange counter)\nTRADERS  -  along the back wall, to your right\nBUNKER JOBS  -  Bruno, far wall\nLIFT  -  back down to your bunker\n\nSafe zone - weapons cold.", new Vector3(-0.74f, 0.33f, 0), 0.042f, UI.PaperInk, TextAnchor.UpperLeft);
+            UI.Text(nb, "SELL  -  straight ahead (orange counter)\nAMMO + MEDIC  -  along the back wall\nBUNKER JOBS  -  Bruno, far wall\nLIFT  -  back down to your bunker\n\nSafe zone - weapons cold.", new Vector3(-0.74f, 0.33f, 0), 0.042f, UI.PaperInk, TextAnchor.UpperLeft);
             b.Sign(new Vector3(0, 6.3f, D / 2 - 0.3f), Quaternion.identity, "THE MARKET", UI.Accent, 0.55f);
             Elevator.Create(b, transform, new Vector3(W / 2, 0, -6), 90, "Market", "Bunker", false, () => RagoGame.I.GoTo(Area.Bunker));
             b.Sign(new Vector3(W / 2 - 0.3f, 3.15f, -6), Quaternion.Euler(0, 90, 0), "LIFT - BUNKER", new Color(0.9f, 0.8f, 0.6f), 0.18f);
