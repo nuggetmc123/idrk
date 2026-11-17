@@ -5,7 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
-            ("2.6", "Spawn fix, leaving raids, locks, footsteps", new[] {
+            ("2.7", "Less lag, spawn fix, leaving raids", new[] {
+                "LESS LAG with 3+ players: everyone now sends straight to everyone else instead of everything going through one player first (half the trips, and no one player's internet carries the whole raid). If two players can't reach each other directly, just those two go through a relay automatically.",
+                "Other players are shown closer to real time (smaller smoothing delay).",
                 "FIXED: party members (and friends) spawning a kilometre apart, so nobody ever saw each other - each party now always lands together again.",
                 "The raid start banner lists everyone in the raid with you, so you can tell straight away you're in the same raid.",
                 "Leaving the game mid-raid now counts as dying: everything you took in (and your bag) is lost.",

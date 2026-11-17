@@ -959,12 +959,11 @@ namespace Rago.Net
             if (!InSession || data == null || data.Length == 0 || data.Length > 60000) return;
             if (target == ulong.MaxValue)
             {
-                // Photon's shared mode only reliably carries this data between its master client and each player -
-                // straight between two other players it went missing (the "can't see the 3rd player" bug). So: one
-                // copy to the master client, which hands it to everyone. It's only a postman - it runs nothing for
-                // anyone, and when it leaves Photon picks another one at once.
-                if (!IsHost && _hostId != 0 && _refs.ContainsKey(_hostId)) Queue(Bcast, data);
-                else foreach (var p in _peers) Queue(p, data);
+                // Straight to every player: one trip through Photon instead of two, and no single player's connection
+                // carries everyone's traffic (relaying everything through the master client made 3+ players laggy and
+                // delayed). The old "can't see the 3rd player" bug was mislabelled senders, fixed by stamping packets.
+                // A player we can't reach directly (nothing heard for 4 s) is sent to through the master instead.
+                foreach (var p in _peers) Queue(p, data);
             }
             else if (target != LocalId) Queue(target, data);
         }
@@ -1057,8 +1056,8 @@ namespace Rago.Net
         void SendTo(ulong id, byte[] packet)
         {
             if (_runner == null || !_refs.TryGetValue(id, out var p)) return;
-            // to one other player: through the master client too (see Send)
-            if (!IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
+            // to one other player: directly, unless the direct link to them is dead - then through the master client
+            if (_relayTo.Contains(id) && !IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
             {
                 var w = new byte[packet.Length + 9];
                 w[0] = 3; Buffer.BlockCopy(BitConverter.GetBytes(id), 0, w, 1, 8);
@@ -1138,7 +1137,13 @@ namespace Rago.Net
                 {
                     ulong src = BitConverter.ToUInt64(data.Array, o); int len = BitConverter.ToInt32(data.Array, o + 8); o += 12;
                     if (len < 0 || o + len > end) break;
-                    if (src != LocalId) { _lastHeard[src] = now6; Process(src, new ArraySegment<byte>(data.Array, o, len)); }
+                    if (src != LocalId)
+                    {
+                        _lastHeard[src] = now6;
+                        // they had to come the long way round: our direct packets probably don't reach them either
+                        if (_relayTo.Add(src)) Debug.Log("[Rago] player " + src + " is relaying to us - relaying back");
+                        Process(src, new ArraySegment<byte>(data.Array, o, len));
+                    }
                     o += len;
                 }
                 return;
