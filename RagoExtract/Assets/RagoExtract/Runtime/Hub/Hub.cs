@@ -414,7 +414,8 @@ namespace Rago
             }
             // menu panel standing on the counter, angled towards the customer
             // chalkboard price list propped on the counter
-            _panel = UI.Panel(transform, "Menu", new Vector3(0.35f, 1.58f, 0.08f), Quaternion.Euler(-10, 0, 0), new Vector2(1.5f, 0.95f), null, true, Skin.Chalk);
+            _panel = UI.Panel(transform, "Menu", new Vector3(0.35f, 1.58f, 0.12f), Quaternion.Euler(12, 0, 0),   // propped up, leaning back (it used to tip forward at you)
+                new Vector2(1.5f, 0.95f), null, true, Skin.Chalk);
             _money = UI.Text(_panel, "", new Vector3(0.7f, 0.41f, 0), 0.032f, UI.ChalkDim, TextAnchor.MiddleRight);
             UI.Text(_panel, _t.name + "'s", new Vector3(-0.7f, 0.405f, 0), 0.06f, UI.ChalkYellow, TextAnchor.MiddleLeft, FontStyle.BoldAndItalic);
             UI.Text(_panel, "~ for sale ~", new Vector3(-0.22f, 0.4f, 0), 0.032f, UI.ChalkDim, TextAnchor.MiddleLeft, FontStyle.Italic);
@@ -425,9 +426,9 @@ namespace Rago
             TrayVisual(new Vector3(-1.1f, 1.05f, -0.05f), "PICKUP", new Color(0.3f, 0.6f, 1f));
             _sell = ItemContainer.Grid(transform, new Vector3(1.15f, 1.08f, -0.05f), Quaternion.identity, 2, 2, new Vector2(0.36f, 0.3f), 0.3f, it => _t.buys == null || _t.buys(it.def));
             TrayVisual(new Vector3(1.15f, 1.05f, -0.05f), "SELL - PUT IT HERE", new Color(1f, 0.12f, 0.08f));
-            _sell.onChanged = () => { Refresh(); if (_sellAt <= 0f && _sell.slots.Exists(x => x.item != null)) _sellAt = Time.time + 0.35f; };   // the red square: whatever goes on it is sold
+            _sell.onChanged = Refresh;   // the red square: nothing sells until you press SELL
             // a receipt pad on a clipboard for selling
-            var sp = UI.Panel(transform, "SellPanel", new Vector3(1.15f, 1.32f, 0.34f), Quaternion.Euler(-25, 0, 0), new Vector2(0.66f, 0.24f), null, true, Skin.Paper);
+            var sp = UI.Panel(transform, "SellPanel", new Vector3(1.15f, 1.32f, 0.34f), Quaternion.Euler(30, 0, 0), new Vector2(0.66f, 0.24f), null, true, Skin.Paper);
             _sellLabel = UI.Text(sp, "", new Vector3(0, 0.035f, 0), 0.028f, UI.PaperInk);
             UI.Button(sp, "SELL", new Vector3(0, -0.06f, 0), new Vector2(0.3f, 0.08f), Sell, null, BtnStyle.Stamp);
             // the trader

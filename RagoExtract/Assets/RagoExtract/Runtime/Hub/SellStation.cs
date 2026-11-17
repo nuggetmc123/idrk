@@ -64,7 +64,7 @@ namespace Rago
             _bin.onChanged = Refresh;   // nothing sells by itself: you check the receipt, then press SELL
             UI.Text(transform, "PUT IT ON THE RED SQUARE, THEN PRESS SELL", new Vector3(-0.3f, 1.06f, -0.43f), 0.032f, new Color(1f, 0.85f, 0.8f), TextAnchor.MiddleCenter, FontStyle.Bold).transform.localRotation = Quaternion.Euler(60, 0, 0);
             // receipt clipboard
-            var rp = UI.Panel(transform, "Receipt", new Vector3(1.0f, 1.4f, 0.12f), Quaternion.Euler(-25, 0, 0), new Vector2(0.62f, 0.62f), null, true, Skin.Paper);
+            var rp = UI.Panel(transform, "Receipt", new Vector3(1.0f, 1.4f, 0.12f), Quaternion.Euler(25, 0, 0), new Vector2(0.62f, 0.62f), null, true, Skin.Paper);
             UI.Text(rp, "RECEIPT", new Vector3(0, 0.26f, 0), 0.034f, UI.PaperInk, TextAnchor.MiddleCenter, FontStyle.Bold);
             _receipt = UI.Text(rp, "", new Vector3(-0.28f, 0.21f, 0), 0.022f, UI.PaperInk, TextAnchor.UpperLeft);
             _values = UI.Text(rp, "", new Vector3(0.28f, 0.21f, 0), 0.022f, UI.PaperInk, TextAnchor.UpperRight, FontStyle.Bold);

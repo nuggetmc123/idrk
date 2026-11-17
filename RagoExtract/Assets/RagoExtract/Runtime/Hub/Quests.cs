@@ -135,7 +135,7 @@ namespace Rago
 
             // job board on the counter
             // work order on a clipboard, propped on the counter
-            _panel = UI.Panel(transform, "Jobs", new Vector3(0.3f, 1.64f, 0.08f), Quaternion.Euler(-12, 0, 0), new Vector2(1.5f, 1.0f), null, true, Skin.Paper);
+            _panel = UI.Panel(transform, "Jobs", new Vector3(0.3f, 1.64f, 0.12f), Quaternion.Euler(12, 0, 0), new Vector2(1.5f, 1.0f), null, true, Skin.Paper);
             UI.Text(_panel, "WORK ORDER", new Vector3(-0.69f, 0.44f, 0), 0.032f, UI.PaperDim, TextAnchor.MiddleLeft, FontStyle.Bold);
             _title = UI.Text(_panel, "", new Vector3(-0.69f, 0.38f, 0), 0.056f, UI.PaperInk, TextAnchor.MiddleLeft, FontStyle.Bold);
             _money = UI.Text(_panel, "", new Vector3(0.69f, 0.44f, 0), 0.034f, UI.PaperDim, TextAnchor.MiddleRight);

@@ -11,7 +11,8 @@ namespace Rago
                 "Bigger text on the black market screens. BUY holds your money until the seller's game hands it over; TRADE takes what they want off the red square. Whatever you get goes straight to your bunker (both sides).",
                 "TRADE TABLE: the controls are a low console along your edge, tilted up towards you, so you can see the items on the table past it. The text no longer runs together - your name, what you give and the money are on separate lines, bigger, and it shows clearly how much money you PAY and GET. A board over the table shows the whole deal to both traders and anyone watching.",
                 "The black market screens are now together in the middle of the hall, facing the lift, under a BLACK MARKET sign - you see them as soon as you step out (they used to face the walls).",
-                "The Exchange doesn't sell things by itself any more: put items on the red square, check the receipt, then press SELL (it shows the total). Take things back off if you change your mind.",
+                "Nothing sells by itself any more - not at the Exchange and not at the traders: put items on the red square, check the price, then press SELL. Take things back off if you change your mind.",
+                "FIXED: the traders' price boards, their sell clipboards, the Exchange receipt and Bruno's job board were tipped forward at you - they now lean back like a board propped on the counter.",
                 "Items laid on the red square lie across it (guns no longer point at you or into the screen).",
             }),
             ("2.15", "Swap trades, booths for everyone, med fix", new[] {
