@@ -78,6 +78,9 @@ namespace Rago
     {
         /// <summary>Send whatever is queued right now (used right after a pose, so it doesn't wait for the next batch).</summary>
         void FlushNow();
+        /// <summary>True when frequent updates (movement, voice, raiders) can go out ONCE to everyone, unreliably, and the
+        /// server copies them (Photon RPCs). Then there's no point sending per-player copies.</summary>
+        bool FastBroadcast { get; }
         string Status { get; }
         bool Ready { get; }
         bool InSession { get; }

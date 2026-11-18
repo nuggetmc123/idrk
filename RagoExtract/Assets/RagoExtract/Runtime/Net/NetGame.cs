@@ -62,6 +62,12 @@ namespace Rago
             var w = W(Msg.Voice);
             w.Write((short)frame.Length); w.Write(frame);
             float hear = InRaid ? 35f : 25f;
+            if (NetHub.Backend.FastBroadcast)
+            {
+                // one copy through Photon's server, but only if someone can hear it
+                foreach (var kv in Remotes) if (kv.Value != null && ((kv.Value.transform.position - me).sqrMagnitude < hear * hear || NetHub.Backend.IsTeammate(kv.Key))) { Send(false); break; }
+                return;
+            }
             foreach (var kv in Remotes)
                 if (kv.Value != null && ((kv.Value.transform.position - me).sqrMagnitude < hear * hear || NetHub.Backend.IsTeammate(kv.Key)))
                     Send(false, kv.Key);
@@ -252,7 +258,8 @@ namespace Rago
                 // who gets this one: everyone near you (and your squad) every time, players far away only a few times a
                 // second - they can barely see you, and every copy is a separate message through Photon
                 float now = Time.time;
-                foreach (var id in NetHub.Backend.Peers)
+                if (NetHub.Backend.FastBroadcast) Send(false);   // one copy, Photon hands it to everyone
+                else foreach (var id in NetHub.Backend.Peers)
                 {
                     float every = keys || gear ? 0f : PoseEvery(id, root, step);
                     if (_poseSentTo.TryGetValue(id, out var last) && now - last < every - 0.005f) continue;

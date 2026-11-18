@@ -754,6 +754,7 @@ namespace Rago.Net
             DontDestroyOnLoad(go);
             _runner = go.AddComponent<NetworkRunner>();
             _runner.ProvideInput = false;
+            _byRunner[_runner] = this;
             _runner.AddCallbacks(this);
             var smType = Type.GetType("Fusion.NetworkSceneManagerDefault, Fusion.Unity");
             var sceneManager = smType != null ? go.AddComponent(smType) as INetworkSceneManager : null;
@@ -798,6 +799,8 @@ namespace Rago.Net
             _leaving = true;
             var r = _runner;
             _runner = null;
+            if (r != null) _byRunner.Remove(r);
+            _fastOut.SetLength(0);
             try { await r.Shutdown(); } catch { }
             if (r != null) Destroy(r.gameObject);
             _peers.Clear(); _refs.Clear();
@@ -1005,6 +1008,15 @@ namespace Rago.Net
         public void Send(byte[] data, bool reliable, ulong target = ulong.MaxValue)
         {
             if (!InSession || data == null || data.Length == 0 || data.Length > 60000) return;
+            // frequent, replaceable updates sent to everyone: the fast lane (one unreliable RPC, Photon copies it)
+            if (!reliable && target == ulong.MaxValue && FastBroadcast && data.Length <= FastChunk - 3)
+            {
+                if (_fastOut.Length + data.Length + 2 > FastChunk) FlushFast();
+                if (_fastOut.Length == 0) _fastOut.WriteByte(2);
+                _fastOut.WriteByte((byte)(data.Length & 0xff)); _fastOut.WriteByte((byte)(data.Length >> 8));
+                _fastOut.Write(data, 0, data.Length);
+                return;
+            }
             if (target == ulong.MaxValue)
             {
                 // Straight to every player: one trip through Photon instead of two, and no single player's connection
@@ -1046,11 +1058,65 @@ namespace Rago.Net
         // Sent at a steady 15 packets a second per player (10 when the line is backing up) instead of every frame: at
         // 72-90 fps with 3+ players that was hundreds of separate reliable sends a second, the line backed up and
         // everyone lagged and teleported. 15 a second matches the pose rate, so nothing goes out later than it did.
+        // ---- the fast lane: unreliable RPCs through RagoRpc (found by name, so deleting that file just turns it off)
+        const int FastChunk = 300;   // bytes per RPC before base64 (~410 characters: well under Photon's ~512 byte RPC cap)
+        readonly System.IO.MemoryStream _fastOut = new System.IO.MemoryStream(512);
+        static MethodInfo _fastSend; static bool _fastLooked, _fastBroken;
+        static readonly Dictionary<NetworkRunner, FusionBackend> _byRunner = new Dictionary<NetworkRunner, FusionBackend>();
+        /// <summary>True when frequent updates can go out once to everyone through Photon's server.</summary>
+        public bool FastBroadcast
+        {
+            get
+            {
+                if (_fastBroken || _runner == null || !InSession) return false;
+                if (!_fastLooked)
+                {
+                    _fastLooked = true;
+                    var t = Type.GetType("Rago.Net.RagoRpc, RagoExtract.Fusion") ?? typeof(FusionBackend).Assembly.GetType("Rago.Net.RagoRpc");
+                    _fastSend = t?.GetMethod("Send", BindingFlags.Public | BindingFlags.Static);
+                    Debug.Log(_fastSend != null ? "[Rago] fast lane on: movement, voice and raiders go as unreliable Photon RPCs" : "[Rago] fast lane not found: everything goes reliable");
+                }
+                return _fastSend != null;
+            }
+        }
+        void FlushFast()
+        {
+            if (_fastOut.Length == 0) return;
+            var body = _fastOut.ToArray(); _fastOut.SetLength(0);
+            if (_runner == null || _fastSend == null) return;
+            var w = new byte[body.Length + 9];
+            w[0] = Stamp; Buffer.BlockCopy(BitConverter.GetBytes(LocalId), 0, w, 1, 8);
+            Buffer.BlockCopy(body, 0, w, 9, body.Length);
+            try { _fastSend.Invoke(null, new object[] { _runner, Convert.ToBase64String(w) }); }
+            catch (Exception e)
+            {
+                // not supported by this Photon version (or anything else): stop using it, everything goes reliable
+                _fastBroken = true;
+                Debug.LogWarning("[Rago] fast lane failed, going back to reliable sends: " + (e.InnerException ?? e).Message);
+            }
+        }
+        /// <summary>Called by RagoRpc when another player's fast-lane packet arrives.</summary>
+        public static void OnFastData(NetworkRunner runner, string payload)
+        {
+            if (runner == null || !_byRunner.TryGetValue(runner, out var b) || b == null || b._runner != runner || string.IsNullOrEmpty(payload)) return;
+            byte[] data;
+            try { data = Convert.FromBase64String(payload); } catch { return; }
+            if (data.Length < 11 || data[0] != Stamp) return;
+            ulong from = BitConverter.ToUInt64(data, 1);
+            if (from == b.LocalId) return;
+            if (!b._peers.Contains(from)) foreach (var ap in runner.ActivePlayers) if (b.Id(ap) == from) b.NotePeer(ap);
+            if (!b._peers.Contains(from)) return;   // not someone in this session (yet)
+            b._lastHeard[from] = Time.realtimeSinceStartup;
+            b.Process(from, new ArraySegment<byte>(data, 9, data.Length - 9));
+        }
+
         float _flushT;
         public void FlushNow() { _flushT = 0f; }
         void LateUpdate()
         {
-            if (_out.Count == 0 && _fwdOut.Count == 0) return;
+            if (_fastOut.Length > 0 && InSession && _flushT - Time.unscaledDeltaTime <= 0f) FlushFast();
+            else if (!InSession) _fastOut.SetLength(0);
+            if (_out.Count == 0 && _fwdOut.Count == 0) { _flushT -= Time.unscaledDeltaTime; if (_flushT <= 0f) _flushT = Rtt > 0.3f ? 0.1f : 1f / 15f; return; }
             if (!InSession) { _out.Clear(); _fwdOut.Clear(); return; }
             _flushT -= Time.unscaledDeltaTime;
             if (_flushT > 0f) return;

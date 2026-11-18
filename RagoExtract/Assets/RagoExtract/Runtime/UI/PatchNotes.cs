@@ -6,6 +6,7 @@ namespace Rago
         public static readonly (string version, string title, string[] lines)[] All =
         {
             ("2.17", "Smoother multiplayer, fewer crashes", new[] {
+                "MULTIPLAYER FAST LANE: movement, voice and raider positions now go out ONCE as an unreliable Photon RPC and Photon's server hands them to everyone. Before, each player sent a separate reliable copy to every other player (15 copies each at 16 players) and one lost packet held up everything behind it. Shots, hits, items and trades still use the reliable channel. Your console says '[Rago] fast lane on' when it's working.",
                 "MULTIPLAYER with 3+ players: we were sending your movement faster than Photon can deliver it (it sends about 16 times a second), so it queued up and arrived late - and every extra player made the queue longer. Now it's 15 a second and never more than Photon can carry.",
                 "Players far from you get your movement only a few times a second (8 at mid range, 4 far away) - they can barely see you, and every copy is a separate message. Near players and your squad still get every update. Far players are drawn with a slightly longer smoothing buffer so they still move smoothly.",
                 "Voice now goes only to the players who can hear you (within 35 m in raids, or your squad on the radio) - it used to go to everyone once anyone was near, and it's the biggest thing we send. It also pauses sooner when the line backs up.",
