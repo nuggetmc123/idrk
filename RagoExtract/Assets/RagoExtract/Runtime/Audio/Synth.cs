@@ -714,6 +714,15 @@ namespace Rago
             for (int i = 0; i < d.Length; i++) { float t = i / (float)SR; d[i] = hp.P((float)(_r.NextDouble() * 2 - 1)) * Mathf.Exp(-t / 0.04f) * (_r.NextDouble() < 0.3 ? 1f : 0.4f); }
             return Clip("crunch", d, true, 0.5f); });
 
+        /// <summary>A spray can: a pressurised hiss with a little rattle at the start (loops).</summary>
+        public static AudioClip SprayHiss() => One("spray_hiss", () => { var d = Buf(1.0f); var hp = new HP(3200); var lp = new LP(9000);
+            for (int i = 0; i < d.Length; i++) { float t = i / (float)SR; d[i] = lp.P(hp.P(N())) * (0.85f + 0.15f * Mathf.Sin(t * 37f)); }
+            return Clip("spray", d, true, 0.55f, true); });
+        /// <summary>Shaking a spray can: the ball rattling.</summary>
+        public static AudioClip CanRattle() => One("can_rattle", () => { var d = Buf(0.7f);
+            for (int k = 0; k < 7; k++) { float at = k * 0.09f + (float)_r.NextDouble() * 0.02f; MetalClick(d, at, 0.6f, 2600 + (float)_r.NextDouble() * 900, 0.01f); MetalClick(d, at + 0.03f, 0.3f, 3400, 0.006f); }
+            return Clip("rattle", d, true, 0.6f); });
+
         public static AudioClip UiClick() => One("ui_click", () => { var d = Buf(0.06f); Tone(d, 0, 1800, 0.05f, 0.6f, 0.1f); MetalClick(d, 0, 0.3f, 4000, 0.003f); return Clip("click", d, true, 0.35f); });
         public static AudioClip UiHover() => One("ui_hover", () => { var d = Buf(0.04f); Tone(d, 0, 2600, 0.03f, 0.4f, 0f); return Clip("hover", d, true, 0.12f); });
         public static AudioClip UiError() => One("ui_err", () => { var d = Buf(0.3f); Tone(d, 0, 180, 0.12f, 1, 0.8f); Tone(d, 0.14f, 150, 0.15f, 1, 0.8f); return Clip("err", d, true, 0.4f); });

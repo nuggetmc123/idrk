@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.18", "Paint booth and free attachment placement", new[] {
+                "PAINT BOOTH on the Armory workbench in your bunker: put a gun on the red mat, pick a skin on the board (< >) and press PAINT. The spray can rattles, then sweeps up and down the gun in a cloud of paint and it comes out in its new colours. STRIP puts the factory finish back.",
+                "Skins: Desert Tan, Woodland Camo, Arctic, Urban Digital, Crimson, Neon Tiger, Gold Rush and Carbon Fibre. Your skin stays on the gun (stash, raids, trades) and other players see it.",
+                "ATTACHMENTS go where you put them: optics, lights, lasers and foregrips stay wherever along the rail you let go of them, and a light or laser goes on whichever side of the handguard you hold it to. To adjust one, grab it, slide it and let go. Other players see them where you put them.",
+                "Quest builds: input handling is now the old Input Manager only (Android refuses 'Both' and cancelled the build).",
+            }),
             ("2.17", "Smoother multiplayer, fewer crashes", new[] {
                 "MULTIPLAYER FAST LANE: movement, voice and raider positions now go out ONCE as an unreliable Photon RPC and Photon's server hands them to everyone. Before, each player sent a separate reliable copy to every other player (15 copies each at 16 players) and one lost packet held up everything behind it. Shots, hits, items and trades still use the reliable channel. Your console says '[Rago] fast lane on' when it's working.",
                 "MULTIPLAYER with 3+ players: we were sending your movement faster than Photon can deliver it (it sends about 16 times a second), so it queued up and arrived late - and every extra player made the queue longer. Now it's 15 a second and never more than Photon can carry.",

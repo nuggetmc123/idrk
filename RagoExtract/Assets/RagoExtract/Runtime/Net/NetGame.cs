@@ -357,7 +357,12 @@ namespace Rago
         {
             var it = PrimaryHeld(h);
             if (it == null) return "";
-            if (it is Gun g) { var d = g.Save(); return d.id + ";" + d.sight + ";" + d.muzzle + ";" + d.side + ";" + d.gripAtt; }
+            if (it is Gun g)
+            {
+                var d = g.Save(); var ci = System.Globalization.CultureInfo.InvariantCulture;
+                // + where the attachments sit and the paint job, so everyone sees your gun as it is
+                return d.id + ";" + d.sight + ";" + d.muzzle + ";" + d.side + ";" + d.gripAtt + ";" + d.sightZ.ToString("0.###", ci) + ";" + d.sideZ.ToString("0.###", ci) + ";" + d.gripZ.ToString("0.###", ci) + ";" + (d.sideLeft ? "1" : "0") + ";" + d.skin;
+            }
             return it.def.id;
         }
 

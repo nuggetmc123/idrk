@@ -12,6 +12,9 @@ namespace Rago
         public bool chambered = true;
         public string sight = "";   // attached sight id
         public string muzzle = "", side = "", gripAtt = "";   // attached suppressor/brake, light/laser, foregrip
+        public float sightZ, sideZ, gripZ;   // where along the rail each attachment was placed (metres from its default spot)
+        public bool sideLeft;                // light / laser on the left side of the handguard
+        public string skin = "";             // paint job from the bunker's paint booth ("" = factory finish)
         public int count = 1;
         public string contents = "";  // backpacks: JSON of the items inside
         public ItemData() { }

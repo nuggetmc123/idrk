@@ -74,10 +74,26 @@ namespace Rago
             g.SetAttached(ad.slot, this);
             SetMounted(true);
             SetCollidersTrigger(true);
+            // placed by hand: it stays where along the rail you let go of it, and a light / laser goes on whichever side
+            // of the handguard you put it (slide it by grabbing it and letting go again). Loading a saved gun uses its spots.
+            if (sound && ad.slot != AttachSlot.Muzzle)
+            {
+                var r = g.RailRange(ad.slot);
+                float z = Mathf.Clamp(at.InverseTransformPoint(transform.position).z, r.x, r.y);
+                bool left = ad.slot == AttachSlot.Side && g.rig.root.transform.InverseTransformPoint(transform.position).x < 0f && at.localPosition.x > 0.005f;
+                if (ad.slot == AttachSlot.Side) { g.sideZ = z; g.sideLeft = left; } else g.gripZ = z;
+            }
             transform.SetParent(at, false);
-            transform.localPosition = Vector3.zero;
-            transform.localRotation = Quaternion.identity;
+            if (ad.slot == AttachSlot.Side) Place(g.sideZ, g.sideLeft); else if (ad.slot == AttachSlot.Grip) Place(g.gripZ, false); else Place(0f, false);
             if (sound) { Sfx.Play(Synth.MagIn(), transform.position, 0.6f, 1.3f, 0.5f, 8f); RagoGame.I?.Player?.Toast(ad.name + " fitted to the " + g.g.name); }
+        }
+
+        /// <summary>Slide along the rail (z, from the default spot); side: mirrored onto the left of the handguard.</summary>
+        public void Place(float z, bool left)
+        {
+            var at = transform.parent;
+            if (left && at != null) { transform.localPosition = new Vector3(-2f * at.localPosition.x, 0, z); transform.localRotation = Quaternion.Euler(0, 0, 180f); }
+            else { transform.localPosition = new Vector3(0, 0, z); transform.localRotation = Quaternion.identity; }
         }
 
         public override void OnGrab(Hand h)
@@ -101,7 +117,12 @@ namespace Rago
                 if (g == null || g.Attached(ad.slot) != null || !g.CanTake(ad)) continue;
                 var at = g.AttachPoint(ad.slot);
                 if (at == null) continue;
-                float d = Mathf.Min(Vector3.Distance(at.position, transform.position), Vector3.Distance(at.position, mid));
+                // anywhere along its rail counts (either side of the handguard for a light / laser)
+                var rr = g.RailRange(ad.slot);
+                var lp = at.InverseTransformPoint(transform.position);
+                var onRail = at.TransformPoint(new Vector3(0, 0, Mathf.Clamp(lp.z, rr.x, rr.y)));
+                var mirror = ad.slot == AttachSlot.Side ? at.TransformPoint(new Vector3(-2f * at.localPosition.x, 0, Mathf.Clamp(lp.z, rr.x, rr.y))) : onRail;
+                float d = Mathf.Min(Mathf.Min(Vector3.Distance(onRail, transform.position), Vector3.Distance(at.position, mid)), Vector3.Distance(mirror, transform.position));
                 if (d < bd) { bd = d; best = g; }
             }
             if (best == null) return false;

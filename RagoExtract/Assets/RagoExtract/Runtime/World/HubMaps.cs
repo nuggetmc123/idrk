@@ -278,6 +278,7 @@ namespace Rago
             b.AddLight(new Vector3(0, Ht - 0.4f, (az0 + az1) / 2), new Color(1f, 0.88f, 0.7f), 9f, 1.4f, true);
             Stash.Add(StashSection.Create(transform, new Vector3(0, 0, az1 - 0.25f), 0, StashKind.Weapons));
             b.Table(new Vector3(-ax + 0.6f, 0, (az0 + az1) / 2 + 0.5f), 90, new Vector2(2.4f, 0.9f), 0.9f);
+            if (Application.isPlaying) PaintBooth.Create(transform, new Vector3(-ax + 0.6f, 0, (az0 + az1) / 2 + 0.5f), -90f);   // the paint booth on the workbench
             b.Box(new Vector3(-ax + 0.17f, 1.5f, (az0 + az1) / 2 + 0.5f), new Vector3(0.05f, 1.0f, 2.4f), Mats.Lit("pegboard", Color.white, 0.1f, 0.3f, Mats.Wood, null, 0.3f, 0.1f), new Color(0.5f, 0.45f, 0.35f), null, false);
             b.Crate(new Vector3(ax - 1.0f, 0, az0 + 0.9f), 5, new Vector3(0.9f, 0.5f, 0.6f));
             b.Crate(new Vector3(ax - 1.0f, 0, az0 + 1.5f), -8, new Vector3(0.9f, 0.5f, 0.6f));

@@ -16,6 +16,15 @@ namespace Rago
         public Magazine mag;
         public SightItem sight;
         public AttachItem muzzleAtt, sideAtt, gripAtt;
+        public float sightZ, sideZ, gripZ; public bool sideLeft;   // where the attachments sit on their rails
+        public string skin = "";   // paint job (GunSkins)
+
+        /// <summary>How far an attachment of this kind may slide along its rail from its default spot (metres).</summary>
+        public Vector2 RailRange(AttachSlot? s)
+        {
+            if (s == null) return g.TwoHanded ? new Vector2(-0.07f, 0.07f) : new Vector2(-0.015f, 0.015f);   // optic rail
+            return s == AttachSlot.Muzzle ? Vector2.zero : new Vector2(-0.08f, 0.03f);                     // handguard rail
+        }
         public bool SideOn = true;   // light / laser switched on
         public bool RemoteOn;        // another player's gun shown here: its light / laser follows what they send
         public void ToggleSide()
@@ -186,7 +195,12 @@ namespace Rago
                     s.AttachTo(this, false);
                 }
             }
+            sightZ = d.sightZ; sideZ = d.sideZ; gripZ = d.gripZ; sideLeft = d.sideLeft;
+            if (sight != null) sight.Place(sightZ);
             LoadAttachment(d.muzzle); LoadAttachment(d.side); LoadAttachment(d.gripAtt);
+            if (sideAtt != null) sideAtt.Place(sideZ, sideLeft);
+            if (gripAtt != null) gripAtt.Place(gripZ, false);
+            GunSkins.Apply(this, d.skin);
             autoMode = g.action == FireAction.Auto || g.action == FireAction.Burst;
         }
 
@@ -194,7 +208,8 @@ namespace Rago
         {
             int r = Rounds + (chambered ? 1 : 0);   // everything in the gun, the chambered round included (Load takes it back out)
             return new ItemData(g.id) { rounds = r, chambered = chambered, sight = sight != null ? sight.def.id : "",
-                muzzle = muzzleAtt != null ? muzzleAtt.def.id : "", side = sideAtt != null ? sideAtt.def.id : "", gripAtt = gripAtt != null ? gripAtt.def.id : "" };
+                muzzle = muzzleAtt != null ? muzzleAtt.def.id : "", side = sideAtt != null ? sideAtt.def.id : "", gripAtt = gripAtt != null ? gripAtt.def.id : "",
+                sightZ = sight != null ? sightZ : 0f, sideZ = sideAtt != null ? sideZ : 0f, gripZ = gripAtt != null ? gripZ : 0f, sideLeft = sideAtt != null && sideLeft, skin = skin ?? "" };
         }
 
         // ------------------------------------------------------------ magazines
@@ -758,11 +773,13 @@ namespace Rago
             g.sight = this;
             SetMounted(true);
             SetCollidersTrigger(true);
+            // placed by hand: it stays where along the rail you let go of it (slide it by grabbing it and letting go again)
+            if (sound) { var r = g.RailRange(null); g.sightZ = Mathf.Clamp(g.rig.rail.InverseTransformPoint(transform.position).z, r.x, r.y); }
             transform.SetParent(g.rig.rail, false);
-            transform.localPosition = Vector3.zero;
-            transform.localRotation = Quaternion.identity;
+            Place(g.sightZ);
             if (sound) { Sfx.Play(Synth.MagIn(), transform.position, 0.6f, 1.4f, 0.5f, 8f); }
         }
+        public void Place(float z) { transform.localPosition = new Vector3(0, 0, z); transform.localRotation = Quaternion.identity; }
 
         public override void OnGrab(Hand h)
         {
@@ -777,7 +794,9 @@ namespace Rago
             {
                 var g = it as Gun;
                 if (g == null || g.rig.rail == null || g.sight != null) continue;
-                float d = Vector3.Distance(g.rig.rail.position, transform.position);
+                // anywhere along the optic rail counts (not just its middle)
+                var lp = g.rig.rail.InverseTransformPoint(transform.position); var rr = g.RailRange(null);
+                float d = Vector3.Distance(g.rig.rail.TransformPoint(new Vector3(0, 0, Mathf.Clamp(lp.z, rr.x, rr.y))), transform.position);
                 if (d < bd) { bd = d; best = g; }
             }
             if (best == null) return false;

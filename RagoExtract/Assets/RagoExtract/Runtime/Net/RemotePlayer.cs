@@ -127,7 +127,9 @@ namespace Rago
             // the real item, made into a display copy: right model, attachments where they belong, lights and lasers
             // that work - but nobody can grab it, it has no physics, and it isn't part of the world's items
             string P(int i) => parts.Length > i ? parts[i] : "";
-            var data = new ItemData(id) { sight = P(1), muzzle = P(2), side = P(3), gripAtt = P(4), rounds = 0, chambered = false };
+            float F(int i) => float.TryParse(P(i), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0f;
+            var data = new ItemData(id) { sight = P(1), muzzle = P(2), side = P(3), gripAtt = P(4), rounds = 0, chambered = false,
+                                          sightZ = F(5), sideZ = F(6), gripZ = F(7), sideLeft = P(8) == "1", skin = P(9) };
             var disp = ItemFactory.Spawn(data, transform.position, transform.rotation);
             if (disp != null)
             {
