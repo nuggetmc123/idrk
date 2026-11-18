@@ -1401,6 +1401,19 @@ namespace Rago
                     _laptop.SetPositionAndRotation(g.point, rot);
                     return;
                 }
+            // nowhere perfect (a steep or cluttered spot): still put it down beside the zone, on the ground, so every
+            // extract always has its laptop
+            foreach (float r in new[] { 1.2f, 1.8f, 0.8f })
+                for (int k = 0; k < 12; k++)
+                {
+                    float a = k * 30f * Mathf.Deg2Rad;
+                    Vector3 dir = new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a));
+                    Vector3 p = c + dir * r;
+                    if (!Physics.Raycast(p + Vector3.up * 3f, Vector3.down, out var g, 8f, mask, QueryTriggerInteraction.Ignore) || g.normal.y < 0.5f || g.collider.transform.IsChildOf(_laptop)) continue;
+                    _laptop.SetPositionAndRotation(g.point, Quaternion.LookRotation(dir, Vector3.up));
+                    return;
+                }
+            _laptop.position = c + _laptop.forward * 1.1f;   // last resort: right next to the flare
         }
 
         bool PlayerInZone(PlayerRig p)
@@ -1428,7 +1441,26 @@ namespace Rago
             p.Toast("Exfil called - stay in the zone for " + (int)Time_ + " seconds");
         }
 
-        void Start() { PlaceLaptop(); }
+        void Start() { SnapToGround(); PlaceLaptop(); }
+
+        /// <summary>Sit the zone on the real ground (on a slope its spot could be under the hill or in the air, and then
+        /// the laptop had nowhere to go - that's how Logging Road ended up with no exfil).</summary>
+        void SnapToGround()
+        {
+            Physics.SyncTransforms();
+            int mask = ~0;
+            foreach (int l in new[] { Layers.Items, Layers.Hands, Layers.Npc, Layers.Ragdoll, Layers.LocalBody, Layers.Player }) if (l > 0) mask &= ~(1 << l);
+            var p = transform.position;
+            var hits = Physics.RaycastAll(p + Vector3.up * 40f, Vector3.down, 120f, mask, QueryTriggerInteraction.Ignore);
+            float best = float.NaN;
+            foreach (var h in hits)
+            {
+                if (h.collider.transform.IsChildOf(transform) || h.normal.y < 0.5f) continue;
+                // the ground surface nearest to where the zone was meant to be
+                if (float.IsNaN(best) || Mathf.Abs(h.point.y - p.y) < Mathf.Abs(best - p.y)) best = h.point.y;
+            }
+            if (!float.IsNaN(best) && Mathf.Abs(best - p.y) > 0.05f) transform.position = new Vector3(p.x, best + 0.02f, p.z);
+        }
 
         Transform _touchA, _touchB;   // the CALL buttons: touching one calls the exfil
         void Update()
