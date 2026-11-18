@@ -113,6 +113,15 @@ namespace Rago
         }
 
         /// <summary>Destroy that also works in edit mode (used when the world is imported into the scene).</summary>
+        /// <summary>Destroy a UI tree AND the meshes it built (buttons, plates): Destroy alone leaves every built mesh in
+        /// memory, so screens that redraw kept leaking until the game ran out of memory.</summary>
+        public static void KillWithMeshes(GameObject go)
+        {
+            if (go == null) return;
+            foreach (var mf in go.GetComponentsInChildren<MeshFilter>(true)) if (mf.sharedMesh != null) Kill(mf.sharedMesh);
+            Kill(go);
+        }
+
         public static void Kill(Object o)
         {
             if (o == null) return;

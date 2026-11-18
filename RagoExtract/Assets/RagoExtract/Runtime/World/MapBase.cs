@@ -165,12 +165,14 @@ namespace Rago
         public int MaxRaiders = NpcDirector.MaxNpcs;   // raiders alive at the start of a raid on this map
         public int LootSeed;
 
-        int _fp;
+        int _fp; float _bornAt = -1f;
+        void OnEnable() { if (_bornAt < 0f) _bornAt = Time.realtimeSinceStartup; }
         /// <summary>A fingerprint of the world geometry (terrain heights and the number of static pieces), the same on
         /// every machine that built the same map - compared with other players to catch a mismatch.</summary>
         public int Fingerprint()
         {
             if (_fp != 0) return _fp;
+            if (Time.timeSinceLevelLoad < 0f) return 0;
             unchecked
             {
                 int h = 17;
@@ -185,7 +187,11 @@ namespace Rago
                 int statics = 0;
                 foreach (var c in GetComponentsInChildren<Collider>(true)) if (c.attachedRigidbody == null && c.gameObject.isStatic) statics++;
                 h = h * 31 + statics;
-                _fp = h == 0 ? 1 : h;
+                int fp = h == 0 ? 1 : h;
+                // only keep it once the world is fully built (a Hello sent mid-load used to cache a half-built count and
+                // made everyone see a false "map is different" warning)
+                if (B != null && B.Terrains.Count > 0 || Time.realtimeSinceStartup - _bornAt > 10f) _fp = fp;
+                return fp;
             }
             return _fp;
         }

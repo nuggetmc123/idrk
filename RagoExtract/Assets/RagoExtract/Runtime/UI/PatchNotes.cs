@@ -11,6 +11,9 @@ namespace Rago
                 "Voice now goes only to the players who can hear you (within 35 m in raids, or your squad on the radio) - it used to go to everyone once anyone was near, and it's the biggest thing we send. It also pauses sooner when the line backs up.",
                 "Raider updates are sent a little less often and only for raiders someone is near.",
                 "PARTIES / JOINING: each player now uses ONE Photon connection in raids and the Market (it was two or three). Every connection counts towards the Photon plan's player limit, so about 10 people could fill it and parties and joins then failed. The players-online count shows the last number heard while you're in a raid or the Market.",
+                "CRASHES: the black market screens leaked memory every couple of seconds while you were in the Market (each redraw left its old buttons' meshes behind) - fixed, and the traders' price lists no longer leak when you page through them.",
+                "The watch body map only opens when you tap the watch while it's turned towards you (reaching across for your left hip pouch used to pop it up).",
+                "No more false 'map is different' warnings from a player whose map was still loading.",
                 "CRASHES: the bunker music is gone - building it used about 250 MB of memory at once, too much for a Quest.",
             }),
             ("2.16", "Player markets on screens, clearer trade table", new[] {

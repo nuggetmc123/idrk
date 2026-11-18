@@ -364,7 +364,11 @@ namespace Rago
             // tap the watch with your empty right hand to show / hide it
             if (XRInputs.VR && v.Alive)
             {
-                bool inNow = _p.HandR.Held == null && Vector3.Distance(_p.HandR.transform.position, _wrist.position) < 0.09f;
+                // a deliberate tap: empty right hand on the watch while the watch is turned towards your eyes (reaching
+                // across your body for the left hip pouch used to pop it up by accident)
+                Vector3 toEye = (_p.Head.position - _wrist.position).normalized;
+                bool facing = Vector3.Dot(-_wrist.forward, toEye) > 0.45f;
+                bool inNow = facing && _p.HandR.Held == null && Vector3.Distance(_p.HandR.transform.position, _wrist.position) < 0.09f;
                 if (inNow && !_tapIn && Time.time > _tapCd) { _mapOn = !_mapOn; _mapT = 15f; _tapCd = Time.time + 0.5f; _p.HandL.Haptic(0.4f, 0.05f); _p.HandR.Haptic(0.4f, 0.05f); Sfx.UI(Synth.UiClick(), 0.25f); }
                 _tapIn = inNow;
             }

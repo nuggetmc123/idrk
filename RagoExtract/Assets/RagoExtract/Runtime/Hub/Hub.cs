@@ -466,7 +466,7 @@ namespace Rago
 
         void Refresh()
         {
-            foreach (var r in _rows) Compat.Kill(r);
+            foreach (var r in _rows) Compat.KillWithMeshes(r);
             _rows.Clear();
             int pages = Mathf.Max(1, Mathf.CeilToInt(_t.stock.Count / (float)PerPage));
             _page = Mathf.Clamp(_page, 0, pages - 1);

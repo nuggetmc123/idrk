@@ -633,16 +633,19 @@ namespace Rago
             _pad = ItemContainer.Grid(padRoot, Vector3.zero, Quaternion.identity, 2, 2, new Vector2(0.38f, 0.3f), 0.34f, null, Quaternion.Euler(0, 90, 0));
             _pad.onChanged = () => _dirty = true;
             MarketNet.Label(transform, "PUT ITEMS HERE", new Vector3(0.45f, 0.792f, -0.3f), 0.034f, new Color(1f, 0.75f, 0.7f)).transform.localRotation = Quaternion.Euler(90, 0, 0);
-            Shops.Changed += () => _dirty = true;
+            Shops.Changed += MarkDirty;
             MarketNet.Hook();
         }
+
+        void MarkDirty() => _dirty = true;
+        void OnDestroy() { Shops.Changed -= MarkDirty; }   // don't keep old screens alive from the static event
 
         void Go(Page p) { _page = p; _scroll = 0; _dirty = true; Sfx.UI(Synth.UiClick(), 0.3f); }
 
         void Update()
         {
             Shops.Tick();
-            if ((_redrawT -= Time.deltaTime) <= 0f) { _redrawT = 2f; _dirty = true; }
+            if (_page != Page.Mine && (_redrawT -= Time.deltaTime) <= 0f) { _redrawT = 3f; _dirty = true; }   // keep other players' markets fresh
             if (_dirty) { _dirty = false; Draw(); }
         }
 
@@ -657,7 +660,7 @@ namespace Rago
 
         void Draw()
         {
-            foreach (Transform c in _content) Destroy(c.gameObject);
+            foreach (Transform c in _content) Compat.KillWithMeshes(c.gameObject);   // (Destroy alone leaked every button's mesh)
             const int per = 7;
             bool live = NetGame.Live;
             switch (_page)
