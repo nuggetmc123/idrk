@@ -17,6 +17,7 @@ namespace Rago
                 "FIXED: armour on the bunker armour stands sat on top of the forms - the vest now wraps the torso form and the helmet sits on the head form.",
                 "LESS DELAY in the Market and raids: your movement is sent 20 times a second (was 15) and goes out the moment it's ready instead of waiting for the next batch, and other players are drawn closer to real time (a smaller smoothing buffer).",
                 "PARTY INVITES from the Market or a raid now go out straight away (they used to wait until you were back in your bunker) - your friend gets them wherever they are.",
+                "New posters on the bunker and Market walls.",
                 "Items laid on the red square lie across it (guns no longer point at you or into the screen).",
             }),
             ("2.15", "Swap trades, booths for everyone, med fix", new[] {

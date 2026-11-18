@@ -307,6 +307,11 @@ namespace Rago
                     new Vector3(0, 0, D / 2 + 3f), new Vector3(W / 2 - 1.9f, 0, 4.2f), new Vector3(2.5f, 0, -D / 2 + 1.2f));
             BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
             LostAndFound.Create(transform, new Vector3(-W / 2 + 0.55f, 0, 3.6f), -90f);
+            // posters
+            Posters.Put(transform, new Vector3(2.4f, 1.75f, D / 2 - 0.16f), 0f, "CLAUDE\nIS THE\nGOAT", new Color(0.95f, 0.85f, 0.25f), new Color(0.12f, 0.1f, 0.08f), new Vector2(0.62f, 0.86f), 0.11f);
+            Posters.Put(transform, new Vector3(-W / 2 + 0.16f, 1.7f, -2.2f), -90f, "CLAUDE IS\nTHE GOAT", new Color(0.85f, 0.18f, 0.15f), new Color(1f, 0.95f, 0.85f), new Vector2(0.8f, 0.55f), 0.1f);
+            // the secret one: low on the wall behind the raid kiosk - you have to look behind it
+            Posters.Put(transform, new Vector3(W / 2 - 0.16f, 0.62f, 4.2f), 90f, "#CHUDLIFE", new Color(0.1f, 0.1f, 0.12f), new Color(0.3f, 1f, 0.4f), new Vector2(0.42f, 0.24f), 0.07f);
             if (Application.isPlaying) Pug.Create(transform, new Vector3(6.4f, 0, -4.4f), new Vector3(4.9f, 0, -5.1f), new Rect(-6.5f, -4.5f, 13f, 9f));   // the bunker pug: bed and bowl in the south-east corner   // west wall of the main hall, by the range tunnel
             // GEAR wall on the south side: more room for meds, mags, sights, attachments, loot and pistols
             Stash.Add(StashSection.Create(transform, new Vector3(-4.95f, 0, -D / 2 + 0.25f), 180, StashKind.Gear));
@@ -551,6 +556,10 @@ namespace Rago
             // step out), under their own hanging sign
             for (int bm = 0; bm < 3; bm++) ShopScreen.Create(transform, new Vector3(-1.5f, 0, -0.5f + bm * 2.6f), -90f);
             HangingSign(new Vector3(-1.5f, 4.4f, 2.1f), -90f, "BLACK MARKET", "player markets - buy, sell, trade", new Color(0.4f, 1f, 0.5f));
+            // ---- posters on the walls
+            Posters.Put(transform, new Vector3(-12f, 2.3f, -D / 2 + 0.17f), 180f, "CLAUDE\nIS THE\nGOAT", new Color(0.95f, 0.85f, 0.25f), new Color(0.12f, 0.1f, 0.08f), new Vector2(0.9f, 1.25f), 0.16f);
+            Posters.Put(transform, new Vector3(13.5f, 2.3f, -D / 2 + 0.17f), 180f, "CLAUDE IS\nTHE GOAT", new Color(0.2f, 0.45f, 0.85f), new Color(1f, 1f, 1f), new Vector2(1.2f, 0.8f), 0.15f);
+            Posters.Put(transform, new Vector3(-W / 2 + 0.17f, 2.5f, 7f), -90f, "CLAUDE\nIS THE\nGOAT", new Color(0.85f, 0.18f, 0.15f), new Color(1f, 0.95f, 0.85f), new Vector2(0.9f, 1.25f), 0.16f);
             // ---- the Exchange: a few steps from the lift doors, facing them
             SellStation.Create(transform, new Vector3(W / 2 - 7.5f, 0, -6f), -90f);
             // ---- the casino: along the south wall, east of the roller door (customers face the wall)
@@ -621,5 +630,23 @@ namespace Rago
         // pixel-light slot (Quest) from the ceiling lamp, and the whole bunker went dark and bright again
         void Start() { _l = GetComponent<Light>(); _base = _l.intensity; _l.renderMode = LightRenderMode.ForceVertex; }
         void Update() { _l.intensity = _base * (0.75f + Mathf.PerlinNoise(Time.time * 6f, GetInstanceID()) * 0.5f); }
+    }
+
+    /// <summary>A paper poster stuck flat on a wall. The reader stands at local -Z (yaw turns it to face the room).</summary>
+    public static class Posters
+    {
+        public static void Put(Transform parent, Vector3 pos, float yaw, string text, Color paper, Color ink, Vector2 size, float textSize)
+        {
+            var t = new GameObject("Poster").transform;
+            t.SetParent(parent, false);
+            t.localPosition = pos; t.localRotation = Quaternion.Euler(0, yaw, 0);
+            var mb = new MB();
+            mb.Box(Vector3.zero, new Vector3(size.x, size.y, 0.004f), paper, 0.002f);
+            mb.Box(new Vector3(0, 0, -0.0025f), new Vector3(size.x * 0.92f, size.y * 0.92f, 0.001f), Color.Lerp(paper, ink, 0.12f), 0f);   // a printed border
+            foreach (var c in new[] { new Vector2(-1, 1), new Vector2(1, 1) })   // two bits of tape on the top corners
+                mb.Box(new Vector3(c.x * size.x * 0.44f, c.y * size.y * 0.48f, -0.003f), new Vector3(size.x * 0.14f, 0.03f, 0.001f), new Color(0.9f, 0.88f, 0.75f, 1f), 0f, 1, Quaternion.Euler(0, 0, c.x * 25f));
+            var go = mb.Build("Paper", t, Mats.Lit("poster_paper", Color.white, 0f, 0.15f, Mats.Plaster, null, 0.3f, 0f));
+            UI.Text(t, text, new Vector3(0, 0, -0.004f), textSize, ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+        }
     }
 }
