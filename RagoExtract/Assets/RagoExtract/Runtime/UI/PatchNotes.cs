@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.26", "Die and your armour is gone", new[] {
+                "Dying in a raid loses the armour you wore in, along with everything else - it drops on your body for whoever finds it. No free starter helmet or vest after a death either.",
+            }),
             ("2.25", "Armour you wore in comes home again", new[] {
                 "Back to how it was: the armour you wore into a raid comes home if you die. Only the free starter helmet and vest stay gone (they no longer reappear on your stands after a death).",
             }),

@@ -465,7 +465,7 @@ namespace Rago
         float _start;
         public float Elapsed => Time.time - _start;
         int _startValue;
-        string _startHelmet, _startVest;   // the armour you wore in: it comes home if you die
+        string _startHelmet, _startVest;   // the armour you wore in
 
         public static void Begin(RagoGame g, MapBase map, RaidStart rs)
         {
@@ -594,7 +594,7 @@ namespace Rago
         {
             prof.inRaid = false;
             prof.deaths++;
-            prof.loadout = new Loadout { hasPack = true, packId = "pack_day", helmet = prof.loadout != null ? prof.loadout.helmet ?? "" : "", vest = prof.loadout != null ? prof.loadout.vest ?? "" : "" };   // your raid armour comes back
+            prof.loadout = new Loadout { hasPack = true, packId = "pack_day" };   // raid armour is lost too
             bool hasGun = prof.stash.Exists(d => Db.Get<GunDef>(d.id) != null);
             if (!hasGun) prof.loadout.pistol = new ItemData("p9");
             if (prof.stashAmmo[(int)Caliber.C9mm] < 34) prof.stashAmmo[(int)Caliber.C9mm] = 34;
@@ -613,16 +613,14 @@ namespace Rago
             BunkerJobs.RaidFinished(prof);
             var gear = _g.Player.Gear;
             var carried = gear.AllCarried();
-            int hi = carried.FindIndex(d => !string.IsNullOrEmpty(_startHelmet) && d.id == _startHelmet); if (hi >= 0) carried.RemoveAt(hi);
-            int vi = carried.FindIndex(d => !string.IsNullOrEmpty(_startVest) && d.id == _startVest); if (vi >= 0) carried.RemoveAt(vi);
             // drop everything you carried as lootable items around your body
             var pos = _g.Player.Body.Rig.chest.position;
             NetGame.I?.LocalDied(pos, carried);
             if (!NetGame.Live)
                 foreach (var d in carried) ItemFactory.Spawn(d, pos + Vector3.up * 0.4f + Random.insideUnitSphere * 0.4f, Random.rotation);
             gear.ClearAll();
-            // everything is lost except the armour you wore in - that comes home (but no free starter set any more)
-            prof.loadout = new Loadout { hasPack = true, packId = "pack_day", helmet = _startHelmet ?? "", vest = _startVest ?? "" };
+            // everything you took in is lost, armour included (it drops on your body for whoever finds it)
+            prof.loadout = new Loadout { hasPack = true, packId = "pack_day" };
             bool hasGun = prof.stash.Exists(d => Db.Get<GunDef>(d.id) != null);
             if (!hasGun) prof.loadout.pistol = new ItemData("p9");
             if (prof.stashAmmo[(int)Caliber.C9mm] < 34) prof.stashAmmo[(int)Caliber.C9mm] = 34;
