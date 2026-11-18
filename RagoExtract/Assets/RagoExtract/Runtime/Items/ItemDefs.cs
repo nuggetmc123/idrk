@@ -221,6 +221,16 @@ namespace Rago
             g.large = g.TwoHanded;
             g.velocity = cal == Caliber.C12g ? 400 : cls == GunClass.Pistol || cls == GunClass.SMG || cls == GunClass.Revolver ? 380 : cls == GunClass.Sniper ? 880 : 760;
             if (cal == Caliber.C12g) g.pellets = 8;
+            // handguns were out-shooting rifles: less damage, slower to spam, wider shots (machine pistols most of all)
+            if (cls == GunClass.Pistol)
+            {
+                bool auto = act == FireAction.Auto;
+                g.damage = Mathf.Round(dmg * (auto ? 0.7f : 0.78f));
+                g.rpm = auto ? Mathf.Min(rpm, 800) : Mathf.Min(rpm, 340);
+                g.spread = spread * (auto ? 1.8f : 1.5f);
+                g.recoil = recoil * 1.2f;
+            }
+            else if (cls == GunClass.Revolver) { g.damage = Mathf.Round(dmg * 0.88f); g.spread = spread * 1.3f; }
             Guns.Add(g); All[id] = g;
             return g;
         }

@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.20", "Pistols toned down, ammo type in the tester menu", new[] {
+                "Pistols hit about 20% softer, can't be spammed as fast, spray wider and kick a bit harder. Machine pistols (Hornet MP) got the biggest cut.",
+                "Pistol and revolver rounds lose damage quickly past 12 m (half damage by 50 m), so rifles win at range.",
+                "Revolvers hit a little softer (-12%) and are a bit less accurate.",
+                "TESTER menu: pick STANDARD, AP or INCENDIARY with < > before pressing +AMMO.",
+            }),
             ("2.19", "Big multiplayer update", new[] {
                 "Your movement goes out the moment it's taken (it used to wait up to 66 ms for the next send tick), and shots, hits and deaths go out the same frame instead of with the next batch.",
                 "Other players are drawn closer to real time: the smoothing buffer now sizes itself to how steady your connection really is (about 80 ms on a good line), and only grows when updates arrive unevenly.",

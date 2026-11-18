@@ -213,7 +213,8 @@ namespace Rago
 
         // ------------------------------------------------------------------------------- tester tools
         static readonly string[] Cats = { "GUNS", "ARMOR", "ATTACHMENTS", "SIGHTS", "OTHER" };
-        static int _cat, _pick, _npcKind;
+        static int _cat, _pick, _npcKind, _ammoKind;
+        static readonly string[] AmmoKinds = { "STANDARD", "AP", "INCENDIARY" };
         static readonly string[] NpcKinds = { "Raider", "Heavy raider", "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker", "The Courier" };
 
         static List<ItemDef> CatItems(int cat)
@@ -241,11 +242,18 @@ namespace Rago
             Btn("HEAL", 0.45f, y, 0.14f, () => pl.Vitals.ResetFull()); y -= 0.08f;
             Line("Invisible to AI (not players):", y);
             Btn(Tester.Invisible ? "ON" : "OFF", 0.28f, y, 0.16f, () => Tester.Invisible = !Tester.Invisible, Tester.Invisible ? Go : (Color?)null);
+            y -= 0.08f;
+            // ammo: pick standard / AP / incendiary, then add 300 of it for the gun in your hand
+            Line("Ammo type:", y);
+            Btn("<", -0.12f, y, 0.08f, () => _ammoKind = (_ammoKind + 2) % 3);
+            Line(AmmoKinds[_ammoKind], y, 0.026f, _ammoKind == 1 ? new Color(0.5f, 0.8f, 1f) : _ammoKind == 2 ? new Color(1f, 0.55f, 0.2f) : Color.white, -0.03f);
+            Btn(">", 0.24f, y, 0.08f, () => _ammoKind = (_ammoKind + 1) % 3);
             Btn("+AMMO", 0.45f, y, 0.14f, () =>
             {
                 var g = (pl.HandR.Held as Gun) ?? (pl.HandL.Held as Gun);
                 if (g == null) { pl.Toast("Hold a gun to get ammo for it"); return; }
-                pl.Gear.Ammo[(int)g.g.cal] += 300; pl.Toast("+300 " + Db.CalName(g.g.cal));
+                var t = _ammoKind == 1 ? AmmoType.AP : _ammoKind == 2 ? AmmoType.Incendiary : AmmoType.Standard;
+                pl.Gear.AddAmmo(g.g.cal, 300, t);
             }); y -= 0.1f;
             // spawn any item
             var items = CatItems(_cat);

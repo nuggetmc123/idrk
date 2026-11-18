@@ -84,7 +84,7 @@ namespace Rago
             public string gunId;
             public Transform ignore;
             public IDamageable ignoreOwner;
-            public bool tracer, visualOnly, cracked, localOnly, passCapsule;
+            public bool tracer, visualOnly, cracked, localOnly, passCapsule, handgun;
             public AmmoType ammo;
             public float punch;    // what's left to push through walls (calibre + AP)
             public int walls;      // walls it has gone through
@@ -133,6 +133,7 @@ namespace Rago
                 I._bullets.Add(new Bullet
                 {
                     pos = origin, vel = d.normalized * gun.velocity, life = 2.5f, shooter = shooter, gunId = gun.id, ammo = ammo,
+                    handgun = gun.cls == GunClass.Pistol || gun.cls == GunClass.Revolver,
                     damage = gun.damage * (ammo == AmmoType.AP ? 0.9f : ammo == AmmoType.Incendiary ? 0.85f : 1f),
                     punch = (pellets > 1 ? 0.6f : ArmorDef.Penetration(gun.id)) + (ammo == AmmoType.AP ? 2.5f : 0f),
                     ignore = ignore, ignoreOwner = ignoreOwner, tracer = tracer && p == 0, visualOnly = visualOnly, localOnly = localOnly, passCapsule = Random.value < 0.5f,
@@ -266,7 +267,8 @@ namespace Rago
         {
             Vector3 dir = b.vel.normalized;
             // falloff with distance for pistols/shotgun pellets
-            float dmg = b.damage * Mathf.Lerp(1f, 0.6f, Mathf.InverseLerp(40f, 250f, b.travelled));
+            float dmg = b.damage * (b.handgun ? Mathf.Lerp(1f, 0.5f, Mathf.InverseLerp(12f, 50f, b.travelled))   // handgun rounds lose punch fast
+                                              : Mathf.Lerp(1f, 0.6f, Mathf.InverseLerp(40f, 250f, b.travelled)));
             var rb = hit.collider.attachedRigidbody;
             if (zone != null && zone.owner != null)
             {
