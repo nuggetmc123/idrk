@@ -277,7 +277,8 @@ namespace Rago
                 if (_npcT <= 0)
                 {
                     float rtt = NetHub.Backend.Rtt; int others = NetHub.Backend.Peers.Count;
-                    _npcT = (rtt < 0.3f ? 0.2f : rtt < 0.6f ? 0.35f : 0.5f) * (others >= 4 ? 1.25f : 1f);
+                    _npcT = NetHub.Backend.FastBroadcast ? (rtt < 0.3f ? 0.1f : 0.2f)   // fast lane: one copy for everyone, so raiders can be smoother
+                          : (rtt < 0.3f ? 0.2f : rtt < 0.6f ? 0.35f : 0.5f) * (others >= 4 ? 1.25f : 1f);
                     SendNpcStates(_npcT);
                 }
             }
@@ -373,6 +374,7 @@ namespace Rago
             w.Write(g.Quiet && !g.g.suppressed ? g.g.id + "~s" : g.g.id); V3(w, origin); V3(w, dir);   // ~s: a suppressor is screwed on
             w.Write((byte)g.CurrentAmmo);
             Send(true);
+            NetHub.Backend?.FlushNow();   // shots / hits / deaths go out this frame, not with the next batch
         }
 
         /// <summary>A grenade we threw went off: everyone else shows it (and works out their own flash).</summary>
@@ -419,6 +421,7 @@ namespace Rago
                 w.Write((byte)h.ammo); w.Write(h.gunId ?? "");
                 Send(true);
             }
+            NetHub.Backend?.FlushNow();   // shots / hits / deaths go out this frame, not with the next batch
         }
 
         public void LocalDied(Vector3 pos, List<ItemData> items)
@@ -430,6 +433,7 @@ namespace Rago
             int baseId = 50000000 + (int)(NetHub.Backend.LocalId % 1000) * 1000 + (++_deaths % 10) * 100;
             for (int i = 0; i < items.Count; i++) { w.Write(baseId + i); w.Write(JsonUtility.ToJson(items[i])); }
             Send(true);
+            NetHub.Backend?.FlushNow();   // shots / hits / deaths go out this frame, not with the next batch
         }
 
         public int NewDropId() => 200000000 + (int)(NetHub.Backend.LocalId % 1000) * 100000 + (++_dropCounter % 90000);
@@ -531,6 +535,7 @@ namespace Rago
         {
             if (!Live) return;
             var w = W(Msg.NpcDied); w.Write(id); V3(w, point); V3(w, impulse); w.Write(killer); w.Write(head); Send(true);
+            NetHub.Backend.FlushNow();
         }
 
         public void DoorAngle(int doorId, float angle) { if (!Live) return; var w = W(Msg.Door); w.Write(doorId); w.Write((short)Mathf.RoundToInt(angle * 10f)); Send(true); }

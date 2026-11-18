@@ -465,7 +465,7 @@ namespace Rago
             _p.HandL.Haptic(0.35f, 0.1f);
         }
         /// <summary>Top-left matchmaking line (FINDING RAID 0:12 / RAID FOUND / JOINING RAID); empty hides it.</summary>
-        public void Queue(string s, bool timer = false) { _queueLabel = s ?? ""; _queueTimer = timer && _queueLabel.Length > 0; _queueStart = Time.unscaledTime; var q = QueueText; if (q != null) q.text = _queueTimer ? _queueLabel + "  0:00" : _queueLabel; }
+        public void Queue(string s, bool timer = false) { _queueLabel = s ?? ""; _queueTimer = timer && _queueLabel.Length > 0; _queueStart = Time.unscaledTime; var q = QueueText; if (q != null) { q.text = _queueTimer ? _queueLabel + "  0:00" : _queueLabel; q.color = new Color(0.55f, 1f, 0.6f); } }
         TextMesh QueueText => XRInputs.VR && _wristQueue != null ? _wristQueue : _queue;   // VR: on the watch
         string _queueLabel = ""; bool _queueTimer; float _queueStart;
         string _objText = "";
@@ -486,13 +486,24 @@ namespace Rago
             _flash = Mathf.MoveTowards(_flash, 0, dt);
             float fa = Mathf.Clamp01(_flash);
             _flashR.enabled = fa > 0.01f;
-            if (_flashR.enabled) _flashM.SetColor("_Color", new Color(0.01f, 0.01f, 0.01f, fa));   // blinded = blacked out (a white screen hurts in a headset)
+            if (_flashR.enabled) _flashM.SetColor("_Color", new Color(0.95f, 0.95f, 0.93f, fa));   // blinded = a white-out that fades back
             _suppM.SetColor("_Color", new Color(0, 0, 0, _sup * 0.75f));
             _supp.enabled = _sup > 0.01f;
             _toastT -= dt; if (_toastT <= 0) _toast.text = "";
             _msgT -= dt; if (_msgT <= 0 && _wristMsg != null) _wristMsg.text = "";
             TickBodyMap(dt);
-            if (XRInputs.VR && _wristQueue != null && _queueLabel.Length == 0) _wristQueue.text = UI.Wrap(_objText, 30);   // tutorial step on the watch
+            if (XRInputs.VR && _wristQueue != null && _queueLabel.Length == 0)
+            {
+                // tutorial step on the watch; otherwise, online, the connection: ping, players, and whether the fast lane is on
+                if (_objText.Length > 0) _wristQueue.text = UI.Wrap(_objText, 30);
+                else if (NetGame.Live && NetHub.Backend != null)
+                {
+                    int ms = Mathf.RoundToInt(NetHub.Backend.Rtt * 1000f);
+                    _wristQueue.text = "NET " + ms + " ms  " + (NetHub.Backend.Peers.Count + 1) + "P  " + (NetHub.Backend.FastBroadcast ? "FAST" : "SLOW");
+                    _wristQueue.color = ms < 120 ? new Color(0.55f, 1f, 0.6f) : ms < 250 ? new Color(1f, 0.85f, 0.3f) : new Color(1f, 0.35f, 0.3f);
+                }
+                else _wristQueue.text = "";
+            }
             if (_queueTimer && QueueText != null) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); QueueText.text = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
             _centerT -= dt; if (_centerT <= 0) _center.text = "";
             _crosshair.SetActive(!XRInputs.VR && !Desktop.Aiming && v.Alive);

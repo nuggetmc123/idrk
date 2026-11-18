@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.19", "Big multiplayer update", new[] {
+                "Your movement goes out the moment it's taken (it used to wait up to 66 ms for the next send tick), and shots, hits and deaths go out the same frame instead of with the next batch.",
+                "Other players are drawn closer to real time: the smoothing buffer now sizes itself to how steady your connection really is (about 80 ms on a good line), and only grows when updates arrive unevenly.",
+                "Raiders move more smoothly for everyone (their positions go out twice as often on the fast lane - it's one copy for everybody, so it's cheap).",
+                "Your WATCH shows the connection while you're online: NET ping in ms, players in the session, and FAST / SLOW for the fast lane - green is good, yellow OK, red bad. Tell me what it says when something feels laggy.",
+                "Flashbangs white you out now (they used to black you out).",
+            }),
             ("2.18", "Paint booth and free attachment placement", new[] {
                 "PAINT BOOTH on the Armory workbench in your bunker: put a gun on the red mat, pick a skin on the board (< >) and press PAINT. The spray can rattles, then sweeps up and down the gun in a cloud of paint and it comes out in its new colours. STRIP puts the factory finish back.",
                 "Skins modelled on the real thing: Flat Dark Earth and Crimson Cerakote coatings, M81 Woodland, Multi-Terrain, Arctic Splinter, Urban Digital and Tiger Stripe camouflage, Gold Rush and a glossy Carbon Fibre twill. Matte paint with edges worn to bare metal, sized for a gun, and painted ON the gun so the pattern stays put when you move it. Your skin stays on the gun (stash, raids, trades) and other players see it.",

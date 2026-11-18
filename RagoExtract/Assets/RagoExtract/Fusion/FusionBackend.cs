@@ -1110,11 +1110,13 @@ namespace Rago.Net
             b.Process(from, new ArraySegment<byte>(data, 9, data.Length - 9));
         }
 
-        float _flushT;
+        float _flushT, _lastFast;
         public void FlushNow() { _flushT = 0f; }
         void LateUpdate()
         {
-            if (_fastOut.Length > 0 && InSession && _flushT - Time.unscaledDeltaTime <= 0f) FlushFast();
+            // the fast lane goes out the frame it's written (up to 30 a second) - it used to wait for the next batch tick,
+            // up to 66 ms after the pose was taken
+            if (_fastOut.Length > 0 && InSession && Time.unscaledTime - _lastFast >= 1f / 30f) { _lastFast = Time.unscaledTime; FlushFast(); }
             else if (!InSession) _fastOut.SetLength(0);
             if (_out.Count == 0 && _fwdOut.Count == 0) { _flushT -= Time.unscaledDeltaTime; if (_flushT <= 0f) _flushT = Rtt > 0.3f ? 0.1f : 1f / 15f; return; }
             if (!InSession) { _out.Clear(); _fwdOut.Clear(); return; }

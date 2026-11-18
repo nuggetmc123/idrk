@@ -217,8 +217,10 @@ namespace Rago
         struct Snap { public float t; public Vector3 root, head, hl, hr, gl, gr, vel; public Quaternion headR, hlR, hrR, glR, grR; }
         readonly System.Collections.Generic.List<Snap> _snaps = new System.Collections.Generic.List<Snap>();
         float _offset = float.MaxValue;   // our clock minus theirs, for the quickest packet seen (slowly relaxed)
-        float _ia = 0.07f, _lastArrive;
-        float Delay => Mathf.Clamp(_ia * 1.35f, 0.07f, 0.36f);   // near players (15/s) ~90 ms; far ones get fewer updates, so a longer buffer keeps them smooth   // just enough buffer for one late packet (it was up to twice the packet gap: players looked behind)
+        float _ia = 0.07f, _jit = 0.02f, _lastArrive;
+        // show them just far enough behind to cover how unevenly their updates arrive: the average gap plus twice the
+        // jitter. A steady line shows them ~80 ms behind; a ragged one buys more buffer instead of stuttering.
+        float Delay => Mathf.Clamp(_ia + _jit * 2f + 0.005f, 0.05f, 0.36f);   // near players (15/s) ~90 ms; far ones get fewer updates, so a longer buffer keeps them smooth   // just enough buffer for one late packet (it was up to twice the packet gap: players looked behind)
 
         public void CommitSnap(float senderT)
         {
@@ -227,7 +229,7 @@ namespace Rago
             float off = Time.time - senderT;
             if (off < _offset) _offset = off;
             // how evenly poses arrive: the show-delay grows with the jitter (relayed through the host, a busy line)
-            if (_lastArrive > 0f) _ia = Mathf.Lerp(_ia, Time.time - _lastArrive, 0.1f);
+            if (_lastArrive > 0f) { float gap = Time.time - _lastArrive; _jit = Mathf.Lerp(_jit, Mathf.Abs(gap - _ia), 0.1f); _ia = Mathf.Lerp(_ia, gap, 0.1f); }
             _lastArrive = Time.time;
             _snaps.Add(new Snap { t = senderT, root = _root, head = _head, hl = _hl, hr = _hr, gl = _gl, gr = _gr, vel = _vel, headR = _headR, hlR = _hlR, hrR = _hrR, glR = _glR, grR = _grR });
             if (_snaps.Count > 30) _snaps.RemoveAt(0);
