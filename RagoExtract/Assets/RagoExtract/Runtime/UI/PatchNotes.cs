@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.21", "Yes, it's vibe coded", new[] {
+                "The CLAUDE IS THE GOAT posters are gone from the bunker and the Market.",
+                "New wall screens in their place: YES, IT'S VIBE CODED (bunker, right of the lift; Market, south wall).",
+            }),
             ("2.20", "Pistols toned down, ammo type in the tester menu", new[] {
                 "Pistols hit about 20% softer, can't be spammed as fast, spray wider and kick a bit harder. Machine pistols (Hornet MP) got the biggest cut.",
                 "Pistol and revolver rounds lose damage quickly past 12 m (half damage by 50 m), so rifles win at range.",

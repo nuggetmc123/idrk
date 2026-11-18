@@ -308,9 +308,8 @@ namespace Rago
                     new Vector3(0, 0, D / 2 + 3f), new Vector3(W / 2 - 1.9f, 0, 4.2f), new Vector3(2.5f, 0, -D / 2 + 1.2f));
             BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
             LostAndFound.Create(transform, new Vector3(-W / 2 + 0.55f, 0, 3.6f), -90f);
-            // posters
-            Posters.Put(transform, new Vector3(5.6f, 1.7f, -D / 2 + 0.16f), 180f, "CLAUDE\nIS THE\nGOAT", new Color(0.95f, 0.85f, 0.25f), new Color(0.12f, 0.1f, 0.08f), new Vector2(0.7f, 0.95f), 0.25f);   // south wall, right of the lift
-            Posters.Put(transform, new Vector3(-W / 2 + 0.16f, 1.7f, -2.4f), -90f, "CLAUDE IS\nTHE GOAT", new Color(0.85f, 0.18f, 0.15f), new Color(1f, 0.95f, 0.85f), new Vector2(0.9f, 0.6f), 0.22f);
+            // a wall screen on the south wall, right of the lift
+            Posters.Screen(transform, new Vector3(5.6f, 1.75f, -D / 2 + 0.16f), 180f, new Vector2(1.1f, 0.65f));
             // the secret one: low on the wall behind the raid kiosk - you have to look behind it
             Posters.Put(transform, new Vector3(W / 2 - 0.55f, 0.5f, D / 2 - 0.16f), 0f, "#CHUDLIFE", new Color(0.1f, 0.1f, 0.12f), new Color(0.3f, 1f, 0.4f), new Vector2(0.44f, 0.26f), 0.13f);   // tucked low in the corner behind the kiosk
             if (Application.isPlaying) Pug.Create(transform, new Vector3(6.4f, 0, -4.4f), new Vector3(4.9f, 0, -5.1f), new Rect(-6.5f, -4.5f, 13f, 9f));   // the bunker pug: bed and bowl in the south-east corner   // west wall of the main hall, by the range tunnel
@@ -557,10 +556,8 @@ namespace Rago
             // step out), under their own hanging sign
             for (int bm = 0; bm < 3; bm++) ShopScreen.Create(transform, new Vector3(-1.5f, 0, -0.5f + bm * 2.6f), -90f);
             HangingSign(new Vector3(-1.5f, 4.4f, 2.1f), -90f, "BLACK MARKET", "player markets - buy, sell, trade", new Color(0.4f, 1f, 0.5f));
-            // ---- posters on the walls
-            Posters.Put(transform, new Vector3(-12f, 2.3f, -D / 2 + 0.17f), 180f, "CLAUDE\nIS THE\nGOAT", new Color(0.95f, 0.85f, 0.25f), new Color(0.12f, 0.1f, 0.08f), new Vector2(1.2f, 1.65f), 0.4f);
-            Posters.Put(transform, new Vector3(13.5f, 2.3f, -D / 2 + 0.17f), 180f, "CLAUDE IS\nTHE GOAT", new Color(0.2f, 0.45f, 0.85f), new Color(1f, 1f, 1f), new Vector2(1.6f, 1.05f), 0.36f);
-            Posters.Put(transform, new Vector3(-W / 2 + 0.17f, 2.5f, 7f), -90f, "CLAUDE\nIS THE\nGOAT", new Color(0.85f, 0.18f, 0.15f), new Color(1f, 0.95f, 0.85f), new Vector2(1.2f, 1.65f), 0.4f);
+            // ---- a big wall screen
+            Posters.Screen(transform, new Vector3(13.5f, 2.4f, -D / 2 + 0.17f), 180f, new Vector2(2.2f, 1.25f));
             // ---- the Exchange: a few steps from the lift doors, facing them
             SellStation.Create(transform, new Vector3(W / 2 - 7.5f, 0, -6f), -90f);
             // ---- the casino: along the south wall, east of the roller door (customers face the wall)
@@ -648,6 +645,25 @@ namespace Rago
                 mb.Box(new Vector3(c.x * size.x * 0.44f, c.y * size.y * 0.48f, -0.003f), new Vector3(size.x * 0.14f, 0.03f, 0.001f), new Color(0.9f, 0.88f, 0.75f, 1f), 0f, 1, Quaternion.Euler(0, 0, c.x * 25f));
             var go = mb.Build("Paper", t, Mats.Lit("poster_paper", Color.white, 0f, 0.15f, Mats.Plaster, null, 0.3f, 0f));
             UI.Text(t, text, new Vector3(0, 0, -0.004f), textSize, ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+        }
+
+        /// <summary>A wall-mounted screen (black bezel, glowing panel) that owns up to how the game was made.</summary>
+        public static void Screen(Transform parent, Vector3 pos, float yaw, Vector2 size)
+        {
+            var t = new GameObject("VibeScreen").transform;
+            t.SetParent(parent, false);
+            t.localPosition = pos; t.localRotation = Quaternion.Euler(0, yaw, 0);
+            var bez = new MB();
+            bez.Box(new Vector3(0, 0, 0.02f), new Vector3(size.x + 0.06f, size.y + 0.06f, 0.05f), new Color(0.05f, 0.05f, 0.06f), 0.006f);
+            bez.Box(new Vector3(0, 0, 0.055f), new Vector3(0.3f, 0.2f, 0.03f), new Color(0.08f, 0.08f, 0.09f), 0.004f);   // wall bracket
+            bez.Build("Bezel", t, Mats.Lit("screen_bezel", Color.white, 0.3f, 0.6f));
+            var pan = new MB();
+            pan.Box(new Vector3(0, 0, -0.006f), new Vector3(size.x, size.y, 0.002f), Color.white, 0f);
+            pan.Build("Panel", t, Mats.Lit("vibe_screen", new Color(0.02f, 0.04f, 0.07f), 0f, 0.9f, null, null, 0f, 0f, false, 0.5f, new Color(0.03f, 0.08f, 0.14f)));
+            float k = size.y / 0.65f;
+            UI.Text(t, "YES, IT'S", new Vector3(0, size.y * 0.24f, -0.009f), 0.13f * k, new Color(0.75f, 0.85f, 1f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            UI.Text(t, "VIBE CODED", new Vector3(0, -size.y * 0.04f, -0.009f), 0.21f * k, new Color(0.35f, 1f, 0.55f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            UI.Text(t, "every line written by an AI", new Vector3(0, -size.y * 0.3f, -0.009f), 0.065f * k, new Color(0.6f, 0.65f, 0.7f), TextAnchor.MiddleCenter);
         }
     }
 }
