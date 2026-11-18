@@ -308,6 +308,8 @@ namespace Rago
                     new Vector3(0, 0, D / 2 + 3f), new Vector3(W / 2 - 1.9f, 0, 4.2f), new Vector3(2.5f, 0, -D / 2 + 1.2f));
             BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
             LostAndFound.Create(transform, new Vector3(-W / 2 + 0.55f, 0, 3.6f), -90f);
+            // a wall screen on the south wall, right of the lift
+            Posters.Screen(transform, new Vector3(5.6f, 1.75f, -D / 2 + 0.16f), 180f, new Vector2(1.1f, 0.65f));
             // the secret one: low on the wall behind the raid kiosk - you have to look behind it
             Posters.Put(transform, new Vector3(W / 2 - 0.55f, 0.5f, D / 2 - 0.16f), 0f, "#CHUDLIFE", new Color(0.1f, 0.1f, 0.12f), new Color(0.3f, 1f, 0.4f), new Vector2(0.44f, 0.26f), 0.13f);   // tucked low in the corner behind the kiosk
             if (Application.isPlaying) Pug.Create(transform, new Vector3(6.4f, 0, -4.4f), new Vector3(4.9f, 0, -5.1f), new Rect(-6.5f, -4.5f, 13f, 9f));   // the bunker pug: bed and bowl in the south-east corner   // west wall of the main hall, by the range tunnel
@@ -554,8 +556,6 @@ namespace Rago
             // step out), under their own hanging sign
             for (int bm = 0; bm < 3; bm++) ShopScreen.Create(transform, new Vector3(-1.5f, 0, -0.5f + bm * 2.6f), -90f);
             HangingSign(new Vector3(-1.5f, 4.4f, 2.1f), -90f, "BLACK MARKET", "player markets - buy, sell, trade", new Color(0.4f, 1f, 0.5f));
-            // ---- a big wall screen
-            Posters.Screen(transform, new Vector3(13.5f, 2.4f, -D / 2 + 0.17f), 180f, new Vector2(2.2f, 1.25f));
             // ---- the Exchange: a few steps from the lift doors, facing them
             SellStation.Create(transform, new Vector3(W / 2 - 7.5f, 0, -6f), -90f);
             // ---- the casino: along the south wall, east of the roller door (customers face the wall)

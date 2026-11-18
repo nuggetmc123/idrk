@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.23", "The screen lives in the bunker", new[] {
+                "The YES, IT'S VIBE CODED screen is in your bunker now (south wall, right of the lift); the Market one is gone.",
+            }),
             ("2.22", "Just the one screen", new[] {
                 "Only one YES, IT'S VIBE CODED screen now: the big one on the Market's south wall (the bunker one is gone).",
             }),
