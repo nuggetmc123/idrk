@@ -11,17 +11,20 @@ namespace Rago
     public static class GunSkins
     {
         public class Skin { public string id, name; public Color spray; public System.Func<Material> mat; }
+        // patterns modelled on real camouflage and real gun coatings, sized for a gun (a few centimetres per blob),
+        // painted in the gun's own space so they stay put when it moves, with worn edges showing bare metal
         public static readonly List<Skin> All = new List<Skin>
         {
             new Skin { id = "", name = "Factory finish", spray = new Color(0.25f, 0.25f, 0.26f) },
-            new Skin { id = "desert", name = "Desert Tan", spray = new Color(0.78f, 0.66f, 0.46f), mat = () => Camo("desert", new Color(0.78f, 0.66f, 0.46f), new Color(0.62f, 0.5f, 0.33f), new Color(0.48f, 0.38f, 0.25f), 0.35f) },
-            new Skin { id = "woodland", name = "Woodland Camo", spray = new Color(0.3f, 0.38f, 0.22f), mat = () => Camo("woodland", new Color(0.34f, 0.4f, 0.24f), new Color(0.24f, 0.2f, 0.13f), new Color(0.1f, 0.11f, 0.09f), 0.45f) },
-            new Skin { id = "arctic", name = "Arctic", spray = new Color(0.92f, 0.94f, 0.96f), mat = () => Camo("arctic", new Color(0.93f, 0.95f, 0.97f), new Color(0.72f, 0.76f, 0.8f), new Color(0.45f, 0.48f, 0.52f), 0.4f) },
-            new Skin { id = "urban", name = "Urban Digital", spray = new Color(0.5f, 0.52f, 0.55f), mat = () => Digital("urban", new Color(0.55f, 0.57f, 0.6f), new Color(0.35f, 0.37f, 0.4f), new Color(0.18f, 0.19f, 0.21f)) },
-            new Skin { id = "crimson", name = "Crimson", spray = new Color(0.65f, 0.08f, 0.08f), mat = () => Mats.Lit("skin_crimson", new Color(0.6f, 0.07f, 0.07f), 0.55f, 0.6f, Mats.Metal, Mats.MetalN, 0.15f, 0.25f, true, 1.5f) },
-            new Skin { id = "tiger", name = "Neon Tiger", spray = new Color(1f, 0.45f, 0.05f), mat = () => Tiger() },
-            new Skin { id = "gold", name = "Gold Rush", spray = new Color(1f, 0.8f, 0.25f), mat = () => Mats.Gold },
-            new Skin { id = "carbon", name = "Carbon Fibre", spray = new Color(0.1f, 0.1f, 0.11f), mat = () => Carbon() },
+            new Skin { id = "desert", name = "Flat Dark Earth", spray = new Color(0.6f, 0.5f, 0.36f), mat = () => Coat("desert", new Color(0.6f, 0.5f, 0.36f), 0.22f) },
+            new Skin { id = "woodland", name = "M81 Woodland", spray = new Color(0.4f, 0.42f, 0.3f), mat = () => Paint("woodland", Woodland, 3f) },
+            new Skin { id = "multi", name = "Multi-Terrain", spray = new Color(0.62f, 0.56f, 0.42f), mat = () => Paint("multi", MultiTerrain, 3.2f) },
+            new Skin { id = "arctic", name = "Arctic Splinter", spray = new Color(0.9f, 0.92f, 0.94f), mat = () => Paint("arctic", ArcticSplinter, 2.6f) },
+            new Skin { id = "urban", name = "Urban Digital", spray = new Color(0.5f, 0.52f, 0.55f), mat = () => Paint("urban", UrbanDigital, 3.5f, true) },
+            new Skin { id = "tiger", name = "Tiger Stripe", spray = new Color(0.42f, 0.42f, 0.26f), mat = () => Paint("tiger", TigerStripe, 2.8f) },
+            new Skin { id = "crimson", name = "Crimson Cerakote", spray = new Color(0.5f, 0.07f, 0.07f), mat = () => Coat("crimson", new Color(0.5f, 0.06f, 0.06f), 0.32f) },
+            new Skin { id = "gold", name = "Gold Rush", spray = new Color(1f, 0.8f, 0.25f), mat = () => Obj(Mats.Lit("skin_gold", new Color(1f, 0.76f, 0.34f), 1f, 0.82f, Mats.Metal, null, 0.06f, 0.18f, true, 3f)) },
+            new Skin { id = "carbon", name = "Carbon Fibre", spray = new Color(0.1f, 0.1f, 0.11f), mat = () => Paint("carbon", CarbonTwill, 14f, false, 0.25f, 0.9f, 0.08f, 0.05f) },
         };
 
         public static Skin Get(string id) { foreach (var s in All) if (s.id == (id ?? "")) return s; return All[0]; }
@@ -54,76 +57,148 @@ namespace Rago
         static Texture2D Make(string key, int size, System.Func<int, int, Color> px)
         {
             if (_tex.TryGetValue(key, out var t) && t != null) return t;
-            t = new Texture2D(size, size, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, name = "skin_" + key };
+            t = new Texture2D(size, size, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, anisoLevel = 4, name = "skin_" + key };
             var c = new Color[size * size];
             for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) c[y * size + x] = px(x, y);
             t.SetPixels(c); t.Apply(true, true);
             return _tex[key] = t;
         }
 
-        /// <summary>Soft blotchy camouflage in three colours (tileable noise).</summary>
-        static Material Camo(string key, Color a, Color b, Color c, float scale)
+        static Material Obj(Material m) { m.SetFloat("_Triplanar", 2f); return m; }   // mapped in the gun's own space
+
+        /// <summary>A solid factory coating (Cerakote): satin, a faint mottle, edges worn to bare metal.</summary>
+        static Material Coat(string key, Color c, float smooth)
         {
-            int n = 128;
-            var tex = Make(key, n, (x, y) =>
-            {
-                float u = x / (float)n, v = y / (float)n;
-                float f1 = Tile(u, v, 4f, 1.7f), f2 = Tile(u, v, 6f, 9.3f);
-                return f1 > 0.58f ? b : f2 > 0.62f ? c : a;
-            });
-            return Mats.Lit("skin_" + key, Color.white, 0.1f, 0.3f, tex, null, 0.25f, 0.15f, true, scale);
+            var tex = Make(key, 128, (x, y) => { float n = Fbm(x / 128f, y / 128f, 6f, 3.1f); return c * (0.94f + n * 0.12f); });
+            return Obj(Mats.Lit("skin_" + key, Color.white, 0.05f, smooth, tex, null, 0.25f, 0.5f, true, 4f));
         }
 
-        /// <summary>Square "pixel" camouflage.</summary>
-        static Material Digital(string key, Color a, Color b, Color c)
+        static Material Paint(string key, System.Func<float, float, Color> px, float scale, bool point = false, float metal = 0f, float smooth = 0.24f, float grime = 0.3f, float scratch = 0.45f)
         {
-            int n = 64;
-            var tex = Make(key, n, (x, y) =>
-            {
-                int bx = x / 4, by = y / 4;
-                float f = Tile(bx / 16f, by / 16f, 3f, 4.1f), f2 = Tile(bx / 16f, by / 16f, 5f, 7.7f);
-                return f > 0.6f ? b : f2 > 0.64f ? c : a;
-            });
-            tex.filterMode = FilterMode.Point;
-            return Mats.Lit("skin_" + key, Color.white, 0.1f, 0.3f, tex, null, 0.25f, 0.15f, true, 0.4f);
+            const int n = 256;
+            var tex = Make(key, n, (x, y) => px(x / (float)n, y / (float)n));
+            if (point) tex.filterMode = FilterMode.Point;
+            return Obj(Mats.Lit("skin_" + key, Color.white, metal, smooth, tex, null, grime, scratch, true, scale));
         }
 
-        static Material Tiger()
+        /// <summary>M81 woodland: light green ground, field-drab and brown shapes, thin black branches.</summary>
+        static Color Woodland(float u, float v)
         {
-            int n = 128;
-            var tex = Make("tiger", n, (x, y) =>
-            {
-                float u = x / (float)n, v = y / (float)n;
-                float stripe = Mathf.Sin((u * 6f + Tile(u, v, 3f, 2.2f) * 1.6f) * Mathf.PI * 2f);
-                return stripe > 0.55f ? new Color(0.06f, 0.05f, 0.05f) : new Color(1f, 0.5f, 0.06f);
-            });
-            return Mats.Lit("skin_tiger", Color.white, 0.2f, 0.55f, tex, null, 0.1f, 0.1f, true, 0.35f, new Color(0.25f, 0.1f, 0f));
+            Color green = new Color(0.4f, 0.42f, 0.3f), drab = new Color(0.56f, 0.49f, 0.35f), brown = new Color(0.34f, 0.25f, 0.16f), black = new Color(0.07f, 0.07f, 0.06f);
+            float wu = u + (Fbm(u, v, 3f, 5.5f) - 0.5f) * 0.12f, wv = v + (Fbm(u, v, 3f, 8.2f) - 0.5f) * 0.12f;   // organic warp
+            float a = Fbm(wu, wv, 3f, 1.3f), b = Fbm(wu, wv, 3f, 4.7f), k = Fbm(wu, wv, 4f, 2.9f);
+            Color c = green;
+            if (b > 0.55f) c = drab;
+            if (a > 0.56f) c = brown;
+            if (Mathf.Abs(k - 0.5f) < 0.035f && Fbm(u, v, 3f, 7.1f) > 0.5f) c = black;   // branch strokes
+            return c * (0.97f + Fbm(u, v, 24f, 0.4f) * 0.06f);   // a little print texture
         }
 
-        static Material Carbon()
+        /// <summary>Multi-terrain: a soft tan-to-olive ground, blended brown and green patches, small dark and cream twigs.</summary>
+        static Color MultiTerrain(float u, float v)
         {
-            int n = 32;
-            var tex = Make("carbon", n, (x, y) =>
-            {
-                bool weave = ((x / 4) + (y / 4)) % 2 == 0;
-                float g = weave ? 0.12f + 0.05f * Mathf.Sin(x * 0.8f) : 0.08f + 0.05f * Mathf.Sin(y * 0.8f);
-                return new Color(g, g, g * 1.08f);
-            });
-            return Mats.Lit("skin_carbon", Color.white, 0.4f, 0.75f, tex, null, 0.05f, 0.05f, true, 3f);
+            Color tan = new Color(0.66f, 0.59f, 0.45f), olive = new Color(0.47f, 0.47f, 0.33f), brown = new Color(0.45f, 0.35f, 0.24f),
+                  dark = new Color(0.27f, 0.21f, 0.15f), cream = new Color(0.82f, 0.78f, 0.66f), green = new Color(0.36f, 0.4f, 0.27f);
+            float g = Fbm(u, v, 2f, 3.3f);
+            Color c = Color.Lerp(tan, olive, Mathf.SmoothStep(0.4f, 0.6f, g));
+            float p = Fbm(u, v, 4f, 6.6f), q = Fbm(u, v, 4f, 9.1f);
+            c = Color.Lerp(c, brown, Mathf.SmoothStep(0.55f, 0.6f, p));
+            c = Color.Lerp(c, green, Mathf.SmoothStep(0.57f, 0.62f, q) * 0.9f);
+            // small dark and cream spots (the "twigs")
+            float t1 = Fbm(u, v, 16f, 1.8f), t2 = Fbm(u, v, 16f, 4.4f);
+            if (t1 > 0.72f && p > 0.45f) c = dark;
+            else if (t2 > 0.74f) c = cream;
+            return c;
         }
 
-        /// <summary>Tileable value noise in 0..1.</summary>
-        static float Tile(float u, float v, float freq, float seed)
+        /// <summary>Arctic splinter: white ground broken by sharp grey shards in two directions.</summary>
+        static Color ArcticSplinter(float u, float v)
+        {
+            Color white = new Color(0.9f, 0.92f, 0.93f), light = new Color(0.72f, 0.75f, 0.78f), mid = new Color(0.5f, 0.53f, 0.57f), dark = new Color(0.3f, 0.32f, 0.35f);
+            // splinter: flat-shaded angular patches - noise sampled on a coarse rotated grid, then hard thresholds
+            float s1 = Shard(u, v, 0.35f, 4f, 1.1f), s2 = Shard(u, v, -0.95f, 5f, 3.7f);
+            Color c = white;
+            if (s1 > 0.55f) c = light;
+            if (s2 > 0.6f) c = mid;
+            if (s1 > 0.68f && s2 > 0.55f) c = dark;
+            return c;
+        }
+        static float Shard(float u, float v, float ang, float freq, float seed)
+        {
+            // value noise stretched hard along one direction: long thin angular slivers
+            // quantise along one direction: the patches get straight edges like hand-cut splinter camo
+            float ca = Mathf.Cos(ang), sa = Mathf.Sin(ang);
+            float stripe = Mathf.Floor((u * ca + v * sa) * 9f) / 9f;
+            return Fbm(u + stripe * 0.37f, v - stripe * 0.21f, freq, seed);
+        }
+
+        /// <summary>Urban digital: square pixels of four greys in clusters.</summary>
+        static Color UrbanDigital(float u, float v)
+        {
+            Color l = new Color(0.66f, 0.68f, 0.7f), m = new Color(0.47f, 0.49f, 0.52f), d = new Color(0.3f, 0.31f, 0.34f), k = new Color(0.12f, 0.12f, 0.13f);
+            float cu = Mathf.Floor(u * 64f) / 64f, cv = Mathf.Floor(v * 64f) / 64f;   // 4-texel pixels
+            float a = Fbm(cu, cv, 4f, 2.2f), b = Fbm(cu, cv, 4f, 5.9f), c2 = Fbm(cu, cv, 8f, 8.8f);
+            if (c2 > 0.66f) return k;
+            if (a > 0.57f) return d;
+            if (b > 0.52f) return m;
+            return l;
+        }
+
+        /// <summary>Tiger stripe: olive ground with horizontal brush strokes of brown and black.</summary>
+        static Color TigerStripe(float u, float v)
+        {
+            Color olive = new Color(0.44f, 0.44f, 0.28f), green = new Color(0.33f, 0.36f, 0.22f), brown = new Color(0.32f, 0.23f, 0.13f), black = new Color(0.08f, 0.08f, 0.07f);
+            // horizontal brush strokes: noise squashed vertically (v scaled up), wrapped
+            float sv = v * 7f - Mathf.Floor(v * 7f);
+            float a = Fbm(u, sv, 3f, 1.4f) * 0.7f + Fbm(u, v, 6f, 9.4f) * 0.3f, b = Fbm(u, sv, 3f, 6.2f) * 0.7f + Fbm(u, v, 6f, 2.6f) * 0.3f, g = Fbm(u, v, 2f, 3.3f);
+            Color c = Color.Lerp(olive, green, Mathf.SmoothStep(0.4f, 0.6f, g));
+            if (b > 0.6f) c = brown;
+            if (a > 0.64f) c = black;
+            return c;
+        }
+
+        /// <summary>Carbon fibre: a 2x2 twill weave with each tow catching the light differently.</summary>
+        static Color CarbonTwill(float u, float v)
+        {
+            int cells = 16;
+            float x = u * cells, y = v * cells;
+            int ix = Mathf.FloorToInt(x), iy = Mathf.FloorToInt(y);
+            bool warp = ((ix + iy / 2 * 2 + (iy % 2)) / 2 + iy) % 2 == 0;   // 2x2 twill: steps diagonally
+            float fx = x - ix, fy = y - iy;
+            float across = warp ? fx : fy;   // which way this tow runs
+            float shade = 0.07f + 0.08f * Mathf.Sin(across * Mathf.PI) + (warp ? 0.03f : 0f);
+            return new Color(shade, shade, shade * 1.1f);
+        }
+
+        /// <summary>Tileable fractal noise in 0..1: periodic gradient noise (wraps exactly at u/v = 0..1, no stretching).</summary>
+        static float Fbm(float u, float v, float freq, float seed)
         {
             float s = 0, amp = 1, tot = 0;
-            for (int o = 0; o < 3; o++)
+            int f = Mathf.Max(1, Mathf.RoundToInt(freq));
+            int sd = (int)(seed * 1000f);
+            for (int o = 0; o < 4; o++)
             {
-                float f = freq * (1 << o);
-                float a = Mathf.PerlinNoise(Mathf.Cos(u * Mathf.PI * 2) * f * 0.3f + seed, Mathf.Sin(u * Mathf.PI * 2) * f * 0.3f + Mathf.Cos(v * Mathf.PI * 2) * f * 0.3f + seed * 2.1f);
-                float b2 = Mathf.PerlinNoise(Mathf.Sin(v * Mathf.PI * 2) * f * 0.3f + seed * 0.7f, a * 2f);
-                s += (a * 0.6f + b2 * 0.4f) * amp; tot += amp; amp *= 0.5f;
+                s += Grad(u * f, v * f, f, sd + o * 101) * amp; tot += amp;
+                amp *= 0.5f; f *= 2;
             }
-            return s / tot;
+            return Mathf.Clamp01(0.5f + 0.5f * (s / tot) * 1.6f);
+        }
+        static float Grad(float x, float y, int period, int seed)
+        {
+            int x0 = Mathf.FloorToInt(x), y0 = Mathf.FloorToInt(y);
+            float fx = x - x0, fy = y - y0;
+            float Dot(int ix, int iy, float dx, float dy)
+            {
+                int hx = ((ix % period) + period) % period, hy = ((iy % period) + period) % period;
+                uint h = (uint)(hx * 374761393 + hy * 668265263 + seed * 2147483647);
+                h = (h ^ (h >> 13)) * 1274126177u; h ^= h >> 16;
+                float a = (h & 0xffff) / 65535f * Mathf.PI * 2f;
+                return Mathf.Cos(a) * dx + Mathf.Sin(a) * dy;
+            }
+            float sx = fx * fx * fx * (fx * (fx * 6 - 15) + 10), sy = fy * fy * fy * (fy * (fy * 6 - 15) + 10);
+            float n00 = Dot(x0, y0, fx, fy), n10 = Dot(x0 + 1, y0, fx - 1, fy), n01 = Dot(x0, y0 + 1, fx, fy - 1), n11 = Dot(x0 + 1, y0 + 1, fx - 1, fy - 1);
+            float a0 = n00 + (n10 - n00) * sx, a1 = n01 + (n11 - n01) * sx;
+            return (a0 + (a1 - a0) * sy) * 1.4f;
         }
     }
 

@@ -15,7 +15,7 @@ Shader "Rago/Lit"
         _Metallic ("Metallic", Range(0,1)) = 0
         _Glossiness ("Smoothness", Range(0,1)) = 0.4
         [HDR] _EmissionColor ("Emission", Color) = (0,0,0,0)
-        _Triplanar ("Triplanar World Mapping", Float) = 0
+        _Triplanar ("Triplanar Mapping (0 off, 1 world, 2 object)", Float) = 0
         _TriScale ("Triplanar Scale (tiles per metre)", Float) = 0.5
         _VColor ("Use Vertex Color", Float) = 1
     }
@@ -52,6 +52,12 @@ Shader "Rago/Lit"
         {
             float3 wn = WorldNormalVector(IN, float3(0,0,1));
             float3 tp = IN.worldPos * _TriScale;
+            if (_Triplanar > 1.5)
+            {
+                // object space: the pattern is painted ON the object and moves with it (gun skins)
+                tp = mul(unity_WorldToObject, float4(IN.worldPos, 1)).xyz * _TriScale;
+                wn = normalize(mul((float3x3)unity_WorldToObject, wn));
+            }
             fixed4 albedo;
             fixed4 detail;
             if (_Triplanar > 0.5)
