@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.27", "Multiplayer safety net", new[] {
+                "If other players' movement stops arriving on the fast lane, the game switches back to the reliable channel by itself after 10 s (your watch shows SLOW) instead of leaving people invisible or frozen.",
+                "Fast-lane packets are smaller, well under Photon's size limit.",
+                "Players idling in their bunker now use one Photon connection instead of two, so the player cap fills up half as fast (idle bunker players no longer show as online; invites still work).",
+            }),
             ("2.26", "Die and your armour is gone", new[] {
                 "Dying in a raid loses the armour you wore in, along with everything else - it drops on your body for whoever finds it. No free starter helmet or vest after a death either.",
             }),

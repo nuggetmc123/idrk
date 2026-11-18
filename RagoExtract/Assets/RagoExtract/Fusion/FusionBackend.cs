@@ -748,7 +748,7 @@ namespace Rago.Net
             if (!party) await LeaveLobby();
             _inPartySession = false;
             _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear(); _fwdOut.Clear(); _rtt = 0f; _pingOut = -1f;
-            _lastHeard.Clear(); _peerSince.Clear(); _relayTo.Clear(); _hostId = 0; _idOf.Clear();
+            _lastHeard.Clear(); _peerSince.Clear(); _fastAt.Clear(); _relayTo.Clear(); _hostId = 0; _idOf.Clear();
             _sessionKind = props != null && props.TryGetValue("kind", out var kp) ? Str(kp) : "";
             var go = new GameObject("FusionRunner");
             DontDestroyOnLoad(go);
@@ -1059,7 +1059,7 @@ namespace Rago.Net
         // 72-90 fps with 3+ players that was hundreds of separate reliable sends a second, the line backed up and
         // everyone lagged and teleported. 15 a second matches the pose rate, so nothing goes out later than it did.
         // ---- the fast lane: unreliable RPCs through RagoRpc (found by name, so deleting that file just turns it off)
-        const int FastChunk = 300;   // bytes per RPC before base64 (~410 characters: well under Photon's ~512 byte RPC cap)
+        const int FastChunk = 220;   // bytes per RPC before base64 (~300 characters: well clear of Photon's ~512 byte RPC cap)
         readonly System.IO.MemoryStream _fastOut = new System.IO.MemoryStream(512);
         static MethodInfo _fastSend; static bool _fastLooked, _fastBroken;
         static readonly Dictionary<NetworkRunner, FusionBackend> _byRunner = new Dictionary<NetworkRunner, FusionBackend>();
@@ -1101,9 +1101,11 @@ namespace Rago.Net
             if (runner == null || !_byRunner.TryGetValue(runner, out var b) || b == null || b._runner != runner || string.IsNullOrEmpty(payload)) return;
             byte[] data;
             try { data = Convert.FromBase64String(payload); } catch { return; }
-            if (data.Length < 11 || data[0] != Stamp) return;
+            if (data.Length < 10 || data[0] != Stamp) return;
             ulong from = BitConverter.ToUInt64(data, 1);
             if (from == b.LocalId) return;
+            b._fastAt[from] = Time.realtimeSinceStartup;
+            if (data.Length == 10) return;   // a heartbeat: just "my fast lane reaches you"
             if (!b._peers.Contains(from)) foreach (var ap in runner.ActivePlayers) if (b.Id(ap) == from) b.NotePeer(ap);
             if (!b._peers.Contains(from)) return;   // not someone in this session (yet)
             b._lastHeard[from] = Time.realtimeSinceStartup;
@@ -1112,8 +1114,42 @@ namespace Rago.Net
 
         float _flushT, _lastFast;
         public void FlushNow() { _flushT = 0f; }
+
+        // ---- fast lane health: every player sends a tiny heartbeat on it every 2 s. If players we hear fine on the
+        // reliable channel send nothing at all on the fast lane for 10 s, it isn't getting through (an RPC Photon drops,
+        // a weaver problem...) and movement / voice / raiders would never arrive: switch back to reliable sends.
+        readonly Dictionary<ulong, float> _fastAt = new Dictionary<ulong, float>();
+        float _beatT, _healthT;
+        void FastHealth()
+        {
+            float now = Time.realtimeSinceStartup;
+            if (now >= _beatT)
+            {
+                _beatT = now + 2f;
+                var w = new byte[10]; w[0] = Stamp; Buffer.BlockCopy(BitConverter.GetBytes(LocalId), 0, w, 1, 8); w[9] = 0xBE;
+                try { _fastSend.Invoke(null, new object[] { _runner, Convert.ToBase64String(w) }); }
+                catch (Exception e) { _fastBroken = true; Debug.LogWarning("[Rago] fast lane failed, going back to reliable sends: " + (e.InnerException ?? e).Message); return; }
+            }
+            if (now < _healthT) return;
+            _healthT = now + 1f;
+            int checkedPeers = 0, silent = 0;
+            foreach (var p in _peers)
+            {
+                if (!_peerSince.TryGetValue(p, out var since) || now - since < 12f) continue;           // just joined
+                if (!_lastHeard.TryGetValue(p, out var h) || now - h > 3f) continue;                   // not hearing them at all: not the fast lane's fault
+                checkedPeers++;
+                if (!_fastAt.TryGetValue(p, out var f) || now - f > 10f) silent++;
+            }
+            if (checkedPeers > 0 && silent == checkedPeers)
+            {
+                _fastBroken = true; _fastOut.SetLength(0);
+                Debug.LogWarning("[Rago] fast lane: nothing arriving from " + silent + " player(s) for 10 s - going back to reliable sends");
+            }
+        }
+
         void LateUpdate()
         {
+            if (InSession && _peers.Count > 0 && FastBroadcast) FastHealth();
             // the fast lane goes out the frame it's written (up to 30 a second) - it used to wait for the next batch tick,
             // up to 66 ms after the pose was taken
             if (_fastOut.Length > 0 && InSession && Time.unscaledTime - _lastFast >= 1f / 30f) { _lastFast = Time.unscaledTime; FlushFast(); }
@@ -1441,6 +1477,10 @@ namespace Rago.Net
         // ---- presence: someone sitting in their bunker isn't in any session, so nobody could count them. While you're
         // idle in the bunker you sit in a tiny background "online" session (no traffic) that everyone's lobby lists.
         NetworkRunner _presence; bool _presenceBusy; float _presenceT;
+        // Off since 2.27: it was a second Photon connection for every player idling in their bunker (on top of the
+        // session lobby), and every connection counts against the Photon plan's player cap - with a few people online the
+        // cap filled up and invites, parties and raids stopped connecting. Idle players just aren't counted as online now.
+        static readonly bool UsePresence = false;
         async Task JoinPresence()
         {
             if (_presence != null || _presenceBusy) return;
@@ -1481,7 +1521,7 @@ namespace Rago.Net
             {
                 _presenceT = 4f;
                 bool idle = !InSession && !_leaving;
-                if (idle && _presence == null) _ = JoinPresence();
+                if (idle && _presence == null && UsePresence) _ = JoinPresence();
                 else if (!idle && _presence != null) _ = LeavePresence();
                 if (_lobby == null && (!InSession || _inPartySession)) _ = EnterLobby();   // in the bunker / a party: keep the invite listener up
                 // the invite beacon only lives while you're away from your bunker, for 5 minutes after the last invite
