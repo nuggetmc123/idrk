@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.28", "Multiplayer rebuilt", new[] {
+                "The whole Photon connection layer is rebuilt from scratch, smaller and much simpler. Everyone must be on 2.28.",
+                "One Photon connection per player, ever: the lobby while you're idle in your bunker (so invites reach you), or your party / the Market / a raid. It used to juggle up to four at once.",
+                "Invites: invite a callsign from the menu in your bunker and it reaches them through the lobby; they accept from their menu. In a raid or the Market you can invite people who are there with you; anyone else gets it once you're back in your bunker.",
+                "The party leader queues and everyone follows into the same raid, side by side at one spawn.",
+                "NETWORK REPORT: menu > RECENT shows your connection, everyone you can see (and when you last heard them), FAST/SLOW, and a log of what happened - joins, failures with Photon's exact reason, players coming and going. Screenshot it when something goes wrong.",
+            }),
             ("2.27", "Multiplayer safety net", new[] {
                 "If other players' movement stops arriving on the fast lane, the game switches back to the reliable channel by itself after 10 s (your watch shows SLOW) instead of leaving people invisible or frozen.",
                 "Fast-lane packets are smaller, well under Photon's size limit.",

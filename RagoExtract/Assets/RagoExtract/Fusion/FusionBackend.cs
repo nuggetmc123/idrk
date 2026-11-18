@@ -10,517 +10,101 @@ using UnityEngine;
 namespace Rago.Net
 {
     /// <summary>
-    /// Online play over Photon Fusion 2 (Shared mode, Photon cloud - no servers to run).
-    /// Market: everyone joins the session "RagoMarket". Raids: you join a random open session for the chosen map;
-    /// the session's master client runs the queue rules (4-10 players, aims for 8, launches at 1:00), closes the
-    /// session and tells everyone their spawn. Game data is sent as small binary packets (NetGame) and voice too.
-    /// The App ID comes from Resources/Rago/photon_appid.txt (written by the Multiplayer window).
+    /// Online play over Photon Fusion 2 (Shared mode, Photon cloud). Rebuilt from scratch in 2.28 to be small and
+    /// predictable:
+    ///
+    ///  * ONE Photon connection per player at any time: the session lobby while you idle in your bunker (that's how
+    ///    invites reach you), OR one session - your party, the Market or a raid. Never two or three at once.
+    ///  * Sessions: "rago_party_&lt;leader&gt;", "RagoMarket", raid queues "rago_q_&lt;map&gt;[_n]_&lt;slot&gt;"; all end in the
+    ///    game version, so only the same version plays together.
+    ///  * Who's who: every player joins with the Photon user id "CALLSIGN@party~1234", readable by everyone at once,
+    ///    and also says its callsign in a message (in case a Photon version doesn't pass user ids on).
+    ///  * Data: every packet is stamped with its sender. Events (shots, hits, items, trades) go reliably to each player,
+    ///    batched 15 times a second. Movement, voice and raider positions go ONCE to everyone as an unreliable Photon
+    ///    RPC (RagoRpc); a heartbeat checks that lane works and falls back to reliable sends if it doesn't.
+    ///  * Everything that happens (connects, failures with Photon's reason, players joining / leaving) is kept in a log
+    ///    shown in the menu (RECENT tab) - screenshot it when something goes wrong.
     /// </summary>
     public class FusionBackend : MonoBehaviour, INetBackend, INetworkRunnerCallbacks
     {
-        NetworkRunner _runner;
+        // =========================================================================================== state
+        NetworkRunner _runner;          // the session we're in (party, Market or raid), or null
+        NetworkRunner _lobby;           // the session lobby (only while not in a session)
         string _status = "Offline";
-        bool _ready, _queueing, _cancel, _leaving;
-        string _sessionId = "";
+        bool _ready, _leaving;
+        string _sessionId = "", _sessionKind = "";
         readonly List<ulong> _peers = new List<ulong>();
         readonly Dictionary<ulong, PlayerRef> _refs = new Dictionary<ulong, PlayerRef>();
-        RaidStart _pendingStart;
-        string _raidMap;
-        int _nextSpawn = 1;
+        readonly Dictionary<ulong, string> _names = new Dictionary<ulong, string>();
+        readonly Dictionary<ulong, string> _peerParty = new Dictionary<ulong, string>();
+        readonly Dictionary<ulong, float> _lastHeard = new Dictionary<ulong, float>();
+        readonly Dictionary<ulong, float> _peerSince = new Dictionary<ulong, float>();
+        readonly Dictionary<ulong, float> _nameAsk = new Dictionary<ulong, float>();
+        readonly HashSet<ulong> _relayTo = new HashSet<ulong>();
+        ulong _hostId;
 
         public string Status => _status;
         public bool Ready => _ready;
         public bool InSession => _runner != null && _runner.IsRunning && !_leaving;
-        public bool IsHost => _runner != null && _runner.IsRunning && _runner.IsSharedModeMasterClient;
+        public bool IsHost => InSession && _runner.IsSharedModeMasterClient;
         public ulong LocalId => _runner != null ? Id(_runner.LocalPlayer) : 0;
-        public ulong HostId => IsHost ? LocalId : _hostId; // the master client announces itself every 2 s
-        ulong _hostId;
-        float _announce;
+        public ulong HostId => IsHost ? LocalId : _hostId;
         public string SessionId => _sessionId;
         public IReadOnlyList<ulong> Peers => _peers;
         public event Action<ulong, byte[]> OnData;
         public event Action<ulong> OnPeerJoined;
         public event Action<ulong> OnPeerLeft;
         public event Action OnDisconnected;
-
-        // Who a player is, as a number EVERY client agrees on: Photon's actor number for them in the room. (Fusion's
-        // own player index isn't guaranteed to be the same on every machine - and when it wasn't, a player relayed
-        // through the host showed up as a second, frozen body with someone else's name.)
-        readonly Dictionary<PlayerRef, ulong> _idOf = new Dictionary<PlayerRef, ulong>();
-        static MethodInfo _actorOf;
-        ulong Id(PlayerRef p) => (ulong)p.PlayerId;
-
-        // ------------------------------------------------------------------------------------ party
-        // A party is its own small Photon session ("rago_party_<leader>") that members sit in while they're in
-        // their bunkers. Invites:
-        //  - in the bunker, players who aren't in a party sit in Photon's session lobby, which lists every party with
-        //    an "inv" property naming who's invited - so an invite reaches them without being in the same session.
-        //  - in a raid, an invite is sent straight to that player (you're in the same session); it takes effect when
-        //    you're both back in your bunkers.
-        // When the leader queues, everyone is told the name of a fresh raid session to join, so the party lands in
-        // the same raid (random players can still fill the free spots) and shares one spawn spot.
-        string _partyCode;
-        bool _inPartySession, _wasLeader;
-        readonly Dictionary<ulong, string> _names = new Dictionary<ulong, string>();
-        readonly Dictionary<ulong, string> _peerParty = new Dictionary<ulong, string>();
-        readonly List<string> _members = new List<string>();
-        readonly List<string> _roster = new List<string>();   // the other members, as last seen together
-        readonly List<string> _sessionPlayers = new List<string>();
-        readonly List<PartyInvite> _invites = new List<PartyInvite>();
-        readonly List<string> _invited = new List<string>();     // leader: callsigns invited to this party
-        string _pendingRaidSession; int _pendingPartySize = 1; int _queuePartySize = 1;
-        string _sessionKind = "";
-        readonly HashSet<ulong> _acks = new HashSet<ulong>();           // members who answered the leader's "follow me"
-        readonly Dictionary<ulong, float> _nameAsk = new Dictionary<ulong, float>();   // when we last asked a player who they are
-        float _pingT, _lastSendWarn;
-        // ---- reconnecting to a raid you dropped out of
-        string _lastRaidSession, _lastRaidMap; bool _lastRaidNight; float _lastRaidAt = -999f;
-        public bool CanReconnect => _ready && _lastRaidSession != null && Time.realtimeSinceStartup - _lastRaidAt < 300f && !_queueing;
-        public async void Reconnect(Action<bool> done)
-        {
-            if (!CanReconnect) { done?.Invoke(false); return; }
-            _status = "Reconnecting...";
-            bool ok = false;
-            // a dropped connection can take a few seconds to clear on Photon's side: try a few times
-            for (int tryN = 0; tryN < 3 && !ok; tryN++)
-            {
-                if (tryN > 0) await Task.Delay(2500);
-                ok = await StartSession(_lastRaidSession, new Dictionary<string, SessionProperty> { { "kind", "raid_started_" + _lastRaidMap } }, QueueRules.MaxFor(_lastRaidMap), false);
-            }
-            if (ok)
-            {
-                // the other players can take a moment to show up after joining
-                float until = Time.realtimeSinceStartup + 4f;
-                while (_peers.Count == 0 && Time.realtimeSinceStartup < until && InSession) { await Task.Delay(200); RefreshPeers(); }
-                if (_peers.Count == 0) { ok = false; await Shutdown(); }   // nobody left in it: the raid is over
-            }
-            if (ok) foreach (var p in _peers) { SendSys(p, 3, MyName()); if (_partyCode != null) SendSys(p, 4, _partyCode); }
-            _status = ok ? "Raid (reconnected)" : (_ready ? "Online (Photon)" : _status);
-            if (!ok) _lastRaidSession = null;
-            done?.Invoke(ok);
-            if (!ok) RejoinParty();
-        }
-        public void ForgetRaid() { _lastRaidSession = null; }
-
-        public string DebugInfo
-        {
-            get
-            {
-                if (_runner == null || !InSession) return "NET: not in a session  (" + _status + ")";
-                var sb = new System.Text.StringBuilder();
-                float now = Time.realtimeSinceStartup;
-                sb.Append("NET ").Append(_sessionKind).Append("  me ").Append(LocalId).Append(" (f").Append(_runner.LocalPlayer.PlayerId).Append(")")
-                  .Append(IsHost ? "  MASTER" : "  master " + _hostId).Append("  rtt ").Append((_rtt * 1000f).ToString("0")).Append("ms\n");
-                foreach (var p in _peers)
-                {
-                    _refs.TryGetValue(p, out var pr);
-                    sb.Append(p).Append(" (f").Append(pr.PlayerId).Append(") ").Append(_names.TryGetValue(p, out var n) ? n : "?")
-                      .Append("  heard ").Append(_lastHeard.TryGetValue(p, out var h) ? (now - h).ToString("0.0") + "s" : "never").Append("\n");
-                }
-                return sb.ToString();
-            }
-        }
-        string _lastRaid;
-        bool _pendingNight, _queueNight;
-        NetworkRunner _lobby;
-        public string PartyCode => _partyCode;
-        // the leader is whoever the party is named after - not whoever got back to their bunker first (that player opened
-        // the party session and became its host, which made them "leader" and left the real leader unable to queue).
-        // If the leader has left the party, the session's host takes over.
-        public bool PartyLeader
-        {
-            get
-            {
-                if (_partyCode == null) return false;
-                if (Key(_partyCode) == Key(MyName())) return true;
-                if (!_inPartySession) return _wasLeader;
-                foreach (var p in _peers) if (_names.TryGetValue(p, out var n) && Key(n) == Key(_partyCode)) return false;
-                return IsHost && _names.Count >= _peers.Count;   // leader not here (and everyone's name is known): the host leads
-            }
-        }
-        public IReadOnlyList<PartyInvite> Invites { get { _invites.RemoveAll(i => Time.realtimeSinceStartup - i.time > 300f); return _invites; } }
-        public IReadOnlyList<string> PartyMembers
-        {
-            get
-            {
-                _members.Clear();
-                if (_partyCode == null) return _members;
-                _members.Add(MyName() + (PartyLeader ? "  (leader)" : ""));
-                if (_inPartySession)
-                {
-                    foreach (var p in _peers) _members.Add(_names.TryGetValue(p, out var n) ? n : "joining...");
-                    // remember who's in the party: while everyone moves from the party lobby into the raid (and back)
-                    // people leave and arrive one by one - the list kept showing them kicked and rejoining
-                    if (_queueing || _pendingRaidSession != null)
-                    {
-                        // heading into the raid: members who already went on ahead are still in the party
-                        foreach (var n in _roster) if (!_members.Exists(x => Key(x) == Key(n))) _members.Add(n);
-                    }
-                    else if (_peers.Count > 0 && _names.Count >= _peers.Count) { _roster.Clear(); foreach (var p in _peers) if (_names.TryGetValue(p, out var n2)) _roster.Add(n2); }
-                }
-                else
-                {
-                    foreach (var n in _roster) _members.Add(n);
-                    if (InSession)   // in a raid together: anyone else from the party who's in here
-                        foreach (var p in _peers) if (IsTeammate(p) && _names.TryGetValue(p, out var n) && !_roster.Exists(x => Key(x) == Key(n))) { _roster.Add(n); _members.Add(n); }
-                }
-                return _members;
-            }
-        }
-        public IReadOnlyList<string> SessionPlayers
-        {
-            get { _sessionPlayers.Clear(); if (InSession) foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) _sessionPlayers.Add(n); return _sessionPlayers; }
-        }
-        public bool IsTeammate(ulong peer) => _partyCode != null && _peerParty.TryGetValue(peer, out var pc) && pc == _partyCode;
         public event Action OnPartyChanged;
         public event Action<string> OnPartyQueue;
         public event Action OnPartyQueueCancelled;
         public event Action<string> OnMetPlayer;
 
-        /// <summary>A session property's text, whichever way this Fusion version stores it.</summary>
-        static string Str(object prop)
-        {
-            if (prop == null) return "";
-            var t = prop.GetType();
-            var pv = t.GetProperty("PropertyValue") ?? t.GetProperty("Value");
-            if (pv != null) { var v = pv.GetValue(prop); return v != null ? v.ToString() : ""; }
-            var f = t.GetField("PropertyValue") ?? t.GetField("Value");
-            if (f != null) { var v = f.GetValue(prop); return v != null ? v.ToString() : ""; }
-            return prop.ToString();
-        }
-
+        static ulong Id(PlayerRef p) => (ulong)p.PlayerId;
         static string MyName() => Profile.Current != null ? Profile.Current.DisplayName : "Operator";
         static string Key(string callsign) => (callsign ?? "").Trim().ToLowerInvariant();
-        static string PartySession(string id)
+        const BindingFlags Any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+
+        // =========================================================================================== log
+        // what happened, newest last - shown in the menu so a screenshot tells exactly what went wrong
+        static readonly List<string> _log = new List<string>();
+        static void Log(string s, bool warn = false)
         {
-            var sb = new System.Text.StringBuilder("rago_party_");
-            foreach (char c in Key(id)) sb.Append(char.IsLetterOrDigit(c) ? c : '_');
-            return sb.ToString();
+            string line = DateTime.Now.ToString("HH:mm:ss") + " " + s;
+            _log.Add(line); while (_log.Count > 12) _log.RemoveAt(0);
+            if (warn) Debug.LogWarning("[Rago] " + s); else Debug.Log("[Rago] " + s);
         }
 
-        /// <summary>Invite someone by callsign. Not in a party yet? You become the leader of a new one.</summary>
-        public async void InviteToParty(string callsign)
-        {
-            if (!_ready || string.IsNullOrWhiteSpace(callsign)) return;
-            if (Key(callsign) == Key(MyName())) return;
-            if (_partyCode != null && PartyMembers.Count >= QueueRules.PartyMax) { Debug.Log("[Rago] party full"); return; }
-            // in a raid (or the Market) with them: tell them directly
-            if (InSession && !_inPartySession)
-            {
-                ulong to = 0; bool found = false;
-                foreach (var kv in _names) if (Key(kv.Value) == Key(callsign) && _peers.Contains(kv.Key)) { to = kv.Key; found = true; }
-                if (_partyCode == null) { _partyCode = MyName(); _wasLeader = true; OnPartyChanged?.Invoke(); }
-                if (found) SendSys(to, 8, MyName() + "|" + _partyCode);
-                else { Remember(callsign); _ = InviteBeacon(); }   // not here: send it now through a little invite session (it used to wait until you were back in your bunker)
-                return;
-            }
-            if (_partyCode == null) { if (!await EnterParty(MyName(), true)) return; }
-            else if (!_inPartySession) { if (!await EnterParty(_partyCode, true)) return; }
-            if (IsHost) { Remember(callsign); PublishInvites(); }
-            else foreach (var p in _peers) SendSys(p, 7, callsign);   // members ask the leader to invite
-        }
-
-        // ---- invite beacon: while you're in the Market / a raid, a one-person background session that carries your party
-        // invites, so a friend's lobby sees them straight away wherever you are
-        NetworkRunner _beacon; bool _beaconBusy; float _beaconUntil;
-        async Task InviteBeacon()
-        {
-            _beaconUntil = Time.realtimeSinceStartup + 120f;   // two minutes: long enough for their lobby to see it
-            var props = new Dictionary<string, SessionProperty> { { "kind", "party" }, { "lead", MyName() }, { "inv", string.Join(",", _invited.ConvertAll(Key)) }, { "names", MyName() } };
-            if (_beacon != null)
-            {
-                try { _beacon.SessionInfo.UpdateCustomProperties(props); } catch (Exception e) { Debug.Log("[Rago] invite beacon: " + e.Message); }
-                return;
-            }
-            if (_beaconBusy) return;
-            _beaconBusy = true;
-            try
-            {
-                var go = new GameObject("FusionInviteBeacon");
-                DontDestroyOnLoad(go);
-                var r = go.AddComponent<NetworkRunner>();
-                r.ProvideInput = false;
-                var args = new StartGameArgs { GameMode = GameMode.Shared, SessionName = "rago_inv_" + Key(MyName()).Replace('#', '_') + Ver, PlayerCount = 1, SessionProperties = props };
-                UseAppId(ref args, AppId());
-                UseUserId(ref args, MyName() + "#inv~" + UnityEngine.Random.Range(1000, 9999));
-                StartGameResult res = null;
-                try { res = await r.StartGame(args); } catch (Exception e) { Debug.Log("[Rago] invite beacon: " + e.Message); }
-                if (res != null && res.Ok) _beacon = r;
-                else { try { await r.Shutdown(); } catch { } if (go != null) Destroy(go); }
-            }
-            finally { _beaconBusy = false; }
-        }
-        async Task StopBeacon()
-        {
-            var r = _beacon; _beacon = null;
-            if (r == null) return;
-            try { await r.Shutdown(); } catch { }
-            if (r != null) Destroy(r.gameObject);
-        }
-
-        void Remember(string callsign)
-        {
-            _invited.RemoveAll(x => Key(x) == Key(callsign));
-            _invited.Add(callsign.Trim());
-            while (_invited.Count > 12) _invited.RemoveAt(0);
-        }
-
-        /// <summary>
-        /// The host lists everyone in the session (callsigns) in its properties, so players in their bunkers can see who
-        /// is online in parties, raids and the Market - that's how a typed-in friend is found.
-        /// </summary>
-        void PublishNames()
-        {
-            if (_runner == null || !IsHost || !InSession) return;
-            try
-            {
-                var props = new Dictionary<string, SessionProperty>();
-                var cur = _runner.SessionInfo.Properties;
-                if (cur != null) foreach (var kv in cur) if (kv.Key != "names") props[kv.Key] = kv.Value;
-                props["names"] = NamesHere();
-                if (_inPartySession) { props["kind"] = "party"; props["lead"] = MyName(); props["inv"] = string.Join(",", _invited.ConvertAll(Key)); }
-                _runner.SessionInfo.UpdateCustomProperties(props);
-            }
-            catch (Exception e) { Debug.Log("[Rago] couldn't publish player names: " + e.Message); }
-        }
-
-        string NamesHere()
-        {
-            var names = new List<string> { MyName() };
-            foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) names.Add(n);
-            return string.Join(",", names);
-        }
-
-        void PublishInvites()
-        {
-            if (!_inPartySession || !IsHost || _runner == null) return;
-            try
-            {
-                _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty>
-                    { { "kind", "party" }, { "lead", MyName() }, { "inv", string.Join(",", _invited.ConvertAll(Key)) }, { "names", NamesHere() } });
-            }
-            catch (Exception e) { Debug.Log("[Rago] couldn't publish party invites: " + e.Message); }
-        }
-
-        public async void AcceptInvite(PartyInvite inv)
-        {
-            if (inv == null || !_ready) return;
-            _invites.Remove(inv);
-            if (_queueing) return;
-            if (InSession && !_inPartySession)
-            {
-                // accepted inside a raid: you'll join them when you're both back in your bunkers
-                _partyCode = inv.party; _wasLeader = false;
-                OnPartyChanged?.Invoke();
-                return;
-            }
-            _partyCode = null;
-            bool ok = await EnterParty(inv.party, false);
-            if (!ok) ok = await EnterParty(inv.party, true);   // the leader isn't back yet: open it for them
-            OnPartyChanged?.Invoke();
-        }
-
-        public void DeclineInvite(PartyInvite inv) { _invites.Remove(inv); OnPartyChanged?.Invoke(); }
-
-        public async void LeaveParty()
-        {
-            _partyCode = null; _wasLeader = false; _invited.Clear(); _roster.Clear();
-            if (_inPartySession) { _inPartySession = false; await Shutdown(); }
-            _status = _ready ? "Online (Photon)" : _status;
-            OnPartyChanged?.Invoke();
-            RejoinParty();   // back to listening for invites
-        }
-
-        public async void RejoinParty()
-        {
-            if (!_ready || _queueing) return;
-            if (InSession && !_inPartySession) return;   // in the Market / a raid: wait for the bunker
-            if (_partyCode != null)
-            {
-                if (_inPartySession) return;
-                await EnterParty(_partyCode, true);
-                if (_wasLeader && _invited.Count > 0) PublishInvites();
-            }
-            else await EnterLobby();
-        }
-
-        async Task<bool> EnterParty(string id, bool create)
-        {
-            _status = (create ? "Starting" : "Joining") + " party...";
-            _names.Clear();
-            // "inv" exists from the start (empty): properties added later may not be shown to other players' lobbies
-            bool ok = await StartSession(PartySession(id), new Dictionary<string, SessionProperty> { { "kind", "party" }, { "lead", id }, { "inv", create ? string.Join(",", _invited.ConvertAll(Key)) : "" } }, QueueRules.PartyMax, create);
-            if (ok && !create && _peers.Count == 0) { ok = false; await Shutdown(); }   // nobody there
-            if (!ok) { OnPartyChanged?.Invoke(); return false; }
-            _partyCode = id; _inPartySession = true;
-            _wasLeader = IsHost;
-            _status = "Party (" + (_peers.Count + 1) + ")";
-            foreach (var p in _peers) SendSys(p, 3, MyName());
-            OnPartyChanged?.Invoke();
-            _ = EnterLobby();   // keep receiving invites from other parties while you're in this one
-            return true;
-        }
-
-        // ---- the session lobby: lets you receive bunker invites while you're not in any session
-        async Task EnterLobby()
-        {
-            if (_lobby != null || (InSession && !_inPartySession)) return;   // in a party (even just you): keep listening
-            try
-            {
-                var go = new GameObject("FusionLobby");
-                DontDestroyOnLoad(go);
-                var r = go.AddComponent<NetworkRunner>();
-                r.AddCallbacks(this);
-                _lobby = r;
-                var m = typeof(NetworkRunner).GetMethod("JoinSessionLobby", BindingFlags.Public | BindingFlags.Instance);
-                if (m == null) { Debug.LogWarning("[Rago] this Fusion version has no session lobby: bunker invites need a raid together first"); return; }
-                var ps = m.GetParameters();
-                var args = new object[ps.Length];
-                var app = MakeAppSettings(AppId());
-                for (int i = 0; i < ps.Length; i++)
-                {
-                    var pt = ps[i].ParameterType;
-                    if (pt.IsEnum && pt.Name == "SessionLobby") args[i] = Enum.Parse(pt, "Shared");
-                    else if (app != null && pt.IsInstanceOfType(app)) args[i] = app;
-                    else args[i] = ps[i].HasDefaultValue ? ps[i].DefaultValue : (pt.IsValueType ? Activator.CreateInstance(pt) : null);
-                }
-                if (m.Invoke(r, args) is Task t) await t;
-                if (!_inPartySession && (_status.StartsWith("Starting") || _status.StartsWith("Joining") || _status.StartsWith("Party"))) _status = "Online (Photon)";
-            }
-            catch (Exception e) { Debug.Log("[Rago] couldn't join the session lobby: " + e.Message); }
-        }
-
-        async Task LeaveLobby()
-        {
-            var r = _lobby; _lobby = null;
-            if (r == null) return;
-            try { await r.Shutdown(); } catch { }
-            if (r != null) Destroy(r.gameObject);
-        }
-
-        // ---------------------------------------------------------------- players online
-        int _listedPlayers = -1, _partyListed;
-        float _listedAt = -999f;
-        readonly Dictionary<string, (int players, bool started)> _listed = new Dictionary<string, (int, bool)>();
-        object _statsSrc; PropertyInfo _onMaster, _inRooms; float _statsSearchT;
-
-        /// <summary>
-        /// How many people are playing right now. Photon's own app statistics (players on the master server - in their
-        /// bunkers - plus players in sessions: the Market, parties and raids) when the SDK exposes them; otherwise
-        /// everyone in a listed session plus you.
-        /// </summary>
-        int _statsCache = -1; float _statsCacheT = -999f;
-        public int OnlineCount
+        public string DebugInfo
         {
             get
             {
-                // Photon's own count (everyone connected, bunkers included) is only sent while you're in the lobby: keep
-                // the last one for a while so it doesn't drop to "just the people in my session" in the Market or a party
-                // Photon's count of connections, minus party members' second (lobby) connection; it's only updated
-                // while you're in the lobby, so an old number is only trusted for 30 s (it used to stick for 2 min)
-                int s = StatsCount();
-                if (s > 0) { _statsCache = Mathf.Max(1, s - _partyListed); _statsCacheT = Time.realtimeSinceStartup; }
-                int here = InSession ? _peers.Count + 1 : 1;
-                bool fresh = _statsCache > 0 && Time.realtimeSinceStartup - _statsCacheT < 30f;
-                // in a raid / the Market the lobby is closed (one connection each): show the last count we heard
-                bool listFresh = _listedPlayers > 0 && Time.realtimeSinceStartup - _listedAt < (InSession && !_inPartySession ? 900f : 30f);
-                if (fresh) return Mathf.Max(here, _statsCache);
-                if (listFresh) return Mathf.Max(here, _listedPlayers);
-                return here;
+                var sb = new System.Text.StringBuilder();
+                float now = Time.realtimeSinceStartup;
+                sb.Append("NETWORK  v").Append(Ver.Replace("_v", "").Replace('_', '.')).Append("  region ").Append(Region()).Append('\n');
+                sb.Append(_status).Append('\n');
+                if (InSession)
+                {
+                    sb.Append("session ").Append(_sessionId).Append(" (").Append(_sessionKind).Append(")\n");
+                    sb.Append("me #").Append(LocalId).Append(IsHost ? "  HOST" : "  host #" + _hostId).Append("  rtt ").Append((_rtt * 1000f).ToString("0")).Append("ms  ")
+                      .Append(FastBroadcast ? "FAST" : _fastBroken ? "SLOW (fast lane off)" : "SLOW").Append('\n');
+                    foreach (var p in _peers)
+                    {
+                        sb.Append(" #").Append(p).Append(' ').Append(_names.TryGetValue(p, out var n) ? n : "(no name yet)")
+                          .Append("  heard ").Append(_lastHeard.TryGetValue(p, out var h) ? (now - h).ToString("0.0") + "s" : "never")
+                          .Append(_fastAt.TryGetValue(p, out var f) && now - f < 5f ? " fast" : "")
+                          .Append(_relayTo.Contains(p) ? " RELAY" : "").Append('\n');
+                    }
+                }
+                else sb.Append(_lobby != null ? "in the lobby (listening for invites)\n" : "not connected\n");
+                if (_partyCode != null) sb.Append("party ").Append(_partyCode).Append(_inPartySession ? " (together)" : " (apart)").Append('\n');
+                sb.Append("-- log --\n");
+                foreach (var l in _log) sb.Append(l).Append('\n');
+                return sb.ToString();
             }
         }
 
-        int StatsCount()
-        {
-            if (_lobby == null) return -1;
-            if (_statsSrc == null && Time.realtimeSinceStartup > _statsSearchT)
-            {
-                _statsSearchT = Time.realtimeSinceStartup + 5f;
-                try { FindStats(_lobby, 0, new HashSet<object>(RefEq.I)); } catch { }
-                if (_statsSrc != null) Debug.Log("[Rago] players-online stats found on " + _statsSrc.GetType().Name);
-            }
-            if (_statsSrc == null) return -1;
-            try { return (int)_onMaster.GetValue(_statsSrc) + (int)_inRooms.GetValue(_statsSrc); }
-            catch { _statsSrc = null; return -1; }
-        }
-
-        bool FindStats(object o, int depth, HashSet<object> seen)
-        {
-            if (o == null || depth > 6 || !seen.Add(o)) return false;
-            var t = o.GetType();
-            var pm = t.GetProperty("PlayersOnMasterCount", Any); var pr = t.GetProperty("PlayersInRoomsCount", Any);
-            if (pm != null && pr != null && pm.PropertyType == typeof(int) && pr.PropertyType == typeof(int)) { _statsSrc = o; _onMaster = pm; _inRooms = pr; return true; }
-            if (o is UnityEngine.Object && depth > 0) return false;
-            foreach (var f in t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
-            {
-                var ft = f.FieldType;
-                if (ft.IsPrimitive || ft.IsEnum || ft == typeof(string) || ft.IsValueType || typeof(System.Collections.IEnumerable).IsAssignableFrom(ft) || typeof(Delegate).IsAssignableFrom(ft)) continue;
-                object v; try { v = f.GetValue(o); } catch { continue; }
-                if (FindStats(v, depth + 1, seen)) return true;
-            }
-            return false;
-        }
-
-        sealed class RefEq : IEqualityComparer<object>
-        {
-            public static readonly RefEq I = new RefEq();
-            public new bool Equals(object a, object b) => ReferenceEquals(a, b);
-            public int GetHashCode(object o) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(o);
-        }
-
-        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
-        {
-            if (runner != _lobby || sessionList == null) return;
-            int sum = 0;
-            foreach (var si in sessionList)
-            {
-                if (si.Name != null && si.Name.StartsWith("rago_inv_")) continue;   // an invite beacon: that player is counted where they really are
-                var pc = si.GetType().GetProperty("PlayerCount", Any);   // read by name so a Fusion version difference can't break the build
-                if (pc != null && pc.GetValue(si) is int c) sum += c;
-            }
-            // the online count: each party member is ALSO connected to the lobby (to hear invites), so Photon's own
-            // count has them twice - remember how many are in parties to take them off again
-            int inParties = 0; bool meListed = false;
-            _listed.Clear();
-            foreach (var si in sessionList)
-            {
-                int c = si.GetType().GetProperty("PlayerCount", Any)?.GetValue(si) is int pc2 ? pc2 : 0;
-                var pr = si.Properties;
-                string kind = pr != null && pr.TryGetValue("kind", out var kk2) ? Str(kk2) : "";
-                bool started = pr != null && (pr.ContainsKey("go") || kind.StartsWith("raid_started"));
-                if (kind == "party") inParties += c;
-                if (si.Name == _sessionId && InSession) meListed = true;
-                try { if (_presence != null && _presence.SessionInfo != null && si.Name == _presence.SessionInfo.Name) meListed = true; } catch { }   // you, in the background online session
-                _listed[si.Name ?? ""] = (c, started);
-            }
-            _partyListed = inParties;
-            _listedAt = Time.realtimeSinceStartup;
-            _listedPlayers = sum + (meListed ? 0 : 1);   // + you, if you're not already counted in a listed session
-            string me = Key(MyName());
-            bool changed = false;
-            foreach (var si in sessionList)   // everyone online in a party, raid or the Market: real players a friend can be added from
-            {
-                var pr = si.Properties;
-                if (pr == null) continue;
-                if (pr.TryGetValue("names", out var nm)) foreach (var n in Str(nm).Split(',')) KnownPlayers.Add(n);
-                if (pr.TryGetValue("lead", out var ld)) KnownPlayers.Add(Str(ld));
-            }
-            foreach (var si in sessionList)
-            {
-                var props = si.Properties;
-                if (props == null || !props.TryGetValue("kind", out var k) || Str(k) != "party") continue;
-                if (!props.TryGetValue("inv", out var inv) || !props.TryGetValue("lead", out var lead)) continue;
-                string invited = Str(inv), leader = Str(lead);
-                KnownPlayers.Add(leader);   // a real player, online now
-                if (string.IsNullOrEmpty(invited) || Array.IndexOf(invited.Split(','), me) < 0) continue;
-                if (_invites.Exists(x => Key(x.party) == Key(leader))) continue;
-                _invites.Add(new PartyInvite { from = leader, party = leader, time = Time.realtimeSinceStartup });
-                changed = true;
-                RagoGame.I?.Player?.Toast(leader + " invited you to their party - press the menu button to accept");
-            }
-            if (changed) OnPartyChanged?.Invoke();
-        }
-
+        // =========================================================================================== setup
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Register()
         {
@@ -529,7 +113,6 @@ namespace Rago.Net
             NetHub.Backend = go.AddComponent<FusionBackend>();
         }
 
-        /// <summary>The Photon region everyone plays on: Resources/Rago/photon_region.txt if present (e.g. "eu", "asia"), else "us".</summary>
         static string Region()
         {
             var t = Resources.Load<TextAsset>("Rago/photon_region");
@@ -547,53 +130,46 @@ namespace Rago.Net
         {
             _ready = !string.IsNullOrEmpty(AppId());
             _status = _ready ? "Online (Photon)" : "Offline - paste your Photon App ID in Rago Extract > Multiplayer";
+            Log(_ready ? "ready, app id set, region " + Region() : "no Photon App ID - offline");
             done?.Invoke(_ready);
         }
 
-        // ------------------------------------------------------------------------------------ app id
-        // Fusion's app-settings type has moved between versions (Fusion.Realtime vs a separate Photon.Realtime
-        // assembly), so it's reached by name here: this compiles against every Fusion 2 version.
-        static void UseAppId(ref StartGameArgs args, string appId)
-        {
-            var copy = MakeAppSettings(appId);
-            if (copy == null) return;
-            object boxed = args;
-            if (Set(boxed, "CustomPhotonAppSettings", copy)) args = (StartGameArgs)boxed;
-        }
+        /// <summary>Only the same game version plays together (different versions build different maps).</summary>
+        static string Ver { get { try { return "_v" + PatchNotes.All[0].version.Replace('.', '_'); } catch { return ""; } } }
 
-        /// <summary>A copy of the project's Photon app settings with our App ID in it (null = use the project's own).</summary>
+        // ---- Photon settings, reached by name: the app-settings type moved between Fusion 2 versions
         static object MakeAppSettings(string appId)
         {
-            if (string.IsNullOrEmpty(appId)) return null;   // fall back to whatever is in PhotonAppSettings
+            if (string.IsNullOrEmpty(appId)) return null;
             try
             {
                 Type t = null;
                 foreach (var a in AppDomain.CurrentDomain.GetAssemblies()) { t = a.GetType("Fusion.Photon.Realtime.PhotonAppSettings", false); if (t != null) break; }
-                if (t == null) { Debug.LogWarning("[Rago] PhotonAppSettings not found; using the project's Photon settings"); return null; }
-                var global = Get(null, t, "Global");
-                var settings = Get(global, t, "AppSettings");
+                if (t == null) return null;
+                var settings = Get(Get(null, t, "Global"), t, "AppSettings");
                 if (settings == null) return null;
                 var copy = settings.GetType().GetMethod("GetCopy", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null)?.Invoke(settings, null) ?? settings;
-                if (!Set(copy, "AppIdFusion", appId)) { Debug.LogWarning("[Rago] couldn't set AppIdFusion; using the project's Photon settings"); return null; }
-                // everyone on ONE region: with "best region" two friends in different areas land on different servers
-                // and can never see each other's parties, invites or raids
-                Set(copy, "FixedRegion", Region());
+                if (!Set(copy, "AppIdFusion", appId)) return null;
+                Set(copy, "FixedRegion", Region());   // everyone on ONE region, or friends land on different servers
                 return copy;
             }
-            catch (Exception e) { Debug.LogWarning("[Rago] couldn't apply the Photon App ID (using the project's Photon settings): " + e.Message); return null; }
+            catch (Exception e) { Log("couldn't apply the App ID: " + e.Message, true); return null; }
         }
 
-        const BindingFlags Any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        static void UseAppId(ref StartGameArgs args)
+        {
+            var s = MakeAppSettings(AppId());
+            if (s == null) return;
+            object boxed = args;
+            if (Set(boxed, "CustomPhotonAppSettings", s)) args = (StartGameArgs)boxed;
+        }
 
-        // ---- who's who without any messages: every player joins with a Photon user id of "CALLSIGN#0000@party~1234",
-        // which every other player in the session can read straight away. Names and parties sent as messages could get
-        // lost right after joining - the party list said "joining..." forever and parties were split up in raids.
         static void UseUserId(ref StartGameArgs args, string uid)
         {
             try
             {
                 var f = typeof(StartGameArgs).GetField("AuthValues", Any); var pr = f == null ? typeof(StartGameArgs).GetProperty("AuthValues", Any) : null;
-                var t = f != null ? f.FieldType : pr != null ? pr.PropertyType : null;
+                var t = f != null ? f.FieldType : pr?.PropertyType;
                 if (t == null) return;
                 object av = null;
                 try { av = Activator.CreateInstance(t, uid); } catch { }
@@ -601,102 +177,11 @@ namespace Rago.Net
                 object boxed = args;
                 if (Set(boxed, "AuthValues", av)) args = (StartGameArgs)boxed;
             }
-            catch (Exception e) { Debug.LogWarning("[Rago] couldn't set the player id: " + e.Message); }
-        }
-
-        static MethodInfo _getUid, _setMaster;
-        string UserIdOf(PlayerRef p)
-        {
-            if (_runner == null) return null;
-            try
-            {
-                if (_getUid == null) _getUid = typeof(NetworkRunner).GetMethod("GetPlayerUserId", Any, null, new[] { typeof(PlayerRef) }, null);
-                return _getUid?.Invoke(_runner, new object[] { p }) as string;
-            }
-            catch { return null; }
-        }
-
-        /// <summary>Read a player's callsign and party from their user id.</summary>
-        string _myUid; bool _uidBad;
-        void LearnFromUserId(ulong id, PlayerRef p)
-        {
-            if (_uidBad) return;
-            var uid = UserIdOf(p);
-            if (string.IsNullOrEmpty(uid)) return;
-            // some Photon versions hand back YOUR id for every player: then everyone got your name and your party
-            // (same names, parties spawning apart). If that happens, stop trusting ids and use the name messages.
-            if (uid == _myUid || (!string.IsNullOrEmpty(_myUid) && uid.StartsWith(MyName() + "@")))
-            {
-                _uidBad = true;
-                foreach (var k in new List<ulong>(_names.Keys)) if (Key(_names[k]) == Key(MyName())) _names.Remove(k);
-                foreach (var k in new List<ulong>(_peerParty.Keys)) _peerParty.Remove(k);
-                _nameAsk.Clear();   // ask everyone again
-                return;
-            }
-            int at = uid.IndexOf('@'), tl = uid.LastIndexOf('~');
-            string name = at >= 0 ? uid.Substring(0, at) : tl >= 0 ? uid.Substring(0, tl) : uid;
-            string party = at >= 0 ? uid.Substring(at + 1, (tl > at ? tl : uid.Length) - at - 1) : "";
-            bool changed = false;
-            if (!_names.ContainsKey(id) && name.Contains("#"))
-            {
-                _names[id] = name; KnownPlayers.Add(name); changed = true;
-                OnMetPlayer?.Invoke(name);
-            }
-            if (!string.IsNullOrEmpty(party) && !_peerParty.ContainsKey(id)) _peerParty[id] = party;
-            if (changed) { PublishNames(); OnPartyChanged?.Invoke(); }
-        }
-
-        /// <summary>Shared mode: hand the session's "host" role to another player (the party leader).</summary>
-        void MakeMaster(PlayerRef p)
-        {
-            try
-            {
-                if (_setMaster == null) _setMaster = typeof(NetworkRunner).GetMethod("SetMasterClient", Any, null, new[] { typeof(PlayerRef) }, null);
-                _setMaster?.Invoke(_runner, new object[] { p });
-            }
-            catch (Exception e) { Debug.Log("[Rago] couldn't hand over the party: " + e.Message); }
-        }
-
-        static int Fnv(string s) { unchecked { int h = (int)2166136261; foreach (char c in s ?? "") h = (h ^ c) * 16777619; return h & 0x7fffffff; } }
-
-        /// <summary>
-        /// Everyone's spawn worked out the same way on every machine from the players in the session: each party shares
-        /// one spot (members side by side, in callsign order), solo players get their own. So even if the host's
-        /// "go" message never reaches you, you still land next to your party.
-        /// </summary>
-        void SpawnFor(string myName, out int spot, out int slot)
-        {
-            var groups = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
-            void Add(string name, string party)
-            {
-                string g = !string.IsNullOrEmpty(party) ? "p:" + Key(party) : "s:" + Key(name);
-                if (!groups.TryGetValue(g, out var l)) groups[g] = l = new List<string>();
-                if (!l.Contains(Key(name))) l.Add(Key(name));
-            }
-            Add(myName, _partyCode);
-            foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) Add(n, _peerParty.TryGetValue(p, out var pc) ? pc : null);
-            // A group's spot comes ONLY from its own key (the party's name, or a solo player's callsign), so every member
-            // of a party works it out the same even if they don't all know about everyone else in the raid yet. (2.1
-            // numbered the groups 0, 1, 2... from the whole list - two party members with different lists got different
-            // numbers and spawned a kilometre apart.)
-            spot = 0; slot = 0;
-            foreach (var kv in groups)
-            {
-                kv.Value.Sort(StringComparer.Ordinal);
-                int k = kv.Value.IndexOf(Key(myName));
-                if (k >= 0) { spot = Fnv(kv.Key) & 0x7fffffff; slot = k; }
-            }
-        }
-
-        static object Get(object o, Type t, string name)
-        {
-            var p = t.GetProperty(name, Any); if (p != null) return p.GetValue(o);
-            var f = t.GetField(name, Any); return f?.GetValue(o);
+            catch { }
         }
 
         static bool _timeoutDone;
-        /// <summary>Fusion drops a player it hasn't heard from for ~10 s. Building a big raid map on a Quest can freeze
-        /// the game for that long, so give it 40 s (if this Fusion version lets us).</summary>
+        /// <summary>Building a big raid map on a Quest can freeze the game for a while: give Photon 40 s before it drops us.</summary>
         static void LongerTimeout()
         {
             if (_timeoutDone) return;
@@ -705,22 +190,26 @@ namespace Rago.Net
             {
                 var cfgType = Type.GetType("Fusion.NetworkProjectConfig, Fusion.Runtime");
                 var global = cfgType?.GetProperty("Global", Any)?.GetValue(null);
-                if (global == null) { Debug.Log("[Rago] no NetworkProjectConfig - default connection timeout"); return; }
+                if (global == null) return;
                 var nf = cfgType.GetField("Network", Any); var np = nf == null ? cfgType.GetProperty("Network", Any) : null;
                 object net = nf != null ? nf.GetValue(global) : np?.GetValue(global);
-                if (net == null) { Debug.Log("[Rago] no network config - default connection timeout"); return; }
-                bool any = false;
+                if (net == null) return;
                 foreach (var name in new[] { "ConnectionTimeout", "ConnectionTimeoutSeconds" })
                 {
                     var f = net.GetType().GetField(name, Any);
-                    if (f != null) { f.SetValue(net, Convert.ChangeType(40, f.FieldType)); any = true; continue; }
+                    if (f != null) { f.SetValue(net, Convert.ChangeType(40, f.FieldType)); continue; }
                     var p = net.GetType().GetProperty(name, Any);
-                    if (p != null && p.CanWrite) { p.SetValue(net, Convert.ChangeType(40, p.PropertyType)); any = true; }
+                    if (p != null && p.CanWrite) p.SetValue(net, Convert.ChangeType(40, p.PropertyType));
                 }
                 if (net.GetType().IsValueType) { if (nf != null) nf.SetValue(global, net); else np?.SetValue(global, net); }
-                Debug.Log(any ? "[Rago] connection timeout set to 40 s" : "[Rago] this Fusion has no ConnectionTimeout setting");
             }
-            catch (Exception e) { Debug.Log("[Rago] couldn't change the connection timeout: " + e.Message); }
+            catch { }
+        }
+
+        static object Get(object o, Type t, string name)
+        {
+            var p = t.GetProperty(name, Any); if (p != null) return p.GetValue(o);
+            return t.GetField(name, Any)?.GetValue(o);
         }
 
         static bool Set(object o, string name, object value)
@@ -734,55 +223,70 @@ namespace Rago.Net
             return false;
         }
 
-        // ------------------------------------------------------------------------------------ sessions
+        /// <summary>A session property's text, whichever way this Fusion version stores it.</summary>
+        static string Str(object prop)
+        {
+            if (prop == null) return "";
+            var t = prop.GetType();
+            var pv = t.GetProperty("PropertyValue") ?? t.GetProperty("Value");
+            if (pv != null) return pv.GetValue(prop)?.ToString() ?? "";
+            var f = t.GetField("PropertyValue") ?? t.GetField("Value");
+            if (f != null) return f.GetValue(prop)?.ToString() ?? "";
+            return prop.ToString();
+        }
+
+        static int Fnv(string s) { unchecked { int h = (int)2166136261; foreach (char c in s ?? "") h = (h ^ c) * 16777619; return h & 0x7fffffff; } }
+
+        // =========================================================================================== sessions
+        /// <summary>Leave whatever we're connected to (lobby included) and join / create one session.</summary>
+        bool _starting;
         async Task<bool> StartSession(string name, Dictionary<string, SessionProperty> props, int maxPlayers, bool allowCreate = true)
         {
+            _starting = true;
+            try { return await StartSessionInner(name, props, maxPlayers, allowCreate); }
+            finally { _starting = false; }
+        }
+
+        async Task<bool> StartSessionInner(string name, Dictionary<string, SessionProperty> props, int maxPlayers, bool allowCreate)
+        {
             await Shutdown();
-            // a party lobby keeps the invite listener running (invites to you only arrive through it); a raid or the
-            // Market doesn't need it
-            // a raid or the Market: one Photon connection per player, not two (every connection counts towards the plan's
-            // player limit - at two or three each, about 10 people filled a 20 player plan and parties failed to join).
-            // A party lobby keeps the invite listener.
-            await LeavePresence();
-            bool party = props != null && props.TryGetValue("kind", out var kk) && Str(kk) == "party";
-            if (!party) await LeaveLobby();
+            await LeaveLobby();   // one connection at a time
             _inPartySession = false;
-            _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear(); _fwdOut.Clear(); _rtt = 0f; _pingOut = -1f;
-            _lastHeard.Clear(); _peerSince.Clear(); _fastAt.Clear(); _relayTo.Clear(); _hostId = 0; _idOf.Clear();
+            _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear();
+            _lastHeard.Clear(); _peerSince.Clear(); _fastAt.Clear(); _relayTo.Clear();
+            _hostId = 0; _rtt = 0f; _pingOut = -1f;
             _sessionKind = props != null && props.TryGetValue("kind", out var kp) ? Str(kp) : "";
             var go = new GameObject("FusionRunner");
             DontDestroyOnLoad(go);
-            _runner = go.AddComponent<NetworkRunner>();
-            _runner.ProvideInput = false;
-            _byRunner[_runner] = this;
-            _runner.AddCallbacks(this);
+            var r = go.AddComponent<NetworkRunner>();
+            r.ProvideInput = false;
+            r.AddCallbacks(this);
             var smType = Type.GetType("Fusion.NetworkSceneManagerDefault, Fusion.Unity");
             var sceneManager = smType != null ? go.AddComponent(smType) as INetworkSceneManager : null;
-            var args = new StartGameArgs
-            {
-                GameMode = GameMode.Shared,
-                SessionName = name,
-                PlayerCount = maxPlayers,
-                SessionProperties = props,
-                SceneManager = sceneManager,
-            };
-            UseAppId(ref args, AppId());
+            var args = new StartGameArgs { GameMode = GameMode.Shared, SessionName = name, PlayerCount = maxPlayers, SessionProperties = props, SceneManager = sceneManager };
+            UseAppId(ref args);
             LongerTimeout();
             _myUid = MyName() + "@" + (_partyCode ?? "") + "~" + UnityEngine.Random.Range(1000, 9999);
             _uidBad = false;
             UseUserId(ref args, _myUid);
-            if (!allowCreate) { object boxed = args; if (Set(boxed, "EnableClientSessionCreation", false)) args = (StartGameArgs)boxed; }   // joining a party: never create an empty one
-            var res = await _runner.StartGame(args);
-            if (!res.Ok)
+            if (!allowCreate) { object boxed = args; if (Set(boxed, "EnableClientSessionCreation", false)) args = (StartGameArgs)boxed; }
+            _runner = r;
+            _byRunner[r] = this;
+            StartGameResult res = null;
+            try { res = await r.StartGame(args); }
+            catch (Exception e) { Log("join " + name + " crashed: " + e.Message, true); }
+            if (res == null || !res.Ok)
             {
-                _status = "Photon: " + res.ShutdownReason;
-                Debug.LogWarning("[Rago] Photon StartGame failed: " + res.ShutdownReason + " " + res.ErrorMessage);
+                string why = res != null ? res.ShutdownReason + (string.IsNullOrEmpty(res.ErrorMessage) ? "" : " - " + res.ErrorMessage) : "error";
+                _status = "Photon: " + (res != null ? res.ShutdownReason.ToString() : "error");
+                Log((allowCreate ? "couldn't join/create " : "couldn't join ") + name + ": " + why, true);
                 await Shutdown();
                 return false;
             }
             _leaving = false;
             _sessionId = _runner.SessionInfo.Name;
             RefreshPeers();
+            Log("joined " + _sessionId + " (" + (_peers.Count + 1) + " here" + (IsHost ? ", host" : "") + ")");
             return true;
         }
 
@@ -799,12 +303,51 @@ namespace Rago.Net
             _leaving = true;
             var r = _runner;
             _runner = null;
-            if (r != null) _byRunner.Remove(r);
-            _fastOut.SetLength(0);
+            _byRunner.Remove(r);
+            _fastOut.SetLength(0); _out.Clear();
             try { await r.Shutdown(); } catch { }
             if (r != null) Destroy(r.gameObject);
             _peers.Clear(); _refs.Clear();
             _leaving = false;
+        }
+
+        // ---- the session lobby: while you're not in any session, so party invites can reach you
+        async Task EnterLobby()
+        {
+            if (_lobby != null || _runner != null || _starting || !_ready) return;
+            var go = new GameObject("FusionLobby");
+            DontDestroyOnLoad(go);
+            var r = go.AddComponent<NetworkRunner>();
+            r.AddCallbacks(this);
+            _lobby = r;
+            try
+            {
+                var m = typeof(NetworkRunner).GetMethod("JoinSessionLobby", BindingFlags.Public | BindingFlags.Instance);
+                if (m == null) { Log("this Fusion version has no session lobby: invites only work in a raid together", true); return; }
+                var ps = m.GetParameters();
+                var args = new object[ps.Length];
+                var app = MakeAppSettings(AppId());
+                for (int i = 0; i < ps.Length; i++)
+                {
+                    var pt = ps[i].ParameterType;
+                    if (pt.IsEnum && pt.Name == "SessionLobby") args[i] = Enum.Parse(pt, "Shared");
+                    else if (app != null && pt.IsInstanceOfType(app)) args[i] = app;
+                    else args[i] = ps[i].HasDefaultValue ? ps[i].DefaultValue : (pt.IsValueType ? Activator.CreateInstance(pt) : null);
+                }
+                object result = null;
+                if (m.Invoke(r, args) is Task t) { await t; result = t.GetType().GetProperty("Result")?.GetValue(t); }
+                if (result is StartGameResult sr && !sr.Ok) { Log("lobby: " + sr.ShutdownReason, true); await LeaveLobby(); return; }
+                if (_lobby == r) Log("in the lobby (invites can reach you)");
+            }
+            catch (Exception e) { Log("couldn't join the lobby: " + (e.InnerException ?? e).Message, true); await LeaveLobby(); }
+        }
+
+        async Task LeaveLobby()
+        {
+            var r = _lobby; _lobby = null;
+            if (r == null) return;
+            try { await r.Shutdown(); } catch { }
+            if (r != null) Destroy(r.gameObject);
         }
 
         public async void JoinMarket(Action<bool> done)
@@ -812,9 +355,46 @@ namespace Rago.Net
             if (!_ready) { done?.Invoke(false); return; }
             _status = "Joining the Market...";
             bool ok = await StartSession("RagoMarket" + Ver, new Dictionary<string, SessionProperty> { { "kind", "market" } }, 20);
-            if (ok) foreach (var p in _peers) SendSys(p, 3, MyName());
             _status = ok ? "Market (" + (_peers.Count + 1) + " players)" : _status;
             done?.Invoke(ok);
+            if (!ok) _ = EnterLobby();
+        }
+
+        public async void Leave()
+        {
+            if (InSession) Log("left " + _sessionId);
+            await Shutdown();
+            _inPartySession = false;
+            _status = _ready ? "Online (Photon)" : _status;
+        }
+
+        // =========================================================================================== raids
+        RaidStart _pendingStart;
+        bool _queueing, _cancel, _queueNight;
+        string _raidMap;
+        int _queuePartySize = 1;
+        string _lastRaidSession, _lastRaidMap; float _lastRaidAt = -999f;
+
+        static string SlotName(string map, bool night, int slot) => "rago_q_" + map + (night ? "_n" : "") + "_" + slot + Ver;
+        static int SlotOf(string name)
+        {
+            if (name == null) return 1;
+            string core = name.EndsWith(Ver) ? name.Substring(0, name.Length - Ver.Length) : name;
+            int u = core.LastIndexOf('_');
+            return u >= 0 && int.TryParse(core.Substring(u + 1), out int n) ? n : 1;
+        }
+
+        /// <summary>The first queue session (from this number on) that the lobby shows hasn't launched and has room.</summary>
+        string ChooseSlot(string map, bool night, int partySize, int from)
+        {
+            bool fresh = Time.realtimeSinceStartup - _listedAt < 20f;
+            for (int i = from; i < from + 40; i++)
+            {
+                string n = SlotName(map, night, i);
+                if (!fresh || !_listed.TryGetValue(n, out var st)) return n;
+                if (!st.started && st.players + partySize <= QueueRules.MaxFor(map)) return n;
+            }
+            return SlotName(map, night, from);
         }
 
         public async void QueueRaid(string map, Action<QueueStatus> status, Action<RaidStart> start, Action<string> failed)
@@ -822,55 +402,49 @@ namespace Rago.Net
             if (!_ready) { failed?.Invoke("offline"); return; }
             if (_queueing) return;
             _queueing = true; _cancel = false; _pendingStart = null; _raidMap = map;
-            float pressedAt = Time.realtimeSinceStartup;   // the 1:00 launch counts from when you pressed QUEUE, like your HUD timer
+            float pressedAt = Time.realtimeSinceStartup;
             try
             {
                 status?.Invoke(new QueueStatus { players = 1, max = QueueRules.MaxFor(map), text = "Finding a raid..." });
                 string sessionName = null; _queuePartySize = 1;
-                bool night = RaidChoice.Night;   // night raids are matched with other night players only
+                bool night = RaidChoice.Night;
                 if (_pendingRaidSession != null)
                 {
-                    // following the party leader into their raid session (at their time of day)
+                    // following the party leader into the raid session they picked
                     sessionName = _pendingRaidSession; _queuePartySize = _pendingPartySize; _pendingRaidSession = null;
                     night = _pendingNight; RaidChoice.Night = night;
+                    Log("following the leader into " + sessionName);
                 }
                 else if (_partyCode != null && _inPartySession)
                 {
                     if (!PartyLeader) { failed?.Invoke("Only the party leader can start the queue"); _queueing = false; return; }
                     _wasLeader = true;
                     _queuePartySize = _peers.Count + 1;
-                    sessionName = ChooseSlot(map, night, _queuePartySize, 1);   // the same public queue as everyone else
-                    // tell every member, and keep telling them until each one answers (up to 5 s): leaving the party session
-                    // before a member heard it left them behind on their own - it looked like they'd been kicked
+                    sessionName = ChooseSlot(map, night, _queuePartySize, 1);
+                    string go6 = map + "|" + sessionName + "|" + _queuePartySize + "|" + (night ? 1 : 0);
+                    // tell the party: on the party session itself (can't get lost) and by message, until each one answers
+                    try
+                    {
+                        var pp = CurrentProps();
+                        pp["raid"] = go6 + "|" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                        _runner.SessionInfo.UpdateCustomProperties(pp);
+                    }
+                    catch (Exception e) { Log("couldn't post the raid to the party: " + e.Message, true); }
                     _acks.Clear();
                     var members = new List<ulong>(_peers);
-                    string go6 = map + "|" + sessionName + "|" + _queuePartySize + "|" + (night ? 1 : 0);
-                    if (IsHost)
-                        try
-                        {
-                            var pp = new Dictionary<string, SessionProperty>();
-                            var cur = _runner.SessionInfo.Properties;
-                            if (cur != null) foreach (var kv in cur) pp[kv.Key] = kv.Value;
-                            pp["raid"] = go6 + "|" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                            _runner.SessionInfo.UpdateCustomProperties(pp);
-                        }
-                        catch (Exception e) { Debug.Log("[Rago] couldn't post the raid to the party: " + e.Message); }
                     float until = Time.realtimeSinceStartup + 5f;
                     while (Time.realtimeSinceStartup < until && InSession)
                     {
                         bool all = true;
                         foreach (var p in members) if (!_acks.Contains(p) && _peers.Contains(p)) { all = false; SendSys(p, 6, go6); }
+                        FlushAll();
                         if (all) break;
                         await Task.Delay(500);
                     }
-                    await Task.Delay(300);   // let the last messages go out before leaving the party session
+                    await Task.Delay(300);
+                    Log("party of " + _queuePartySize + " heading for " + sessionName);
                 }
                 _queueNight = night;
-                // Everyone queueing for this map (and time of day) goes into the same numbered queue sessions -
-                // rago_q_<map>[_n]_1, _2, ... - the first one that hasn't launched and has room. Parties used to make
-                // their own session and solo players a random one, so a party of 2 and a 3rd player (or two solo
-                // players) each launched alone. A party follows its leader's pick; if that one launched meanwhile,
-                // everyone in the party steps to the next number by the same rule, so they stay together.
                 bool ok = false;
                 int startSlot = sessionName != null ? SlotOf(sessionName) : 1;
                 if (sessionName == null) sessionName = ChooseSlot(map, night, _queuePartySize, startSlot);
@@ -879,37 +453,32 @@ namespace Rago.Net
                     ok = await StartSession(sessionName, new Dictionary<string, SessionProperty> { { "kind", "raid_" + map + (night ? "_n" : "") } }, QueueRules.MaxFor(map));
                     var jp = ok ? _runner.SessionInfo.Properties : null;
                     bool launched = jp != null && (jp.ContainsKey("go") || (jp.TryGetValue("kind", out var jk) && Str(jk).StartsWith("raid_started")));
-                    bool full = ok && _peers.Count + _queuePartySize > QueueRules.MaxFor(map) && _queuePartySize > 1 && _partyCode != null && _wasLeader;
+                    bool full = ok && _queuePartySize > 1 && _wasLeader && _peers.Count + _queuePartySize > QueueRules.MaxFor(map);
                     if (ok && !launched && !full) break;
-                    if (ok) { Debug.Log("[Rago] " + sessionName + (launched ? " already launched" : " too full for the party") + " - next one"); await Shutdown(); ok = false; }
-                    else Debug.Log("[Rago] couldn't get into " + sessionName + " - next one");
+                    if (ok) { Log(sessionName + (launched ? " already launched" : " too full for the party") + " - trying the next"); await Shutdown(); ok = false; }
                     sessionName = SlotName(map, night, SlotOf(sessionName) + 1);
                 }
-                Debug.Log("[Rago] queueing in " + sessionName + " with " + _peers.Count + " others");
-                if (ok) foreach (var p in _peers) { SendSys(p, 3, MyName()); if (_partyCode != null) SendSys(p, 4, _partyCode); }
-                if (!ok) { failed?.Invoke(_status); _queueing = false; return; }
-                float atTarget = -1f;
-                float queuedAt = Time.realtimeSinceStartup;
+                if (!ok) { failed?.Invoke(_status); _queueing = false; RejoinParty(); return; }
+                if (_partyCode != null) foreach (var p in _peers) SendSys(p, 4, _partyCode);
+                float atTarget = -1f, queuedAt = Time.realtimeSinceStartup;
                 while (!_cancel && InSession)
                 {
                     var props = _runner.SessionInfo.Properties;
-                    // the host said go (message) or closed the session with a "go" on it (property - can't get lost)
+                    // the host said go (message) or put "go" on the session (property - can't get lost)
                     if (_pendingStart == null && !IsHost && props != null && props.ContainsKey("go") && props.TryGetValue("seed", out var gs))
                         _pendingStart = new RaidStart { map = map, seed = (int)gs, spawnIndex = -1, players = _peers.Count + 1, online = true, night = night };
                     if (_pendingStart != null)
                     {
-                        var rs = _pendingStart; _pendingStart = null; _queueing = false;
-                        _lastRaidSession = _sessionId; _lastRaidMap = map; _lastRaidNight = night; _lastRaidAt = Time.realtimeSinceStartup;
+                        var rs = _pendingStart; _pendingStart = null;
                         if (rs.spawnIndex < 0) { SpawnFor(MyName(), out int sp0, out int sl0); rs.spawnIndex = sp0; rs.partySlot = sl0; }
-                        start?.Invoke(rs);
+                        Launch(map, rs, start);
                         return;
                     }
                     if (IsHost && (props == null || !props.ContainsKey("t0")))
-                        try { _runner.SessionInfo.UpdateCustomProperties(new Dictionary<string, SessionProperty> { { "kind", "raid_" + map + (night ? "_n" : "") }, { "t0", (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000) }, { "seed", UnityEngine.Random.Range(1, 999999) } }); }
-                        catch (Exception e) { Debug.Log("[Rago] couldn't set the queue start time: " + e.Message); }
+                        try { var np = CurrentProps(); np["kind"] = "raid_" + map + (night ? "_n" : ""); np["t0"] = (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000); np["seed"] = UnityEngine.Random.Range(1, 999999); _runner.SessionInfo.UpdateCustomProperties(np); }
+                        catch (Exception e) { Log("couldn't set the queue clock: " + e.Message, true); }
                     int t0 = props != null && props.TryGetValue("t0", out var tp) ? (int)tp : (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000);
                     float elapsed = (float)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000000000 - t0);
-                    // the session's start time may never sync (or the host changed): never wait longer than our own timer says
                     elapsed = Mathf.Max(elapsed, Time.realtimeSinceStartup - queuedAt, Time.realtimeSinceStartup - pressedAt);
                     int players = _peers.Count + 1;
                     if (players >= QueueRules.TargetFor(map)) { if (atTarget < 0) atTarget = Time.realtimeSinceStartup; } else atTarget = -1;
@@ -919,44 +488,34 @@ namespace Rago.Net
                         int seed = props != null && props.TryGetValue("seed", out var sp) ? (int)sp : UnityEngine.Random.Range(1, 999999);
                         try
                         {
-                            var gp = new Dictionary<string, SessionProperty>();
-                            if (props != null) foreach (var kv in props) gp[kv.Key] = kv.Value;
-                            gp["seed"] = seed; gp["go"] = players;
-                            // started: the matchmaking tag changes so nobody new joins by chance, but it stays open so a
-                            // player who drops out can reconnect to it by name
-                            gp["kind"] = "raid_started_" + map;
-                            gp["map"] = map; gp["night"] = night ? 1 : 0;
+                            var gp = CurrentProps();
+                            gp["seed"] = seed; gp["go"] = players; gp["kind"] = "raid_started_" + map; gp["map"] = map; gp["night"] = night ? 1 : 0;
                             _runner.SessionInfo.UpdateCustomProperties(gp);
                         }
-                        catch (Exception e) { Debug.Log("[Rago] couldn't close the raid session: " + e.Message); }
-                        // each party shares one spawn spot (members stand side by side); everyone else gets their own
-                        foreach (var p in _peers) SendSys(p, 1, map + "|" + seed + "|-1|" + players + "|0");   // everyone works out their own spot
+                        catch (Exception e) { Log("couldn't mark the raid started: " + e.Message, true); }
+                        foreach (var p in _peers) SendSys(p, 1, map + "|" + seed + "|-1|" + players + "|0");
+                        FlushAll();
                         SpawnFor(MyName(), out int mySpot, out int mySlot);
-                        _queueing = false;
-                        _status = "Raid (" + players + " players)";
-                        _lastRaidSession = _sessionId; _lastRaidMap = map; _lastRaidNight = night; _lastRaidAt = Time.realtimeSinceStartup;
-                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = mySpot, players = players, online = true, partySlot = mySlot, night = night });
+                        Launch(map, new RaidStart { map = map, seed = seed, spawnIndex = mySpot, players = players, online = true, partySlot = mySlot, night = night }, start);
                         return;
                     }
-                    // not the host and the host's go never came (left, lagging, message lost): don't sit past 1:00 - go in
-                    // anyway with this session's seed, so we still land in the same raid as everyone else in it
+                    // the host's go never came (left, lagging): don't sit past 1:00 - go in with this session's seed
                     if (!IsHost && elapsed >= QueueRules.MaxWait + 4f)
                     {
-                        int seed = props != null && props.TryGetValue("seed", out var sp2) ? (int)sp2 : (_runner.SessionInfo.Name ?? map).GetHashCode() & 0x7fffff;
-                        _queueing = false;
-                        _status = "Raid (" + players + " players)";
+                        int seed = props != null && props.TryGetValue("seed", out var sp2) ? (int)sp2 : Fnv(_sessionId) & 0x7fffff;
                         SpawnFor(MyName(), out int sp1, out int sl1);
-                        _lastRaidSession = _sessionId; _lastRaidMap = map; _lastRaidNight = night; _lastRaidAt = Time.realtimeSinceStartup;
-                        start?.Invoke(new RaidStart { map = map, seed = seed, spawnIndex = sp1, players = players, online = true, partySlot = sl1, night = night });
+                        Log("no go from the host - starting anyway");
+                        Launch(map, new RaidStart { map = map, seed = seed, spawnIndex = sp1, players = players, online = true, partySlot = sl1, night = night }, start);
                         return;
                     }
                     await Task.Delay(500);
                 }
-                if (_cancel) { await Shutdown(); _queueing = false; RejoinParty(); return; }
+                if (_cancel) { Log("queue cancelled"); await Shutdown(); }
+                else Log("lost the queue session", true);
             }
             catch (Exception e)
             {
-                Debug.LogWarning("[Rago] queue failed: " + e);
+                Log("queue failed: " + e.Message, true);
                 failed?.Invoke(e.Message);
                 await Shutdown();
             }
@@ -964,51 +523,381 @@ namespace Rago.Net
             RejoinParty();
         }
 
-        static string SlotName(string map, bool night, int slot) => "rago_q_" + map + (night ? "_n" : "") + "_" + slot + Ver;
-        /// <summary>Only the same game version plays together: an older copy builds different maps (hills, buildings), so
-        /// mixed versions saw each other floating on ground the other didn't have.</summary>
-        static string Ver { get { try { return "_v" + PatchNotes.All[0].version.Replace('.', '_'); } catch { return ""; } } }
-        static int SlotOf(string name) { int u = name != null ? name.LastIndexOf('_') : -1; return u >= 0 && int.TryParse(name.Substring(u + 1), out int n) ? n : 1; }
-
-        /// <summary>The first queue session (from this number on) that, as far as the lobby list shows, hasn't launched
-        /// and has room for this many players. With no list: just this number (joining checks it anyway).</summary>
-        string ChooseSlot(string map, bool night, int partySize, int from)
+        void Launch(string map, RaidStart rs, Action<RaidStart> start)
         {
-            bool fresh = Time.realtimeSinceStartup - _listedAt < 20f;
-            for (int i = from; i < from + 40; i++)
-            {
-                string n = SlotName(map, night, i);
-                if (!fresh || !_listed.TryGetValue(n, out var st)) return n;   // not listed: empty (it'll be made) or unknown
-                if (!st.started && st.players + partySize <= QueueRules.MaxFor(map)) return n;
-            }
-            return SlotName(map, night, from);
+            _queueing = false;
+            _status = "Raid (" + rs.players + " players)";
+            _lastRaidSession = _sessionId; _lastRaidMap = map; _lastRaidAt = Time.realtimeSinceStartup;
+            Log("raid starting: " + rs.players + " players, spawn " + rs.spawnIndex % 1000 + "/" + rs.partySlot);
+            start?.Invoke(rs);
+        }
+
+        Dictionary<string, SessionProperty> CurrentProps()
+        {
+            var d = new Dictionary<string, SessionProperty>();
+            var cur = _runner != null ? _runner.SessionInfo.Properties : null;
+            if (cur != null) foreach (var kv in cur) d[kv.Key] = kv.Value;
+            return d;
         }
 
         public void CancelQueue()
         {
-            // the leader cancelling takes the whole party out of the queue
             if (_partyCode != null && _wasLeader && InSession)
                 foreach (var p in _peers) if (_peerParty.TryGetValue(p, out var pc) && pc == _partyCode) SendSys(p, 5, _partyCode);
+            FlushAll();
             _cancel = true;
         }
-        public async void Leave() { await Shutdown(); _status = _ready ? "Online (Photon)" : _status; }
 
-        // ------------------------------------------------------------------------------------ data
+        /// <summary>Everyone's spawn worked out the same way on every machine: each party shares one spot (members side by
+        /// side, in callsign order), solo players get their own. A group's spot comes only from its own key.</summary>
+        void SpawnFor(string myName, out int spot, out int slot)
+        {
+            var groups = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
+            void Add(string name, string party)
+            {
+                string g = !string.IsNullOrEmpty(party) ? "p:" + Key(party) : "s:" + Key(name);
+                if (!groups.TryGetValue(g, out var l)) groups[g] = l = new List<string>();
+                if (!l.Contains(Key(name))) l.Add(Key(name));
+            }
+            Add(myName, _partyCode);
+            foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) Add(n, _peerParty.TryGetValue(p, out var pc) ? pc : null);
+            spot = 0; slot = 0;
+            foreach (var kv in groups)
+            {
+                kv.Value.Sort(StringComparer.Ordinal);
+                int k = kv.Value.IndexOf(Key(myName));
+                if (k >= 0) { spot = Fnv(kv.Key); slot = k; }
+            }
+        }
+
+        // ---- getting back into a raid you dropped out of
+        public bool CanReconnect => _ready && _lastRaidSession != null && Time.realtimeSinceStartup - _lastRaidAt < 300f && !_queueing;
+        public void ForgetRaid() { _lastRaidSession = null; }
+        public async void Reconnect(Action<bool> done)
+        {
+            if (!CanReconnect) { done?.Invoke(false); return; }
+            _status = "Reconnecting...";
+            bool ok = false;
+            for (int tryN = 0; tryN < 3 && !ok; tryN++)
+            {
+                if (tryN > 0) await Task.Delay(2500);
+                ok = await StartSession(_lastRaidSession, new Dictionary<string, SessionProperty> { { "kind", "raid_started_" + _lastRaidMap } }, QueueRules.MaxFor(_lastRaidMap), false);
+            }
+            if (ok)
+            {
+                float until = Time.realtimeSinceStartup + 4f;
+                while (_peers.Count == 0 && Time.realtimeSinceStartup < until && InSession) { await Task.Delay(200); RefreshPeers(); }
+                if (_peers.Count == 0) { ok = false; Log("nobody left in that raid"); await Shutdown(); }
+            }
+            if (ok && _partyCode != null) foreach (var p in _peers) SendSys(p, 4, _partyCode);
+            _status = ok ? "Raid (reconnected)" : (_ready ? "Online (Photon)" : _status);
+            if (!ok) _lastRaidSession = null;
+            done?.Invoke(ok);
+            if (!ok) RejoinParty();
+        }
+
+        // =========================================================================================== party
+        // A party is a small session "rago_party_<leader>" the members sit in while in their bunkers. Invites reach
+        // players idling in their bunker through the lobby: the party session lists who's invited ("inv"). Inside a raid
+        // or the Market you can invite people who are in it with you (sent straight to them).
+        string _partyCode;
+        bool _inPartySession, _wasLeader;
+        readonly List<string> _members = new List<string>();
+        readonly List<string> _roster = new List<string>();
+        readonly List<string> _sessionPlayers = new List<string>();
+        readonly List<PartyInvite> _invites = new List<PartyInvite>();
+        readonly List<string> _invited = new List<string>();
+        readonly HashSet<ulong> _acks = new HashSet<ulong>();
+        string _pendingRaidSession, _lastRaid; int _pendingPartySize = 1; bool _pendingNight;
+
+        public string PartyCode => _partyCode;
+        public bool PartyLeader
+        {
+            get
+            {
+                if (_partyCode == null) return false;
+                if (Key(_partyCode) == Key(MyName())) return true;
+                if (!_inPartySession) return _wasLeader;
+                foreach (var p in _peers) if (_names.TryGetValue(p, out var n) && Key(n) == Key(_partyCode)) return false;
+                return IsHost && _names.Count >= _peers.Count;   // the leader isn't here: the session's host leads
+            }
+        }
+        public IReadOnlyList<PartyInvite> Invites { get { _invites.RemoveAll(i => Time.realtimeSinceStartup - i.time > 300f); return _invites; } }
+        public IReadOnlyList<string> PartyMembers
+        {
+            get
+            {
+                _members.Clear();
+                if (_partyCode == null) return _members;
+                _members.Add(MyName() + (PartyLeader ? "  (leader)" : ""));
+                if (_inPartySession)
+                {
+                    foreach (var p in _peers) _members.Add(_names.TryGetValue(p, out var n) ? n : "joining...");
+                    if (_queueing || _pendingRaidSession != null) { foreach (var n in _roster) if (!_members.Exists(x => Key(x) == Key(n))) _members.Add(n); }
+                    else if (_peers.Count > 0 && _names.Count >= _peers.Count) { _roster.Clear(); foreach (var p in _peers) if (_names.TryGetValue(p, out var n2)) _roster.Add(n2); }
+                }
+                else
+                {
+                    foreach (var n in _roster) _members.Add(n);
+                    if (InSession) foreach (var p in _peers) if (IsTeammate(p) && _names.TryGetValue(p, out var n) && !_roster.Exists(x => Key(x) == Key(n))) { _roster.Add(n); _members.Add(n); }
+                }
+                return _members;
+            }
+        }
+        public IReadOnlyList<string> SessionPlayers
+        {
+            get { _sessionPlayers.Clear(); if (InSession) foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) _sessionPlayers.Add(n); return _sessionPlayers; }
+        }
+        public bool IsTeammate(ulong peer) => _partyCode != null && _peerParty.TryGetValue(peer, out var pc) && pc == _partyCode;
+
+        static string PartySession(string id)
+        {
+            var sb = new System.Text.StringBuilder("rago_party_");
+            foreach (char c in Key(id)) sb.Append(char.IsLetterOrDigit(c) ? c : '_');
+            return sb.Append(Ver).ToString();
+        }
+
+        void Remember(string callsign)
+        {
+            _invited.RemoveAll(x => Key(x) == Key(callsign));
+            _invited.Add(callsign.Trim());
+            while (_invited.Count > 12) _invited.RemoveAt(0);
+        }
+
+        public async void InviteToParty(string callsign)
+        {
+            if (!_ready || string.IsNullOrWhiteSpace(callsign) || Key(callsign) == Key(MyName())) return;
+            if (_partyCode != null && PartyMembers.Count >= QueueRules.PartyMax) { RagoGame.I?.Player?.Toast("Your party is full"); return; }
+            if (InSession && !_inPartySession)
+            {
+                // in a raid / the Market: straight to them if they're here; otherwise it's posted when you're back home
+                if (_partyCode == null) { _partyCode = MyName(); _wasLeader = true; OnPartyChanged?.Invoke(); }
+                ulong to = 0; bool found = false;
+                foreach (var kv in _names) if (Key(kv.Value) == Key(callsign) && _peers.Contains(kv.Key)) { to = kv.Key; found = true; }
+                if (found) { SendSys(to, 8, MyName() + "|" + _partyCode); Log("invited " + callsign + " (here with you)"); }
+                else { Remember(callsign); Log("invite to " + callsign + " goes out when you're back in your bunker"); RagoGame.I?.Player?.Toast("Invite sent when you're back in your bunker"); }
+                return;
+            }
+            Remember(callsign);
+            if (_partyCode == null) { if (!await EnterParty(MyName(), true)) return; }
+            else if (!_inPartySession) { if (!await EnterParty(_partyCode, true)) return; }
+            if (IsHost) PublishInvites(); else foreach (var p in _peers) SendSys(p, 7, callsign);
+            Log("invited " + callsign);
+        }
+
+        public async void AcceptInvite(PartyInvite inv)
+        {
+            if (inv == null || !_ready) return;
+            _invites.Remove(inv);
+            if (_queueing) return;
+            if (InSession && !_inPartySession)
+            {
+                // accepted inside a raid: you join them when you're both back in your bunkers
+                _partyCode = inv.party; _wasLeader = false;
+                OnPartyChanged?.Invoke();
+                return;
+            }
+            _partyCode = null;
+            bool ok = await EnterParty(inv.party, false);
+            if (!ok) ok = await EnterParty(inv.party, true);   // the leader isn't there right now: open it for them
+            if (!ok) _ = EnterLobby();
+            OnPartyChanged?.Invoke();
+        }
+
+        public void DeclineInvite(PartyInvite inv) { _invites.Remove(inv); OnPartyChanged?.Invoke(); }
+
+        public async void LeaveParty()
+        {
+            Log("left the party");
+            _partyCode = null; _wasLeader = false; _invited.Clear(); _roster.Clear();
+            if (_inPartySession) { _inPartySession = false; await Shutdown(); }
+            _status = _ready ? "Online (Photon)" : _status;
+            OnPartyChanged?.Invoke();
+            RejoinParty();
+        }
+
+        public async void RejoinParty()
+        {
+            if (!_ready || _queueing) return;
+            if (InSession && !_inPartySession) return;   // in the Market / a raid: wait until you're back home
+            if (_partyCode != null)
+            {
+                if (_inPartySession) return;
+                if (await EnterParty(_partyCode, true)) { if (PartyLeader && _invited.Count > 0) PublishInvites(); }
+                else _ = EnterLobby();
+            }
+            else await EnterLobby();
+        }
+
+        async Task<bool> EnterParty(string id, bool create)
+        {
+            _status = (create ? "Starting" : "Joining") + " party...";
+            bool ok = await StartSession(PartySession(id), new Dictionary<string, SessionProperty> { { "kind", "party" }, { "lead", id }, { "inv", create ? string.Join(",", _invited.ConvertAll(Key)) : "" }, { "names", MyName() } }, QueueRules.PartyMax, create);
+            if (ok && !create && _peers.Count == 0) { ok = false; Log("that party is empty"); await Shutdown(); }
+            if (!ok) { OnPartyChanged?.Invoke(); return false; }
+            _partyCode = id; _inPartySession = true;
+            _wasLeader = Key(id) == Key(MyName()) || IsHost;
+            _status = "Party (" + (_peers.Count + 1) + ")";
+            OnPartyChanged?.Invoke();
+            return true;
+        }
+
+        string NamesHere()
+        {
+            var names = new List<string> { MyName() };
+            foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) names.Add(n);
+            return string.Join(",", names);
+        }
+
+        /// <summary>The host lists everyone's callsigns on the session (and, in a party, who's invited), for the lobby.</summary>
+        void PublishNames()
+        {
+            if (!IsHost) return;
+            try
+            {
+                var props = CurrentProps();
+                props["names"] = NamesHere();
+                if (_inPartySession) { props["kind"] = "party"; props["lead"] = _partyCode ?? MyName(); props["inv"] = string.Join(",", _invited.ConvertAll(Key)); }
+                _runner.SessionInfo.UpdateCustomProperties(props);
+            }
+            catch (Exception e) { Log("couldn't update the session's player list: " + e.Message); }
+        }
+        void PublishInvites() => PublishNames();
+
+        // ---- the lobby's list of sessions: invites, who's online, which raid queues are open
+        int _listedPlayers = -1;
+        float _listedAt = -999f;
+        readonly Dictionary<string, (int players, bool started)> _listed = new Dictionary<string, (int, bool)>();
+
+        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
+        {
+            if (runner != _lobby || sessionList == null) return;
+            int sum = 0; string me = Key(MyName()); bool changed = false;
+            _listed.Clear();
+            foreach (var si in sessionList)
+            {
+                int c = si.GetType().GetProperty("PlayerCount", Any)?.GetValue(si) is int pc ? pc : 0;
+                var pr = si.Properties;
+                string kind = pr != null && pr.TryGetValue("kind", out var kk) ? Str(kk) : "";
+                bool started = pr != null && (pr.ContainsKey("go") || kind.StartsWith("raid_started"));
+                _listed[si.Name ?? ""] = (c, started);
+                if (si.Name == null || !si.Name.EndsWith(Ver)) continue;   // another game version
+                sum += c;
+                if (pr == null) continue;
+                if (pr.TryGetValue("names", out var nm)) foreach (var n in Str(nm).Split(',')) KnownPlayers.Add(n);
+                if (kind != "party" || !pr.TryGetValue("inv", out var inv) || !pr.TryGetValue("lead", out var lead)) continue;
+                string leader = Str(lead);
+                KnownPlayers.Add(leader);
+                if (Array.IndexOf(Str(inv).Split(','), me) < 0) continue;
+                if (_invites.Exists(x => Key(x.party) == Key(leader))) continue;
+                _invites.Add(new PartyInvite { from = leader, party = leader, time = Time.realtimeSinceStartup });
+                Log("invite from " + leader);
+                changed = true;
+                RagoGame.I?.Player?.Toast(leader + " invited you to their party - press the menu button to accept");
+            }
+            _listedAt = Time.realtimeSinceStartup;
+            _listedPlayers = sum + 1;   // + you (in the lobby, not in any session)
+            if (changed) OnPartyChanged?.Invoke();
+        }
+
+        /// <summary>Players online: everyone in a session of this version the lobby listed (+ you), or who's here with you.</summary>
+        public int OnlineCount
+        {
+            get
+            {
+                int here = InSession ? _peers.Count + 1 : 1;
+                bool fresh = _listedPlayers > 0 && Time.realtimeSinceStartup - _listedAt < (InSession ? 900f : 30f);
+                return fresh ? Mathf.Max(here, _listedPlayers) : here;
+            }
+        }
+
+        // =========================================================================================== who's who
+        string _myUid; bool _uidBad;
+        static MethodInfo _getUid, _setMaster;
+        string UserIdOf(PlayerRef p)
+        {
+            if (_runner == null) return null;
+            try
+            {
+                if (_getUid == null) _getUid = typeof(NetworkRunner).GetMethod("GetPlayerUserId", Any, null, new[] { typeof(PlayerRef) }, null);
+                return _getUid?.Invoke(_runner, new object[] { p }) as string;
+            }
+            catch { return null; }
+        }
+
+        void LearnFromUserId(ulong id, PlayerRef p)
+        {
+            if (_uidBad) return;
+            var uid = UserIdOf(p);
+            if (string.IsNullOrEmpty(uid)) return;
+            if (uid == _myUid || uid.StartsWith(MyName() + "@"))
+            {
+                // this Photon hands back OUR id for everyone: stop trusting ids, use the name messages
+                _uidBad = true;
+                foreach (var k in new List<ulong>(_names.Keys)) if (Key(_names[k]) == Key(MyName())) _names.Remove(k);
+                _peerParty.Clear(); _nameAsk.Clear();
+                Log("Photon user ids unreliable here - using name messages");
+                return;
+            }
+            int at = uid.IndexOf('@'), tl = uid.LastIndexOf('~');
+            string name = at >= 0 ? uid.Substring(0, at) : tl >= 0 ? uid.Substring(0, tl) : uid;
+            string party = at >= 0 ? uid.Substring(at + 1, (tl > at ? tl : uid.Length) - at - 1) : "";
+            if (!string.IsNullOrEmpty(party) && !_peerParty.ContainsKey(id)) _peerParty[id] = party;
+            if (!_names.ContainsKey(id) && name.Contains("#")) SetName(id, name);
+        }
+
+        void SetName(ulong id, string name)
+        {
+            bool isNew = !_names.TryGetValue(id, out var old) || old != name;
+            _names[id] = name;
+            if (!isNew) return;
+            KnownPlayers.Add(name);
+            OnMetPlayer?.Invoke(name);
+            PublishNames();
+            OnPartyChanged?.Invoke();
+        }
+
+        void MakeMaster(PlayerRef p)
+        {
+            try
+            {
+                if (_setMaster == null) _setMaster = typeof(NetworkRunner).GetMethod("SetMasterClient", Any, null, new[] { typeof(PlayerRef) }, null);
+                _setMaster?.Invoke(_runner, new object[] { p });
+            }
+            catch { }
+        }
+
+        /// <summary>Put a player in the session on our list (from the session's player list or from a packet they sent).</summary>
+        void NotePeer(PlayerRef p)
+        {
+            if (_runner == null || p == _runner.LocalPlayer || p.PlayerId < 0) return;
+            ulong id = Id(p);
+            _refs[id] = p;
+            LearnFromUserId(id, p);
+            if (_peers.Contains(id)) return;
+            _peers.Add(id);
+            _peerSince[id] = Time.realtimeSinceStartup;
+            Log("player #" + id + " here" + (_names.TryGetValue(id, out var n) ? " (" + n + ")" : ""));
+            if (IsHost) SendSys(id, 2, "host"); else if (_hostId == 0) SendSys(id, 13, "?");
+            SendSys(id, 3, MyName());
+            if (_partyCode != null && !_inPartySession) SendSys(id, 4, _partyCode);
+            OnPeerJoined?.Invoke(id);
+            if (_inPartySession) { _status = "Party (" + (_peers.Count + 1) + ")"; OnPartyChanged?.Invoke(); }
+        }
+
+        // =========================================================================================== data
+        // Packets: [0xA5][sender u64][channel]...  channel 1 = system [code][utf8 text], channel 2 = game messages
+        // [len u16][msg]..., 3 = "please pass this to [dest u64]" (to the host), 4 = "passed on from [src u64]".
         static readonly ReliableKey GameKey = ReliableKey.FromInts(7, 1, 0, 0);
-
-        // Game messages are queued and sent as ONE packet per player per frame (channel 2: [len u16][msg]...).
-        // Every reliable send has its own overhead and Photon only moves so many a second - lots of small ones
-        // (poses, raider updates, shots, voice) backed up in raids and everything arrived seconds late.
+        const byte Stamp = 0xA5;
         readonly Dictionary<ulong, System.IO.MemoryStream> _out = new Dictionary<ulong, System.IO.MemoryStream>();
-        float _rtt;
-        float _pingOut = -1f;   // when the oldest still-unanswered ping went out
-        /// <summary>Round trip to the other players, seconds. Grows while pings go unanswered (a backed-up line).</summary>
+        float _rtt, _pingOut = -1f, _flushT, _lastSendWarn;
         public float Rtt => !InSession || _peers.Count == 0 ? 0f : Mathf.Max(_rtt, _pingOut >= 0f ? Time.realtimeSinceStartup - _pingOut : 0f);
+        public void FlushNow() { _flushT = 0f; }
 
         public void Send(byte[] data, bool reliable, ulong target = ulong.MaxValue)
         {
             if (!InSession || data == null || data.Length == 0 || data.Length > 60000) return;
-            // frequent, replaceable updates sent to everyone: the fast lane (one unreliable RPC, Photon copies it)
             if (!reliable && target == ulong.MaxValue && FastBroadcast && data.Length <= FastChunk - 3)
             {
                 if (_fastOut.Length + data.Length + 2 > FastChunk) FlushFast();
@@ -1017,14 +906,7 @@ namespace Rago.Net
                 _fastOut.Write(data, 0, data.Length);
                 return;
             }
-            if (target == ulong.MaxValue)
-            {
-                // Straight to every player: one trip through Photon instead of two, and no single player's connection
-                // carries everyone's traffic (relaying everything through the master client made 3+ players laggy and
-                // delayed). The old "can't see the 3rd player" bug was mislabelled senders, fixed by stamping packets.
-                // A player we can't reach directly (nothing heard for 4 s) is sent to through the master instead.
-                foreach (var p in _peers) Queue(p, data);
-            }
+            if (target == ulong.MaxValue) { foreach (var p in _peers) Queue(p, data); }
             else if (target != LocalId) Queue(target, data);
         }
 
@@ -1034,183 +916,31 @@ namespace Rago.Net
             if (ms.Length == 0) ms.WriteByte(2);
             ms.WriteByte((byte)(data.Length & 0xff)); ms.WriteByte((byte)(data.Length >> 8));
             ms.Write(data, 0, data.Length);
-            if (ms.Length > 16000) Flush(id, ms);
+            if (ms.Length > 16000) { SendTo(id, ms.ToArray()); ms.SetLength(0); }
         }
 
-        const ulong Bcast = ulong.MaxValue - 1;
-        void Flush(ulong id, System.IO.MemoryStream ms)
+        void FlushAll()
         {
-            if (ms.Length == 0) return;
-            if (id == Bcast)
-            {
-                var data = ms.ToArray();
-                if (!IsHost && _hostId != 0 && _refs.TryGetValue(_hostId, out var hp))
-                {
-                    var w = new byte[data.Length + 1]; w[0] = 5; Buffer.BlockCopy(data, 0, w, 1, data.Length);
-                    Raw(hp, w);
-                }
-                else foreach (var p in _peers) SendTo(p, data);   // we became the host meanwhile
-            }
-            else if (_peers.Contains(id)) SendTo(id, ms.ToArray());
-            ms.SetLength(0);
-        }
-
-        // Sent at a steady 15 packets a second per player (10 when the line is backing up) instead of every frame: at
-        // 72-90 fps with 3+ players that was hundreds of separate reliable sends a second, the line backed up and
-        // everyone lagged and teleported. 15 a second matches the pose rate, so nothing goes out later than it did.
-        // ---- the fast lane: unreliable RPCs through RagoRpc (found by name, so deleting that file just turns it off)
-        const int FastChunk = 220;   // bytes per RPC before base64 (~300 characters: well clear of Photon's ~512 byte RPC cap)
-        readonly System.IO.MemoryStream _fastOut = new System.IO.MemoryStream(512);
-        static MethodInfo _fastSend; static bool _fastLooked, _fastBroken;
-        static readonly Dictionary<NetworkRunner, FusionBackend> _byRunner = new Dictionary<NetworkRunner, FusionBackend>();
-        /// <summary>True when frequent updates can go out once to everyone through Photon's server.</summary>
-        public bool FastBroadcast
-        {
-            get
-            {
-                if (_fastBroken || _runner == null || !InSession) return false;
-                if (!_fastLooked)
-                {
-                    _fastLooked = true;
-                    var t = Type.GetType("Rago.Net.RagoRpc, RagoExtract.Fusion") ?? typeof(FusionBackend).Assembly.GetType("Rago.Net.RagoRpc");
-                    _fastSend = t?.GetMethod("Send", BindingFlags.Public | BindingFlags.Static);
-                    Debug.Log(_fastSend != null ? "[Rago] fast lane on: movement, voice and raiders go as unreliable Photon RPCs" : "[Rago] fast lane not found: everything goes reliable");
-                }
-                return _fastSend != null;
-            }
-        }
-        void FlushFast()
-        {
-            if (_fastOut.Length == 0) return;
-            var body = _fastOut.ToArray(); _fastOut.SetLength(0);
-            if (_runner == null || _fastSend == null) return;
-            var w = new byte[body.Length + 9];
-            w[0] = Stamp; Buffer.BlockCopy(BitConverter.GetBytes(LocalId), 0, w, 1, 8);
-            Buffer.BlockCopy(body, 0, w, 9, body.Length);
-            try { _fastSend.Invoke(null, new object[] { _runner, Convert.ToBase64String(w) }); }
-            catch (Exception e)
-            {
-                // not supported by this Photon version (or anything else): stop using it, everything goes reliable
-                _fastBroken = true;
-                Debug.LogWarning("[Rago] fast lane failed, going back to reliable sends: " + (e.InnerException ?? e).Message);
-            }
-        }
-        /// <summary>Called by RagoRpc when another player's fast-lane packet arrives.</summary>
-        public static void OnFastData(NetworkRunner runner, string payload)
-        {
-            if (runner == null || !_byRunner.TryGetValue(runner, out var b) || b == null || b._runner != runner || string.IsNullOrEmpty(payload)) return;
-            byte[] data;
-            try { data = Convert.FromBase64String(payload); } catch { return; }
-            if (data.Length < 10 || data[0] != Stamp) return;
-            ulong from = BitConverter.ToUInt64(data, 1);
-            if (from == b.LocalId) return;
-            b._fastAt[from] = Time.realtimeSinceStartup;
-            if (data.Length == 10) return;   // a heartbeat: just "my fast lane reaches you"
-            if (!b._peers.Contains(from)) foreach (var ap in runner.ActivePlayers) if (b.Id(ap) == from) b.NotePeer(ap);
-            if (!b._peers.Contains(from)) return;   // not someone in this session (yet)
-            b._lastHeard[from] = Time.realtimeSinceStartup;
-            b.Process(from, new ArraySegment<byte>(data, 9, data.Length - 9));
-        }
-
-        float _flushT, _lastFast;
-        public void FlushNow() { _flushT = 0f; }
-
-        // ---- fast lane health: every player sends a tiny heartbeat on it every 2 s. If players we hear fine on the
-        // reliable channel send nothing at all on the fast lane for 10 s, it isn't getting through (an RPC Photon drops,
-        // a weaver problem...) and movement / voice / raiders would never arrive: switch back to reliable sends.
-        readonly Dictionary<ulong, float> _fastAt = new Dictionary<ulong, float>();
-        float _beatT, _healthT;
-        void FastHealth()
-        {
-            float now = Time.realtimeSinceStartup;
-            if (now >= _beatT)
-            {
-                _beatT = now + 2f;
-                var w = new byte[10]; w[0] = Stamp; Buffer.BlockCopy(BitConverter.GetBytes(LocalId), 0, w, 1, 8); w[9] = 0xBE;
-                try { _fastSend.Invoke(null, new object[] { _runner, Convert.ToBase64String(w) }); }
-                catch (Exception e) { _fastBroken = true; Debug.LogWarning("[Rago] fast lane failed, going back to reliable sends: " + (e.InnerException ?? e).Message); return; }
-            }
-            if (now < _healthT) return;
-            _healthT = now + 1f;
-            int checkedPeers = 0, silent = 0;
-            foreach (var p in _peers)
-            {
-                if (!_peerSince.TryGetValue(p, out var since) || now - since < 12f) continue;           // just joined
-                if (!_lastHeard.TryGetValue(p, out var h) || now - h > 3f) continue;                   // not hearing them at all: not the fast lane's fault
-                checkedPeers++;
-                if (!_fastAt.TryGetValue(p, out var f) || now - f > 10f) silent++;
-            }
-            if (checkedPeers > 0 && silent == checkedPeers)
-            {
-                _fastBroken = true; _fastOut.SetLength(0);
-                Debug.LogWarning("[Rago] fast lane: nothing arriving from " + silent + " player(s) for 10 s - going back to reliable sends");
-            }
-        }
-
-        void LateUpdate()
-        {
-            if (InSession && _peers.Count > 0 && FastBroadcast) FastHealth();
-            // the fast lane goes out the frame it's written (up to 30 a second) - it used to wait for the next batch tick,
-            // up to 66 ms after the pose was taken
-            if (_fastOut.Length > 0 && InSession && Time.unscaledTime - _lastFast >= 1f / 30f) { _lastFast = Time.unscaledTime; FlushFast(); }
-            else if (!InSession) _fastOut.SetLength(0);
-            if (_out.Count == 0 && _fwdOut.Count == 0) { _flushT -= Time.unscaledDeltaTime; if (_flushT <= 0f) _flushT = Rtt > 0.3f ? 0.1f : 1f / 15f; return; }
-            if (!InSession) { _out.Clear(); _fwdOut.Clear(); return; }
-            _flushT -= Time.unscaledDeltaTime;
-            if (_flushT > 0f) return;
-            _flushT = Rtt > 0.3f ? 0.1f : 1f / 15f;   // in step with the pose rate (and Photon's own ~16 sends a second)   // 20 batched packets a second per player: sending every frame (2.1) meant hundreds of reliable sends a second and the line backed up again
-            foreach (var kv in _out) Flush(kv.Key, kv.Value);
-            foreach (var kv in _fwdOut) FlushFwd(kv.Key, kv.Value);
-        }
-
-        // the relay's outgoing batches: everything other players sent that has to go on to this player
-        readonly Dictionary<ulong, System.IO.MemoryStream> _fwdOut = new Dictionary<ulong, System.IO.MemoryStream>();
-        void QueueFwd(ulong to, ulong src, ArraySegment<byte> packet)
-        {
-            if (!_peers.Contains(to)) return;
-            if (!_fwdOut.TryGetValue(to, out var ms)) _fwdOut[to] = ms = new System.IO.MemoryStream(1024);
-            if (ms.Length == 0) ms.WriteByte(6);
-            ms.Write(BitConverter.GetBytes(src), 0, 8); ms.Write(BitConverter.GetBytes(packet.Count), 0, 4);
-            ms.Write(packet.Array, packet.Offset, packet.Count);
-            if (ms.Length > 30000) FlushFwd(to, ms);
-        }
-        void FlushFwd(ulong to, System.IO.MemoryStream ms)
-        {
-            if (ms.Length == 0) return;
-            if (_refs.TryGetValue(to, out var pr)) Raw(pr, ms.ToArray());
-            ms.SetLength(0);
+            foreach (var kv in _out) if (kv.Value.Length > 0) { if (_peers.Contains(kv.Key)) SendTo(kv.Key, kv.Value.ToArray()); kv.Value.SetLength(0); }
         }
 
         void SendSys(ulong to, byte code, string text)
         {
-            if (code == 3 && Spectator.Active) return;   // spectating: don't introduce yourself (you stay out of their lists)
-            var t = System.Text.Encoding.UTF8.GetBytes(text);
+            if (code == 3 && Spectator.Active) return;   // spectating: stay out of their lists
+            var t = System.Text.Encoding.UTF8.GetBytes(text ?? "");
             var packet = new byte[t.Length + 2];
             packet[0] = 1; packet[1] = code;
             Buffer.BlockCopy(t, 0, packet, 2, t.Length);
             SendTo(to, packet);
         }
 
-        // Every packet starts with WHO sent it ([0xA5][sender id]). Photon's own "this came from player X" can't be
-        // trusted in shared mode: with 3+ players it labelled several players' data as the same one - everyone saw a
-        // single frozen body with one name that kept changing. Now each packet says who it's from.
-        const byte Stamp = 0xA5;
-        void Raw(PlayerRef to, byte[] packet)
-        {
-            if (_runner == null) return;
-            var w = new byte[packet.Length + 9];
-            w[0] = Stamp; Buffer.BlockCopy(BitConverter.GetBytes(LocalId), 0, w, 1, 8);
-            Buffer.BlockCopy(packet, 0, w, 9, packet.Length);
-            try { _runner.SendReliableDataToPlayer(to, GameKey, w); }
-            catch (Exception e) { if (Time.realtimeSinceStartup - _lastSendWarn > 10f) { _lastSendWarn = Time.realtimeSinceStartup; Debug.Log("[Rago] send skipped: " + e.Message); } }
-        }
-        bool _mislabelLogged;
-
         void SendTo(ulong id, byte[] packet)
         {
             if (_runner == null || !_refs.TryGetValue(id, out var p)) return;
-            // to one other player: directly, unless the direct link to them is dead - then through the master client
-            if (_relayTo.Contains(id) && !IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
+            // nothing heard from them for a while: send it through the host instead (it passes it on). Never both - a
+            // shot or a hit arriving twice would count twice. Pings still go direct, so a working link is noticed.
+            bool ping = packet.Length >= 2 && packet[0] == 1 && (packet[1] == 11 || packet[1] == 12);
+            if (!ping && _relayTo.Contains(id) && !IsHost && _hostId != 0 && _hostId != id && _refs.TryGetValue(_hostId, out var hp))
             {
                 var w = new byte[packet.Length + 9];
                 w[0] = 3; Buffer.BlockCopy(BitConverter.GetBytes(id), 0, w, 1, 8);
@@ -1221,208 +951,326 @@ namespace Rago.Net
             Raw(p, packet);
         }
 
-        readonly Dictionary<ulong, float> _lastHeard = new Dictionary<ulong, float>();
-        readonly Dictionary<ulong, float> _peerSince = new Dictionary<ulong, float>();
-        readonly HashSet<ulong> _relayTo = new HashSet<ulong>();
-
-        /// <summary>Every player pings every second: a player we haven't heard from directly for 4 s gets relayed.</summary>
-        void CheckLinks()
+        void Raw(PlayerRef to, byte[] packet)
         {
-            float now = Time.realtimeSinceStartup;
-            foreach (var p in _peers)
-            {
-                if (!_peerSince.ContainsKey(p)) _peerSince[p] = now;
-                if (p == _hostId || IsHost) continue;
-                float heard = _lastHeard.TryGetValue(p, out var h) ? h : _peerSince[p];
-                if (now - heard > 4f && _relayTo.Add(p)) Debug.Log("[Rago] no direct link to player " + p + " - relaying through the host");
-            }
+            if (_runner == null) return;
+            var w = new byte[packet.Length + 9];
+            w[0] = Stamp; Buffer.BlockCopy(BitConverter.GetBytes(LocalId), 0, w, 1, 8);
+            Buffer.BlockCopy(packet, 0, w, 9, packet.Length);
+            try { _runner.SendReliableDataToPlayer(to, GameKey, w); }
+            catch (Exception e) { if (Time.realtimeSinceStartup - _lastSendWarn > 10f) { _lastSendWarn = Time.realtimeSinceStartup; Log("send failed: " + e.Message, true); } }
         }
 
-        // Fusion 2.0.x (current) passes the bytes as ReadOnlySpan<byte>; older 2.0 builds used ArraySegment<byte>.
         public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> span)
         {
-            var arr = span.ToArray();
-            HandleReliable(player, new ArraySegment<byte>(arr));
-        }
-
-        void HandleReliable(PlayerRef player, ArraySegment<byte> data)
-        {
-            if (data.Array == null || data.Count < 1) return;
-            NotePeer(player);   // they can reach us, so we can reach them: never ignore a player we hear from
-            ulong direct = Id(player);
-            if (data.Count >= 10 && data.Array[data.Offset] == Stamp)
+            if (runner != _runner) return;
+            var data = span.ToArray();
+            if (data.Length < 10 || data[0] != Stamp) return;
+            NotePeer(player);
+            ulong from = BitConverter.ToUInt64(data, 1);   // the packet says who sent it (Photon's own label can be wrong)
+            if (from == LocalId) return;
+            if (!_peers.Contains(from)) foreach (var ap in _runner.ActivePlayers) if (Id(ap) == from) NotePeer(ap);
+            _lastHeard[from] = Time.realtimeSinceStartup;
+            if (_relayTo.Remove(from)) Log("player #" + from + " reachable again");
+            var body = new ArraySegment<byte>(data, 9, data.Length - 9);
+            byte ch = data[9];
+            if (ch == 3 && body.Count >= 9)
             {
-                ulong stamped = BitConverter.ToUInt64(data.Array, data.Offset + 1);
-                if (stamped != direct && !_mislabelLogged) { _mislabelLogged = true; Debug.Log("[Rago] Photon said a packet came from " + direct + " but it's from " + stamped + " - using the packet's own label"); }
-                direct = stamped;
-                data = new ArraySegment<byte>(data.Array, data.Offset + 9, data.Count - 9);
-                if (direct == LocalId) return;   // our own packet bounced back
-                if (!_peers.Contains(direct)) foreach (var ap in _runner.ActivePlayers) if (Id(ap) == direct) NotePeer(ap);
-            }
-            _lastHeard[direct] = Time.realtimeSinceStartup;
-            if (_relayTo.Remove(direct)) Debug.Log("[Rago] direct link to player " + direct + " works again");
-            byte ch = data.Array[data.Offset];
-            if (ch == 5)
-            {
-                // a player's broadcast sent to us as the hub: use it ourselves and hand it to every other player
-                // (even if we're not the master any more - the sender picked us, so nobody else will pass it on)
-                var inner = new ArraySegment<byte>(data.Array, data.Offset + 1, data.Count - 1);
-                foreach (var p in _peers) if (p != direct) QueueFwd(p, direct, inner);   // batched: one packet per player per tick, not one per packet
-                Process(direct, inner);
-                return;
-            }
-            if (ch == 3)
-            {
-                // host: a player who can't reach another one directly - pass it on, marked with who it's from
-                if (data.Count < 9) return;
-                ulong dest = BitConverter.ToUInt64(data.Array, data.Offset + 1);
-                var inner = new ArraySegment<byte>(data.Array, data.Offset + 9, data.Count - 9);
-                if (dest == LocalId) { Process(direct, inner); return; }
-                QueueFwd(dest, direct, inner);
-                return;
-            }
-            if (ch == 6)
-            {
-                // a batch of other players' packets passed on by the relay: [src u64][len i32][packet]...
-                int o = data.Offset + 1, end = data.Offset + data.Count;
-                float now6 = Time.realtimeSinceStartup;
-                while (o + 12 <= end)
+                // host: pass it on to the player it's for
+                ulong dest = BitConverter.ToUInt64(data, 10);
+                var inner = new ArraySegment<byte>(data, 18, data.Length - 18);
+                if (dest == LocalId) { Process(from, inner); return; }
+                if (_refs.TryGetValue(dest, out var dp))
                 {
-                    ulong src = BitConverter.ToUInt64(data.Array, o); int len = BitConverter.ToInt32(data.Array, o + 8); o += 12;
-                    if (len < 0 || o + len > end) break;
-                    if (src != LocalId)
-                    {
-                        _lastHeard[src] = now6;
-                        // they had to come the long way round: our direct packets probably don't reach them either
-                        if (_relayTo.Add(src)) Debug.Log("[Rago] player " + src + " is relaying to us - relaying back");
-                        Process(src, new ArraySegment<byte>(data.Array, o, len));
-                    }
-                    o += len;
+                    var w = new byte[inner.Count + 9];
+                    w[0] = 4; Buffer.BlockCopy(BitConverter.GetBytes(from), 0, w, 1, 8);
+                    Buffer.BlockCopy(data, 18, w, 9, inner.Count);
+                    Raw(dp, w);
                 }
                 return;
             }
-            if (ch == 4)
+            if (ch == 4 && body.Count >= 9)
             {
-                // relayed by the host from another player
-                if (data.Count < 9) return;
-                ulong src = BitConverter.ToUInt64(data.Array, data.Offset + 1);
+                ulong src = BitConverter.ToUInt64(data, 10);
+                if (src == LocalId) return;
                 _lastHeard[src] = Time.realtimeSinceStartup;
-                // they had to send it the long way round: our direct packets probably aren't reaching them either
-                if (_relayTo.Add(src)) Debug.Log("[Rago] player " + src + " is relaying to us - relaying back");
-                Process(src, new ArraySegment<byte>(data.Array, data.Offset + 9, data.Count - 9));
+                Process(src, new ArraySegment<byte>(data, 18, data.Length - 18));
                 return;
             }
-            Process(direct, data);
+            Process(from, body);
         }
 
         void Process(ulong fromId, ArraySegment<byte> data)
         {
             if (data.Array == null || data.Count < 1) return;
             byte channel = data.Array[data.Offset];
-            if (channel == 1)
+            if (channel == 1) { if (data.Count >= 2) OnSys(fromId, data.Array[data.Offset + 1], System.Text.Encoding.UTF8.GetString(data.Array, data.Offset + 2, data.Count - 2)); return; }
+            if (channel != 2) return;
+            int i = data.Offset + 1, end = data.Offset + data.Count;
+            while (i + 2 <= end)
             {
-                if (data.Count < 2) return;
-                byte code = data.Array[data.Offset + 1];
-                string text = System.Text.Encoding.UTF8.GetString(data.Array, data.Offset + 2, data.Count - 2);
-                if (code == 2) { _hostId = fromId; return; }
-                if (code == 13) { if (IsHost) SendSys(fromId, 2, "host"); return; }   // "who's the host?" 
-                if (code == 1)
+                int len = data.Array[i] | (data.Array[i + 1] << 8); i += 2;
+                if (len <= 0 || i + len > end) break;
+                var msg = new byte[len];
+                Buffer.BlockCopy(data.Array, i, msg, 0, len); i += len;
+                try { OnData?.Invoke(fromId, msg); } catch (Exception e) { Debug.LogWarning("[Rago] packet handler: " + e.Message); }
+            }
+        }
+
+        // system codes: 1 go | 2 I'm the host | 3 my callsign | 4 my party | 5 leader cancelled | 6 follow me into a raid
+        // | 7 please invite | 8 invite | 9 who are you? | 10 ok | 11 ping | 12 pong | 13 who's the host?
+        void OnSys(ulong from, byte code, string text)
+        {
+            switch (code)
+            {
+                case 1:
                 {
                     var p = text.Split('|');
-                    if (p.Length >= 4) _pendingStart = new RaidStart { map = p[0], seed = int.Parse(p[1]), spawnIndex = int.Parse(p[2]), players = int.Parse(p[3]), online = true, partySlot = p.Length >= 5 ? int.Parse(p[4]) : 0, night = _queueNight };
+                    if (p.Length >= 4 && int.TryParse(p[1], out int seed) && int.TryParse(p[2], out int sp) && int.TryParse(p[3], out int n))
+                        _pendingStart = new RaidStart { map = p[0], seed = seed, spawnIndex = sp, players = n, online = true, partySlot = p.Length >= 5 && int.TryParse(p[4], out int sl) ? sl : 0, night = _queueNight };
+                    break;
                 }
-                else if (code == 3)
+                case 2: _hostId = from; break;
+                case 3: SetName(from, text); break;
+                case 4: _peerParty[from] = text; break;
+                case 5: if (_queueing && text == _partyCode) { _cancel = true; OnPartyQueueCancelled?.Invoke(); } break;
+                case 6:
                 {
-                    // someone's callsign (sent to everyone in a session)
-                    _names[fromId] = text;
-                    KnownPlayers.Add(text);
-                    PublishNames();
-                    OnMetPlayer?.Invoke(text);   // raid, Market or party: a real player you've met (RECENT, and you can add them as a friend)
-                    OnPartyChanged?.Invoke();
+                    SendSys(from, 10, "ok");
+                    if (!_inPartySession || _queueing) break;
+                    var p = text.Split('|');
+                    if (p.Length >= 3 && p[1] != _pendingRaidSession && p[1] != _lastRaid) FollowLeader(p[0], p[1], p[2], p.Length >= 4 && p[3] == "1");
+                    break;
                 }
-                else if (code == 7 && _inPartySession && IsHost) { Remember(text); PublishInvites(); }      // a member asks the leader to invite someone
-                else if (code == 8)
+                case 7: if (_inPartySession && IsHost) { Remember(text); PublishInvites(); } break;
+                case 8:
                 {
-                    // invited in a raid: "from|party"
                     var p = text.Split('|');
                     if (p.Length >= 2 && !_invites.Exists(x => Key(x.party) == Key(p[1])) && Key(p[1]) != Key(_partyCode))
                     {
                         _invites.Add(new PartyInvite { from = p[0], party = p[1], time = Time.realtimeSinceStartup });
+                        Log("invite from " + p[0]);
                         RagoGame.I?.Player?.Toast(p[0] + " invited you to their party - press the menu button to accept");
                         OnPartyChanged?.Invoke();
                     }
+                    break;
                 }
-                else if (code == 4) { _peerParty[fromId] = text; }                                         // which party a raid peer is in
-                else if (code == 5 && _queueing && text == _partyCode) { _cancel = true; OnPartyQueueCancelled?.Invoke(); }   // leader cancelled
-                else if (code == 6 && _inPartySession && !_queueing)
-                {
-                    // the leader queued: follow them into their raid session
-                    var p = text.Split('|');
-                    SendSys(fromId, 10, "ok");
-                    if (p.Length >= 3 && _pendingRaidSession != p[1] && _lastRaid != p[1]) { _lastRaid = p[1]; _pendingRaidSession = p[1]; _pendingPartySize = int.Parse(p[2]); _pendingNight = p.Length >= 4 && p[3] == "1"; _wasLeader = false; OnPartyQueue?.Invoke(p[0]); }
-                }
-                else if (code == 6) SendSys(fromId, 10, "ok");     // already on our way: still answer so the leader stops asking
-                else if (code == 10) _acks.Add(fromId);
-                else if (code == 9) { SendSys(fromId, 3, MyName()); if (_partyCode != null && !_inPartySession) SendSys(fromId, 4, _partyCode); }   // "who are you?"
-                else if (code == 11) SendSys(fromId, 12, text);    // ping: echo it back
-                else if (code == 12 && float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var sentAt))
-                {
-                    float rtt = Time.realtimeSinceStartup - sentAt;
-                    _rtt = rtt > _rtt ? rtt : Mathf.Lerp(_rtt, rtt, 0.3f);   // rises at once, settles slowly
-                    _pingOut = -1f;
-                }
-                return;
+                case 9: SendSys(from, 3, MyName()); if (_partyCode != null && !_inPartySession) SendSys(from, 4, _partyCode); break;
+                case 10: _acks.Add(from); break;
+                case 11: SendSys(from, 12, text); break;
+                case 12:
+                    if (float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var sentAt))
+                    {
+                        float rtt = Time.realtimeSinceStartup - sentAt;
+                        _rtt = rtt > _rtt ? rtt : Mathf.Lerp(_rtt, rtt, 0.3f);
+                        _pingOut = -1f;
+                    }
+                    break;
+                case 13: if (IsHost) SendSys(from, 2, "host"); break;
             }
-            if (channel == 2)
-            {
-                int i = data.Offset + 1, end = data.Offset + data.Count;
-                while (i + 2 <= end)
-                {
-                    int len = data.Array[i] | (data.Array[i + 1] << 8); i += 2;
-                    if (len <= 0 || i + len > end) break;
-                    var msg = new byte[len];
-                    Buffer.BlockCopy(data.Array, i, msg, 0, len); i += len;
-                    try { OnData?.Invoke(fromId, msg); } catch (Exception e) { Debug.LogWarning("[Rago] packet handler: " + e.Message); }
-                }
-                return;
-            }
-            var payload = new byte[data.Count - 1];
-            Buffer.BlockCopy(data.Array, data.Offset + 1, payload, 0, payload.Length);
-            OnData?.Invoke(fromId, payload);
         }
 
-        // ------------------------------------------------------------------------------------ callbacks
+        void FollowLeader(string map, string session, string size, bool night)
+        {
+            _lastRaid = session; _pendingRaidSession = session; int.TryParse(size, out _pendingPartySize); _pendingNight = night; _wasLeader = false;
+            Log("leader queued for " + map);
+            OnPartyQueue?.Invoke(map);
+        }
+
+        // =========================================================================================== fast lane
+        // Frequent, replaceable updates (movement, voice, raiders): ONE unreliable Photon RPC to everyone (RagoRpc, found
+        // by name so deleting that file just turns this off). A heartbeat every 2 s proves it works; if players we hear
+        // fine on the reliable channel send nothing on it for 10 s, it's switched off and everything goes reliable.
+        const int FastChunk = 220;
+        readonly System.IO.MemoryStream _fastOut = new System.IO.MemoryStream(512);
+        static MethodInfo _fastSend; static bool _fastLooked, _fastBroken;
+        static readonly Dictionary<NetworkRunner, FusionBackend> _byRunner = new Dictionary<NetworkRunner, FusionBackend>();
+        readonly Dictionary<ulong, float> _fastAt = new Dictionary<ulong, float>();
+        float _lastFast, _beatT, _healthT;
+
+        public bool FastBroadcast
+        {
+            get
+            {
+                if (_fastBroken || !InSession) return false;
+                if (!_fastLooked)
+                {
+                    _fastLooked = true;
+                    var t = Type.GetType("Rago.Net.RagoRpc, RagoExtract.Fusion") ?? typeof(FusionBackend).Assembly.GetType("Rago.Net.RagoRpc");
+                    _fastSend = t?.GetMethod("Send", BindingFlags.Public | BindingFlags.Static);
+                    Log(_fastSend != null ? "fast lane available" : "fast lane missing (RagoRpc) - all reliable");
+                }
+                return _fastSend != null;
+            }
+        }
+
+        bool FastInvoke(byte[] w)
+        {
+            try { _fastSend.Invoke(null, new object[] { _runner, Convert.ToBase64String(w) }); return true; }
+            catch (Exception e) { _fastBroken = true; _fastOut.SetLength(0); Log("fast lane failed (" + (e.InnerException ?? e).Message + ") - all reliable now", true); return false; }
+        }
+
+        void FlushFast()
+        {
+            if (_fastOut.Length == 0) return;
+            var body = _fastOut.ToArray(); _fastOut.SetLength(0);
+            if (_runner == null || _fastSend == null || _fastBroken) return;
+            var w = new byte[body.Length + 9];
+            w[0] = Stamp; Buffer.BlockCopy(BitConverter.GetBytes(LocalId), 0, w, 1, 8);
+            Buffer.BlockCopy(body, 0, w, 9, body.Length);
+            FastInvoke(w);
+        }
+
+        public static void OnFastData(NetworkRunner runner, string payload)
+        {
+            if (runner == null || !_byRunner.TryGetValue(runner, out var b) || b == null || b._runner != runner || string.IsNullOrEmpty(payload)) return;
+            byte[] data;
+            try { data = Convert.FromBase64String(payload); } catch { return; }
+            if (data.Length < 10 || data[0] != Stamp) return;
+            ulong from = BitConverter.ToUInt64(data, 1);
+            if (from == b.LocalId) return;
+            if (!b._peers.Contains(from)) foreach (var ap in runner.ActivePlayers) if (Id(ap) == from) b.NotePeer(ap);
+            if (!b._peers.Contains(from)) return;
+            float now = Time.realtimeSinceStartup;
+            b._fastAt[from] = now; b._lastHeard[from] = now;
+            if (data.Length == 10) return;   // heartbeat
+            b.Process(from, new ArraySegment<byte>(data, 9, data.Length - 9));
+        }
+
+        void FastHealth()
+        {
+            float now = Time.realtimeSinceStartup;
+            if (now >= _beatT)
+            {
+                _beatT = now + 2f;
+                var w = new byte[10]; w[0] = Stamp; Buffer.BlockCopy(BitConverter.GetBytes(LocalId), 0, w, 1, 8); w[9] = 0xBE;
+                if (!FastInvoke(w)) return;
+            }
+            if (now < _healthT) return;
+            _healthT = now + 1f;
+            int checkedPeers = 0, silent = 0;
+            foreach (var p in _peers)
+            {
+                if (!_peerSince.TryGetValue(p, out var since) || now - since < 12f) continue;
+                if (!_lastHeard.TryGetValue(p, out var h) || now - h > 3f) continue;
+                checkedPeers++;
+                if (!_fastAt.TryGetValue(p, out var f) || now - f > 10f) silent++;
+            }
+            if (checkedPeers > 0 && silent == checkedPeers)
+            {
+                _fastBroken = true; _fastOut.SetLength(0);
+                Log("fast lane: nothing arriving from " + silent + " player(s) - all reliable now", true);
+            }
+        }
+
+        // =========================================================================================== frame
+        float _peerScan, _pingT, _announce, _lobbyT;
+
+        void Update()
+        {
+            // idle (not in any session): sit in the lobby so invites can reach you
+            _lobbyT -= Time.unscaledDeltaTime;
+            if (_lobbyT <= 0f && _ready)
+            {
+                _lobbyT = 3f;
+                if (_runner == null && !_queueing && !_starting && _lobby == null) _ = EnterLobby();
+            }
+            if (!InSession) return;
+            float now = Time.realtimeSinceStartup;
+            _peerScan -= Time.unscaledDeltaTime;
+            if (_peerScan <= 0f)
+            {
+                _peerScan = 0.5f;
+                try { foreach (var p in _runner.ActivePlayers) NotePeer(p); } catch { }
+                // the party session's host should be the leader
+                if (_inPartySession && IsHost && _partyCode != null && Key(_partyCode) != Key(MyName()))
+                    foreach (var kv in _names) if (Key(kv.Value) == Key(_partyCode) && _refs.TryGetValue(kv.Key, out var lr)) { MakeMaster(lr); break; }
+                // the leader queued: follow (read from the party session too, not only the message)
+                var props = _runner.SessionInfo.Properties;
+                if (_inPartySession && !_queueing && _pendingRaidSession == null && props != null && props.TryGetValue("raid", out var rv))
+                {
+                    var rp = Str(rv).Split('|');
+                    if (rp.Length >= 5 && rp[1] != _lastRaid && long.TryParse(rp[4], out var when) && DateTimeOffset.UtcNow.ToUnixTimeSeconds() - when < 25)
+                        FollowLeader(rp[0], rp[1], rp[2], rp[3] == "1");
+                }
+                // keep asking anyone we still don't have a name (or party) for - a message sent on join can be lost
+                foreach (var p in _peers)
+                {
+                    if (_names.ContainsKey(p) && (_partyCode == null || _inPartySession || _peerParty.ContainsKey(p))) continue;
+                    if (_nameAsk.TryGetValue(p, out var t) && now - t < 1.5f) continue;
+                    _nameAsk[p] = now;
+                    SendSys(p, 3, MyName());
+                    if (_partyCode != null && !_inPartySession) SendSys(p, 4, _partyCode);
+                    SendSys(p, 9, "?");
+                }
+            }
+            _pingT -= Time.unscaledDeltaTime;
+            if (_pingT <= 0f && _peers.Count > 0)
+            {
+                _pingT = 2f;
+                string ts = now.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+                foreach (var p in _peers) SendSys(p, 11, ts);
+                if (_pingOut < 0f) _pingOut = now;
+                // a player we haven't heard from for 4 s: also send to them through the host
+                foreach (var p in _peers)
+                {
+                    if (p == _hostId || IsHost) continue;
+                    float heard = _lastHeard.TryGetValue(p, out var h) ? h : (_peerSince.TryGetValue(p, out var s) ? s : now);
+                    if (now - heard > 4f && _relayTo.Add(p)) Log("nothing from #" + p + " for 4 s - sending through the host");
+                }
+            }
+            // the host runs the raiders: tell everyone who that is
+            if (IsHost)
+            {
+                _announce -= Time.unscaledDeltaTime;
+                if (_announce <= 0f) { _announce = 1f; _hostId = LocalId; foreach (var p in _peers) SendSys(p, 2, "host"); }
+            }
+        }
+
+        void LateUpdate()
+        {
+            if (!InSession) { _fastOut.SetLength(0); _out.Clear(); return; }
+            if (_peers.Count > 0 && FastBroadcast) FastHealth();
+            // the fast lane goes out the frame it's written (up to 30 a second)
+            if (_fastOut.Length > 0 && Time.unscaledTime - _lastFast >= 1f / 30f) { _lastFast = Time.unscaledTime; FlushFast(); }
+            // reliable batches: 15 a second (10 when the line is backing up)
+            _flushT -= Time.unscaledDeltaTime;
+            if (_flushT > 0f) return;
+            _flushT = Rtt > 0.3f ? 0.1f : 1f / 15f;
+            FlushAll();
+        }
+
+        // =========================================================================================== callbacks
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
             if (runner != _runner) return;
             NotePeer(player);
-            foreach (var p in runner.ActivePlayers) NotePeer(p);
-            if (_inPartySession) OnPartyChanged?.Invoke();
         }
 
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
             if (runner != _runner) return;
-            _peers.Remove(Id(player)); _refs.Remove(Id(player));
-            _names.Remove(Id(player));
-            // the host left: someone else is host now - find out who straight away (relaying and the raiders depend on it)
-            if (Id(player) == _hostId)
+            ulong id = Id(player);
+            if (!_peers.Remove(id)) return;
+            Log("player #" + id + " left" + (_names.TryGetValue(id, out var n) ? " (" + n + ")" : ""));
+            _refs.Remove(id); _names.Remove(id); _relayTo.Remove(id); _out.Remove(id);
+            if (id == _hostId)
             {
                 _hostId = 0;
                 if (IsHost) { _hostId = LocalId; foreach (var p in _peers) SendSys(p, 2, "host"); }
                 else foreach (var p in _peers) SendSys(p, 13, "?");
             }
             PublishNames();
-            OnPeerLeft?.Invoke(Id(player));
-            if (_inPartySession) OnPartyChanged?.Invoke();
-            _idOf.Remove(player);   // the slot can be reused by someone else
+            OnPeerLeft?.Invoke(id);
+            if (_inPartySession) { _status = "Party (" + (_peers.Count + 1) + ")"; OnPartyChanged?.Invoke(); }
         }
 
-        public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+        public void OnShutdown(NetworkRunner runner, ShutdownReason reason)
         {
+            if (runner == _lobby) { _lobby = null; Log("lobby closed: " + reason); return; }
             if (_leaving || runner != _runner) return;
-            _status = "Disconnected (" + shutdownReason + ")";
-            Debug.LogWarning("[Rago] Photon session ended: " + shutdownReason + " (players here: " + _peers.Count + ", rtt " + _rtt.ToString("0.00") + ")");
+            _status = "Disconnected (" + reason + ")";
+            Log("session ended: " + reason + " (" + _peers.Count + " others, rtt " + (_rtt * 1000f).ToString("0") + "ms)", true);
             _peers.Clear();
             if (_inPartySession) { _inPartySession = false; OnPartyChanged?.Invoke(); }
             OnDisconnected?.Invoke();
@@ -1432,12 +1280,12 @@ namespace Rago.Net
         {
             if (_leaving || runner != _runner) return;
             _status = "Disconnected (" + reason + ")";
-            Debug.LogWarning("[Rago] disconnected from Photon: " + reason + " (rtt " + _rtt.ToString("0.00") + ")");
+            Log("disconnected from Photon: " + reason, true);
             OnDisconnected?.Invoke();
         }
 
+        public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { _status = "Connect failed: " + reason; Log("connect failed: " + reason, true); }
         public void OnConnectedToServer(NetworkRunner runner) { }
-        public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { _status = "Connect failed: " + reason; }
         public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
         public void OnInput(NetworkRunner runner, NetworkInput input) { }
         public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
@@ -1450,138 +1298,7 @@ namespace Rago.Net
         public void OnSceneLoadDone(NetworkRunner runner) { }
         public void OnSceneLoadStart(NetworkRunner runner) { }
 
-        float _peerScan;
-
-        /// <summary>
-        /// Make sure a player in our session is on the peer list (and introduced) - whether we learned about them from the
-        /// session's player list or from a message they sent. In Shared mode the players already in a session can reach
-        /// a newcomer's client a moment after it joins, so the list taken at join time can be empty; nothing is ever sent
-        /// to a player who isn't on it, which made other players invisible.
-        /// </summary>
-        void NotePeer(PlayerRef p)
-        {
-            if (_runner == null || p == _runner.LocalPlayer || p.PlayerId < 0) return;
-            ulong id = Id(p);
-            _refs[id] = p;
-            LearnFromUserId(id, p);
-            if (_peers.Contains(id)) return;
-            _peers.Add(id);
-            Debug.Log("[Rago] player joined: id " + id + " (fusion #" + p.PlayerId + ", uid " + (UserIdOf(p) ?? "?") + "), me = " + LocalId + (IsHost ? " (host)" : ", host = " + _hostId));
-            if (IsHost) SendSys(id, 2, "host"); else if (_hostId == 0) SendSys(id, 13, "?");
-            SendSys(id, 3, MyName());
-            if (!_inPartySession && _queueing && _partyCode != null) SendSys(id, 4, _partyCode);
-            OnPeerJoined?.Invoke(id);
-            if (_inPartySession) OnPartyChanged?.Invoke();
-        }
-
-        // ---- presence: someone sitting in their bunker isn't in any session, so nobody could count them. While you're
-        // idle in the bunker you sit in a tiny background "online" session (no traffic) that everyone's lobby lists.
-        NetworkRunner _presence; bool _presenceBusy; float _presenceT;
-        // Off since 2.27: it was a second Photon connection for every player idling in their bunker (on top of the
-        // session lobby), and every connection counts against the Photon plan's player cap - with a few people online the
-        // cap filled up and invites, parties and raids stopped connecting. Idle players just aren't counted as online now.
-        static readonly bool UsePresence = false;
-        async Task JoinPresence()
-        {
-            if (_presence != null || _presenceBusy) return;
-            _presenceBusy = true;
-            try
-            {
-                for (int bucket = 0; bucket < 6 && _presence == null && !InSession; bucket++)
-                {
-                    var go = new GameObject("FusionPresence");
-                    DontDestroyOnLoad(go);
-                    var r = go.AddComponent<NetworkRunner>();
-                    r.ProvideInput = false;
-                    var args = new StartGameArgs { GameMode = GameMode.Shared, SessionName = "rago_online_" + bucket, PlayerCount = 60, SessionProperties = new Dictionary<string, SessionProperty> { { "kind", "online" } } };
-                    UseAppId(ref args, AppId());
-                    UseUserId(ref args, MyName() + "#online~" + UnityEngine.Random.Range(1000, 9999));
-                    StartGameResult res = null;
-                    try { res = await r.StartGame(args); } catch (Exception e) { Debug.Log("[Rago] presence: " + e.Message); }
-                    if (res != null && res.Ok) { _presence = r; break; }
-                    try { await r.Shutdown(); } catch { }
-                    if (go != null) Destroy(go);
-                }
-                if (_presence != null && InSession) await LeavePresence();   // a raid / the Market started meanwhile
-            }
-            finally { _presenceBusy = false; }
-        }
-        async Task LeavePresence()
-        {
-            var r = _presence; _presence = null;
-            if (r == null) return;
-            try { await r.Shutdown(); } catch { }
-            if (r != null) Destroy(r.gameObject);
-        }
-
-        void Update()
-        {
-            _presenceT -= Time.unscaledDeltaTime;
-            if (_presenceT <= 0f && _ready)
-            {
-                _presenceT = 4f;
-                bool idle = !InSession && !_leaving;
-                if (idle && _presence == null && UsePresence) _ = JoinPresence();
-                else if (!idle && _presence != null) _ = LeavePresence();
-                if (_lobby == null && (!InSession || _inPartySession)) _ = EnterLobby();   // in the bunker / a party: keep the invite listener up
-                // the invite beacon only lives while you're away from your bunker, for 5 minutes after the last invite
-                if (_beacon != null && (!InSession || _inPartySession || Time.realtimeSinceStartup > _beaconUntil)) _ = StopBeacon();
-            }
-            // keep the peer list in step with the session (players can show up after we joined)
-            if (InSession)
-            {
-                _peerScan -= Time.unscaledDeltaTime;
-                if (_peerScan <= 0f)
-                {
-                    _peerScan = 0.5f;
-                    try { foreach (var p in _runner.ActivePlayers) NotePeer(p); } catch { }
-                    // the party session's host should be the leader (whoever got back first opened it and became host)
-                    if (_inPartySession && IsHost && _partyCode != null && Key(_partyCode) != Key(MyName()))
-                        foreach (var kv in _names) if (Key(kv.Value) == Key(_partyCode) && _refs.TryGetValue(kv.Key, out var lr)) { MakeMaster(lr); break; }
-                    // the leader queued: follow - read from the party session itself too, not only from a message
-                    if (_inPartySession && !_queueing && _pendingRaidSession == null && _runner.SessionInfo.Properties != null
-                        && _runner.SessionInfo.Properties.TryGetValue("raid", out var rv))
-                    {
-                        var rp = Str(rv).Split('|');
-                        if (rp.Length >= 5 && rp[1] != _lastRaid && long.TryParse(rp[4], out var when) && DateTimeOffset.UtcNow.ToUnixTimeSeconds() - when < 25)
-                        {
-                            _lastRaid = rp[1]; _pendingRaidSession = rp[1]; int.TryParse(rp[2], out _pendingPartySize); _pendingNight = rp[3] == "1"; _wasLeader = false;
-                            OnPartyQueue?.Invoke(rp[0]);
-                        }
-                    }
-                    // a callsign (or party tag) sent the moment someone joined can be lost: keep introducing ourselves to,
-                    // and asking, anyone we still don't have a name for - the party list said "joining..." forever
-                    float now = Time.realtimeSinceStartup;
-                    foreach (var p in _peers)
-                    {
-                        if (_names.ContainsKey(p) && (_partyCode == null || _inPartySession || _peerParty.ContainsKey(p))) continue;
-                        if (_nameAsk.TryGetValue(p, out var t) && now - t < 1.5f) continue;
-                        _nameAsk[p] = now;
-                        SendSys(p, 3, MyName());
-                        if (_partyCode != null && !_inPartySession) SendSys(p, 4, _partyCode);
-                        SendSys(p, 9, "?");
-                    }
-                }
-                _pingT -= Time.unscaledDeltaTime;
-                if (_pingT <= 0f && _peers.Count > 0)
-                {
-                    _pingT = 2f;
-                    string ts = Time.realtimeSinceStartup.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
-                    foreach (var p in _peers) SendSys(p, 11, ts);
-                    CheckLinks();
-                    if (_pingOut < 0f) _pingOut = Time.realtimeSinceStartup;
-                }
-            }
-            // the shared-mode master client runs the NPCs; tell everyone who that is
-            if (!InSession || !IsHost) return;
-            _announce -= Time.unscaledDeltaTime;
-            if (_announce > 0) return;
-            _announce = 1f;
-            _hostId = LocalId;
-            foreach (var p in _peers) SendSys(p, 2, "host");
-        }
-
-        void OnApplicationQuit() { _ = Shutdown(); }
+        void OnApplicationQuit() { _ = Shutdown(); _ = LeaveLobby(); }
     }
 }
 #endif
