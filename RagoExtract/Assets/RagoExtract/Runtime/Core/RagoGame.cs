@@ -321,7 +321,7 @@ namespace Rago
                 Player.Cam.layerCullDistances = cull;
                 Player.Cam.layerCullSpherical = true;
             }
-            if (to == Area.Bunker) { Sfx.SetAmbience(null, 0f); StartCoroutine(BunkerMusic()); }   // the bunker has its own music (no hum or static)
+            if (to == Area.Bunker) Sfx.SetAmbience(null, 0f);   // the bunker is quiet: no music, no hum or static
             else Sfx.SetAmbience(Synth.Ambience(Map.Ambience), to == Area.Welcome ? 0.06f : 0.12f);   // quiet background air / wind
             yield return null;
             if (to == Area.Raid)
@@ -415,14 +415,6 @@ namespace Rago
             prof.loadout = Player.Gear.SaveLoadout();
             prof.loadout.ammo = null;
             prof.Save();
-        }
-
-        /// <summary>Starts the bunker track as soon as it's rendered (the first time takes a moment, in the background).</summary>
-        IEnumerator BunkerMusic()
-        {
-            AudioClip c;
-            while ((c = Music.Bunker()) == null) { if (Area != Area.Bunker) yield break; yield return new WaitForSeconds(0.25f); }
-            if (Area == Area.Bunker) Sfx.SetAmbience(c, 0.28f);
         }
 
         void OnLocalDeath(int killer)

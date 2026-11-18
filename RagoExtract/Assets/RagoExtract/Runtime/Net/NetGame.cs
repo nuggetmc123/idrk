@@ -27,6 +27,15 @@ namespace Rago
         public readonly Dictionary<int, Item> Items = new Dictionary<int, Item>();
         bool _active;
         float _poseT, _npcT, _voiceT, _gearT, _npcFullT;
+        readonly Dictionary<ulong, float> _poseSentTo = new Dictionary<ulong, float>();
+        /// <summary>How often a player at this distance needs your pose: close (or in your squad) every update, mid-range
+        /// ~8 a second, far away 4 a second.</summary>
+        float PoseEvery(ulong id, Vector3 me, float step)
+        {
+            if (!InRaid || NetHub.Backend.IsTeammate(id) || !Remotes.TryGetValue(id, out var rp) || rp == null) return step;
+            float d = (rp.transform.position - me).magnitude;
+            return d < 30f ? step : d < 90f ? Mathf.Max(step, 1f / 8f) : Mathf.Max(step, 1f / 4f);
+        }
         string _lastGear;
         // last raider state sent, per raider: only changes go out (everything is on the reliable channel, which backs up
         // - and lags the whole game - if it's fed more than it can carry)
@@ -46,18 +55,16 @@ namespace Rago
         public void SendVoice(byte[] frame)
         {
             if (!Live || Spectator.Active) return;
-            if (NetHub.Backend.Rtt > 0.45f) return;   // the line is backed up: voice is the biggest thing we send, skip it until it clears
-            // voice is by far the biggest thing we send: only when someone is close enough to hear it (raids are huge)
-            if (InRaid)
-            {
-                var me = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.transform.position : Vector3.zero;
-                bool near = false;
-                foreach (var kv in Remotes) if (kv.Value != null && ((kv.Value.transform.position - me).sqrMagnitude < 50f * 50f || NetHub.Backend.IsTeammate(kv.Key))) { near = true; break; }   // your squad hears you on the radio at any distance
-                if (!near) return;
-            }
+            if (NetHub.Backend.Rtt > 0.3f) return;   // the line is backing up: voice is the biggest thing we send, skip it until it clears
+            // voice is by far the biggest thing we send: only to the players who can actually hear you - near you, or in
+            // your squad (they hear you on the radio). It used to go to everyone once anyone was near.
+            var me = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.transform.position : Vector3.zero;
             var w = W(Msg.Voice);
             w.Write((short)frame.Length); w.Write(frame);
-            Send(false);
+            float hear = InRaid ? 35f : 25f;
+            foreach (var kv in Remotes)
+                if (kv.Value != null && ((kv.Value.transform.position - me).sqrMagnitude < hear * hear || NetHub.Backend.IsTeammate(kv.Key)))
+                    Send(false, kv.Key);
         }
 
         enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed, LockBroken, Market, Door }
@@ -207,9 +214,11 @@ namespace Rago
             {
                 // 15 a second normally; fewer when the line to the other players is backing up (it only ever needs the latest)
                 float rtt = NetHub.Backend.Rtt;
-                float step = rtt < 0.25f ? 1f / 20f : rtt < 0.5f ? 1f / 12f : 1f / 6f;   // 20 a second on a good line
+                // 15 a second at most: Photon's shared mode only sends about 16 times a second, so anything faster just
+                // queued up and arrived late (that's what made 3+ players lag). Slower again when the line backs up.
+                float step = rtt < 0.25f ? 1f / 15f : rtt < 0.5f ? 1f / 10f : 1f / 6f;
                 int others = NetHub.Backend.Peers.Count;
-                if (others >= 4) step = Mathf.Max(step, 1f / 15f);   // a big group: a little less often
+                if (others >= 6) step = Mathf.Max(step, 1f / 12f);
                 _poseT = step;
                 var w = W(Msg.Pose);
                 var root = p.transform.position;
@@ -240,8 +249,16 @@ namespace Rago
                 if (ir != null) { S3(w, ir.transform.position - root, 0.001f); Q(w, ir.transform.rotation); }
                 if (keys) { w.Write(kl); w.Write(kr); _lastKl = kl; _lastKr = kr; }
                 if (gear) { w.Write(gk); _lastGear = gk; }
-                Send(false);
-                NetHub.Backend.FlushNow();   // out this frame - a pose shouldn't sit in the queue waiting for the next batch
+                // who gets this one: everyone near you (and your squad) every time, players far away only a few times a
+                // second - they can barely see you, and every copy is a separate message through Photon
+                float now = Time.time;
+                foreach (var id in NetHub.Backend.Peers)
+                {
+                    float every = keys || gear ? 0f : PoseEvery(id, root, step);
+                    if (_poseSentTo.TryGetValue(id, out var last) && now - last < every - 0.005f) continue;
+                    _poseSentTo[id] = now;
+                    Send(false, id);
+                }
             }
             if (_flying.Count > 0) TrackFlying();
             if (InRaid && NpcDirector.I != null)
@@ -253,7 +270,7 @@ namespace Rago
                 if (_npcT <= 0)
                 {
                     float rtt = NetHub.Backend.Rtt; int others = NetHub.Backend.Peers.Count;
-                    _npcT = (rtt < 0.3f ? 0.15f : rtt < 0.6f ? 0.3f : 0.5f) * (others >= 3 ? 1.3f : 1f);
+                    _npcT = (rtt < 0.3f ? 0.2f : rtt < 0.6f ? 0.35f : 0.5f) * (others >= 4 ? 1.25f : 1f);
                     SendNpcStates(_npcT);
                 }
             }
@@ -527,7 +544,7 @@ namespace Rago
             foreach (var n in list)
             {
                 if (n == null || n.Puppet) continue;   // only the raiders this player runs
-                if (!NearAnyPlayer(n.transform.position, 300f)) continue;   // nobody's anywhere near it: nothing to send
+                if (!NearAnyPlayer(n.transform.position, 160f)) continue;   // nobody's near enough to see it: nothing to send
                 byte st = (byte)((byte)n.State | (n.Alive ? 0x80 : 0));
                 if (!full && _npcSent.TryGetValue(n.Id, out var last) && last.st == st && (last.pos - n.transform.position).sqrMagnitude < 0.0036f
                     && Mathf.Abs(Mathf.DeltaAngle(last.yaw, n.Yaw)) < 3f && (last.aim - n.AimPoint).sqrMagnitude < 0.04f) continue;

@@ -216,7 +216,7 @@ namespace Rago
         readonly System.Collections.Generic.List<Snap> _snaps = new System.Collections.Generic.List<Snap>();
         float _offset = float.MaxValue;   // our clock minus theirs, for the quickest packet seen (slowly relaxed)
         float _ia = 0.07f, _lastArrive;
-        float Delay => Mathf.Clamp(_ia * 1.35f, 0.055f, 0.2f);   // just enough buffer for one late packet (it was up to twice the packet gap: players looked behind)
+        float Delay => Mathf.Clamp(_ia * 1.35f, 0.07f, 0.36f);   // near players (15/s) ~90 ms; far ones get fewer updates, so a longer buffer keeps them smooth   // just enough buffer for one late packet (it was up to twice the packet gap: players looked behind)
 
         public void CommitSnap(float senderT)
         {

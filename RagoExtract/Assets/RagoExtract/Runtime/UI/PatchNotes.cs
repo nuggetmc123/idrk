@@ -5,6 +5,14 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.17", "Smoother multiplayer, fewer crashes", new[] {
+                "MULTIPLAYER with 3+ players: we were sending your movement faster than Photon can deliver it (it sends about 16 times a second), so it queued up and arrived late - and every extra player made the queue longer. Now it's 15 a second and never more than Photon can carry.",
+                "Players far from you get your movement only a few times a second (8 at mid range, 4 far away) - they can barely see you, and every copy is a separate message. Near players and your squad still get every update. Far players are drawn with a slightly longer smoothing buffer so they still move smoothly.",
+                "Voice now goes only to the players who can hear you (within 35 m in raids, or your squad on the radio) - it used to go to everyone once anyone was near, and it's the biggest thing we send. It also pauses sooner when the line backs up.",
+                "Raider updates are sent a little less often and only for raiders someone is near.",
+                "PARTIES / JOINING: each player now uses ONE Photon connection in raids and the Market (it was two or three). Every connection counts towards the Photon plan's player limit, so about 10 people could fill it and parties and joins then failed. The players-online count shows the last number heard while you're in a raid or the Market.",
+                "CRASHES: the bunker music is gone - building it used about 250 MB of memory at once, too much for a Quest.",
+            }),
             ("2.16", "Player markets on screens, clearer trade table", new[] {
                 "The booths are gone - the hall is clear again. Instead there are BLACK MARKET SCREENS (by the lift and in the middle of the hall). PLAYER MARKETS lists everyone selling; OPEN one to see what they sell and what they want for each thing - money, or items (guns, armour, keycards, meds, anything on the list) and how many.",
                 "MY MARKET (level 5+): press CREATE MY MARKET, put items on the red square, pick which one to sell, then pick what you want for it: MONEY (and the price) or ANY item in the game - choose the kind (guns, armour, bags, optics, attachments, meds, ammo, valuables & keys, grenades & melee, junk) and then the exact item, and how many. Press LIST IT. UNLIST sends it back to your bunker. Your market is open whenever you're in the Market.",

@@ -225,7 +225,7 @@ namespace Rago.Net
         NetworkRunner _beacon; bool _beaconBusy; float _beaconUntil;
         async Task InviteBeacon()
         {
-            _beaconUntil = Time.realtimeSinceStartup + 300f;
+            _beaconUntil = Time.realtimeSinceStartup + 120f;   // two minutes: long enough for their lobby to see it
             var props = new Dictionary<string, SessionProperty> { { "kind", "party" }, { "lead", MyName() }, { "inv", string.Join(",", _invited.ConvertAll(Key)) }, { "names", MyName() } };
             if (_beacon != null)
             {
@@ -364,7 +364,7 @@ namespace Rago.Net
         // ---- the session lobby: lets you receive bunker invites while you're not in any session
         async Task EnterLobby()
         {
-            if (_lobby != null) return;   // one lobby listener, kept up everywhere
+            if (_lobby != null || (InSession && !_inPartySession)) return;   // in a party (even just you): keep listening
             try
             {
                 var go = new GameObject("FusionLobby");
@@ -422,7 +422,8 @@ namespace Rago.Net
                 if (s > 0) { _statsCache = Mathf.Max(1, s - _partyListed); _statsCacheT = Time.realtimeSinceStartup; }
                 int here = InSession ? _peers.Count + 1 : 1;
                 bool fresh = _statsCache > 0 && Time.realtimeSinceStartup - _statsCacheT < 30f;
-                bool listFresh = _listedPlayers > 0 && Time.realtimeSinceStartup - _listedAt < 30f;
+                // in a raid / the Market the lobby is closed (one connection each): show the last count we heard
+                bool listFresh = _listedPlayers > 0 && Time.realtimeSinceStartup - _listedAt < (InSession && !_inPartySession ? 900f : 30f);
                 if (fresh) return Mathf.Max(here, _statsCache);
                 if (listFresh) return Mathf.Max(here, _listedPlayers);
                 return here;
@@ -739,9 +740,12 @@ namespace Rago.Net
             await Shutdown();
             // a party lobby keeps the invite listener running (invites to you only arrive through it); a raid or the
             // Market doesn't need it
-            // keep the lobby listening everywhere (Market and raids too): it's what keeps the players-online count and
-            // party invites up to date - it used to close, so in the Market or a raid the count fell back to "1"
+            // a raid or the Market: one Photon connection per player, not two (every connection counts towards the plan's
+            // player limit - at two or three each, about 10 people filled a 20 player plan and parties failed to join).
+            // A party lobby keeps the invite listener.
             await LeavePresence();
+            bool party = props != null && props.TryGetValue("kind", out var kk) && Str(kk) == "party";
+            if (!party) await LeaveLobby();
             _inPartySession = false;
             _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear(); _fwdOut.Clear(); _rtt = 0f; _pingOut = -1f;
             _lastHeard.Clear(); _peerSince.Clear(); _relayTo.Clear(); _hostId = 0; _idOf.Clear();
@@ -1050,7 +1054,7 @@ namespace Rago.Net
             if (!InSession) { _out.Clear(); _fwdOut.Clear(); return; }
             _flushT -= Time.unscaledDeltaTime;
             if (_flushT > 0f) return;
-            _flushT = Rtt > 0.3f ? 0.1f : 0.05f;   // 20 batched packets a second per player: sending every frame (2.1) meant hundreds of reliable sends a second and the line backed up again
+            _flushT = Rtt > 0.3f ? 0.1f : 1f / 15f;   // in step with the pose rate (and Photon's own ~16 sends a second)   // 20 batched packets a second per player: sending every frame (2.1) meant hundreds of reliable sends a second and the line backed up again
             foreach (var kv in _out) Flush(kv.Key, kv.Value);
             foreach (var kv in _fwdOut) FlushFwd(kv.Key, kv.Value);
         }
@@ -1411,7 +1415,7 @@ namespace Rago.Net
                 bool idle = !InSession && !_leaving;
                 if (idle && _presence == null) _ = JoinPresence();
                 else if (!idle && _presence != null) _ = LeavePresence();
-                if (_lobby == null) _ = EnterLobby();   // the lobby is what hears the count: keep it up
+                if (_lobby == null && (!InSession || _inPartySession)) _ = EnterLobby();   // in the bunker / a party: keep the invite listener up
                 // the invite beacon only lives while you're away from your bunker, for 5 minutes after the last invite
                 if (_beacon != null && (!InSession || _inPartySession || Time.realtimeSinceStartup > _beaconUntil)) _ = StopBeacon();
             }
