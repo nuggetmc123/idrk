@@ -1360,11 +1360,11 @@ namespace Rago
             var scr = UI.Panel(lid, "Screen", new Vector3(0, 0.125f, -0.004f), Quaternion.identity, new Vector2(0.31f, 0.19f), null, false, Skin.Crt);
             UI.Text(scr, "EXFIL UPLINK", new Vector3(-0.14f, 0.075f, 0), 0.016f, UI.CrtDim, TextAnchor.MiddleLeft, FontStyle.Bold);
             _screen = UI.Text(scr, "READY", new Vector3(0, 0.01f, 0), 0.05f, UI.CrtGreen, TextAnchor.MiddleCenter, FontStyle.Bold);
-            _screenSub = UI.Text(scr, "PRESS TO CALL EXFIL", new Vector3(0, -0.055f, 0), 0.016f, UI.CrtDim, TextAnchor.MiddleCenter);
-            UI.Button(scr, "CALL EXFIL", new Vector3(0.0f, -0.055f, -0.004f), new Vector2(0.2f, 0.04f), Call, null, BtnStyle.Crt).Label.text = "";
+            _screenSub = UI.Text(scr, "TOUCH CALL TO EXFIL", new Vector3(0, -0.055f, 0), 0.016f, UI.CrtDim, TextAnchor.MiddleCenter);
+            _touchA = UI.Button(scr, "CALL EXFIL", new Vector3(0.0f, -0.055f, -0.004f), new Vector2(0.2f, 0.04f), Call, null, BtnStyle.Crt).transform; _touchA.GetComponent<WorldButton>().Label.text = "";
             var deck = new GameObject("Deck").transform; deck.SetParent(_laptop, false);
             deck.localPosition = new Vector3(0, 0.474f, -0.04f); deck.localRotation = Quaternion.Euler(90, 0, 0);
-            UI.Button(deck, "CALL", new Vector3(0, 0, 0), new Vector2(0.12f, 0.06f), Call, new Color(0.2f, 0.42f, 0.2f), BtnStyle.Key);
+            _touchB = UI.Button(deck, "CALL", new Vector3(0, 0, 0), new Vector2(0.12f, 0.06f), Call, new Color(0.2f, 0.42f, 0.2f), BtnStyle.Key).transform;
             var col = _laptop.gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.3f, 0); col.size = new Vector3(0.62f, 0.62f, 0.46f);
             _laptop.gameObject.AddComponent<ExfilLaptop>().zone = this;
         }
@@ -1430,6 +1430,7 @@ namespace Rago
 
         void Start() { PlaceLaptop(); }
 
+        Transform _touchA, _touchB;   // the CALL buttons: touching one calls the exfil
         void Update()
         {
             var p = RagoGame.I != null ? RagoGame.I.Player : null;
@@ -1447,6 +1448,11 @@ namespace Rago
                 return;
             }
             if (!_announced) { _announced = true; if (RaidManager.I.Elapsed > 2f) p.Toast("Extract open: " + Name); }
+            // VR: just touch the CALL button (or the screen's button) with either hand - no trigger needed
+            if (!_calling && XRInputs.VR && inside)
+                foreach (var h in new[] { p.HandL, p.HandR })
+                    if (h != null && ((_touchA != null && Vector3.Distance(h.TrackedPosition, _touchA.position) < 0.07f) || (_touchB != null && Vector3.Distance(h.TrackedPosition, _touchB.position) < 0.07f)))
+                    { h.Haptic(0.5f, 0.08f); Call(); break; }
             // desktop: look at the laptop and press F
             if (!_calling && !XRInputs.VR && Desktop.Interact && Physics.Raycast(p.Head.position, p.Head.forward, out var hit, 3f, ~0, QueryTriggerInteraction.Collide) && hit.collider.transform.IsChildOf(_laptop)) Call();
             if (_calling)
@@ -1456,7 +1462,7 @@ namespace Rago
                     _calling = false; _t = 0;
                     Sfx.UI(Synth.UiError(), 0.4f);
                     p.Hud.Center("EXFIL ABORTED\n<size=40>you left the zone</size>", 2f);
-                    SetScreen("SIGNAL LOST", "PRESS TO CALL AGAIN");
+                    SetScreen("SIGNAL LOST", "TOUCH CALL AGAIN");
                     return;
                 }
                 _t += Time.deltaTime;
@@ -1470,7 +1476,7 @@ namespace Rago
             else
             {
                 _t = 0;
-                SetScreen(inside ? "READY" : "STANDBY", inside ? "PRESS TO CALL EXFIL" : "ENTER THE ZONE");
+                SetScreen(inside ? "READY" : "STANDBY", inside ? (XRInputs.VR ? "TOUCH CALL TO EXFIL" : "PRESS F TO CALL EXFIL") : "ENTER THE ZONE");
                 if (inside) p.Hud.Center("Use the laptop to call the exfil", 0.2f);
             }
         }

@@ -18,6 +18,7 @@ namespace Rago
                 "LESS DELAY in the Market and raids: your movement is sent 20 times a second (was 15) and goes out the moment it's ready instead of waiting for the next batch, and other players are drawn closer to real time (a smaller smoothing buffer).",
                 "PARTY INVITES from the Market or a raid now go out straight away (they used to wait until you were back in your bunker) - your friend gets them wherever they are.",
                 "New posters on the bunker and Market walls.",
+                "EXFIL: just touch the CALL button on the extract laptop with either hand to call your exfil - no trigger needed.",
                 "Items laid on the red square lie across it (guns no longer point at you or into the screen).",
             }),
             ("2.15", "Swap trades, booths for everyone, med fix", new[] {
