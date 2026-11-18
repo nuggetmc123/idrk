@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.25", "Armour you wore in comes home again", new[] {
+                "Back to how it was: the armour you wore into a raid comes home if you die. Only the free starter helmet and vest stay gone (they no longer reappear on your stands after a death).",
+            }),
             ("2.24", "Bunker floor, dupe fixes", new[] {
                 "The Lost & Found bin is gone. Anything you put down in your bunker - floor, tables, shelf tops - stays exactly where you left it, even after raids and restarts.",
                 "If your racks are full when the game loads, the extra items wait on the floor by the west wall of the main hall.",
