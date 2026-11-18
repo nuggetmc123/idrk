@@ -339,7 +339,7 @@ namespace Rago
         {
             foreach (var sd in _s)
                 foreach (var c in new[] { sd.grid, sd.tray })
-                    foreach (var sl in c.slots) if (sl.item != null) { var it = sl.item; into.Add(it.Save()); sl.Release(it); Destroy(it.gameObject); }
+                    foreach (var sl in c.slots) if (sl.item != null) { var it = sl.item; into.Add(it.Save()); sl.Release(it); Item.Discard(it); }
         }
 
         void OnDestroy() { if (I == this) I = null; }
@@ -784,7 +784,7 @@ namespace Rago
         public void SweepToStash(List<ItemData> into)
         {
             foreach (var sl in _pad.slots)
-                if (sl.item != null) { var it = sl.item; into.Add(it.Save()); sl.Release(it); Destroy(it.gameObject); }
+                if (sl.item != null) { var it = sl.item; into.Add(it.Save()); sl.Release(it); Item.Discard(it); }
         }
     }
 }

@@ -226,7 +226,7 @@ namespace Rago
                 if (s.item == null || s.item.def == null) continue;
                 if (BunkerJobs.Needed(p, s.item.def.id) <= 0) continue;
                 BunkerJobs.TurnIn(p, s.item.def.id);
-                var it = s.item; s.Release(it); Destroy(it.gameObject);
+                var it = s.item; s.Release(it); Item.Discard(it);
                 n++;
             }
             if (n == 0) return;
@@ -254,7 +254,7 @@ namespace Rago
 
         public void SweepToStash(List<ItemData> into)
         {
-            foreach (var s in _tray.slots) if (s.item != null) { into.Add(s.item.Save()); var it = s.item; s.Release(it); Destroy(it.gameObject); }
+            foreach (var s in _tray.slots) if (s.item != null) { into.Add(s.item.Save()); var it = s.item; s.Release(it); Item.Discard(it); }
         }
 
         void LateUpdate()

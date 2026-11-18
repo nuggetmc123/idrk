@@ -345,10 +345,13 @@ namespace Rago
         }
 
         /// <summary>Leaving the bunker: a gun left in the clamp goes back to the stash.</summary>
+        /// <summary>The gun in the clamp, saved without taking it out (the bunker saves it with the stash).</summary>
+        public void SaveTo(List<ItemData> into) { var sl = _clamp.slots[0]; if (sl.item != null) into.Add(sl.item.Save()); }
+
         public void SweepToStash(List<ItemData> into)
         {
             var sl = _clamp.slots[0];
-            if (sl.item != null) { var it = sl.item; into.Add(it.Save()); sl.Release(it); Destroy(it.gameObject); }
+            if (sl.item != null) { var it = sl.item; into.Add(it.Save()); sl.Release(it); Item.Discard(it); }
         }
     }
 }

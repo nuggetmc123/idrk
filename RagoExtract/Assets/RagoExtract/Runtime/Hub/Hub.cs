@@ -125,7 +125,7 @@ namespace Rago
             Sfx.UI(Synth.Beep(), 0.5f);
             _status.text = "> RECONNECTING TO YOUR RAID...";
             HudQueue("RECONNECTING", true);
-            RagoGame.I.SaveHubState();
+            RagoGame.I.SaveHubState(false);   // a snapshot: you're still in the bunker
             NetHub.Backend.Reconnect(ok =>
             {
                 _reconnecting = false;
@@ -247,7 +247,7 @@ namespace Rago
             _queueBtn.SetText("CANCEL"); _queueBtn.SetColor(new Color(0.6f, 0.14f, 0.1f));
             Sfx.UI(Synth.Beep(), 0.5f);
             // save the loadout before matchmaking so a crash can't eat gear
-            RagoGame.I.SaveHubState();
+            RagoGame.I.SaveHubState(false);   // a snapshot: you're still in the bunker
             if (NetHub.Online) NetHub.Backend.QueueRaid(_map, OnStatus, OnStart, OnFailed);
             else _offline = StartCoroutine(OfflineQueue());
         }
@@ -539,7 +539,7 @@ namespace Rago
         {
             int total = 0;
             foreach (var s in _sell.slots)
-                if (s.item != null) { total += SellValue(s.item); var it = s.item; s.Release(it); Destroy(it.gameObject); }
+                if (s.item != null) { total += SellValue(s.item); var it = s.item; s.Release(it); Item.Discard(it); }
             if (total == 0) { Sfx.UI(Synth.UiError(), 0.3f); return; }
             Profile.Current.money += total;
             Profile.Current.Save();
@@ -568,8 +568,8 @@ namespace Rago
 
         public void SweepToStash(List<ItemData> into)
         {
-            foreach (var s in _delivery.slots) if (s.item != null) { into.Add(s.item.Save()); var it = s.item; s.Release(it); Destroy(it.gameObject); }
-            foreach (var s in _sell.slots) if (s.item != null) { into.Add(s.item.Save()); var it = s.item; s.Release(it); Destroy(it.gameObject); }
+            foreach (var s in _delivery.slots) if (s.item != null) { into.Add(s.item.Save()); var it = s.item; s.Release(it); Item.Discard(it); }
+            foreach (var s in _sell.slots) if (s.item != null) { into.Add(s.item.Save()); var it = s.item; s.Release(it); Item.Discard(it); }
         }
 
         public static List<TraderDef> Defaults()
@@ -793,7 +793,7 @@ namespace Rago
             if (_overflow.Count == 0) { RagoGame.I.Player.Toast("Nothing on the next page"); return; }
             // swap the visible items with the hidden ones
             var visible = new List<ItemData>();
-            foreach (var s in AllSlots()) if (s.item != null) { visible.Add(s.item.Save()); var it = s.item; s.Release(it); Destroy(it.gameObject); }
+            foreach (var s in AllSlots()) if (s.item != null) { visible.Add(s.item.Save()); var it = s.item; s.Release(it); Item.Discard(it); }
             var hidden = new List<ItemData>(_overflow);
             _overflow.Clear();
             foreach (var d in hidden) Place(d);

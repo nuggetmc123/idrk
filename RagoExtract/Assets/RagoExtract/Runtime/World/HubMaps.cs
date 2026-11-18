@@ -16,8 +16,48 @@ namespace Rago
             foreach (var s in Stash) if (s != null) l.AddRange(s.Save());
             // the med cabinet keeps its own contents (it used to go into the stash too, so the meds came back twice and spilled into the Lost & Found)
             if (_medCabinet != null && Profile.Current != null) Profile.Current.medCabinet = _medCabinet.Save();
-            if (LostAndFound.I != null) l.AddRange(LostAndFound.I.Save());
+            foreach (var pb in GetComponentsInChildren<PaintBooth>()) pb.SaveTo(l);   // a gun in the paint booth's clamp
             return l;
+        }
+
+        /// <summary>Everything lying loose in the bunker (floor, tables, shelf tops), with where it is. Nothing is moved.</summary>
+        public List<FloorItem> SaveFloor(Transform root)
+        {
+            var l = new List<FloorItem>();
+            foreach (var it in Item.All)
+            {
+                if (it == null || it.Gone || it.Held || it.slot != null || it is Magazine) continue;
+                if (it is SightItem si && si.onGun != null) continue;
+                if (it is AttachItem ai && ai.onGun != null) continue;
+                if (it.transform.parent != null && it.transform.parent != root) continue;   // in a bag, on a gun, carried
+                ItemData d = null;
+                try { d = it.Save(); } catch (System.Exception e) { Debug.LogWarning("[Rago] floor save: " + e.Message); }
+                if (d == null) continue;
+                Vector3 p = it.transform.position;
+                if (p.y < -2f || p.y > 6f) p = OverflowSpot(l.Count);   // fell out of the world: it waits by the west wall instead
+                l.Add(new FloorItem { item = d, pos = p, rot = it.transform.rotation });
+            }
+            return l;
+        }
+
+        /// <summary>A free patch of floor by the west wall of the main hall, for things that have nowhere else to go.</summary>
+        Vector3 OverflowSpot(int i) => transform.TransformPoint(new Vector3(-16f / 2 + 0.6f + (i % 3) * 0.5f, 0.25f, 2.4f + (i / 3 % 6) * 0.5f));
+
+        void LoadFloor(List<ItemData> overflow)
+        {
+            var prof = Profile.Current;
+            if (prof == null || !Application.isPlaying) return;
+            if (prof.bunkerFloor == null) prof.bunkerFloor = new List<FloorItem>();
+            foreach (var f in prof.bunkerFloor)
+            {
+                if (f == null || f.item == null) continue;
+                try { ItemFactory.Spawn(f.item, f.pos + Vector3.up * 0.02f, f.rot); } catch (System.Exception e) { Debug.LogWarning("[Rago] floor item: " + e.Message); }
+            }
+            int k = 0;
+            foreach (var d in overflow)
+            {
+                try { ItemFactory.Spawn(d, OverflowSpot(k++) + Vector3.up * 0.1f * (k / 18), Quaternion.Euler(0, 90, 0)); } catch (System.Exception e) { Debug.LogWarning("[Rago] overflow item: " + e.Message); }
+            }
         }
 
         ItemContainer _medCabinet;
@@ -25,6 +65,7 @@ namespace Rago
         void LoadStash()
         {
             if (Profile.Current == null) return;
+            var overflow = new List<ItemData>();
             foreach (var d in new List<ItemData>(Profile.Current.stash))
             {
                 // fill the main rooms first, then the expansion rooms; overflow goes on the first section's next page
@@ -32,17 +73,13 @@ namespace Rago
                 bool placed = false;
                 foreach (var s in Stash) if (s.kind == k && s.Place(d, false)) { placed = true; break; }
                 if (!placed && k == StashKind.Weapons) foreach (var s in Stash) if (s.kind == StashKind.Gear && s.Place(d, false)) { placed = true; break; }
-                // no room on any rack or shelf: it waits in the Lost & Found (never on a hidden page)
-                if (!placed && LostAndFound.I != null) { LostAndFound.I.Add(d); placed = true; }
-                if (!placed) foreach (var s in Stash) if (s.kind == k) { s.Place(d, true); break; }
+                // no room on any rack or shelf: it goes on the floor by the west wall (and stays there until you move it)
+                if (!placed) overflow.Add(d);
             }
-            // died and lost all your armour? a beat-up bump helmet and soft vest turn up on the stands, so you never raid naked
-            var prof = Profile.Current;
-            bool anyArmor = !string.IsNullOrEmpty(prof.loadout.helmet) || !string.IsNullOrEmpty(prof.loadout.vest) || prof.stash.Exists(d => Db.Get<ArmorDef>(d.id) != null);
-            if (!anyArmor && prof.freeArmor)
-                foreach (var s in Stash) if (s.kind == StashKind.Armor) { s.Place(new ItemData("helm_bump")); s.Place(new ItemData("vest_soft")); }
-            if (Application.isPlaying) prof.freeArmor = false;
+            // (no free armour after a death any more: what you lose is lost)
+            if (Application.isPlaying) Profile.Current.freeArmor = false;
             foreach (var s in Stash) s.Refresh();
+            LoadFloor(overflow);
         }
 
         // ------------------------------------------------------------------------------- expansions
@@ -307,7 +344,6 @@ namespace Rago
                 Tutorial.Create(transform, new Vector3(-W / 2 - 3f, 0, 0), new Vector3(W / 2 + 3.5f, 0, -2f),
                     new Vector3(0, 0, D / 2 + 3f), new Vector3(W / 2 - 1.9f, 0, 4.2f), new Vector3(2.5f, 0, -D / 2 + 1.2f));
             BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
-            LostAndFound.Create(transform, new Vector3(-W / 2 + 0.55f, 0, 3.6f), -90f);
             // a wall screen on the south wall, right of the lift
             Posters.Screen(transform, new Vector3(5.6f, 1.75f, -D / 2 + 0.16f), 180f, new Vector2(1.1f, 0.65f));
             // the secret one: low on the wall behind the raid kiosk - you have to look behind it

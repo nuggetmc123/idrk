@@ -4,6 +4,10 @@ using UnityEngine;
 
 namespace Rago
 {
+    /// <summary>An item left on the bunker floor (or a table, a shelf top...) and exactly where it was.</summary>
+    [System.Serializable]
+    public class FloorItem { public ItemData item; public Vector3 pos; public Quaternion rot = Quaternion.identity; }
+
     /// <summary>Persistent player progress: money, stash, loadout, stats, settings. Saved as JSON.</summary>
     [System.Serializable]
     public class Profile
@@ -16,6 +20,7 @@ namespace Rago
         public int quality = 1;    // graphics: 0 low, 1 medium, 2 high (how far grass, bushes and trees are drawn, shadows)   // your colour was fixed when you picked your callsign: it never changes after that
         public int raids, extracts, deaths, kills, xp;
         public List<ItemData> stash = new List<ItemData>();
+        public List<FloorItem> bunkerFloor = new List<FloorItem>();   // things left lying around the bunker: they stay exactly where you put them
         public int[] stashAmmo = new int[System.Enum.GetValues(typeof(Caliber)).Length];
         public int[] stashAp = new int[System.Enum.GetValues(typeof(Caliber)).Length], stashInc = new int[System.Enum.GetValues(typeof(Caliber)).Length];
         public Loadout loadout = new Loadout();

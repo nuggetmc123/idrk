@@ -130,7 +130,7 @@ namespace Rago
         {
             int total = 0, n = 0;
             foreach (var s in _bin.slots)
-                if (s.item != null) { total += Offer(s.item, out _); n++; var it = s.item; s.Release(it); Destroy(it.gameObject); }
+                if (s.item != null) { total += Offer(s.item, out _); n++; var it = s.item; s.Release(it); Item.Discard(it); }
             if (n == 0) return;
             _last = n + " item(s)  $" + total.ToString("N0");
             Profile.Current.money += total;
@@ -144,7 +144,7 @@ namespace Rago
         public void SweepToStash(List<ItemData> into)
         {
             if (_bin == null) return;
-            foreach (var s in _bin.slots) if (s.item != null) { into.Add(s.item.Save()); var it = s.item; s.Release(it); Destroy(it.gameObject); }
+            foreach (var s in _bin.slots) if (s.item != null) { into.Add(s.item.Save()); var it = s.item; s.Release(it); Item.Discard(it); }
         }
     }
 }

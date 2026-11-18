@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.24", "Bunker floor, dupe fixes", new[] {
+                "The Lost & Found bin is gone. Anything you put down in your bunker - floor, tables, shelf tops - stays exactly where you left it, even after raids and restarts.",
+                "If your racks are full when the game loads, the extra items wait on the floor by the west wall of the main hall.",
+                "Fixed guns duplicating when left in the paint booth (and the same dupe with items left in Exchange bins, market stalls and trader trays).",
+                "Dying now loses the armour you wore in too, and no free helmet and vest turn up on your stands after a death.",
+                "Queueing for a raid no longer moves things around your bunker (it only saves).",
+            }),
             ("2.23", "The screen lives in the bunker", new[] {
                 "The YES, IT'S VIBE CODED screen is in your bunker now (south wall, right of the lift); the Market one is gone.",
             }),

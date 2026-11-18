@@ -221,7 +221,7 @@ namespace Rago
         }
 
         float _autosaveT;
-        /// <summary>Snapshot the bunker (racks, shelves, Lost &amp; Found, anything lying around) without moving anything.</summary>
+        /// <summary>Snapshot the bunker (racks, shelves, the paint booth, anything lying around) without moving anything.</summary>
         void AutosaveBunker()
         {
             var prof = Profile.Current;
@@ -229,16 +229,8 @@ namespace Rago
             if (prof == null || bunker == null || Player == null || Player.Gear == null || MapRoot == null) return;
             try
             {
-                var stash = bunker.SaveStash();
-                foreach (var it in Item.All)
-                {
-                    if (it == null || it.Held || it.slot != null || it is Magazine) continue;
-                    if (it is SightItem si && si.onGun != null) continue;
-                    if (it is AttachItem ai && ai.onGun != null) continue;
-                    if (!it.transform.IsChildOf(MapRoot) && it.transform.parent != null) continue;
-                    var d = it.Save(); if (d != null) stash.Add(d);
-                }
-                prof.stash = stash;
+                prof.stash = bunker.SaveStash();
+                prof.bunkerFloor = bunker.SaveFloor(MapRoot);
                 var lo = Player.Gear.SaveLoadout(); lo.ammo = null; prof.loadout = lo;
                 prof.Save();
             }
@@ -389,28 +381,45 @@ namespace Rago
             _travelling = false;
         }
 
-        /// <summary>Save stash + loadout while in the bunker / market.</summary>
-        public void SaveHubState()
+        /// <summary>Save stash + loadout while in the bunker / market. leaving = we're about to tear the area down (or quit):
+        /// in the Market that sends everything left out home; in the bunker nothing is ever moved - things on the floor
+        /// are saved where they lie (only a loose mag is turned back into rounds, when you leave).</summary>
+        public void SaveHubState() => SaveHubState(true);
+        public void SaveHubState(bool leaving)
         {
             var prof = Profile.Current;
             if (prof == null || Player == null || Player.Gear == null) return; // the game didn't finish starting: nothing to save
             var bunker = Map as BunkerMap;
             var market = Map as MarketMap;
             var loose = new List<ItemData>();
-            if (bunker != null) prof.stash = bunker.SaveStash();
-            foreach (var pb in FindObjectsOfType<PaintBooth>()) pb.SweepToStash(loose);   // a gun left in the paint booth's clamp
-            if (market != null) { foreach (var s in market.Stalls) s.SweepToStash(loose); if (market.Foreman != null) market.Foreman.SweepToStash(loose); if (LostAndFound.I != null) loose.AddRange(LostAndFound.I.Save()); if (TradeTable.I != null) TradeTable.I.SweepToStash(loose); foreach (var sc in FindObjectsOfType<ShopScreen>()) sc.SweepToStash(loose); Shops.LeaveMarket(); }   // the Market's Lost & Found goes home too
-            foreach (var ss in new List<SellStation>(SellStation.All)) if (ss != null) ss.SweepToStash(loose);   // unsold loot left in an Exchange bin
-            // anything lying around the hub goes back to the stash
-            if (MapRoot != null)
-                foreach (var it in new List<Item>(Item.All))
-                {
-                    if (it is Magazine lm && lm.inGun == null && !it.Held && it.slot == null && it.transform.parent == null) { (lm.ammoType == AmmoType.AP ? prof.stashAp : lm.ammoType == AmmoType.Incendiary ? prof.stashInc : prof.stashAmmo)[(int)lm.cal] += lm.rounds; Destroy(it.gameObject); continue; }   // a loose mag: its rounds go back to the reserve
-                    if (it == null || it.Held || it.slot != null || it is Magazine) continue;
-                    if (!it.transform.IsChildOf(MapRoot) && it.transform.parent != null) continue;
-                    loose.Add(it.Save());
-                    Destroy(it.gameObject);
-                }
+            if (bunker != null)
+            {
+                // racks, shelves, med cabinet and the paint booth's clamp; then everything lying around, where it lies
+                prof.stash = bunker.SaveStash();
+                if (leaving && MapRoot != null)
+                    foreach (var it in new List<Item>(Item.All))
+                        if (it is Magazine lm && !it.Gone && lm.inGun == null && !it.Held && it.slot == null && it.transform.parent == null)
+                        { (lm.ammoType == AmmoType.AP ? prof.stashAp : lm.ammoType == AmmoType.Incendiary ? prof.stashInc : prof.stashAmmo)[(int)lm.cal] += lm.rounds; Item.Discard(it); }   // a loose mag: its rounds go back to the reserve
+                if (MapRoot != null) prof.bunkerFloor = bunker.SaveFloor(MapRoot);
+            }
+            else if (leaving)
+            {
+                if (market != null) { foreach (var s in market.Stalls) s.SweepToStash(loose); if (market.Foreman != null) market.Foreman.SweepToStash(loose); if (TradeTable.I != null) TradeTable.I.SweepToStash(loose); foreach (var sc in FindObjectsOfType<ShopScreen>()) sc.SweepToStash(loose); Shops.LeaveMarket(); }
+                foreach (var ss in new List<SellStation>(SellStation.All)) if (ss != null) ss.SweepToStash(loose);   // unsold loot left in an Exchange bin
+                // anything lying around the Market goes back to the stash (swept items are already Gone: never saved twice)
+                if (MapRoot != null)
+                    foreach (var it in new List<Item>(Item.All))
+                    {
+                        if (it == null || it.Gone) continue;
+                        if (it is Magazine lm && lm.inGun == null && !it.Held && it.slot == null && it.transform.parent == null) { (lm.ammoType == AmmoType.AP ? prof.stashAp : lm.ammoType == AmmoType.Incendiary ? prof.stashInc : prof.stashAmmo)[(int)lm.cal] += lm.rounds; Item.Discard(it); continue; }
+                        if (it.Held || it.slot != null || it is Magazine) continue;
+                        if (it is SightItem si && si.onGun != null) continue;
+                        if (it is AttachItem ai && ai.onGun != null) continue;
+                        if (!it.transform.IsChildOf(MapRoot) && it.transform.parent != null) continue;
+                        loose.Add(it.Save());
+                        Item.Discard(it);
+                    }
+            }
             prof.stash.AddRange(loose);
             if (loose.Count > 0 && bunker == null) Player.Toast(loose.Count + " item(s) sent to your stash");
             prof.loadout = Player.Gear.SaveLoadout();
@@ -432,7 +441,7 @@ namespace Rago
             GoTo(Area.Bunker);
         }
 
-        void OnApplicationPause(bool paused) { if (paused && (Area == Area.Bunker || Area == Area.Market)) SaveHubState(); }
+        void OnApplicationPause(bool paused) { if (paused && (Area == Area.Bunker || Area == Area.Market)) SaveHubState(Area == Area.Market); }   // the bunker: just a snapshot (you might come back to it)
         void OnApplicationQuit() { if (Area == Area.Bunker || Area == Area.Market) SaveHubState(); }
     }
 
@@ -456,7 +465,7 @@ namespace Rago
         float _start;
         public float Elapsed => Time.time - _start;
         int _startValue;
-        string _startHelmet, _startVest;   // the armour you wore in: it comes home if you die
+        string _startHelmet, _startVest;   // the armour you wore in
 
         public static void Begin(RagoGame g, MapBase map, RaidStart rs)
         {
@@ -585,8 +594,7 @@ namespace Rago
         {
             prof.inRaid = false;
             prof.deaths++;
-            prof.loadout = new Loadout { hasPack = true, packId = "pack_day", helmet = prof.loadout != null ? prof.loadout.helmet ?? "" : "", vest = prof.loadout != null ? prof.loadout.vest ?? "" : "" };   // your raid armour comes back
-            prof.freeArmor = true;
+            prof.loadout = new Loadout { hasPack = true, packId = "pack_day" };   // raid armour is lost too
             bool hasGun = prof.stash.Exists(d => Db.Get<GunDef>(d.id) != null);
             if (!hasGun) prof.loadout.pistol = new ItemData("p9");
             if (prof.stashAmmo[(int)Caliber.C9mm] < 34) prof.stashAmmo[(int)Caliber.C9mm] = 34;
@@ -605,17 +613,14 @@ namespace Rago
             BunkerJobs.RaidFinished(prof);
             var gear = _g.Player.Gear;
             var carried = gear.AllCarried();
-            int hi = carried.FindIndex(d => !string.IsNullOrEmpty(_startHelmet) && d.id == _startHelmet); if (hi >= 0) carried.RemoveAt(hi);
-            int vi = carried.FindIndex(d => !string.IsNullOrEmpty(_startVest) && d.id == _startVest); if (vi >= 0) carried.RemoveAt(vi);
             // drop everything you carried as lootable items around your body
             var pos = _g.Player.Body.Rig.chest.position;
             NetGame.I?.LocalDied(pos, carried);
             if (!NetGame.Live)
                 foreach (var d in carried) ItemFactory.Spawn(d, pos + Vector3.up * 0.4f + Random.insideUnitSphere * 0.4f, Random.rotation);
             gear.ClearAll();
-            // everything is lost except the armour you wore in (starter armour or what was on your armour stand) - that comes home
-            prof.loadout = new Loadout { hasPack = true, packId = "pack_day", helmet = _startHelmet ?? "", vest = _startVest ?? "" };
-            prof.freeArmor = true;
+            // everything you took in is lost, armour included (it's on your body for whoever finds it)
+            prof.loadout = new Loadout { hasPack = true, packId = "pack_day" };
             bool hasGun = prof.stash.Exists(d => Db.Get<GunDef>(d.id) != null);
             if (!hasGun) prof.loadout.pistol = new ItemData("p9");
             if (prof.stashAmmo[(int)Caliber.C9mm] < 34) prof.stashAmmo[(int)Caliber.C9mm] = 34;

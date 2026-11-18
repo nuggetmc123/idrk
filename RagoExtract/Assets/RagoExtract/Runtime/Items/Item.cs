@@ -47,6 +47,10 @@ namespace Rago
             All.Add(this);
         }
         protected virtual void OnDestroy() { All.Remove(this); }
+        /// <summary>Set once the item has been saved into the stash and is on its way out (destroyed at the end of the frame).</summary>
+        public bool Gone;
+        /// <summary>Remove a swept item right now: off the list at once, so nothing that runs later this frame saves it twice.</summary>
+        public static void Discard(Item it) { if (it == null) return; it.Gone = true; All.Remove(it); Object.Destroy(it.gameObject); }
 
         public void SetupPhysics(float mass)
         {
