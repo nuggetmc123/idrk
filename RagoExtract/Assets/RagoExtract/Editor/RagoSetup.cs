@@ -264,7 +264,7 @@ namespace Rago.EditorTools
             Try(() => PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP));
 #endif
             Try(() => EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC);
-            Try(SetInputHandlingBoth);
+            Try(SetInputHandlingOld);
             Try(SetupLayers);
             Try(AssetDatabase.SaveAssets);
             LastMessage = "Project configured (Quest player settings, layers, input).";
@@ -272,8 +272,9 @@ namespace Rago.EditorTools
 
         static void Try(Action a) { try { a(); } catch (Exception e) { Debug.LogWarning("[Rago Extract] setting skipped: " + e.Message); } }
 
-        /// <summary>Old + new input both enabled, so desktop testing (legacy Input) and OpenXR (Input System) work together.</summary>
-        static void SetInputHandlingBoth()
+        /// <summary>The old Input Manager only: the game reads the keyboard / mouse through it and the VR controllers through
+        /// UnityEngine.XR.InputDevices (which doesn't need the new Input System). "Both" is refused by Android / Quest builds.</summary>
+        static void SetInputHandlingOld()
         {
             try
             {
@@ -281,7 +282,7 @@ namespace Rago.EditorTools
                 if (ps == null) return;
                 var so = new SerializedObject(ps);
                 var p = so.FindProperty("activeInputHandler");
-                if (p != null && p.intValue != 2) { p.intValue = 2; so.ApplyModifiedProperties(); }
+                if (p != null && p.intValue != 0) { p.intValue = 0; so.ApplyModifiedProperties(); }
             }
             catch (Exception e) { Debug.LogWarning("[Rago Extract] could not set input handling: " + e.Message); }
         }
