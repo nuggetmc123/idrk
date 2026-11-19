@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.31", "Fewer movement updates", new[] {
+                "Your movement is sent 12 times a second (10 with 4+ other players or a slow connection, 6 if it's really backing up) instead of 15 - less traffic for Photon and everyone's headset.",
+            }),
             ("2.30", "Voice no longer clogs multiplayer", new[] {
                 "Fixed the lag getting worse with friends since 2.27: voice packets had become too big for the fast lane, so whenever anyone talked their voice went the slow way - a separate copy to every player, ~16 times a second - and everything else queued behind it. Voice now goes in smaller pieces that fit.",
                 "Raider updates in big raids are split into small groups for the same reason.",

@@ -222,9 +222,10 @@ namespace Rago
                 float rtt = NetHub.Backend.Rtt;
                 // 15 a second at most: Photon's shared mode only sends about 16 times a second, so anything faster just
                 // queued up and arrived late (that's what made 3+ players lag). Slower again when the line backs up.
-                float step = rtt < 0.25f ? 1f / 15f : rtt < 0.5f ? 1f / 10f : 1f / 6f;
+                // 12 a second (10 with 4+ other players or a slow line, 6 when it's really backing up)
+                float step = rtt < 0.25f ? 1f / 12f : rtt < 0.5f ? 1f / 10f : 1f / 6f;
                 int others = NetHub.Backend.Peers.Count;
-                if (others >= 6) step = Mathf.Max(step, 1f / 12f);
+                if (others >= 4) step = Mathf.Max(step, 1f / 10f);
                 _poseT = step;
                 var w = W(Msg.Pose);
                 var root = p.transform.position;
