@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.32", "Ping fix: messages no longer queue up", new[] {
+                "Fixed the 1+ second ping with 3 players: shots, hits, names, pings and items were going through Photon's 'reliable data', which is made for sending big files in slices and rations what goes out - with a few players everything queued behind everything else. They now go as Photon RPCs (one copy for everyone), built for exactly this. Only big messages still use the old way.",
+                "If those RPCs don't work on someone's setup, the game notices within ~10 s and switches back by itself. The network report shows +RPC when it's on.",
+                "PLAYER LIMIT REACHED: Photon's 'max players' error now says so plainly on the raid terminal.",
+                "Taking your headset off (asleep) while in the bunker now lets go of Photon, so a sleeping headset no longer holds one of your plan's player slots. It reconnects when you put it back on.",
+            }),
             ("2.31", "Fewer movement updates", new[] {
                 "Your movement is sent 12 times a second (10 with 4+ other players or a slow connection, 6 if it's really backing up) instead of 15 - less traffic for Photon and everyone's headset.",
             }),

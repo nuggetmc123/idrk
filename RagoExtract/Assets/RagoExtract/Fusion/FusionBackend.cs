@@ -87,12 +87,13 @@ namespace Rago.Net
                 {
                     sb.Append("session ").Append(_sessionId).Append(" (").Append(_sessionKind).Append(")\n");
                     sb.Append("me #").Append(LocalId).Append(IsHost ? "  HOST" : "  host #" + _hostId).Append("  rtt ").Append((_rtt * 1000f).ToString("0")).Append("ms  ")
-                      .Append(FastBroadcast ? "FAST" : _fastBroken ? "SLOW (fast lane off)" : "SLOW").Append(_oversize > 0 ? "  too big: " + _oversize : "").Append('\n');
+                      .Append(FastBroadcast ? "FAST" : _fastBroken ? "SLOW (fast lane off)" : "SLOW").Append(RelRpc ? " +RPC" : _relBroken ? " (RPC off)" : "").Append(_oversize > 0 ? "  too big: " + _oversize : "").Append('\n');
                     foreach (var p in _peers)
                     {
                         sb.Append(" #").Append(p).Append(' ').Append(_names.TryGetValue(p, out var n) ? n : "(no name yet)")
                           .Append("  heard ").Append(_lastHeard.TryGetValue(p, out var h) ? (now - h).ToString("0.0") + "s" : "never")
                           .Append(_fastAt.TryGetValue(p, out var f) && now - f < 5f ? " fast" : "")
+                          .Append(_relAt.TryGetValue(p, out var rl) && now - rl < 5f ? " rpc" : "")
                           .Append(_relayTo.Contains(p) ? " RELAY" : "").Append('\n');
                     }
                 }
@@ -253,7 +254,7 @@ namespace Rago.Net
             await LeaveLobby();   // one connection at a time
             _inPartySession = false;
             _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear();
-            _lastHeard.Clear(); _peerSince.Clear(); _fastAt.Clear(); _relayTo.Clear(); _uidRead.Clear();
+            _lastHeard.Clear(); _peerSince.Clear(); _fastAt.Clear(); _relayTo.Clear(); _uidRead.Clear(); _relOut.Clear(); _relAt.Clear();
             _hostId = 0; _rtt = 0f; _pingOut = -1f;
             _sessionKind = props != null && props.TryGetValue("kind", out var kp) ? Str(kp) : "";
             var go = new GameObject("FusionRunner");
@@ -278,7 +279,7 @@ namespace Rago.Net
             if (res == null || !res.Ok)
             {
                 string why = res != null ? res.ShutdownReason + (string.IsNullOrEmpty(res.ErrorMessage) ? "" : " - " + res.ErrorMessage) : "error";
-                _status = "Photon: " + (res != null ? res.ShutdownReason.ToString() : "error");
+                _status = "Photon: " + (res != null ? Explain(res.ShutdownReason.ToString()) : "error");
                 Log((allowCreate ? "couldn't join/create " : "couldn't join ") + name + ": " + why, true);
                 await Shutdown();
                 return false;
@@ -304,7 +305,7 @@ namespace Rago.Net
             var r = _runner;
             _runner = null;
             _byRunner.Remove(r);
-            _fastOut.SetLength(0); _out.Clear();
+            _fastOut.SetLength(0); _out.Clear(); _relOut.Clear();
             try { await r.Shutdown(); } catch { }
             if (r != null) Destroy(r.gameObject);
             _peers.Clear(); _refs.Clear();
@@ -915,8 +916,110 @@ namespace Rago.Net
                 _oversize++;
                 if (!_oversizeLogged) { _oversizeLogged = true; Log("a " + data.Length + "-byte update (type " + data[0] + ") was too big for the fast lane", true); }
             }
+            if (target != ulong.MaxValue && target == LocalId) return;
+            // small and important: a reliable Photon RPC, batched (one copy for everyone, or marked for one player)
+            if (RelRpc && data.Length <= RelChunk - 3) { RelAppend(target == ulong.MaxValue ? 0UL : target, data); return; }
             if (target == ulong.MaxValue) { foreach (var p in _peers) Queue(p, data); }
-            else if (target != LocalId) Queue(target, data);
+            else Queue(target, data);
+        }
+
+        // =========================================================================================== reliable RPC lane
+        // The small important messages (shots, hits, names, pings, items) go as reliable Photon RPCs. Photon's "reliable
+        // data" (SendReliableDataToPlayer) is made for big blobs and rations its sends: used for every message, with 3
+        // players they queued for over a second. Only messages too big for an RPC still use it. Payload:
+        // [0xA5][sender u64][for u64, 0 = everyone][channel...]. A heartbeat (the pings) proves the lane works.
+        const int RelChunk = 220;
+        static MethodInfo _relSend; static bool _relLooked, _relBroken;
+        readonly Dictionary<ulong, System.IO.MemoryStream> _relOut = new Dictionary<ulong, System.IO.MemoryStream>();
+        readonly Dictionary<ulong, float> _relAt = new Dictionary<ulong, float>();
+        float _relHealthT;
+
+        bool RelRpc
+        {
+            get
+            {
+                if (_relBroken || !InSession) return false;
+                if (!_relLooked)
+                {
+                    _relLooked = true;
+                    var t = Type.GetType("Rago.Net.RagoRpc, RagoExtract.Fusion") ?? typeof(FusionBackend).Assembly.GetType("Rago.Net.RagoRpc");
+                    _relSend = t?.GetMethod("SendRel", BindingFlags.Public | BindingFlags.Static);
+                    Log(_relSend != null ? "reliable RPC lane available" : "reliable RPC lane missing - using reliable data");
+                }
+                return _relSend != null;
+            }
+        }
+
+        void RelAppend(ulong dest, byte[] data)
+        {
+            if (!_relOut.TryGetValue(dest, out var ms)) _relOut[dest] = ms = new System.IO.MemoryStream(256);
+            if (ms.Length + data.Length + 2 > RelChunk) RelFlush(dest, ms);
+            if (ms.Length == 0) ms.WriteByte(2);
+            ms.WriteByte((byte)(data.Length & 0xff)); ms.WriteByte((byte)(data.Length >> 8));
+            ms.Write(data, 0, data.Length);
+        }
+
+        void RelFlush(ulong dest, System.IO.MemoryStream ms)
+        {
+            if (ms.Length == 0) return;
+            var body = ms.ToArray(); ms.SetLength(0);
+            if (dest != 0 && !_peers.Contains(dest)) return;
+            RelRaw(dest, body);
+        }
+
+        /// <summary>One reliable RPC: [stamp][me][for][packet]. False if the lane failed (then it's switched off).</summary>
+        bool RelRaw(ulong dest, byte[] packet)
+        {
+            if (_runner == null || _relSend == null) return false;
+            var w = new byte[packet.Length + 17];
+            w[0] = Stamp; Buffer.BlockCopy(BitConverter.GetBytes(LocalId), 0, w, 1, 8); Buffer.BlockCopy(BitConverter.GetBytes(dest), 0, w, 9, 8);
+            Buffer.BlockCopy(packet, 0, w, 17, packet.Length);
+            try { _relSend.Invoke(null, new object[] { _runner, Convert.ToBase64String(w) }); return true; }
+            catch (Exception e)
+            {
+                _relBroken = true;
+                Log("reliable RPC failed (" + (e.InnerException ?? e).Message + ") - using reliable data", true);
+                return false;
+            }
+        }
+
+        public static void OnRelData(NetworkRunner runner, string payload)
+        {
+            if (runner == null || !_byRunner.TryGetValue(runner, out var b) || b == null || b._runner != runner || string.IsNullOrEmpty(payload)) return;
+            byte[] data;
+            try { data = Convert.FromBase64String(payload); } catch { return; }
+            if (data.Length < 18 || data[0] != Stamp) return;
+            ulong from = BitConverter.ToUInt64(data, 1), dest = BitConverter.ToUInt64(data, 9);
+            if (from == b.LocalId) return;
+            if (!b._peers.Contains(from)) foreach (var ap in runner.ActivePlayers) if (Id(ap) == from) b.NotePeer(ap);
+            if (!b._peers.Contains(from)) return;
+            float now = Time.realtimeSinceStartup;
+            b._relAt[from] = now; b._lastHeard[from] = now;
+            if (dest != 0 && dest != b.LocalId) return;   // for someone else
+            if (b._relayTo.Remove(from)) Log("player #" + from + " reachable again");
+            b.Process(from, new ArraySegment<byte>(data, 17, data.Length - 17));
+        }
+
+        /// <summary>Everyone pings everyone every 2 s on this lane: players we hear (any way) whose pings never come on it
+        /// for 10 s mean it doesn't work here - switch it off and use reliable data.</summary>
+        void RelHealth()
+        {
+            float now = Time.realtimeSinceStartup;
+            if (now < _relHealthT) return;
+            _relHealthT = now + 1f;
+            int checkedPeers = 0, silent = 0;
+            foreach (var p in _peers)
+            {
+                if (!_peerSince.TryGetValue(p, out var since) || now - since < 12f) continue;
+                if (!_lastHeard.TryGetValue(p, out var h) || now - h > 3f) continue;
+                checkedPeers++;
+                if (!_relAt.TryGetValue(p, out var f) || now - f > 10f) silent++;
+            }
+            if (checkedPeers > 0 && silent == checkedPeers)
+            {
+                _relBroken = true; _relOut.Clear();
+                Log("reliable RPCs: nothing arriving from " + silent + " player(s) - using reliable data", true);
+            }
         }
 
         void Queue(ulong id, byte[] data)
@@ -930,6 +1033,7 @@ namespace Rago.Net
 
         void FlushAll()
         {
+            foreach (var kv in _relOut) if (kv.Value.Length > 0) RelFlush(kv.Key, kv.Value);
             foreach (var kv in _out) if (kv.Value.Length > 0) { if (_peers.Contains(kv.Key)) SendTo(kv.Key, kv.Value.ToArray()); kv.Value.SetLength(0); }
         }
 
@@ -946,6 +1050,7 @@ namespace Rago.Net
         void SendTo(ulong id, byte[] packet)
         {
             if (_runner == null || !_refs.TryGetValue(id, out var p)) return;
+            if (packet.Length <= RelChunk && RelRpc && RelRaw(id, packet)) return;   // small: straight out as a reliable RPC
             // nothing heard from them for a while: send it through the host instead (it passes it on). Never both - a
             // shot or a hit arriving twice would count twice. Pings still go direct, so a working link is noticed.
             bool ping = packet.Length >= 2 && packet[0] == 1 && (packet[1] == 11 || packet[1] == 12);
@@ -1182,7 +1287,7 @@ namespace Rago.Net
             if (_lobbyT <= 0f && _ready)
             {
                 _lobbyT = 3f;
-                if (_runner == null && !_queueing && !_starting && _lobby == null) _ = EnterLobby();
+                if (_runner == null && !_queueing && !_starting && _lobby == null && !_pausedAway) _ = EnterLobby();
             }
             if (!InSession) return;
             float now = Time.realtimeSinceStartup;
@@ -1238,8 +1343,9 @@ namespace Rago.Net
 
         void LateUpdate()
         {
-            if (!InSession) { _fastOut.SetLength(0); _out.Clear(); return; }
+            if (!InSession) { _fastOut.SetLength(0); _out.Clear(); _relOut.Clear(); return; }
             if (_peers.Count > 0 && FastBroadcast) FastHealth();
+            if (_peers.Count > 0 && RelRpc) RelHealth();
             // the fast lane goes out the frame it's written (up to 30 a second)
             if (_fastOut.Length > 0 && Time.unscaledTime - _lastFast >= 1f / 30f) { _lastFast = Time.unscaledTime; FlushFast(); }
             // reliable batches: 15 a second (10 when the line is backing up)
@@ -1278,7 +1384,7 @@ namespace Rago.Net
         {
             if (runner == _lobby) { _lobby = null; Log("lobby closed: " + reason); return; }
             if (_leaving || runner != _runner) return;
-            _status = "Disconnected (" + reason + ")";
+            _status = "Disconnected (" + Explain(reason.ToString()) + ")";
             Log("session ended: " + reason + " (" + _peers.Count + " others, rtt " + (_rtt * 1000f).ToString("0") + "ms)", true);
             _peers.Clear();
             if (_inPartySession) { _inPartySession = false; OnPartyChanged?.Invoke(); }
@@ -1293,7 +1399,19 @@ namespace Rago.Net
             OnDisconnected?.Invoke();
         }
 
-        public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { _status = "Connect failed: " + reason; Log("connect failed: " + reason, true); }
+        public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { _status = "Connect failed: " + Explain(reason.ToString()); Log("connect failed: " + reason, true); }
+
+        /// <summary>Photon's reasons in plain words (the raid terminal shows the status).</summary>
+        static string Explain(string reason)
+        {
+            if (reason == null) return "error";
+            if (reason.Contains("MaxCcu") || reason.Contains("CCU")) return "PLAYER LIMIT REACHED - your Photon plan's max players online are all connected (check the Photon dashboard; close other copies of the game / the Unity editor)";
+            if (reason.Contains("GameIsFull")) return "that session is full";
+            if (reason.Contains("GameNotFound")) return "that session doesn't exist any more";
+            if (reason.Contains("InvalidAuthentication") || reason.Contains("AppId")) return "the Photon App ID is wrong";
+            if (reason.Contains("Timeout") || reason.Contains("TimedOut")) return "Photon didn't answer (internet connection?)";
+            return reason;
+        }
         public void OnConnectedToServer(NetworkRunner runner) { }
         public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
         public void OnInput(NetworkRunner runner, NetworkInput input) { }
@@ -1308,6 +1426,28 @@ namespace Rago.Net
         public void OnSceneLoadStart(NetworkRunner runner) { }
 
         void OnApplicationQuit() { _ = Shutdown(); _ = LeaveLobby(); }
+
+        // Headset off / asleep: let go of Photon while we're only idling (the lobby, or a party in the bunker) - every
+        // connection counts towards the Photon plan's player limit, and a sleeping headset kept its slot. A raid or the
+        // Market is kept (you'd lose your place). Back on: the lobby / party come back by themselves.
+        bool _pausedAway;
+        async void OnApplicationPause(bool paused)
+        {
+            if (paused)
+            {
+                if (_queueing || (InSession && !_inPartySession)) return;
+                _pausedAway = true;
+                Log("headset asleep - disconnected from Photon to free the slot");
+                await LeaveLobby();
+                if (_inPartySession) { _inPartySession = false; await Shutdown(); }
+            }
+            else if (_pausedAway)
+            {
+                _pausedAway = false;
+                Log("headset back - reconnecting");
+                RejoinParty();
+            }
+        }
     }
 }
 #endif
