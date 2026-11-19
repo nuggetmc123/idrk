@@ -79,10 +79,8 @@ namespace Rago
             if (_read.Length < count) _read = new float[count];
             // read in up to two parts (ring buffer wrap)
             int first = Mathf.Min(count, len - _lastPos);
-            var a = new float[first];
-            _mic.GetData(a, _lastPos);
-            _pending.AddRange(a);
-            if (count > first) { var b = new float[count - first]; _mic.GetData(b, 0); _pending.AddRange(b); }
+            ReadMic(first, _lastPos);
+            if (count > first) ReadMic(count - first, 0);
             _lastPos = pos;
             while (_pending.Count >= FrameSamples)
             {
@@ -102,6 +100,16 @@ namespace Rago
                 }
                 _pending.RemoveRange(0, FrameSamples);
             }
+        }
+
+        // the mic is read into reused buffers (it used to make two new arrays every frame: garbage = hitches on Quest)
+        readonly Dictionary<int, float[]> _bufs = new Dictionary<int, float[]>();
+        void ReadMic(int n, int at)
+        {
+            if (n <= 0) return;
+            if (!_bufs.TryGetValue(n, out var buf)) { if (_bufs.Count > 16) _bufs.Clear(); _bufs[n] = buf = new float[n]; }
+            _mic.GetData(buf, at);
+            for (int i = 0; i < n; i++) _pending.Add(buf[i]);
         }
 
         void OnDestroy() { StopMic(); }

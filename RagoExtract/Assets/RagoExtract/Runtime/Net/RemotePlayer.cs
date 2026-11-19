@@ -270,6 +270,12 @@ namespace Rago
         void LateUpdate()
         {
             if (!_hasPose) return;
+            Perf.RemoteBegin();
+            try { Step(); } finally { Perf.RemoteEnd(); }
+        }
+
+        void Step()
+        {
             float dt = Time.deltaTime, k = 1f - Mathf.Exp(-45f * dt);
             Vector3 ahead = Vector3.zero;
             Vector3 tRoot = _root, tHead = _head, tHl = _hl, tHr = _hr; Quaternion tHeadR = _headR, tHlR = _hlR, tHrR = _hrR;
@@ -320,11 +326,8 @@ namespace Rago
                     _dot.transform.position = _sHead + Vector3.up * (0.5f + dist * 0.004f);
                     _dot.transform.localScale = Vector3.one * Mathf.Clamp(dist * 0.012f, 0.06f, 1.2f);
                 }
-                _tag.transform.rotation = Quaternion.LookRotation(_tag.transform.position - cam.position);
-                bool talking = Time.time - LastVoiceTime < 0.35f;
-                _tag.text = (talking ? "<color=#7fff7f>(( </color>" : "") + DisplayName + (talking ? "<color=#7fff7f> ))</color>" : "");
-                float d = Vector3.Distance(cam.position, _sHead);
-                _tag.gameObject.SetActive(false);   // no name text over players (teammates keep the green dot)
+                // no name text over players (teammates keep the green dot) - it used to be rebuilt every frame while hidden
+                if (_tag.gameObject.activeSelf) _tag.gameObject.SetActive(false);
                 // their name sewn on the chest instead (rebuilt if the body is rebuilt)
                 if (_tape == null) { _tape = HumanRig.NameTape(_rig, DisplayName); _tapeName = DisplayName; }
                 else if (_tapeName != DisplayName) { HumanRig.SetTape(_tape, DisplayName); _tapeName = DisplayName; }

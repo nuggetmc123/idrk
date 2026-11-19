@@ -587,6 +587,12 @@ namespace Rago
         {
             if (data == null || data.Length == 0) return;
             _lastRx = Time.time;
+            Perf.NetBegin();
+            try { OnDataInner(from, data); } finally { Perf.NetEnd(); }
+        }
+
+        void OnDataInner(ulong from, byte[] data)
+        {
             try
             {
                 using (var ms = new MemoryStream(data))

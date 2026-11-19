@@ -20,7 +20,8 @@ namespace Rago
         public int quality = 1;    // graphics: 0 low, 1 medium, 2 high (how far grass, bushes and trees are drawn, shadows)   // your colour was fixed when you picked your callsign: it never changes after that
         public int raids, extracts, deaths, kills, xp;
         public List<ItemData> stash = new List<ItemData>();
-        public List<FloorItem> bunkerFloor = new List<FloorItem>();   // things left lying around the bunker: they stay exactly where you put them
+        public List<FloorItem> bunkerFloor = new List<FloorItem>();
+        public int deliverN;   // how many things have been delivered: each lands on the next spot of the Armory floor   // things left lying around the bunker: they stay exactly where you put them
         public int[] stashAmmo = new int[System.Enum.GetValues(typeof(Caliber)).Length];
         public int[] stashAp = new int[System.Enum.GetValues(typeof(Caliber)).Length], stashInc = new int[System.Enum.GetValues(typeof(Caliber)).Length];
         public Loadout loadout = new Loadout();
@@ -169,6 +170,27 @@ namespace Rago
             p.stashAmmo[(int)Caliber.C556] = 240;
             p.stashAmmo[(int)Caliber.C12g] = 64;
             return p;
+        }
+
+        /// <summary>
+        /// Something you bought or traded for: it goes to your bunker, on the floor in the middle of the Armory (in a little
+        /// grid, so things don't land on top of each other) and stays there until you pick it up. If you're in the bunker
+        /// right now it appears straight away.
+        /// </summary>
+        public static void Deliver(ItemData d)
+        {
+            var p = Current;
+            if (p == null || d == null) return;
+            int i = p.deliverN++ % 20;
+            var pos = new Vector3(-1.1f + (i % 5) * 0.55f, 0.35f, 8.6f + (i / 5) * 0.55f);   // Armory: x -6..6, z 6..13
+            var g = RagoGame.I;
+            if (g != null && g.Area == Area.Bunker && g.Map is BunkerMap bm && Application.isPlaying)
+            {
+                try { ItemFactory.Spawn(d, bm.transform.TransformPoint(pos), Quaternion.Euler(0, 90, 0)); return; }
+                catch (System.Exception e) { Debug.LogWarning("[Rago] delivery: " + e.Message); }
+            }
+            if (p.bunkerFloor == null) p.bunkerFloor = new List<FloorItem>();
+            p.bunkerFloor.Add(new FloorItem { item = d, pos = pos, rot = Quaternion.Euler(0, 90, 0) });
         }
 
         public void Save()

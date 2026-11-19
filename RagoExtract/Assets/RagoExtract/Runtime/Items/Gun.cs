@@ -733,7 +733,7 @@ namespace Rago
 
         public override void AnyUpdate()
         {
-            if (_despawn > 0 && !Held && inGun == null)
+            if (_despawn > 0 && !Held && inGun == null && !(RagoGame.I != null && RagoGame.I.Area == Area.Bunker))   // nothing despawns in your bunker
             {
                 _despawn -= Time.deltaTime;
                 if (_despawn <= 0) Destroy(gameObject);

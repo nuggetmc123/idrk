@@ -363,7 +363,7 @@ namespace Rago
             // what this machine can see of the others - screenshot this when multiplayer misbehaves
             if (NetHub.Online)
             {
-                string info = NetHub.Backend.DebugInfo + (NetGame.Live ? NetGame.I.DebugInfo() : "");
+                string info = Perf.Report + NetHub.Backend.DebugInfo + (NetGame.Live ? NetGame.I.DebugInfo() : "");
                 var np = UI.Panel(_content, "NetInfo", new Vector3(0.88f, 0, 0), Quaternion.identity, new Vector2(0.6f, 0.9f), null, true, Skin.Steel);
                 UI.Text(np, info, new Vector3(-0.28f, 0.42f, -0.002f), 0.016f, new Color(0.6f, 0.85f, 1f), TextAnchor.UpperLeft);
             }

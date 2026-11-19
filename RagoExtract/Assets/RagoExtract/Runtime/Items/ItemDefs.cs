@@ -225,12 +225,12 @@ namespace Rago
             if (cls == GunClass.Pistol)
             {
                 bool auto = act == FireAction.Auto;
-                g.damage = Mathf.Round(dmg * (auto ? 0.7f : 0.78f));
-                g.rpm = auto ? Mathf.Min(rpm, 800) : Mathf.Min(rpm, 340);
-                g.spread = spread * (auto ? 1.8f : 1.5f);
-                g.recoil = recoil * 1.2f;
+                g.damage = Mathf.Round(dmg * (auto ? 0.62f : 0.7f));
+                g.rpm = auto ? Mathf.Min(rpm, 750) : Mathf.Min(rpm, 300);
+                g.spread = spread * (auto ? 2f : 1.7f);
+                g.recoil = recoil * 1.3f;
             }
-            else if (cls == GunClass.Revolver) { g.damage = Mathf.Round(dmg * 0.88f); g.spread = spread * 1.3f; }
+            else if (cls == GunClass.Revolver) { g.damage = Mathf.Round(dmg * 0.84f); g.spread = spread * 1.4f; }
             Guns.Add(g); All[id] = g;
             return g;
         }

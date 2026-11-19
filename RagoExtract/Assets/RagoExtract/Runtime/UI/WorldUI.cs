@@ -255,6 +255,7 @@ namespace Rago
         bool _blocked;
         TextMesh _toast, _center, _objective, _queue;
         float _toastT, _centerT;
+        float _netTextT;
         TextMesh _wristTimer, _wristHp, _wristInfo, _wristAmmo, _wristMsg, _wristQueue;
         float _msgT;
         Transform _wrist;
@@ -498,9 +499,14 @@ namespace Rago
                 if (_objText.Length > 0) _wristQueue.text = UI.Wrap(_objText, 30);
                 else if (NetGame.Live && NetHub.Backend != null)
                 {
-                    int ms = Mathf.RoundToInt(NetHub.Backend.Rtt * 1000f);
-                    _wristQueue.text = "NET " + ms + " ms  " + (NetHub.Backend.Peers.Count + 1) + "P  " + (NetHub.Backend.FastBroadcast ? "FAST" : "SLOW");
-                    _wristQueue.color = ms < 120 ? new Color(0.55f, 1f, 0.6f) : ms < 250 ? new Color(1f, 0.85f, 0.3f) : new Color(1f, 0.35f, 0.3f);
+                    _netTextT -= dt;
+                    if (_netTextT <= 0f)
+                    {
+                        _netTextT = 0.25f;
+                        int ms = Mathf.RoundToInt(NetHub.Backend.Rtt * 1000f), fps = Mathf.RoundToInt(Perf.Fps);
+                        _wristQueue.text = "NET " + ms + " ms  " + (NetHub.Backend.Peers.Count + 1) + "P  " + (NetHub.Backend.FastBroadcast ? "FAST" : "SLOW") + "  " + fps + " FPS";
+                        _wristQueue.color = ms < 120 && fps >= 60 ? new Color(0.55f, 1f, 0.6f) : ms < 250 && fps >= 45 ? new Color(1f, 0.85f, 0.3f) : new Color(1f, 0.35f, 0.3f);
+                    }
                 }
                 else _wristQueue.text = "";
             }

@@ -267,7 +267,7 @@ namespace Rago
         {
             Vector3 dir = b.vel.normalized;
             // falloff with distance for pistols/shotgun pellets
-            float dmg = b.damage * (b.handgun ? Mathf.Lerp(1f, 0.5f, Mathf.InverseLerp(12f, 50f, b.travelled))   // handgun rounds lose punch fast
+            float dmg = b.damage * (b.handgun ? Mathf.Lerp(1f, 0.45f, Mathf.InverseLerp(10f, 45f, b.travelled))   // handgun rounds lose punch fast
                                               : Mathf.Lerp(1f, 0.6f, Mathf.InverseLerp(40f, 250f, b.travelled)));
             var rb = hit.collider.attachedRigidbody;
             if (zone != null && zone.owner != null)

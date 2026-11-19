@@ -253,7 +253,7 @@ namespace Rago.Net
             await LeaveLobby();   // one connection at a time
             _inPartySession = false;
             _names.Clear(); _peerParty.Clear(); _nameAsk.Clear(); _acks.Clear(); _out.Clear();
-            _lastHeard.Clear(); _peerSince.Clear(); _fastAt.Clear(); _relayTo.Clear();
+            _lastHeard.Clear(); _peerSince.Clear(); _fastAt.Clear(); _relayTo.Clear(); _uidRead.Clear();
             _hostId = 0; _rtt = 0f; _pingOut = -1f;
             _sessionKind = props != null && props.TryGetValue("kind", out var kp) ? Str(kp) : "";
             var go = new GameObject("FusionRunner");
@@ -813,6 +813,7 @@ namespace Rago.Net
 
         // =========================================================================================== who's who
         string _myUid; bool _uidBad;
+        readonly HashSet<ulong> _uidRead = new HashSet<ulong>();
         static MethodInfo _getUid, _setMaster;
         string UserIdOf(PlayerRef p)
         {
@@ -839,6 +840,7 @@ namespace Rago.Net
                 Log("Photon user ids unreliable here - using name messages");
                 return;
             }
+            _uidRead.Add(id);
             int at = uid.IndexOf('@'), tl = uid.LastIndexOf('~');
             string name = at >= 0 ? uid.Substring(0, at) : tl >= 0 ? uid.Substring(0, tl) : uid;
             string party = at >= 0 ? uid.Substring(at + 1, (tl > at ? tl : uid.Length) - at - 1) : "";
@@ -873,7 +875,7 @@ namespace Rago.Net
             if (_runner == null || p == _runner.LocalPlayer || p.PlayerId < 0) return;
             ulong id = Id(p);
             _refs[id] = p;
-            LearnFromUserId(id, p);
+            if (!_uidRead.Contains(id)) LearnFromUserId(id, p);   // once per player, not on every packet (it's a slow lookup)
             if (_peers.Contains(id)) return;
             _peers.Add(id);
             _peerSince[id] = Time.realtimeSinceStartup;
@@ -1253,7 +1255,7 @@ namespace Rago.Net
             ulong id = Id(player);
             if (!_peers.Remove(id)) return;
             Log("player #" + id + " left" + (_names.TryGetValue(id, out var n) ? " (" + n + ")" : ""));
-            _refs.Remove(id); _names.Remove(id); _relayTo.Remove(id); _out.Remove(id);
+            _refs.Remove(id); _names.Remove(id); _relayTo.Remove(id); _out.Remove(id); _uidRead.Remove(id);
             if (id == _hostId)
             {
                 _hostId = 0;

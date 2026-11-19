@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.29", "FPS readout, deliveries to the Armory, pistols down again", new[] {
+                "Your watch shows FPS next to the NET line. Menu > RECENT shows FPS, the worst frame in the last 5 s, how often memory clean-up runs, and how much of each frame goes on other players - send a screenshot if the game slows down with friends.",
+                "Fewer hitches with other players around: voice no longer makes new memory every frame, other players' hidden name text isn't rebuilt every frame, and each player's Photon id is read once instead of on every packet.",
+                "Everything you buy or trade for (and anything you take off your shop) is delivered to your bunker, on the floor in the middle of the Armory, and stays there until you pick it up.",
+                "Nothing despawns in your bunker: dropped magazines stay put too (a loose mag still turns back into rounds in your reserve when you leave the bunker).",
+                "Pistols toned down again: less damage (about -30% from the original), slower to fire, wider spread and more kick; damage drops off from 10 m (under half by 45 m). Revolvers a little weaker too.",
+            }),
             ("2.28", "Multiplayer rebuilt", new[] {
                 "The whole Photon connection layer is rebuilt from scratch, smaller and much simpler. Everyone must be on 2.28.",
                 "One Photon connection per player, ever: the lobby while you're idle in your bunker (so invites reach you), or your party / the Market / a raid. It used to juggle up to four at once.",

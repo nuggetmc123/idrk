@@ -420,7 +420,7 @@ namespace Rago
         {
             var e = Mine.Find(x => x.id == id); if (e == null) return;
             Mine.Remove(e);
-            Profile.Current.stash.Add(e.item); Profile.Current.Save();
+            Profile.Deliver(e.item); Profile.Current.Save();
             RagoGame.I.Player.Toast(ItemName(e.item) + " taken off your shop - it's in your bunker");
             Broadcast(); Changed?.Invoke();
         }
@@ -465,7 +465,7 @@ namespace Rago
         static void Undo(Pending p, string why)
         {
             var prof = Profile.Current; if (prof == null) return;
-            if (p.swap) { foreach (var part in p.offer.Split('\u0001')) { var d = MarketNet.Data(part); if (d != null) prof.stash.Add(d); } why += " - your items are back in your bunker"; }
+            if (p.swap) { foreach (var part in p.offer.Split('\u0001')) { var d = MarketNet.Data(part); if (d != null) Profile.Deliver(d); } why += " - your items are back in your bunker"; }
             else { prof.money += p.paid; why += " - refunded"; }
             prof.Save();
             RagoGame.I?.Player?.Toast(why);
@@ -510,7 +510,7 @@ namespace Rago
                     bool ok = e != null && !Shops.ForMoney(e) && offers.Count >= Count(e) && offers.TrueForAll(o => ShopScreen.Matches(e.want, Db.Get(o.id)));
                     if (ok && prof != null)
                     {
-                        Mine.Remove(e); prof.stash.AddRange(offers); prof.Save();
+                        Mine.Remove(e); foreach (var od2 in offers) Profile.Deliver(od2); prof.Save();
                         Sfx.UI(Synth.Cash(), 0.6f);
                         RagoGame.I.Player.Toast("TRADED " + ItemName(e.item) + " to " + MarketNet.NameOf(from) + " for " + offers.Count + " x " + ShopScreen.WantName(e.want) + " - in your bunker");
                         string j = JsonUtility.ToJson(e.item);
@@ -527,7 +527,7 @@ namespace Rago
                     int pi = _pending.FindIndex(p => p.seller == from && p.id == id);
                     if (pi >= 0) _pending.RemoveAt(pi);
                     else if (op == MarketNet.Sold && prof != null) prof.money -= Mathf.Min(paid, prof.money);   // arrived after we'd refunded: pay now
-                    if (d != null && prof != null) { prof.stash.Add(d); prof.Save(); }
+                    if (d != null && prof != null) { Profile.Deliver(d); prof.Save(); }
                     Sfx.UI(Synth.Cash(), 0.6f);
                     RagoGame.I.Player.Toast((op == MarketNet.Sold ? "BOUGHT " : "TRADE DONE: ") + ItemName(d) + " - it's in your bunker");
                     Changed?.Invoke();
