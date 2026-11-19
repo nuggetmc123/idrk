@@ -10,7 +10,7 @@ namespace Rago
     /// </summary>
     public class VoiceChat : MonoBehaviour, IVoiceBackend
     {
-        const int MicRate = 16000, NetRate = 8000, FrameSamples = 960; // 60 ms at 16 kHz
+        const int MicRate = 16000, NetRate = 8000, FrameSamples = 480; // 30 ms at 16 kHz: ~125-byte frames that fit the fast lane (60 ms frames were too big and fell back to slow per-player sends)
         static VoiceChat _i;
         bool _muted, _joined, _started;
         string _device;

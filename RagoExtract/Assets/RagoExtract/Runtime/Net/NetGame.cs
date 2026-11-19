@@ -258,7 +258,7 @@ namespace Rago
                 // who gets this one: everyone near you (and your squad) every time, players far away only a few times a
                 // second - they can barely see you, and every copy is a separate message through Photon
                 float now = Time.time;
-                if (NetHub.Backend.FastBroadcast) Send(false);   // one copy, Photon hands it to everyone
+                if (NetHub.Backend.FastBroadcast) Send(keys || gear);   // one copy, Photon hands it to everyone (the every-2-s one with your gun / gear names is bigger: reliable)
                 else foreach (var id in NetHub.Backend.Peers)
                 {
                     float every = keys || gear ? 0f : PoseEvery(id, root, step);
@@ -569,17 +569,23 @@ namespace Rago
                 send.Add(n);
             }
             if (send.Count == 0) return;
-            var w = W(Msg.NpcStates);
-            w.Write((short)send.Count);
-            foreach (var n in send)
+            // in groups of 10, so each message fits the fast lane (one big message fell back to slow per-player sends)
+            for (int at = 0; at < send.Count; at += 10)
             {
-                w.Write((short)n.Id);
-                P3(w, n.transform.position);
-                w.Write((byte)Mathf.RoundToInt(Mathf.Repeat(n.Yaw, 360f) / 360f * 255f));
-                w.Write((byte)((byte)n.State | (n.Alive ? 0x80 : 0)));
-                P3(w, n.AimPoint);
+                int cnt = Mathf.Min(10, send.Count - at);
+                var w = W(Msg.NpcStates);
+                w.Write((short)cnt);
+                for (int k = at; k < at + cnt; k++)
+                {
+                    var n = send[k];
+                    w.Write((short)n.Id);
+                    P3(w, n.transform.position);
+                    w.Write((byte)Mathf.RoundToInt(Mathf.Repeat(n.Yaw, 360f) / 360f * 255f));
+                    w.Write((byte)((byte)n.State | (n.Alive ? 0x80 : 0)));
+                    P3(w, n.AimPoint);
+                }
+                Send(false);
             }
-            Send(false);
         }
 
         // -------------------------------------------------------------------------------- receive

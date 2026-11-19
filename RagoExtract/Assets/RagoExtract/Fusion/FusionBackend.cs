@@ -87,7 +87,7 @@ namespace Rago.Net
                 {
                     sb.Append("session ").Append(_sessionId).Append(" (").Append(_sessionKind).Append(")\n");
                     sb.Append("me #").Append(LocalId).Append(IsHost ? "  HOST" : "  host #" + _hostId).Append("  rtt ").Append((_rtt * 1000f).ToString("0")).Append("ms  ")
-                      .Append(FastBroadcast ? "FAST" : _fastBroken ? "SLOW (fast lane off)" : "SLOW").Append('\n');
+                      .Append(FastBroadcast ? "FAST" : _fastBroken ? "SLOW (fast lane off)" : "SLOW").Append(_oversize > 0 ? "  too big: " + _oversize : "").Append('\n');
                     foreach (var p in _peers)
                     {
                         sb.Append(" #").Append(p).Append(' ').Append(_names.TryGetValue(p, out var n) ? n : "(no name yet)")
@@ -896,6 +896,7 @@ namespace Rago.Net
         float _rtt, _pingOut = -1f, _flushT, _lastSendWarn;
         public float Rtt => !InSession || _peers.Count == 0 ? 0f : Mathf.Max(_rtt, _pingOut >= 0f ? Time.realtimeSinceStartup - _pingOut : 0f);
         public void FlushNow() { _flushT = 0f; }
+        int _oversize; bool _oversizeLogged;
 
         public void Send(byte[] data, bool reliable, ulong target = ulong.MaxValue)
         {
@@ -907,6 +908,12 @@ namespace Rago.Net
                 _fastOut.WriteByte((byte)(data.Length & 0xff)); _fastOut.WriteByte((byte)(data.Length >> 8));
                 _fastOut.Write(data, 0, data.Length);
                 return;
+            }
+            if (!reliable && target == ulong.MaxValue && FastBroadcast)
+            {
+                // too big for the fast lane: it goes the slow way, a copy per player - count it so the report shows it
+                _oversize++;
+                if (!_oversizeLogged) { _oversizeLogged = true; Log("a " + data.Length + "-byte update (type " + data[0] + ") was too big for the fast lane", true); }
             }
             if (target == ulong.MaxValue) { foreach (var p in _peers) Queue(p, data); }
             else if (target != LocalId) Queue(target, data);

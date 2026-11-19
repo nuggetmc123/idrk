@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.30", "Voice no longer clogs multiplayer", new[] {
+                "Fixed the lag getting worse with friends since 2.27: voice packets had become too big for the fast lane, so whenever anyone talked their voice went the slow way - a separate copy to every player, ~16 times a second - and everything else queued behind it. Voice now goes in smaller pieces that fit.",
+                "Raider updates in big raids are split into small groups for the same reason.",
+                "The network report (menu > RECENT) shows 'too big: N' if anything ever falls back to the slow way again.",
+            }),
             ("2.29", "FPS readout, deliveries to the Armory, pistols down again", new[] {
                 "Your watch shows FPS next to the NET line. Menu > RECENT shows FPS, the worst frame in the last 5 s, how often memory clean-up runs, and how much of each frame goes on other players - send a screenshot if the game slows down with friends.",
                 "Fewer hitches with other players around: voice no longer makes new memory every frame, other players' hidden name text isn't rebuilt every frame, and each player's Photon id is read once instead of on every packet.",
