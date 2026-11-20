@@ -388,55 +388,84 @@ namespace Rago
         // ---------------------------------------------------------------------------------- golf carts
         /// <summary>The cart you're driving (null = on foot).</summary>
         public GolfCart Driving;
+        public bool Passenger;   // in the cart, but in the passenger seat (no controls)
         Vector3 _cartLastPos; float _cartLastYaw;
+        Transform CartSeat => Driving == null ? null : Passenger ? Driving.PassSeat : Driving.Seat;
 
         /// <summary>Grab a cart's steering wheel (or press F next to one on desktop) to get in.</summary>
         void TryEnterCart()
         {
             if (GolfCart.All.Count == 0) return;
-            GolfCart pick = null;
+            GolfCart pick = null; bool passenger = false;
             if (XRInputs.VR)
             {
-                if (XRInputs.Left.GripDown && HandL.Held == null) foreach (var c in GolfCart.All) if (c != null && c.WheelNear(HandL.TrackedPosition)) pick = c;
-                if (pick == null && XRInputs.Right.GripDown && HandR.Held == null) foreach (var c in GolfCart.All) if (c != null && c.WheelNear(HandR.TrackedPosition)) pick = c;
+                // grab a door handle (driver's side = drive, other side = ride along) or the steering wheel
+                foreach (var hand in new[] { HandL, HandR })
+                {
+                    var inp = hand == HandL ? XRInputs.Left : XRInputs.Right;
+                    if (pick != null || !inp.GripDown || hand.Held != null) continue;
+                    foreach (var c in GolfCart.All)
+                    {
+                        if (c == null) continue;
+                        int door = c.DoorNear(hand.TrackedPosition);
+                        if (door >= 0) { pick = c; passenger = door == 1; break; }
+                        if (c.WheelNear(hand.TrackedPosition)) { pick = c; passenger = false; break; }
+                    }
+                }
             }
             else if (Desktop.Interact)
-                foreach (var c in GolfCart.All) if (c != null && (c.Seat.position - transform.position).sqrMagnitude < 2.6f * 2.6f) pick = c;
+            {
+                // desktop: F next to a cart - the seat on the side you're standing
+                float best = 2.6f * 2.6f;
+                foreach (var c in GolfCart.All)
+                {
+                    if (c == null) continue;
+                    float dd = (c.Seat.position - transform.position).sqrMagnitude, dp = (c.PassSeat.position - transform.position).sqrMagnitude;
+                    if (dd < best) { best = dd; pick = c; passenger = false; }
+                    if (dp < best) { best = dp; pick = c; passenger = true; }
+                }
+            }
             if (pick == null) return;
-            if (pick.Busy) { Toast("Someone's driving that one"); return; }
-            EnterCart(pick);
+            if (!passenger && pick.Busy) { passenger = true; Toast("Someone's driving - you're riding along"); }
+            EnterCart(pick, passenger);
         }
 
-        public void EnterCart(GolfCart c)
+        public void EnterCart(GolfCart c, bool passenger = false)
         {
-            Driving = c;
+            Driving = c; Passenger = passenger;
+            c.SwingDoor(passenger ? 1 : 0);
+            var seatT = passenger ? c.PassSeat : c.Seat;
             Cc.enabled = false;
             _vy = 0f; MoveVelocity = Vector3.zero; Sprinting = false;
-            transform.position = c.Seat.position;
+            transform.position = seatT.position;
             if (XRInputs.VR)
             {
                 // sit square in the seat, facing forward
                 float headYaw = Head.eulerAngles.y;
                 Origin.RotateAround(Head.position, Vector3.up, Mathf.DeltaAngle(headYaw, c.transform.eulerAngles.y));
-                Vector3 off = c.Seat.position - Head.position; off.y = 0;
+                Vector3 off = seatT.position - Head.position; off.y = 0;
                 Origin.position += off;
             }
             else Desktop.Yaw = c.transform.eulerAngles.y;
-            _cartLastPos = c.Seat.position; _cartLastYaw = c.transform.eulerAngles.y;
-            Toast(XRInputs.VR ? "Driving: left stick to drive and steer, A / X to get out" : "Driving: W A S D, F or Space to get out");
-            Sfx.Play(Synth.Footstep(Synth.Surface.Metal, 1, false), c.Seat.position, 0.4f, 0.9f, 1f, 15f);
+            _cartLastPos = seatT.position; _cartLastYaw = c.transform.eulerAngles.y;
+            if (passenger) Toast(XRInputs.VR ? "Riding along - A / X to get out" : "Riding along - F or Space to get out");
+            else Toast(XRInputs.VR ? "Driving: left stick to drive and steer, A / X to get out" : "Driving: W A S D, F or Space to get out");
         }
 
         public void LeaveCart()
         {
-            var c = Driving;
-            Driving = null;
+            var c = Driving; bool wasPassenger = Passenger;
+            Driving = null; Passenger = false;
             if (c != null)
             {
-                c.Throttle = 0; c.Steer = 0;
-                if (NetGame.Live) NetGame.I.CartState(c.Id, c.transform.position, c.transform.rotation, false);
-                // step out on the driver's side, on the ground
-                Vector3 at = c.transform.position - c.transform.right * 1.3f + Vector3.up * 0.4f;
+                c.SwingDoor(wasPassenger ? 1 : 0);
+                if (!wasPassenger)
+                {
+                    c.Throttle = 0; c.Steer = 0;
+                    if (NetGame.Live) NetGame.I.CartState(c.Id, c.transform.position, c.transform.rotation, false);
+                }
+                // step out on your side, on the ground
+                Vector3 at = c.transform.position + c.transform.right * (wasPassenger ? 1.3f : -1.3f) + Vector3.up * 0.4f;
                 if (Physics.Raycast(at + Vector3.up * 2f, Vector3.down, out var h, 6f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) at = h.point + Vector3.up * 0.05f;
                 transform.position = at;
             }
@@ -447,10 +476,10 @@ namespace Rago
         void DriveTick(float dt)
         {
             var c = Driving;
-            if (c == null || c.Seat == null) { LeaveCart(); return; }
+            if (c == null || CartSeat == null) { LeaveCart(); return; }
             // ride along: follow the seat, turn with the cart
             float yaw = c.transform.eulerAngles.y, dYaw = Mathf.DeltaAngle(_cartLastYaw, yaw);
-            Vector3 seat = c.Seat.position;
+            Vector3 seat = CartSeat.position;
             if (XRInputs.VR)
             {
                 Origin.RotateAround(transform.position, Vector3.up, dYaw);
@@ -463,9 +492,12 @@ namespace Rago
             _cartLastYaw = yaw; _cartLastPos = seat;
             MoveVelocity = c.rb != null ? c.rb.velocity : Vector3.zero;
             // controls
-            Vector2 stick = XRInputs.VR ? XRInputs.Left.Stick : Desktop.Move;
-            c.Throttle = Mathf.Abs(stick.y) > 0.12f ? stick.y : 0f;
-            c.Steer = Mathf.Abs(stick.x) > 0.12f ? stick.x : 0f;
+            if (!Passenger)
+            {
+                Vector2 stick = XRInputs.VR ? XRInputs.Left.Stick : Desktop.Move;
+                c.Throttle = Mathf.Abs(stick.y) > 0.12f ? stick.y : 0f;
+                c.Steer = Mathf.Abs(stick.x) > 0.12f ? stick.x : 0f;
+            }
             // turning your view still works (right stick)
             if (XRInputs.VR)
             {

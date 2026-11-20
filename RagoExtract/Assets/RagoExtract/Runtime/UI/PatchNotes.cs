@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.34", "Cart doors and passengers", new[] {
+                "Golf carts have doors: grab the handle on the driver's door (left) to drive, or the passenger door (right) to ride along. The door swings open as you get in and out, and you step out on your own side.",
+                "Passengers ride in the passenger seat (no controls) - in multiplayer you go wherever your friend drives. If someone's already driving, grabbing the driver's door puts you in the passenger seat.",
+                "New steering wheel: a proper rim with spokes, angled up towards you along its column (it was a solid disc lying almost flat). You can still grab it to drive.",
+            }),
             ("2.33", "Golf carts and volume settings", new[] {
                 "GOLF CARTS: one is parked next to every spawn on Dockyard, Pinewood and Old Town. Grab the steering wheel to get in (desktop: F). Left stick = gas / reverse and steering (desktop W A S D), A or X to get out (desktop F / Space). Your view still turns with the right stick.",
                 "Run people over: hitting a raider or another player at speed hurts them - the faster, the harder (up to 90 damage). The kill feed says 'a golf cart (run over)'.",

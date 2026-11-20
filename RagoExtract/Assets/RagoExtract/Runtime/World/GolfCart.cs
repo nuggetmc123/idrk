@@ -18,7 +18,10 @@ namespace Rago
         public static readonly List<GolfCart> All = new List<GolfCart>();
         public int Id;
         public Rigidbody rb;
-        public Transform Seat, WheelGrab;
+        public Transform Seat, PassSeat, WheelGrab;
+        const float WheelTilt = 35f;
+        readonly Transform[] _doors = new Transform[2], _handles = new Transform[2];
+        readonly float[] _doorOpen = new float[2], _doorUntil = new float[2];
         Transform[] _wheels = new Transform[4];
         Transform _steerWheel;
         AudioSource _motor;
@@ -36,7 +39,8 @@ namespace Rago
         float _wheelSpin, _steerVis;
 
         public float Throttle, Steer;   // set by the driver each frame
-        public bool LocalDriving => RagoGame.I != null && RagoGame.I.Player != null && RagoGame.I.Player.Driving == this;
+        public bool LocalDriving => RagoGame.I != null && RagoGame.I.Player != null && RagoGame.I.Player.Driving == this && !RagoGame.I.Player.Passenger;
+        public bool LocalInside => RagoGame.I != null && RagoGame.I.Player != null && RagoGame.I.Player.Driving == this;
         public bool Busy => LocalDriving || (RemoteDriver != 0 && Time.time - _remoteT < 1.5f);
 
         // ------------------------------------------------------------------------------------------- spawning
@@ -112,12 +116,37 @@ namespace Rago
             _steerWheel = new GameObject("SteeringWheel").transform;
             _steerWheel.SetParent(transform, false);
             _steerWheel.localPosition = new Vector3(-0.28f, 1.08f, 0.40f);
-            _steerWheel.localRotation = Quaternion.Euler(-55f, 0, 0);
-            var sw = new MB();
-            sw.Cyl(new Vector3(0, 0, -0.012f), new Vector3(0, 0, 0.012f), 0.17f, 0.17f, 18, dark);
-            sw.Box(Vector3.zero, new Vector3(0.32f, 0.03f, 0.03f), new Color(0.3f, 0.3f, 0.3f));
-            sw.Build("Wheel", _steerWheel, Mats.Rubber, Mats.Rubber);
+            _steerWheel.localRotation = Quaternion.Euler(WheelTilt, 0, 0);   // square to the column, tipped up towards the driver
+            var sw = new MB(2);
+            for (int k = 0; k < 16; k++)   // the rim: a ring, not a solid disc
+            {
+                float a0 = k * Mathf.PI * 2f / 16f, a1 = (k + 1) * Mathf.PI * 2f / 16f;
+                sw.Sub(0).Cyl(new Vector3(Mathf.Cos(a0), Mathf.Sin(a0), 0) * 0.17f, new Vector3(Mathf.Cos(a1), Mathf.Sin(a1), 0) * 0.17f, 0.017f, 0.017f, 6, dark);
+            }
+            foreach (float deg in new[] { 0f, 180f, 270f })   // three spokes and a hub
+            {
+                float a = deg * Mathf.Deg2Rad;
+                sw.Sub(1).Cyl(Vector3.zero, new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0) * 0.16f, 0.011f, 0.011f, 6, new Color(0.35f, 0.35f, 0.37f));
+            }
+            sw.Sub(1).Cyl(new Vector3(0, 0, 0.025f), new Vector3(0, 0, -0.02f), 0.04f, 0.04f, 12, new Color(0.35f, 0.35f, 0.37f));
+            sw.Build("Wheel", _steerWheel, Mats.Rubber, Mats.Lit("cart_spokes", Color.white, 0.6f, 0.5f, Mats.Metal, null, 0.2f, 0.2f));
             WheelGrab = _steerWheel;
+            // doors: grab one to get in (driver's side = drive, the other = ride along)
+            var paintMat = Mats.Lit("cart_paint", Color.white, 0.2f, 0.55f, Mats.Noise, null, 0.3f, 0.2f);
+            var darkMat = Mats.Lit("cart_dark", Color.white, 0.1f, 0.3f, Mats.Noise, null, 0.2f, 0.1f);
+            for (int i = 0; i < 2; i++)
+            {
+                float side = i == 0 ? -1f : 1f;
+                var d = new GameObject(i == 0 ? "DoorDriver" : "DoorPassenger").transform;
+                d.SetParent(transform, false);
+                d.localPosition = new Vector3(side * 0.62f, 0.74f, 0.12f);   // hinged at its front edge, beside the seat
+                var dm = new MB(2);
+                dm.Sub(0).Box(new Vector3(0, 0, -0.36f), new Vector3(0.035f, 0.46f, 0.68f), paint, 0.015f);
+                dm.Sub(1).Box(new Vector3(side * 0.035f, 0.1f, -0.6f), new Vector3(0.035f, 0.04f, 0.13f), dark, 0.01f);   // handle
+                dm.Build("Door", d, paintMat, darkMat);
+                var h = new GameObject("Handle").transform; h.SetParent(d, false); h.localPosition = new Vector3(side * 0.06f, 0.1f, -0.6f);
+                _doors[i] = d; _handles[i] = h;
+            }
             // road wheels (spin with the speed)
             for (int i = 0; i < 4; i++)
             {
@@ -133,6 +162,9 @@ namespace Rago
             Seat = new GameObject("DriverSeat").transform;
             Seat.SetParent(transform, false);
             Seat.localPosition = new Vector3(-0.28f, 0.81f, -0.22f);   // top of the cushion, driver's side
+            PassSeat = new GameObject("PassengerSeat").transform;
+            PassSeat.SetParent(transform, false);
+            PassSeat.localPosition = new Vector3(0.28f, 0.81f, -0.22f);
             // physics: one box for the body (above the wheels), the wheels are raycasts
             var col = gameObject.AddComponent<BoxCollider>();
             col.center = new Vector3(0, 0.66f, 0); col.size = new Vector3(1.2f, 0.5f, 2.35f);
@@ -147,10 +179,18 @@ namespace Rago
             _motor.clip = Synth.CartMotor(); _motor.loop = true; _motor.spatialBlend = 1f; _motor.minDistance = 2f; _motor.maxDistance = 30f; _motor.volume = 0f;
         }
 
-        void OnDestroy() { All.Remove(this); if (LocalDriving) RagoGame.I.Player.LeaveCart(); }
+        void OnDestroy() { All.Remove(this); if (LocalInside) RagoGame.I.Player.LeaveCart(); }
 
         // ------------------------------------------------------------------------------------------- driving
         public bool WheelNear(Vector3 p, float r = 0.3f) => WheelGrab != null && (WheelGrab.position - p).sqrMagnitude < r * r;
+        /// <summary>Which door's handle a hand is on: 0 driver's, 1 passenger's, -1 neither.</summary>
+        public int DoorNear(Vector3 p, float r = 0.3f)
+        {
+            for (int i = 0; i < 2; i++) if (_handles[i] != null && (_handles[i].position - p).sqrMagnitude < r * r) return i;
+            return -1;
+        }
+        /// <summary>Swing a door open for a moment (getting in or out).</summary>
+        public void SwingDoor(int i) { if (i < 0 || i > 1) return; _doorUntil[i] = Time.time + 0.9f; Sfx.Play(Synth.Footstep(Synth.Surface.Metal, 3, false), _handles[i].position, 0.35f, 1.2f, 1f, 12f); }
 
         void FixedUpdate()
         {
@@ -213,7 +253,13 @@ namespace Rago
             _wheelSpin += speed / 0.22f * Mathf.Rad2Deg * Time.deltaTime;
             for (int i = 0; i < 4; i++) if (_wheels[i] != null) _wheels[i].localRotation = Quaternion.Euler(_wheelSpin, i < 2 ? Steer * 25f * (LocalDriving ? 1f : 0f) : 0f, 0);
             _steerVis = Mathf.Lerp(_steerVis, LocalDriving ? Steer : 0f, Time.deltaTime * 8f);
-            if (_steerWheel != null) _steerWheel.localRotation = Quaternion.Euler(-55f, 0, -_steerVis * 120f);
+            if (_steerWheel != null) _steerWheel.localRotation = Quaternion.Euler(WheelTilt, 0, -_steerVis * 120f);
+            for (int i = 0; i < 2; i++)
+            {
+                if (_doors[i] == null) continue;
+                _doorOpen[i] = Mathf.MoveTowards(_doorOpen[i], Time.time < _doorUntil[i] ? 1f : 0f, Time.deltaTime * 3f);
+                _doors[i].localRotation = Quaternion.Euler(0, (i == 0 ? 1f : -1f) * 70f * Mathf.SmoothStep(0, 1, _doorOpen[i]), 0);
+            }
             if (_motor != null)
             {
                 bool on = Busy;
