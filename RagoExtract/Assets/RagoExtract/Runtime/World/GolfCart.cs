@@ -26,7 +26,7 @@ namespace Rago
         Transform _steerWheel;
         AudioSource _motor;
 
-        const float MaxSpeed = 9f, MaxReverse = 4f;   // m/s (~32 km/h forward)
+        const float MaxSpeed = 15f, MaxReverse = 5f;   // m/s (~54 km/h forward)
         static readonly Vector3[] Corners = { new Vector3(-0.55f, 0.45f, 0.82f), new Vector3(0.55f, 0.45f, 0.82f), new Vector3(-0.55f, 0.45f, -0.82f), new Vector3(0.55f, 0.45f, -0.82f) };
         const float SuspLen = 0.62f, Rest = 0.45f;
 
@@ -56,15 +56,36 @@ namespace Rago
         public static void SpawnFor(MapBase map)
         {
             Clear();
-            if (map == null || !map.IsRaid || map.Id == "underground") return;
-            for (int i = 0; i < map.PlayerSpawns.Count; i++)
+            if (map == null || !map.IsRaid || map.Id == "underground") return;   // never in the Underground
+            // parked out in the map - by the buildings and camps where raiders hang about - never near a player spawn.
+            // The same spots on every machine (same map, same order), so multiplayer agrees which cart is which.
+            var rng = new Rng(map.Seed * 31 + 7);
+            var spots = new List<Vector3>();
+            foreach (var ns in map.NpcSpawns)
             {
-                var sp = map.PlayerSpawns[i];
-                Vector3 side = sp.rotation * Vector3.right;
-                Vector3 at = sp.position + side * 3.5f;
-                if (Physics.Raycast(at + Vector3.up * 60f, Vector3.down, out var h, 140f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) at = h.point;
-                Create(i, at + Vector3.up * 0.5f, Quaternion.Euler(0, sp.rotation.eulerAngles.y, 0), map.transform);
+                if (spots.Count >= 8) break;
+                bool nearSpawn = false;
+                foreach (var ps in map.PlayerSpawns) if ((ps.position - ns.pos).sqrMagnitude < 90f * 90f) nearSpawn = true;
+                if (nearSpawn) continue;
+                bool crowded = false;
+                foreach (var q in spots) if ((q - ns.pos).sqrMagnitude < 70f * 70f) crowded = true;
+                if (crowded) continue;
+                // a clear patch of ground 10-18 m from the spot (not inside a building)
+                float a0 = rng.Range(0f, 360f);
+                for (int k = 0; k < 8; k++)
+                {
+                    Vector3 off = Quaternion.Euler(0, a0 + k * 45f, 0) * Vector3.forward * (k % 2 == 0 ? 12f : 17f);
+                    Vector3 at = ns.pos + off;
+                    if (!Physics.Raycast(at + Vector3.up * 60f, Vector3.down, out var h, 140f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) continue;
+                    if (h.normal.y < 0.9f) continue;   // too steep
+                    Vector3 p = h.point;
+                    if (Physics.CheckBox(p + Vector3.up * 1.1f, new Vector3(0.9f, 0.85f, 1.5f), Quaternion.identity, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) continue;   // something in the way
+                    Create(spots.Count, p + Vector3.up * 0.5f, Quaternion.Euler(0, rng.Range(0f, 360f), 0), map.transform);
+                    spots.Add(ns.pos);
+                    break;
+                }
             }
+            Debug.Log("[Rago] " + spots.Count + " golf carts parked on " + map.Id);
         }
 
         public static void Clear()
@@ -79,6 +100,8 @@ namespace Rago
         /// <summary>Tester: a new cart in front of you (and on everyone else's screen in multiplayer).</summary>
         public static GolfCart SpawnHere(Vector3 pos, float yaw)
         {
+            var map = RagoGame.I != null ? RagoGame.I.Map : null;
+            if (map != null && map.Id == "underground") { RagoGame.I.Player?.Toast("No golf carts in the Underground"); return null; }
             ulong me = NetGame.Live && NetHub.Backend != null ? NetHub.Backend.LocalId : 0;
             int id = 1000 + (int)(me % 200) * 100 + (_spawnN++ % 100);
             if (Physics.Raycast(pos + Vector3.up * 3f, Vector3.down, out var h, 20f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) pos = h.point;
@@ -297,7 +320,7 @@ namespace Rago
                 if (!driven) accel = Mathf.Clamp(-fwdSpeed * 3f, -6f, 6f);   // parked: handbrake on
                 else
                 {
-                    if (thr > 0.02f) accel = Mathf.Clamp((thr * MaxSpeed - fwdSpeed) * 2.2f, -1.5f, 3.5f);         // gas
+                    if (thr > 0.02f) accel = Mathf.Clamp((thr * MaxSpeed - fwdSpeed) * 2.2f, -1.5f, 5f);           // gas
                     else if (thr < -0.02f) accel = Mathf.Clamp((thr * MaxReverse - fwdSpeed) * 2.2f, -2.5f, 1.5f); // reverse
                     else if (Mathf.Abs(fwdSpeed) < 1.5f) accel = Mathf.Clamp(-fwdSpeed * 4f, -6f, 6f);              // off the gas and slow: holds still (no creeping, even on a hill)
                     else accel = -Mathf.Sign(fwdSpeed) * 1.4f;                                                     // off the gas: rolls to a stop

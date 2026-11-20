@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.39", "Faster carts, parked out in the map", new[] {
+                "Golf carts are faster: top speed ~54 km/h (was ~32), quicker to pick up speed, reverse a bit faster too.",
+                "Carts are no longer parked next to where players spawn. Up to 8 are parked out in each map instead - near the buildings and camps where raiders hang about, at least 90 m from any spawn, on clear flat ground.",
+                "No golf carts in the Underground at all (the tester spawn button won't make one there either).",
+            }),
             ("2.38", "Carts really stay put, hands on the wheel, Manda, name tags", new[] {
                 "Golf carts: fixed them still driving and turning on their own - your hands and your body are separate physics objects (and so is whatever you're holding), and they were shoving the cart. None of that pushes it any more.",
                 "A cart with someone in it stays completely still until the driver presses the gas.",

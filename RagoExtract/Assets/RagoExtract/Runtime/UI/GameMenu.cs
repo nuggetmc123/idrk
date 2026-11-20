@@ -275,8 +275,8 @@ namespace Rago
             Btn("SPAWN GOLF CART", -0.25f, y, 0.42f, () =>
             {
                 var f = pl.Head.forward; f.y = 0; f = f.sqrMagnitude > 0.01f ? f.normalized : pl.transform.forward;
-                GolfCart.SpawnHere(pl.transform.position + f * 3.5f, Quaternion.LookRotation(f).eulerAngles.y);
-                Show(false); pl.Toast("Golf cart spawned - grab the steering wheel to drive");
+                var cart = GolfCart.SpawnHere(pl.transform.position + f * 3.5f, Quaternion.LookRotation(f).eulerAngles.y);
+                Show(false); if (cart != null) pl.Toast("Golf cart spawned - grab a door handle or the steering wheel");
             }, Go); y -= 0.08f;
             Line("NPCs only spawn in a raid (in multiplayer, everyone sees them).", y, 0.02f, UI.Dim);
         }
