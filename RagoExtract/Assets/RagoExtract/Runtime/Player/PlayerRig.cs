@@ -281,6 +281,7 @@ namespace Rago
             // ---------------- move first, then the hands: their targets are where the controllers are AFTER this frame's
             // walking, so a held gun doesn't trail (and swing the opposite way) while you move
             if (Driving != null) DriveTick(dt);
+            else if (_knocked) KnockTick(dt);
             else
             {
                 if (!Frozen) Locomotion(dt);
@@ -384,6 +385,49 @@ namespace Rago
         }
 
         void DesktopInteract() { }
+
+        // ---------------------------------------------------------------------------------- knocked down
+        // Hit by a cart or a grenade blast: your body goes ragdoll and flies, and your view rides along in its head
+        // (you still look around yourself). After ~2.5 s, once it has stopped tumbling, you get back up where it landed.
+        bool _knocked; float _knockT;
+        public bool KnockedDown => _knocked;
+
+        public void Knockdown(Vector3 launch)
+        {
+            if (Dead || _knocked || Body == null || Body.Rig == null) return;
+            if (Driving != null) LeaveCart();
+            HandL.StopClimbing(); HandR.StopClimbing();
+            _knocked = true; _knockT = 0f;
+            Cc.enabled = false; _vy = 0f; MoveVelocity = Vector3.zero; Sprinting = false;
+            Body.Knock(launch);
+            Hud.Damage(0.5f, -launch);
+        }
+
+        Vector3 KnockEye() { var h = Body.Rig.head; return h.position + h.rotation * new Vector3(0, 0.1f, 0.09f); }
+
+        void KnockTick(float dt)
+        {
+            _knockT += dt;
+            if (Body == null || Body.Rig == null || Body.Rig.head == null) { GetUp(); return; }
+            Vector3 eye = KnockEye();
+            if (XRInputs.VR) Origin.position += eye - Head.position;   // your view in the ragdoll's head (head turning is still yours)
+            else Head.position = eye;
+            var hips = Body.Rig.hips.GetComponent<Rigidbody>();
+            bool settled = hips == null || hips.Vel().sqrMagnitude < 0.6f * 0.6f;
+            if ((_knockT > 2.5f && settled) || _knockT > 5f) GetUp();
+        }
+
+        void GetUp()
+        {
+            _knocked = false;
+            Vector3 at = Body != null && Body.Rig != null && Body.Rig.hips != null ? Body.Rig.hips.position : transform.position;
+            if (Physics.Raycast(at + Vector3.up * 1.0f, Vector3.down, out var h, 4f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) at = h.point + Vector3.up * 0.05f;
+            transform.position = at;
+            if (XRInputs.VR) { var o = Origin.localPosition; Origin.localPosition = new Vector3(0, 0, 0); }
+            if (Body != null) Body.Revive();
+            if (!Dead) Cc.enabled = true;
+            _vy = 0f; _smoothY = 0f;
+        }
 
         // ---------------------------------------------------------------------------------- golf carts
         /// <summary>The cart you're driving (null = on foot).</summary>
@@ -747,6 +791,7 @@ namespace Rago
         public void OnDeath(Vector3 impulse, Vector3 point)
         {
             if (Driving != null) LeaveCart();
+            _knocked = false;
             HandL.ForceRelease(); HandR.ForceRelease();
             HandL.SetVisible(false); HandR.SetVisible(false);
             Body.Die(impulse, point, MoveVelocity);

@@ -29,7 +29,7 @@ namespace Rago
         static Material SkinMat => Mats.Lit("skin_v", Color.white, 0f, 0.35f, Mats.Noise, null, 0.1f, 0f);
 
         // --------------------------------------------------------------------------------------------- build
-        public static HumanRig Build(Outfit outfit, int seed, Transform parent, bool localPlayer = false)
+        public static HumanRig Build(Outfit outfit, int seed, Transform parent, bool localPlayer = false, string look = null)
         {
             var r = new HumanRig();
             var rng = new Rng(seed);
@@ -38,6 +38,11 @@ namespace Rago
             r.root.transform.SetParent(parent, false);
 
             var pal = Palette(outfit, rng);
+            if (outfit == Outfit.Operator && !string.IsNullOrEmpty(look))
+            {
+                pal.dressed = true; pal.look = Cosmetics.Decode(look);
+                pal.mask = false; pal.cap = false; pal.beanie = false; pal.gasMask = pal.look.face == 3;
+            }
             r.hips = Bone(r, "Hips", r.root.transform, new Vector3(0, 0.98f, 0));
             r.spine = Bone(r, "Spine", r.hips, new Vector3(0, 0.10f, 0));
             r.chest = Bone(r, "Chest", r.spine, new Vector3(0, 0.20f, 0));
@@ -74,7 +79,8 @@ namespace Rago
             return t;
         }
 
-        struct Pal { public Color top, top2, pants, boots, gear, gear2, skin, helmet, accent, hair; public bool helmetOn, mask, beanie, gasMask, plate, cap, apron, coat, suit; }
+        struct Pal { public Color top, top2, pants, boots, gear, gear2, skin, helmet, accent, hair; public bool helmetOn, mask, beanie, gasMask, plate, cap, apron, coat, suit;
+            public bool dressed; public Cosmetics.Look look; }   // dressed: an operator in clothes from the wardrobe
 
         static Pal Palette(Outfit o, Rng rng)
         {
@@ -226,6 +232,7 @@ namespace Rago
                 mb.Sub(HARD).Box(new Vector3(0.15f, 0.02f, -0.06f), new Vector3(0.06f, 0.09f, 0.08f), p.gear, 0.012f);
                 mb.Sub(HARD).Box(new Vector3(-0.16f, 0.03f, 0.03f), new Vector3(0.05f, 0.07f, 0.06f), p.gear, 0.01f);
             }
+            if (p.dressed && p.look.pants > 0) mb.Sub(CLOTH).Box(new Vector3(0, -0.03f, 0), new Vector3(0.31f, 0.18f, 0.21f), Cosmetics.Col(p.look.pantsCol), 0.07f, 2);
             mb.Build("Mesh", r.hips, mats);
 
             // ---- abdomen: ribbed rubber insert, like a real crash dummy
@@ -234,6 +241,14 @@ namespace Rago
             for (int i = 0; i < 4; i++) mb.Sub(JOINT).Cyl(new Vector3(0, 0.02f + i * 0.045f, 0), new Vector3(0, 0.045f + i * 0.045f, 0), 0.118f, 0.118f, 16, bodyDark * 0.45f, false);
             if (p.apron) mb.Sub(CLOTH).Box(new Vector3(0, 0.05f, 0.12f), new Vector3(0.3f, 0.4f, 0.02f), p.gear, 0.01f);
             if (p.coat) mb.Sub(CLOTH).Box(new Vector3(0, -0.04f, 0.0f), new Vector3(0.35f, 0.3f, 0.25f), p.top, 0.05f, 2);
+            if (p.dressed && p.look.shirt > 0)
+            {
+                Color sc = Cosmetics.Col(p.look.shirtCol);
+                float w = p.look.shirt == 5 ? 0.32f : 0.34f;
+                mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.0f), new Vector3(w, 0.24f, 0.25f), sc, 0.05f, 2);
+                if (p.look.shirt == 3) mb.Sub(CLOTH).Box(new Vector3(0, 0.02f, 0.127f), new Vector3(0.2f, 0.09f, 0.012f), sc * 0.82f, 0.01f);   // hoodie pocket
+                if (p.look.shirt == 4) mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.127f), new Vector3(0.012f, 0.24f, 0.006f), new Color(0.6f, 0.6f, 0.6f), 0.002f);   // jacket zip
+            }
             mb.Build("Mesh", r.spine, mats);
 
             // ---- chest shell + gear
@@ -250,6 +265,18 @@ namespace Rago
                 mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.123f), new Vector3(0.025f, 0.17f, 0.01f), p.top2, 0.005f);
             }
             if (p.coat) mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.0f), new Vector3(0.37f, 0.27f, 0.23f), p.top, 0.07f, 2);
+            if (p.dressed && p.look.shirt > 0)
+            {
+                Color sc = Cosmetics.Col(p.look.shirtCol);
+                if (p.look.shirt == 5) mb.Sub(CLOTH).Box(new Vector3(0, 0.05f, 0.0f), new Vector3(0.31f, 0.25f, 0.225f), sc, 0.07f, 2);   // tank top: shoulders bare
+                else mb.Sub(CLOTH).Box(new Vector3(0, 0.07f, 0.0f), new Vector3(0.38f, 0.27f, 0.235f), sc, 0.075f, 2);
+                if (p.look.shirt == 3) mb.Sub(CLOTH).Box(new Vector3(0, 0.2f, -0.1f), new Vector3(0.24f, 0.1f, 0.1f), sc * 0.9f, 0.04f, 2);     // hood, down on the back
+                if (p.look.shirt == 4)
+                {
+                    mb.Sub(CLOTH).Box(new Vector3(0, 0.19f, 0.0f), new Vector3(0.32f, 0.05f, 0.24f), sc * 0.9f, 0.02f);                        // collar
+                    mb.Sub(CLOTH).Box(new Vector3(0, 0.07f, 0.119f), new Vector3(0.012f, 0.26f, 0.006f), new Color(0.6f, 0.6f, 0.6f), 0.002f);  // zip
+                }
+            }
             if (p.apron) { mb.Sub(CLOTH).Box(new Vector3(0, 0.02f, 0.11f), new Vector3(0.26f, 0.2f, 0.02f), p.gear, 0.01f); mb.Sub(CLOTH).Box(new Vector3(-0.09f, 0.17f, 0.04f), new Vector3(0.025f, 0.02f, 0.16f), p.gear * 0.8f, 0.005f); mb.Sub(CLOTH).Box(new Vector3(0.09f, 0.17f, 0.04f), new Vector3(0.025f, 0.02f, 0.16f), p.gear * 0.8f, 0.005f); }
             if (p.plate)
             {
@@ -302,6 +329,31 @@ namespace Rago
                 mb.Sub(CLOTH).Sphere(new Vector3(0, 0.12f, 0.0f), new Vector3(0.095f, 0.085f, 0.105f), 14, p.gear, 0f, 0.5f);
                 mb.Sub(CLOTH).Box(new Vector3(0, 0.125f, 0.12f), new Vector3(0.14f, 0.01f, 0.08f), p.gear, 0.004f, 1, Quaternion.Euler(-8, 0, 0));
             }
+            if (p.dressed)
+            {
+                Color hc = Cosmetics.Col(p.look.hatCol);
+                if (p.look.hat == 1)
+                {
+                    mb.Sub(CLOTH).Sphere(new Vector3(0, 0.12f, 0.0f), new Vector3(0.095f, 0.085f, 0.105f), 14, hc, 0f, 0.5f);
+                    mb.Sub(CLOTH).Box(new Vector3(0, 0.125f, 0.12f), new Vector3(0.14f, 0.01f, 0.08f), hc * 0.9f, 0.004f, 1, Quaternion.Euler(-8, 0, 0));
+                }
+                else if (p.look.hat == 2) mb.Sub(CLOTH).Sphere(new Vector3(0, 0.11f, 0.0f), new Vector3(0.096f, 0.1f, 0.107f), 14, hc, 0f, 0.55f);
+                else if (p.look.hat == 3)
+                {
+                    mb.Sub(CLOTH).Sphere(new Vector3(0, 0.125f, 0.0f), new Vector3(0.092f, 0.075f, 0.104f), 14, hc, 0f, 0.5f);
+                    mb.Sub(CLOTH).Box(new Vector3(0, 0.13f, -0.1f), new Vector3(0.04f, 0.03f, 0.03f), hc * 0.85f, 0.008f);   // the knot
+                }
+                if (p.look.face == 1)
+                {
+                    var dark = new Color(0.03f, 0.03f, 0.04f);
+                    mb.Sub(HARD).Box(new Vector3(-0.033f, 0.098f, 0.1f), new Vector3(0.042f, 0.022f, 0.008f), dark, 0.004f);
+                    mb.Sub(HARD).Box(new Vector3(0.033f, 0.098f, 0.1f), new Vector3(0.042f, 0.022f, 0.008f), dark, 0.004f);
+                    mb.Sub(HARD).Box(new Vector3(0, 0.102f, 0.102f), new Vector3(0.026f, 0.006f, 0.006f), dark);
+                    mb.Sub(HARD).Box(new Vector3(-0.085f, 0.1f, 0.05f), new Vector3(0.005f, 0.006f, 0.1f), dark);
+                    mb.Sub(HARD).Box(new Vector3(0.085f, 0.1f, 0.05f), new Vector3(0.005f, 0.006f, 0.1f), dark);
+                }
+                else if (p.look.face == 2) mb.Sub(CLOTH).Sphere(new Vector3(0, 0.06f, 0.008f), new Vector3(0.094f, 0.08f, 0.106f), 18, Cosmetics.Col(p.look.shirtCol) * 0.6f, 0.4f, 1f);   // neck gaiter up over the chin
+            }
             if (p.mask && o != Outfit.Operator) mb.Sub(CLOTH).Sphere(new Vector3(0, 0.085f, 0.008f), new Vector3(0.094f, 0.118f, 0.106f), 18, p.top2 * 0.55f, 0.56f, 0.86f); // neck gaiter hugging the lower head
             if (p.gasMask)
             {
@@ -331,12 +383,16 @@ namespace Rago
                 if (o == Outfit.Operator) mb.Sub(HARD).Box(new Vector3(side * 0.047f, 0, 0.11f), new Vector3(0.008f, 0.055f, 0.065f), p.accent, 0.003f); // shoulder patch
                 if (o == Outfit.Raider || o == Outfit.RaiderHeavy) { if (s == 0) mb.Sub(CLOTH).Cyl(new Vector3(0, 0, 0.11f), new Vector3(0, 0, 0.16f), 0.054f, 0.052f, 14, p.accent, false); } // red armband
                 if (p.coat || p.suit) mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.02f), new Vector3(0, 0, r.upperArm - 0.03f), 0.058f, 0.05f, 12, p.top);
+                if (p.dressed && p.look.shirt > 0 && p.look.shirt != 5)   // sleeves (a tank top has none)
+                    mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.02f), new Vector3(0, 0, p.look.shirt == 1 ? r.upperArm * 0.55f : r.upperArm - 0.03f), 0.058f, 0.052f, 12, Cosmetics.Col(p.look.shirtCol));
                 mb.Build("Mesh", ua, mats);
                 mb = new MB(4);
                 Ball(mb, Vector3.zero, 0.044f); // elbow
                 mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.05f), new Vector3(0, 0, r.foreArm - 0.04f), 0.041f, 0.034f, 14, body);
                 Ball(mb, new Vector3(0, 0, r.foreArm), 0.03f); // wrist
                 if (p.coat || p.suit) mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.02f), new Vector3(0, 0, r.foreArm - 0.05f), 0.048f, 0.042f, 12, p.coat ? p.top : p.top);
+                if (p.dressed && (p.look.shirt == 2 || p.look.shirt == 3 || p.look.shirt == 4))   // long sleeves
+                    mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.02f), new Vector3(0, 0, r.foreArm - 0.05f), 0.048f, 0.043f, 12, Cosmetics.Col(p.look.shirtCol));
                 mb.Build("Mesh", fa, mats);
                 if (!local)
                 {
@@ -357,13 +413,22 @@ namespace Rago
                 mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.06f), new Vector3(0, 0, r.thigh - 0.05f), 0.078f, 0.06f, 14, body);
                 if (soldier) mb.Sub(HARD).Box(new Vector3(side * 0.075f, 0, 0.22f), new Vector3(0.03f, 0.1f, 0.12f), p.gear2, 0.01f); // thigh pouch / holster
                 if (p.coat) mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.thigh * 0.6f), 0.09f, 0.085f, 12, p.top);
-                Marker(mb, new Vector3(side * 0.078f, 0, r.thigh * 0.45f), side * Vector3.right, 0.022f);
+                bool trousers = p.dressed && p.look.pants > 0;
+                if (trousers)
+                {
+                    Color pc = Cosmetics.Col(p.look.pantsCol);
+                    mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, p.look.pants == 3 ? r.thigh * 0.55f : r.thigh - 0.02f), 0.088f, 0.07f, 12, pc);
+                    if (p.look.pants == 1) mb.Sub(CLOTH).Box(new Vector3(side * 0.085f, 0, 0.2f), new Vector3(0.025f, 0.11f, 0.13f), pc * 0.85f, 0.01f);   // cargo pocket
+                }
+                else Marker(mb, new Vector3(side * 0.078f, 0, r.thigh * 0.45f), side * Vector3.right, 0.022f);
                 mb.Build("Mesh", th, mats);
                 mb = new MB(4);
                 Ball(mb, Vector3.zero, 0.058f); // knee
                 mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.06f), new Vector3(0, 0, r.shin - 0.05f), 0.055f, 0.044f, 14, body);
                 Ball(mb, new Vector3(0, 0, r.shin), 0.04f); // ankle
                 if (o == Outfit.Operator || o == Outfit.RaiderHeavy) mb.Sub(HARD).Box(new Vector3(0, -0.06f, 0.03f), new Vector3(0.09f, 0.04f, 0.09f), p.gear2, 0.015f, 2); // knee pad
+                if (p.dressed && p.look.pants > 0 && p.look.pants != 3)   // trouser legs down to the boots
+                    mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.shin - 0.1f), 0.063f, 0.055f, 12, Cosmetics.Col(p.look.pantsCol));
                 if (soldier) mb.Sub(HARD).Cyl(new Vector3(0, 0, r.shin - 0.12f), new Vector3(0, 0, r.shin - 0.02f), 0.056f, 0.052f, 12, p.boots, false); // boot shaft
                 mb.Build("Mesh", sh, mats);
                 mb = new MB(4);
@@ -464,7 +529,9 @@ namespace Rago
             float headH = headPos.y - rootPos.y;
             float crouch = Mathf.InverseLerp(1.62f, 1.0f, headH);
             // headPos is the eye point. Head bone sits at the base of the skull, neck bone at the top of the chest.
-            Vector3 headBone = headPos - headRot * new Vector3(0, 0.08f, 0.09f);
+            // mostly your facing, only a little of your head's tilt: looking down used to swing the neck (and with it your
+            // chest and arms) ~11 cm back, so the body looked like it was behind your head
+            Vector3 headBone = headPos - Quaternion.Slerp(yawQ, headRot, 0.3f) * new Vector3(0, 0.08f, 0.07f);
             Vector3 neckBase = headBone - Vector3.Slerp(Vector3.up, headRot * Vector3.up, 0.3f) * 0.1f;
             Vector3 hipsGuess = rootPos + Vector3.up * Mathf.Lerp(0.98f, 0.6f, crouch) - fwd * crouch * 0.1f;
             Vector3 toNeck = neckBase - hipsGuess;
@@ -507,7 +574,9 @@ namespace Rago
                 float side = s == 0 ? -1 : 1;
                 float ph = _phase + (s == 0 ? 0 : Mathf.PI);
                 Vector3 hipJ = (s == 0 ? thL : thR).position;
-                Vector3 foot = rootPos + right * side * (0.11f + crouch * 0.08f) + moveDir * Mathf.Sin(ph) * stride * 0.5f + fwd * crouch * 0.15f;
+                // crouching kneels: the feet go back under / behind you (they used to come forward, so your knees and thighs
+                // rose up in front of you and blocked the view down)
+                Vector3 foot = rootPos + right * side * (0.11f + crouch * 0.08f) + moveDir * Mathf.Sin(ph) * stride * 0.5f - fwd * crouch * 0.3f;
                 foot.y = rootPos.y + 0.085f + Mathf.Max(0, Mathf.Cos(ph)) * stride * 0.25f;
                 LegIK(s == 0 ? thL : thR, s == 0 ? shL : shR, s == 0 ? footL : footR, foot, fwd, right * side);
             }

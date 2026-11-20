@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.41", "Clothes, knockdowns, a better-fitting body", new[] {
+                "WARDROBE (bunker, west wall of the main hall): dress your operator - shirt (T-shirt, long sleeve, hoodie, jacket, tank top), trousers (cargo, jeans, shorts), hat (cap, beanie, bandana) and face (sunglasses, neck gaiter, gas mask), each in one of 15 colours. The mannequin next to the board wears it as you choose; you wear it too, under your armour, and other players see it.",
+                "KNOCKED DOWN: getting run over by a golf cart or caught by a grenade blast (and surviving) throws you back as a ragdoll - your view rides along in its head - and you get back up where you land after a couple of seconds.",
+                "Crouching no longer brings your legs up in front of you: you kneel, so you can see the floor (and the loot) in front of you.",
+                "Your body and arms sit properly under your head - looking down used to swing your chest and shoulders back behind you.",
+                "Other players keep their own colour when they come back from a death (it used to change to a random one).",
+            }),
             ("2.40", "Loot boxes don't spawn inside furniture", new[] {
                 "Fixed loot boxes spawning inside tables (and shelves, beds, other boxes...). Each box is now checked at its real size and angle against everything solid before it's placed; if it doesn't fit, a smaller case goes there instead, or nothing.",
             }),

@@ -17,7 +17,7 @@ namespace Rago
             DontDestroyOnLoad(go);
             var b = go.AddComponent<PlayerBody>();
             b._p = p;
-            try { b.Rig = HumanRig.Build(Outfit.Operator, Profile.Current != null ? Profile.Current.outfitSeed : 7, go.transform, true); }
+            try { b.Rig = HumanRig.Build(Outfit.Operator, Profile.Current != null ? Profile.Current.outfitSeed : 7, go.transform, true, Cosmetics.Mine); }
             catch (System.Exception e) { Debug.LogError("[Rago Extract] building your player body failed - please send this error:\n" + e); return b; }
             foreach (var c in b.Rig.colliders)
             {
@@ -90,13 +90,21 @@ namespace Rago
             Fx.BloodPool(Rig.chest.position);
         }
 
+        /// <summary>Thrown as a ragdoll (cart, grenade) - your view rides in its head, which stays hidden from you.</summary>
+        public void Knock(Vector3 launch)
+        {
+            Rig.SetRagdoll(true, Vector3.zero, Rig.chest.position, launch);
+            foreach (var rr in Rig.headRenderers) if (rr != null) rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+            Sfx.Play(Synth.BodyFall(), Rig.hips.position, 0.7f, 1f, 1f, 20f);
+        }
+
         public void Revive()
         {
             Rig.SetRagdoll(false);
             foreach (var b in Rig.bones) { }
             // rebuild a clean body (joints may have stretched)
             Destroy(Rig.root);
-            Rig = HumanRig.Build(Outfit.Operator, Profile.Current != null ? Profile.Current.outfitSeed : 7, transform, true);
+            Rig = HumanRig.Build(Outfit.Operator, Profile.Current != null ? Profile.Current.outfitSeed : 7, transform, true, Cosmetics.Mine);
             foreach (var c in Rig.colliders)
             {
                 var z = c.gameObject.AddComponent<HitZone>();
@@ -190,6 +198,14 @@ namespace Rago
             dmg *= ArmorDef.Reduction(h.part, rig.Gear.Helmet, rig.Gear.Vest, h.gunId, h.ammo);
             Health -= dmg;
             RecordHit(h, dmg);
+            // run over by a cart or caught in a grenade blast (and still alive): you're thrown back as a ragdoll for a moment
+            if (Health > 0f && (h.gunId == "cart" || h.gunId == "frag") && h.force >= 1.5f)
+            {
+                Vector3 away = h.dir.sqrMagnitude > 0.01f ? h.dir.normalized : -rig.Head.forward;
+                away.y = 0f; away = away.sqrMagnitude > 0.01f ? away.normalized : -rig.transform.forward;
+                float speed = h.gunId == "cart" ? Mathf.Clamp(h.force * 0.65f, 3f, 9f) : Mathf.Clamp(2f + h.force * 1.1f, 3f, 9f);
+                rig.Knockdown(away * speed + Vector3.up * (1.8f + speed * 0.25f));
+            }
             rig.Hud.Damage(Mathf.Clamp01(dmg / 40f), h.dir);
             if (dmg > 12 && Random.value < (h.part == BodyPart.Thorax ? 0.7f : 0.45f)) Bleed = Mathf.Min(4f, Bleed + (h.part == BodyPart.Thorax ? 0.9f : 0.6f));
             // where you're hit matters

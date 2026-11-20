@@ -42,11 +42,22 @@ namespace Rago
         public string HoldingRight => _heldR;
         public string HoldingLeft => _heldL;
 
+        int _seed; string _look = "";
+        /// <summary>Their colour and clothes (from their hello): rebuild the body if they changed.</summary>
+        public void SetLook(int seed, string look)
+        {
+            look = look ?? "";
+            if (seed == _seed && look == _look) return;
+            _seed = seed; _look = look;
+            if (!_dead) Rebuild();
+        }
+
         public static RemotePlayer Create(ulong id, int seed)
         {
             var go = new GameObject("Remote_" + id);
             var rp = go.AddComponent<RemotePlayer>();
             rp.NetId = id;
+            rp._seed = seed;
             rp._rig = HumanRig.Build(Outfit.Operator, seed, go.transform);
             foreach (var c in rp._rig.colliders)
             {
@@ -201,11 +212,12 @@ namespace Rago
             Sfx.Play(Synth.BodyFall(), _rig.hips.position, 0.8f, 1f, 1f, 25f);
         }
 
-        void Revive()
+        void Revive() { _dead = false; Rebuild(); }
+
+        void Rebuild()
         {
-            _dead = false;
             Destroy(_rig.root);
-            _rig = HumanRig.Build(Outfit.Operator, (int)NetId * 31, transform);
+            _rig = HumanRig.Build(Outfit.Operator, _seed, transform, false, _look);   // their own colour and clothes (it used to come back in a random colour)
             foreach (var c in _rig.colliders) { var z = c.gameObject.AddComponent<HitZone>(); z.owner = this; z.part = PlayerBody.PartFor(c.transform, _rig); z.mult = HitZone.MultFor(z.part); }
             IgnoreLocalBody();
             var g = _gear; _gear = null; ApplyGear(g);

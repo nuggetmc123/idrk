@@ -344,6 +344,8 @@ namespace Rago
                 Tutorial.Create(transform, new Vector3(-W / 2 - 3f, 0, 0), new Vector3(W / 2 + 3.5f, 0, -2f),
                     new Vector3(0, 0, D / 2 + 3f), new Vector3(W / 2 - 1.9f, 0, 4.2f), new Vector3(2.5f, 0, -D / 2 + 1.2f));
             BuildExpansions(floor, conc, paint, lampMat, wallTint, Ht);
+            // the wardrobe: clothes for your operator, on the west wall of the main hall (south of the range tunnel)
+            if (Application.isPlaying) Wardrobe.Create(transform, new Vector3(-W / 2 + 0.16f, 1.45f, -2.6f), -90f, new Vector3(-W / 2 + 0.6f, 0, -4.1f), 90f);
             // a wall screen on the south wall, right of the lift
             Posters.Screen(transform, new Vector3(5.6f, 1.75f, -D / 2 + 0.16f), 180f, new Vector2(1.1f, 0.65f));
             // the secret one: low on the wall behind the raid kiosk - you have to look behind it

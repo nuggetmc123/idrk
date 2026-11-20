@@ -19,6 +19,7 @@ namespace Rago
         public bool colorLocked;
         public int quality = 1;    // graphics: 0 low, 1 medium, 2 high (how far grass, bushes and trees are drawn, shadows)   // your colour was fixed when you picked your callsign: it never changes after that
         public int raids, extracts, deaths, kills, xp;
+        public string look = "";   // clothes picked at the bunker wardrobe (Cosmetics.Encode)
         public List<ItemData> stash = new List<ItemData>();
         public List<FloorItem> bunkerFloor = new List<FloorItem>();
         public int deliverN;   // how many things have been delivered: each lands on the next spot of the Armory floor   // things left lying around the bunker: they stay exactly where you put them

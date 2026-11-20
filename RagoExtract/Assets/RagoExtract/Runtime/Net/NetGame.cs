@@ -205,6 +205,7 @@ namespace Rago
             var map = RagoGame.I != null ? RagoGame.I.Map : null;
             w.Write(map != null ? map.Id ?? "" : "");
             w.Write(map != null ? map.Fingerprint() : 0);
+            w.Write(Cosmetics.Mine);   // your clothes
             Send(true, to);
         }
 
@@ -626,10 +627,11 @@ namespace Rago
                     {
                         case Msg.Hello:
                             {
-                                string name = r.ReadString(); int seed = r.ReadInt32();
+                                string name = r.ReadString(); int seed = r.ReadInt32(); string look = "";
                                 if (r.BaseStream.Position < r.BaseStream.Length)
                                 {
                                     string ver = r.ReadString(), mid = r.ReadString(); int fp = r.ReadInt32();
+                                    if (r.BaseStream.Position < r.BaseStream.Length) look = r.ReadString();
                                     var mm = RagoGame.I != null ? RagoGame.I.Map : null;
                                     string warnKey = name + ver + mid + fp;
                                     if (!_warned.Contains(warnKey))
@@ -657,6 +659,7 @@ namespace Rago
                                 var rp = GetRemote(from, seed);
                                 if (rp.DisplayName != name && !string.IsNullOrEmpty(name)) RagoGame.I?.Player?.Toast(name + " is here");
                                 rp.DisplayName = name;
+                                rp.SetLook(seed, look);
                                 if (_helloSent.Add(from)) SendHello(from); // introduce ourselves back
                                 break;
                             }
