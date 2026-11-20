@@ -139,12 +139,14 @@ namespace Rago
                 float side = i == 0 ? -1f : 1f;
                 var d = new GameObject(i == 0 ? "DoorDriver" : "DoorPassenger").transform;
                 d.SetParent(transform, false);
-                d.localPosition = new Vector3(side * 0.62f, 0.74f, 0.12f);   // hinged at its front edge, beside the seat
+                // fills the side opening exactly: from the back of the front cowl (z 0.77) to the front of the rear body
+                // (z -0.6), floor pan (y 0.48) to the cowl's top (y 0.88), flush with the body's side (x 0.6)
+                d.localPosition = new Vector3(side * 0.583f, 0.68f, 0.765f);   // hinged at its front edge, against the cowl
                 var dm = new MB(2);
-                dm.Sub(0).Box(new Vector3(0, 0, -0.36f), new Vector3(0.035f, 0.46f, 0.68f), paint, 0.015f);
-                dm.Sub(1).Box(new Vector3(side * 0.035f, 0.1f, -0.6f), new Vector3(0.035f, 0.04f, 0.13f), dark, 0.01f);   // handle
+                dm.Sub(0).Box(new Vector3(0, 0, -0.68f), new Vector3(0.035f, 0.4f, 1.36f), paint, 0.012f);
+                dm.Sub(1).Box(new Vector3(side * 0.03f, 0.08f, -1.2f), new Vector3(0.035f, 0.04f, 0.14f), dark, 0.01f);   // handle, at the back edge
                 dm.Build("Door", d, paintMat, darkMat);
-                var h = new GameObject("Handle").transform; h.SetParent(d, false); h.localPosition = new Vector3(side * 0.06f, 0.1f, -0.6f);
+                var h = new GameObject("Handle").transform; h.SetParent(d, false); h.localPosition = new Vector3(side * 0.06f, 0.08f, -1.2f);
                 _doors[i] = d; _handles[i] = h;
             }
             // road wheels (spin with the speed)

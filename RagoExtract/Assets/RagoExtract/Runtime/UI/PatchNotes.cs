@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.35", "Cart doors fit", new[] {
+                "The golf cart doors now fill the whole side opening - from the front bodywork to the rear, level with the top, flush with the side - instead of a small panel floating in the middle. The handle is at the back edge.",
+            }),
             ("2.34", "Cart doors and passengers", new[] {
                 "Golf carts have doors: grab the handle on the driver's door (left) to drive, or the passenger door (right) to ride along. The door swings open as you get in and out, and you step out on your own side.",
                 "Passengers ride in the passenger seat (no controls) - in multiplayer you go wherever your friend drives. If someone's already driving, grabbing the driver's door puts you in the passenger seat.",
