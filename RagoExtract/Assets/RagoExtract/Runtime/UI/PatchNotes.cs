@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.40", "Loot boxes don't spawn inside furniture", new[] {
+                "Fixed loot boxes spawning inside tables (and shelves, beds, other boxes...). Each box is now checked at its real size and angle against everything solid before it's placed; if it doesn't fit, a smaller case goes there instead, or nothing.",
+            }),
             ("2.39", "Faster carts, parked out in the map", new[] {
                 "Golf carts are faster: top speed ~54 km/h (was ~32), quicker to pick up speed, reverse a bit faster too.",
                 "Carts are no longer parked next to where players spawn. Up to 8 are parked out in each map instead - near the buildings and camps where raiders hang about, at least 90 m from any spawn, on clear flat ground.",

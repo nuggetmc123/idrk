@@ -245,7 +245,14 @@ namespace Rago
                     float r = rng.Value;
                     k = r < 0.55f ? LootCrate.Kind.Crate : r < 0.72f ? LootCrate.Kind.ArmorCase : r < 0.86f ? LootCrate.Kind.Duffel : r < 0.95f ? LootCrate.Kind.WeaponCase : LootCrate.Kind.Safe;
                 }
-                AddCrate(s.pos, FaceRoom(s.pos, s.yaw, s.desk), k);
+                // only where it really fits: the box at its true size and angle must not touch a table, shelf, bed,
+                // wall or another box (furniture used to be checked with a rough circle, and only tables and shelves).
+                // Too big here: a smaller case instead, or nothing.
+                float yaw = FaceRoom(s.pos, s.yaw, s.desk);
+                if (CrateFits(s.pos, yaw, k)) AddCrate(s.pos, yaw, k);
+                else if (!s.desk && CrateFits(s.pos, yaw, LootCrate.Kind.Duffel)) AddCrate(s.pos, yaw, LootCrate.Kind.Duffel);
+                else if (CrateFits(s.pos, yaw, LootCrate.Kind.Optics)) AddCrate(s.pos, yaw, LootCrate.Kind.Optics);
+                else free.Add(s);
             }
             // this raid: each card spot has a card half the time (at least one somewhere), each radio spot likewise
             var at = new List<Vector3>(); var ids = new List<string>();
@@ -1105,6 +1112,17 @@ namespace Rago
         /// Register a building's loot spots: on the floor against a wall, or on a desk. Each raid picks a different
         /// selection of them (about one in three floor spots, half the desks).
         /// </summary>
+        /// <summary>Is there room for this box here - nothing solid inside its footprint (a few cm of slack for walls it backs onto)?</summary>
+        bool CrateFits(Vector3 pos, float yaw, LootCrate.Kind kind)
+        {
+            Vector3 size = LootCrate.SizeOf(kind);
+            float tt = B != null ? B.TerrainTop(pos) : float.NegativeInfinity;   // on a hillside: measure from the ground (the crate is settled onto it later)
+            if (tt > pos.y && tt < pos.y + 3f) pos.y = tt;
+            Vector3 half = new Vector3(Mathf.Max(0.05f, size.x * 0.5f - 0.05f), Mathf.Max(0.04f, size.y * 0.5f - 0.03f), Mathf.Max(0.05f, size.z * 0.5f - 0.05f));
+            Vector3 center = pos + Vector3.up * (size.y * 0.5f + 0.08f);
+            return !Physics.CheckBox(center, half, Quaternion.Euler(0, yaw, 0), ~0, QueryTriggerInteraction.Ignore);
+        }
+
         protected void ScatterLoot(List<Vector3> pts, float chance)
         {
             foreach (var p in pts)
@@ -1119,6 +1137,21 @@ namespace Rago
     // ===================================================================================== loot crates
     public class LootCrate : MonoBehaviour
     {
+        /// <summary>How big each kind of box is (width, height, depth).</summary>
+        public static Vector3 SizeOf(Kind k)
+        {
+            switch (k)
+            {
+                case Kind.WeaponCase: return new Vector3(1.15f, 0.16f, 0.42f);
+                case Kind.Optics: return new Vector3(0.4f, 0.2f, 0.32f);
+                case Kind.Medical: return new Vector3(0.5f, 0.28f, 0.34f);
+                case Kind.Safe: return new Vector3(0.5f, 0.5f, 0.45f);
+                case Kind.ArmorCase: return new Vector3(0.72f, 0.4f, 0.5f);
+                case Kind.Duffel: return new Vector3(0.6f, 0.28f, 0.36f);
+                case Kind.AirDrop: return new Vector3(1.8f, 0.95f, 1.2f);
+                default: return new Vector3(0.9f, 0.5f, 0.55f);
+            }
+        }
         public enum Kind { Crate, WeaponCase, Optics, Medical, Safe, Duffel, ArmorCase, AirDrop }
         public Kind kind;
         public int index;
@@ -1138,17 +1171,17 @@ namespace Rago
             var c = go.AddComponent<LootCrate>();
             c.kind = kind; c.index = index; c._map = map;
             ByIndex[index] = c;
-            Vector3 size; Material mat; Color col;
+            Vector3 size = SizeOf(kind); Material mat; Color col;
             switch (kind)
             {
-                case Kind.WeaponCase: size = new Vector3(1.15f, 0.16f, 0.42f); mat = Mats.Lit("case_hard", new Color(0.12f, 0.13f, 0.12f), 0.1f, 0.45f, Mats.Noise, null, 0.3f, 0.3f); col = Color.white; break;
-                case Kind.Optics: size = new Vector3(0.4f, 0.2f, 0.32f); mat = Mats.Lit("case_optics", new Color(0.55f, 0.48f, 0.33f), 0.1f, 0.35f, Mats.Noise, null, 0.4f, 0.3f); col = Color.white; break;
-                case Kind.Medical: size = new Vector3(0.5f, 0.28f, 0.34f); mat = Mats.Lit("case_med", new Color(0.85f, 0.85f, 0.82f), 0.1f, 0.4f, Mats.Noise, null, 0.4f, 0.3f); col = Color.white; break;
-                case Kind.Safe: size = new Vector3(0.5f, 0.5f, 0.45f); mat = Mats.Lit("safe", new Color(0.2f, 0.22f, 0.24f), 0.8f, 0.4f, Mats.Metal, Mats.MetalN, 0.4f, 0.5f); col = Color.white; break;
-                case Kind.ArmorCase: size = new Vector3(0.72f, 0.4f, 0.5f); mat = Mats.Lit("case_armor", new Color(0.24f, 0.27f, 0.2f), 0.15f, 0.35f, Mats.Noise, null, 0.45f, 0.35f); col = Color.white; break;
-                case Kind.Duffel: size = new Vector3(0.6f, 0.28f, 0.36f); mat = Mats.Lit("duffel", new Color(0.15f, 0.15f, 0.14f), 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f); col = Color.white; break;
-                case Kind.AirDrop: size = new Vector3(1.8f, 0.95f, 1.2f); mat = Mats.Lit("crate_airdrop", new Color(0.3f, 0.34f, 0.24f), 0.1f, 0.35f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
-                default: size = new Vector3(0.9f, 0.5f, 0.55f); mat = Mats.Lit("crate_mil", new Color(0.33f, 0.36f, 0.26f), 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
+                case Kind.WeaponCase: mat = Mats.Lit("case_hard", new Color(0.12f, 0.13f, 0.12f), 0.1f, 0.45f, Mats.Noise, null, 0.3f, 0.3f); col = Color.white; break;
+                case Kind.Optics: mat = Mats.Lit("case_optics", new Color(0.55f, 0.48f, 0.33f), 0.1f, 0.35f, Mats.Noise, null, 0.4f, 0.3f); col = Color.white; break;
+                case Kind.Medical: mat = Mats.Lit("case_med", new Color(0.85f, 0.85f, 0.82f), 0.1f, 0.4f, Mats.Noise, null, 0.4f, 0.3f); col = Color.white; break;
+                case Kind.Safe: mat = Mats.Lit("safe", new Color(0.2f, 0.22f, 0.24f), 0.8f, 0.4f, Mats.Metal, Mats.MetalN, 0.4f, 0.5f); col = Color.white; break;
+                case Kind.ArmorCase: mat = Mats.Lit("case_armor", new Color(0.24f, 0.27f, 0.2f), 0.15f, 0.35f, Mats.Noise, null, 0.45f, 0.35f); col = Color.white; break;
+                case Kind.Duffel: mat = Mats.Lit("duffel", new Color(0.15f, 0.15f, 0.14f), 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f); col = Color.white; break;
+                case Kind.AirDrop: mat = Mats.Lit("crate_airdrop", new Color(0.3f, 0.34f, 0.24f), 0.1f, 0.35f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
+                default: mat = Mats.Lit("crate_mil", new Color(0.33f, 0.36f, 0.26f), 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
             }
             c.Size = size;
             // body (open top)
