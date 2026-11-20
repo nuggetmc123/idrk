@@ -22,10 +22,7 @@ namespace Rago
         {
             var mat = Mats.Lit("pug", Color.white, 0f, 0.3f, Mats.Fabric, Mats.FabricN, 0.3f, 0f);
             // ---- bed: a round cushion with a raised rim
-            var bmb = new MB();
-            bmb.Cyl(bed + new Vector3(0, 0, 0), bed + new Vector3(0, 0.1f, 0), 0.42f, 0.4f, 20, new Color(0.45f, 0.12f, 0.12f));
-            bmb.Cyl(bed + new Vector3(0, 0.1f, 0), bed + new Vector3(0, 0.12f, 0), 0.32f, 0.3f, 20, new Color(0.75f, 0.68f, 0.55f));
-            bmb.Build("PugBed", parent, mat);
+            // (no bed any more - she curls up on the floor in her corner)
             // her name on a little wooden sign at the front of the bed, facing the room
             {
                 Vector3 toRoom = new Vector3(-bed.x, 0, -bed.z); toRoom = toRoom.sqrMagnitude > 0.01f ? toRoom.normalized : Vector3.back;
@@ -55,7 +52,7 @@ namespace Rago
 
             var go = new GameObject("Pug");
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = bed + new Vector3(0, 0.12f, 0);
+            go.transform.localPosition = bed;
             var p = go.AddComponent<Pug>();
             p._bed = bed; p._bowl = bowl; p._sack = sack; p._area = area;
             p.BuildModel(mat);
@@ -244,7 +241,7 @@ namespace Rago
             _gait += dt * _speed * 14f;
             float breathe = Mathf.Sin(Time.time * (asleep ? 1.6f : 3.5f)) * (asleep ? 0.012f : 0.004f);
             float bob = Mathf.Abs(Mathf.Sin(_gait)) * 0.012f * Mathf.Clamp01(_speed * 2f);
-            float floorY = asleep ? 0.12f : 0f;   // on the cushion
+            float floorY = 0f;   // no cushion any more: on the floor
             float h = asleep ? 0.06f : sitting ? 0.16f : 0.18f;
             _body.localPosition = new Vector3(0, floorY + h + bob - (asleep ? 0 : 0), 0);
             _body.localRotation = Quaternion.Euler(sitting ? -18f : 0f, 0, asleep ? 8f : 0f);

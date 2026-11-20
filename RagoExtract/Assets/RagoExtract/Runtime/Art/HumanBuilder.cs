@@ -232,7 +232,7 @@ namespace Rago
                 mb.Sub(HARD).Box(new Vector3(0.15f, 0.02f, -0.06f), new Vector3(0.06f, 0.09f, 0.08f), p.gear, 0.012f);
                 mb.Sub(HARD).Box(new Vector3(-0.16f, 0.03f, 0.03f), new Vector3(0.05f, 0.07f, 0.06f), p.gear, 0.01f);
             }
-            if (p.dressed && p.look.pants > 0) mb.Sub(CLOTH).Box(new Vector3(0, -0.03f, 0), new Vector3(0.31f, 0.18f, 0.21f), Cosmetics.Col(p.look.pantsCol), 0.07f, 2);
+            if (p.dressed && p.look.pants > 0) mb.Sub(CLOTH).Box(new Vector3(0, -0.025f, 0), new Vector3(0.302f, 0.17f, 0.202f), Cosmetics.Col(p.look.pantsCol), 0.06f, 2);
             mb.Build("Mesh", r.hips, mats);
 
             // ---- abdomen: ribbed rubber insert, like a real crash dummy
@@ -244,10 +244,10 @@ namespace Rago
             if (p.dressed && p.look.shirt > 0)
             {
                 Color sc = Cosmetics.Col(p.look.shirtCol);
-                float w = p.look.shirt == 5 ? 0.32f : 0.34f;
-                mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.0f), new Vector3(w, 0.24f, 0.25f), sc, 0.05f, 2);
-                if (p.look.shirt == 3) mb.Sub(CLOTH).Box(new Vector3(0, 0.02f, 0.127f), new Vector3(0.2f, 0.09f, 0.012f), sc * 0.82f, 0.01f);   // hoodie pocket
-                if (p.look.shirt == 4) mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.127f), new Vector3(0.012f, 0.24f, 0.006f), new Color(0.6f, 0.6f, 0.6f), 0.002f);   // jacket zip
+                // a tube round the waist (over the ribbed insert), running up into the chest piece - no gap between them
+                mb.Sub(CLOTH).Cyl(new Vector3(0, -0.035f, 0), new Vector3(0, 0.19f, 0), 0.127f, 0.13f, 18, sc, true);
+                if (p.look.shirt == 3) mb.Sub(CLOTH).Box(new Vector3(0, 0.03f, 0.128f), new Vector3(0.18f, 0.085f, 0.012f), sc * 0.82f, 0.008f);   // hoodie pocket
+                if (p.look.shirt == 4) mb.Sub(CLOTH).Box(new Vector3(0, 0.08f, 0.131f), new Vector3(0.012f, 0.23f, 0.004f), new Color(0.6f, 0.6f, 0.6f), 0.002f);   // jacket zip
             }
             mb.Build("Mesh", r.spine, mats);
 
@@ -268,8 +268,9 @@ namespace Rago
             if (p.dressed && p.look.shirt > 0)
             {
                 Color sc = Cosmetics.Col(p.look.shirtCol);
-                if (p.look.shirt == 5) mb.Sub(CLOTH).Box(new Vector3(0, 0.05f, 0.0f), new Vector3(0.31f, 0.25f, 0.225f), sc, 0.07f, 2);   // tank top: shoulders bare
-                else mb.Sub(CLOTH).Box(new Vector3(0, 0.07f, 0.0f), new Vector3(0.38f, 0.27f, 0.235f), sc, 0.075f, 2);
+                // snug over the chest shell (0.35 x 0.25 x 0.21) and its sternum plate: thin, with small rounded edges
+                if (p.look.shirt == 5) mb.Sub(CLOTH).Box(new Vector3(0, 0.07f, 0.004f), new Vector3(0.3f, 0.27f, 0.24f), sc, 0.045f, 2);   // tank top: shoulders bare
+                else mb.Sub(CLOTH).Box(new Vector3(0, 0.075f, 0.004f), new Vector3(0.368f, 0.275f, 0.242f), sc, 0.05f, 2);
                 if (p.look.shirt == 3) mb.Sub(CLOTH).Box(new Vector3(0, 0.2f, -0.1f), new Vector3(0.24f, 0.1f, 0.1f), sc * 0.9f, 0.04f, 2);     // hood, down on the back
                 if (p.look.shirt == 4)
                 {

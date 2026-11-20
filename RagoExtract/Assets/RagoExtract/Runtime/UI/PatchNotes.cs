@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.42", "Clothes that fit, no dog bed", new[] {
+                "Clothes fit properly: a shirt is now one snug piece over the chest and round the waist (it was two puffy boxes with a gap between them and the chest plate showing through), and trousers sit right at the waist.",
+                "Manda's bed is gone - she curls up on the floor in her corner (her name sign is still there).",
+            }),
             ("2.41", "Clothes, knockdowns, a better-fitting body", new[] {
                 "WARDROBE (bunker, west wall of the main hall): dress your operator - shirt (T-shirt, long sleeve, hoodie, jacket, tank top), trousers (cargo, jeans, shorts), hat (cap, beanie, bandana) and face (sunglasses, neck gaiter, gas mask), each in one of 15 colours. The mannequin next to the board wears it as you choose; you wear it too, under your armour, and other players see it.",
                 "KNOCKED DOWN: getting run over by a golf cart or caught by a grenade blast (and surviving) throws you back as a ragdoll - your view rides along in its head - and you get back up where you land after a couple of seconds.",
