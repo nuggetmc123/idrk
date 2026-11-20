@@ -207,6 +207,7 @@ namespace Rago
         readonly List<Collider> _mine = new List<Collider>();
         readonly HashSet<Collider> _ignored = new HashSet<Collider>();
         float _ignoreT;
+        bool _holding;   // frozen in place while someone sits in it without pressing the gas
         void IgnoreRiders()
         {
             _ignoreT -= Time.fixedDeltaTime;
@@ -215,7 +216,19 @@ namespace Rago
             if (_mine.Count == 0) GetComponents(_mine);
             var riders = new List<Collider>();
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
-            if (pl != null && pl.Driving == this) riders.AddRange(pl.GetComponentsInChildren<Collider>(true));
+            if (pl != null && pl.Driving == this)
+            {
+                // everything that's you: the rig, your visible body and your hands are separate objects, and so is
+                // whatever you're holding - the physics hands on the wheel were shoving the cart about
+                riders.AddRange(pl.GetComponentsInChildren<Collider>(true));
+                if (pl.Body != null) riders.AddRange(pl.Body.GetComponentsInChildren<Collider>(true));
+                foreach (var h in new[] { pl.HandL, pl.HandR })
+                {
+                    if (h == null) continue;
+                    riders.AddRange(h.GetComponentsInChildren<Collider>(true));
+                    if (h.Held != null) riders.AddRange(h.Held.GetComponentsInChildren<Collider>(true));
+                }
+            }
             // other players sitting in a seat (they ride it on their own screen)
             if (NetGame.I != null)
                 foreach (var kv in NetGame.I.Remotes)
@@ -248,7 +261,18 @@ namespace Rago
                 rb.MoveRotation(Quaternion.Slerp(rb.rotation, _netRot, 0.35f));
                 return;
             }
-            if (rb.isKinematic) { rb.isKinematic = false; RemoteDriver = 0; }
+            // someone's sitting in it and nobody's pressing the gas: it doesn't move at all (frozen in place) - it used to
+            // drift and turn on its own while you sat there
+            bool inside = LocalInside;
+            bool input = LocalDriving && (Mathf.Abs(Throttle) > 0.02f || Brake > 0.02f);
+            if (inside && !input && rb.velocity.sqrMagnitude < 0.5f * 0.5f && rb.angularVelocity.sqrMagnitude < 0.3f * 0.3f)
+            {
+                if (!rb.isKinematic) { rb.velocity = Vector3.zero; rb.angularVelocity = Vector3.zero; rb.isKinematic = true; }
+                _holding = true;
+                return;
+            }
+            if (rb.isKinematic) { rb.isKinematic = false; if (!_holding) RemoteDriver = 0; }
+            _holding = false;
             float dt = Time.fixedDeltaTime;
             bool driven = LocalDriving;
             float thr = driven ? Throttle : 0f, st = driven ? Steer : 0f;

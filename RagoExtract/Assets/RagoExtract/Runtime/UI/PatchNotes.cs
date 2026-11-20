@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.38", "Carts really stay put, hands on the wheel, Manda, name tags", new[] {
+                "Golf carts: fixed them still driving and turning on their own - your hands and your body are separate physics objects (and so is whatever you're holding), and they were shoving the cart. None of that pushes it any more.",
+                "A cart with someone in it stays completely still until the driver presses the gas.",
+                "Hands on the wheel: while you hold the steering wheel your hands are drawn gripping its rim, and stay there as you turn it.",
+                "The bunker pug is called MANDA - her name is on a little wooden sign at the front of her bed.",
+                "Name tags: a player's name tag now sits flat on their chest (it floated out in front of the collar), and on the front of their vest when they wear one (it used to hover above it).",
+            }),
             ("2.37", "Carts stay put", new[] {
                 "Fixed golf carts driving off on their own: your body, hands and holstered gear sit inside the cart, and physics kept shoving the cart out from under you. The people in a cart (you and other players in its seats) no longer push it - and can still be run over once they're out.",
                 "Off the gas and slow, a cart now holds still (even on a hill) instead of creeping; at speed it still rolls to a stop.",

@@ -26,6 +26,20 @@ namespace Rago
             bmb.Cyl(bed + new Vector3(0, 0, 0), bed + new Vector3(0, 0.1f, 0), 0.42f, 0.4f, 20, new Color(0.45f, 0.12f, 0.12f));
             bmb.Cyl(bed + new Vector3(0, 0.1f, 0), bed + new Vector3(0, 0.12f, 0), 0.32f, 0.3f, 20, new Color(0.75f, 0.68f, 0.55f));
             bmb.Build("PugBed", parent, mat);
+            // her name on a little wooden sign at the front of the bed, facing the room
+            {
+                Vector3 toRoom = new Vector3(-bed.x, 0, -bed.z); toRoom = toRoom.sqrMagnitude > 0.01f ? toRoom.normalized : Vector3.back;
+                var sign = new GameObject("PugName").transform;
+                sign.SetParent(parent, false);
+                sign.localPosition = bed + toRoom * 0.47f + Vector3.up * 0.2f;
+                sign.localRotation = Quaternion.LookRotation(-toRoom) * Quaternion.Euler(-12f, 0, 0);
+                var nameMb = new MB();
+                nameMb.Box(Vector3.zero, new Vector3(0.36f, 0.12f, 0.02f), new Color(0.55f, 0.38f, 0.22f), 0.01f);
+                nameMb.Box(new Vector3(-0.14f, -0.1f, 0.012f), new Vector3(0.02f, 0.14f, 0.02f), new Color(0.4f, 0.27f, 0.15f));
+                nameMb.Box(new Vector3(0.14f, -0.1f, 0.012f), new Vector3(0.02f, 0.14f, 0.02f), new Color(0.4f, 0.27f, 0.15f));
+                nameMb.Build("Sign", sign, Mats.Lit("pug_sign", Color.white, 0f, 0.3f, Mats.Wood, null, 0.3f, 0.1f));
+                UI.Text(sign, "MANDA", new Vector3(0, 0, -0.012f), 0.05f, new Color(1f, 0.93f, 0.8f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            }
             // ---- bowl, sack of food beside it
             var steel = Mats.Lit("pug_bowl", Color.white, 0.8f, 0.6f, Mats.Metal, null, 0.2f, 0.2f);
             new MB().Cyl(bowl, bowl + new Vector3(0, 0.07f, 0), 0.11f, 0.14f, 18, new Color(0.7f, 0.72f, 0.75f)).Build("PugBowl", parent, steel);

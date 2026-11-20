@@ -458,6 +458,7 @@ namespace Rago
         {
             var c = Driving; bool wasPassenger = Passenger;
             Driving = null; Passenger = false;
+            WheelHandsOff();
             if (c != null)
             {
                 c.SwingDoor(wasPassenger ? 1 : 0);
@@ -503,6 +504,21 @@ namespace Rago
                 }
             }
             hand_climb_off();
+            // the hands that hold the wheel are drawn gripping its rim (they stay on it, wherever your controller is)
+            c.WheelFrame(out var wc, out var wr, out var wu);
+            Vector3 wn = Vector3.Cross(wr, wu).normalized;   // the wheel's axis (away from you, down the column)
+            for (int i = 0; i < 2; i++)
+            {
+                var hand = i == 0 ? HandL : HandR;
+                hand.OnWheel = _onWheel[i];
+                if (!_onWheel[i]) continue;
+                Vector3 v = hand.TrackedPosition - wc; v -= wn * Vector3.Dot(v, wn);
+                if (v.sqrMagnitude < 1e-4f) v = i == 0 ? -wr : wr;
+                Vector3 radial = v.normalized;
+                Vector3 tangent = Vector3.Cross(wn, radial); if (Vector3.Dot(tangent, wu) < 0f) tangent = -tangent;   // fingers over the top of the rim
+                hand.WheelPos = wc + radial * 0.17f - radial * 0.02f;
+                hand.WheelRot = Quaternion.LookRotation(tangent, -wn) * Quaternion.Euler(0, 0, i == 0 ? 70f : -70f);
+            }
             bool holding = _onWheel[0] || _onWheel[1];
             if (holding)
             {
@@ -524,7 +540,8 @@ namespace Rago
             if (brake > 0.05f) { if (c.ForwardSpeed > 0.4f || !holding) c.Brake = brake; else c.Throttle = -brake; }   // stopped (and holding the wheel): back up
         }
 
-        void hand_climb_off() { HandL.StopClimbing(); HandR.StopClimbing(); }   // gripping the wheel / dash must never start a climb
+        void hand_climb_off() { HandL.StopClimbing(); HandR.StopClimbing(); }
+        void WheelHandsOff() { _onWheel[0] = _onWheel[1] = false; if (HandL != null) HandL.OnWheel = false; if (HandR != null) HandR.OnWheel = false; }   // gripping the wheel / dash must never start a climb
 
         void DriveTick(float dt)
         {

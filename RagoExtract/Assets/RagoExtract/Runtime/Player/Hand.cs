@@ -413,8 +413,12 @@ namespace Rago
             else { _visual.localPosition = Vector3.zero; _visual.localRotation = Quaternion.identity; }
         }
 
+        /// <summary>On a golf cart's steering wheel: the hand is drawn gripping the rim here (set by the driver's rig each frame).</summary>
+        public bool OnWheel; public Vector3 WheelPos; public Quaternion WheelRot;
+
         void UpdateVisualPose()
         {
+            if (OnWheel && Held == null) { _visual.position = WheelPos; _visual.rotation = WheelRot; return; }
             // snap the hand visual onto the grip when holding something
             if (Held != null && Held.Held)
             {
@@ -611,7 +615,7 @@ namespace Rago
         float _curl, _trig;
         void UpdateFingers(HandInput input)
         {
-            float targetCurl = Held != null || Racking != null ? 1f : input.Grip;
+            float targetCurl = Held != null || Racking != null || OnWheel ? 1f : input.Grip;
             float targetTrig = Held is Gun && !HeldAsSecondary ? 0.4f + input.Trigger * 0.4f : input.Trigger;
             _curl = Mathf.MoveTowards(_curl, targetCurl, Time.deltaTime * 10f);
             _trig = Mathf.MoveTowards(_trig, targetTrig, Time.deltaTime * 12f);

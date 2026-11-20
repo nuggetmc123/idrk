@@ -554,8 +554,8 @@ namespace Rago
             if (r == null || r.chest == null) return null;
             var root = new GameObject("NameTape").transform;
             root.SetParent(r.chest, false);
-            root.localPosition = new Vector3(0, 0.165f, 0.195f);
-            root.localRotation = Quaternion.Euler(-12f, 0, 0);
+            root.localPosition = new Vector3(0, 0.15f, 0.104f);
+            root.localRotation = Quaternion.Euler(-18f, 0, 0);
             var tape = new MB().Box(Vector3.zero, new Vector3(0.15f, 0.034f, 0.006f), new Color(0.2f, 0.22f, 0.16f), 0.002f)
                 .Build("Tape", root, Mats.Lit("name_tape", Color.white, 0f, 0.15f));
             tape.layer = r.chest.gameObject.layer;
@@ -563,7 +563,33 @@ namespace Rago
             tm.transform.localRotation = Quaternion.Euler(0, 180f, 0);   // readable from the front (text faces away from its +Z)
             tm.gameObject.layer = r.chest.gameObject.layer;
             SetTape(tm, name);
+            PlaceTape(r, tm);
             return tm;
+        }
+
+        /// <summary>
+        /// Lay the name tape flat on the front of the chest - or on the front of the vest when one is worn (it used to
+        /// float out in front of the collar, and hovered above a vest). The vest is built in chest space, so its front
+        /// is read straight from its mesh. Call again after the gear changes (a frame later, once the old vest is gone).
+        /// </summary>
+        public static void PlaceTape(HumanRig r, TextMesh tm)
+        {
+            if (r == null || r.chest == null || tm == null) return;
+            var root = tm.transform.parent;
+            float z = 0.104f, tilt = -18f;   // on the chest shell, where its rounded top starts
+            Transform vest = null;
+            for (int i = 0; i < r.chest.childCount; i++) { var c = r.chest.GetChild(i); if (c.gameObject.name == "Vest") vest = c; }   // the newest one
+            var mf = vest != null ? vest.GetComponent<MeshFilter>() : null;
+            if (mf != null && mf.sharedMesh != null)
+            {
+                float best = -1f;
+                // the front of the vest's upper half (its plate / admin panel; the pouches lower down stick out further)
+                foreach (var v in mf.sharedMesh.vertices)
+                    if (v.y > 0.05f && v.y < 0.215f && Mathf.Abs(v.x) < 0.2f && v.z > best) best = v.z;
+                if (best > 0f) { z = best + 0.003f; tilt = -6f; }
+            }
+            root.localPosition = new Vector3(0, 0.15f, z);
+            root.localRotation = Quaternion.Euler(tilt, 0, 0);
         }
         public static void SetTape(TextMesh tm, string name)
         {
