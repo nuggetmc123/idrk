@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.36", "Drive with the steering wheel", new[] {
+                "Driving a golf cart in VR is now hands-on: grab the steering wheel (one or both hands) and turn it to steer - the wheel turns with your hands. RIGHT TRIGGER is the gas, LEFT TRIGGER is the brake; keep holding it once you've stopped to back up.",
+                "Let go of the wheel and you can't accelerate - the cart rolls to a stop (and the wheel straightens up).",
+                "Desktop: W gas, S brake (then reverse once stopped), A / D steer.",
+            }),
             ("2.35", "Cart doors fit", new[] {
                 "The golf cart doors now fill the whole side opening - from the front bodywork to the rear, level with the top, flush with the side - instead of a small panel floating in the middle. The handle is at the back edge.",
             }),

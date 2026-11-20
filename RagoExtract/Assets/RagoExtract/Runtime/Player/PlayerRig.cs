@@ -433,6 +433,7 @@ namespace Rago
         public void EnterCart(GolfCart c, bool passenger = false)
         {
             Driving = c; Passenger = passenger;
+            _onWheel[0] = _onWheel[1] = false;
             c.SwingDoor(passenger ? 1 : 0);
             var seatT = passenger ? c.PassSeat : c.Seat;
             Cc.enabled = false;
@@ -449,7 +450,7 @@ namespace Rago
             else Desktop.Yaw = c.transform.eulerAngles.y;
             _cartLastPos = seatT.position; _cartLastYaw = c.transform.eulerAngles.y;
             if (passenger) Toast(XRInputs.VR ? "Riding along - A / X to get out" : "Riding along - F or Space to get out");
-            else Toast(XRInputs.VR ? "Driving: left stick to drive and steer, A / X to get out" : "Driving: W A S D, F or Space to get out");
+            else Toast(XRInputs.VR ? "Hold the wheel and turn it. Right trigger = gas, left trigger = brake / reverse. A / X to get out" : "Driving: W gas, S brake / reverse, A D steer. F or Space to get out");
         }
 
         public void LeaveCart()
@@ -461,7 +462,7 @@ namespace Rago
                 c.SwingDoor(wasPassenger ? 1 : 0);
                 if (!wasPassenger)
                 {
-                    c.Throttle = 0; c.Steer = 0;
+                    c.Throttle = 0; c.Steer = 0; c.Brake = 0;
                     if (NetGame.Live) NetGame.I.CartState(c.Id, c.transform.position, c.transform.rotation, false);
                 }
                 // step out on your side, on the ground
@@ -472,6 +473,56 @@ namespace Rago
             if (Cc != null && !Dead) Cc.enabled = true;
             _vy = 0f; _smoothY = 0f;
         }
+
+        // ---- the steering wheel in VR: hold it (grip) with one or both hands and turn it; right trigger = gas, left
+        // trigger = brake (and reverse once you've stopped). Let go of the wheel and the cart rolls to a stop.
+        readonly bool[] _onWheel = new bool[2];
+        readonly float[] _grabAngle = new float[2];
+        float _grabSteer;
+
+        float WheelAngle(GolfCart c, Vector3 handPos)
+        {
+            c.WheelFrame(out var center, out var right, out var up);
+            Vector3 v = handPos - center;
+            return Mathf.Atan2(Vector3.Dot(v, up), Vector3.Dot(v, right)) * Mathf.Rad2Deg;
+        }
+
+        void WheelControls(GolfCart c, float dt)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                var hand = i == 0 ? HandL : HandR;
+                var inp = i == 0 ? XRInputs.Left : XRInputs.Right;
+                if (_onWheel[i] && !inp.GripHeld) _onWheel[i] = false;   // let go
+                if (!_onWheel[i] && inp.GripHeld && hand.Held == null && c.WheelNear(hand.TrackedPosition, 0.32f))
+                {
+                    _onWheel[i] = true; _grabAngle[i] = WheelAngle(c, hand.TrackedPosition); _grabSteer = c.Steer;
+                    if (_onWheel[1 - i]) _grabAngle[1 - i] = WheelAngle(c, (i == 0 ? HandR : HandL).TrackedPosition);   // the other hand's turn restarts from here too
+                }
+            }
+            hand_climb_off();
+            bool holding = _onWheel[0] || _onWheel[1];
+            if (holding)
+            {
+                // turning the wheel: how far the hands have gone round it since they took hold (the wheel turns 120 deg each way)
+                float delta = 0f; int n = 0;
+                for (int i = 0; i < 2; i++)
+                {
+                    if (!_onWheel[i]) continue;
+                    delta += Mathf.DeltaAngle(_grabAngle[i], WheelAngle(c, (i == 0 ? HandL : HandR).TrackedPosition)); n++;
+                }
+                delta /= n;
+                c.Steer = Mathf.Clamp(_grabSteer - delta / 120f, -1f, 1f);
+            }
+            else c.Steer = Mathf.MoveTowards(c.Steer, 0f, dt * 2f);   // let go: the wheel straightens up
+            float gas = holding ? XRInputs.Right.Trigger : 0f;
+            float brake = XRInputs.Left.Trigger;
+            if (HandL.Held is Gun) brake = 0f;   // a gun in your left hand: its trigger fires it, it isn't the brake
+            c.Throttle = gas > 0.05f ? gas : 0f; c.Brake = 0f;
+            if (brake > 0.05f) { if (c.ForwardSpeed > 0.4f || !holding) c.Brake = brake; else c.Throttle = -brake; }   // stopped (and holding the wheel): back up
+        }
+
+        void hand_climb_off() { HandL.StopClimbing(); HandR.StopClimbing(); }   // gripping the wheel / dash must never start a climb
 
         void DriveTick(float dt)
         {
@@ -494,9 +545,15 @@ namespace Rago
             // controls
             if (!Passenger)
             {
-                Vector2 stick = XRInputs.VR ? XRInputs.Left.Stick : Desktop.Move;
-                c.Throttle = Mathf.Abs(stick.y) > 0.12f ? stick.y : 0f;
-                c.Steer = Mathf.Abs(stick.x) > 0.12f ? stick.x : 0f;
+                if (XRInputs.VR) WheelControls(c, dt);
+                else
+                {
+                    // desktop: W gas, S brake (then reverse once stopped), A / D steer
+                    Vector2 stick = Desktop.Move;
+                    c.Steer = Mathf.Abs(stick.x) > 0.12f ? stick.x : 0f;
+                    c.Throttle = stick.y > 0.12f ? stick.y : 0f; c.Brake = 0f;
+                    if (stick.y < -0.12f) { if (c.ForwardSpeed > 0.4f) c.Brake = -stick.y; else c.Throttle = stick.y; }
+                }
             }
             // turning your view still works (right stick)
             if (XRInputs.VR)

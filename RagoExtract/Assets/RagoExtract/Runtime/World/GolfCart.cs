@@ -38,7 +38,15 @@ namespace Rago
         readonly Dictionary<object, float> _hitCooldown = new Dictionary<object, float>();
         float _wheelSpin, _steerVis;
 
-        public float Throttle, Steer;   // set by the driver each frame
+        public float Throttle, Steer, Brake;   // set by the driver each frame (throttle < 0 = reverse)
+        /// <summary>The steering wheel's centre and its plane (for turning it by hand).</summary>
+        public void WheelFrame(out Vector3 center, out Vector3 right, out Vector3 up)
+        {
+            var q = transform.rotation * Quaternion.Euler(WheelTilt, 0, 0);
+            center = WheelGrab != null ? WheelGrab.position : transform.position;
+            right = q * Vector3.right; up = q * Vector3.up;
+        }
+        public float ForwardSpeed => rb != null ? Vector3.Dot(rb.velocity, transform.forward) : 0f;
         public bool LocalDriving => RagoGame.I != null && RagoGame.I.Player != null && RagoGame.I.Player.Driving == this && !RagoGame.I.Player.Passenger;
         public bool LocalInside => RagoGame.I != null && RagoGame.I.Player != null && RagoGame.I.Player.Driving == this;
         public bool Busy => LocalDriving || (RemoteDriver != 0 && Time.time - _remoteT < 1.5f);
@@ -227,9 +235,15 @@ namespace Rago
             float sideSpeed = Vector3.Dot(v, transform.right);
             if (grounded >= 2)
             {
-                float target = thr >= 0f ? thr * MaxSpeed : thr * MaxReverse;
-                float accel = Mathf.Clamp((target - fwdSpeed) * 2.2f, -6f, thr == 0f ? 6f : 3.5f);
+                float accel;
                 if (!driven) accel = Mathf.Clamp(-fwdSpeed * 3f, -6f, 6f);   // parked: handbrake on
+                else
+                {
+                    if (thr > 0.02f) accel = Mathf.Clamp((thr * MaxSpeed - fwdSpeed) * 2.2f, -1.5f, 3.5f);         // gas
+                    else if (thr < -0.02f) accel = Mathf.Clamp((thr * MaxReverse - fwdSpeed) * 2.2f, -2.5f, 1.5f); // reverse
+                    else accel = -Mathf.Sign(fwdSpeed) * Mathf.Min(Mathf.Abs(fwdSpeed) * 3f, 0.9f);              // off the gas: rolls to a stop
+                    if (Brake > 0.02f) accel += -Mathf.Sign(fwdSpeed) * Mathf.Min(Mathf.Abs(fwdSpeed) / Time.fixedDeltaTime * 0.5f, Brake * 7f);   // brakes
+                }
                 rb.AddForce(transform.forward * accel * rb.mass);
                 rb.AddForce(-transform.right * Mathf.Clamp(sideSpeed * 6f, -12f, 12f) * rb.mass);   // tyres grip sideways
                 float yawRate = st * Mathf.Clamp(fwdSpeed / 3f, -1f, 1f) * 1.3f;
@@ -255,7 +269,7 @@ namespace Rago
             _wheelSpin += speed / 0.22f * Mathf.Rad2Deg * Time.deltaTime;
             for (int i = 0; i < 4; i++) if (_wheels[i] != null) _wheels[i].localRotation = Quaternion.Euler(_wheelSpin, i < 2 ? Steer * 25f * (LocalDriving ? 1f : 0f) : 0f, 0);
             _steerVis = Mathf.Lerp(_steerVis, LocalDriving ? Steer : 0f, Time.deltaTime * 8f);
-            if (_steerWheel != null) _steerWheel.localRotation = Quaternion.Euler(WheelTilt, 0, -_steerVis * 120f);
+            if (_steerWheel != null) _steerWheel.localRotation = Quaternion.Euler(WheelTilt, 0, _steerVis * 120f);
             for (int i = 0; i < 2; i++)
             {
                 if (_doors[i] == null) continue;
