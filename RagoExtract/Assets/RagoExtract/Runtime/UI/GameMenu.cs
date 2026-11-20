@@ -271,6 +271,13 @@ namespace Rago
             Line(NpcKinds[_npcKind], y, 0.026f, Color.white, -0.41f);
             Btn(">", 0.1f, y, 0.08f, () => _npcKind = (_npcKind + 1) % NpcKinds.Length);
             Btn("SPAWN NPC", 0.36f, y, 0.2f, () => { Show(false); Tester.BeginPlace(null, _npcKind); }, Stop); y -= 0.08f;
+            // a golf cart a few metres in front of you (anywhere - raids, the Market, your bunker)
+            Btn("SPAWN GOLF CART", -0.25f, y, 0.42f, () =>
+            {
+                var f = pl.Head.forward; f.y = 0; f = f.sqrMagnitude > 0.01f ? f.normalized : pl.transform.forward;
+                GolfCart.SpawnHere(pl.transform.position + f * 3.5f, Quaternion.LookRotation(f).eulerAngles.y);
+                Show(false); pl.Toast("Golf cart spawned - grab the steering wheel to drive");
+            }, Go); y -= 0.08f;
             Line("NPCs only spawn in a raid (in multiplayer, everyone sees them).", y, 0.02f, UI.Dim);
         }
 
@@ -424,9 +431,17 @@ namespace Rago
             Line("Turning:  " + (PlayerRig.SmoothTurn ? "Smooth" : "Snap " + PlayerRig.SnapAngle), y);
             Btn("MODE", 0.25f, y, 0.14f, () => { PlayerRig.SmoothTurn = !PlayerRig.SmoothTurn; SaveSettings(); });
             Btn("ANGLE", 0.42f, y, 0.14f, () => { PlayerRig.SnapAngle = PlayerRig.SnapAngle < 40 ? 45 : PlayerRig.SnapAngle < 60 ? 90 : 30; SaveSettings(); }); y -= 0.085f;
-            Line("Volume:  " + Mathf.RoundToInt(Sfx.MasterVolume * 100) + "%", y);
-            Btn("-", 0.25f, y, 0.1f, () => { Sfx.MasterVolume = Mathf.Max(0f, Sfx.MasterVolume - 0.1f); AudioListener.volume = Sfx.MasterVolume; SaveSettings(); });
-            Btn("+", 0.4f, y, 0.1f, () => { Sfx.MasterVolume = Mathf.Min(1f, Sfx.MasterVolume + 0.1f); AudioListener.volume = Sfx.MasterVolume; SaveSettings(); }); y -= 0.085f;
+            // volumes: two to a row - master, effects / weather & ambience, voice chat (there's no music in the game)
+            void Vol(string label, float x, float yy, System.Func<float> get, System.Action<float> set)
+            {
+                Line(label + " " + Mathf.RoundToInt(get() * 100) + "%", yy, 0.026f, Color.white, x);
+                Btn("-", x + 0.34f, yy, 0.07f, () => { set(Mathf.Max(0f, Mathf.Round((get() - 0.1f) * 10f) / 10f)); Sfx.ApplyVolumes(); SaveSettings(); });
+                Btn("+", x + 0.43f, yy, 0.07f, () => { set(Mathf.Min(1f, Mathf.Round((get() + 0.1f) * 10f) / 10f)); Sfx.ApplyVolumes(); SaveSettings(); });
+            }
+            Vol("Master", -0.52f, y, () => Sfx.MasterVolume, v => Sfx.MasterVolume = v);
+            Vol("Effects", 0.02f, y, () => Sfx.Effects, v => Sfx.Effects = v); y -= 0.075f;
+            Vol("Weather", -0.52f, y, () => Sfx.Ambience, v => Sfx.Ambience = v);
+            Vol("Voices", 0.02f, y, () => Sfx.Voices, v => Sfx.Voices = v); y -= 0.085f;
             int q = p != null ? Mathf.Clamp(p.quality, 0, 2) : 1;
             Line("Graphics:  " + (q == 0 ? "Low (fastest)" : q == 1 ? "Medium" : "High") + "  - next map you load", y);
             Btn("CHANGE", 0.32f, y, 0.24f, () => { if (Profile.Current != null) { Profile.Current.quality = (Mathf.Clamp(Profile.Current.quality, 0, 2) + 1) % 3; SaveSettings(); } }); y -= 0.085f;
@@ -445,7 +460,7 @@ namespace Rago
         static void SaveSettings()
         {
             var p = Profile.Current; if (p == null) return;
-            p.gripPitch = Hand.GripPitch; p.smoothTurn = PlayerRig.SmoothTurn; p.snapAngle = PlayerRig.SnapAngle; p.volume = Sfx.MasterVolume;
+            p.gripPitch = Hand.GripPitch; p.smoothTurn = PlayerRig.SmoothTurn; p.snapAngle = PlayerRig.SnapAngle; p.volume = Sfx.MasterVolume; p.volEffects = Sfx.Effects; p.volAmbience = Sfx.Ambience; p.volVoice = Sfx.Voices;
             p.Save();
         }
     }

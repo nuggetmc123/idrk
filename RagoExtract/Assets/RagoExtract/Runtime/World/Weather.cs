@@ -100,12 +100,13 @@ namespace Rago
             ps.Play();
             _rainSnd = gameObject.AddComponent<AudioSource>();
             _rainSnd.clip = Synth.RainLoop(); _rainSnd.loop = true; _rainSnd.spatialBlend = 0f;
-            _rainSnd.volume = 0.28f * Sfx.MasterVolume; _rainSnd.Play();
+            _rainSnd.volume = 0.28f * Sfx.Ambience; _rainSnd.Play();
         }
 
         void LateUpdate()
         {
             if (_rain == null) return;
+            if (_rainSnd != null) _rainSnd.volume = 0.28f * Sfx.Ambience;   // follows the settings
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (pl != null) _rain.position = pl.Head.position + Vector3.up * 11f;
         }

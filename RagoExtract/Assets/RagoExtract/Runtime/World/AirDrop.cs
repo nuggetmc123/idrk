@@ -129,7 +129,7 @@ namespace Rago
             _snd = _plane.gameObject.AddComponent<AudioSource>();
             _snd.clip = Synth.PlaneDrone(); _snd.loop = true; _snd.spatialBlend = 1f; _snd.dopplerLevel = 0.6f;
             _snd.rolloffMode = AudioRolloffMode.Linear; _snd.minDistance = 40f; _snd.maxDistance = 1100f;
-            _snd.volume = 0.9f * Sfx.MasterVolume; _snd.Play();
+            _snd.volume = 0.9f * Sfx.Effects; _snd.Play();
         }
 
         void Update()

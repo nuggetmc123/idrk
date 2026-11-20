@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.33", "Golf carts and volume settings", new[] {
+                "GOLF CARTS: one is parked next to every spawn on Dockyard, Pinewood and Old Town. Grab the steering wheel to get in (desktop: F). Left stick = gas / reverse and steering (desktop W A S D), A or X to get out (desktop F / Space). Your view still turns with the right stick.",
+                "Run people over: hitting a raider or another player at speed hurts them - the faster, the harder (up to 90 damage). The kill feed says 'a golf cart (run over)'.",
+                "TESTER menu: SPAWN GOLF CART puts one in front of you anywhere (raids, the Market, your bunker). In multiplayer everyone sees it, and everyone sees you driving.",
+                "SETTINGS: separate volumes for Master, Effects (guns, footsteps, raiders...), Weather (rain, wind, background air) and Voices (other players' voice chat). There's no music in the game any more, so there's nothing to turn down there.",
+            }),
             ("2.32", "Ping fix: messages no longer queue up", new[] {
                 "Fixed the 1+ second ping with 3 players: shots, hits, names, pings and items were going through Photon's 'reliable data', which is made for sending big files in slices and rations what goes out - with a few players everything queued behind everything else. They now go as Photon RPCs (one copy for everyone), built for exactly this. Only big messages still use the old way.",
                 "If those RPCs don't work on someone's setup, the game notices within ~10 s and switches back by itself. The network report shows +RPC when it's on.",

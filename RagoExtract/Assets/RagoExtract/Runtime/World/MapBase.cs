@@ -1576,7 +1576,7 @@ namespace Rago
                 _alarm.playOnAwake = false;
             }
             _alarm.clip = Synth.Alarm(); _alarm.loop = true;
-            _alarm.volume = (under ? 1f : 0.8f) * Sfx.MasterVolume;
+            _alarm.volume = (under ? 1f : 0.8f) * Sfx.Effects;
             _alarm.spatialBlend = under ? 0.55f : 1f;   // underground: you hear it wherever you are, louder the closer you get
             _alarm.rolloffMode = AudioRolloffMode.Linear;
             _alarm.minDistance = under ? 20f : 8f; _alarm.maxDistance = under ? 400f : 160f;

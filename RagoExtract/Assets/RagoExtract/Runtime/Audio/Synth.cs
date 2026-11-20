@@ -554,6 +554,22 @@ namespace Rago
             return Clip("planedrone", d, true, 0.8f, true);
         });
 
+        /// <summary>A golf cart's electric motor (1 s loop, tiny): a whine plus a little gear hum. Pitched up with speed.</summary>
+        public static AudioClip CartMotor() => One("cartmotor", () =>
+        {
+            float len = 1f;
+            var d = Buf(len);
+            var lp = new LP(300);
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)SR;
+                float hum = Mathf.Sin(t * 2 * Mathf.PI * 110f) * 0.5f + Mathf.Sin(t * 2 * Mathf.PI * 220f) * 0.25f;
+                float whine = Mathf.Sin(t * 2 * Mathf.PI * 1320f) * 0.08f + Mathf.Sin(t * 2 * Mathf.PI * 2640f) * 0.03f;
+                d[i] = (hum + whine + lp.P(N()) * 1.5f) * 0.5f;
+            }
+            return Clip("cartmotor", d, true, 0.7f, true);
+        });
+
         /// <summary>Steady rain (loops): soft broadband hiss with patter.</summary>
         public static AudioClip RainLoop() => One("rainloop", () =>
         {

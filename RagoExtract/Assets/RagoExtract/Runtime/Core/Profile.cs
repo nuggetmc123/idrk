@@ -29,7 +29,7 @@ namespace Rago
         public int aimVersion;   // 1 = guns follow the controller's aim pose (old grip-angle tweaks reset)
         public bool smoothTurn;
         public float snapAngle = 45f;
-        public float volume = 1f;
+        public float volume = 1f, volEffects = 1f, volAmbience = 1f, volVoice = 1f;   // master, effects, weather & ambience, voice chat
         public int version = 1;
         public bool freeArmor;
         public float pugBowl = 0.5f;

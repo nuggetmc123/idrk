@@ -280,8 +280,13 @@ namespace Rago
             }
             // ---------------- move first, then the hands: their targets are where the controllers are AFTER this frame's
             // walking, so a held gun doesn't trail (and swing the opposite way) while you move
-            if (!Frozen) Locomotion(dt);
-            if (!Frozen) { HeadCheck(); KeepInside(dt); FallRescue(dt); }
+            if (Driving != null) DriveTick(dt);
+            else
+            {
+                if (!Frozen) Locomotion(dt);
+                if (!Frozen) { HeadCheck(); KeepInside(dt); FallRescue(dt); }
+                if (!Frozen && !Dead) TryEnterCart();
+            }
             HandTargets(out var lp, out var lr, out var rp, out var rr);
             HandL.Tick(XRInputs.Left, lp, lr);
             HandR.Tick(XRInputs.Right, rp, rr);
@@ -379,6 +384,100 @@ namespace Rago
         }
 
         void DesktopInteract() { }
+
+        // ---------------------------------------------------------------------------------- golf carts
+        /// <summary>The cart you're driving (null = on foot).</summary>
+        public GolfCart Driving;
+        Vector3 _cartLastPos; float _cartLastYaw;
+
+        /// <summary>Grab a cart's steering wheel (or press F next to one on desktop) to get in.</summary>
+        void TryEnterCart()
+        {
+            if (GolfCart.All.Count == 0) return;
+            GolfCart pick = null;
+            if (XRInputs.VR)
+            {
+                if (XRInputs.Left.GripDown && HandL.Held == null) foreach (var c in GolfCart.All) if (c != null && c.WheelNear(HandL.TrackedPosition)) pick = c;
+                if (pick == null && XRInputs.Right.GripDown && HandR.Held == null) foreach (var c in GolfCart.All) if (c != null && c.WheelNear(HandR.TrackedPosition)) pick = c;
+            }
+            else if (Desktop.Interact)
+                foreach (var c in GolfCart.All) if (c != null && (c.Seat.position - transform.position).sqrMagnitude < 2.6f * 2.6f) pick = c;
+            if (pick == null) return;
+            if (pick.Busy) { Toast("Someone's driving that one"); return; }
+            EnterCart(pick);
+        }
+
+        public void EnterCart(GolfCart c)
+        {
+            Driving = c;
+            Cc.enabled = false;
+            _vy = 0f; MoveVelocity = Vector3.zero; Sprinting = false;
+            transform.position = c.Seat.position;
+            if (XRInputs.VR)
+            {
+                // sit square in the seat, facing forward
+                float headYaw = Head.eulerAngles.y;
+                Origin.RotateAround(Head.position, Vector3.up, Mathf.DeltaAngle(headYaw, c.transform.eulerAngles.y));
+                Vector3 off = c.Seat.position - Head.position; off.y = 0;
+                Origin.position += off;
+            }
+            else Desktop.Yaw = c.transform.eulerAngles.y;
+            _cartLastPos = c.Seat.position; _cartLastYaw = c.transform.eulerAngles.y;
+            Toast(XRInputs.VR ? "Driving: left stick to drive and steer, A / X to get out" : "Driving: W A S D, F or Space to get out");
+            Sfx.Play(Synth.Footstep(Synth.Surface.Metal, 1, false), c.Seat.position, 0.4f, 0.9f, 1f, 15f);
+        }
+
+        public void LeaveCart()
+        {
+            var c = Driving;
+            Driving = null;
+            if (c != null)
+            {
+                c.Throttle = 0; c.Steer = 0;
+                if (NetGame.Live) NetGame.I.CartState(c.Id, c.transform.position, c.transform.rotation, false);
+                // step out on the driver's side, on the ground
+                Vector3 at = c.transform.position - c.transform.right * 1.3f + Vector3.up * 0.4f;
+                if (Physics.Raycast(at + Vector3.up * 2f, Vector3.down, out var h, 6f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) at = h.point + Vector3.up * 0.05f;
+                transform.position = at;
+            }
+            if (Cc != null && !Dead) Cc.enabled = true;
+            _vy = 0f; _smoothY = 0f;
+        }
+
+        void DriveTick(float dt)
+        {
+            var c = Driving;
+            if (c == null || c.Seat == null) { LeaveCart(); return; }
+            // ride along: follow the seat, turn with the cart
+            float yaw = c.transform.eulerAngles.y, dYaw = Mathf.DeltaAngle(_cartLastYaw, yaw);
+            Vector3 seat = c.Seat.position;
+            if (XRInputs.VR)
+            {
+                Origin.RotateAround(transform.position, Vector3.up, dYaw);
+                // whatever your real height (standing or sitting), your eyes sit at a seated driver's height
+                float headH = Head.position.y - Origin.position.y;
+                var o = Origin.localPosition; o.y = 0f; Origin.localPosition = o;
+                transform.position = seat + Vector3.up * (0.78f - headH);
+            }
+            else { Desktop.Yaw += dYaw; transform.position = seat + Vector3.up * (0.78f - 1.65f); }
+            _cartLastYaw = yaw; _cartLastPos = seat;
+            MoveVelocity = c.rb != null ? c.rb.velocity : Vector3.zero;
+            // controls
+            Vector2 stick = XRInputs.VR ? XRInputs.Left.Stick : Desktop.Move;
+            c.Throttle = Mathf.Abs(stick.y) > 0.12f ? stick.y : 0f;
+            c.Steer = Mathf.Abs(stick.x) > 0.12f ? stick.x : 0f;
+            // turning your view still works (right stick)
+            if (XRInputs.VR)
+            {
+                Vector2 turn = XRInputs.Right.Stick;
+                _snapCooldown -= dt;
+                if (SmoothTurn) { if (Mathf.Abs(turn.x) > 0.2f) Origin.RotateAround(Head.position, Vector3.up, turn.x * 120f * dt); }
+                else if (Mathf.Abs(turn.x) > 0.7f && _snapCooldown <= 0) { Origin.RotateAround(Head.position, Vector3.up, Mathf.Sign(turn.x) * SnapAngle); _snapCooldown = 0.3f; }
+                if (Mathf.Abs(turn.x) < 0.3f) _snapCooldown = 0;
+            }
+            bool exit = XRInputs.VR ? XRInputs.Right.PrimaryDown || XRInputs.Left.PrimaryDown : (Desktop.Interact || Desktop.Jump);
+            if (exit) LeaveCart();
+        }
 
         void Locomotion(float dt)
         {
@@ -539,6 +638,7 @@ namespace Rago
         // ---------------------------------------------------------------------------------- death
         public void OnDeath(Vector3 impulse, Vector3 point)
         {
+            if (Driving != null) LeaveCart();
             HandL.ForceRelease(); HandR.ForceRelease();
             HandL.SetVisible(false); HandR.SetVisible(false);
             Body.Die(impulse, point, MoveVelocity);

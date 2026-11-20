@@ -73,7 +73,7 @@ namespace Rago
                     Send(false, kv.Key);
         }
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed, LockBroken, Market, Door }
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed, LockBroken, Market, Door, Cart, CartSpawn }
 
         public static void Ensure()
         {
@@ -539,6 +539,22 @@ namespace Rago
             NetHub.Backend.FlushNow();
         }
 
+        /// <summary>The cart I'm driving is here (fast lane while driving; reliable when I get out, so it's parked in the same spot for everyone).</summary>
+        public void CartState(int id, Vector3 pos, Quaternion rot, bool driving)
+        {
+            if (!Live) return;
+            var w = W(Msg.Cart); w.Write((short)id); V3(w, pos); Q(w, rot); w.Write((byte)(driving ? 1 : 0));
+            Send(!driving);
+        }
+
+        /// <summary>A tester spawned a cart: everyone gets one in the same place.</summary>
+        public void CartSpawned(int id, Vector3 pos, float yaw)
+        {
+            if (!Live) return;
+            var w = W(Msg.CartSpawn); w.Write((short)id); V3(w, pos); w.Write(yaw);
+            Send(true);
+        }
+
         public void DoorAngle(int doorId, float angle) { if (!Live) return; var w = W(Msg.Door); w.Write(doorId); w.Write((short)Mathf.RoundToInt(angle * 10f)); Send(true); }
 
         public void LockBroken(int doorId) { if (!Live) return; var w = W(Msg.LockBroken); w.Write(doorId); Send(true); }
@@ -763,6 +779,19 @@ namespace Rago
                             {
                                 bool hid = r.ReadBoolean();
                                 if (Remotes.TryGetValue(from, out var hp) && hp != null) hp.HiddenFromAi = hid;   // a tester made themselves invisible to raiders
+                                break;
+                            }
+                        case Msg.Cart:
+                            {
+                                int cid = r.ReadInt16(); var cp = V3(r); var cr = Q(r); bool drv = r.ReadByte() == 1;
+                                var cart = GolfCart.Find(cid);
+                                if (cart != null) cart.NetState(from, cp, cr, drv);
+                                break;
+                            }
+                        case Msg.CartSpawn:
+                            {
+                                int cid = r.ReadInt16(); var cp = V3(r); float cy = r.ReadSingle();
+                                if (GolfCart.Find(cid) == null) GolfCart.Create(cid, cp, Quaternion.Euler(0, cy, 0), RagoGame.I != null && RagoGame.I.Map != null ? RagoGame.I.Map.transform : null);
                                 break;
                             }
                         case Msg.Door:

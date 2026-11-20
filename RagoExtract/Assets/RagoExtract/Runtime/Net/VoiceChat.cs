@@ -135,7 +135,7 @@ namespace Rago
                 _radio = value;
                 _src.spatialBlend = value ? 0f : 1f;
                 _hp.enabled = value; _lp.enabled = value;
-                _src.volume = value ? 0.75f : 1f;
+                _src.volume = (value ? 0.75f : 1f) * Sfx.Voices;
                 if (value) Sfx.UI(Synth.UiClick(), 0.25f);
             }
         }
@@ -161,6 +161,7 @@ namespace Rago
 
         public void Push(byte[] frame)
         {
+            if (_src != null) _src.volume = (_radio ? 0.75f : 1f) * Sfx.Voices;   // voice chat volume (settings)
             lock (_lock)
             {
                 if (_buf.Count > Rate / 2) _buf.Clear(); // more than 0.5 s behind: drop to stay in sync

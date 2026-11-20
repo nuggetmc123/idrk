@@ -107,7 +107,7 @@ namespace Rago
             Hand.GripPitch = prof.gripPitch;
             PlayerRig.SmoothTurn = prof.smoothTurn;
             PlayerRig.SnapAngle = prof.snapAngle;
-            Sfx.MasterVolume = prof.volume; AudioListener.volume = prof.volume;
+            Sfx.MasterVolume = prof.volume; Sfx.Effects = prof.volEffects; Sfx.Ambience = prof.volAmbience; Sfx.Voices = prof.volVoice; Sfx.ApplyVolumes();
             Player = PlayerRig.Create();
             NetGame.Ensure();
             Player.Gear.LoadLoadout(prof.loadout);
@@ -268,6 +268,7 @@ namespace Rago
             int seed = to == Area.Raid ? rs.seed : 1234;
             float buildT = Time.realtimeSinceStartup;
             Map = Maps.Create(id, MapRoot, seed);
+            if (to == Area.Raid) { Physics.SyncTransforms(); try { GolfCart.SpawnFor(Map); } catch (System.Exception e) { Debug.LogWarning("[Rago] carts: " + e.Message); } }   // a golf cart by every spawn
             Debug.Log("[Rago] built " + id + " in " + (Time.realtimeSinceStartup - buildT).ToString("0.0") + " s");
             SafeZone = Map.Safe;
             // raids: the world is merged into big 100 m chunks, so a per-pixel lamp would redraw a whole chunk. Lamps are
@@ -653,6 +654,7 @@ namespace Rago
             else by = "yourself";
             if (def != null) with = def.name + (h.part == BodyPart.Head ? " (headshot)" : "");
             else if (h.gunId == "fist") with = "bare fists" + (h.part == BodyPart.Head ? " (to the head)" : "");
+            else if (h.gunId == "cart") with = "a golf cart (run over)";
         }
 
         IEnumerator BackToBunker()

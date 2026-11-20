@@ -10,7 +10,20 @@ namespace Rago
         readonly List<AudioSource> _pool = new List<AudioSource>();
         int _next;
         AudioSource _ambience, _ambience2, _heart;
-        public static float MasterVolume = 1f;
+        public static float MasterVolume = 1f;   // everything (the listener)
+        public static float Effects = 1f;        // guns, footsteps, impacts, raiders, doors, carts...
+        public static float Ambience = 1f;       // weather (rain, wind) and background air
+        public static float Voices = 1f;         // other players' voice chat
+        float _ambBase = 0.35f, _amb2Base;
+
+        /// <summary>Settings changed: apply the volumes to the sounds that are already playing.</summary>
+        public static void ApplyVolumes()
+        {
+            AudioListener.volume = MasterVolume;
+            var i = I;
+            i._ambience.volume = i._ambBase * Ambience;
+            i._ambience2.volume = i._amb2Base * Ambience;
+        }
 
         public static Sfx I
         {
@@ -67,7 +80,7 @@ namespace Rago
             var s = I.NextSource();
             s.transform.position = pos;
             s.clip = clip;
-            s.volume = vol * MasterVolume;
+            s.volume = vol * Effects;   // the master volume is the listener's
             s.pitch = pitch;
             s.minDistance = minDist;
             s.maxDistance = maxDist;
@@ -132,24 +145,24 @@ namespace Rago
 
         public static void SetAmbience(AudioClip clip, float vol)
         {
-            var a = I._ambience;
-            if (a.clip == clip) { a.volume = vol; return; }
-            a.clip = clip; a.volume = vol;
+            var a = I._ambience; I._ambBase = vol;
+            if (a.clip == clip) { a.volume = vol * Ambience; return; }
+            a.clip = clip; a.volume = vol * Ambience;
             if (clip != null) a.Play(); else a.Stop();
         }
 
         public static void SetAmbience2(AudioClip clip, float vol)
         {
-            var a = I._ambience2;
+            var a = I._ambience2; I._amb2Base = vol;
             if (a.clip != clip) { a.clip = clip; if (clip != null) a.Play(); else a.Stop(); }
-            a.volume = vol;
+            a.volume = vol * Ambience;
         }
 
         public static void Heartbeat(float intensity)
         {
             var h = I._heart;
             if (h.clip == null) { h.clip = Synth.Heartbeat(); h.Play(); }
-            h.volume = Mathf.Clamp01(intensity) * 0.8f;
+            h.volume = Mathf.Clamp01(intensity) * 0.8f * Effects;
             h.pitch = 1f + intensity * 0.4f;
         }
     }
