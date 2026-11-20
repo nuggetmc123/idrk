@@ -560,7 +560,7 @@ namespace Rago
             }
             else { Desktop.Yaw += dYaw; transform.position = seat + Vector3.up * (0.78f - 1.65f); }
             _cartLastYaw = yaw; _cartLastPos = seat;
-            MoveVelocity = c.rb != null ? c.rb.velocity : Vector3.zero;
+            MoveVelocity = c.rb != null ? c.rb.Vel() : Vector3.zero;
             // controls
             if (!Passenger)
             {

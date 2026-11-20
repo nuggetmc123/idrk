@@ -46,7 +46,7 @@ namespace Rago
             center = WheelGrab != null ? WheelGrab.position : transform.position;
             right = q * Vector3.right; up = q * Vector3.up;
         }
-        public float ForwardSpeed => rb != null ? Vector3.Dot(rb.velocity, transform.forward) : 0f;
+        public float ForwardSpeed => rb != null ? Vector3.Dot(rb.Vel(), transform.forward) : 0f;
         public bool LocalDriving => RagoGame.I != null && RagoGame.I.Player != null && RagoGame.I.Player.Driving == this && !RagoGame.I.Player.Passenger;
         public bool LocalInside => RagoGame.I != null && RagoGame.I.Player != null && RagoGame.I.Player.Driving == this;
         public bool Busy => LocalDriving || (RemoteDriver != 0 && Time.time - _remoteT < 1.5f);
@@ -181,7 +181,7 @@ namespace Rago
             var roof = gameObject.AddComponent<BoxCollider>();
             roof.center = new Vector3(0, 1.96f, -0.03f); roof.size = new Vector3(1.26f, 0.08f, 1.5f);
             rb = gameObject.AddComponent<Rigidbody>();
-            rb.mass = 350f; rb.drag = 0.05f; rb.angularDrag = 2f;
+            rb.mass = 350f; rb.SetDamping(0.05f, 2f);
             rb.centerOfMass = new Vector3(0, 0.35f, 0);
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
@@ -265,9 +265,9 @@ namespace Rago
             // drift and turn on its own while you sat there
             bool inside = LocalInside;
             bool input = LocalDriving && (Mathf.Abs(Throttle) > 0.02f || Brake > 0.02f);
-            if (inside && !input && rb.velocity.sqrMagnitude < 0.5f * 0.5f && rb.angularVelocity.sqrMagnitude < 0.3f * 0.3f)
+            if (inside && !input && rb.Vel().sqrMagnitude < 0.5f * 0.5f && rb.angularVelocity.sqrMagnitude < 0.3f * 0.3f)
             {
-                if (!rb.isKinematic) { rb.velocity = Vector3.zero; rb.angularVelocity = Vector3.zero; rb.isKinematic = true; }
+                if (!rb.isKinematic) { rb.SetVel(Vector3.zero); rb.angularVelocity = Vector3.zero; rb.isKinematic = true; }
                 _holding = true;
                 return;
             }
@@ -288,7 +288,7 @@ namespace Rago
                 float f = comp * 9000f - vUp * 1100f;
                 if (f > 0f) rb.AddForceAtPosition(transform.up * f, o);
             }
-            Vector3 v = rb.velocity;
+            Vector3 v = rb.Vel();
             float fwdSpeed = Vector3.Dot(v, transform.forward);
             float sideSpeed = Vector3.Dot(v, transform.right);
             if (grounded >= 2)
@@ -324,7 +324,7 @@ namespace Rago
 
         void Update()
         {
-            float speed = rb != null ? Vector3.Dot(rb.velocity, transform.forward) : 0f;
+            float speed = rb != null ? Vector3.Dot(rb.Vel(), transform.forward) : 0f;
             _wheelSpin += speed / 0.22f * Mathf.Rad2Deg * Time.deltaTime;
             for (int i = 0; i < 4; i++) if (_wheels[i] != null) _wheels[i].localRotation = Quaternion.Euler(_wheelSpin, i < 2 ? Steer * 25f * (LocalDriving ? 1f : 0f) : 0f, 0);
             _steerVis = Mathf.Lerp(_steerVis, LocalDriving ? Steer : 0f, Time.deltaTime * 8f);
@@ -357,7 +357,7 @@ namespace Rago
             if (speed < 3.5f) return;
             if (_hitCooldown.TryGetValue(zone.owner, out var t) && Time.time - t < 1f) return;
             _hitCooldown[zone.owner] = Time.time;
-            Vector3 dir = rb.velocity.sqrMagnitude > 0.1f ? rb.velocity.normalized : transform.forward;
+            Vector3 dir = rb.Vel().sqrMagnitude > 0.1f ? rb.Vel().normalized : transform.forward;
             var info = new HitInfo
             {
                 damage = Mathf.Min(90f, (speed - 2.5f) * 11f), part = BodyPart.Thorax, point = c.GetContact(0).point, dir = dir, normal = -dir,
@@ -378,7 +378,7 @@ namespace Rago
             else
             {
                 RemoteDriver = 0;
-                if (rb != null) { rb.isKinematic = false; rb.position = pos; rb.rotation = rot; transform.SetPositionAndRotation(pos, rot); rb.velocity = Vector3.zero; }
+                if (rb != null) { rb.isKinematic = false; rb.position = pos; rb.rotation = rot; transform.SetPositionAndRotation(pos, rot); rb.SetVel(Vector3.zero); }
             }
         }
     }

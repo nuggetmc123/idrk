@@ -10,6 +10,7 @@ namespace Rago
                 "A cart with someone in it stays completely still until the driver presses the gas.",
                 "Hands on the wheel: while you hold the steering wheel your hands are drawn gripping its rim, and stay there as you turn it.",
                 "The bunker pug is called MANDA - her name is on a little wooden sign at the front of her bed.",
+                "No more 'Script Updating Consent' popup in Unity: the golf cart code used old physics names (velocity / drag) - it now uses the same helpers as the rest of the game.",
                 "Name tags: a player's name tag now sits flat on their chest (it floated out in front of the collar), and on the front of their vest when they wear one (it used to hover above it).",
             }),
             ("2.37", "Carts stay put", new[] {
