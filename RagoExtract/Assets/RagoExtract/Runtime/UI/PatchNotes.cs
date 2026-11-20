@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.37", "Carts stay put", new[] {
+                "Fixed golf carts driving off on their own: your body, hands and holstered gear sit inside the cart, and physics kept shoving the cart out from under you. The people in a cart (you and other players in its seats) no longer push it - and can still be run over once they're out.",
+                "Off the gas and slow, a cart now holds still (even on a hill) instead of creeping; at speed it still rolls to a stop.",
+            }),
             ("2.36", "Drive with the steering wheel", new[] {
                 "Driving a golf cart in VR is now hands-on: grab the steering wheel (one or both hands) and turn it to steer - the wheel turns with your hands. RIGHT TRIGGER is the gas, LEFT TRIGGER is the brake; keep holding it once you've stopped to back up.",
                 "Let go of the wheel and you can't accelerate - the cart rolls to a stop (and the wheel straightens up).",

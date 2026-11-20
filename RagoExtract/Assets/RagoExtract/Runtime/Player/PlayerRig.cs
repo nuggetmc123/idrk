@@ -434,6 +434,7 @@ namespace Rago
         {
             Driving = c; Passenger = passenger;
             _onWheel[0] = _onWheel[1] = false;
+            c.RidersChanged();   // stop the cart's body pushing yours right away (not half a second later)
             c.SwingDoor(passenger ? 1 : 0);
             var seatT = passenger ? c.PassSeat : c.Seat;
             Cc.enabled = false;
@@ -460,6 +461,7 @@ namespace Rago
             if (c != null)
             {
                 c.SwingDoor(wasPassenger ? 1 : 0);
+                c.RidersChanged();   // you're out: the cart can hit you again
                 if (!wasPassenger)
                 {
                     c.Throttle = 0; c.Steer = 0; c.Brake = 0;

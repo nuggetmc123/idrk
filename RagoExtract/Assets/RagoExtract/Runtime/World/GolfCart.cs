@@ -202,9 +202,43 @@ namespace Rago
         /// <summary>Swing a door open for a moment (getting in or out).</summary>
         public void SwingDoor(int i) { if (i < 0 || i > 1) return; _doorUntil[i] = Time.time + 0.9f; Sfx.Play(Synth.Footstep(Synth.Surface.Metal, 3, false), _handles[i].position, 0.35f, 1.2f, 1f, 12f); }
 
+        // ---- the people sitting in it never push it. The driver's (and passengers') body, hands and holstered gear sit
+        // inside the cart's collider; physics kept shoving the cart out from under them - it drove off on its own.
+        readonly List<Collider> _mine = new List<Collider>();
+        readonly HashSet<Collider> _ignored = new HashSet<Collider>();
+        float _ignoreT;
+        void IgnoreRiders()
+        {
+            _ignoreT -= Time.fixedDeltaTime;
+            if (_ignoreT > 0f) return;
+            _ignoreT = 0.5f;
+            if (_mine.Count == 0) GetComponents(_mine);
+            var riders = new List<Collider>();
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl != null && pl.Driving == this) riders.AddRange(pl.GetComponentsInChildren<Collider>(true));
+            // other players sitting in a seat (they ride it on their own screen)
+            if (NetGame.I != null)
+                foreach (var kv in NetGame.I.Remotes)
+                {
+                    var rp = kv.Value; if (rp == null) continue;
+                    Vector3 rr = rp.transform.position;
+                    bool seated = (rr - Seat.position).sqrMagnitude < 0.9f * 0.9f || (rr - PassSeat.position).sqrMagnitude < 0.9f * 0.9f || (rp.HeadPos - Seat.position).sqrMagnitude < 1.1f || (rp.HeadPos - PassSeat.position).sqrMagnitude < 1.1f;
+                    if (seated) riders.AddRange(rp.GetComponentsInChildren<Collider>(true));
+                }
+            var now = new HashSet<Collider>(riders);
+            foreach (var c in riders) if (c != null && !_ignored.Contains(c)) { foreach (var m in _mine) if (m != null) Physics.IgnoreCollision(m, c, true); _ignored.Add(c); }
+            // riders who got out can be hit again (so they can still be run over later)
+            var gone = new List<Collider>();
+            foreach (var c in _ignored) if (c == null || !now.Contains(c)) gone.Add(c);
+            foreach (var c in gone) { if (c != null) foreach (var m in _mine) if (m != null) Physics.IgnoreCollision(m, c, false); _ignored.Remove(c); }
+        }
+
+        public void RidersChanged() { _ignoreT = 0f; IgnoreRiders(); }
+
         void FixedUpdate()
         {
             if (rb == null) return;
+            IgnoreRiders();
             bool remote = RemoteDriver != 0 && Time.time - _remoteT < 1.5f;
             if (remote)
             {
@@ -241,7 +275,8 @@ namespace Rago
                 {
                     if (thr > 0.02f) accel = Mathf.Clamp((thr * MaxSpeed - fwdSpeed) * 2.2f, -1.5f, 3.5f);         // gas
                     else if (thr < -0.02f) accel = Mathf.Clamp((thr * MaxReverse - fwdSpeed) * 2.2f, -2.5f, 1.5f); // reverse
-                    else accel = -Mathf.Sign(fwdSpeed) * Mathf.Min(Mathf.Abs(fwdSpeed) * 3f, 0.9f);              // off the gas: rolls to a stop
+                    else if (Mathf.Abs(fwdSpeed) < 1.5f) accel = Mathf.Clamp(-fwdSpeed * 4f, -6f, 6f);              // off the gas and slow: holds still (no creeping, even on a hill)
+                    else accel = -Mathf.Sign(fwdSpeed) * 1.4f;                                                     // off the gas: rolls to a stop
                     if (Brake > 0.02f) accel += -Mathf.Sign(fwdSpeed) * Mathf.Min(Mathf.Abs(fwdSpeed) / Time.fixedDeltaTime * 0.5f, Brake * 7f);   // brakes
                 }
                 rb.AddForce(transform.forward * accel * rb.mass);
