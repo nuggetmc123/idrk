@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.44", "Presents", new[] {
+                "CHRISTMAS PRESENTS: wrapped presents with a ribbon and bow are hidden round every raid map (10 per raid, 6 in the Underground), spread out and in different spots each raid. Grab the lid to open one.",
+                "What's inside is a gamble, and the better it is the rarer it is: mostly ammo, meds and supplies; sometimes meds and a grenade, a loaded gun or armour; rarely a really good gun with a sight; very rarely a Vault Keycard or a Military Radio; and once in a long while a JACKPOT, a whole vault's worth of loot.",
+                "About 1 in 7 is a prank: a LIVE GRENADE pops out and goes off 2.5 seconds later. Run!",
+                "Everyone in the raid sees the same thing in each present, and once someone opens one it's open for everybody.",
+            }),
             ("2.43", "Christmas", new[] {
                 "CHRISTMAS (15 November - 10 January): the ground on Dockyard, Pinewood and Old Town is covered in snow, and snow falls during raids instead of rain.",
                 "Christmas trees with baubles, glowing fairy lights, a star and presents underneath: in your bunker's main hall, in the Market, and beside the extracts on every raid map (Underground too). The ones in raids have a warm light so you can spot them at night.",

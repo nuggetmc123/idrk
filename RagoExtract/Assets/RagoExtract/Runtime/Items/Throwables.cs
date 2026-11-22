@@ -76,6 +76,9 @@ namespace Rago
             }
         }
 
+        /// <summary>Armed by something else (a booby-trapped Christmas present): goes off after this many seconds.</summary>
+        public void ArmNow(float fuse) { bool h = _hinted; _hinted = true; Arm(); _hinted = h; _fuse = fuse; }
+
         void Arm()
         {
             _armed = true;

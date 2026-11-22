@@ -254,6 +254,7 @@ namespace Rago
                 else if (CrateFits(s.pos, yaw, LootCrate.Kind.Optics)) AddCrate(s.pos, yaw, LootCrate.Kind.Optics);
                 else free.Add(s);
             }
+            if (IsRaid && Festive.On) PlacePresents(free);
             // this raid: each card spot has a card half the time (at least one somewhere), each radio spot likewise
             var at = new List<Vector3>(); var ids = new List<string>();
             void Fill(List<Vector3> spots, string id)
@@ -266,6 +267,27 @@ namespace Rago
             Fill(radioSpots, "val_radio");
             if (at.Count > 0) { var ks = gameObject.AddComponent<KeycardSpawner>(); ks.At = at; ks.Ids = ids; }
             _spots.Clear();
+        }
+
+        /// <summary>Christmas: wrapped presents on spare loot spots round the map, spread out (fewer underground).</summary>
+        void PlacePresents(List<LootSpot> free)
+        {
+            var prng = new Rng(LootSeed * 3119 + 47);
+            var pool = new List<LootSpot>(free);
+            var taken = new List<Vector3>();
+            int want = Id == "underground" ? 6 : 10;
+            for (int guard = 0; guard < 400 && taken.Count < want && pool.Count > 0; guard++)
+            {
+                int k = prng.Range(0, pool.Count);
+                var s = pool[k]; pool.RemoveAt(k);
+                bool close = false;
+                foreach (var q in taken) if ((q - s.pos).sqrMagnitude < 16f * 16f) { close = true; break; }
+                if (close) continue;
+                float yaw = FaceRoom(s.pos, s.yaw, s.desk);
+                if (!CrateFits(s.pos, yaw, LootCrate.Kind.Present)) continue;
+                AddCrate(s.pos, yaw, LootCrate.Kind.Present);
+                taken.Add(s.pos);
+            }
         }
 
         /// <summary>
@@ -1149,10 +1171,11 @@ namespace Rago
                 case Kind.ArmorCase: return new Vector3(0.72f, 0.4f, 0.5f);
                 case Kind.Duffel: return new Vector3(0.6f, 0.28f, 0.36f);
                 case Kind.AirDrop: return new Vector3(1.8f, 0.95f, 1.2f);
+                case Kind.Present: return new Vector3(0.42f, 0.3f, 0.42f);
                 default: return new Vector3(0.9f, 0.5f, 0.55f);
             }
         }
-        public enum Kind { Crate, WeaponCase, Optics, Medical, Safe, Duffel, ArmorCase, AirDrop }
+        public enum Kind { Crate, WeaponCase, Optics, Medical, Safe, Duffel, ArmorCase, AirDrop, Present }
         public Kind kind;
         public int index;
         public bool opened;
@@ -1181,6 +1204,7 @@ namespace Rago
                 case Kind.ArmorCase: mat = Mats.Lit("case_armor", new Color(0.24f, 0.27f, 0.2f), 0.15f, 0.35f, Mats.Noise, null, 0.45f, 0.35f); col = Color.white; break;
                 case Kind.Duffel: mat = Mats.Lit("duffel", new Color(0.15f, 0.15f, 0.14f), 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f); col = Color.white; break;
                 case Kind.AirDrop: mat = Mats.Lit("crate_airdrop", new Color(0.3f, 0.34f, 0.24f), 0.1f, 0.35f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
+                case Kind.Present: mat = Mats.Lit("present_wrap", Color.white, 0.1f, 0.5f, Mats.Noise, null, 0.08f, 0f); col = PresentWrap[index % PresentWrap.Length]; break;
                 default: mat = Mats.Lit("crate_mil", new Color(0.33f, 0.36f, 0.26f), 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
             }
             c.Size = size;
@@ -1206,6 +1230,15 @@ namespace Rago
                 mb.Sub(1).Box(new Vector3(0, size.y * 0.32f, size.z * 0.5f + 0.003f), new Vector3(0.09f, 0.1f, 0.004f), new Color(0.85f, 0.65f, 0.12f), 0.02f);
                 foreach (var sx in new[] { -1, 1 }) mb.Sub(0).Box(new Vector3(sx * (size.x * 0.5f + 0.012f), size.y * 0.6f, 0), new Vector3(0.025f, 0.04f, 0.16f), col * 0.5f, 0.005f);
             }
+            Color ribbon = kind == Kind.Present ? PresentRibbon[index % PresentRibbon.Length] : Color.white;
+            if (kind == Kind.Present)
+            {
+                // ribbon round all four sides
+                mb.Sub(0).Box(new Vector3(0, size.y * 0.5f, size.z * 0.5f + 0.002f), new Vector3(0.05f, size.y, 0.004f), ribbon, 0f);
+                mb.Sub(0).Box(new Vector3(0, size.y * 0.5f, -size.z * 0.5f - 0.002f), new Vector3(0.05f, size.y, 0.004f), ribbon, 0f);
+                mb.Sub(0).Box(new Vector3(size.x * 0.5f + 0.002f, size.y * 0.5f, 0), new Vector3(0.004f, size.y, 0.05f), ribbon, 0f);
+                mb.Sub(0).Box(new Vector3(-size.x * 0.5f - 0.002f, size.y * 0.5f, 0), new Vector3(0.004f, size.y, 0.05f), ribbon, 0f);
+            }
             mb.Build("Body", go.transform, mat, Mats.Lit("liner", Color.white, 0f, 0.1f, Mats.Fabric, null, 0.2f, 0f));
             // colliders for the walls
             AddBox(go.transform, new Vector3(0, t * 0.5f, 0), new Vector3(size.x, t, size.z));
@@ -1220,12 +1253,21 @@ namespace Rago
             c._lid.localPosition = new Vector3(0, size.y, -size.z * 0.5f);
             var lid = new MB();
             lid.Box(new Vector3(0, 0.015f, size.z * 0.5f), new Vector3(size.x + 0.01f, 0.03f, size.z + 0.01f), col, 0.006f);
+            if (kind == Kind.Present)
+            {
+                // ribbon cross over the lid and a bow on top
+                lid.Box(new Vector3(0, 0.032f, size.z * 0.5f), new Vector3(0.05f, 0.006f, size.z + 0.014f), ribbon, 0f);
+                lid.Box(new Vector3(0, 0.032f, size.z * 0.5f), new Vector3(size.x + 0.014f, 0.006f, 0.05f), ribbon, 0f);
+                lid.Sphere(new Vector3(-0.045f, 0.06f, size.z * 0.5f), new Vector3(0.05f, 0.03f, 0.025f), 8, ribbon);
+                lid.Sphere(new Vector3(0.045f, 0.06f, size.z * 0.5f), new Vector3(0.05f, 0.03f, 0.025f), 8, ribbon);
+                lid.Sphere(new Vector3(0, 0.055f, size.z * 0.5f), Vector3.one * 0.022f, 8, ribbon * 0.85f);
+            }
             if (kind == Kind.WeaponCase || kind == Kind.Optics) for (int i = 0; i < 2; i++) lid.Box(new Vector3(-size.x * 0.3f + i * size.x * 0.6f, 0.0f, size.z + 0.008f), new Vector3(0.05f, 0.03f, 0.02f), new Color(0.4f, 0.4f, 0.4f), 0.003f);
             lid.Build("Lid", c._lid, mat);
             var lc = c._lid.gameObject.AddComponent<BoxCollider>();
             lc.center = new Vector3(0, 0.015f, size.z * 0.5f); lc.size = new Vector3(size.x, 0.03f, size.z);
             // item cells
-            int cols = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? 2 : kind == Kind.AirDrop ? 4 : 3;
+            int cols = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase || kind == Kind.Present ? 2 : kind == Kind.AirDrop ? 4 : 3;
             int rows = kind == Kind.WeaponCase || kind == Kind.ArmorCase ? 1 : kind == Kind.AirDrop ? 3 : 2;
             float fit = kind == Kind.WeaponCase ? 1.1f : Mathf.Min(size.x / cols, size.z / rows) * 0.95f;
             c._box = ItemContainer.Grid(go.transform, new Vector3(0, 0.06f, 0), Quaternion.identity, cols, rows, new Vector2(size.x / cols, size.z / rows), fit,
@@ -1233,6 +1275,9 @@ namespace Rago
             foreach (var s in c._box.slots) s.enabled = false;
             return c;
         }
+
+        static readonly Color[] PresentWrap = { new Color(0.75f, 0.1f, 0.1f), new Color(0.1f, 0.45f, 0.2f), new Color(0.2f, 0.3f, 0.75f), new Color(0.85f, 0.7f, 0.2f), new Color(0.82f, 0.82f, 0.85f), new Color(0.5f, 0.15f, 0.55f) };
+        static readonly Color[] PresentRibbon = { new Color(0.9f, 0.75f, 0.2f), new Color(0.85f, 0.1f, 0.1f), new Color(0.92f, 0.92f, 0.92f), new Color(0.75f, 0.1f, 0.1f), new Color(0.1f, 0.45f, 0.2f), new Color(0.9f, 0.75f, 0.2f) };
 
         /// <summary>Every crate by its index, so another player opening one opens it here too.</summary>
         public static readonly System.Collections.Generic.Dictionary<int, LootCrate> ByIndex = new System.Collections.Generic.Dictionary<int, LootCrate>();
@@ -1270,6 +1315,7 @@ namespace Rago
             Sfx.Play(kind == Kind.Safe ? Synth.SlideBack() : Synth.Grab(1), transform.position, 0.6f, kind == Kind.Safe ? 0.6f : 0.8f, 1f, 10f);
             foreach (var s in _box.slots) s.enabled = true;
             var rng = new Rng(_map.Seed * 7349 + index * 131);
+            if (kind == Kind.Present) { OpenPresent(rng, tell); return; }
             var table = vaultGrade ? Db.LootTable.Vault : kind == Kind.WeaponCase ? Db.LootTable.WeaponCase : kind == Kind.Optics ? Db.LootTable.OpticsBox : kind == Kind.Medical ? Db.LootTable.Medical : kind == Kind.Safe ? Db.LootTable.Safe : kind == Kind.ArmorCase ? Db.LootTable.Armor : Db.LootTable.Crate;
             int n = kind == Kind.AirDrop ? Mathf.Min(_box.slots.Count, rng.Range(5, 9)) : vaultGrade ? Mathf.Min(_box.slots.Count, rng.Range(2, 5)) : kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? rng.Range(1, 3) : rng.Range(1, 5);
             for (int i = 0; i < n && i < _box.slots.Count; i++)
@@ -1304,7 +1350,59 @@ namespace Rago
                 }
             }
         }
+
+        /// <summary>
+        /// A Christmas present: one roll decides what's inside, and the better it is the rarer it is - mostly ammo,
+        /// meds and snacks, sometimes a gun or armour, now and then a LIVE GRENADE that pops out and goes off, and very
+        /// rarely a top-tier gun, a Vault Keycard, a Military Radio or a whole vault's worth of loot. Every machine
+        /// rolls the same (map seed + present), so everyone agrees what was in it.
+        /// </summary>
+        void OpenPresent(Rng rng, bool opener)
+        {
+            Sfx.Play(Synth.UiClick(), transform.position, 0.6f, 1.3f, 1f, 8f);
+            float r = rng.Value;
+            var items = new System.Collections.Generic.List<ItemData>();
+            string msg;
+            void Gun(System.Predicate<GunDef> which)
+            {
+                var pool = Db.Guns.FindAll(which);
+                if (pool.Count == 0) return;
+                var g = pool[rng.Range(0, pool.Count)];
+                items.Add(new ItemData(g.id) { rounds = g.magSize, chambered = false });   // a present comes loaded
+            }
+            void Roll(Db.LootTable t, int n) { for (int i = 0; i < n; i++) { var d = Db.Roll(t, rng); if (d != null) items.Add(new ItemData(d.id)); } }
+            if (r < 0.32f) { Roll(Db.LootTable.Crate, 2); msg = "A present! Some supplies."; }
+            else if (r < 0.46f)
+            {
+                // the prank: a live grenade on a short fuse jumps out (only on the machine that opened it: the blast is shared)
+                msg = "IT'S A LIVE GRENADE - RUN!";
+                if (opener && ItemFactory.Spawn(new ItemData("frag"), transform.position + Vector3.up * (Size.y + 0.15f), Quaternion.identity) is Grenade gr)
+                {
+                    gr.ArmNow(2.5f);
+                    if (gr.rb != null) { gr.rb.SetVel(Vector3.up * 3.2f + Random.insideUnitSphere * 0.6f); gr.rb.angularVelocity = Random.insideUnitSphere * 6f; }
+                }
+            }
+            else if (r < 0.6f) { Roll(Db.LootTable.Medical, 2); items.Add(new ItemData(rng.Chance(0.6f) ? "frag" : "flash")); msg = "A present! Meds and a grenade (pin still in)."; }
+            else if (r < 0.78f) { Gun(g => g.rarity <= Rarity.Uncommon); Roll(Db.LootTable.Crate, 1); msg = "A present! A loaded gun."; }
+            else if (r < 0.88f) { Roll(Db.LootTable.Armor, 1); Roll(Db.LootTable.Medical, 1); msg = "A present! Armour."; }
+            else if (r < 0.945f) { Gun(g => g.rarity == Rarity.Rare || g.rarity == Rarity.Epic); Roll(Db.LootTable.OpticsBox, 1); msg = "A present! A really good gun!"; }
+            else if (r < 0.975f) { items.Add(new ItemData("key_vault")); msg = "A present! A VAULT KEYCARD!"; }
+            else if (r < 0.993f) { items.Add(new ItemData("val_radio")); msg = "A present! A MILITARY RADIO!"; }
+            else { Roll(Db.LootTable.Vault, 4); msg = "JACKPOT! A whole vault's worth of loot!"; }
+            if (opener) RagoGame.I?.Player?.Toast(msg);
+            for (int i = 0; i < items.Count && i < _box.slots.Count; i++)
+            {
+                int nid = 10000 + index * 16 + i;
+                if (NetGame.Taken(nid)) continue;
+                var it = ItemFactory.Spawn(items[i], _box.slots[i].transform.position, transform.rotation);
+                if (it == null) continue;
+                it.netId = nid;
+                NetGame.I?.Register(it);
+                _box.slots[i].Store(it, false);
+            }
+        }
     }
+
 
     /// <summary>Puts this raid's loose keycards down once the raid is running (so they get network ids like crate loot).</summary>
     public class KeycardSpawner : MonoBehaviour
