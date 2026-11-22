@@ -1362,7 +1362,6 @@ namespace Rago
             Sfx.Play(Synth.UiClick(), transform.position, 0.6f, 1.3f, 1f, 8f);
             float r = rng.Value;
             var items = new System.Collections.Generic.List<ItemData>();
-            string msg;
             void Gun(System.Predicate<GunDef> which)
             {
                 var pool = Db.Guns.FindAll(which);
@@ -1371,25 +1370,24 @@ namespace Rago
                 items.Add(new ItemData(g.id) { rounds = g.magSize, chambered = false });   // a present comes loaded
             }
             void Roll(Db.LootTable t, int n) { for (int i = 0; i < n; i++) { var d = Db.Roll(t, rng); if (d != null) items.Add(new ItemData(d.id)); } }
-            if (r < 0.32f) { Roll(Db.LootTable.Crate, 2); msg = "A present! Some supplies."; }
+            if (r < 0.32f) { Roll(Db.LootTable.Crate, 2); }
             else if (r < 0.46f)
             {
                 // the prank: a live grenade on a short fuse jumps out (only on the machine that opened it: the blast is shared)
-                msg = "IT'S A LIVE GRENADE - RUN!";
+               
                 if (opener && ItemFactory.Spawn(new ItemData("frag"), transform.position + Vector3.up * (Size.y + 0.15f), Quaternion.identity) is Grenade gr)
                 {
                     gr.ArmNow(2.5f);
                     if (gr.rb != null) { gr.rb.SetVel(Vector3.up * 3.2f + Random.insideUnitSphere * 0.6f); gr.rb.angularVelocity = Random.insideUnitSphere * 6f; }
                 }
             }
-            else if (r < 0.6f) { Roll(Db.LootTable.Medical, 2); items.Add(new ItemData(rng.Chance(0.6f) ? "frag" : "flash")); msg = "A present! Meds and a grenade (pin still in)."; }
-            else if (r < 0.78f) { Gun(g => g.rarity <= Rarity.Uncommon); Roll(Db.LootTable.Crate, 1); msg = "A present! A loaded gun."; }
-            else if (r < 0.88f) { Roll(Db.LootTable.Armor, 1); Roll(Db.LootTable.Medical, 1); msg = "A present! Armour."; }
-            else if (r < 0.945f) { Gun(g => g.rarity == Rarity.Rare || g.rarity == Rarity.Epic); Roll(Db.LootTable.OpticsBox, 1); msg = "A present! A really good gun!"; }
-            else if (r < 0.975f) { items.Add(new ItemData("key_vault")); msg = "A present! A VAULT KEYCARD!"; }
-            else if (r < 0.993f) { items.Add(new ItemData("val_radio")); msg = "A present! A MILITARY RADIO!"; }
-            else { Roll(Db.LootTable.Vault, 4); msg = "JACKPOT! A whole vault's worth of loot!"; }
-            if (opener) RagoGame.I?.Player?.Toast(msg);
+            else if (r < 0.6f) { Roll(Db.LootTable.Medical, 2); items.Add(new ItemData(rng.Chance(0.6f) ? "frag" : "flash")); }
+            else if (r < 0.78f) { Gun(g => g.rarity <= Rarity.Uncommon); Roll(Db.LootTable.Crate, 1); }
+            else if (r < 0.88f) { Roll(Db.LootTable.Armor, 1); Roll(Db.LootTable.Medical, 1); }
+            else if (r < 0.945f) { Gun(g => g.rarity == Rarity.Rare || g.rarity == Rarity.Epic); Roll(Db.LootTable.OpticsBox, 1); }
+            else if (r < 0.975f) { items.Add(new ItemData("key_vault")); }
+            else if (r < 0.993f) { items.Add(new ItemData("val_radio")); }
+            else { Roll(Db.LootTable.Vault, 4); }
             for (int i = 0; i < items.Count && i < _box.slots.Count; i++)
             {
                 int nid = 10000 + index * 16 + i;

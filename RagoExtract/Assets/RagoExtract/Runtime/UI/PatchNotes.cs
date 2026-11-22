@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.45", "Quiet presents", new[] {
+                "Opening a present no longer puts text on screen - you find out what's inside by looking (or by running from the grenade).",
+            }),
             ("2.44", "Presents", new[] {
                 "CHRISTMAS PRESENTS: wrapped presents with a ribbon and bow are hidden round every raid map (10 per raid, 6 in the Underground), spread out and in different spots each raid. Grab the lid to open one.",
                 "What's inside is a gamble, and the better it is the rarer it is: mostly ammo, meds and supplies; sometimes meds and a grenade, a loaded gun or armour; rarely a really good gun with a sight; very rarely a Vault Keycard or a Military Radio; and once in a long while a JACKPOT, a whole vault's worth of loot.",
