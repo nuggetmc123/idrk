@@ -63,7 +63,8 @@ namespace Rago
             // limbs point along +Z in bone space; rotate the default pose so they hang down
             foreach (var b in new[] { r.uaL, r.uaR, r.thL, r.thR }) b.localRotation = Quaternion.Euler(90, 0, 0);
 
-            BuildMeshes(r, outfit, pal, rng, localPlayer);
+            if (Snowman(outfit) && !localPlayer) BuildSnowman(r, outfit, rng);   // Christmas: the raiders are snowmen
+            else BuildMeshes(r, outfit, pal, rng, localPlayer);
             BuildPhysics(r);
             r.weaponR = new GameObject("WeaponR").transform;
             r.weaponR.SetParent(r.handR, false);
@@ -436,6 +437,86 @@ namespace Rago
                 Color footCol = soldier ? p.boots : body;
                 mb.Sub(soldier ? HARD : PLASTIC).Box(new Vector3(0, -0.055f, 0.035f), new Vector3(0.095f, 0.2f, 0.07f), footCol, 0.028f, 2);
                 mb.Sub(JOINT).Box(new Vector3(0, -0.055f, 0.071f), new Vector3(0.1f, 0.205f, 0.01f), JointCol, 0.004f);
+                mb.Build("Mesh", ft, mats);
+            }
+        }
+
+        /// <summary>Christmas: raiders and bosses are snowmen (traders and players stay as they are).</summary>
+        public static bool Snowman(Outfit o) => Festive.On && (o == Outfit.Raider || o == Outfit.RaiderHeavy || o >= Outfit.BossKessler);
+
+        static Material SnowmanMat => Mats.Lit("snowman", Color.white, 0f, 0.3f, Mats.Noise, null, 0.04f, 0f);
+
+        /// <summary>A snowman on the same skeleton (so it walks, aims, gets hit and falls over just like a raider): a big
+        /// snowball for the hips, a middle one with coal buttons, a red scarf, a head with coal eyes and smile, a carrot
+        /// nose and a top hat, and twig arms.</summary>
+        static void BuildSnowman(HumanRig r, Outfit o, Rng rng)
+        {
+            var mats = new[] { SnowmanMat, HardMat, PlasticMat, JointMat };
+            const int SNOW = 0;
+            Color snow = new Color(0.93f, 0.95f, 0.98f), snowSh = new Color(0.82f, 0.86f, 0.92f), coal = new Color(0.04f, 0.04f, 0.045f);
+            Color twig = new Color(0.32f, 0.2f, 0.1f), carrot = new Color(0.95f, 0.45f, 0.08f);
+            bool boss = o >= Outfit.BossKessler, heavy = o == Outfit.RaiderHeavy;
+            Color scarf = boss ? new Color(0.1f, 0.45f, 0.2f) : rng.Chance(0.5f) ? new Color(0.7f, 0.08f, 0.08f) : new Color(0.15f, 0.25f, 0.6f);
+            float big = heavy || boss ? 1.12f : 1f;
+
+            // ---- hips: the big bottom snowball
+            var mb = new MB(4);
+            mb.Sub(SNOW).Sphere(new Vector3(0, -0.13f, 0), new Vector3(0.3f, 0.28f, 0.28f) * big, 18, snow);
+            mb.Build("Mesh", r.hips, mats);
+            // ---- spine: the middle snowball, coal buttons down the front
+            mb = new MB(4);
+            mb.Sub(SNOW).Sphere(new Vector3(0, 0.12f, 0), new Vector3(0.2f, 0.19f, 0.19f) * big, 16, snow);
+            for (int i = 0; i < 3; i++) mb.Sub(HARD).Sphere(new Vector3(0, 0.2f - i * 0.075f, 0.185f * big - i * 0.004f), Vector3.one * 0.022f, 8, coal);
+            mb.Build("Mesh", r.spine, mats);
+            // ---- chest: the scarf, its tail hanging down the front
+            mb = new MB(4);
+            mb.Sub(HARD).Cyl(new Vector3(0, 0.1f, 0), new Vector3(0, 0.17f, 0), 0.135f, 0.12f, 16, scarf);
+            mb.Sub(HARD).Box(new Vector3(0.06f, 0.0f, 0.185f), new Vector3(0.06f, 0.15f, 0.02f), scarf * 0.9f, 0.01f, 1, Quaternion.Euler(-18, 0, 8));
+            mb.Build("Mesh", r.chest, mats);
+            // ---- neck: a bit of snow so the head sits on the body
+            mb = new MB(4);
+            mb.Sub(SNOW).Cyl(new Vector3(0, -0.02f, 0), new Vector3(0, 0.08f, 0), 0.1f, 0.09f, 12, snowSh);
+            mb.Build("Mesh", r.neck, mats);
+            // ---- head: coal eyes and smile, carrot nose, top hat
+            mb = new MB(4);
+            mb.Sub(SNOW).Sphere(new Vector3(0, 0.07f, 0), new Vector3(0.14f, 0.135f, 0.135f), 16, snow);
+            mb.Sub(HARD).Sphere(new Vector3(-0.048f, 0.11f, 0.12f), Vector3.one * 0.018f, 8, coal);
+            mb.Sub(HARD).Sphere(new Vector3(0.048f, 0.11f, 0.12f), Vector3.one * 0.018f, 8, coal);
+            for (int i = 0; i < 5; i++) { float a = (i - 2) * 0.32f; mb.Sub(HARD).Sphere(new Vector3(Mathf.Sin(a) * 0.07f, 0.02f + (1f - Mathf.Cos(a)) * 0.06f, 0.125f - Mathf.Abs(a) * 0.02f), Vector3.one * 0.012f, 6, coal); }
+            mb.Sub(HARD).Cyl(new Vector3(0, 0.07f, 0.125f), new Vector3(0, 0.06f, 0.27f), 0.024f, 0.003f, 10, carrot);
+            Color hat = boss ? new Color(0.12f, 0.1f, 0.08f) : coal;
+            mb.Sub(HARD).Cyl(new Vector3(0, 0.175f, 0), new Vector3(0, 0.19f, 0), 0.16f, 0.16f, 18, hat);
+            mb.Sub(HARD).Cyl(new Vector3(0, 0.19f, 0), new Vector3(0, boss ? 0.4f : 0.34f, 0), 0.095f, 0.1f, 18, hat);
+            mb.Sub(HARD).Cyl(new Vector3(0, 0.2f, 0), new Vector3(0, 0.235f, 0), 0.102f, 0.102f, 18, boss ? new Color(0.85f, 0.65f, 0.15f) : scarf, false);
+            mb.Build("Mesh", r.head, mats);
+            // ---- arms: twigs, with little twig fingers
+            for (int s = 0; s < 2; s++)
+            {
+                float side = s == 0 ? -1 : 1;
+                var ua = s == 0 ? r.uaL : r.uaR; var fa = s == 0 ? r.faL : r.faR; var hand = s == 0 ? r.handL : r.handR;
+                mb = new MB(4);
+                mb.Sub(HARD).Cyl(new Vector3(0, 0, 0.02f), new Vector3(0, 0, r.upperArm + 0.01f), 0.02f, 0.017f, 7, twig);
+                mb.Build("Mesh", ua, mats);
+                mb = new MB(4);
+                mb.Sub(HARD).Cyl(Vector3.zero, new Vector3(0, 0, r.foreArm + 0.01f), 0.017f, 0.013f, 7, twig);
+                mb.Sub(HARD).Cyl(new Vector3(0, 0, r.foreArm * 0.5f), new Vector3(side * 0.05f, 0.03f, r.foreArm * 0.7f), 0.009f, 0.004f, 5, twig);
+                mb.Build("Mesh", fa, mats);
+                mb = new MB(4);
+                for (int k = 0; k < 3; k++) mb.Sub(HARD).Cyl(Vector3.zero, new Vector3((k - 1) * 0.035f, 0, 0.08f), 0.01f, 0.004f, 5, twig);
+                mb.Build("Mesh", hand, mats);
+            }
+            // ---- legs: packed-snow stumps under the big snowball
+            for (int s = 0; s < 2; s++)
+            {
+                var th = s == 0 ? r.thL : r.thR; var sh = s == 0 ? r.shL : r.shR; var ft = s == 0 ? r.footL : r.footR;
+                mb = new MB(4);
+                mb.Sub(SNOW).Capsule(new Vector3(0, 0, 0.1f), new Vector3(0, 0, r.thigh - 0.04f), 0.105f, 0.095f, 12, snowSh);
+                mb.Build("Mesh", th, mats);
+                mb = new MB(4);
+                mb.Sub(SNOW).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.shin - 0.05f), 0.09f, 0.08f, 12, snowSh);
+                mb.Build("Mesh", sh, mats);
+                mb = new MB(4);
+                mb.Sub(SNOW).Sphere(new Vector3(0, -0.04f, 0.03f), new Vector3(0.09f, 0.12f, 0.075f), 10, snow);
                 mb.Build("Mesh", ft, mats);
             }
         }

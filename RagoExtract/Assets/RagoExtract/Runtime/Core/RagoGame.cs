@@ -269,6 +269,7 @@ namespace Rago
             float buildT = Time.realtimeSinceStartup;
             Map = Maps.Create(id, MapRoot, seed);
             if (to == Area.Raid) { Physics.SyncTransforms(); try { GolfCart.SpawnFor(Map); } catch (System.Exception e) { Debug.LogWarning("[Rago] carts: " + e.Message); } }   // a golf cart by every spawn
+            if (Festive.On) { Physics.SyncTransforms(); Festive.Decorate(Map); }   // Christmas trees
             Debug.Log("[Rago] built " + id + " in " + (Time.realtimeSinceStartup - buildT).ToString("0.0") + " s");
             SafeZone = Map.Safe;
             // raids: the world is merged into big 100 m chunks, so a per-pixel lamp would redraw a whole chunk. Lamps are

@@ -15,13 +15,13 @@ namespace Rago
     /// </summary>
     public class Weather : MonoBehaviour
     {
-        public static bool Night, Fog, Rain;
+        public static bool Night, Fog, Rain, Snow;
         /// <summary>How far raiders can spot you, as a share of normal (night / fog / rain).</summary>
         public static float SightMul = 1f;
         Transform _rain;
         AudioSource _rainSnd;
 
-        public static void Clear() { Night = Fog = Rain = false; SightMul = 1f; }
+        public static void Clear() { Night = Fog = Rain = Snow = false; SightMul = 1f; }
 
         public static Weather Apply(MapBase map, int seed, bool night)
         {
@@ -31,6 +31,7 @@ namespace Rago
             Night = night;
             Rain = r.Chance(0.3f);
             Fog = r.Chance(0.25f);
+            if (Festive.On) { Snow = true; Rain = false; }   // Christmas: it snows instead of raining
             var sun = map.Sun;
             Color sky = RenderSettings.ambientSkyColor, eq = RenderSettings.ambientEquatorColor, gr = RenderSettings.ambientGroundColor;
             Color skyTop = new Color(0.32f, 0.45f, 0.62f), skyHor = new Color(0.68f, 0.72f, 0.75f);
@@ -66,6 +67,7 @@ namespace Rago
             go.transform.SetParent(map.transform, false);
             var w = go.AddComponent<Weather>();
             if (Rain) w.MakeRain();
+            if (Snow) w.MakeSnow();
             return w;
         }
 
@@ -74,6 +76,7 @@ namespace Rago
         {
             string s = Night ? "NIGHT" : "";
             if (Rain) s += (s.Length > 0 ? ", " : "") + "RAIN";
+            if (Snow) s += (s.Length > 0 ? ", " : "") + "SNOW";
             if (Fog) s += (s.Length > 0 ? ", " : "") + "FOG";
             return s;
         }
@@ -103,12 +106,36 @@ namespace Rago
             _rainSnd.volume = 0.28f * Sfx.Ambience; _rainSnd.Play();
         }
 
+        void MakeSnow()
+        {
+            // big soft flakes drifting down around you (they follow your head)
+            _rain = new GameObject("Snow").transform;
+            _rain.SetParent(transform, false);
+            var ps = _rain.gameObject.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = ps.main;
+            main.loop = true; main.startLifetime = 9f; main.startSpeed = 0f; main.startSize = new ParticleSystem.MinMaxCurve(0.025f, 0.05f);
+            main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 3000; main.gravityModifier = 0f;
+            main.startColor = new Color(1f, 1f, 1f, Night ? 0.35f : 0.85f);
+            main.prewarm = true;
+            var em = ps.emission; em.rateOverTime = 320f;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(30f, 0.5f, 30f);
+            var vel = ps.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.World;
+            vel.x = new ParticleSystem.MinMaxCurve(-0.35f, 0.35f); vel.y = new ParticleSystem.MinMaxCurve(-1.6f, -1.0f); vel.z = new ParticleSystem.MinMaxCurve(-0.35f, 0.35f);
+            var noise = ps.noise; noise.enabled = true; noise.strength = 0.4f; noise.frequency = 0.3f; noise.quality = ParticleSystemNoiseQuality.Low;
+            var rend = _rain.GetComponent<ParticleSystemRenderer>();
+            rend.renderMode = ParticleSystemRenderMode.Billboard;
+            rend.sharedMaterial = Mats.Unlit("snow_flake", new Color(1f, 1f, 1f, 0.9f), Mats.Soft, Mats.BlendKind.Alpha);
+            rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ps.Play();
+        }
+
         void LateUpdate()
         {
             if (_rain == null) return;
             if (_rainSnd != null) _rainSnd.volume = 0.28f * Sfx.Ambience;   // follows the settings
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
-            if (pl != null) _rain.position = pl.Head.position + Vector3.up * 11f;
+            if (pl != null) _rain.position = pl.Head.position + Vector3.up * (Snow ? 9f : 11f);
         }
 
         void OnDestroy() { Clear(); }

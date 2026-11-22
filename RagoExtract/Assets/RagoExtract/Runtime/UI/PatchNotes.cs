@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.43", "Christmas", new[] {
+                "CHRISTMAS (15 November - 10 January): the ground on Dockyard, Pinewood and Old Town is covered in snow, and snow falls during raids instead of rain.",
+                "Christmas trees with baubles, glowing fairy lights, a star and presents underneath: in your bunker's main hall, in the Market, and beside the extracts on every raid map (Underground too). The ones in raids have a warm light so you can spot them at night.",
+                "The raiders and bosses are snowmen: top hat, carrot nose, coal eyes and buttons, scarf and twig arms. They still fight and fall the same way. Bosses get a taller hat with a gold band and a green scarf.",
+            }),
             ("2.42", "Clothes that fit, no dog bed", new[] {
                 "Clothes fit properly: a shirt is now one snug piece over the chest and round the waist (it was two puffy boxes with a gap between them and the chest plate showing through), and trousers sit right at the waist.",
                 "Manda's bed is gone - she curls up on the floor in her corner (her name sign is still there).",

@@ -58,8 +58,8 @@ namespace Rago
         public static Material Metal => Mats.Lit("w_metal", Color.white, 0.7f, 0.4f, Mats.Metal, null, 0.45f, 0.4f, true, 0.6f);
         public static Material Corrugated => Mats.Lit("w_corr", Color.white, 0.5f, 0.35f, Mats.Corrugated, null, 0.5f, 0.3f, true, 0.6f);
         public static Material Tiles => Mats.Lit("w_tiles", Color.white, 0.1f, 0.6f, Mats.Tiles, null, 0.4f, 0.1f, true, 0.5f);
-        public static Material GroundGrass => Mats.Lit("w_grass", Color.white, 0f, 0.12f, Mats.Grass, null, 0.3f, 0f, true, 0.25f);
-        public static Material GroundDirt => Mats.Lit("w_dirt", Color.white, 0f, 0.15f, Mats.Ground, null, 0.3f, 0f, true, 0.3f);
+        public static Material GroundGrass => Festive.On ? Festive.Snow : Mats.Lit("w_grass", Color.white, 0f, 0.12f, Mats.Grass, null, 0.3f, 0f, true, 0.25f);
+        public static Material GroundDirt => Festive.On ? Festive.Snow : Mats.Lit("w_dirt", Color.white, 0f, 0.15f, Mats.Ground, null, 0.3f, 0f, true, 0.3f);
     }
 
     // =============================================================================================== DOCKYARD
@@ -73,7 +73,7 @@ namespace Rago
                 new Color(0.55f, 0.43f, 0.38f), 0.0065f, new Color(0.2f, 0.25f, 0.42f), new Color(0.95f, 0.55f, 0.32f), 0.45f);
             var b = B;
             // ground: concrete apron + asphalt roads
-            b.Ground(new Vector3(-10, 0, 0), new Vector2(160, 180), Maps.ConcreteDark, Synth.Surface.Concrete);
+            b.Ground(new Vector3(-10, 0, 0), new Vector2(160, 180), Festive.On ? Festive.Snow : Maps.ConcreteDark, Synth.Surface.Concrete);
             b.Box(new Vector3(-10, 0.01f, -20), new Vector3(160, 0.02f, 9), Maps.Asphalt, Color.white, null, false);
             b.Box(new Vector3(-30, 0.01f, 0), new Vector3(9, 0.02f, 180), Maps.Asphalt, Color.white, null, false);
             for (int i = -6; i < 7; i++) b.Box(new Vector3(-10 + i * 12, 0.025f, -20), new Vector3(4, 0.01f, 0.18f), Mats.Lit("roadpaint", new Color(0.9f, 0.85f, 0.7f), 0, 0.4f), Color.white, null, false);
@@ -341,7 +341,7 @@ namespace Rago
             Lighting(new Color(1f, 0.8f, 0.65f), 0.95f, new Vector3(9, 80, 0), new Color(0.5f, 0.52f, 0.62f), new Color(0.5f, 0.46f, 0.44f), new Color(0.18f, 0.17f, 0.17f),
                 new Color(0.66f, 0.62f, 0.6f), 0.011f, new Color(0.35f, 0.42f, 0.58f), new Color(0.95f, 0.72f, 0.55f), 0.55f);
             var b = B;
-            b.Ground(Vector3.zero, new Vector2(180, 180), Maps.Concrete, Synth.Surface.Concrete);
+            b.Ground(Vector3.zero, new Vector2(180, 180), Festive.On ? Festive.Snow : Maps.Concrete, Synth.Surface.Concrete);
             // street grid: roads every 34m, sidewalks
             var pts = new List<Vector3>();
             for (int i = -2; i <= 2; i++)
