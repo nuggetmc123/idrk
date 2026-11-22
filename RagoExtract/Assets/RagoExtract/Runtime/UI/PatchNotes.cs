@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.46", "Presents from the menu", new[] {
+                "Tester menu: SPAWN PRESENT puts a Christmas present on the floor in front of you - anywhere, raids, the Market or your bunker. Each one has a fresh random roll inside, so it could be a top gun, a keycard... or a live grenade.",
+            }),
             ("2.45", "Quiet presents", new[] {
                 "Opening a present no longer puts text on screen - you find out what's inside by looking (or by running from the grenade).",
             }),

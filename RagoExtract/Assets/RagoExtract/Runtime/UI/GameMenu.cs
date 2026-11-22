@@ -277,6 +277,13 @@ namespace Rago
                 var f = pl.Head.forward; f.y = 0; f = f.sqrMagnitude > 0.01f ? f.normalized : pl.transform.forward;
                 var cart = GolfCart.SpawnHere(pl.transform.position + f * 3.5f, Quaternion.LookRotation(f).eulerAngles.y);
                 Show(false); if (cart != null) pl.Toast("Golf cart spawned - grab a door handle or the steering wheel");
+            }, Go);
+            // a Christmas present on the floor in front of you (a random roll each time - it might be a grenade!)
+            Btn("SPAWN PRESENT", 0.25f, y, 0.38f, () =>
+            {
+                var f = pl.Head.forward; f.y = 0; f = f.sqrMagnitude > 0.01f ? f.normalized : pl.transform.forward;
+                LootCrate.SpawnPresent(pl.transform.position + f * 1.3f, Quaternion.LookRotation(-f).eulerAngles.y);
+                Show(false);
             }, Go); y -= 0.08f;
             Line("NPCs only spawn in a raid (in multiplayer, everyone sees them).", y, 0.02f, UI.Dim);
         }

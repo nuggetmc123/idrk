@@ -1279,6 +1279,20 @@ namespace Rago
         static readonly Color[] PresentWrap = { new Color(0.75f, 0.1f, 0.1f), new Color(0.1f, 0.45f, 0.2f), new Color(0.2f, 0.3f, 0.75f), new Color(0.85f, 0.7f, 0.2f), new Color(0.82f, 0.82f, 0.85f), new Color(0.5f, 0.15f, 0.55f) };
         static readonly Color[] PresentRibbon = { new Color(0.9f, 0.75f, 0.2f), new Color(0.85f, 0.1f, 0.1f), new Color(0.92f, 0.92f, 0.92f), new Color(0.75f, 0.1f, 0.1f), new Color(0.1f, 0.45f, 0.2f), new Color(0.9f, 0.75f, 0.2f) };
 
+        /// <summary>Tester menu: a present on the floor here, with a fresh random roll inside.</summary>
+        public static LootCrate SpawnPresent(Vector3 pos, float yaw)
+        {
+            var map = RagoGame.I != null ? RagoGame.I.Map : null;
+            if (map == null) return null;
+            if (Physics.Raycast(pos + Vector3.up * 1.5f, Vector3.down, out var h, 6f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) pos = h.point;
+            int index = 0;
+            for (int i = 0; i < 50; i++) { index = 6000 + Random.Range(0, 3000); if (!ByIndex.ContainsKey(index)) break; }
+            var c = Create(map, index, pos, yaw, Kind.Present);
+            c.local = true;
+            return c;
+        }
+        public bool local;   // spawned from the tester menu: only on this machine, so opening it isn't sent to anyone
+
         /// <summary>Every crate by its index, so another player opening one opens it here too.</summary>
         public static readonly System.Collections.Generic.Dictionary<int, LootCrate> ByIndex = new System.Collections.Generic.Dictionary<int, LootCrate>();
         void OnDestroy() { if (ByIndex.TryGetValue(index, out var c) && c == this) ByIndex.Remove(index); }
@@ -1311,7 +1325,7 @@ namespace Rago
         {
             if (opened) return;
             opened = true;
-            if (tell && NetGame.Live) NetGame.I.CrateOpened(index);
+            if (tell && !local && NetGame.Live) NetGame.I.CrateOpened(index);
             Sfx.Play(kind == Kind.Safe ? Synth.SlideBack() : Synth.Grab(1), transform.position, 0.6f, kind == Kind.Safe ? 0.6f : 0.8f, 1f, 10f);
             foreach (var s in _box.slots) s.enabled = true;
             var rng = new Rng(_map.Seed * 7349 + index * 131);
@@ -1391,11 +1405,10 @@ namespace Rago
             for (int i = 0; i < items.Count && i < _box.slots.Count; i++)
             {
                 int nid = 10000 + index * 16 + i;
-                if (NetGame.Taken(nid)) continue;
+                if (!local && NetGame.Taken(nid)) continue;
                 var it = ItemFactory.Spawn(items[i], _box.slots[i].transform.position, transform.rotation);
                 if (it == null) continue;
-                it.netId = nid;
-                NetGame.I?.Register(it);
+                if (!local) { it.netId = nid; NetGame.I?.Register(it); }
                 _box.slots[i].Store(it, false);
             }
         }
