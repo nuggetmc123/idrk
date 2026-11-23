@@ -97,6 +97,9 @@ namespace Rago
         public static int BulletMask = ~0;
 
         static int _wallMask = 0;
+        /// <summary>All bullet damage x this (players and raiders alike): fights last longer (2.57: was 1).</summary>
+        public const float DamageScale = 0.65f;
+
         /// <summary>World geometry only (not items, hands, bodies or players).</summary>
         public static int WallMask
         {
@@ -134,7 +137,7 @@ namespace Rago
                 {
                     pos = origin, vel = d.normalized * gun.velocity, life = 2.5f, shooter = shooter, gunId = gun.id, ammo = ammo,
                     handgun = gun.cls == GunClass.Pistol || gun.cls == GunClass.Revolver,
-                    damage = gun.damage * (ammo == AmmoType.AP ? 0.9f : ammo == AmmoType.Incendiary ? 0.85f : 1f),
+                    damage = gun.damage * DamageScale * (ammo == AmmoType.AP ? 0.9f : ammo == AmmoType.Incendiary ? 0.85f : 1f),
                     punch = (pellets > 1 ? 0.6f : ArmorDef.Penetration(gun.id)) + (ammo == AmmoType.AP ? 2.5f : 0f),
                     ignore = ignore, ignoreOwner = ignoreOwner, tracer = tracer && p == 0, visualOnly = visualOnly, localOnly = localOnly, passCapsule = Random.value < 0.5f,
                     force = Mathf.Clamp(gun.damage * 0.06f, 1.2f, 9f)

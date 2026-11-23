@@ -51,6 +51,7 @@ namespace Rago
             var vp = new Vector3(14, 0.02f, 14);
             var v = AddVault(vp, 0, false, Wrap, new Color(0.72f, 0.06f, 0.08f), 4.2f, true, 7f, 0.5f);
             if (v != null) v.CardId = "key_xmas";
+            for (int k = Mathf.Max(0, Crates.Count - 3); k < Crates.Count; k++) if (Crates[k] != null) Crates[k].presentGrade = true;   // its three crates: packed with vault loot
             // gold ribbon round the sides and back, and over the roof; a huge bow on top
             b.Box(vp + new Vector3(-3.78f, 2.1f, 2.6f), new Vector3(0.06f, 0.7f, 5.4f), Ribbon, Color.white, null, false);
             b.Box(vp + new Vector3(3.78f, 2.1f, 2.6f), new Vector3(0.06f, 0.7f, 5.4f), Ribbon, Color.white, null, false);

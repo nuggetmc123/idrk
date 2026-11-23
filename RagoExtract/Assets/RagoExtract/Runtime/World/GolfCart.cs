@@ -336,6 +336,7 @@ namespace Rago
                 local.x *= 0.8f; local.z *= 0.8f;   // damp rocking and tipping
                 rb.angularVelocity = transform.TransformDirection(local);
             }
+            LateFixed();
             // keep it from flipping on rough ground: it rights itself slowly
             Vector3 upErr = Vector3.Cross(transform.up, Vector3.up);
             rb.AddTorque(upErr * rb.mass * 14f);
@@ -353,7 +354,7 @@ namespace Rago
             _wheelSpin += speed / 0.22f * Mathf.Rad2Deg * Time.deltaTime;
             for (int i = 0; i < 4; i++) if (_wheels[i] != null) _wheels[i].localRotation = Quaternion.Euler(_wheelSpin, i < 2 ? Steer * 25f * (LocalDriving ? 1f : 0f) : 0f, 0);
             _steerVis = Mathf.Lerp(_steerVis, LocalDriving ? Steer : 0f, Time.deltaTime * 8f);
-            if (_steerWheel != null) _steerWheel.localRotation = Quaternion.Euler(WheelTilt, 0, _steerVis * 120f);
+            if (_steerWheel != null) _steerWheel.localRotation = Quaternion.Euler(WheelTilt, 0, -_steerVis * 90f);   // turns the same way as your hands (and the cart)
             for (int i = 0; i < 2; i++)
             {
                 if (_doors[i] == null) continue;
@@ -380,6 +381,9 @@ namespace Rago
             if (pl != null && zone.owner == (IDamageable)pl.Vitals) return;   // not yourself
             float speed = c.relativeVelocity.magnitude;
             if (speed < 3.5f) return;
+            // you drive straight through: they go flying (ragdoll), the cart keeps its speed instead of stopping dead
+            PassThrough(zone.owner as Component);
+            rb.SetVel(_lastVel * 0.9f); rb.angularVelocity = _lastAng;
             if (_hitCooldown.TryGetValue(zone.owner, out var t) && Time.time - t < 1f) return;
             _hitCooldown[zone.owner] = Time.time;
             Vector3 dir = rb.Vel().sqrMagnitude > 0.1f ? rb.Vel().normalized : transform.forward;
@@ -393,6 +397,24 @@ namespace Rago
             zone.owner.TakeHit(info, zone);
             Ballistics.OnHitActor?.Invoke(info, zone);
             Sfx.UI(Synth.HitMarker(), 0.35f);
+        }
+
+        Vector3 _lastVel, _lastAng;
+        void LateFixed() { if (rb != null && !rb.isKinematic) { _lastVel = rb.Vel(); _lastAng = rb.angularVelocity; } }
+
+        /// <summary>Stop the cart bumping into this body for a few seconds (so it drives on through).</summary>
+        void PassThrough(Component who)
+        {
+            if (who == null) return;
+            var theirs = who.GetComponentsInChildren<Collider>(true);
+            var mine = GetComponentsInChildren<Collider>(true);
+            foreach (var a in mine) foreach (var b in theirs) if (a != null && b != null) Physics.IgnoreCollision(a, b, true);
+            StartCoroutine(Restore(mine, theirs));
+        }
+        System.Collections.IEnumerator Restore(Collider[] mine, Collider[] theirs)
+        {
+            yield return new WaitForSeconds(3f);
+            foreach (var a in mine) foreach (var b in theirs) if (a != null && b != null) Physics.IgnoreCollision(a, b, false);
         }
 
         // ------------------------------------------------------------------------------------------- multiplayer

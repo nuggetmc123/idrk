@@ -142,15 +142,20 @@ namespace Rago
             n.Agent.updateRotation = false; n.Agent.stoppingDistance = 0.4f; n.Agent.autoBraking = true;
             n.Agent.obstacleAvoidanceType = ObstacleAvoidanceType.LowQualityObstacleAvoidance;
             if (NavMesh.SamplePosition(pos, out var hit, 3f, NavMesh.AllAreas)) n.Agent.Warp(hit.position);
-            for (int i = 0; i < 6; i++)
-            {
-                Vector2 c = n._rng.InCircle() * (boss != null ? 7f : 35f);   // bosses keep to their lair
-                Vector3 p = pos + new Vector3(c.x, 0, c.y);
-                if (NavMesh.SamplePosition(p, out var ph, 4f, NavMesh.AllAreas)) n._patrol.Add(ph.position);
-            }
+            n.MakePatrol(pos, boss != null ? 9f : 35f, boss != null ? 14 : 6);   // bosses keep to their lair (but walk round it)
             n._think = n._rng.Range(0f, 0.3f);
             n._waitT = n._rng.Range(3f, 30f);   // staggered, so the whole map doesn't start walking at once
             return n;
+        }
+
+        void MakePatrol(Vector3 pos, float radius, int tries)
+        {
+            for (int i = 0; i < tries; i++)
+            {
+                Vector2 c = _rng.InCircle() * radius;
+                Vector3 p = pos + new Vector3(c.x, 0, c.y);
+                if (NavMesh.SamplePosition(p, out var ph, 4f, NavMesh.AllAreas)) _patrol.Add(ph.position);
+            }
         }
 
         /// <summary>Each map boss's own gun and armour (boss-only items: the only way to get them is to kill the boss).</summary>
@@ -302,10 +307,37 @@ namespace Rago
         }
 
         // ------------------------------------------------------------------------------- brain
+        float _knockT;
+        /// <summary>Knocked flying (hit by a golf cart): a ragdoll for a couple of seconds, then back on their feet.</summary>
+        public void Knock(Vector3 impulse, Vector3 point)
+        {
+            if (!Alive || Rig == null || (Rig.ragdoll && _knockT <= 0f)) return;
+            if (_knockT > 0f) { foreach (var b in Rig.bodies) b.AddForce(impulse * 0.1f, ForceMode.Impulse); return; }
+            _knockT = 2.6f;
+            if (Agent != null) Agent.enabled = false;
+            Rig.SetRagdoll(true, impulse, point, Vector3.zero);
+            Rig.root.SetLayerRecursive(Layers.Ragdoll);
+            Sfx.Play(Synth.BodyFall(), Rig.hips.position, 0.8f, 1f, 1f, 25f);
+        }
+
+        void GetUp()
+        {
+            Vector3 p = Rig.hips.position;
+            if (Physics.Raycast(p + Vector3.up * 0.5f, Vector3.down, out var gh, 4f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) p = gh.point;
+            if (NavMesh.SamplePosition(p, out var nh, 3f, NavMesh.AllAreas)) p = nh.position;
+            transform.position = p;
+            Rig.SetRagdoll(false);
+            Rig.root.SetLayerRecursive(Layers.Npc);
+            if (Agent != null) { Agent.enabled = true; if (Agent.isOnNavMesh) Agent.Warp(p); }
+            _down = 1f; _stagger = 1f;   // a moment to get their bearings
+            if (!Puppet && State != NpcState.Combat) { State = NpcState.Investigate; _lastKnown = p; _searchT = 6f; }
+        }
+
         void Update()
         {
             if (!Alive) return;
             float dt = Time.deltaTime;
+            if (_knockT > 0f) { _knockT -= dt; if (_knockT <= 0f) GetUp(); return; }
             _flinch = Mathf.MoveTowards(_flinch, 0, dt * 3f);
             _stagger -= dt;
             _hunch = Mathf.MoveTowards(_hunch, 0, dt * 0.5f);
@@ -333,13 +365,19 @@ namespace Rago
                 case NpcState.Idle:
                     _idleTalkT -= 0.2f;
                     if (_idleTalkT <= 0) { _idleTalkT = _rng.Range(25f, 60f); Say(ScavVoice.Line.Idle, 0.6f); }
-                    if (_patrol.Count == 0) { State = NpcState.Idle; break; }
+                    if (_patrol.Count == 0)
+                    {
+                        // nowhere to walk (spawned in a tight spot): look further afield instead of standing idle forever
+                        State = NpcState.Idle;
+                        if (_rng.Chance(0.1f)) MakePatrol(transform.position, IsBoss ? 16f : 30f, 8);
+                        break;
+                    }
                     if (!AgentOk || Agent.remainingDistance < 0.8f)
                     {
                         _waitT -= 0.2f;
                         if (_waitT <= 0)
                         {
-                            _waitT = _rng.Range(12f, 25f);
+                            _waitT = IsBoss ? _rng.Range(3f, 7f) : _rng.Range(12f, 25f);   // bosses pace their lair
                             // now and then they roam towards where the players are, so fights actually happen
                             if (!IsBoss && _rng.Chance(0.07f) && RoamTarget(out var roam)) Go(roam, 1.6f);
                             else { _patrolIdx = (_patrolIdx + 1) % _patrol.Count; Go(_patrol[_patrolIdx], 1.4f); }
@@ -626,6 +664,7 @@ namespace Rago
             Health -= dmg;
             if (Health > 0) Wound(h, dmg);
             if (h.ammo == AmmoType.Incendiary && Health > 0f) Ignite(h);
+            if (h.gunId == "cart" && Health > 0f) Knock(h.dir * Mathf.Max(8f, h.force * 25f) + Vector3.up * 6f, h.point);   // run over: thrown as a ragdoll
             if (Puppet)
             {
                 // every player's copy of this raider counts every hit (everyone's shots are sent to everyone), so whoever
@@ -691,7 +730,8 @@ namespace Rago
 
         public void Die(Vector3 point, Vector3 impulse, bool fromNet)
         {
-            if (Rig.ragdoll) return;
+            if (Rig.ragdoll && _knockT <= 0f) return;
+            _knockT = 0f;
             Health = 0;
             State = NpcState.Dead;
             if (!Puppet && NpcDirector.I != null)
@@ -735,8 +775,8 @@ namespace Rago
                 // Evil Santa drops a present with a North Pole Keycard in it (made the same on every machine, so it opens for everyone)
                 if (BossName.ToLowerInvariant().Contains("santa"))
                 {
-                    var gift = ItemFactory.Spawn(new ItemData("gift_santa"), Rig.chest.position + Vector3.up * 0.4f, Random.rotation);
-                    if (gift != null) { gift.netId = 90000 + Id * 4 + 3; NetGame.I?.Register(gift); }
+                    var card = ItemFactory.Spawn(new ItemData("key_xmas"), Rig.chest.position + Vector3.up * 0.4f, Random.rotation);   // Evil Santa always carries a North Pole Keycard
+                    if (card != null) { card.netId = 90000 + Id * 4 + 3; NetGame.I?.Register(card); }
                 }
                 var pl = RagoGame.I != null ? RagoGame.I.Player : null;
                 if (pl != null && Vector3.Distance(pl.transform.position, transform.position) < 90f) pl.Toast("BOSS DOWN: " + BossName.ToUpper());

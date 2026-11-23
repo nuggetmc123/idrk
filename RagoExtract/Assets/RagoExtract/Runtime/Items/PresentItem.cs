@@ -5,13 +5,13 @@ namespace Rago
 {
     /// <summary>
     /// A small wrapped CHRISTMAS PRESENT you find inside loot crates (over Christmas, and always on the North Pole).
-    /// Pick it up and SHAKE it - a few hard shakes and it bursts open, dropping what's inside right there. Desktop: click.
+    /// Pick it up and HOLD THE TRIGGER - it rattles for a second and bursts open, dropping what's inside right there. Desktop: click.
     /// The better the prize the rarer it is; now and then it's a live grenade. Evil Santa drops a special one with a
     /// North Pole Keycard inside.
     /// </summary>
     public class PresentItem : Item
     {
-        Vector3 _lastPos, _lastVel; float _lastFlip = -10f; int _shakes; bool _opened;
+        bool _opened;
 
         static readonly Color[] Wraps = { new Color(0.75f, 0.08f, 0.08f), new Color(0.1f, 0.42f, 0.18f), new Color(0.18f, 0.28f, 0.7f), new Color(0.85f, 0.68f, 0.18f), new Color(0.82f, 0.82f, 0.86f), new Color(0.5f, 0.12f, 0.55f) };
 
@@ -39,25 +39,29 @@ namespace Rago
             return p;
         }
 
-        public override void OnGrab(Hand h) { base.OnGrab(h); _lastPos = transform.position; _lastVel = Vector3.zero; _shakes = 0; }
+        float _hold, _tick;
 
+        public override void OnGrab(Hand h) { base.OnGrab(h); _hold = 0f; }
+
+        /// <summary>Hold the trigger to open it: it rattles and shakes in your hand for a second, then bursts open.</summary>
         public override void HeldUpdate(Hand h, HandInput input)
         {
             if (_opened) return;
             if (!XRInputs.VR) { if (input.TriggerDown) Open(h); return; }
-            // shaking: count sharp changes of direction while it's moving fast
-            float dt = Mathf.Max(Time.deltaTime, 0.001f);
-            Vector3 vel = (transform.position - _lastPos) / dt;
-            _lastPos = transform.position;
-            if (vel.magnitude > 1.1f && _lastVel.magnitude > 1.1f && Vector3.Dot(vel.normalized, _lastVel.normalized) < -0.2f && Time.time - _lastFlip > 0.08f)
+            if (input.Trigger > 0.5f)
             {
-                _shakes = Time.time - _lastFlip < 0.6f ? _shakes + 1 : 1;
-                _lastFlip = Time.time;
-                Sfx.Play(Synth.CanRattle(), transform.position, 0.35f, 1.6f + Random.Range(-0.1f, 0.1f), 0.5f, 6f);
-                h.Haptic(0.35f, 0.04f);
-                if (_shakes >= 5) Open(h);
+                _hold += Time.deltaTime;
+                _tick -= Time.deltaTime;
+                if (_tick <= 0f) { _tick = 0.18f; Sfx.Play(Synth.CanRattle(), transform.position, 0.3f, 1.6f + _hold * 0.4f, 0.5f, 6f); h.Haptic(0.2f + _hold * 0.4f, 0.05f); }
+                if (_hold >= 1f) Open(h);
             }
-            if (vel.sqrMagnitude > 0.25f) _lastVel = vel;
+            else _hold = Mathf.MoveTowards(_hold, 0f, Time.deltaTime * 2f);
+        }
+
+        void LateUpdate()
+        {
+            // a little wobble while it's being opened
+            if (_hold > 0f && !_opened && primaryHand != null) transform.localRotation *= Quaternion.Euler(Random.Range(-1f, 1f) * 6f * _hold, 0, Random.Range(-1f, 1f) * 6f * _hold);
         }
 
         void Open(Hand h)

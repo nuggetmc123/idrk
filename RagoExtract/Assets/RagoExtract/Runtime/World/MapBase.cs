@@ -1306,6 +1306,7 @@ namespace Rago
             c.local = true;
             return c;
         }
+        public bool presentGrade;   // inside the North Pole's giant present: full of vault loot
         public bool santaGift;   // dropped by Evil Santa: always has a North Pole Keycard
         public bool local;   // spawned from the tester menu: only on this machine, so opening it isn't sent to anyone
 
@@ -1322,8 +1323,9 @@ namespace Rago
                 var p = RagoGame.I != null ? RagoGame.I.Player : null;
                 if (p == null) return;
                 Vector3 lp = _lid.position;
-                bool near = Vector3.Distance(p.HandL.Anchor.position, lp) < 0.7f && p.HandL.Input.GripHeld
-                         || Vector3.Distance(p.HandR.Anchor.position, lp) < 0.7f && p.HandR.Input.GripHeld;
+                // an EMPTY hand opens it (a hand holding something used to set it off - and the item came loose)
+                bool near = Vector3.Distance(p.HandL.Anchor.position, lp) < 0.7f && p.HandL.Input.GripHeld && p.HandL.Held == null
+                         || Vector3.Distance(p.HandR.Anchor.position, lp) < 0.7f && p.HandR.Input.GripHeld && p.HandR.Held == null;
                 if (!XRInputs.VR && Desktop.Interact && Physics.Raycast(p.Head.position, p.Head.forward, out var h, 3f) && h.collider.transform.IsChildOf(transform)) near = true;
                 if (near) Open();
             }
@@ -1347,7 +1349,7 @@ namespace Rago
             var rng = new Rng(_map.Seed * 7349 + index * 131);
             if (kind == Kind.Present) { OpenPresent(rng, tell); return; }
             var table = vaultGrade ? Db.LootTable.Vault : kind == Kind.WeaponCase ? Db.LootTable.WeaponCase : kind == Kind.Optics ? Db.LootTable.OpticsBox : kind == Kind.Medical ? Db.LootTable.Medical : kind == Kind.Safe ? Db.LootTable.Safe : kind == Kind.ArmorCase ? Db.LootTable.Armor : Db.LootTable.Crate;
-            int n = kind == Kind.AirDrop ? Mathf.Min(_box.slots.Count, rng.Range(5, 9)) : vaultGrade ? Mathf.Min(_box.slots.Count, rng.Range(2, 5)) : kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? rng.Range(1, 3) : rng.Range(1, 5);
+            int n = presentGrade ? _box.slots.Count : kind == Kind.AirDrop ? Mathf.Min(_box.slots.Count, rng.Range(5, 9)) : vaultGrade ? Mathf.Min(_box.slots.Count, rng.Range(2, 5)) : kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? rng.Range(1, 3) : rng.Range(1, 5);
             for (int i = 0; i < n && i < _box.slots.Count; i++)
             {
                 var def = Db.Roll(table, rng);
@@ -1381,7 +1383,7 @@ namespace Rago
                 for (int r = 0; r < rare.Length; r++)
                 {
                     int rid = 10000 + index * 16 + 13 + r;
-                    if (!rng.Chance(0.06f) || NetGame.Taken(rid)) continue;
+                    if (!rng.Chance(presentGrade ? 0.5f : 0.06f) || NetGame.Taken(rid)) continue;
                     if (rare[r] == "val_radio" && _map != null && _map.Id == "underground" && !rng.Chance(0.5f)) continue;
                     Slot fs = null;
                     foreach (var sl in _box.slots) if (sl.item == null) { fs = sl; break; }
@@ -1818,7 +1820,11 @@ namespace Rago
         public void TryCard(Item card)
         {
             if (IsOpen || card == null || card.def == null || card.def.id != CardId) return;
+            // used up: gone for everyone (it used to drop to the floor for the other players first - a free copy)
+            card.Consumed = true;
+            if (card.netId != 0) NetGame.I?.OnItemTaken(card);
             card.primaryHand?.ForceRelease();
+            if (card.slot != null) card.slot.Release(card);
             Destroy(card.gameObject);
             Sfx.Play(Synth.QueueFound(), transform.position, 0.6f, 1.2f, 1f, 15f);
             Open(true);
@@ -1859,13 +1865,15 @@ namespace Rago
             }
             if (Present)
             {
-                // the giant present: a second vault gun on the rack, and the shelves filled with the best there is
-                var g2 = rng.Pick(vaultGuns);
-                if (r < _rack.slots.Count)
+                // the giant present: every rack slot gets a vault gun (fully loaded), and the shelves fill with the best there is
+                int extra = 0;
+                while (r < _rack.slots.Count)
                 {
+                    var g2 = rng.Pick(vaultGuns);
                     var slot = _rack.slots[r++];
-                    var it = ItemFactory.Spawn(new ItemData(g2.id), slot.transform.position, slot.transform.rotation);
-                    if (it != null) { it.netId = 40000 + Id * 32 + 30; NetGame.I?.Register(it); if (slot.Accepts(it)) slot.Store(it, false); }
+                    var it = ItemFactory.Spawn(new ItemData(g2.id) { rounds = g2.magSize }, slot.transform.position, slot.transform.rotation);
+                    if (it != null) { it.netId = 47000 + Id * 16 + extra; NetGame.I?.Register(it); if (slot.Accepts(it)) slot.Store(it, false); }   // own id range: never clashes with the normal vault ids
+                    extra++;
                 }
                 gameObject.AddComponent<PresentVaultUnlock>().vault = this;
             }
@@ -1876,7 +1884,7 @@ namespace Rago
                 var slot = _shelf.slots[sh++];
                 var it = ItemFactory.Spawn(new ItemData(d.id), slot.transform.position, slot.transform.rotation);
                 if (it == null) continue;
-                it.netId = 40000 + Id * 32 + 20 + i;
+                it.netId = Present ? 48000 + Id * 16 + i : 40000 + Id * 32 + 20 + i;
                 NetGame.I?.Register(it);
                 slot.Store(it, false);
             }

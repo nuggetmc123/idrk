@@ -5,6 +5,17 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.57", "Longer fights, run-overs, fixes", new[] {
+                "Longer time-to-kill: every bullet does 35% less damage (players and raiders alike), so fights last longer.",
+                "Golf carts plough through people: hit a raider or player at speed and they go flying as a ragdoll while you keep driving (the cart used to stop dead). Raiders get back up a couple of seconds later if they survive.",
+                "Presents: just HOLD THE TRIGGER - it rattles and wobbles for a second, then bursts open (shaking was unreliable).",
+                "Evil Santa drops the NORTH POLE KEYCARD itself when he dies.",
+                "Evil Santa (and other bosses) no longer stand idle: they pace their lair, and look further afield when they're boxed in.",
+                "The giant present vault is overpowered now: every rack slot holds a fully loaded vault gun, six vault-grade items on the shelves, and its three crates are packed with vault loot (half the time a Vault Keycard or Military Radio too).",
+                "Manda's bed is back.",
+                "Fixed the steering wheel turning the opposite way to the cart (it now turns with your hands, 90 degrees each way).",
+                "Fixed duplicating items: a keycard used on a vault dropped a copy for the other players first, and holding an item while reaching into a crate or air drop could set it off and knock the item loose - crates now open with an empty hand.",
+            }),
             ("2.56", "Shake-to-open presents, better DLC store", new[] {
                 "CHRISTMAS PRESENTS are small now: over Christmas, crates often hold a little wrapped present (35% of crates, 60% on the North Pole). Pick it up and SHAKE it - five hard shakes and it bursts open, dropping the prize right there (it rattles as you shake it). Same odds as before: mostly supplies, sometimes a gun or armour, rarely a top gun, a keycard or a jackpot... and now and then a live grenade. The big floor presents are gone.",
                 "Evil Santa drops SANTA'S PRESENT (a bigger gold-ribboned one) - shake it open for a guaranteed North Pole Keycard and vault-grade loot.",
