@@ -14,9 +14,10 @@ namespace Rago
     public class Profile
     {
         public static Profile Current;
-        /// <summary>The current season. Raise it to wipe every account (money, level, stash, gear, bunker) the next time each
-        /// player opens the game - paid DLC, callsign, friends and settings are kept.</summary>
-        public const int Season = 2;
+        /// <summary>The current season (1 = the first real one; everything before it was the test period). Raise it to wipe
+        /// every account (money, level, stash, gear, bunker) the next time each player opens the game - paid DLC, callsign,
+        /// friends and settings are kept. Saves from the test period have season 0.</summary>
+        public const int Season = 1;
         public int season;
         public static bool SeasonWiped;   // this launch wiped the account: say so once you're in
         public string name = "Operator";
@@ -106,7 +107,7 @@ namespace Rago
                 p.Fix(); Current = p;
                 if (p.season < Season)
                 {
-                    // NEW SEASON: everyone starts from nothing (paid packs stay; the South Pole vault skins are earned again)
+                    // SEASON 1 (or a later one): everyone starts from nothing (paid packs stay; the South Pole vault skins are earned again)
                     p.Wipe();
                     p.dlc?.Remove("northpole");
                     p.season = Season; p.Save();
