@@ -204,13 +204,32 @@ namespace RagoServer
         }
 
         // ------------------------------------------------------------------------------------------- web panel
+        // A tiny web server of our own (no HttpListener): it answers on the GAME port too - a browser connecting to
+        // http://<server>:27015/ gets the panel (the game's own messages never start with "GET " / "POST"), so it works
+        // with no extra firewall rule. It also listens on 127.0.0.1:27016 for an HTTPS reverse proxy.
         static string _password;
         static readonly Dictionary<string, DateTime> Sessions = new Dictionary<string, DateTime>();
         static int _badLogins; static DateTime _badT;
 
+        sealed class Req
+        {
+            public string Method = "GET", Path = "/", Query = "", Body = "";
+            public readonly Dictionary<string, string> Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            public string Header(string k) => Headers.TryGetValue(k, out var v) ? v : null;
+            public string Cookie(string name)
+            {
+                var c = Header("Cookie"); if (c == null) return null;
+                foreach (var part in c.Split(';')) { var p = part.Trim(); int e = p.IndexOf('='); if (e > 0 && p.Substring(0, e) == name) return p.Substring(e + 1); }
+                return null;
+            }
+            public string Q(string k) { var d = ParseForm(Query); return d.TryGetValue(k, out var v) ? v : null; }
+        }
+        sealed class Resp { public int Code = 200; public string Html = "", Location, SetCookie; }
+
+        static bool LooksLikeHttp(byte[] h) => (h[0] == 'G' && h[1] == 'E' && h[2] == 'T' && h[3] == ' ') || (h[0] == 'P' && h[1] == 'O' && h[2] == 'S' && h[3] == 'T') || (h[0] == 'H' && h[1] == 'E' && h[2] == 'A' && h[3] == 'D');
+
         static void StartPanel()
         {
-            string bind = Environment.GetEnvironmentVariable("RAGO_PANEL") ?? "http://127.0.0.1:27016/";
             _password = Environment.GetEnvironmentVariable("RAGO_ADMIN_PASSWORD");
             string pwFile = Path.Combine(_dataDir, "admin_password.txt");
             if (string.IsNullOrEmpty(_password))
@@ -223,29 +242,86 @@ namespace RagoServer
                     Log("ADMIN PANEL PASSWORD (first run): " + _password + "   (saved in " + pwFile + ")");
                 }
             }
-            var http = new HttpListener();
-            try { http.Prefixes.Add(bind); http.Start(); }
-            catch (Exception e) { Log("admin panel couldn't start on " + bind + ": " + e.Message); return; }
-            Log("admin panel on " + bind);
-            _ = Task.Run(async () =>
+            // the local listener for a reverse proxy (optional)
+            string bind = Environment.GetEnvironmentVariable("RAGO_PANEL") ?? "http://127.0.0.1:27016/";
+            try
             {
-                while (true)
+                var u = new Uri(bind);
+                var ip = u.Host == "*" || u.Host == "0.0.0.0" ? IPAddress.Any : IPAddress.Parse(u.Host == "localhost" ? "127.0.0.1" : u.Host);
+                var l = new System.Net.Sockets.TcpListener(ip, u.Port); l.Start();
+                Log("admin panel on " + bind + " and on the game port (http://<server>:<game port>/)");
+                _ = Task.Run(async () => { while (true) { try { var t = await l.AcceptTcpClientAsync(); _ = Task.Run(() => HttpConn(t.GetStream(), null, t)); } catch { } } });
+            }
+            catch (Exception e) { Log("admin panel: local listener " + bind + " not started (" + e.Message + ") - the game port still serves it"); }
+        }
+
+        /// <summary>One browser request (head = its first 4 bytes, already read off the game port, or null).</summary>
+        static async Task HttpConn(Stream s, byte[] head, System.Net.Sockets.TcpClient tcp)
+        {
+            try
+            {
+                using var cts = new System.Threading.CancellationTokenSource(10000);
+                var buf = new MemoryStream();
+                if (head != null) buf.Write(head, 0, head.Length);
+                var one = new byte[4096];
+                int headerEnd = -1;
+                while (headerEnd < 0)
                 {
-                    HttpListenerContext ctx;
-                    try { ctx = await http.GetContextAsync(); } catch { continue; }
-                    _ = Task.Run(() => { try { Serve(ctx); } catch (Exception e) { Log("panel: " + e.Message); try { ctx.Response.Abort(); } catch { } } });
+                    if (buf.Length > 16384) return;
+                    int k = await s.ReadAsync(one, 0, one.Length, cts.Token);
+                    if (k <= 0) return;
+                    buf.Write(one, 0, k);
+                    headerEnd = IndexOf(buf.GetBuffer(), (int)buf.Length, "\r\n\r\n");
                 }
-            });
+                var all = buf.ToArray();
+                string headText = Encoding.ASCII.GetString(all, 0, headerEnd);
+                var lines = headText.Split("\r\n");
+                var first = lines[0].Split(' ');
+                if (first.Length < 2) return;
+                var rq = new Req { Method = first[0] };
+                string target = first[1]; int qm = target.IndexOf('?');
+                rq.Path = qm >= 0 ? target.Substring(0, qm) : target; rq.Query = qm >= 0 ? target.Substring(qm + 1) : "";
+                for (int i = 1; i < lines.Length; i++) { int c = lines[i].IndexOf(':'); if (c > 0) rq.Headers[lines[i].Substring(0, c).Trim()] = lines[i].Substring(c + 1).Trim(); }
+                int len = int.TryParse(rq.Header("Content-Length"), out var cl) ? Math.Clamp(cl, 0, 65536) : 0;
+                var body = new MemoryStream(); int have = all.Length - headerEnd - 4;
+                if (have > 0) body.Write(all, headerEnd + 4, Math.Min(have, len));
+                while (body.Length < len) { int k = await s.ReadAsync(one, 0, Math.Min(one.Length, len - (int)body.Length), cts.Token); if (k <= 0) break; body.Write(one, 0, k); }
+                rq.Body = Encoding.UTF8.GetString(body.ToArray());
+                Resp rs;
+                try { rs = Handle(rq); } catch (Exception e) { Log("panel: " + e.Message); rs = new Resp { Code = 500, Html = "error" }; }
+                var sb = new StringBuilder();
+                sb.Append("HTTP/1.1 ").Append(rs.Code).Append(rs.Code == 200 ? " OK" : rs.Code == 303 ? " See Other" : rs.Code == 400 ? " Bad Request" : " Error").Append("\r\n");
+                var bytes = Encoding.UTF8.GetBytes(rs.Html ?? "");
+                sb.Append("Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nX-Frame-Options: DENY\r\nReferrer-Policy: no-referrer\r\n");
+                sb.Append("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'\r\n");
+                if (rs.Location != null) sb.Append("Location: ").Append(rs.Location).Append("\r\n");
+                if (rs.SetCookie != null) sb.Append("Set-Cookie: ").Append(rs.SetCookie).Append("\r\n");
+                sb.Append("Content-Length: ").Append(bytes.Length).Append("\r\nConnection: close\r\n\r\n");
+                var hb = Encoding.ASCII.GetBytes(sb.ToString());
+                await s.WriteAsync(hb, 0, hb.Length);
+                if (rq.Method != "HEAD") await s.WriteAsync(bytes, 0, bytes.Length);
+                await s.FlushAsync();
+            }
+            catch (Exception) { }
+            finally { try { tcp?.Close(); } catch { } }
+        }
+
+        static int IndexOf(byte[] b, int n, string pat)
+        {
+            for (int i = 0; i + pat.Length <= n; i++)
+            {
+                int j = 0; while (j < pat.Length && b[i + j] == pat[j]) j++;
+                if (j == pat.Length) return i;
+            }
+            return -1;
         }
 
         static string H(string s) => WebUtility.HtmlEncode(s ?? "");
 
-        static Dictionary<string, string> Form(HttpListenerRequest rq)
+        static Dictionary<string, string> ParseForm(string body)
         {
             var d = new Dictionary<string, string>();
-            string body = "";
-            if (rq.HasEntityBody) using (var sr = new StreamReader(rq.InputStream, Encoding.UTF8)) body = sr.ReadToEnd();
-            foreach (var part in body.Split('&'))
+            foreach (var part in (body ?? "").Split('&'))
             {
                 int e = part.IndexOf('='); if (e <= 0) continue;
                 d[WebUtility.UrlDecode(part.Substring(0, e))] = WebUtility.UrlDecode(part.Substring(e + 1));
@@ -253,73 +329,39 @@ namespace RagoServer
             return d;
         }
 
-        static string SessionOf(HttpListenerRequest rq)
+        static Resp Handle(Req rq)
         {
-            var c = rq.Cookies["rs"];
-            if (c == null) return null;
-            lock (Lock) { if (Sessions.TryGetValue(c.Value, out var t) && DateTime.UtcNow - t < TimeSpan.FromHours(12)) return c.Value; }
-            return null;
-        }
-
-        static void Reply(HttpListenerContext ctx, string html, int code = 200)
-        {
-            var b = Encoding.UTF8.GetBytes(html);
-            ctx.Response.StatusCode = code;
-            ctx.Response.ContentType = "text/html; charset=utf-8";
-            ctx.Response.Headers["Cache-Control"] = "no-store";
-            ctx.Response.Headers["X-Frame-Options"] = "DENY";
-            ctx.Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'";
-            ctx.Response.OutputStream.Write(b, 0, b.Length);
-            ctx.Response.Close();
-        }
-        static void Redirect(HttpListenerContext ctx, string msg = null)
-        {
-            ctx.Response.StatusCode = 303;
-            ctx.Response.Headers["Location"] = msg == null ? "./" : "./?m=" + WebUtility.UrlEncode(msg);
-            ctx.Response.Close();
-        }
-
-        static void Serve(HttpListenerContext ctx)
-        {
-            var rq = ctx.Request;
-            string path = rq.Url.AbsolutePath.TrimEnd('/');
-            string sess = SessionOf(rq);
-            if (rq.HttpMethod == "POST" && path.EndsWith("/login"))
+            string path = rq.Path.TrimEnd('/');
+            string sess = rq.Cookie("rs");
+            lock (Lock) { if (sess == null || !Sessions.TryGetValue(sess, out var t) || DateTime.UtcNow - t > TimeSpan.FromHours(12)) sess = null; }
+            Resp Go(string msg = null) => new Resp { Code = 303, Location = msg == null ? "./" : "./?m=" + WebUtility.UrlEncode(msg) };
+            if (rq.Method == "POST" && path.EndsWith("/login"))
             {
-                var f = Form(rq);
-                bool ok;
+                var f = ParseForm(rq.Body);
+                bool ok; string newSess = null;
                 lock (Lock)
                 {
                     if (_badLogins >= 5 && DateTime.UtcNow - _badT < TimeSpan.FromMinutes(5)) ok = false;
                     else ok = f.TryGetValue("pw", out var pw) && CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(pw), Encoding.UTF8.GetBytes(_password));
                     if (!ok) { _badLogins++; _badT = DateTime.UtcNow; }
-                    else
-                    {
-                        _badLogins = 0;
-                        sess = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
-                        Sessions[sess] = DateTime.UtcNow;
-                    }
+                    else { _badLogins = 0; newSess = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)); Sessions[newSess] = DateTime.UtcNow; }
                 }
-                if (!ok) { Task.Delay(1000).Wait(); Reply(ctx, Page("Login", LoginForm("Wrong password (5 wrong tries locks it for 5 minutes)."))); return; }
-                ctx.Response.Headers.Add("Set-Cookie", "rs=" + sess + "; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200" + (rq.Headers["X-Forwarded-Proto"] == "https" ? "; Secure" : ""));
-                Redirect(ctx);
-                return;
+                if (!ok) { Task.Delay(1000).Wait(); return new Resp { Html = Page("Login", LoginForm("Wrong password (5 wrong tries locks it for 5 minutes).")) }; }
+                var r = Go(); r.Location = "./";
+                r.SetCookie = "rs=" + newSess + "; Path=/; HttpOnly; SameSite=Strict; Max-Age=43200" + (rq.Header("X-Forwarded-Proto") == "https" ? "; Secure" : "");
+                return r;
             }
-            if (sess == null) { Reply(ctx, Page("Login", LoginForm(null))); return; }
-            if (rq.HttpMethod == "POST" && path.EndsWith("/act"))
+            if (sess == null) return new Resp { Html = Page("Login", LoginForm(null)) };
+            if (rq.Method == "POST" && path.EndsWith("/act"))
             {
-                var f = Form(rq);
-                if (!f.TryGetValue("t", out var tok) || tok != sess) { Reply(ctx, "bad request", 400); return; }
-                string msg;
-                lock (Lock) msg = Act(f);
-                Redirect(ctx, msg);
-                return;
+                var f = ParseForm(rq.Body);
+                if (!f.TryGetValue("t", out var tok) || tok != sess) return new Resp { Code = 400, Html = "bad request" };
+                string msg; lock (Lock) msg = Act(f);
+                return Go(msg);
             }
-            if (path.EndsWith("/logout")) { lock (Lock) Sessions.Remove(sess); Redirect(ctx); return; }
-            string m = rq.QueryString["m"], q = rq.QueryString["q"];
-            string html;
-            lock (Lock) html = Dashboard(sess, m, q);
-            Reply(ctx, html);
+            if (path.EndsWith("/logout")) { lock (Lock) Sessions.Remove(sess); return Go(); }
+            string html; lock (Lock) html = Dashboard(sess, rq.Q("m"), rq.Q("q"));
+            return new Resp { Html = html };
         }
 
         static string Act(Dictionary<string, string> f)

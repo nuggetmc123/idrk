@@ -125,6 +125,9 @@ namespace RagoServer
         static async Task Serve(TcpClient tcp)
         {
             tcp.NoDelay = true;
+            var first = new byte[4];
+            try { if (!await ReadExact(tcp.GetStream(), first, 4)) { tcp.Close(); return; } } catch { tcp.Close(); return; }
+            if (LooksLikeHttp(first)) { await HttpConn(tcp.GetStream(), first, tcp); return; }   // a browser: the owner's admin panel
             var c = new Client { Tcp = tcp, Stream = tcp.GetStream() };
             lock (Lock)
             {
@@ -134,12 +137,14 @@ namespace RagoServer
                 Clients[c.Id] = c; ByToken[c.Token] = c;
             }
             _ = Task.Run(() => Writer(c));
-            var head = new byte[4];
+            var head = first;   // the first frame's length is already read
+            bool got = true;
             try
             {
                 while (true)
                 {
-                    if (!await ReadExact(c.Stream, head, 4)) break;
+                    if (!got && !await ReadExact(c.Stream, head, 4)) break;
+                    got = false;
                     int len = BitConverter.ToInt32(head, 0);
                     if (len < 1 || len > P.MaxFrame) { Log(c + " sent a bad frame (" + len + ")"); break; }
                     var body = new byte[len];
