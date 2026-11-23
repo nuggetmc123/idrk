@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.48", "Spawn board", new[] {
+                "Tester menu: SPAWN ITEM... opens a spawn board - little 3D models of the items, 12 a page, each with its name underneath (coloured by rarity), in GUNS / ARMOR / ATTACH / SIGHTS / OTHER tabs. Press one and point where it goes. The present and golf cart are in OTHER. < MENU goes back, the menu button closes it.",
+            }),
             ("2.47", "Spawn menu: present and golf cart", new[] {
                 "Tester menu: the Christmas present and the golf cart are now in the OTHER spawn list (first two entries). Pick one, press SPAWN, point where it goes - a see-through green box shows the spot - and pull the trigger, just like spawning an item.",
                 "The separate SPAWN GOLF CART and SPAWN PRESENT buttons are gone.",

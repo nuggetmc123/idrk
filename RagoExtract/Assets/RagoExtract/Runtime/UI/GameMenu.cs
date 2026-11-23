@@ -35,7 +35,10 @@ namespace Rago
             I.Show(false);
         }
 
-        public static void Close() { if (I != null) I.Show(false); }
+        public static void Close() { if (I != null) I.Show(false); SpawnBrowser.Close(); }
+
+        /// <summary>Back from the spawn board: the menu again, where it was.</summary>
+        public static void Reopen() { if (I == null) return; I._dirty = true; I.Show(true); }
 
         void Build()
         {
@@ -77,6 +80,7 @@ namespace Rago
             var p = RagoGame.I != null ? RagoGame.I.Player : null;
             if (p == null) return;
             bool toggle = XRInputs.VR ? XRInputs.Left.MenuDown : Desktop.MenuKey;
+            if (toggle && SpawnBrowser.IsOpen) { SpawnBrowser.Close(); toggle = false; }   // the menu button closes the spawn board
             if (toggle) { if (_open) Show(false); else OpenInFront(); }
             if (!_open) return;
             if (p.Dead || Vector3.Distance(p.Head.position, transform.position) > 2.5f) { Show(false); return; }
@@ -212,25 +216,10 @@ namespace Rago
         static readonly Color Go = new Color(0.2f, 0.42f, 0.2f), Stop = new Color(0.5f, 0.15f, 0.1f);
 
         // ------------------------------------------------------------------------------- tester tools
-        static readonly string[] Cats = { "GUNS", "ARMOR", "ATTACHMENTS", "SIGHTS", "OTHER" };
-        static int _cat, _pick, _npcKind, _ammoKind;
+        static int _npcKind, _ammoKind;
         static readonly string[] AmmoKinds = { "STANDARD", "AP", "INCENDIARY" };
         static readonly string[] NpcKinds = { "Raider", "Heavy raider", "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker", "The Courier" };
 
-        static List<ItemDef> CatItems(int cat)
-        {
-            Db.Init();
-            var l = new List<ItemDef>();
-            switch (cat)
-            {
-                case 0: l.AddRange(Db.Guns); break;
-                case 1: l.AddRange(Db.Armor); l.AddRange(Db.Packs); break;
-                case 2: l.AddRange(Db.Attachments); break;
-                case 3: l.AddRange(Db.Sights); break;
-                default: l.Add(Tester.PresentDef); l.Add(Tester.CartDef); l.AddRange(Db.Misc); break;   // the present and golf cart first
-            }
-            return l;
-        }
 
         void DrawTester()
         {
@@ -255,17 +244,8 @@ namespace Rago
                 var t = _ammoKind == 1 ? AmmoType.AP : _ammoKind == 2 ? AmmoType.Incendiary : AmmoType.Standard;
                 pl.Gear.AddAmmo(g.g.cal, 300, t);
             }); y -= 0.1f;
-            // spawn any item
-            var items = CatItems(_cat);
-            _pick = items.Count == 0 ? 0 : (_pick % items.Count + items.Count) % items.Count;
-            Btn("<", -0.47f, y, 0.08f, () => { _cat = (_cat + Cats.Length - 1) % Cats.Length; _pick = 0; });
-            Line(Cats[_cat], y, 0.028f, UI.Accent, -0.41f);
-            Btn(">", -0.1f, y, 0.08f, () => { _cat = (_cat + 1) % Cats.Length; _pick = 0; }); y -= 0.08f;
-            string nm = items.Count > 0 ? items[_pick].name : "-";
-            Btn("<", -0.47f, y, 0.08f, () => _pick--);
-            Line(nm.Length > 24 ? nm.Substring(0, 23) + "." : nm, y, 0.026f, Color.white, -0.41f);
-            Btn(">", 0.1f, y, 0.08f, () => _pick++);
-            Btn("SPAWN", 0.36f, y, 0.2f, () => { if (items.Count > 0) { Show(false); Tester.BeginPlace(items[_pick]); } }, Go); y -= 0.1f;
+            // spawn any item: a board of little models of everything, pick one and point where it goes
+            Btn("SPAWN ITEM...", -0.25f, y, 0.42f, () => { Show(false); SpawnBrowser.Open(transform); }, Go); y -= 0.1f;
             // spawn raiders / bosses
             Btn("<", -0.47f, y, 0.08f, () => _npcKind = (_npcKind + NpcKinds.Length - 1) % NpcKinds.Length);
             Line(NpcKinds[_npcKind], y, 0.026f, Color.white, -0.41f);

@@ -10,10 +10,15 @@ namespace Rago
     /// </summary>
     public static class Festive
     {
+        /// <summary>Master switch for the Christmas update: false = the normal game (no snow, trees, snowmen or presents)
+        /// whatever the date.</summary>
+        public static readonly bool Enabled = true;
+
         public static bool On
         {
             get
             {
+                if (!Enabled) return false;
                 var d = System.DateTime.Now;
                 return d.Month == 12 || (d.Month == 11 && d.Day >= 15) || (d.Month == 1 && d.Day <= 10);
             }
