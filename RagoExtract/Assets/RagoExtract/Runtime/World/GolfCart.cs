@@ -288,7 +288,10 @@ namespace Rago
             // drift and turn on its own while you sat there
             bool inside = LocalInside;
             bool input = LocalDriving && (Mathf.Abs(Throttle) > 0.02f || Brake > 0.02f);
-            if (inside && !input && rb.Vel().sqrMagnitude < 0.5f * 0.5f && rb.angularVelocity.sqrMagnitude < 0.3f * 0.3f)
+            // (only once it sits level: pushed down on one side before you got in, it used to freeze tilted like that and
+            // then drive along leaning over)
+            bool level = Vector3.Angle(transform.up, Vector3.up) < 4f || Physics.Raycast(transform.position + Vector3.up, Vector3.down, out var gh, 3f, Ballistics.WallMask, QueryTriggerInteraction.Ignore) && Vector3.Angle(transform.up, gh.normal) < 4f;
+            if (inside && !input && level && rb.Vel().sqrMagnitude < 0.5f * 0.5f && rb.angularVelocity.sqrMagnitude < 0.3f * 0.3f)
             {
                 if (!rb.isKinematic) { rb.SetVel(Vector3.zero); rb.angularVelocity = Vector3.zero; rb.isKinematic = true; }
                 _holding = true;
@@ -337,9 +340,9 @@ namespace Rago
                 rb.angularVelocity = transform.TransformDirection(local);
             }
             LateFixed();
-            // keep it from flipping on rough ground: it rights itself slowly
+            // keep it from flipping on rough ground: it rights itself (firmly while someone's in it, so it never drives leaning)
             Vector3 upErr = Vector3.Cross(transform.up, Vector3.up);
-            rb.AddTorque(upErr * rb.mass * 14f);
+            rb.AddTorque(upErr * rb.mass * (inside ? 40f : 14f));
             // multiplayer: the driver's game says where the cart is
             if (driven && NetGame.Live)
             {
@@ -372,6 +375,25 @@ namespace Rago
         }
 
         /// <summary>Run someone over: damage from how fast the cart hits them (only the driver's game decides).</summary>
+        /// <summary>Getting in: the cart settles flat on its wheels (whatever was pushing one side down - a hand, a body -
+        /// doesn't leave it leaning for the whole drive).</summary>
+        public void Settle()
+        {
+            if (rb == null || RemoteDriver != 0) return;
+            Vector3 f = transform.forward; f.y = 0; if (f.sqrMagnitude < 0.01f) f = Vector3.forward;
+            var up = Quaternion.LookRotation(f.normalized, Vector3.up);
+            if (Vector3.Angle(transform.up, Vector3.up) > 25f) return;   // on a real slope / tipped right over: leave that to physics
+            bool kin = rb.isKinematic;
+            rb.isKinematic = false;
+            rb.angularVelocity = Vector3.zero;
+            // match the ground under it (a hill keeps its slope), else dead level
+            Quaternion want = up;
+            if (Physics.Raycast(transform.position + Vector3.up, Vector3.down, out var h, 3f, Ballistics.WallMask, QueryTriggerInteraction.Ignore) && h.collider.attachedRigidbody != rb && h.normal.y > 0.85f)
+                want = Quaternion.FromToRotation(Vector3.up, h.normal) * up;
+            rb.rotation = want; transform.rotation = want;
+            rb.isKinematic = kin;
+        }
+
         void OnCollisionEnter(Collision c)
         {
             if (!LocalDriving) return;

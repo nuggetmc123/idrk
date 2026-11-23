@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.68", "Death fix, golf cart fix", new[] {
+                "Fixed: sometimes after dying you never went back to your bunker (you stayed dead). Dying just as a raid finished (extracting, the raid clock running out, the nuke) skipped the trip home, and any hiccup on the way home could leave you stuck. Every step is guarded now, and if you're ever still dead after 15 seconds you're sent home anyway.",
+                "Fixed: pushing a golf cart down on one side before getting in made it drive along leaning over. It settles flat on its wheels when you get in, and rights itself firmly while you drive.",
+                "Fixed: the Camera kept recording (and could come back) after you died - it goes with your helmet now.",
+            }),
             ("2.67", "Concert, Nuke, smoother multiplayer", new[] {
                 "NEW LIVE EVENT - CONCERT: a stage goes up in the Market in front of the roller door - a DJ on the decks, a flashing LED wall, speaker stacks, moving spotlights with beams and green lasers, all on the beat of a dance track. Everyone in the Market hears the same beat. Climb up on the stage.",
                 "NEW LIVE EVENT - NUKE: a 5-minute countdown in every raid, with air-raid sirens and the last seconds counted down in front of you. Extract before it hits. If you're still in a raid at zero: a white flash, a mushroom cloud climbs over the map, and the blast wave kills everyone left (raiders too). Mods press LAUNCH; STOP calls it off.",

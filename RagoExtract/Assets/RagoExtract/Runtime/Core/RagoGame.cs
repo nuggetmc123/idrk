@@ -216,6 +216,12 @@ namespace Rago
 
         void Update()
         {
+            // watchdog: dead for 15 seconds and nothing has taken you home - go home now
+            if (Player != null && Player.Dead && !_travelling)
+            {
+                if (_deadSince < 0f) _deadSince = Time.unscaledTime;
+                else if (Time.unscaledTime - _deadSince > 15f) { Debug.LogError("[Rago Extract] still dead after 15 s - respawning in the bunker"); _deadSince = Time.unscaledTime; StartCoroutine(Respawn(Profile.Current != null && Area == Area.Raid ? Profile.Current.loadout : null)); }
+            }
             // watchdog: no load may keep the screen black for more than a minute
             if (_travelling && Time.unscaledTime - _travelStart > 60f) { Debug.LogError("[Rago Extract] loading took over 60 s - fading back in"); RecoverFromLoading("Loading took too long"); }
             // the bunker saves itself every 20 s, so quitting the app (or the headset killing it) never loses your stash
@@ -434,17 +440,35 @@ namespace Rago
 
         void OnLocalDeath(int killer)
         {
-            if (Area == Area.Raid && RaidManager.I != null) RaidManager.I.Died(killer);
-            else StartCoroutine(HubRespawn());
+            _deadSince = Time.unscaledTime;
+            bool handled = false;
+            // in a raid that's still going: the raid handles it (drops your gear, shows who got you, back to the bunker)
+            try { if (Area == Area.Raid && RaidManager.I != null && !RaidManager.I.Done) { RaidManager.I.Died(killer); handled = true; } }
+            catch (System.Exception e) { Debug.LogError("[Rago Extract] death in raid: " + e); }
+            // anywhere else - or dying just as a raid finished (extracting, the clock running out, the nuke) - straight home
+            if (!handled) StartCoroutine(HubRespawn());
         }
 
         IEnumerator HubRespawn()
         {
             yield return new WaitForSeconds(3f);
-            Player.Revive();
-            Player.Vitals.ResetFull();
+            yield return Respawn(null);
+        }
+
+        /// <summary>Back on your feet in your bunker - whatever goes wrong on the way (each step guarded, and it waits for any
+        /// load already under way), so a death can never leave you stuck.</summary>
+        public IEnumerator Respawn(Loadout l)
+        {
+            float wait = 0f;
+            while (_travelling && wait < 70f) { wait += Time.unscaledDeltaTime; yield return null; }
+            try { Player.Revive(); } catch (System.Exception e) { Debug.LogError("[Rago Extract] revive: " + e); }
+            try { Player.Vitals.ResetFull(); } catch (System.Exception e) { Debug.LogError("[Rago Extract] reset vitals: " + e); }
+            if (l != null) try { Player.Gear.LoadLoadout(l); } catch (System.Exception e) { Debug.LogError("[Rago Extract] loadout after death: " + e); }
+            _deadSince = -1f;
+            _travelling = false;   // (a stuck load can't block the way home)
             GoTo(Area.Bunker);
         }
+        float _deadSince = -1f;
 
         void OnApplicationPause(bool paused) { if (paused && (Area == Area.Bunker || Area == Area.Market)) SaveHubState(Area == Area.Market); }   // the bunker: just a snapshot (you might come back to it)
         void OnApplicationQuit() { if (Area == Area.Bunker || Area == Area.Market) SaveHubState(); }
@@ -611,6 +635,12 @@ namespace Rago
         {
             if (Done) return;
             Done = true;
+            try { DiedInner(killer); } catch (System.Exception e) { Debug.LogError("[Rago Extract] raid death: " + e); }
+            StartCoroutine(BackToBunker());
+        }
+
+        void DiedInner(int killer)
+        {
             RaidReconnect.Clear(); NetHub.Backend?.ForgetRaid();
             var prof = Profile.Current;
             prof.inRaid = false;
@@ -633,7 +663,6 @@ namespace Rago
             DeathCause(killer, out string by, out string with);
             _g.LastResult = new RaidResult { extracted = false, map = _map.DisplayName, killer = by, weapon = with, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
             _g.Player.Hud.Center("DIED IN ACTION\n<size=40>" + (with != null ? "Killed by " + by + " - " + with : by) + "</size>", 6f);
-            StartCoroutine(BackToBunker());
         }
 
         /// <summary>Who or what killed you, and with what: "Scav" / "The Courier" / a player's callsign, and the gun's name.</summary>
@@ -664,9 +693,7 @@ namespace Rago
         IEnumerator BackToBunker()
         {
             yield return new WaitForSeconds(6f);
-            _g.Player.Revive();
-            _g.Player.Gear.LoadLoadout(Profile.Current.loadout);
-            _g.GoTo(Area.Bunker);
+            yield return _g.Respawn(Profile.Current != null ? Profile.Current.loadout : null);
         }
     }
 

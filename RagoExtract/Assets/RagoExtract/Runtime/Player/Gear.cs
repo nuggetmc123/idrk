@@ -417,6 +417,7 @@ namespace Rago
             Pack = null;
             Helmet = null; Vest = null;
             NvgWorn = false; SetNvg(false);
+            SetRec(false); CamWorn = false;   // the camera went with the helmet (and stops recording)
             for (int i = 0; i < Ammo.Length; i++) Ammo[i] = 0;
             Changed();
         }
