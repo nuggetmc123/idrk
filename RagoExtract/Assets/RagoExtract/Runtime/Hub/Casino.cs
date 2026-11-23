@@ -15,6 +15,14 @@ namespace Rago
             var root = new GameObject("Casino").transform;
             root.SetParent(parent, false);
             root.SetPositionAndRotation(at, Quaternion.Euler(0, yaw, 0));
+            if (AgeGate.Restricted)
+            {
+                // younger players: the casino's closed (shutters down, a sign)
+                var shut = new MB(); shut.Box(new Vector3(-0.5f, 1.3f, 0.3f), new Vector3(5.6f, 2.6f, 0.08f), new Color(0.3f, 0.31f, 0.33f), 0.01f);
+                shut.Build("Shutter", root, Mats.Lit("casino_shutter", Color.white, 0.6f, 0.4f, Mats.Metal, null, 0.3f, 0.3f));
+                UI.Text(root, "CASINO - 18+ ONLY", new Vector3(-0.5f, 1.8f, 0.25f), 0.14f, new Color(1f, 0.75f, 0.3f), TextAnchor.MiddleCenter, FontStyle.Bold);   // read from the room side (-z), like the other signs
+                return;
+            }
             SlotMachine.Create(root, new Vector3(-3.0f, 0, 0), 0);
             SlotMachine.Create(root, new Vector3(-2.0f, 0, 0), 0);
             BlackjackTable.Create(root, new Vector3(0.4f, 0, -0.2f), 0);

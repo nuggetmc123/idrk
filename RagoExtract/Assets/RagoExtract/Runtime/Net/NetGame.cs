@@ -62,6 +62,12 @@ namespace Rago
             var w = W(Msg.Voice);
             w.Write((short)frame.Length); w.Write(frame);
             float hear = InRaid ? 35f : 25f;
+            if (AgeGate.Restricted)
+            {
+                // a younger player: their voice goes to their own squad only, never to strangers
+                foreach (var kv in Remotes) if (kv.Value != null && NetHub.Backend.IsTeammate(kv.Key)) Send(false, kv.Key);
+                return;
+            }
             if (NetHub.Backend.FastBroadcast)
             {
                 // one copy through Photon's server, but only if someone can hear it
@@ -879,6 +885,7 @@ namespace Rago
                             {
                                 int n = r.ReadInt16();
                                 var frame = r.ReadBytes(n);
+                                if (AgeGate.Restricted && !NetHub.Backend.IsTeammate(from)) break;   // younger players hear their squad only
                                 if (Remotes.TryGetValue(from, out var rp) && rp != null)
                                 {
                                     // a squad mate further than shouting distance comes over the radio; anyone else only in earshot

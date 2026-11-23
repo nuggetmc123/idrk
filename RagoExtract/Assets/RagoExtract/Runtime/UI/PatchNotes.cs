@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.71", "Safety for younger players", new[] {
+                "Younger players (Meta tells the game a player's age group): voice chat only with your own squad - strangers can't hear you and you can't hear them - and the Market casino is closed (18+). Everyone else plays as before.",
+                "Privacy policy: game.idrk.dev/privacy explains what the game uses (callsign, a random player ID, voice relayed live and never stored) and who to contact.",
+            }),
             ("2.70", "DLC menu, 5 new packs, better grips", new[] {
                 "DLC TAB in your menu: every pack as a tile with its price. Tap one to see everything it comes with - try each skin on a rifle by tapping it, see the items and where they go - then GET IT. Packs are FREE for now; the price they'll cost later is shown.",
                 "5 NEW DLC PACKS: GOLD (Solid Gold, Black Gold, Mirror Chrome + a gold chain), SYNTHWAVE (Synthwave, Vaporwave, Laser Grid), PREDATOR (Zebra, Leopard, Python), ELEMENTS (Lava, Ice Crystal, Lightning, Toxic Slime) and OPERATOR (Ranger Green, Mountain Shards, Desert Digital + 2 IFAKs and a stim).",

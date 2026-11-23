@@ -337,6 +337,8 @@ namespace RagoServer
         static Resp Handle(Req rq)
         {
             string path = rq.Path.TrimEnd('/');
+            // public pages (no login): the privacy policy (for the store listing)
+            if (rq.Method != "POST" && (path.EndsWith("/privacy") || path.EndsWith("/privacy.html") || path.EndsWith("/privacy-policy"))) return new Resp { Html = PrivacyPage() };
             string sess = rq.Cookie("rs");
             lock (Lock) { if (sess == null || !Sessions.TryGetValue(sess, out var t) || DateTime.UtcNow - t > TimeSpan.FromHours(12)) sess = null; }
             Resp Go(string msg = null) => new Resp { Code = 303, Location = msg == null ? "./" : "./?m=" + WebUtility.UrlEncode(msg) };

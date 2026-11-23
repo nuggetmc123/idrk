@@ -101,6 +101,7 @@ namespace Rago
             try { Mats.Foliage("_warm", Mats.LeafCard, Color.white); Shader.WarmupAllShaders(); }
             catch (System.Exception e) { Debug.LogWarning("[Rago Extract] shader warm-up skipped: " + e.Message); }
             var prof = Profile.LoadOrCreate();
+            AgeGate.Check();
             try { Dlc.Restore(); } catch (System.Exception e) { Debug.LogWarning("[Rago] restore purchases: " + e.Message); }   // paid packs come back after a reinstall
             bool leftRaid = prof.inRaid;
             if (leftRaid) RaidManager.LoseRaidGear(prof);   // the game was closed mid-raid: like dying, everything you took in is gone
