@@ -588,6 +588,23 @@ namespace Rago
                 b.Sign(new Vector3(stallX[i], 4.15f, D / 2 - 0.23f), Quaternion.identity, Short(defs[i].title), new Color(0.97f, 0.95f, 0.9f), 0.14f);
                 b.AddLight(new Vector3(stallX[i], 3.8f, D / 2 - 5f), new Color(1f, 0.82f, 0.6f), 6f, 1.1f);
             }
+            // ---- the stalls dressed up: a rug and two potted plants at each (and at Christmas, a garland of lights along the awning)
+            var pot = Mats.Lit("plant_pot", Color.white, 0f, 0.3f, Mats.Noise, null, 0.3f, 0.1f);
+            for (int i = 0; i < defs.Count && i < stallX.Length; i++)
+            {
+                var sc = new Vector3(stallX[i], 0, D / 2 - 3.6f);
+                b.Box(sc + new Vector3(0, 0.01f, -1.6f), new Vector3(3.0f, 0.02f, 1.6f), Mats.Lit("rug", Color.white, 0f, 0.1f, Mats.Fabric, null, 0.3f, 0f), Color.Lerp(defs[i].color, new Color(0.3f, 0.25f, 0.2f), 0.4f), null, false);
+                foreach (float px in new[] { -2.35f, 2.35f })
+                {
+                    var pp = sc + new Vector3(px, 0, -0.7f);
+                    b.Cyl(pp, pp + Vector3.up * 0.45f, 0.2f, 0.16f, 10, pot, new Color(0.55f, 0.3f, 0.2f), false);
+                    for (int k = 0; k < 5; k++) b.Sphere(pp + new Vector3(Mathf.Cos(k * 1.3f) * 0.12f, 0.6f + (k % 2) * 0.15f, Mathf.Sin(k * 1.3f) * 0.12f), Vector3.one * 0.18f, 6, pot, new Color(0.15f, 0.38f, 0.18f), false);
+                }
+                if (Festive.On) Festive.Garland(transform, sc + new Vector3(-2.05f, 2.9f, -0.62f), sc + new Vector3(2.05f, 2.9f, -0.62f), 0.25f);
+            }
+            // ---- the DLC STORE on the west wall (north of Bruno)
+            DlcStore.Create(transform, new Vector3(-W / 2 + 0.2f, 0, 5.2f), -90f);
+            HangingSign(new Vector3(-W / 2 + 2.6f, 4.9f, 5.2f), -90f, "DLC STORE", "skin packs and gear", new Color(0.5f, 0.85f, 1f));
             // ---- players' own trading: a trade table and four stalls anyone can claim
             TradeTable.Create(transform, new Vector3(-6.5f, 0, -3.5f), 90f);
             // the black market: three screens in a row in the middle of the hall, facing the lift (you see them as you

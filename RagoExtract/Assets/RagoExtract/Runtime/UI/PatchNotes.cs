@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.49", "Impact grenades, melee, skins, DLC store", new[] {
+                "RGN IMPACT GRENADE: pull the pin and throw - it goes off the moment it hits something (or 8 s after the pin). Mara sells them; found in loot too.",
+                "MELEE: Baseball Bat, Crowbar, Machete, Sledgehammer, Fire Axe, Frying Pan and (at Christmas) a Candy Cane club. Bats, hammers, crowbars and pans hit with a thud and a shove; heavy tools smash padlocks fast. Mara sells them; found in loot too.",
+                "DLC STORE (Market, west wall): packs bought with in-game cash - Street, Survivor, Collector's, and the Holiday Pack over Christmas. A pack unlocks its gun skins at your paint booth and sends its items to the Armory floor.",
+                "15 NEW SKINS: Candy Cane, Ugly Sweater, Frostbite, Neon Circuit, Hazard, Dragon Scale, Galaxy, Damascus Steel, Bone, Deep Ocean, Cherry Blossom (DLC packs), plus 4 event skins. Skins you don't own don't show at the paint booth until you buy or earn them.",
+                "The Market's stalls got rugs and potted plants; at Christmas the traders wear Santa hats, garlands of lights hang along the stalls and there's a wreath over the DLC store.",
+            }),
             ("2.48", "Spawn board", new[] {
                 "Tester menu: SPAWN ITEM... opens a spawn board - little 3D models of the items, 12 a page, each with its name underneath (coloured by rarity), in GUNS / ARMOR / ATTACH / SIGHTS / OTHER tabs. Press one and point where it goes. The present and golf cart are in OTHER. < MENU goes back, the menu button closes it.",
             }),

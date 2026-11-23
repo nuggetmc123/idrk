@@ -416,6 +416,16 @@ namespace Rago
             knife.heal = 45f;
             var hunt = M("knife_hunt", "Hunting Knife", ItemKind.Melee, U, 1100, 1, new Color(0.42f, 0.28f, 0.16f), "Longer, heavier blade. Hits harder.");
             hunt.heal = 62f;
+            M("impact", "RGN Impact Grenade", ItemKind.Throwable, R, 1400, 2, new Color(0.22f, 0.27f, 0.2f), "Pull the pin and throw: it goes off the moment it hits something (or 8 s after the pin, whichever comes first). Don't drop it at your feet.");
+            // more melee (damage in the "heal" slot, like the knives): shape picks the model
+            void Mel(string id, string nm, Rarity r, int price, int shape, float dmg, Color col, string desc) { var m = M(id, nm, ItemKind.Melee, r, price, shape, col, desc); m.heal = dmg; }
+            Mel("bat", "Baseball Bat", C, 600, 2, 55f, new Color(0.62f, 0.45f, 0.28f), "Ash wood, taped grip. Swing it like you mean it - knocks raiders off their feet.");
+            Mel("crowbar", "Crowbar", C, 500, 3, 48f, new Color(0.6f, 0.08f, 0.06f), "Opens crates, opens heads. Good against padlocks.");
+            Mel("machete", "Machete", U, 1200, 4, 62f, new Color(0.15f, 0.15f, 0.15f), "A long, heavy blade. Big swings, deep cuts.");
+            Mel("sledge", "Sledgehammer", R, 1900, 5, 88f, new Color(0.25f, 0.25f, 0.27f), "Slow and heavy - one good swing drops most raiders. Smashes padlocks.");
+            Mel("fireaxe", "Fire Axe", R, 1700, 6, 76f, new Color(0.75f, 0.1f, 0.08f), "Red, sharp and heavy.");
+            Mel("pan", "Frying Pan", C, 350, 7, 40f, new Color(0.12f, 0.12f, 0.12f), "Cast iron. The sound it makes is worth it.");
+            Mel("candycane", "Candy Cane", U, 1500, 8, 50f, new Color(0.9f, 0.15f, 0.15f), "A festive club. Peppermint scented. (Christmas)");
             stim.heal = 30;
 
             // ---------------- AMMO (adds to your reserve when stashed / picked up)
@@ -590,7 +600,7 @@ namespace Rago
                     break;
             }
             // vault keycards and military radios only lie at their own spots on each map - never in crates, safes or on bodies
-            pool.RemoveAll(d => d.kind == ItemKind.Key || d.id == "val_radio");
+            pool.RemoveAll(d => d.kind == ItemKind.Key || d.id == "val_radio" || (d.id == "candycane" && !Festive.On) || d.id == "key_xmas");
             float total = 0;
             foreach (var d in pool) total += Weight(d.rarity, t) * (d.kind == ItemKind.Key ? 0.08f : 1f);
             if (total <= 0) return Get("bandage");

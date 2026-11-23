@@ -123,5 +123,40 @@ namespace Rago
                 var l = lgo.AddComponent<Light>(); l.type = LightType.Point; l.color = new Color(1f, 0.8f, 0.5f); l.range = 6f * scale; l.intensity = 1.2f; l.renderMode = LightRenderMode.ForceVertex;
             }
         }
+
+        static Material Glow => Mats.Lit("xmas_glow", new Color(1f, 0.9f, 0.6f), 0f, 0.5f, null, null, 0f, 0f, false, 0.5f, new Color(1.6f, 1.3f, 0.7f));
+        static Material Green => Mats.Lit("xmas_tree", Color.white, 0.1f, 0.4f, Mats.Noise, null, 0.15f, 0.05f);
+
+        /// <summary>A wreath hung on a wall (facing local -Z): a ring of green, red berries and a bow.</summary>
+        public static void Wreath(Transform parent, Vector3 localPos, float radius)
+        {
+            var mb = new MB(2);
+            for (int k = 0; k < 18; k++)
+            {
+                float a = k / 18f * Mathf.PI * 2f;
+                var c = new Vector3(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius, 0);
+                mb.Sub(0).Sphere(c, new Vector3(0.09f, 0.09f, 0.05f) * (radius / 0.35f), 8, k % 2 == 0 ? new Color(0.08f, 0.32f, 0.14f) : new Color(0.1f, 0.4f, 0.17f));
+                if (k % 3 == 0) mb.Sub(0).Sphere(c + new Vector3(0, 0, -0.05f), Vector3.one * 0.022f, 6, new Color(0.75f, 0.06f, 0.06f));
+            }
+            mb.Sub(0).Sphere(new Vector3(-0.07f, -radius, -0.06f), new Vector3(0.08f, 0.05f, 0.03f), 8, new Color(0.8f, 0.08f, 0.08f));
+            mb.Sub(0).Sphere(new Vector3(0.07f, -radius, -0.06f), new Vector3(0.08f, 0.05f, 0.03f), 8, new Color(0.8f, 0.08f, 0.08f));
+            var go = mb.Build("Wreath", parent, Green, Glow);
+            go.transform.localPosition = localPos;
+        }
+
+        /// <summary>A garland of fir with warm lights, sagging between two points.</summary>
+        public static void Garland(Transform parent, Vector3 a, Vector3 b, float sag)
+        {
+            var mb = new MB(2);
+            int n = Mathf.Max(6, Mathf.RoundToInt((b - a).magnitude / 0.12f));
+            for (int k = 0; k <= n; k++)
+            {
+                float t = k / (float)n;
+                var p = Vector3.Lerp(a, b, t) + Vector3.down * Mathf.Sin(t * Mathf.PI) * sag;
+                mb.Sub(0).Sphere(p, new Vector3(0.09f, 0.07f, 0.09f), 6, k % 2 == 0 ? new Color(0.08f, 0.32f, 0.14f) : new Color(0.1f, 0.4f, 0.17f));
+                if (k % 3 == 1) mb.Sub(1).Sphere(p + Vector3.down * 0.06f, Vector3.one * 0.025f, 6, Color.white);
+            }
+            mb.Build("Garland", parent, Green, Glow);
+        }
     }
 }

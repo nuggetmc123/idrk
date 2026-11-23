@@ -40,6 +40,7 @@ namespace Rago
         public bool nameSet, tutorialDone;
         public bool inRaid;   // set while a raid is on: still set at the next launch = you quit mid-raid, which counts as dying
         public int tutorialStep;
+        public List<string> dlc = new List<string>();       // DLC STORE packs bought (and "northpole": the South Pole vault)
         public List<string> friends = new List<string>();   // callsigns you added (menu > FRIENDS)
         public List<string> pendingFriends = new List<string>();   // typed in but not seen online yet: "CALLSIGN#1234|day added"
         public List<string> recent = new List<string>();    // people you've raided with, newest first

@@ -10,7 +10,7 @@ namespace Rago
     /// </summary>
     public static class GunSkins
     {
-        public class Skin { public string id, name; public Color spray; public System.Func<Material> mat; }
+        public class Skin { public string id, name, pack; public Color spray; public System.Func<Material> mat; }   // pack: a DLC pack that unlocks it (null = free)
         // patterns modelled on real camouflage and real gun coatings, sized for a gun (a few centimetres per blob),
         // painted in the gun's own space so they stay put when it moves, with worn edges showing bare metal
         public static readonly List<Skin> All = new List<Skin>
@@ -25,7 +25,28 @@ namespace Rago
             new Skin { id = "crimson", name = "Crimson Cerakote", spray = new Color(0.5f, 0.07f, 0.07f), mat = () => Coat("crimson", new Color(0.5f, 0.06f, 0.06f), 0.32f) },
             new Skin { id = "gold", name = "Gold Rush", spray = new Color(1f, 0.8f, 0.25f), mat = () => Obj(Mats.Lit("skin_gold", new Color(1f, 0.76f, 0.34f), 1f, 0.82f, Mats.Metal, null, 0.06f, 0.18f, true, 3f)) },
             new Skin { id = "carbon", name = "Carbon Fibre", spray = new Color(0.1f, 0.1f, 0.11f), mat = () => Paint("carbon", CarbonTwill, 14f, false, 0.25f, 0.9f, 0.08f, 0.05f) },
+            // ---- DLC STORE packs
+            new Skin { id = "candy", name = "Candy Cane", pack = "holiday", spray = new Color(0.9f, 0.15f, 0.15f), mat = () => Paint("candy", CandyCane, 3f, false, 0.05f, 0.6f, 0.08f, 0.2f) },
+            new Skin { id = "festive", name = "Ugly Sweater", pack = "holiday", spray = new Color(0.15f, 0.45f, 0.2f), mat = () => Paint("festive", UglySweater, 3f, true, 0f, 0.2f, 0.15f, 0.2f) },
+            new Skin { id = "frost", name = "Frostbite", pack = "holiday", spray = new Color(0.6f, 0.8f, 0.95f), mat = () => Paint("frost", Frostbite, 2.5f, false, 0.6f, 0.75f, 0.05f, 0.25f) },
+            new Skin { id = "neon", name = "Neon Circuit", pack = "street", spray = new Color(0.2f, 1f, 0.5f), mat = () => Paint("neon", NeonCircuit, 3f, false, 0.2f, 0.7f, 0.05f, 0.1f) },
+            new Skin { id = "toxic", name = "Hazard", pack = "street", spray = new Color(0.95f, 0.8f, 0.1f), mat = () => Paint("toxic", Hazard, 3f, false, 0.05f, 0.4f, 0.35f, 0.5f) },
+            new Skin { id = "dragon", name = "Dragon Scale", pack = "collector", spray = new Color(0.6f, 0.08f, 0.05f), mat = () => Paint("dragon", DragonScale, 4f, false, 0.55f, 0.7f, 0.1f, 0.2f) },
+            new Skin { id = "galaxy", name = "Galaxy", pack = "collector", spray = new Color(0.35f, 0.15f, 0.6f), mat = () => Paint("galaxy", Galaxy, 2f, false, 0.1f, 0.85f, 0.03f, 0.1f) },
+            new Skin { id = "damascus", name = "Damascus Steel", pack = "collector", spray = new Color(0.6f, 0.6f, 0.62f), mat = () => Paint("damascus", Damascus, 3f, false, 0.95f, 0.8f, 0.05f, 0.15f) },
+            new Skin { id = "bone", name = "Bone", pack = "collector", spray = new Color(0.88f, 0.85f, 0.76f), mat = () => Paint("bone", Bone, 3f, false, 0f, 0.35f, 0.25f, 0.2f) },
+            new Skin { id = "ocean", name = "Deep Ocean", pack = "survivor", spray = new Color(0.1f, 0.3f, 0.55f), mat = () => Paint("ocean", Ocean, 3f, false, 0.1f, 0.5f, 0.15f, 0.3f) },
+            new Skin { id = "cherry", name = "Cherry Blossom", pack = "survivor", spray = new Color(0.9f, 0.55f, 0.65f), mat = () => Paint("cherry", Cherry, 3f, false, 0f, 0.35f, 0.15f, 0.25f) },
+            // ---- the South Pole present vault (not sold anywhere)
+            new Skin { id = "aurora", name = "Aurora", pack = "northpole", spray = new Color(0.3f, 0.95f, 0.7f), mat = () => Paint("aurora", Aurora, 2f, false, 0.3f, 0.85f, 0.03f, 0.08f) },
+            new Skin { id = "giftwrap", name = "Gift Wrap", pack = "northpole", spray = new Color(0.8f, 0.1f, 0.1f), mat = () => Paint("giftwrap", GiftWrap, 3f, false, 0.2f, 0.6f, 0.05f, 0.1f) },
+            new Skin { id = "gingerbread", name = "Gingerbread", pack = "northpole", spray = new Color(0.6f, 0.38f, 0.2f), mat = () => Paint("gingerbread", Gingerbread, 3f, false, 0f, 0.3f, 0.15f, 0.2f) },
+            new Skin { id = "northstar", name = "North Star", pack = "northpole", spray = new Color(1f, 0.95f, 0.8f), mat = () => Paint("northstar", NorthStar, 2.5f, false, 0.9f, 0.85f, 0.03f, 0.1f) },
         };
+
+        /// <summary>Free, or its pack is owned.</summary>
+        public static bool Owned(Skin s) => s.pack == null || (Profile.Current != null && Profile.Current.dlc != null && Profile.Current.dlc.Contains(s.pack));
+        public static string PackName(string pack) => pack == "holiday" ? "Holiday Pack" : pack == "street" ? "Street Pack" : pack == "collector" ? "Collector's Pack" : pack == "survivor" ? "Survivor Pack" : pack == "northpole" ? "the South Pole vault" : pack;
 
         public static Skin Get(string id) { foreach (var s in All) if (s.id == (id ?? "")) return s; return All[0]; }
 
@@ -170,6 +191,113 @@ namespace Rago
             return new Color(shade, shade, shade * 1.1f);
         }
 
+        // ---- DLC patterns
+        static Color CandyCane(float u, float v) { float t = (u + v) * 6f; return (t - Mathf.Floor(t)) < 0.5f ? new Color(0.88f, 0.1f, 0.1f) : new Color(0.95f, 0.95f, 0.93f); }
+        static Color UglySweater(float u, float v)
+        {
+            // knitted rows: red / green bands with white zig-zags and little snowflake dots
+            float cu = Mathf.Floor(u * 64f), cv = Mathf.Floor(v * 64f);
+            int band = (int)(cv / 8f) % 4;
+            Color c = band == 0 || band == 2 ? new Color(0.7f, 0.08f, 0.08f) : new Color(0.1f, 0.38f, 0.16f);
+            if (band == 1 && Mathf.Abs((cu % 8) - 3.5f) + (cv % 8) < 4.5f && (cv % 8) > 2) c = new Color(0.95f, 0.95f, 0.92f);
+            if ((band == 0 || band == 2) && (cu % 6 == 2) && (cv % 8 == 4)) c = new Color(0.95f, 0.95f, 0.92f);
+            if (cv % 8 == 0) c = new Color(0.95f, 0.95f, 0.92f);
+            return c;
+        }
+        static Color Frostbite(float u, float v)
+        {
+            float n = Fbm(u, v, 3f, 2.2f), cr = Mathf.Abs(Fbm(u, v, 6f, 5.1f) - 0.5f);
+            Color c = Color.Lerp(new Color(0.35f, 0.55f, 0.75f), new Color(0.85f, 0.93f, 1f), n);
+            if (cr < 0.025f) c = Color.white;
+            return c;
+        }
+        static Color NeonCircuit(float u, float v)
+        {
+            Color c = new Color(0.04f, 0.04f, 0.05f);
+            float gu = u * 12f, gv = v * 12f; float fu = gu - Mathf.Floor(gu), fv = gv - Mathf.Floor(gv);
+            float pick = Fbm(Mathf.Floor(gu) / 12f, Mathf.Floor(gv) / 12f, 12f, 3.3f);
+            if (pick > 0.5f && fv > 0.45f && fv < 0.55f) c = new Color(0.2f, 1f, 0.5f);
+            if (pick < 0.45f && fu > 0.45f && fu < 0.55f) c = new Color(0.2f, 0.7f, 1f);
+            if (fu > 0.4f && fu < 0.6f && fv > 0.4f && fv < 0.6f && pick > 0.7f) c = Color.white;
+            return c;
+        }
+        static Color Hazard(float u, float v) { float t = (u - v) * 8f; return (t - Mathf.Floor(t)) < 0.5f ? new Color(0.9f, 0.75f, 0.08f) : new Color(0.06f, 0.06f, 0.06f); }
+        static Color DragonScale(float u, float v)
+        {
+            float su = u * 16f, sv = v * 16f; float row = Mathf.Floor(sv); su += (row % 2) * 0.5f;
+            float fu = su - Mathf.Floor(su) - 0.5f, fv = sv - row;
+            float d = Mathf.Sqrt(fu * fu + fv * fv * 0.8f);
+            Color a = new Color(0.55f, 0.06f, 0.04f), b = new Color(0.95f, 0.55f, 0.1f);
+            return Color.Lerp(b, a, Mathf.SmoothStep(0.1f, 0.55f, d)) * (d > 0.5f ? 0.4f : 1f);
+        }
+        static Color Galaxy(float u, float v)
+        {
+            float n = Fbm(u, v, 2f, 1.7f), m = Fbm(u, v, 4f, 6.3f);
+            Color c = Color.Lerp(new Color(0.03f, 0.02f, 0.08f), new Color(0.35f, 0.1f, 0.55f), Mathf.SmoothStep(0.45f, 0.75f, n));
+            c = Color.Lerp(c, new Color(0.1f, 0.35f, 0.7f), Mathf.SmoothStep(0.55f, 0.8f, m) * 0.7f);
+            if (Fbm(u, v, 64f, 9.9f) > 0.83f) c = Color.white;
+            return c;
+        }
+        static Color Damascus(float u, float v)
+        {
+            float w = Mathf.Sin((v + Fbm(u, v, 3f, 4.4f) * 0.35f) * 60f);
+            return Color.Lerp(new Color(0.3f, 0.3f, 0.32f), new Color(0.82f, 0.82f, 0.84f), w * 0.5f + 0.5f);
+        }
+        static Color Bone(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.78f, 0.74f, 0.64f), new Color(0.92f, 0.9f, 0.82f), Fbm(u, v, 4f, 3.6f));
+            if (Mathf.Abs(Fbm(u, v, 5f, 8.1f) - 0.5f) < 0.012f) c *= 0.45f;
+            return c;
+        }
+        static Color Ocean(float u, float v)
+        {
+            float cu = Mathf.Floor(u * 64f) / 64f, cv = Mathf.Floor(v * 64f) / 64f;
+            float a = Fbm(cu, cv, 4f, 2.8f), b = Fbm(cu, cv, 4f, 7.4f);
+            Color c = new Color(0.12f, 0.28f, 0.5f);
+            if (a > 0.55f) c = new Color(0.05f, 0.14f, 0.3f);
+            if (b > 0.6f) c = new Color(0.3f, 0.55f, 0.75f);
+            return c;
+        }
+        static Color Cherry(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.95f, 0.85f, 0.88f), new Color(0.88f, 0.6f, 0.7f), Fbm(u, v, 3f, 1.9f));
+            float p = Fbm(u, v, 12f, 5.5f);
+            if (p > 0.7f) c = new Color(0.85f, 0.35f, 0.5f);
+            if (Mathf.Abs(Fbm(u, v, 3f, 8.8f) - 0.5f) < 0.02f) c = new Color(0.25f, 0.15f, 0.12f);   // branches
+            return c;
+        }
+        static Color Aurora(float u, float v)
+        {
+            float wv = v + Fbm(u, v, 2f, 3.1f) * 0.3f;
+            Color g = new Color(0.2f, 0.95f, 0.6f), p = new Color(0.55f, 0.25f, 0.9f), sky = new Color(0.02f, 0.04f, 0.1f);
+            float band = Mathf.Sin(wv * Mathf.PI * 4f) * 0.5f + 0.5f;
+            Color c = Color.Lerp(sky, Color.Lerp(g, p, Fbm(u, v, 3f, 6.6f)), band * band);
+            if (Fbm(u, v, 64f, 2.2f) > 0.85f) c = Color.white;
+            return c;
+        }
+        static Color GiftWrap(float u, float v)
+        {
+            float fu = u * 4f - Mathf.Floor(u * 4f), fv = v * 4f - Mathf.Floor(v * 4f);
+            Color c = new Color(0.75f, 0.06f, 0.08f);
+            if (Fbm(u, v, 16f, 4.4f) > 0.72f) c = new Color(0.95f, 0.85f, 0.4f);   // little gold dots
+            if (Mathf.Abs(fu - 0.5f) < 0.06f || Mathf.Abs(fv - 0.5f) < 0.06f) c = new Color(0.95f, 0.78f, 0.25f);   // ribbon
+            return c;
+        }
+        static Color Gingerbread(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.5f, 0.3f, 0.15f), new Color(0.65f, 0.42f, 0.22f), Fbm(u, v, 6f, 1.3f));
+            float fv = v * 6f - Mathf.Floor(v * 6f);
+            if (Mathf.Abs(fv - 0.5f - Mathf.Sin(u * Mathf.PI * 24f) * 0.12f) < 0.04f) c = new Color(0.97f, 0.96f, 0.94f);   // icing squiggle
+            return c;
+        }
+        static Color NorthStar(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.85f, 0.85f, 0.88f), new Color(1f, 0.85f, 0.5f), Fbm(u, v, 3f, 2.9f));
+            float fu = u * 6f - Mathf.Floor(u * 6f) - 0.5f, fv = v * 6f - Mathf.Floor(v * 6f) - 0.5f;
+            if (Mathf.Abs(fu) * Mathf.Abs(fv) < 0.002f && Mathf.Abs(fu) + Mathf.Abs(fv) < 0.4f) c = Color.white;   // four-point stars
+            return c;
+        }
+
         /// <summary>Tileable fractal noise in 0..1: periodic gradient noise (wraps exactly at u/v = 0..1, no stretching).</summary>
         static float Fbm(float u, float v, float freq, float seed)
         {
@@ -253,8 +381,8 @@ namespace Rago
             UI.Text(board, "PAINT BOOTH", new Vector3(0, 0.19f, -0.003f), 0.05f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
             _name = UI.Text(board, "", new Vector3(0, 0.07f, -0.003f), 0.045f, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
             _hint = UI.Text(board, "", new Vector3(0, -0.02f, -0.003f), 0.024f, UI.Dim, TextAnchor.MiddleCenter);
-            UI.Button(board, "<", new Vector3(-0.42f, 0.07f, 0), new Vector2(0.1f, 0.09f), () => { _pick = (_pick + GunSkins.All.Count - 1) % GunSkins.All.Count; Refresh(); }, new Color(0.3f, 0.3f, 0.32f), BtnStyle.Key);
-            UI.Button(board, ">", new Vector3(0.42f, 0.07f, 0), new Vector2(0.1f, 0.09f), () => { _pick = (_pick + 1) % GunSkins.All.Count; Refresh(); }, new Color(0.3f, 0.3f, 0.32f), BtnStyle.Key);
+            UI.Button(board, "<", new Vector3(-0.42f, 0.07f, 0), new Vector2(0.1f, 0.09f), () => { Step(-1); Refresh(); }, new Color(0.3f, 0.3f, 0.32f), BtnStyle.Key);
+            UI.Button(board, ">", new Vector3(0.42f, 0.07f, 0), new Vector2(0.1f, 0.09f), () => { Step(1); Refresh(); }, new Color(0.3f, 0.3f, 0.32f), BtnStyle.Key);
             _paintBtn = UI.Button(board, "PAINT", new Vector3(0, -0.15f, 0), new Vector2(0.36f, 0.1f), Paint, new Color(0.55f, 0.15f, 0.12f), BtnStyle.Key);
             // the spray can that does the work (parked at the side)
             var can = new MB(2);
@@ -286,10 +414,19 @@ namespace Rago
         {
             var s = GunSkins.All[_pick];
             var g = Clamped;
+            if (!GunSkins.Owned(s)) { Step(1); s = GunSkins.All[_pick]; }
             _name.text = s.name;
             _hint.text = _sprayT >= 0f ? "painting..." : g == null ? "Put a gun on the red mat" : g.skin == s.id ? "The " + g.g.name + " already has this" : "Paint the " + g.g.name;
             _paintBtn.Interactable = g != null && _sprayT < 0f && g.skin != s.id;
             if (_paintBtn.Label != null) _paintBtn.Label.text = s.mat == null ? "STRIP" : "PAINT";
+        }
+
+        /// <summary>Next skin you own (skins from DLC packs and events don't show up here until you have them).</summary>
+        void Step(int dir)
+        {
+            int n = GunSkins.All.Count;
+            for (int k = 0; k < n; k++) { _pick = ((_pick + dir) % n + n) % n; if (GunSkins.Owned(GunSkins.All[_pick])) return; }
+            _pick = 0;
         }
 
         void Paint()
@@ -297,6 +434,7 @@ namespace Rago
             var g = Clamped;
             if (g == null || _sprayT >= 0f) return;
             var s = GunSkins.All[_pick];
+            if (!GunSkins.Owned(s)) return;
             _paintTo = s.id;
             _sprayT = 0f;
             var main = _mist.main; main.startColor = new ParticleSystem.MinMaxGradient(s.spray, Color.Lerp(s.spray, Color.white, 0.25f));

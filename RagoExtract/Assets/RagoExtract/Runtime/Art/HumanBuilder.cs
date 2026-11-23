@@ -364,6 +364,13 @@ namespace Rago
                 mb.Sub(HARD).Sphere(new Vector3(-0.04f, 0.09f, 0.115f), new Vector3(0.028f, 0.028f, 0.01f), 10, new Color(0.2f, 0.25f, 0.3f));
                 mb.Sub(HARD).Sphere(new Vector3(0.04f, 0.09f, 0.115f), new Vector3(0.028f, 0.028f, 0.01f), 10, new Color(0.2f, 0.25f, 0.3f));
             }
+            if (Festive.On && o >= Outfit.Gunsmith && o <= Outfit.Foreman)
+            {
+                // Christmas: the traders wear Santa hats
+                mb.Sub(CLOTH).Cyl(new Vector3(0, 0.15f, 0.0f), new Vector3(0, 0.185f, 0.0f), 0.104f, 0.102f, 18, new Color(0.95f, 0.95f, 0.93f));
+                mb.Sub(CLOTH).Cyl(new Vector3(0, 0.185f, 0.0f), new Vector3(0, 0.33f, -0.07f), 0.095f, 0.012f, 16, new Color(0.75f, 0.06f, 0.06f));
+                mb.Sub(CLOTH).Sphere(new Vector3(0, 0.33f, -0.075f), Vector3.one * 0.025f, 10, new Color(0.95f, 0.95f, 0.93f));
+            }
             var headGo = mb.Build("Mesh", r.head, mats);
             if (local)
             {
