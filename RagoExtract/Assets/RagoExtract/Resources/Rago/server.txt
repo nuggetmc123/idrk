@@ -3,4 +3,4 @@
 # To play through OUR OWN game server (idrk.dev, no player limit), delete the "#" in front of the address below.
 # Leave it with the "#" (or delete this file) to keep using Photon.
 #
-# idrk.dev:27015
+idrk.dev:27015
