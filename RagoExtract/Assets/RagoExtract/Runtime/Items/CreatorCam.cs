@@ -61,7 +61,8 @@ namespace Rago
         Camera _cam; Transform _head; PlayerRig _p;
         Quaternion _rot; Vector3 _pos;
         RenderTexture _rt;
-        float _nextFrame; long _frames; bool _busy;
+        float _nextFrame; long _frames; bool _busy; string _err;
+        Texture2D _cpu;   // the slow way, where the GPU can't hand frames back by itself
         IVideoSink _sink;
 
         public static void Set(PlayerRig p, bool on)
@@ -74,7 +75,7 @@ namespace Rago
         void Begin()
         {
             End();
-            Since = Time.unscaledTime;
+            Since = Time.unscaledTime; _err = null;
             if (_cam == null)
             {
                 var go = new GameObject("CreatorCamView");
@@ -91,14 +92,20 @@ namespace Rago
             string where;
             try
             {
-                if (Application.platform == RuntimePlatform.Android) _sink = new AndroidSink(); else _sink = new FfmpegSink();
-                where = _sink.Open(W, H, Fps);
+                if (Application.platform == RuntimePlatform.Android) { _sink = new AndroidSink(); where = _sink.Open(W, H, Fps); }
+                else
+                {
+                    // PC: an MP4 through ffmpeg if it's there, otherwise our own video file (MJPEG .avi - plays in the Windows
+                    // Media Player / Films & TV app and VLC, no extra download needed)
+                    _sink = new FfmpegSink(); where = _sink.Open(W, H, Fps);
+                    if (where == null) { _sink = new AviSink(); where = _sink.Open(W, H, Fps); }
+                }
             }
-            catch (System.Exception e) { _sink = null; where = null; Debug.LogWarning("[Rago] creator cam: " + e.Message); }
+            catch (System.Exception e) { _sink = null; where = null; _err = e.Message; Debug.LogWarning("[Rago] creator cam: " + e); }
             if (_sink == null || where == null)
             {
                 _sink = null;
-                Toast(Application.platform == RuntimePlatform.Android ? "Can't save video on this device" : "To save videos put ffmpeg.exe next to the game (ffmpeg.org)");
+                Toast("Can't save video on this device" + (_err != null ? " (" + _err + ")" : ""));
             }
             else Toast("Recording - saving to " + where);
         }
@@ -110,14 +117,15 @@ namespace Rago
                 var s = _sink; _sink = null;
                 string file = null;
                 try { file = s.Close(); } catch (System.Exception e) { Debug.LogWarning("[Rago] creator cam close: " + e.Message); }
-                if (file != null) Toast("Video saved: " + file);
+                if (file != null) Toast("Video saved (" + _frames + " frames): " + file);
+                else Toast(_frames == 0 ? "No video was captured - nothing saved" : "The video couldn't be saved");
             }
             Since = -1f;
         }
 
         void Toast(string m) { try { if (_p != null) _p.Toast(m); } catch { } }
 
-        void OnDestroy() { End(); if (_rt != null) { _rt.Release(); Destroy(_rt); } }
+        void OnDestroy() { End(); if (_rt != null) { _rt.Release(); Destroy(_rt); } if (_cpu != null) Destroy(_cpu); }
         void OnApplicationQuit() { End(); }
 
         void LateUpdate()
@@ -132,9 +140,22 @@ namespace Rago
             _nextFrame = Mathf.Max(_nextFrame + 1f / Fps, Time.unscaledTime - 0.1f);
             _cam.Render();
             if (_sink == null || _busy) return;
-            if (!SystemInfo.supportsAsyncGPUReadback) return;
-            _busy = true;
             long pts = (long)((Time.unscaledTime - Since) * 1000000.0);
+            if (!SystemInfo.supportsAsyncGPUReadback)
+            {
+                // read it back the slow way (stalls a moment; fine at this size)
+                try
+                {
+                    if (_cpu == null) _cpu = new Texture2D(W, H, TextureFormat.RGBA32, false);
+                    var prev = RenderTexture.active; RenderTexture.active = _rt;
+                    _cpu.ReadPixels(new Rect(0, 0, W, H), 0, 0, false);
+                    RenderTexture.active = prev;
+                    _sink.Frame(_cpu.GetRawTextureData<byte>(), pts); _frames++;
+                }
+                catch (System.Exception e) { Debug.LogWarning("[Rago] creator cam frame (cpu): " + e.Message); }
+                return;
+            }
+            _busy = true;
             UnityEngine.Rendering.AsyncGPUReadback.Request(_rt, 0, TextureFormat.RGBA32, req =>
             {
                 _busy = false;
@@ -227,11 +248,112 @@ namespace Rago
             }
         }
 
+        // ---------------- PC without ffmpeg: Motion-JPEG in an .avi (our own writer, JPEGs made on a worker thread)
+        class AviSink : IVideoSink
+        {
+            System.IO.FileStream _f; string _file; int _w, _h, _fps;
+            readonly System.Collections.Generic.List<(long off, int size)> _index = new System.Collections.Generic.List<(long, int)>();
+            long _moviStart, _riffSizeAt, _framesAt1, _framesAt2, _moviSizeAt;
+            byte[] _last; long _written;
+            System.Threading.Thread _th; readonly System.Collections.Generic.Queue<(byte[] px, long pts)> _q = new System.Collections.Generic.Queue<(byte[], long)>();
+            bool _stop;
+
+            public string Open(int w, int h, int fps)
+            {
+                _w = w; _h = h; _fps = fps;
+                var vids = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyVideos);
+                if (string.IsNullOrEmpty(vids)) vids = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile), "Videos");
+                var dir = System.IO.Path.Combine(vids, "Rago Extract");
+                System.IO.Directory.CreateDirectory(dir);
+                _file = System.IO.Path.Combine(dir, Stamp().Replace(".mp4", ".avi"));
+                _f = new System.IO.FileStream(_file, System.IO.FileMode.Create, System.IO.FileAccess.ReadWrite);
+                var b = new System.IO.BinaryWriter(_f);
+                void Four(string s) => b.Write(System.Text.Encoding.ASCII.GetBytes(s));
+                Four("RIFF"); _riffSizeAt = _f.Position; b.Write(0); Four("AVI ");
+                Four("LIST"); b.Write(4 + 8 + 56 + 8 + 4 + 8 + 56 + 8 + 40); Four("hdrl");
+                Four("avih"); b.Write(56);
+                b.Write(1000000 / fps); b.Write(w * h * 3 * fps); b.Write(0); b.Write(0x10);   // has an index
+                _framesAt1 = _f.Position; b.Write(0); b.Write(0); b.Write(1); b.Write(w * h * 3); b.Write(w); b.Write(h); b.Write(0); b.Write(0); b.Write(0); b.Write(0);
+                Four("LIST"); b.Write(4 + 8 + 56 + 8 + 40); Four("strl");
+                Four("strh"); b.Write(56); Four("vids"); Four("MJPG"); b.Write(0); b.Write((short)0); b.Write((short)0); b.Write(0);
+                b.Write(1); b.Write(fps); b.Write(0); _framesAt2 = _f.Position; b.Write(0); b.Write(w * h * 3); b.Write(-1); b.Write(0);
+                b.Write((short)0); b.Write((short)0); b.Write((short)w); b.Write((short)h);
+                Four("strf"); b.Write(40); b.Write(40); b.Write(w); b.Write(h); b.Write((short)1); b.Write((short)24); Four("MJPG"); b.Write(w * h * 3); b.Write(0); b.Write(0); b.Write(0); b.Write(0);
+                Four("LIST"); _moviSizeAt = _f.Position; b.Write(0); _moviStart = _f.Position; Four("movi");
+                b.Flush();
+                _th = new System.Threading.Thread(Pump) { IsBackground = true };
+                _th.Start();
+                return "Videos\\Rago Extract";
+            }
+
+            public void Frame(Unity.Collections.NativeArray<byte> rgba, long ptsUs)
+            {
+                var px = rgba.ToArray();
+                lock (_q) { if (_q.Count < 20) _q.Enqueue((px, ptsUs)); System.Threading.Monitor.Pulse(_q); }
+            }
+
+            void Pump()
+            {
+                int row = _w * 4; var flip = new byte[row * _h];
+                while (true)
+                {
+                    (byte[] px, long pts) f = (null, 0);
+                    lock (_q) { while (_q.Count == 0 && !_stop) System.Threading.Monitor.Wait(_q); if (_q.Count > 0) f = _q.Dequeue(); else break; }
+                    try
+                    {
+                        // GPU rows come bottom-first; a JPEG is top-first
+                        for (int y = 0; y < _h; y++) System.Buffer.BlockCopy(f.px, (_h - 1 - y) * row, flip, y * row, row);
+                        var jpg = ImageConversion.EncodeArrayToJPG(flip, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_SRGB, (uint)_w, (uint)_h, 0, 80);
+                        // keep the clock right: a frame that came late fills the gap with copies of the last one
+                        long want = f.pts * _fps / 1000000L;
+                        for (int fill = 0; _last != null && _written < want && fill < 60; fill++) Write(_last);
+                        Write(jpg); _last = jpg;
+                    }
+                    catch (System.Exception e) { Debug.LogWarning("[Rago] avi frame: " + e.Message); }
+                }
+            }
+
+            void Write(byte[] jpg)
+            {
+                lock (_f)
+                {
+                    long off = _f.Position - _moviStart;
+                    var b = new System.IO.BinaryWriter(_f);
+                    b.Write(System.Text.Encoding.ASCII.GetBytes("00dc")); b.Write(jpg.Length); b.Write(jpg);
+                    if ((jpg.Length & 1) == 1) b.Write((byte)0);
+                    _index.Add((off, jpg.Length));
+                    _written++;
+                }
+            }
+
+            public string Close()
+            {
+                lock (_q) { _stop = true; System.Threading.Monitor.Pulse(_q); }
+                try { _th?.Join(10000); } catch { }
+                if (_f == null) return null;
+                lock (_f)
+                {
+                    var b = new System.IO.BinaryWriter(_f);
+                    long moviEnd = _f.Position;
+                    b.Write(System.Text.Encoding.ASCII.GetBytes("idx1")); b.Write(_index.Count * 16);
+                    foreach (var e in _index) { b.Write(System.Text.Encoding.ASCII.GetBytes("00dc")); b.Write(0x10); b.Write((int)e.off); b.Write(e.size); }
+                    long end = _f.Position;
+                    _f.Position = _riffSizeAt; b.Write((int)(end - 8));
+                    _f.Position = _moviSizeAt; b.Write((int)(moviEnd - _moviStart));
+                    _f.Position = _framesAt1; b.Write(_index.Count);
+                    _f.Position = _framesAt2; b.Write(_index.Count);
+                    b.Flush(); _f.Close();
+                }
+                if (_index.Count == 0) { try { System.IO.File.Delete(_file); } catch { } return null; }
+                return System.IO.Path.GetFileName(_file);
+            }
+        }
+
         // ---------------- Quest / Android: MediaCodec H.264 + MediaMuxer, saved through MediaStore
         class AndroidSink : IVideoSink
         {
             AndroidJavaObject _codec, _muxer, _info, _pfd, _resolver, _uri;
-            int _track = -1; bool _started; int _w, _h; sbyte[] _yuv; string _name; long _lastPts = -1;
+            int _track = -1; bool _started, _planar; int _w, _h; sbyte[] _yuv; string _name; long _lastPts = -1;
 
             public string Open(int w, int h, int fps)
             {
@@ -255,14 +377,22 @@ namespace Rago
                 using (var fmtC = new AndroidJavaClass("android.media.MediaFormat"))
                 using (var fmt = fmtC.CallStatic<AndroidJavaObject>("createVideoFormat", "video/avc", w, h))
                 {
-                    fmt.Call("setInteger", "color-format", 21);        // YUV420 semi-planar (NV12)
+                    fmt.Call("setInteger", "color-format", 21);        // YUV420 semi-planar (NV12); I420 if the encoder won't take it
                     fmt.Call("setInteger", "bitrate", 6000000);
                     fmt.Call("setInteger", "frame-rate", fps);
                     fmt.Call("setInteger", "i-frame-interval", 1);
-                    using (var mc = new AndroidJavaClass("android.media.MediaCodec")) _codec = mc.CallStatic<AndroidJavaObject>("createEncoderByType", "video/avc");
-                    // configure(format, no surface, no crypto, ENCODE) - by exact signature, the nulls would confuse the lookup
-                    var cfg = AndroidJNI.GetMethodID(_codec.GetRawClass(), "configure", "(Landroid/media/MediaFormat;Landroid/view/Surface;Landroid/media/MediaCrypto;I)V");
-                    AndroidJNI.CallVoidMethod(_codec.GetRawObject(), cfg, new[] { new jvalue { l = fmt.GetRawObject() }, new jvalue { l = System.IntPtr.Zero }, new jvalue { l = System.IntPtr.Zero }, new jvalue { i = 1 } });
+                    foreach (int cf in new[] { 21, 19 })
+                    {
+                        fmt.Call("setInteger", "color-format", cf);
+                        using (var mc = new AndroidJavaClass("android.media.MediaCodec")) _codec = mc.CallStatic<AndroidJavaObject>("createEncoderByType", "video/avc");
+                        // configure(format, no surface, no crypto, ENCODE) - by exact signature, the nulls would confuse the lookup
+                        var cfg = AndroidJNI.GetMethodID(_codec.GetRawClass(), "configure", "(Landroid/media/MediaFormat;Landroid/view/Surface;Landroid/media/MediaCrypto;I)V");
+                        AndroidJNI.CallVoidMethod(_codec.GetRawObject(), cfg, new[] { new jvalue { l = fmt.GetRawObject() }, new jvalue { l = System.IntPtr.Zero }, new jvalue { l = System.IntPtr.Zero }, new jvalue { i = 1 } });
+                        if (AndroidJNI.ExceptionOccurred() != System.IntPtr.Zero) { AndroidJNI.ExceptionClear(); try { _codec.Call("release"); } catch { } _codec.Dispose(); _codec = null; continue; }
+                        _planar = cf == 19;
+                        break;
+                    }
+                    if (_codec == null) throw new System.Exception("the video encoder won't start");
                 }
                 _codec.Call("start");
                 _info = new AndroidJavaObject("android.media.MediaCodec$BufferInfo");
@@ -301,8 +431,9 @@ namespace Rago
                         _yuv[dr + x] = (sbyte)(((66 * r + 129 * g + 25 * b + 128) >> 8) + 16);
                         if (chromaRow && (x & 1) == 0)
                         {
-                            _yuv[cr + x] = (sbyte)(((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128);
-                            _yuv[cr + x + 1] = (sbyte)(((112 * r - 94 * g - 18 * b + 128) >> 8) + 128);
+                            sbyte u = (sbyte)(((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128), v = (sbyte)(((112 * r - 94 * g - 18 * b + 128) >> 8) + 128);
+                            if (_planar) { int ci = (y >> 1) * (w >> 1) + (x >> 1); _yuv[uv + ci] = u; _yuv[uv + uv / 4 + ci] = v; }   // I420: all U, then all V
+                            else { _yuv[cr + x] = u; _yuv[cr + x + 1] = v; }                                                     // NV12: U V interleaved
                         }
                     }
                 }

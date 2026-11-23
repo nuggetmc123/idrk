@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.69", "Camera fixed", new[] {
+                "Fixed: pressing the trigger at the Camera often did nothing - you had to hit a tiny spot your controller couldn't reach (it bumps the headset first). Now anywhere up by the right side of your head works, and the controller buzzes when it starts or stops.",
+                "Fixed: on PC, videos only saved if you had ffmpeg installed. Now they always save - as an .avi in Videos\\Rago Extract (plays in Films & TV, Windows Media Player and VLC), or as an .mp4 if ffmpeg is there.",
+                "Fixed: on headsets that can't hand frames back from the graphics card, nothing got recorded. They now use a slower backup way, and the headset's video encoder gets a second picture format to try if it won't take the first.",
+                "When you stop recording it now says how many frames were saved - or why nothing was saved, instead of saying nothing.",
+            }),
             ("2.68", "Death fix, golf cart fix", new[] {
                 "Fixed: sometimes after dying you never went back to your bunker (you stayed dead). Dying just as a raid finished (extracting, the raid clock running out, the nuke) skipped the trip home, and any hiccup on the way home could leave you stuck. Every step is guarded now, and if you're ever still dead after 15 seconds you're sent home anyway.",
                 "Fixed: pushing a golf cart down on one side before getting in made it drive along leaning over. It settles flat on its wheels when you get in, and rights itself firmly while you drive.",

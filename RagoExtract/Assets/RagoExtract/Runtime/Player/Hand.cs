@@ -243,11 +243,16 @@ namespace Rago
             // an empty hand at your mag pouch + B / Y: switch the ammo type your next mags come out with
             if (XRInputs.VR && Held == null && input.SecondaryDown && rig.Gear != null && rig.Gear.NearMagPouch(TrackedPosition)) rig.Gear.CycleAmmo(this);
             // night vision: an empty hand at your forehead + trigger flips the goggles down / up
-            if (Held == null && Racking == null && input.TriggerDown && rig.Gear.NvgWorn && Vector3.Distance(TrackedPosition, rig.Gear.NvgPoint) < 0.16f)
+            if (Held == null && Racking == null && input.TriggerDown && rig.Gear.NvgWorn && Vector3.Distance(TrackedPosition, rig.Gear.NvgPoint) < 0.16f
+                && !(rig.Gear.CamWorn && Vector3.Distance(TrackedPosition, rig.Gear.CamPoint) < Vector3.Distance(TrackedPosition, rig.Gear.NvgPoint)))
                 rig.Gear.ToggleNvg();
-            // creator cam: an empty hand at the right side of your helmet + trigger = RECORD / stop
-            else if (Held == null && Racking == null && input.TriggerDown && rig.Gear.CamWorn && Vector3.Distance(TrackedPosition, rig.Gear.CamPoint) < 0.12f)
+            // camera: an empty hand up by the right side of your helmet + trigger = RECORD / stop. A generous spot: the
+            // controller bumps the headset long before its tracking point gets within a few cm of the camera
+            else if (Held == null && Racking == null && input.TriggerDown && rig.Gear.CamWorn && rig.Gear.NearCam(TrackedPosition))
+            {
                 rig.Gear.ToggleRec();
+                Haptic(0.5f, 0.08f);
+            }
             // rack with the free hand on the slide / charging handle: hold the TRIGGER (or grip), pull back, let go
             if (Racking == null && Held == null && _interact == null && input.TriggerDown && Other.Held is Gun rg && !Other.HeldAsSecondary && rg.TryStartRack(this))
             {

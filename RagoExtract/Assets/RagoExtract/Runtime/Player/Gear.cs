@@ -233,6 +233,13 @@ namespace Rago
         // ---- creator cam (helmet camera, right side): one button - record
         public bool CamWorn, CamRec;
         public Vector3 CamPoint => _p.Head.position + _p.Head.right * 0.13f + _p.Head.up * 0.04f;
+        /// <summary>Is a hand at the camera? Anywhere up by the right side of your head (not the forehead - that's the NVG).</summary>
+        public bool NearCam(Vector3 p)
+        {
+            if (Vector3.Distance(p, CamPoint) < 0.22f) return true;
+            var l = _p.Head.InverseTransformPoint(p);
+            return l.x > 0.06f && l.x < 0.32f && l.y > -0.12f && l.y < 0.22f && l.z > -0.2f && l.z < 0.2f;
+        }
 
         public bool TryWearCam(Item cam, Hand h)
         {
