@@ -13,6 +13,11 @@ namespace Rago
             set { _invisible = value; NetGame.I?.SendHidden(value); }
         }
 
+        /// <summary>Spawn-menu entries (OTHER) that aren't items: a Christmas present and a golf cart. Placed with the pointer like an item.</summary>
+        public static readonly ItemDef PresentDef = new ItemDef { id = "spawn_present", name = "CHRISTMAS PRESENT" };
+        public static readonly ItemDef CartDef = new ItemDef { id = "spawn_cart", name = "GOLF CART" };
+        public static bool IsWorldThing(ItemDef d) => d == PresentDef || d == CartDef;
+
         static Vector3 InFront(float dist, out Quaternion rot)
         {
             var p = RagoGame.I.Player;
@@ -92,7 +97,15 @@ namespace Rago
             _i.Clear();
             _i._def = d; _i._npc = d == null ? npcKind : -1;
             _i._armT = Time.time + 0.25f;   // the trigger that pressed SPAWN doesn't place it straight away
-            if (d != null)
+            if (Tester.IsWorldThing(d))
+            {
+                // see-through box the size of the present / cart
+                bool cart = d == Tester.CartDef;
+                Vector3 sz = cart ? new Vector3(1.3f, 1.9f, 2.4f) : LootCrate.SizeOf(LootCrate.Kind.Present);
+                _i._marker = new MB().Box(Vector3.up * sz.y * 0.5f, sz, Color.white, 0.02f).Build("SpawnMarker", _i.transform,
+                    Mats.Unlit("spawn_marker_green", new Color(0.3f, 1f, 0.4f, 0.3f), null, Mats.BlendKind.Alpha));
+            }
+            else if (d != null)
             {
                 _i._ghost = ItemFactory.Spawn(new ItemData(d.id), Vector3.down * 500f, Quaternion.identity);
                 if (_i._ghost != null)
@@ -154,7 +167,7 @@ namespace Rago
                 Vector3 lowest = rot * new Vector3(b.center.x, b.min.y, b.center.z);
                 _ghost.transform.position = _pos - lowest + Vector3.up * 0.02f;
             }
-            if (_marker != null) _marker.transform.position = _pos;
+            if (_marker != null) { _marker.transform.position = _pos; if (_def != null) _marker.transform.rotation = Quaternion.Euler(0, _yaw, 0); }
             // confirm / cancel
             var inp = XRInputs.VR ? (h == pl.HandR ? XRInputs.Right : XRInputs.Left) : default;
             bool place = Time.time > _armT && (XRInputs.VR ? inp.TriggerDown : Desktop.Click);
@@ -169,6 +182,8 @@ namespace Rago
                 it.Drop(Vector3.zero, Vector3.zero);
                 pl.Toast("Spawned " + (it.def != null ? it.def.name : "item"));
             }
+            else if (_def == Tester.PresentDef) LootCrate.SpawnPresent(_pos, _yaw);
+            else if (_def == Tester.CartDef) GolfCart.SpawnHere(_pos, _yaw + 90f);
             else Tester.SpawnNpcAt(_npc, _pos, _yaw);
             Clear();
         }

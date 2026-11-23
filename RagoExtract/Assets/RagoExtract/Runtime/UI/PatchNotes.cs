@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.47", "Spawn menu: present and golf cart", new[] {
+                "Tester menu: the Christmas present and the golf cart are now in the OTHER spawn list (first two entries). Pick one, press SPAWN, point where it goes - a see-through green box shows the spot - and pull the trigger, just like spawning an item.",
+                "The separate SPAWN GOLF CART and SPAWN PRESENT buttons are gone.",
+            }),
             ("2.46", "Presents from the menu", new[] {
                 "Tester menu: SPAWN PRESENT puts a Christmas present on the floor in front of you - anywhere, raids, the Market or your bunker. Each one has a fresh random roll inside, so it could be a top gun, a keycard... or a live grenade.",
             }),

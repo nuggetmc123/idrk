@@ -227,7 +227,7 @@ namespace Rago
                 case 1: l.AddRange(Db.Armor); l.AddRange(Db.Packs); break;
                 case 2: l.AddRange(Db.Attachments); break;
                 case 3: l.AddRange(Db.Sights); break;
-                default: l.AddRange(Db.Misc); break;
+                default: l.Add(Tester.PresentDef); l.Add(Tester.CartDef); l.AddRange(Db.Misc); break;   // the present and golf cart first
             }
             return l;
         }
@@ -271,20 +271,6 @@ namespace Rago
             Line(NpcKinds[_npcKind], y, 0.026f, Color.white, -0.41f);
             Btn(">", 0.1f, y, 0.08f, () => _npcKind = (_npcKind + 1) % NpcKinds.Length);
             Btn("SPAWN NPC", 0.36f, y, 0.2f, () => { Show(false); Tester.BeginPlace(null, _npcKind); }, Stop); y -= 0.08f;
-            // a golf cart a few metres in front of you (anywhere - raids, the Market, your bunker)
-            Btn("SPAWN GOLF CART", -0.25f, y, 0.42f, () =>
-            {
-                var f = pl.Head.forward; f.y = 0; f = f.sqrMagnitude > 0.01f ? f.normalized : pl.transform.forward;
-                var cart = GolfCart.SpawnHere(pl.transform.position + f * 3.5f, Quaternion.LookRotation(f).eulerAngles.y);
-                Show(false); if (cart != null) pl.Toast("Golf cart spawned - grab a door handle or the steering wheel");
-            }, Go);
-            // a Christmas present on the floor in front of you (a random roll each time - it might be a grenade!)
-            Btn("SPAWN PRESENT", 0.25f, y, 0.38f, () =>
-            {
-                var f = pl.Head.forward; f.y = 0; f = f.sqrMagnitude > 0.01f ? f.normalized : pl.transform.forward;
-                LootCrate.SpawnPresent(pl.transform.position + f * 1.3f, Quaternion.LookRotation(-f).eulerAngles.y);
-                Show(false);
-            }, Go); y -= 0.08f;
             Line("NPCs only spawn in a raid (in multiplayer, everyone sees them).", y, 0.02f, UI.Dim);
         }
 
