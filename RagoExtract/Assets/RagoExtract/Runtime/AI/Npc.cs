@@ -614,31 +614,64 @@ namespace Rago
         }
 
         // ------------------------------------------------------------------------------- puppet (MP client)
-        public void ApplyNetState(Vector3 pos, float yaw, NpcState st, Vector3 aim, bool alive)
+        // ---- network playback: snapshots stamped with the sender's clock, shown a small fixed delay behind, so raiders run
+        // by other players glide instead of stop-start (packets bunch up and arrive unevenly; their send times don't)
+        struct NetSnap { public float t; public Vector3 p; public float yaw; public Vector3 aim; }
+        readonly NetSnap[] _snaps = new NetSnap[10]; int _snapN; ulong _snapFrom; float _clockOff, _gap = 0.1f;
+
+        public void ApplyNetState(Vector3 pos, float yaw, NpcState st, Vector3 aim, bool alive, ulong from = 0, float senderT = -1f)
         {
             if (!Puppet) return;
             if (!alive && Alive) { Die(pos + Vector3.up, Vector3.zero, true); return; }   // missed its death message (joined late / reconnected)
-            // how fast it's going between updates, so in between it keeps moving instead of stopping and jumping
+            State = st;
             float now = Time.time;
-            if (_netInit && now - _netT > 0.02f) _netVel = Vector3.ClampMagnitude((pos - _netPos) / (now - _netT), 7f);
-            if ((pos - _netPos).sqrMagnitude > 25f) _netVel = Vector3.zero;   // a big jump: no extrapolating from it
-            _netT = now;
-            _netPos = pos; _netYaw = yaw; _netAim = aim; State = st;
+            if (senderT < 0f) senderT = now;
+            // a new player runs it now (different clock), or a long gap: start the buffer again
+            if (from != _snapFrom || _snapN == 0 || senderT < _snaps[_snapN - 1].t - 2f || senderT - _snaps[_snapN - 1].t > 3f)
+            {
+                _snapFrom = from; _snapN = 0; _clockOff = now - senderT; _gap = 0.1f;
+            }
+            else if (senderT <= _snaps[_snapN - 1].t) return;   // late / duplicate packet
+            else _gap = Mathf.Clamp(Mathf.Lerp(_gap, senderT - _snaps[_snapN - 1].t, 0.2f), 0.04f, 0.6f);
+            // the clock offset follows the quickest arrivals (least delayed), creeping up slowly if the line gets slower
+            float off = now - senderT;
+            _clockOff = off < _clockOff ? off : _clockOff + (off - _clockOff) * 0.02f;
+            if (_snapN == _snaps.Length) { System.Array.Copy(_snaps, 1, _snaps, 0, _snaps.Length - 1); _snapN--; }
+            _snaps[_snapN++] = new NetSnap { t = senderT, p = pos, yaw = yaw, aim = aim };
+            _netPos = pos; _netYaw = yaw; _netAim = aim; _netT = now;
             if (!_netInit) { _netInit = true; transform.position = pos; Yaw = yaw; AimPoint = aim; }
         }
 
         void PuppetUpdate(float dt)
         {
-            if (!_netInit) return;
+            if (!_netInit || _snapN == 0) return;
             Vector3 before = transform.position;
-            // dead reckoning: where it will be by now if it kept going (up to 0.3 s), smoothed - no stop-start rubber-banding
-            Vector3 aimPos = _netPos + _netVel * Mathf.Min(Time.time - _netT, 0.3f);
-            if (State == NpcState.Dead || _netVel.sqrMagnitude < 0.01f) aimPos = _netPos;
-            transform.position = Vector3.Lerp(transform.position, aimPos, 1f - Mathf.Exp(-12f * dt));
+            float rt = Time.time - _clockOff - (_gap * 1.6f + 0.04f);   // show time, in the sender's clock
+            Vector3 p; float yaw; Vector3 aim;
+            if (_snapN == 1 || rt <= _snaps[0].t) { p = _snaps[0].p; yaw = _snaps[0].yaw; aim = _snaps[0].aim; }
+            else if (rt >= _snaps[_snapN - 1].t)
+            {
+                // ran out of updates: keep going the way it was for a moment (no more than 0.25 s), then stop
+                var a = _snaps[_snapN - 2]; var b = _snaps[_snapN - 1];
+                float ex = Mathf.Min(rt - b.t, 0.25f), span = Mathf.Max(0.02f, b.t - a.t);
+                Vector3 v = (b.p - a.p) / span; if (v.sqrMagnitude > 64f || State == NpcState.Dead) v = Vector3.zero;
+                p = b.p + v * ex; yaw = b.yaw; aim = b.aim;
+            }
+            else
+            {
+                int k = 1; while (k < _snapN - 1 && _snaps[k].t < rt) k++;
+                var a = _snaps[k - 1]; var b = _snaps[k];
+                float u = Mathf.InverseLerp(a.t, b.t, rt);
+                p = (b.p - a.p).sqrMagnitude > 25f ? b.p : Vector3.Lerp(a.p, b.p, u);   // a teleport: no sliding across the map
+                yaw = Mathf.LerpAngle(a.yaw, b.yaw, u); aim = Vector3.Lerp(a.aim, b.aim, u);
+            }
+            // a light touch of smoothing on top (hides the corner where one update meets the next)
+            float k1 = 1f - Mathf.Exp(-30f * dt);
+            transform.position = (p - transform.position).sqrMagnitude > 25f ? p : Vector3.Lerp(transform.position, p, k1);
             _puppetVel = (transform.position - before) / Mathf.Max(dt, 0.001f);
-            Yaw = Mathf.LerpAngle(Yaw, _netYaw, 1f - Mathf.Exp(-10f * dt));
-            AimPoint = Vector3.Lerp(AimPoint, _netAim, 1f - Mathf.Exp(-10f * dt));
-            _crouch = State == NpcState.Cover && false;
+            Yaw = Mathf.LerpAngle(Yaw, yaw, 1f - Mathf.Exp(-20f * dt));
+            AimPoint = Vector3.Lerp(AimPoint, aim, 1f - Mathf.Exp(-20f * dt));
+            _crouch = false;
         }
         Vector3 _puppetVel;
 
@@ -653,7 +686,7 @@ namespace Rago
         {
             Puppet = true;
             // handed to another player: carry on from right here until their first update arrives
-            _netPos = transform.position; _netYaw = Yaw; _netAim = AimPoint; _netVel = Vector3.zero; _netT = Time.time; _netInit = true;
+            _netPos = transform.position; _netYaw = Yaw; _netAim = AimPoint; _netVel = Vector3.zero; _netT = Time.time; _netInit = true; _snapN = 0;
             if (Agent != null) Agent.enabled = false;
         }
 

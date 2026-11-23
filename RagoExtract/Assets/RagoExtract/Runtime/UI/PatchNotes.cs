@@ -5,6 +5,15 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.67", "Concert, Nuke, smoother multiplayer", new[] {
+                "NEW LIVE EVENT - CONCERT: a stage goes up in the Market in front of the roller door - a DJ on the decks, a flashing LED wall, speaker stacks, moving spotlights with beams and green lasers, all on the beat of a dance track. Everyone in the Market hears the same beat. Climb up on the stage.",
+                "NEW LIVE EVENT - NUKE: a 5-minute countdown in every raid, with air-raid sirens and the last seconds counted down in front of you. Extract before it hits. If you're still in a raid at zero: a white flash, a mushroom cloud climbs over the map, and the blast wave kills everyone left (raiders too). Mods press LAUNCH; STOP calls it off.",
+                "SMOOTHER MULTIPLAYER: raiders run by other players now glide instead of jumping - each update is stamped with the sender's clock and played back a moment behind, the way players already were. They're also shared from twice as far away, so they don't pop in as you get close.",
+                "IMPACT GRENADES go off on whatever they hit - a wall, the floor, a raider, a car - however softly. Throwing one arms it even if you forgot the pin.",
+                "BACKPACK: grabbing it off your shoulder now takes GRIP + TRIGGER together (grip alone kept grabbing it by accident). It opens at the front: the flap flips away from you, so the open bag faces you.",
+                "Fixed: you can sprint (click the left stick) with AUTO SPRINT off again.",
+                "Fixed: tables were built inside each other in some houses (North Pole cabins), boxes stuck through shelves or floated, and wooden floors and walls were covered in shimmering stripes - they're proper boards now.",
+            }),
             ("2.66", "Camera, CC Trophy", new[] {
                 "The Creator Cam is now just the CAMERA - same helmet camera, same RECORD button, saves the same videos.",
                 "CC TROPHY: a gold cup on a black plinth with a red play button on the front, for content creators who make videos of the game. Only the owner gives it out - it turns up on your Deliveries screen in the bunker (if you're offline, it waits until you log in). It never drops in raids or presents.",

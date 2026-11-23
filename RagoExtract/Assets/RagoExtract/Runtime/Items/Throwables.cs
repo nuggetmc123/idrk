@@ -115,7 +115,9 @@ namespace Rago
             // impact grenade: armed and thrown (out of your hand a moment) - goes off on the first real hit
             // a bat hit sends it flying - that hit never sets off an impact grenade (whatever it hits next does)
             if (c.collider != null && c.collider.GetComponentInParent<Knife>() != null) return;
-            if (Impact && _armed && Time.time - _battedT > 0.08f && primaryHand == null && _releasedT > 0f && Time.time - _releasedT > 0.12f && c.relativeVelocity.sqrMagnitude > 4f) { _fuse = 0f; return; }
+            // impact grenade: once it's out of your hand and armed, it goes off on whatever it touches - a wall, the floor, a
+            // raider, a car - however softly (only the bat's own hit doesn't count)
+            if (Impact && _armed && Time.time - _battedT > 0.05f && primaryHand == null && slot == null && _releasedT > 0f && Time.time - _releasedT > 0.04f) { _fuse = 0f; return; }
             if (Time.time < _bounceT || c.relativeVelocity.sqrMagnitude < 1.2f) return;
             _bounceT = Time.time + 0.12f;
             Sfx.Play(Synth.GrenadeBounce(Random.Range(0, 3)), transform.position, Mathf.Clamp01(c.relativeVelocity.magnitude / 6f) * 0.8f, 1f + Random.Range(-0.08f, 0.08f), 1f, 25f);
@@ -125,7 +127,12 @@ namespace Rago
         {
             // the spoon flies off with a ping as the armed grenade leaves your hand
             bool held = primaryHand != null;
-            if (_wasHeld && !held) _releasedT = Time.time;
+            if (_wasHeld && !held)
+            {
+                _releasedT = Time.time;
+                // an impact grenade thrown (not just let go of) arms itself, pin or not: it'll go off on what it hits
+                if (Impact && !_armed && slot == null && rb != null && rb.Vel().sqrMagnitude > 6f) { bool hh = _hinted; _hinted = true; Arm(); _hinted = hh; }
+            }
             if (_armed && _wasHeld && !held) Sfx.Play(Synth.SpoonFly(), transform.position, 0.6f, 1f + Random.Range(-0.05f, 0.05f), 0.5f, 12f);
             _wasHeld = held;
             if (!_armed) return;

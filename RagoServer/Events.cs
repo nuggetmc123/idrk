@@ -11,7 +11,7 @@ namespace RagoServer
     /// </summary>
     static partial class Program
     {
-        public static readonly string[] EventNames = { "", "Double XP", "Double Cash", "Boss Hunt", "Air Drop Rain", "Present Rain" };
+        public static readonly string[] EventNames = { "", "Double XP", "Double Cash", "Boss Hunt", "Air Drop Rain", "Present Rain", "Concert", "Nuke" };
         static byte EvKind; static long EvUntil; static string EvBy = "";
         static bool EventOn => EvKind != 0 && Now < EvUntil;
 
@@ -38,7 +38,8 @@ namespace RagoServer
             }
             else
             {
-                minutes = Math.Clamp(minutes, 10, 1440);
+                if (kind == 7) minutes = 5;   // the nuke: a 5-minute countdown, then every raid is hit
+                minutes = Math.Clamp(minutes, 3, 1440);
                 EvKind = kind; EvUntil = Now + minutes * 60L; EvBy = by;
                 Note("live event " + EventNames[kind] + " started for " + minutes + " min (by " + by + ")");
             }

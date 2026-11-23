@@ -355,7 +355,8 @@ namespace Rago
             if (Helmet != null && (Vector3.Distance(p, HeadTop) < 0.19f || (Vector3.Distance(p, hp) < 0.18f && p.y > hp.y + 0.02f)))
                 return TakeOff(ArmorSlot.Helmet, p, h.Anchor.rotation);
             if (Vest != null && Vector3.Distance(p, VestGrab) < 0.17f) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);
-            if (Vector3.Distance(p, LeftShoulder) < 0.2f && PackSlot.item != null) return PackSlot.item;
+            // the backpack comes off your shoulder with grip AND trigger together (grip alone kept snatching it by accident)
+            if (Vector3.Distance(p, LeftShoulder) < 0.2f && PackSlot.item != null && (!XRInputs.VR || h.Input.Trigger > 0.5f)) return PackSlot.item;
             if (Vector3.Distance(p, Primary.transform.position) < 0.22f && Primary.item != null) return Primary.item;   // front sling
             if (Secondary.item != null && (NearGun(Secondary.item, p, 0.13f) || Vector3.Distance(p, BackSlingGrab) < 0.2f)) return Secondary.item;
             return null;
@@ -587,10 +588,13 @@ namespace Rago
             Vector3 n = d.inner, o = ArmorBuilder.BagOuter(d);
             float W = n.x + Wall * 2, H = n.y, D = n.z + Wall * 2;
             ArmorBuilder.OpenBag(d).Build("Model", go.transform, ArmorBuilder.BagMats);
-            // flap: hinged on the back rim, closed on the ground, flips open when you hold the bag
+            // flap: hinged on the FAR rim (the front of the bag, away from you as you hold it), closed on the ground, flips
+            // open away from you when you hold the bag - so the open mouth faces you and the flap's never in your way
             bp._lid = new GameObject("Flap").transform;
             bp._lid.SetParent(go.transform, false);
-            bp._lid.localPosition = ArmorBuilder.BagHinge(d);
+            var hinge = ArmorBuilder.BagHinge(d);
+            bp._lid.localPosition = new Vector3(hinge.x, hinge.y, -hinge.z);
+            bp._lid.localRotation = Quaternion.Euler(0, 180f, 0);
             ArmorBuilder.BagFlap(d).Build("FlapMesh", bp._lid, ArmorBuilder.BagMats);
             // colliders on the walls only, so your hand can reach in and grab what's inside
             float cw = o.x * 0.94f, cd = o.z * 0.9f, t = 0.02f;
@@ -848,7 +852,7 @@ namespace Rago
             if (Mathf.Abs(_lidOpen - target) > 0.001f)
             {
                 _lidOpen = Mathf.MoveTowards(_lidOpen, target, Time.deltaTime * 4f);
-                _lid.localRotation = Quaternion.Euler(-200f * Mathf.SmoothStep(0, 1, _lidOpen), 0, 0);
+                _lid.localRotation = Quaternion.Euler(0, 180f, 0) * Quaternion.Euler(-200f * Mathf.SmoothStep(0, 1, _lidOpen), 0, 0);
             }
         }
 

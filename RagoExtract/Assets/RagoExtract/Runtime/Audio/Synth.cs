@@ -755,6 +755,50 @@ namespace Rago
         public static AudioClip HitMarker() => One("hitmark", () => { var d = Buf(0.08f); MetalClick(d, 0, 1f, 5200, 0.006f); Tone(d, 0, 3000, 0.04f, 0.3f, 0); return Clip("hit", d, true, 0.35f); });
         public static AudioClip Extracted() => One("extracted", () => { var d = Buf(2f); Tone(d, 0, 392, 1.6f, 0.5f); Tone(d, 0, 494, 1.6f, 0.4f); Tone(d, 0, 587, 1.6f, 0.4f); Tone(d, 0.3f, 784, 1.5f, 0.35f); return Clip("ext", d, true, 0.5f); });
 
+        /// <summary>The concert's dance track: 16 bars at 124 BPM, looping (kick, clap, hats, rolling bass, chord stabs, an
+        /// arpeggio in the second half). Am - F - C - G, two bars each.</summary>
+        public static AudioClip ConcertLoop() => One("concert", () =>
+        {
+            float beat = 60f / 124f; int bars = 16;
+            var d = Buf(bars * 4 * beat);
+            int[] roots = { 57, 53, 48, 55 }; bool[] minor = { true, false, false, false };
+            float Hz(float m) => 440f * Mathf.Pow(2f, (m - 69f) / 12f);
+            var hatHp = new HP(7000f); var clapBp = new BP(900f, 3000f); var padLp = new LP(1800f); var bassLp = new LP(500f);
+            double pBass = 0, pArp = 0; double[] pPad = new double[3];
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)SR, b = t / beat; int bi = (int)b; float tb = (b - bi) * beat;
+                int bar = bi / 4, ch = (bar / 2) % 4; float root = roots[ch];
+                // kick: every beat, a pitch-swept sine thump
+                float k = Mathf.Sin(2f * Mathf.PI * (50f * tb + 120f / 40f * (1f - Mathf.Exp(-40f * tb)))) * Mathf.Exp(-tb * 9f);
+                // clap on 2 and 4
+                float clap = (bi % 2 == 1) ? clapBp.P(N()) * Mathf.Exp(-tb * 22f) * 0.9f : clapBp.P(0f);
+                // hats on the off-beat eighths, a shaker on the sixteenths
+                float e = b * 2f; int ei = (int)e; float te = (e - ei) * beat * 0.5f;
+                float hat = hatHp.P(N()) * ((ei % 2 == 1) ? Mathf.Exp(-te * 45f) * 0.5f : Mathf.Exp(-te * 90f) * 0.15f);
+                // rolling bass: the root an octave down on the off-beat eighths (ducked by the kick)
+                float duck = 1f - Mathf.Exp(-tb * 7f);
+                pBass += Hz(root - 12f) / SR;
+                float saw = (float)(pBass % 1.0) * 2f - 1f;
+                float bass = bassLp.P(saw) * ((ei % 2 == 1) ? Mathf.Exp(-te * 6f) : 0.15f) * 0.9f * duck;
+                // chord stabs (minor / major triad), filtered, on the "and" of every beat
+                float pad = 0f; float[] iv = { 0f, minor[ch] ? 3f : 4f, 7f };
+                for (int n = 0; n < 3; n++) { pPad[n] += Hz(root + 12f + iv[n]) / SR; pad += (float)(pPad[n] % 1.0) * 2f - 1f; }
+                pad = padLp.P(pad) * ((ei % 2 == 1) ? Mathf.Exp(-te * 9f) * 0.35f : 0.03f) * duck;
+                // second half: a square-wave arpeggio up the chord on the sixteenths
+                float arp = 0f;
+                if (bar >= 8)
+                {
+                    float s16 = b * 4f; int si = (int)s16; float ts = (s16 - si) * beat * 0.25f;
+                    float note = root + 24f + iv[si % 3] + (si % 6 >= 3 ? 12f : 0f);
+                    pArp += Hz(note) / SR;
+                    arp = ((pArp % 1.0) < 0.5 ? 0.18f : -0.18f) * Mathf.Exp(-ts * 14f);
+                }
+                d[i] = SoftClip(k * 0.95f + clap * 0.35f + hat * 0.25f + bass * 0.55f + pad + arp);
+            }
+            return Clip("concert", d, true, 0.9f, true);
+        });
+
         public static AudioClip Alarm() => One("alarm", () =>
         {
             var d = Buf(2f);

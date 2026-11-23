@@ -266,6 +266,8 @@ namespace Rago
                 if (!Racking.IsRacking(this)) Racking = null;
             }
             else if (input.GripDown && Held == null && _interact == null) TryGrab();
+            // grip held, then the trigger: a second try (the backpack needs both - whichever you press first)
+            else if (input.TriggerDown && input.GripHeld && Held == null && _interact == null && rig.Gear != null && rig.Gear.PackSlot.item != null) TryGrab();
             else if (!input.GripHeld && (Held != null || _interact != null)) Release();
             if (Climbing && (!input.GripHeld || Held != null)) { Climbing = false; rig.OnClimbReleased(this); }
 

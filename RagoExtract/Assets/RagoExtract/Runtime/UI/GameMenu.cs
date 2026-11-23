@@ -461,9 +461,10 @@ namespace Rago
             Btn("<", -0.27f, y, 0.07f, () => _evKind = _evKind <= 1 ? LiveEvent.Names.Length - 1 : _evKind - 1);
             Line(LiveEvent.Names[_evKind], y, 0.024f, Color.white, -0.22f);
             Btn(">", 0.04f, y, 0.07f, () => _evKind = _evKind >= LiveEvent.Names.Length - 1 ? 1 : _evKind + 1);
-            int len = LiveEvent.Lengths[_evLen];
-            Btn(len >= 60 ? (len / 60) + " H" : len + " MIN", 0.15f, y, 0.12f, () => _evLen = (_evLen + 1) % LiveEvent.Lengths.Length);
-            Btn("START", 0.29f, y, 0.14f, () => RelayBackend.Instance?.StartEvent((byte)_evKind, LiveEvent.Lengths[_evLen]), Go);
+            bool nuke = _evKind == LiveEvent.Nuke;   // the nuke's length is its countdown: always 5 minutes
+            int len = nuke ? LiveEvent.NukeMinutes : LiveEvent.Lengths[_evLen];
+            Btn(len >= 60 ? (len / 60) + " H" : len + " MIN", 0.15f, y, 0.12f, () => { if (!nuke) _evLen = (_evLen + 1) % LiveEvent.Lengths.Length; });
+            Btn(nuke ? "LAUNCH" : "START", 0.29f, y, 0.14f, () => RelayBackend.Instance?.StartEvent((byte)_evKind, len), nuke ? Stop : Go);
             Btn("STOP", 0.44f, y, 0.13f, () => RelayBackend.Instance?.StartEvent(0, 0), Stop); y -= 0.055f;
             Line(LiveEvent.Active ? "Running: " + LiveEvent.Names[LiveEvent.Kind] + " (" + LiveEvent.Left() + " left, by " + LiveEvent.By + ")" : "For every player on every server - " + LiveEvent.Blurb[_evKind] + ".", y, 0.02f, LiveEvent.Active ? new Color(1f, 0.8f, 0.25f) : UI.Dim);
         }

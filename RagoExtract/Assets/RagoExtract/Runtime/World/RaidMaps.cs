@@ -58,7 +58,7 @@ namespace Rago
         public static Material Asphalt => Mats.Lit("w_asphalt", Color.white, 0f, 0.35f, Mats.Asphalt, null, 0.3f, 0.05f, true, 0.3f);
         public static Material Brick => Mats.Lit("w_brick", Color.white, 0f, 0.2f, Mats.Brick, null, 0.45f, 0.05f, true, 0.4f);
         public static Material Plaster => Mats.Lit("w_plaster", Color.white, 0f, 0.15f, Mats.Plaster, null, 0.5f, 0.05f, true, 0.3f);
-        public static Material WoodPlank => Mats.Lit("w_wood", Color.white, 0f, 0.25f, Mats.Wood, null, 0.4f, 0.1f, true, 0.6f);
+        public static Material WoodPlank => Mats.Lit("w_planks", Color.white, 0f, 0.25f, Mats.Planks, null, 0.3f, 0.1f, true, 0.45f);
         public static Material Metal => Mats.Lit("w_metal", Color.white, 0.7f, 0.4f, Mats.Metal, null, 0.45f, 0.4f, true, 0.6f);
         public static Material Corrugated => Mats.Lit("w_corr", Color.white, 0.5f, 0.35f, Mats.Corrugated, null, 0.5f, 0.3f, true, 0.6f);
         public static Material Tiles => Mats.Lit("w_tiles", Color.white, 0.1f, 0.6f, Mats.Tiles, null, 0.4f, 0.1f, true, 0.5f);

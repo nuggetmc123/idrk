@@ -579,7 +579,7 @@ namespace Rago
             foreach (var n in list)
             {
                 if (n == null || n.Puppet) continue;   // only the raiders this player runs
-                if (!NearAnyPlayer(n.transform.position, 160f)) continue;   // nobody's near enough to see it: nothing to send
+                if (!NearAnyPlayer(n.transform.position, 320f)) continue;   // nobody's near enough to see it: nothing to send (far enough out that nobody sees them pop in)
                 byte st = (byte)((byte)n.State | (n.Alive ? 0x80 : 0));
                 if (!full && _npcSent.TryGetValue(n.Id, out var last) && last.st == st && (last.pos - n.transform.position).sqrMagnitude < 0.0036f
                     && Mathf.Abs(Mathf.DeltaAngle(last.yaw, n.Yaw)) < 3f && (last.aim - n.AimPoint).sqrMagnitude < 0.04f) continue;
@@ -593,6 +593,7 @@ namespace Rago
                 int cnt = Mathf.Min(10, send.Count - at);
                 var w = W(Msg.NpcStates);
                 w.Write((short)cnt);
+                w.Write(Time.time);   // our clock: the others play raiders back smoothly at a small fixed delay (like players)
                 for (int k = at; k < at + cnt; k++)
                 {
                     var n = send[k];
@@ -760,12 +761,12 @@ namespace Rago
                         case Msg.NpcStates:
                             {
                                 if (NpcDirector.I == null) break;
-                                int n = r.ReadInt16();
+                                int n = r.ReadInt16(); float st = r.ReadSingle();
                                 for (int i = 0; i < n; i++)
                                 {
                                     int id = r.ReadInt16(); var pos = P3(r); float yaw = r.ReadByte() / 255f * 360f; byte sb = r.ReadByte(); var aim = P3(r);
                                     var sn = NpcDirector.I.Get(id);
-                                    if (sn != null && sn.Puppet) sn.ApplyNetState(pos, yaw, (NpcState)(sb & 0x7f), aim, (sb & 0x80) != 0);   // ones we run ourselves: ours wins
+                                    if (sn != null && sn.Puppet) sn.ApplyNetState(pos, yaw, (NpcState)(sb & 0x7f), aim, (sb & 0x80) != 0, from, st);   // ones we run ourselves: ours wins
                                 }
                                 break;
                             }

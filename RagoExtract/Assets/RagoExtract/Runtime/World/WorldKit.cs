@@ -164,6 +164,27 @@ namespace Rago
             return false;
         }
 
+        /// <summary>Would furniture with this footprint overlap a table / shelf already placed on the same floor?</summary>
+        public bool FurnitureOverlaps(Vector3 c, Quaternion q, Vector2 half)
+        {
+            foreach (var f in Furniture)
+            {
+                if (Mathf.Abs(f.c.y - c.y) > 1.2f) continue;
+                // separating-axis test on the two footprints (rectangles on the floor)
+                Vector3 ax1 = q * Vector3.right, az1 = q * Vector3.forward, ax2 = f.q * Vector3.right, az2 = f.q * Vector3.forward;
+                Vector3 d = f.c - c; d.y = 0;
+                bool sep = false;
+                foreach (var ax in new[] { ax1, az1, ax2, az2 })
+                {
+                    float r1 = half.x * Mathf.Abs(Vector3.Dot(ax1, ax)) + half.y * Mathf.Abs(Vector3.Dot(az1, ax));
+                    float r2 = f.half.x * Mathf.Abs(Vector3.Dot(ax2, ax)) + f.half.y * Mathf.Abs(Vector3.Dot(az2, ax));
+                    if (Mathf.Abs(Vector3.Dot(d, ax)) > r1 + r2 + 0.05f) { sep = true; break; }
+                }
+                if (!sep) return true;
+            }
+            return false;
+        }
+
         /// <summary>Set while building houses: their windows get breakable glass.</summary>
         public bool GlassWindows;
 
@@ -686,11 +707,23 @@ namespace Rago
                     if (!InDoorway(pos + q * new Vector3(sl, 0, 0), q, w / 2, 0.3f)) { pos += q * new Vector3(sl, 0, 0); ok = true; break; }
                 if (!ok) return null;
             }
+            if (FurnitureOverlaps(pos, q, new Vector2(w / 2 + 0.05f, 0.32f))) return null;   // never inside another table / shelf
             Furniture.Add((pos, q, new Vector2(w / 2 + 0.05f, 0.32f), 2.0f));
             for (int i = 0; i < 4; i++) Box(pos + q * new Vector3(0, 0.1f + i * 0.6f, 0), new Vector3(w, 0.04f, 0.6f), m, Color.white, q, true, Synth.Surface.Metal);
             foreach (var sx in new[] { -w / 2, w / 2 }) foreach (var sz in new[] { -0.28f, 0.28f }) Box(pos + q * new Vector3(sx, 1f, sz), new Vector3(0.05f, 2f, 0.05f), m, Color.white, q, false);
-            // cardboard boxes on the bottom and top shelves (the middle one is kept clear for loot)
-            for (int i = 0; i < 6; i++) Box(pos + q * new Vector3(Rng.Range(-w / 2 + 0.3f, w / 2 - 0.3f), 0.25f + (Rng.Range(0, 3) == 1 ? 2 : 0) * 0.6f, 0), new Vector3(Rng.Range(0.2f, 0.5f), Rng.Range(0.15f, 0.35f), Rng.Range(0.2f, 0.45f)), Mats.Lit("cardboard", Color.white, 0, 0.2f, Mats.Noise, null, 0.4f, 0f), new Color(0.65f, 0.5f, 0.33f), q, false);
+            // cardboard boxes standing ON the bottom and top shelves, side by side (the middle ones are kept clear for loot)
+            var card = Mats.Lit("cardboard", Color.white, 0, 0.2f, Mats.Noise, null, 0.4f, 0f);
+            foreach (int lvl in new[] { 0, 3 })
+            {
+                float top = 0.1f + lvl * 0.6f + 0.02f, x = -w / 2 + 0.08f;
+                while (true)
+                {
+                    float bw = Rng.Range(0.22f, 0.45f), bh = Rng.Range(0.15f, lvl == 0 ? 0.42f : 0.32f), bd = Rng.Range(0.25f, 0.45f);
+                    if (x + bw > w / 2 - 0.08f) break;
+                    if (Rng.Range(0, 3) != 0) Box(pos + q * new Vector3(x + bw / 2, top + bh / 2, Rng.Range(-0.04f, 0.04f)), new Vector3(bw, bh, bd), card, new Color(0.65f, 0.5f, 0.33f), q, false);
+                    x += bw + Rng.Range(0.03f, 0.15f);
+                }
+            }
             return pos;
         }
 
@@ -700,6 +733,7 @@ namespace Rago
             var m = Mats.Lit("table", Color.white, 0f, 0.35f, Mats.Wood, Mats.WoodN, 0.4f, 0.2f, true, 1f);
             Quaternion q = Quaternion.Euler(0, yaw, 0);
             if (InDoorway(pos, q, size.x / 2, size.y / 2)) return false;
+            if (FurnitureOverlaps(pos, q, size * 0.5f)) return false;   // never inside another table / shelf
             Furniture.Add((pos, q, size * 0.5f, h));
             Box(pos + Vector3.up * h, new Vector3(size.x, 0.05f, size.y), m, new Color(0.55f, 0.42f, 0.3f), q, true, Synth.Surface.Wood, 0.01f);
             foreach (var sx in new[] { -1, 1 }) foreach (var sz in new[] { -1, 1 })

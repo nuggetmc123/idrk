@@ -667,7 +667,7 @@ namespace Rago
             if (XRInputs.VR) { if (XRInputs.Left.StickClickDown) _sprintLatch = !_sprintLatch; if (move.magnitude < 0.2f) _sprintLatch = false; }
             // auto sprint: push the stick right forward for a moment and you break into a run by yourself
             if (AutoSprint) { _autoSprintT = move.y > 0.85f ? _autoSprintT + dt : 0f; if (_autoSprintT > 0.35f) _sprintLatch = true; }
-            else _sprintLatch = Desktop.Sprint;
+            else if (!XRInputs.VR) _sprintLatch = Desktop.Sprint;   // (in VR the stick click above is the sprint button)
             Sprinting = _sprintLatch && move.y > 0.3f && Vitals.Stamina > 1f && !Crouched && Vitals.CanSprint;
             // crouch toggle: right stick click (and physically crouching always works)
             if (XRInputs.VR && XRInputs.Right.StickClickDown) Crouched = !Crouched;

@@ -12,7 +12,7 @@ namespace Rago
     {
         static Material _lit, _unlit, _holo, _sky, _foliage, _scope;
         static readonly Dictionary<string, Material> _cache = new Dictionary<string, Material>();
-        public static Texture2D Grime, Noise, Concrete, ConcreteN, Metal, MetalN, Wood, WoodN, Ground, Grass, Dirt, Asphalt, AsphaltN,
+        public static Texture2D Grime, Noise, Concrete, ConcreteN, Metal, MetalN, Wood, WoodN, Planks, Ground, Grass, Dirt, Asphalt, AsphaltN,
             Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster;
         public static Texture2D Soft, Flash, Smoke, BloodSplat, BloodDrop, BulletHole, Spark, Vignette, Glow, Panel;
         static bool _init;
@@ -306,6 +306,20 @@ namespace Rago
                 return new Color(c, c * 0.82f, c * 0.62f, 0.6f);
             });
             WoodN = NormalFrom(Wood, 0.8f);
+            // floor / wall boards: 8 planks across, each its own shade, staggered end joints, soft grain (the old ring
+            // texture tiled into hard stripes that shimmered across floors)
+            Planks = Tex(256, true, (x, y, u, v) =>
+            {
+                int board = Mathf.FloorToInt(u * 8f);
+                float bu = u * 8f - board;
+                float shade = 0.82f + MathX.Hash(board, 3, 11) * 0.3f;
+                float off = MathX.Hash(board, 7, 5);
+                float jv = Mathf.Repeat(v + off, 0.5f) / 0.5f;   // two board lengths down the texture, staggered per row
+                float grain = MathX.TFbm(u, v, 32, 2, 3, board + 40) * 0.12f + MathX.TNoise(u, v, 4, 90, 2) * 0.05f;
+                float edge = Mathf.Min(bu, 1f - bu) < 0.03f || jv < 0.012f ? 0.55f : 1f;
+                float c = (0.62f + grain) * shade * edge;
+                return new Color(c, c * 0.8f, c * 0.6f, 0.6f);
+            });
             Asphalt = Tex(256, true, (x, y, u, v) =>
             {
                 float n = MathX.TFbm(u, v, 12, 12, 4, 31);
