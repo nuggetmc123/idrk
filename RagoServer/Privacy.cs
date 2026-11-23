@@ -38,7 +38,7 @@ namespace RagoServer
 <tr><th>Information</th><th>Why</th><th>Kept</th></tr>
 <tr><td><b>Callsign</b> (the name you pick in the game)</td><td>So other players can see, find and invite you, and for the player market.</td><td>On our game server while the game is running, until you ask us to delete it.</td></tr>
 <tr><td><b>Player ID</b> (a random code the game makes on your headset) and a <b>device ID</b></td><td>To recognise your account between sessions, keep your black-market shop and sales, and enforce bans on cheaters.</td><td>On our game server, same as above. Ban records are kept while the ban lasts.</td></tr>
-<tr><td><b>IP address</b> and game version</td><td>Needed to connect you to other players. Short-term server logs help us fix problems and stop abuse.</td><td>Logs are kept for a short time, then removed.</td></tr>
+<tr><td><b>IP address</b> and game version</td><td>Needed to connect you to other players. Short-term server logs help us fix problems and stop abuse.</td><td>Logs are kept for 30 days at most, then deleted.</td></tr>
 <tr><td><b>Voice chat</b> (microphone)</td><td>Only when you use voice chat: your voice is sent live to players near you in the same game.</td><td><b>Not stored.</b> It's relayed and then gone.</td></tr>
 <tr><td><b>Headset and hand positions</b></td><td>Sent live to other players in your game so they can see your body and what you're doing.</td><td>Not stored.</td></tr>
 <tr><td><b>Black market listings, trades and sales</b></td><td>To keep your shop open while you're offline and give you money or items from sales.</td><td>On our game server until the listing is sold or removed. A record of sold items is kept so nothing can be bought twice.</td></tr>
