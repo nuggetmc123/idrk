@@ -18,11 +18,11 @@ namespace RagoServer
     ///
     /// Run:  ./ragoserver [port]     (default 27015, TCP and UDP)
     /// </summary>
-    static class Program
+    static partial class Program
     {
         sealed class Client
         {
-            public ulong Id; public uint Token; public string Name = "?", Ver = "";
+            public ulong Id; public uint Token; public string Name = "?", Ver = "", Key = "", Device = ""; public bool Refused;
             public TcpClient Tcp; public NetworkStream Stream;
             public Room Room; public IPEndPoint Udp;
             public readonly Channel<byte[]> Out = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
@@ -72,6 +72,8 @@ namespace RagoServer
             }
             try { _udp.Client.IOControl(-1744830452, new byte[] { 0 }, null); } catch { }   // Windows: ignore ICMP "port unreachable"
             Log("Rago game server listening on TCP+UDP " + port);
+            LoadData();
+            StartPanel();
             _ = Task.Run(UdpLoop);
             _ = Task.Run(Housekeeping);
             while (true)
@@ -145,6 +147,7 @@ namespace RagoServer
                     Interlocked.Add(ref _rxTcp, len + 4);
                     c.Seen = DateTime.UtcNow;
                     if (Flooding(c, len + 4)) { Log(c + " flooding the server - dropped"); break; }
+                    if (c.Refused || (body[0] != P.Hello && c.Name == "?")) continue;   // nothing before hello, nothing from the banned
                     try { lock (Lock) Handle(c, body[0], new R(body, 1, len - 1)); }
                     catch (Exception e) { Log(c + " message " + body[0] + " failed: " + e.Message); }
                 }
@@ -214,10 +217,32 @@ namespace RagoServer
             switch (type)
             {
                 case P.Hello:
+                {
+                    bool first = c.Name == "?";
                     c.Name = r.Str(); c.Ver = r.Str();
+                    if (r.More) { c.Key = Clean(r.Str()); c.Device = Clean(r.Str()); }
+                    if (c.Key.Length > 64) c.Key = c.Key.Substring(0, 64);
+                    if (c.Device.Length > 64) c.Device = c.Device.Substring(0, 64);
+                    if (!OnHello(c)) break;   // banned: told why, connection closing
                     Send(c, new W(P.Welcome).U64(c.Id).U32(c.Token).I32(Clients.Count).Frame());
-                    Log(c + " connected, version " + c.Ver + " (" + Clients.Count + " online)");
+                    if (first) Log(c + " connected, version " + c.Ver + " (" + Clients.Count + " online)");
                     break;
+                }
+                case P.Search:
+                {
+                    string q = r.Str(); int id = r.I32();
+                    var names = SearchNames(q, 8);
+                    var w = new W(P.Found).I32(id).U16(names.Count);
+                    foreach (var n in names) w.Str(n);
+                    Send(c, w.Frame());
+                    break;
+                }
+                case P.ModReq:
+                {
+                    byte act = r.U8(); string target = r.Str(), reason = r.Str(); int hours = r.I32();
+                    OnModRequest(c, act, target, reason, hours);
+                    break;
+                }
                 case P.Join:
                 {
                     string name = r.Str(); int max = r.U8(); bool create = r.Bool(); var props = r.Dict();
@@ -358,6 +383,7 @@ namespace RagoServer
                     foreach (var c in Clients.Values) { Send(c, f); if ((DateTime.UtcNow - c.Seen).TotalSeconds > 60) dead.Add(c); }
                 }
                 foreach (var c in dead) { Log(c + " silent for 60 s - dropped"); Drop(c); }
+                lock (Lock) if (_playersDirty) { _playersDirty = false; SavePlayers(); }
                 if (++tick % 60 == 0)   // every 5 minutes
                     lock (Lock) Log("status: " + Clients.Count + " online, " + Rooms.Count + " rooms, in " + (_rxTcp + _rxUdp) / 1024 / 1024 + " MB, udp out " + _txUdp / 1024 / 1024 + " MB");
             }

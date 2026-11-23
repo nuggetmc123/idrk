@@ -14,7 +14,7 @@ namespace Rago
     public class GameMenu : MonoBehaviour
     {
         public static GameMenu I;
-        enum Tab { Party, Friends, Recent, Settings, Tester, Notes }
+        enum Tab { Party, Friends, Recent, Settings, Tester, Notes, Mod }
         Tab _tab = Tab.Party;
         Transform _panel, _content;
         TextMesh _header;
@@ -45,11 +45,11 @@ namespace Rago
             _panel = UI.Panel(transform, "Menu", Vector3.zero, Quaternion.identity, new Vector2(1.12f, 0.9f), null, true, Skin.Steel);
             _header = UI.Text(_panel, "", new Vector3(-0.52f, 0.39f, 0), 0.034f, UI.Accent, TextAnchor.MiddleLeft, FontStyle.Bold);
             UI.Button(_panel, "X", new Vector3(0.5f, 0.39f, 0), new Vector2(0.07f, 0.065f), () => Show(false), new Color(0.5f, 0.15f, 0.1f), BtnStyle.Key);
-            string[] names = { "PARTY", "FRIENDS", "RECENT", "SETTINGS", "TESTER", "NOTES" };
+            string[] names = { "PARTY", "FRIENDS", "RECENT", "SETTINGS", "TESTER", "NOTES", "MOD" };
             for (int i = 0; i < names.Length; i++)
             {
                 var t = (Tab)i;
-                _tabBtns.Add(UI.Button(_panel, names[i], new Vector3(-0.455f + i * 0.182f, 0.3f, 0), new Vector2(0.172f, 0.075f), () => { _tab = t; _typing = false; _page = 0; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }));
+                _tabBtns.Add(UI.Button(_panel, names[i], new Vector3(-0.468f + i * 0.156f, 0.3f, 0), new Vector2(0.148f, 0.075f), () => { _tab = t; _typing = false; _page = 0; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }));
             }
             _content = new GameObject("Content").transform;
             _content.SetParent(_panel, false);
@@ -87,6 +87,7 @@ namespace Rago
             _refresh -= Time.unscaledDeltaTime;
             if (_refresh <= 0f) { _refresh = 1.5f; if (!_typing) _dirty = true; }
             if (Time.unscaledTime > _pendT) { _pendT = Time.unscaledTime + 3f; CheckPending(); }
+            SearchTick();
             if (_dirty) { _dirty = false; Rebuild(); }
         }
 
@@ -195,6 +196,9 @@ namespace Rago
             var prof = Profile.Current;
             _header.text = "MENU   " + (prof != null ? prof.DisplayName : "");
             for (int i = 0; i < _tabBtns.Count; i++) _tabBtns[i].SetColor(i == (int)_tab ? new Color(0.2f, 0.42f, 0.2f) : new Color(0.28f, 0.3f, 0.32f));
+            // the MOD tab: only for moderators (the server says who they are)
+            _tabBtns[(int)Tab.Mod].gameObject.SetActive(RelayBackend.IsMod);
+            if (_tab == Tab.Mod && !RelayBackend.IsMod) _tab = Tab.Party;
             if (_typing) { DrawKeyboard(); return; }
             switch (_tab)
             {
@@ -203,6 +207,7 @@ namespace Rago
                 case Tab.Recent: DrawRecent(); break;
                 case Tab.Tester: DrawTester(); break;
                 case Tab.Notes: DrawNotes(); break;
+                case Tab.Mod: DrawMod(); break;
                 default: DrawSettings(); break;
             }
         }
@@ -291,7 +296,7 @@ namespace Rago
         void DrawFriends()
         {
             var prof = Profile.Current;
-            Btn("+ ADD FRIEND", -0.36f, 0.2f, 0.32f, () => { _typing = true; _typed = ""; Desktop.Typing = true; }, Go);
+            Btn("+ ADD FRIEND", -0.36f, 0.2f, 0.32f, () => { _kbMod = false; _typing = true; _typed = ""; _suggest.Clear(); _searched = ""; Desktop.Typing = true; }, Go);
             var here = NetHub.Online ? NetHub.Backend.SessionPlayers : null;
             var pending = prof.pendingFriends.ConvertAll(x => x.Split('|')[0]);
             if (prof.friends.Count == 0 && pending.Count == 0) { Line("No friends yet. Press + ADD FRIEND and type their callsign (like GHOST#0193),", 0.08f, 0.026f); Line("or add people you've played with from RECENT.", 0.03f, 0.026f); return; }
@@ -380,10 +385,31 @@ namespace Rago
             }
         }
 
+        // ---- callsign search: as you type, the server suggests matching players (online first): "nug" -> NUGGIE#1252
+        bool _kbMod; string _searched = ""; float _searchT;
+        readonly List<string> _suggest = new List<string>();
+
+        void SearchTick()
+        {
+            if (!_typing || _typed == _searched || RelayBackend.Instance == null) return;
+            _searchT -= Time.unscaledDeltaTime;
+            if (_searchT > 0f) return;
+            _searchT = 0.3f;
+            _searched = _typed;
+            if (_typed.Trim().Length < 2) { _suggest.Clear(); _dirty = true; return; }
+            RelayBackend.Instance.Search(_typed, names => { _suggest.Clear(); _suggest.AddRange(names); _dirty = true; });
+        }
+
         void DrawKeyboard()
         {
-            Line("ADD FRIEND - callsign of someone you've played with:", 0.2f, 0.028f, UI.Accent);
-            Line((_typed.Length > 0 ? _typed : "") + "_", 0.13f, 0.042f);
+            Line(_kbMod ? "MOD - find a player (type part of their callsign):" : "ADD FRIEND - callsign of someone you've played with:", 0.2f, 0.028f, UI.Accent);
+            Line((_typed.Length > 0 ? _typed : "") + "_", 0.155f, 0.04f);
+            // suggestions: tap one to fill it in
+            for (int k = 0; k < _suggest.Count && k < 4; k++)
+            {
+                string nm = _suggest[k];
+                Btn(nm.Length > 18 ? nm.Substring(0, 17) + "." : nm, -0.39f + k * 0.26f, 0.095f, 0.25f, () => { _typed = nm; _searched = nm; _suggest.Clear(); }, new Color(0.22f, 0.32f, 0.45f));
+            }
             string[] rows = { "1234567890", "QWERTYUIOP", "ASDFGHJKL_", "ZXCVBNM#" };
             for (int r = 0; r < rows.Length; r++)
                 for (int i = 0; i < rows[r].Length; i++)
@@ -393,7 +419,40 @@ namespace Rago
                 }
             Btn("DEL", 0.37f, 0.03f - 3 * 0.085f, 0.2f, () => { if (_typed.Length > 0) _typed = _typed.Substring(0, _typed.Length - 1); });
             Btn("CANCEL", -0.3f, -0.39f, 0.3f, () => { _typing = false; Desktop.Typing = false; }, Stop);
-            Btn("ADD", 0.3f, -0.39f, 0.3f, () => { AddFriend(_typed); if (IsFriend(_typed)) { _typing = false; Desktop.Typing = false; } }, Go);
+            if (_kbMod) Btn("PICK", 0.3f, -0.39f, 0.3f, () => { _modTarget = _typed.Trim(); _typing = false; Desktop.Typing = false; }, Go);
+            else Btn("ADD", 0.3f, -0.39f, 0.3f, () => { AddFriend(_typed); if (IsFriend(_typed)) { _typing = false; Desktop.Typing = false; } }, Go);
+        }
+
+        // ---- MOD tab: pick a player, then ask for a ban / unban / wipe / Market kick. The owner approves it on the web panel.
+        string _modTarget = "";
+        int _modReason, _modLen = 1;
+        static readonly string[] ModReasons = { "Cheating", "Exploiting a bug", "Harassment", "Hate speech", "Spamming", "Griefing", "Other" };
+        static readonly string[] ModLens = { "1 DAY", "7 DAYS", "30 DAYS", "PERMANENT" };
+        static readonly int[] ModHours = { 24, 168, 720, 0 };
+
+        void DrawMod()
+        {
+            float y = 0.2f;
+            Line("MODERATOR TOOLS - everything here goes to the owner for approval first.", y, 0.024f, UI.Dim); y -= 0.08f;
+            Line("Player:", y);
+            Line(string.IsNullOrEmpty(_modTarget) ? "(none picked)" : _modTarget, y, 0.032f, string.IsNullOrEmpty(_modTarget) ? UI.Dim : UI.Accent, -0.3f);
+            Btn("FIND PLAYER", 0.36f, y, 0.26f, () => { _kbMod = true; _typing = true; _typed = ""; _suggest.Clear(); _searched = ""; Desktop.Typing = true; }, Go); y -= 0.09f;
+            Line("Reason:", y);
+            Btn("<", -0.22f, y, 0.07f, () => _modReason = (_modReason + ModReasons.Length - 1) % ModReasons.Length);
+            Line(ModReasons[_modReason], y, 0.028f, Color.white, -0.17f);
+            Btn(">", 0.2f, y, 0.07f, () => _modReason = (_modReason + 1) % ModReasons.Length); y -= 0.08f;
+            Line("Ban length:", y);
+            Btn("<", -0.22f, y, 0.07f, () => _modLen = (_modLen + ModLens.Length - 1) % ModLens.Length);
+            Line(ModLens[_modLen], y, 0.028f, Color.white, -0.17f);
+            Btn(">", 0.2f, y, 0.07f, () => _modLen = (_modLen + 1) % ModLens.Length); y -= 0.1f;
+            bool has = !string.IsNullOrEmpty(_modTarget);
+            void Ask(byte act) { if (!has) { RagoGame.I?.Player?.Toast("Find a player first"); return; } RelayBackend.Instance?.ModRequest(act, _modTarget, ModReasons[_modReason], ModHours[_modLen]); }
+            Btn("BAN", -0.39f, y, 0.22f, () => Ask(Rago.Relay.P.ActBan), Stop);
+            Btn("UNBAN", -0.14f, y, 0.22f, () => Ask(Rago.Relay.P.ActUnban));
+            Btn("WIPE", 0.11f, y, 0.22f, () => Ask(Rago.Relay.P.ActWipe), new Color(0.55f, 0.35f, 0.1f));
+            Btn("KICK (MARKET)", 0.39f, y, 0.26f, () => Ask(Rago.Relay.P.ActKick)); y -= 0.1f;
+            Line("Kick only works on someone in the Market right now. Wipe resets their money, stash, gear and level.", y, 0.02f, UI.Dim); y -= 0.07f;
+            if (!string.IsNullOrEmpty(RelayBackend.LastModReply)) Line(UI.Wrap(RelayBackend.LastModReply, 60), y, 0.024f, new Color(0.6f, 1f, 0.65f));
         }
 
         void DrawSettings()

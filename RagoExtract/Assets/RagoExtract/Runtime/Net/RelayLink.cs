@@ -28,7 +28,7 @@ namespace Rago.Relay
         Thread _reader, _writer, _udpReader;
 
         /// <summary>Connect in the background; Connected (or Failed + Error) says how it went.</summary>
-        public void Connect(string host, int port, string name, string ver)
+        public void Connect(string host, int port, string name, string ver, string key = "", string device = "")
         {
             var t = new Thread(() =>
             {
@@ -44,7 +44,7 @@ namespace Rago.Relay
                     _tcp.EndConnect(ar);
                     _stream = _tcp.GetStream();
                     _writer = new Thread(WriteLoop) { IsBackground = true, Name = "RagoRelayOut" }; _writer.Start();
-                    Send(new W(P.Hello).Str(name).Str(ver).Frame());
+                    Send(new W(P.Hello).Str(name).Str(ver).Str(key).Str(device).Frame());
                     try
                     {
                         _udp = new UdpClient(ip.AddressFamily);

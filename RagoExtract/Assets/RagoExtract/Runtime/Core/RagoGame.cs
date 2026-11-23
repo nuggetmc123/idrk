@@ -145,6 +145,8 @@ namespace Rago
         }
 
         // ------------------------------------------------------------------------------------------ travel
+        /// <summary>Leave the hub WITHOUT saving what's lying in it (after a moderation wipe).</summary>
+        public static bool SkipHubSave;
         public void GoTo(Area a) { if (!_travelling) StartCoroutine(Safe(Travel(a, null))); }
         public void StartRaid(RaidStart rs) { if (!_travelling) StartCoroutine(Safe(Travel(Area.Raid, rs))); }
 
@@ -253,7 +255,8 @@ namespace Rago
             if (!_soundsReady) { _soundsReady = true; try { Synth.Prewarm(); } catch (System.Exception e) { Debug.LogWarning("[Rago Extract] sound warm-up: " + e.Message); } yield return null; }
             // leave the old area
             var from = Area;
-            if (from == Area.Bunker || from == Area.Market) SaveHubState();
+            if ((from == Area.Bunker || from == Area.Market) && !SkipHubSave) SaveHubState();
+            SkipHubSave = false;
             if (from == Area.Market && to != Area.Market) { NetGame.I.End(); if (to != Area.Raid || rs == null || !rs.online) NetHub.Backend?.Leave(); }
             if (from == Area.Raid) { NetGame.I.End(); NetHub.Backend?.Leave(); }
             Kiosk.AnyQueued = false;

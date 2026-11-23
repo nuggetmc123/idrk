@@ -71,6 +71,22 @@ namespace Rago
             catch (System.Exception e) { Debug.LogWarning("[Rago] couldn't read " + path + ": " + e.Message); return null; }
         }
 
+        /// <summary>Moderation WIPE: progress back to a fresh start (money, stash, gear, level, bunker). Your callsign,
+        /// clothes, settings, friends and DLC packs stay.</summary>
+        public void Wipe()
+        {
+            money = 6000; xp = 0; raids = extracts = deaths = kills = 0;
+            stash = new List<ItemData>(); bunkerFloor = new List<FloorItem>(); deliverN = 0;
+            int n = System.Enum.GetValues(typeof(Caliber)).Length;
+            stashAmmo = new int[n]; stashAp = new int[n]; stashInc = new int[n];
+            loadout = new Loadout(); freeArmor = false;
+            shop = new List<ShopEntry>(); shopNextId = 0; shopOpen = false;
+            bunkerLevel = 0; jobProgress = new List<int>(); genCash = 0;
+            medCabinet = new List<ItemData>(); medStocked = false; medRestockRaid = 0;
+            inRaid = false;
+            Save();
+        }
+
         public static Profile LoadOrCreate()
         {
             // the profile, or if that's damaged (the game was closed mid-save), the backup - never a silent reset

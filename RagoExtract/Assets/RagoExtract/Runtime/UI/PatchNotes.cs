@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.59", "Moderation", new[] {
+                "MODERATORS: players the owner makes moderators get a MOD tab in the menu. Find a player (type part of their callsign - matching players pop up as you type), pick a reason and a ban length, then BAN, UNBAN, WIPE or KICK (Market only). Nothing happens until the owner approves it on the admin panel.",
+                "Bans follow the headset, not just the callsign: changing your name doesn't get around one. A banned player sees why and until when, and can't play online.",
+                "WIPE resets a player's money, stash, gear, level and bunker (callsign, clothes, settings and DLC stay) - right away if they're online, otherwise next time they connect.",
+                "Adding a friend now suggests callsigns as you type too (\"nug\" -> NUGGIE#1252).",
+            }),
             ("2.58", "Anti-cheat", new[] {
                 "Anti-tamper: the game checks its own APK signature. A copy someone unpacked, modded and repacked is signed with a different key (or marked debuggable) - it still runs, but online play is switched off for it.",
                 "Hits from other players are checked: impossible damage for that weapon, unknown weapons and machine-gun-fast hit streams are ignored, so a modded client can't one-shot you.",

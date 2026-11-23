@@ -43,13 +43,60 @@ namespace Rago
         /// <summary>Our own server is set up (Resources/Rago/server.txt): Photon stays out of the way.</summary>
         public static bool Configured => !string.IsNullOrEmpty(Address);
 
+        public static RelayBackend Instance { get; private set; }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Register()
         {
             if (!Configured) return;
             var go = new GameObject("RagoRelay");
             DontDestroyOnLoad(go);
-            NetHub.Backend = go.AddComponent<RelayBackend>();
+            NetHub.Backend = Instance = go.AddComponent<RelayBackend>();
+        }
+
+        // ---- identity: a random key made once per install, and a hash of the device id (bans match either)
+        static string PlayerKey
+        {
+            get
+            {
+                var k = PlayerPrefs.GetString("rago_player_key", "");
+                if (k.Length < 16) { k = Guid.NewGuid().ToString("N"); PlayerPrefs.SetString("rago_player_key", k); PlayerPrefs.Save(); }
+                return k;
+            }
+        }
+        static string DeviceId
+        {
+            get
+            {
+                try
+                {
+                    var id = SystemInfo.deviceUniqueIdentifier;
+                    if (string.IsNullOrEmpty(id) || id == SystemInfo.unsupportedIdentifier) return "";
+                    using (var sha = System.Security.Cryptography.SHA256.Create())
+                        return BitConverter.ToString(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes("rago:" + id))).Replace("-", "").Substring(0, 32);
+                }
+                catch { return ""; }
+            }
+        }
+
+        // ---- moderation (MOD tab)
+        public static bool IsMod { get; private set; }
+        public static bool Banned { get; private set; }
+        public static string LastModReply = "";
+        Action<List<string>> _searchCb; int _searchId;
+        /// <summary>Callsigns matching what's typed (online players first, then anyone who's played here).</summary>
+        public void Search(string q, Action<List<string>> cb)
+        {
+            if (_link == null || !_link.Connected || string.IsNullOrWhiteSpace(q)) { cb?.Invoke(new List<string>()); return; }
+            _searchCb = cb;
+            _link.Send(new W(P.Search).Str(q.Trim()).I32(++_searchId).Frame());
+        }
+        /// <summary>A moderator's ban / unban / wipe / Market kick: goes to the owner for approval.</summary>
+        public void ModRequest(byte act, string target, string reason, int hours)
+        {
+            if (_link == null || !_link.Connected) { LastModReply = "Not connected to the server."; return; }
+            _link.Send(new W(P.ModReq).U8(act).Str(target ?? "").Str(reason ?? "").I32(hours).Frame());
+            LastModReply = "Sending...";
         }
 
         static void HostPort(out string host, out int port)
@@ -149,7 +196,7 @@ namespace Rago
             _ready = true;
             _link = new RelayLink();
             _helloName = MyName();
-            _link.Connect(host, port, _helloName, Ver);
+            _link.Connect(host, port, _helloName, Ver, PlayerKey, DeviceId);
             Log("connecting to " + host + ":" + port);
         }
 
@@ -166,7 +213,7 @@ namespace Rago
             // lost the server (or never reached it): try again every 5 s
             if (!_link.Connected)
             {
-                if (_link.Failed && _wantOnline && now > _retryT)
+                if (_link.Failed && _wantOnline && !Banned && now > _retryT)
                 {
                     if (_retryT > 0f) Log("server: " + _link.Error, true);
                     _status = "Can't reach the game server (" + _link.Error + ") - retrying";
@@ -180,7 +227,7 @@ namespace Rago
             {
                 _keepT = 1f; _link.KeepAlive(); _link.Send(new W(P.Ping).F32(now).Frame());
                 // the profile (callsign) was picked after we connected: tell the server, so invites by callsign find us
-                if (MyName() != _helloName) { _helloName = MyName(); _link.Send(new W(P.Hello).Str(_helloName).Str(Ver).Frame()); }
+                if (MyName() != _helloName) { _helloName = MyName(); _link.Send(new W(P.Hello).Str(_helloName).Str(Ver).Str(PlayerKey).Str(DeviceId).Frame()); }
             }
             if (!InSession) return;
             Tick(now);
@@ -201,6 +248,45 @@ namespace Rago
                     if (_partyCode != null && _room == null) RejoinParty();
                     break;
                 case P.Online: _online = r.I32(); break;
+                case P.Role:
+                    IsMod = r.U8() == 1;
+                    Log(IsMod ? "you're a moderator (MOD tab in the menu)" : "moderator role removed");
+                    if (IsMod) RagoGame.I?.Player?.Toast("You're a moderator - the MOD tab is in your menu");
+                    break;
+                case P.Banned:
+                {
+                    string why = r.Str();
+                    Banned = true; _wantOnline = false;
+                    _status = "BANNED from online play: " + why;
+                    Log(_status, true);
+                    RagoGame.I?.Player?.Hud?.Center("BANNED FROM ONLINE PLAY\n<size=34>" + why + "</size>", 8f);
+                    break;
+                }
+                case P.Wipe:
+                {
+                    Log("your progress was wiped by the server owner", true);
+                    Profile.Current?.Wipe();
+                    RagoGame.I?.Player?.Hud?.Center("YOUR PROGRESS WAS WIPED\n<size=34>by the server owner</size>", 6f);
+                    if (RagoGame.I != null && (RagoGame.I.Area == Area.Bunker || RagoGame.I.Area == Area.Market)) { RagoGame.SkipHubSave = true; RagoGame.I.GoTo(Area.Bunker); }   // reload the (now empty) bunker without saving the old one back
+                    break;
+                }
+                case P.Kicked:
+                {
+                    string why = r.Str();
+                    Log("kicked: " + why, true);
+                    ClearRoom();
+                    RagoGame.I?.Player?.Toast("Kicked from the Market: " + why);
+                    if (RagoGame.I != null && RagoGame.I.Area == Area.Market) RagoGame.I.GoTo(Area.Bunker);
+                    break;
+                }
+                case P.ModReply: LastModReply = r.Str(); RagoGame.I?.Player?.Toast(LastModReply); break;
+                case P.Found:
+                {
+                    int id = r.I32(); int cnt = r.U16(); var names = new List<string>();
+                    for (int i = 0; i < cnt; i++) names.Add(r.Str());
+                    if (id == _searchId) { var cb = _searchCb; _searchCb = null; cb?.Invoke(names); }
+                    break;
+                }
                 case P.Pong: { float sent = r.F32(); _serverRtt = Mathf.Max(0f, Time.realtimeSinceStartup - sent); break; }
                 case P.Joined:
                 {
