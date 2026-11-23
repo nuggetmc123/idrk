@@ -443,10 +443,15 @@ namespace RagoServer
                 sb.Append("</table>");
             }
             // players: online, or search everyone seen
-            sb.Append("<h2>Players</h2><form method=get class=inl><input name=q value='").Append(H(q)).Append("' placeholder='search a callsign (e.g. nug)' size=26> <button>Search</button></form>");
+            sb.Append("<h2>Players (").Append(Players.Count).Append(" with an account, ").Append(Clients.Values.Count(c => !string.IsNullOrEmpty(c.Key))).Append(" online)</h2><form method=get class=inl><input name=q value='").Append(H(q)).Append("' placeholder='search a callsign (e.g. nug)' size=26> <button>Search</button></form>");
             IEnumerable<Known> list;
             if (!string.IsNullOrWhiteSpace(q)) { var names = SearchNames(q, 30); list = names.Select(n => OnlineByName(n) is Client oc && !string.IsNullOrEmpty(oc.Key) && Players.TryGetValue(oc.Key, out var ok) ? ok : KnownByName(n)).Where(k => k != null).Distinct(); }
-            else list = Clients.Values.Where(c => !string.IsNullOrEmpty(c.Key) && Players.ContainsKey(c.Key)).Select(c => Players[c.Key]);
+            else
+            {
+                // everyone with a callsign who has played on 2.59 or newer: online first, then by when they were last on
+                var onKeys = new HashSet<string>(Clients.Values.Where(c => !string.IsNullOrEmpty(c.Key)).Select(c => c.Key));
+                list = Players.Values.OrderByDescending(k => onKeys.Contains(k.Key)).ThenByDescending(k => k.Seen).Take(300);
+            }
             sb.Append("<table><tr><th>Callsign</th><th>Where</th><th>Last seen</th><th>Actions</th></tr>");
             int rows = 0;
             foreach (var k in list)
@@ -471,7 +476,7 @@ namespace RagoServer
                 sb.Append("<tr><td><b>").Append(H(oc.Name)).Append("</b> <span class='tag red'>OLD VERSION</span></td><td>online</td><td>now</td><td class=dim>on game ").Append(H(oc.Ver.Replace("_v", "v").Replace('_', '.')))
                   .Append(" - needs 2.59 or newer before they can be made a mod, banned or wiped</td></tr>");
             }
-            if (rows == 0) sb.Append("<tr><td colspan=4 class=dim>").Append(string.IsNullOrWhiteSpace(q) ? "Nobody online right now - search to find anyone who's played." : "No callsign matches. Only players who have connected with game version 2.59 or newer can be found (older versions don't send an id).").Append("</td></tr>");
+            if (rows == 0) sb.Append("<tr><td colspan=4 class=dim>").Append(string.IsNullOrWhiteSpace(q) ? "Nobody has played on game version 2.59 or newer yet." : "No callsign matches. Only players who have connected with game version 2.59 or newer can be found (older versions don't send an id).").Append("</td></tr>");
             sb.Append("</table>");
             // bans
             sb.Append("<h2>Bans (").Append(Bans.Count).Append(")</h2>");

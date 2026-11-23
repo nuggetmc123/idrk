@@ -230,6 +230,42 @@ namespace Rago
             return true;
         }
 
+        // ---- creator cam (helmet camera, right side): one button - record
+        public bool CamWorn, CamRec;
+        public Vector3 CamPoint => _p.Head.position + _p.Head.right * 0.13f + _p.Head.up * 0.04f;
+
+        public bool TryWearCam(Item cam, Hand h)
+        {
+            if (CamWorn || Vector3.Distance(cam.transform.position, _p.Head.position) > 0.3f) return false;
+            if (Helmet == null) { _p.Toast("The Creator Cam clips onto a helmet - put a helmet on first"); return false; }
+            CamWorn = true; CamRec = false;
+            cam.Consumed = true; Destroy(cam.gameObject);
+            Sfx.Play(Synth.Zipper(), _p.Head.position, 0.45f, 1.6f, 0.5f, 6f);
+            h.Haptic(0.4f, 0.1f);
+            _p.Toast("Creator Cam on your helmet - reach to the right side of it and pull the trigger to RECORD" + (XRInputs.VR ? "" : " (C)"));
+            Changed();
+            return true;
+        }
+
+        public Item TakeOffCam(Vector3 p, Quaternion rot)
+        {
+            if (!CamWorn) return null;
+            SetRec(false); CamWorn = false;
+            Sfx.Play(Synth.Zipper(), p, 0.4f, 1.5f, 0.5f, 6f);
+            Changed();
+            return ItemFactory.Spawn("cc_cam", p, rot);
+        }
+
+        public void ToggleRec() { if (CamWorn) { SetRec(!CamRec); Sfx.Play(Synth.Beep(), _p.Head.position, 0.3f, CamRec ? 1.4f : 0.9f, 0.3f, 4f); Changed(); } }
+        void SetRec(bool on)
+        {
+            on = on && CamWorn;
+            if (on == CamRec) return;
+            CamRec = on;
+            CreatorCamRecorder.Set(_p, on);
+            _p.Toast(on ? "REC - recording" : "Recording stopped");
+        }
+
         // ---- night vision goggles
         public bool NvgWorn, NvgOn;
         public Vector3 NvgPoint => _p.Head.position + _p.Head.forward * 0.09f + _p.Head.up * 0.05f;
@@ -276,6 +312,7 @@ namespace Rago
             var it = ItemFactory.Spawn(d.id, p, rot);
             // the goggles come off with the helmet (they're mounted on it): they drop just below it
             if (slot == ArmorSlot.Helmet && NvgWorn) { NvgWorn = false; SetNvg(false); ItemFactory.Spawn("nvg", p + Vector3.down * 0.15f, rot); }
+            if (slot == ArmorSlot.Helmet && CamWorn) { SetRec(false); CamWorn = false; ItemFactory.Spawn("cc_cam", p + Vector3.down * 0.2f, rot); }
             Sfx.Play(Synth.Zipper(), p, 0.45f, 1.1f, 0.5f, 6f);
             Changed();
             return it;
@@ -314,6 +351,7 @@ namespace Rago
             Vector3 hp = _p.Head.position;
             // night vision: grab it at your forehead
             if (NvgWorn && Vector3.Distance(p, NvgPoint) < 0.13f) return TakeOffNvg(p, h.Anchor.rotation);
+            if (CamWorn && Vector3.Distance(p, CamPoint) < 0.1f) return TakeOffCam(p, h.Anchor.rotation);
             if (Helmet != null && (Vector3.Distance(p, HeadTop) < 0.19f || (Vector3.Distance(p, hp) < 0.18f && p.y > hp.y + 0.02f)))
                 return TakeOff(ArmorSlot.Helmet, p, h.Anchor.rotation);
             if (Vest != null && Vector3.Distance(p, VestGrab) < 0.17f) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);
@@ -340,6 +378,7 @@ namespace Rago
             l.pack = packOnMe ? Pack.SaveContents() : new List<ItemData>();
             l.helmet = Helmet != null ? Helmet.id : "";
             l.nvg = NvgWorn;
+            l.cam = CamWorn;
             l.vest = Vest != null ? Vest.id : "";
             // items held in hands go to the best matching slot
             foreach (var hand in new[] { _p.HandL, _p.HandR })
@@ -394,6 +433,7 @@ namespace Rago
             }
             Helmet = string.IsNullOrEmpty(l.helmet) ? null : Db.Get<ArmorDef>(l.helmet);
             NvgWorn = l.nvg; SetNvg(false);
+            CamWorn = l.cam; SetRec(false);
             Vest = string.IsNullOrEmpty(l.vest) ? null : Db.Get<ArmorDef>(l.vest);
             Changed();
             if (l.ammo != null) for (int i = 0; i < Mathf.Min(Ammo.Length, l.ammo.Length); i++) Ammo[i] = l.ammo[i];
@@ -419,6 +459,7 @@ namespace Rago
             if (!string.IsNullOrEmpty(l.helmet)) all.Add(new ItemData(l.helmet));
             if (!string.IsNullOrEmpty(l.vest)) all.Add(new ItemData(l.vest));
             if (l.nvg) all.Add(new ItemData("nvg"));
+            if (l.cam) all.Add(new ItemData("cc_cam"));
             return all;
         }
 
@@ -508,6 +549,7 @@ namespace Rago
         public List<ItemData> pack = new List<ItemData>();
         public string helmet = "", vest = "";      // worn armour (ArmorDef ids, "" = none)
         public bool nvg;                           // night vision goggles worn
+        public bool cam;                           // creator cam on the helmet
         public int[] ammo;
     }
 

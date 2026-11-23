@@ -588,6 +588,7 @@ namespace Rago
             foreach (var b in Db.Packs) if (b.rarity <= Rarity.Epic) arms.stock.Add(b.id);
             foreach (var ar in Db.Armor) if (ar.rarity <= Rarity.Epic) arms.stock.Add(ar.id);
             arms.stock.Add("nvg");
+            arms.stock.Add("cc_cam");   // the creator cam: Mara sells it (and it turns up in raids)
             arms.buys = d => d.kind == ItemKind.Gun || d.kind == ItemKind.Sight || d.kind == ItemKind.Attachment || d.kind == ItemKind.Armor || d.kind == ItemKind.Backpack || d.kind == ItemKind.Magazine || d.kind == ItemKind.Ammo || d.kind == ItemKind.Throwable;
             var medic = new TraderDef { name = "Doc Hale", title = "Medic - meds & stims", outfit = Outfit.Medic, color = new Color(0.8f, 0.2f, 0.2f), sellRate = 0.6f };
             foreach (var m in Db.Misc) if (m.kind == ItemKind.Med) medic.stock.Add(m.id);

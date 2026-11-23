@@ -48,6 +48,29 @@ namespace Rago
         public bool Sprinting { get; private set; }
         public bool Crouched;
         public static bool SmoothTurn = false;
+        /// <summary>Comfort: auto sprint; seated mode; height calibration. All from the profile.</summary>
+        public static bool AutoSprint => Profile.Current != null && Profile.Current.autoSprint;
+        public static bool Seated => Profile.Current != null && Profile.Current.seated;
+        /// <summary>How far your view (and hands) are lifted: your calibrated height, or in seated mode up to standing height.</summary>
+        public static float Lift
+        {
+            get
+            {
+                var p = Profile.Current; if (p == null) return 0f;
+                return p.seated ? (p.seatCal >= 0f ? p.seatCal : 0.5f) : p.heightCal;
+            }
+        }
+        /// <summary>Calibrate: stand (or sit) up straight - this makes your eyes line up with your operator's.</summary>
+        public static string Calibrate()
+        {
+            var p = Profile.Current; if (p == null || !XRInputs.VR) return "Calibration is for VR headsets";
+            float eyes = XRInputs.HeadPos.y;
+            if (eyes < 0.3f) return "Couldn't read your height - try again";
+            float cal = Mathf.Clamp(1.64f - eyes, -0.5f, 1.2f);
+            if (p.seated) p.seatCal = cal; else p.heightCal = cal;
+            p.Save();
+            return (p.seated ? "Seated" : "Standing") + " height calibrated (eyes at " + eyes.ToString("0.00") + " m)";
+        }
         public static float SnapAngle = 45f;
         public static float MoveSpeed = 2.3f, SprintSpeed = 4.6f;
         float _vy, _snapCooldown, _stepDist, _deathT;
@@ -55,7 +78,7 @@ namespace Rago
         float _fallSpeed, _lastPlanar;
         bool _wasGrounded = true, _leftFoot;
         Vector3 _lastHead;
-        float _crouchOffset;
+        float _crouchOffset, _autoSprintT;
         public bool Frozen;
         float _smoothY;
 
@@ -129,7 +152,7 @@ namespace Rago
 
         void ApplyHead()
         {
-            Head.localPosition = XRInputs.HeadPos + Vector3.down * _crouchOffset;
+            Head.localPosition = XRInputs.HeadPos + Vector3.up * ((XRInputs.VR ? Lift : 0f) - _crouchOffset);
             Head.localRotation = XRInputs.HeadRot;
         }
 
@@ -305,7 +328,7 @@ namespace Rago
             if (XRInputs.VR)
             {
                 // the stick-click crouch lowers your view, so it lowers your hands by the same amount
-                Vector3 down = Vector3.down * _crouchOffset;
+                Vector3 down = Vector3.up * (Lift - _crouchOffset);   // (and the height calibration / seated lift raises both)
                 lp = Origin.TransformPoint(XRInputs.Left.Position) + down;
                 lr = Origin.rotation * XRInputs.Left.Rotation;
                 rp = Origin.TransformPoint(XRInputs.Right.Position) + down;
@@ -379,6 +402,7 @@ namespace Rago
             if (Desktop.Reload && gun != null) Gear.DesktopReload(gun);
             try { if (gun != null && Input.GetKeyDown(KeyCode.L)) gun.ToggleSide(); } catch { }   // desktop: L switches the light / laser
             try { if (Input.GetKeyDown(KeyCode.V)) Gear.ToggleNvg(); } catch { }                  // desktop: V flips the night vision
+            try { if (Input.GetKeyDown(KeyCode.C) && !Desktop.Typing) Gear.ToggleRec(); } catch { }   // desktop: C records with the creator cam
             if (Desktop.Equip >= 0) Gear.DesktopEquip(Desktop.Equip);
             if (Desktop.Backpack) Gear.DesktopBackpack();
             if (Desktop.Armor) Gear.DesktopArmor();
@@ -641,6 +665,8 @@ namespace Rago
             if (move.magnitude < 0.15f) move = Vector2.zero;
             // sprint: click the left stick, stays on while you keep moving forward
             if (XRInputs.VR) { if (XRInputs.Left.StickClickDown) _sprintLatch = !_sprintLatch; if (move.magnitude < 0.2f) _sprintLatch = false; }
+            // auto sprint: push the stick right forward for a moment and you break into a run by yourself
+            if (AutoSprint) { _autoSprintT = move.y > 0.85f ? _autoSprintT + dt : 0f; if (_autoSprintT > 0.35f) _sprintLatch = true; }
             else _sprintLatch = Desktop.Sprint;
             Sprinting = _sprintLatch && move.y > 0.3f && Vitals.Stamina > 1f && !Crouched && Vitals.CanSprint;
             // crouch toggle: right stick click (and physically crouching always works)

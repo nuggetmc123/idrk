@@ -256,7 +256,7 @@ namespace Rago
         TextMesh _toast, _center, _objective, _queue;
         float _toastT, _centerT;
         float _netTextT;
-        TextMesh _wristTimer, _wristHp, _wristInfo, _wristAmmo, _wristMsg, _wristQueue;
+        TextMesh _wristTimer, _wristHp, _wristInfo, _wristAmmo, _wristMsg, _wristQueue, _wristRec;
         float _msgT;
         Transform _wrist;
         public string RaidTimer = "";
@@ -312,6 +312,7 @@ namespace Rago
             _wristInfo = UI.Text(_wrist, "", new Vector3(-0.032f, -0.004f, -0.008f), 0.0062f, UI.Dim, TextAnchor.MiddleLeft);
             _wristAmmo = UI.Text(_wrist, "", new Vector3(-0.032f, -0.017f, -0.008f), 0.0062f, UI.Accent, TextAnchor.MiddleLeft);
             _wristQueue = UI.Text(_wrist, "", new Vector3(-0.032f, -0.027f, -0.008f), 0.0058f, new Color(0.55f, 1f, 0.6f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            _wristRec = UI.Text(_wrist, "", new Vector3(0.03f, 0.028f, -0.008f), 0.0062f, new Color(1f, 0.2f, 0.2f), TextAnchor.MiddleRight, FontStyle.Bold);
             _wristMsg = UI.Text(_wrist, "", new Vector3(-0.032f, -0.033f, -0.008f), 0.0052f, new Color(1f, 0.9f, 0.6f), TextAnchor.UpperLeft);
             _wristMsg.richText = true;
             BuildBodyMap();
@@ -568,6 +569,7 @@ namespace Rago
             if (_queueTimer && QueueText != null) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); QueueText.text = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
             _centerT -= dt; if (_centerT <= 0) _center.text = "";
             NvgTick();
+            if (_wristRec != null) _wristRec.text = CreatorCamRecorder.Since >= 0f ? ((Mathf.FloorToInt(Time.unscaledTime * 2f) % 2 == 0 ? "\u25CF " : "   ") + "REC " + CreatorCamRecorder.Clock()) : "";
             _crosshair.SetActive(!XRInputs.VR && !Desktop.Aiming && v.Alive);
             // wrist
             _wristHp.text = Mathf.CeilToInt(v.Health) + " HP" + (v.Bleed > 0 ? " <color=#ff4040>+</color>" : "");   // short, so the raid timer fits on the same row

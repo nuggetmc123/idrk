@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.63", "Creator Cam, comfort settings", new[] {
+                "CREATOR CAM (for content creators): an action camera that clips onto the right side of your helmet (hold it to your helmet and let go). One button: reach to it with an empty hand and pull the trigger to RECORD / stop (desktop: C). While recording its red light glows for everyone to see and your watch shows a blinking REC and the time. On PC the game window shows the camera's steady first-person view to capture with OBS; on a Quest, use the headset's own Record. Sold by Mara, found in raids, and in the tester spawn board (OTHER).",
+                "AUTO SPRINT (menu > SETTINGS > MORE): push the stick right forward and you break into a run by yourself.",
+                "SEATED / STANDING mode (SETTINGS > MORE): play sitting down - your operator still stands at full height (use the crouch button to crouch).",
+                "HEIGHT CALIBRATION (SETTINGS > MORE): stand (or sit) up straight, press CALIBRATE and keep still for 3 seconds - your eyes line up with your operator's, so your hands, body and gun all sit right. Separate for seated and standing; RESET HEIGHT undoes it.",
+            }),
             ("2.62", "Black market always open, Deliveries screen", new[] {
                 "BLACK MARKET SHOPS STAY OPEN: on our game server every player's shop is kept on the server, so you can buy from (or trade with) anyone's shop even when they're offline - it says \"owner offline - still open\". They get the money or your items next time they play. Nothing can be bought twice.",
                 "DELIVERIES screen in your bunker (west wall of the main hall, where the Lost & Found used to be): everything you buy or trade for - black market, traders, DLC store - and anything taken off your shop waits there with where it came from. Press TAKE and it comes out on the shelf underneath. Your sales show up too (\"SOLD ... for $\") - press OK to clear them.",

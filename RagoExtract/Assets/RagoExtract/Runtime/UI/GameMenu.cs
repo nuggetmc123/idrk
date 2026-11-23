@@ -88,6 +88,7 @@ namespace Rago
             if (_refresh <= 0f) { _refresh = 1.5f; if (!_typing) _dirty = true; }
             if (Time.unscaledTime > _pendT) { _pendT = Time.unscaledTime + 3f; CheckPending(); }
             SearchTick();
+            CalTick();
             if (_dirty) { _dirty = false; Rebuild(); }
         }
 
@@ -455,10 +456,13 @@ namespace Rago
             if (!string.IsNullOrEmpty(RelayBackend.LastModReply)) Line(UI.Wrap(RelayBackend.LastModReply, 60), y, 0.024f, new Color(0.6f, 1f, 0.65f));
         }
 
+        float _calT = -1f;
         void DrawSettings()
         {
             var p = Profile.Current;
             float y = 0.2f;
+            Btn(_page == 0 ? "MORE >" : "< BACK", 0.42f, -0.39f, 0.2f, () => { _page = _page == 0 ? 1 : 0; });
+            if (_page == 1) { DrawComfort(p); return; }
             Line("Grip angle:  " + Hand.GripPitch + " deg", y); Btn("-", 0.25f, y, 0.1f, () => { Hand.GripPitch -= 5; SaveSettings(); }); Btn("+", 0.4f, y, 0.1f, () => { Hand.GripPitch += 5; SaveSettings(); }); y -= 0.085f;
             Line("Turning:  " + (PlayerRig.SmoothTurn ? "Smooth" : "Snap " + PlayerRig.SnapAngle), y);
             Btn("MODE", 0.25f, y, 0.14f, () => { PlayerRig.SmoothTurn = !PlayerRig.SmoothTurn; SaveSettings(); });
@@ -487,6 +491,31 @@ namespace Rago
                 Line("Recent errors (send these if something breaks):", y, 0.022f, new Color(1f, 0.5f, 0.4f)); y -= 0.04f;
                 for (int i = Mathf.Max(0, ErrorLog.Recent.Count - 3); i < ErrorLog.Recent.Count; i++) { Line(UI.Wrap(ErrorLog.Recent[i], 70), y, 0.017f, new Color(1f, 0.75f, 0.7f)); y -= 0.05f; }
             }
+        }
+
+        /// <summary>Settings page 2: auto sprint, seated / standing, height calibration.</summary>
+        void DrawComfort(Profile p)
+        {
+            if (p == null) return;
+            float y = 0.2f;
+            Line("Auto sprint:  " + (p.autoSprint ? "ON - push the stick right forward to run" : "OFF - click the left stick to run"), y, 0.026f);
+            Btn(p.autoSprint ? "ON" : "OFF", 0.42f, y, 0.16f, () => { p.autoSprint = !p.autoSprint; p.Save(); }, p.autoSprint ? Go : (Color?)null); y -= 0.1f;
+            Line("Play mode:  " + (p.seated ? "SEATED - you sit, your operator stands" : "STANDING"), y, 0.026f);
+            Btn(p.seated ? "SEATED" : "STANDING", 0.4f, y, 0.2f, () => { p.seated = !p.seated; p.Save(); }); y -= 0.1f;
+            Line("Height:  " + (p.seated ? (p.seatCal >= 0f ? "calibrated (+" + p.seatCal.ToString("0.00") + " m)" : "default lift (+0.50 m)") : (Mathf.Abs(p.heightCal) > 0.005f ? "calibrated (" + (p.heightCal >= 0 ? "+" : "") + p.heightCal.ToString("0.00") + " m)" : "not calibrated")), y, 0.026f);
+            Btn(_calT >= 0f ? "..." + Mathf.CeilToInt(_calT) : "CALIBRATE", 0.38f, y, 0.24f, () => { if (_calT < 0f) _calT = 3f; }, Go); y -= 0.08f;
+            Line(p.seated ? "Sit up straight, look ahead, press CALIBRATE and keep still for 3 seconds." : "Stand up straight, look ahead, press CALIBRATE and keep still for 3 seconds.", y, 0.022f, UI.Dim); y -= 0.06f;
+            Btn("RESET HEIGHT", -0.3f, y, 0.3f, () => { if (p.seated) p.seatCal = -1f; else p.heightCal = 0f; p.Save(); }); y -= 0.1f;
+            Line("Calibrating lines your eyes up with your operator's, so your hands, body and gun all sit right.", y, 0.02f, UI.Dim);
+        }
+
+        void CalTick()
+        {
+            if (_calT < 0f) return;
+            float before = _calT;
+            _calT -= Time.unscaledDeltaTime;
+            if (Mathf.CeilToInt(before) != Mathf.CeilToInt(_calT)) { _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }
+            if (_calT <= 0f) { _calT = -1f; string res = PlayerRig.Calibrate(); RagoGame.I?.Player?.Toast(res); Sfx.UI(Synth.QueueFound(), 0.4f); _dirty = true; }
         }
 
         static void SaveSettings()

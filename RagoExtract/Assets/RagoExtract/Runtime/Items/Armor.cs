@@ -310,7 +310,9 @@ namespace Rago
 
         public static void Dress(HumanRig rig, ArmorDef helmet, ArmorDef vest, BackpackDef pack, bool local) => Dress(rig, helmet, vest, pack, local, 0);
         /// <param name="nvg">0 none, 1 goggles flipped up, 2 flipped down</param>
-        public static void Dress(HumanRig rig, ArmorDef helmet, ArmorDef vest, BackpackDef pack, bool local, int nvg)
+        public static void Dress(HumanRig rig, ArmorDef helmet, ArmorDef vest, BackpackDef pack, bool local, int nvg) => Dress(rig, helmet, vest, pack, local, nvg, 0);
+        /// <param name="cam">creator cam on the helmet: 0 none, 1 on, 2 recording (red light)</param>
+        public static void Dress(HumanRig rig, ArmorDef helmet, ArmorDef vest, BackpackDef pack, bool local, int nvg, int cam)
         {
             foreach (var g in rig.gearVisuals) if (g != null) { rig.headRenderers.Remove(g.GetComponent<Renderer>()); Compat.Kill(g); }
             rig.headRenderers.RemoveAll(r => r == null);
@@ -322,6 +324,15 @@ namespace Rago
                 var g = Attach(hm, rig.head, "Helmet", local);
                 rig.gearVisuals.Add(g);
                 if (local) rig.headRenderers.Add(g.GetComponent<Renderer>());
+                if (cam > 0)
+                {
+                    // the creator cam on the right side of the helmet, lens forward
+                    var holder = new GameObject("CreatorCam").transform; holder.SetParent(rig.head, false);
+                    holder.localPosition = new Vector3(0.135f, 0.12f, 0.03f);
+                    var cm = CamItem.Model(holder, cam == 2);
+                    rig.gearVisuals.Add(holder.gameObject);
+                    if (local) foreach (var rr in holder.GetComponentsInChildren<Renderer>()) { rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly; rig.headRenderers.Add(rr); }
+                }
             }
             if (vest != null)
             {

@@ -401,6 +401,7 @@ namespace Rago
             trauma.heal = 90; trauma.stopsBleed = true; trauma.healTime = 5f;
             var stim = M("stim", "Adrenal Stim", ItemKind.Med, R, 1200, 2, new Color(0.2f, 0.75f, 0.9f), "Instant 30 HP and a burst of stamina.");
             // night vision goggles: put them on your head, flip them down with an empty hand at your forehead + trigger
+            M("cc_cam", "Creator Cam", ItemKind.Valuable, Rarity.Epic, 6000, 0, new Color(0.08f, 0.08f, 0.09f), "A helmet camera for content creators. Hold it to your helmet and let go to clip it on (right side). One button: reach to it with an empty hand and pull the trigger to RECORD / stop (desktop: C). Grab it to take it off.");
             M("nvg", "PNV-10 Night Vision", ItemKind.Valuable, Rarity.Epic, 9500, 0, new Color(0.18f, 0.2f, 0.17f), "Night vision goggles. Hold them to your head and let go to wear them; reach to your forehead with an empty hand and pull the trigger to flip them down / up (desktop: V). Grab at your forehead to take them off.");
             // energy drinks: hold the can to your mouth and pull the trigger
             var volt = M("energy_volt", "Volt Energy", ItemKind.Med, C, 260, 5, new Color(0.35f, 0.85f, 0.2f), "Energy drink. Full stamina and faster sprinting for 30 s, +5 HP.");

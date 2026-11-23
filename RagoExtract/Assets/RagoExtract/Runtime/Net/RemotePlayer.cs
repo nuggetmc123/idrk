@@ -121,7 +121,7 @@ namespace Rago
             _gear = key;
             var parts = key.Split('|');
             string P(int i) => parts.Length > i ? parts[i] : "";
-            ArmorBuilder.Dress(_rig, Db.Get<ArmorDef>(P(0)), Db.Get<ArmorDef>(P(1)), Db.Get<BackpackDef>(P(2)), false, P(3) == "2" ? 2 : P(3) == "1" ? 1 : 0);
+            ArmorBuilder.Dress(_rig, Db.Get<ArmorDef>(P(0)), Db.Get<ArmorDef>(P(1)), Db.Get<BackpackDef>(P(2)), false, P(3) == "2" ? 2 : P(3) == "1" ? 1 : 0, P(4) == "2" ? 2 : P(4) == "1" ? 1 : 0);
             _tapeDirty = true;   // the name tape moves onto (or off) the vest - next frame, once the old vest is gone
         }
 

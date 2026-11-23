@@ -188,7 +188,7 @@ namespace Rago
         {
             var g = p.Gear;
             var pack = g.PackSlot.item as Backpack;
-            return (g.Helmet != null ? g.Helmet.id : "") + "|" + (g.Vest != null ? g.Vest.id : "") + "|" + (pack != null ? pack.def.id : "") + "|" + (g.NvgWorn ? (g.NvgOn ? "2" : "1") : "0");
+            return (g.Helmet != null ? g.Helmet.id : "") + "|" + (g.Vest != null ? g.Vest.id : "") + "|" + (pack != null ? pack.def.id : "") + "|" + (g.NvgWorn ? (g.NvgOn ? "2" : "1") : "0") + "|" + (g.CamWorn ? (g.CamRec ? "2" : "1") : "0");
         }
 
         /// <summary>Introduce yourself to everyone (after you stop spectating).</summary>

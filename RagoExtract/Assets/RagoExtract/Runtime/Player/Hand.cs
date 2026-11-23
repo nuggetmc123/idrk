@@ -245,6 +245,9 @@ namespace Rago
             // night vision: an empty hand at your forehead + trigger flips the goggles down / up
             if (Held == null && Racking == null && input.TriggerDown && rig.Gear.NvgWorn && Vector3.Distance(TrackedPosition, rig.Gear.NvgPoint) < 0.16f)
                 rig.Gear.ToggleNvg();
+            // creator cam: an empty hand at the right side of your helmet + trigger = RECORD / stop
+            else if (Held == null && Racking == null && input.TriggerDown && rig.Gear.CamWorn && Vector3.Distance(TrackedPosition, rig.Gear.CamPoint) < 0.12f)
+                rig.Gear.ToggleRec();
             // rack with the free hand on the slide / charging handle: hold the TRIGGER (or grip), pull back, let go
             if (Racking == null && Held == null && _interact == null && input.TriggerDown && Other.Held is Gun rg && !Other.HeldAsSecondary && rg.TryStartRack(this))
             {
