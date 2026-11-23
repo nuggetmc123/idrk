@@ -11,7 +11,7 @@ namespace Rago
     public class Grenade : Item
     {
         public bool Flash, Impact;
-        float _releasedT = -1f;
+        float _releasedT = -1f, _battedT = -10f;
         bool _armed;
         float _fuse;
         Transform _pin;
@@ -84,6 +84,19 @@ namespace Rago
             }
         }
 
+        /// <summary>Hit with a bat (or any blunt melee weapon): flies off along the swing.</summary>
+        public bool Batted(Vector3 vel)
+        {
+            if (primaryHand != null || slot != null || rb == null || Time.time - _battedT < 0.25f) return false;
+            _battedT = Time.time;
+            if (_releasedT < 0f) _releasedT = Time.time - 1f;   // counts as thrown
+            rb.isKinematic = false;
+            rb.SetVel(vel);
+            rb.angularVelocity = Random.insideUnitSphere * 15f;
+            Sfx.Play(Synth.Impact(Synth.Surface.Wood, Random.Range(0, 3)), transform.position, 1f, 1.3f, 1f, 30f);
+            return true;
+        }
+
         /// <summary>Armed by something else (a booby-trapped Christmas present): goes off after this many seconds.</summary>
         public void ArmNow(float fuse) { bool h = _hinted; _hinted = true; Arm(); _hinted = h; _fuse = fuse; }
 
@@ -100,7 +113,9 @@ namespace Rago
         void OnCollisionEnter(Collision c)
         {
             // impact grenade: armed and thrown (out of your hand a moment) - goes off on the first real hit
-            if (Impact && _armed && primaryHand == null && _releasedT > 0f && Time.time - _releasedT > 0.12f && c.relativeVelocity.sqrMagnitude > 4f) { _fuse = 0f; return; }
+            // a bat hit sends it flying - that hit never sets off an impact grenade (whatever it hits next does)
+            if (c.collider != null && c.collider.GetComponentInParent<Knife>() != null) return;
+            if (Impact && _armed && Time.time - _battedT > 0.08f && primaryHand == null && _releasedT > 0f && Time.time - _releasedT > 0.12f && c.relativeVelocity.sqrMagnitude > 4f) { _fuse = 0f; return; }
             if (Time.time < _bounceT || c.relativeVelocity.sqrMagnitude < 1.2f) return;
             _bounceT = Time.time + 0.12f;
             Sfx.Play(Synth.GrenadeBounce(Random.Range(0, 3)), transform.position, Mathf.Clamp01(c.relativeVelocity.magnitude / 6f) * 0.8f, 1f + Random.Range(-0.08f, 0.08f), 1f, 25f);
@@ -258,6 +273,13 @@ namespace Rago
                         Vector3 d = b - a; float len = d.magnitude;
                         if (len < 0.001f) continue;
                         int n = Physics.SphereCastNonAlloc(a, Blunt ? 0.035f : 0.012f, d / len, _hits, len, ~0, QueryTriggerInteraction.Collide);
+                        for (int i = 0; i < n; i++)
+                            if (Blunt && _hits[i].collider != null && _hits[i].collider.GetComponentInParent<Grenade>() is Grenade gr)
+                            {
+                                // batting practice: knock a grenade away (fast swings send it far)
+                                Vector3 sw = (d / len) * Mathf.Clamp(speed * 2.2f, 8f, 35f) + Vector3.up * 2f;
+                                if (gr.Batted(sw)) h.Haptic(1f, 0.1f);
+                            }
                         for (int i = 0; i < n; i++) if (TryHit(_hits[i].collider, _hits[i].point == Vector3.zero ? b : _hits[i].point, d / len, speed, h)) { s = 3; break; }
                     }
                 }

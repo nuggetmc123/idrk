@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.51", "Batting practice", new[] {
+                "Hit a grenade with the baseball bat (or any blunt weapon - crowbar, sledgehammer, pan, candy cane) and it goes flying along your swing - the faster you swing, the further it goes. Toss one up and swing!",
+                "An impact grenade doesn't go off from the bat hit itself - it goes off on whatever it hits next.",
+            }),
             ("2.50", "Melee around the maps, free DLC", new[] {
                 "Melee weapons lie around every raid map now (6 a raid, 4 in the Underground): bats, crowbars and frying pans are common, machetes less so, fire axes and sledgehammers rare. They're still in loot crates and Mara still sells them.",
                 "Every DLC STORE pack is FREE for now - press GET.",
