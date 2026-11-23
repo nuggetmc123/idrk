@@ -115,6 +115,7 @@ namespace RagoServer
                 if (Mods.ContainsKey(c.Key)) { Mods[c.Key] = c.Name; Send(c, new W(P.Role).U8(1).Frame()); }
                 if (Wipes.Remove(c.Key)) { Send(c, new W(P.Wipe).Frame()); SaveWipes(); Note("wiped " + c.Name + " (on connect)"); }
                 DeliverSales(c);   // black market sales made while they were away
+                DeliverGifts(c);   // things the owner gave them while they were away
             }
             return true;
         }
@@ -392,6 +393,7 @@ namespace RagoServer
                 case "unban": { var b = Bans.FirstOrDefault(x => x.Key == key); return b == null ? "Not banned" : DoUnban(b.Key, b.Name, "owner"); }
                 case "wipe": { var k = K(); if (k == null) return "Unknown player"; return DoWipe(k.Key, k.Name, "owner"); }
                 case "kick": { var k = K(); if (k == null) return "Unknown player"; return DoKick(k.Key, k.Name, reason, "owner"); }
+                case "trophy": { var k = K(); if (k == null) return "Unknown player"; return GiveItem(k.Key, k.Name, "cc_trophy", "CC Trophy", "from the owner - thanks for the videos!"); }
                 case "event":
                 {
                     byte.TryParse(G("kind"), out byte kind); int.TryParse(G("minutes"), out int mins);
@@ -473,6 +475,7 @@ namespace RagoServer
                 sb.Append(Btn(sess, "wipe", k.Key, "Wipe", "", "orange"));
                 if (on != null && InMarket(on)) sb.Append(Btn(sess, "kick", k.Key, "Kick from Market"));
                 sb.Append(mod ? Btn(sess, "unmod", k.Key, "Remove mod") : Btn(sess, "mod", k.Key, "Make mod"));
+                sb.Append(Btn(sess, "trophy", k.Key, "Give CC trophy", "", "green"));
                 sb.Append("</td></tr>");
             }
             // players on an OLD game version (before 2.59) don't send an id, so they can't be banned or made mods - show them anyway

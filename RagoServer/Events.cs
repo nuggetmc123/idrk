@@ -53,5 +53,31 @@ namespace RagoServer
             if (string.IsNullOrEmpty(c.Key) || !Mods.ContainsKey(c.Key)) { Send(c, new W(P.ModReply).Str("You're not a moderator.").Frame()); return; }
             Send(c, new W(P.ModReply).Str(StartEvent(kind, minutes, c.Name)).Frame());
         }
+    
+        // ------------------------------------------------------------------ gifts from the owner (e.g. the CC trophy)
+        static void SendGift(Client c, string item, string note) => Send(c, new W(P.Gift).Str(item).Str(note).Frame());
+
+        static string GiveItem(string key, string name, string item, string label, string note)
+        {
+            var on = Clients.Values.FirstOrDefault(x => x.Key == key && !x.Refused);
+            if (on != null) SendGift(on, item, note);
+            else
+            {
+                var all = Lines("gifts.tsv").Select(f => string.Join("\t", f)).ToList();
+                all.Add(Clean(key) + "\t" + Clean(item) + "\t" + Clean(note));
+                Save("gifts.tsv", all);
+            }
+            Note("gave " + name + " a " + label + (on != null ? "" : " (waiting for them to log in)"));
+            return "Gave " + name + " a " + label + (on != null ? " - it's on their Deliveries screen" : " - they get it next time they play");
+        }
+
+        static void DeliverGifts(Client c)
+        {
+            var all = Lines("gifts.tsv").Where(f => f.Length >= 3).ToList();
+            var mine = all.Where(f => f[0] == c.Key).ToList();
+            if (mine.Count == 0) return;
+            foreach (var f in mine) SendGift(c, f[1], f[2]);
+            Save("gifts.tsv", all.Where(f => f[0] != c.Key).Select(f => string.Join("\t", f)));
+        }
     }
 }

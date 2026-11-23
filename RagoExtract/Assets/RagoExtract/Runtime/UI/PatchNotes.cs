@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.66", "Camera, CC Trophy", new[] {
+                "The Creator Cam is now just the CAMERA - same helmet camera, same RECORD button, saves the same videos.",
+                "CC TROPHY: a gold cup on a black plinth with a red play button on the front, for content creators who make videos of the game. Only the owner gives it out - it turns up on your Deliveries screen in the bunker (if you're offline, it waits until you log in). It never drops in raids or presents.",
+            }),
             ("2.65", "Live events", new[] {
                 "LIVE EVENTS: moderators can start an event for every player on every server at once, from the MOD tab in the menu (pick the event, how long, START - STOP ends it early). The owner can start them from the web panel too. One at a time:",
                 "  DOUBLE XP - all XP counts twice.   DOUBLE CASH - the traders pay double when you sell.",

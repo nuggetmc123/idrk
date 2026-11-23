@@ -237,12 +237,12 @@ namespace Rago
         public bool TryWearCam(Item cam, Hand h)
         {
             if (CamWorn || Vector3.Distance(cam.transform.position, _p.Head.position) > 0.3f) return false;
-            if (Helmet == null) { _p.Toast("The Creator Cam clips onto a helmet - put a helmet on first"); return false; }
+            if (Helmet == null) { _p.Toast("The Camera clips onto a helmet - put a helmet on first"); return false; }
             CamWorn = true; CamRec = false;
             cam.Consumed = true; Destroy(cam.gameObject);
             Sfx.Play(Synth.Zipper(), _p.Head.position, 0.45f, 1.6f, 0.5f, 6f);
             h.Haptic(0.4f, 0.1f);
-            _p.Toast("Creator Cam on your helmet - reach to the right side of it and pull the trigger to RECORD" + (XRInputs.VR ? "" : " (C)"));
+            _p.Toast("Camera on your helmet - reach to the right side of it and pull the trigger to RECORD" + (XRInputs.VR ? "" : " (C)"));
             Changed();
             return true;
         }

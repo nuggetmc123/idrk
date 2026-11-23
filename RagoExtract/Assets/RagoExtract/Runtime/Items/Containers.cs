@@ -175,6 +175,7 @@ namespace Rago
                 case ItemKind.Attachment: it = AttachItem.Create((AttachDef)def, pos, rot); break;
                 case ItemKind.Med: it = Simple<MedItem>((SimpleDef)def, pos, rot); break;
                 case ItemKind.Valuable when def.id == "gift" || def.id == "gift_santa": it = PresentItem.Create((SimpleDef)def, pos, rot); break;
+                case ItemKind.Valuable when def.id == "cc_trophy": it = TrophyItem.Create((SimpleDef)def, pos, rot); break;
                 case ItemKind.Valuable when def.id == "cc_cam": it = CamItem.Create((SimpleDef)def, pos, rot); break;
                 case ItemKind.Valuable when def.id == "nvg": it = NvgItem.Create((SimpleDef)def, pos, rot); break;
                 case ItemKind.Throwable: it = Grenade.Create((SimpleDef)def, pos, rot); break;

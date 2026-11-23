@@ -346,6 +346,14 @@ namespace Rago
                     break;
                 }
                 case P.ModReply: LastModReply = r.Str(); RagoGame.I?.Player?.Toast(LastModReply); break;
+                case P.Gift:
+                {
+                    string id = r.Str(), note = r.Str();
+                    if (id != "cc_trophy" || Db.Get(id) == null) break;   // only what the owner hands out
+                    Profile.Deliver(new ItemData(id), note);
+                    RagoGame.I?.Player?.Toast("You got the " + Db.Get(id).name + "! It's waiting on the Deliveries screen in your bunker.");
+                    break;
+                }
                 case P.EventIn: { byte k = r.U8(); int secs = r.I32(); string by = r.Str(); LiveEvent.Set(k, secs, by); break; }
                 case P.Found:
                 {

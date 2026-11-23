@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Rago
 {
     /// <summary>
-    /// The CREATOR CAM (for content creators): a little action camera that clips onto the side of your helmet. It only
+    /// The CAMERA: a little action camera that clips onto the side of your helmet. It only
     /// has one button - RECORD. Reach to it with an empty hand and pull the trigger to start / stop (desktop: C); grab it
     /// to take it off. While it records, its red light blinks for everyone to see, your watch shows REC and the time, and
     /// the video is saved as an MP4 (Quest: Movies/Rago Extract; PC: Videos\Rago Extract). Bought from Mara, or found in raids.
@@ -366,6 +366,56 @@ namespace Rago
                 _codec = null;
                 return ok ? _name : null;
             }
+        }
+    }
+
+    /// <summary>
+    /// The CC TROPHY: a gold cup on a black plinth with a red play button on the front - the owner hands it to content
+    /// creators (owner panel > Give CC trophy, it turns up on their Deliveries screen). Just for show: it can't be sold for anything.
+    /// </summary>
+    public class TrophyItem : LootItem
+    {
+        public static TrophyItem Create(SimpleDef d, Vector3 pos, Quaternion rot)
+        {
+            var go = new GameObject(d.name);
+            go.transform.SetPositionAndRotation(pos, rot);
+            var it = go.AddComponent<TrophyItem>();
+            it.def = d;
+            Model(go.transform);
+            var col = go.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.085f, 0); col.size = new Vector3(0.13f, 0.17f, 0.09f);
+            it.localBounds = new Bounds(col.center, col.size);
+            go.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
+            it.SetupPhysics(0.9f);
+            return it;
+        }
+
+        public static GameObject Model(Transform parent)
+        {
+            var mb = new MB(3);
+            Color gold = new Color(1f, 0.78f, 0.25f), black = new Color(0.06f, 0.06f, 0.07f), red = new Color(0.9f, 0.08f, 0.08f);
+            // plinth
+            mb.Sub(1).Box(new Vector3(0, 0.017f, 0), new Vector3(0.085f, 0.034f, 0.07f), black, 0.004f);
+            mb.Sub(0).Box(new Vector3(0, 0.037f, 0), new Vector3(0.065f, 0.006f, 0.055f), gold, 0.002f);
+            // stem and cup
+            mb.Sub(0).Lathe(new Vector3(0, 0.04f, 0), Quaternion.identity, new[] {
+                new Vector2(0.022f, 0f), new Vector2(0.01f, 0.012f), new Vector2(0.007f, 0.035f), new Vector2(0.012f, 0.045f),
+                new Vector2(0.03f, 0.06f), new Vector2(0.04f, 0.085f), new Vector2(0.043f, 0.12f), new Vector2(0.04f, 0.121f), new Vector2(0.036f, 0.09f), new Vector2(0.001f, 0.075f) }, 24, gold);
+            // handles
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                mb.Sub(0).Capsule(new Vector3(sx * 0.04f, 0.15f, 0), new Vector3(sx * 0.062f, 0.14f, 0), 0.004f, 8, gold);
+                mb.Sub(0).Capsule(new Vector3(sx * 0.062f, 0.14f, 0), new Vector3(sx * 0.058f, 0.115f, 0), 0.004f, 8, gold);
+                mb.Sub(0).Capsule(new Vector3(sx * 0.058f, 0.115f, 0), new Vector3(sx * 0.034f, 0.105f, 0), 0.004f, 8, gold);
+            }
+            // the play button on the front of the plinth (+Z)
+            mb.Sub(2).Box(new Vector3(0, 0.018f, 0.0355f), new Vector3(0.05f, 0.026f, 0.003f), red, 0.003f);
+            mb.Sub(1).Push(new Vector3(0, 0.018f, 0.0375f), Quaternion.Euler(0, -90f, 0));
+            mb.Sub(1).Extrude(new[] { new Vector2(-0.006f, -0.008f), new Vector2(-0.006f, 0.008f), new Vector2(0.008f, 0f) }, 0.002f, Color.white, 0.0005f);
+            mb.Pop();
+            return mb.Build("Trophy", parent,
+                Mats.Lit("trophy_gold", Color.white, 1f, 0.85f, Mats.Metal, null, 0.05f, 0.1f),
+                Mats.Lit("trophy_base", Color.white, 0.1f, 0.6f, null, null, 0f, 0f),
+                Mats.Lit("trophy_red", Color.white, 0.1f, 0.6f, null, null, 0f, 0f, false, 0.5f, new Color(0.4f, 0.02f, 0.02f)));
         }
     }
 }
