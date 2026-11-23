@@ -460,7 +460,15 @@ namespace RagoServer
                 sb.Append(mod ? Btn(sess, "unmod", k.Key, "Remove mod") : Btn(sess, "mod", k.Key, "Make mod"));
                 sb.Append("</td></tr>");
             }
-            if (rows == 0) sb.Append("<tr><td colspan=4 class=dim>").Append(string.IsNullOrWhiteSpace(q) ? "Nobody online right now - search to find anyone who's played." : "No callsign matches.").Append("</td></tr>");
+            // players on an OLD game version (before 2.59) don't send an id, so they can't be banned or made mods - show them anyway
+            string ql = (q ?? "").Trim().ToLowerInvariant();
+            foreach (var oc in Clients.Values.Where(c => string.IsNullOrEmpty(c.Key) && c.Name != "?" && c.Ver != "check" && (ql.Length == 0 || c.Name.ToLowerInvariant().Contains(ql))))
+            {
+                rows++;
+                sb.Append("<tr><td><b>").Append(H(oc.Name)).Append("</b> <span class='tag red'>OLD VERSION</span></td><td>online</td><td>now</td><td class=dim>on game ").Append(H(oc.Ver.Replace("_v", "v").Replace('_', '.')))
+                  .Append(" - needs 2.59 or newer before they can be made a mod, banned or wiped</td></tr>");
+            }
+            if (rows == 0) sb.Append("<tr><td colspan=4 class=dim>").Append(string.IsNullOrWhiteSpace(q) ? "Nobody online right now - search to find anyone who's played." : "No callsign matches. Only players who have connected with game version 2.59 or newer can be found (older versions don't send an id).").Append("</td></tr>");
             sb.Append("</table>");
             // bans
             sb.Append("<h2>Bans (").Append(Bans.Count).Append(")</h2>");
