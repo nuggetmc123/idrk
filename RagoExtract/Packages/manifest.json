@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.meta.xr.sdk.platform": "85.0.0",
     "com.unity.modules.ai": "1.0.0",
     "com.unity.modules.androidjni": "1.0.0",
     "com.unity.modules.animation": "1.0.0",
@@ -31,5 +32,14 @@
     "com.unity.nuget.mono-cecil": "1.11.4",
     "com.unity.xr.management": "4.5.0",
     "com.unity.xr.openxr": "1.13.0"
-  }
+  },
+  "scopedRegistries": [
+    {
+      "name": "Meta",
+      "url": "https://npm.developer.oculus.com",
+      "scopes": [
+        "com.meta.xr.sdk"
+      ]
+    }
+  ]
 }

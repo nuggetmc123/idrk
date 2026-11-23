@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.73", "Meta store switched on", new[] {
+                "The Meta XR Platform SDK now comes with the project (Unity downloads it by itself when you open it), so the ownership check and real-money DLC are on in headset builds.",
+            }),
             ("2.72", "Meta store ready", new[] {
                 "Connected to the Meta Horizon Store (once the Meta XR Platform SDK is added in Unity): the game checks you own it, DLC packs are bought with real money through Meta's checkout (BUY in the DLC tab), and packs you own come back after a reinstall or on a new headset.",
             }),
