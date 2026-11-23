@@ -283,6 +283,7 @@ namespace Rago
             _flashR.enabled = false;
             _nvg = Overlay(cam, quad, 0.092f, "hud_nvg", new Color(0.02f, 0.12f, 0.03f, 0.9f), Mats.Vignette, out _nvgM, 85);
             _nvg.enabled = false;
+            BuildNvg(cam, quad);
             _toast = UI.Text(cam, "", new Vector3(0, -0.12f, 0.6f), 0.02f, Color.white);
             _toast.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_toast);
             _center = UI.Text(cam, "", new Vector3(0, 0.06f, 0.8f), 0.04f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -437,7 +438,61 @@ namespace Rago
         public void Suppress(float a) { _sup = Mathf.Clamp01(_sup + a); }
         MeshRenderer _nvg; Material _nvgM;
         /// <summary>Night vision: the dark round edge of the tubes around your view, with a green cast.</summary>
-        public void SetNightVision(bool on) { if (_nvg != null) _nvg.enabled = on; }
+        public void SetNightVision(bool on)
+        {
+            if (_nvg != null) _nvg.enabled = false;   // (the old flat green wash)
+            foreach (var r in _nvgFx) if (r != null) r.enabled = on;
+        }
+
+        // ---- night vision, like the real thing: the picture turns monochrome phosphor green (everything is multiplied
+        // through green), with fizzing grain that flickers every frame, and you look down a round tube - black outside it
+        readonly List<MeshRenderer> _nvgFx = new List<MeshRenderer>();
+        Material _grainM; float _grainT;
+        void BuildNvg(Transform cam, Mesh quad)
+        {
+            MeshRenderer Layer(string key, float dist, Material m)
+            {
+                var go = new GameObject(key);
+                go.transform.SetParent(cam, false);
+                go.transform.localPosition = new Vector3(0, 0, dist);
+                go.transform.localScale = Vector3.one * dist * 1.8f;
+                go.AddComponent<MeshFilter>().sharedMesh = quad;
+                var mr = go.AddComponent<MeshRenderer>();
+                mr.sharedMaterial = m; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.enabled = false;
+                _nvgFx.Add(mr);
+                return mr;
+            }
+            // 1. phosphor: every colour goes through green (reds and blues die away), a little bloom-like lift
+            Layer("nvg_tint", 0.094f, Mats.Unlit("nvg_tint", new Color(0.28f, 1f, 0.38f, 1f), null, Mats.BlendKind.Multiply, false, 984, true));
+            Layer("nvg_lift", 0.0935f, Mats.Unlit("nvg_lift", new Color(0.05f, 0.18f, 0.06f, 1f), null, Mats.BlendKind.Additive, false, 985, true));
+            // 2. grain: fine noise, re-rolled every frame (the "fizz" of an image intensifier)
+            _grainM = new Material(Mats.Unlit("nvg_grain", new Color(0.45f, 1f, 0.5f, 0.16f), Mats.Noise, Mats.BlendKind.Additive, false, 986, true));
+            _grainM.mainTextureScale = new Vector2(9f, 9f);
+            Layer("nvg_grain", 0.093f, _grainM);
+            // 3. the tube: a round window (about 70 degrees across) with a soft edge, black outside
+            var tube = new Texture2D(256, 256, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var px = new Color32[256 * 256];
+            for (int y = 0; y < 256; y++)
+                for (int x = 0; x < 256; x++)
+                {
+                    float dx = (x + 0.5f) / 256f - 0.5f, dy = (y + 0.5f) / 256f - 0.5f;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    float a = Mathf.SmoothStep(0.2f, 0.245f, d);                  // the tube's edge
+                    a = Mathf.Max(a, Mathf.SmoothStep(0.05f, 0.24f, d) * 0.35f);   // darker towards the rim, like a real tube
+                    px[y * 256 + x] = new Color32(0, 0, 0, (byte)(a * 255));
+                }
+            tube.SetPixels32(px); tube.Apply(false, true);
+            Layer("nvg_tube", 0.092f, Mats.Unlit("nvg_tube", new Color(0f, 0f, 0f, 1f), tube, Mats.BlendKind.Alpha, false, 987, true));
+        }
+
+        void NvgTick()
+        {
+            if (_grainM == null || _nvgFx.Count == 0 || !_nvgFx[0].enabled) return;
+            _grainM.mainTextureOffset = new Vector2(Random.value, Random.value);
+            // scintillation: the grain breathes a little
+            _grainT += Time.deltaTime;
+            var c = _grainM.color; c.a = 0.13f + Mathf.PerlinNoise(_grainT * 9f, 0.3f) * 0.08f; _grainM.color = c;
+        }
         /// <summary>Flashbanged: white-out that fades over a few seconds, with a ringing in your ears.</summary>
         public void Flashbang(float strength)
         {
@@ -512,6 +567,7 @@ namespace Rago
             }
             if (_queueTimer && QueueText != null) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); QueueText.text = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
             _centerT -= dt; if (_centerT <= 0) _center.text = "";
+            NvgTick();
             _crosshair.SetActive(!XRInputs.VR && !Desktop.Aiming && v.Alive);
             // wrist
             _wristHp.text = Mathf.CeilToInt(v.Health) + " HP" + (v.Bleed > 0 ? " <color=#ff4040>+</color>" : "");   // short, so the raid timer fits on the same row

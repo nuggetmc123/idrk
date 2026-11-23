@@ -63,11 +63,14 @@ namespace Rago
             // limbs point along +Z in bone space; rotate the default pose so they hang down
             foreach (var b in new[] { r.uaL, r.uaR, r.thL, r.thR }) b.localRotation = Quaternion.Euler(90, 0, 0);
 
-            if (outfit == Outfit.BossSanta) BuildSanta(r);                                   // Evil Santa (North Pole boss)
+            int shape = 0;   // 1 snowman, 2 Evil Santa: their hitboxes are resized to the body you see
+            if (outfit == Outfit.BossSanta) { BuildSanta(r); shape = 2; }                    // Evil Santa (North Pole boss)
             else if (PoleMap && (outfit == Outfit.Raider || outfit == Outfit.RaiderHeavy) && !localPlayer) BuildElf(r, outfit == Outfit.RaiderHeavy, rng);   // North Pole: evil elves
-            else if (Snowman(outfit) && !localPlayer) BuildSnowman(r, outfit, rng);   // Christmas: the raiders are snowmen
+            else if (Snowman(outfit) && !localPlayer) { BuildSnowman(r, outfit, rng); shape = 1; }   // Christmas: the raiders are snowmen
             else BuildMeshes(r, outfit, pal, rng, localPlayer);
             BuildPhysics(r);
+            if (shape == 1) { float k = outfit == Outfit.RaiderHeavy ? 1.12f : 1f; Fit(r.hips, new Vector3(0, -0.13f, 0), 0.29f * k, 0.6f * k, 0); Fit(r.spine, new Vector3(0, 0.12f, 0), 0.2f * k, 0.4f * k, 0); Fit(r.chest, new Vector3(0, 0.12f, 0), 0.14f, 0.3f, 0); Fit(r.head, new Vector3(0, 0.07f, 0), 0.14f, 0.28f, 1); foreach (var t in new[] { r.uaL, r.uaR, r.faL, r.faR }) Fit(t, null, 0.035f, -1f, -1); foreach (var t in new[] { r.thL, r.thR }) Fit(t, null, 0.1f, -1f, -1); foreach (var t in new[] { r.shL, r.shR }) Fit(t, null, 0.085f, -1f, -1); }
+            if (shape == 2) { Fit(r.hips, new Vector3(0, -0.02f, 0.02f), 0.23f, 0.46f, 0); Fit(r.spine, new Vector3(0, 0.1f, 0.04f), 0.25f, 0.5f, 0); Fit(r.chest, new Vector3(0, 0.08f, 0.01f), 0.2f, 0.44f, 0); Fit(r.head, new Vector3(0, 0.06f, 0.03f), 0.12f, 0.3f, 1); foreach (var t in new[] { r.uaL, r.uaR }) Fit(t, null, 0.07f, -1f, -1); foreach (var t in new[] { r.thL, r.thR }) Fit(t, null, 0.095f, -1f, -1); }
             r.weaponR = new GameObject("WeaponR").transform;
             r.weaponR.SetParent(r.handR, false);
             return r;
@@ -707,6 +710,17 @@ namespace Rago
             Joint(r.shL, r.thL, -5, 130, 5, 5); Joint(r.shR, r.thR, -5, 130, 5, 5);
             Joint(r.footL, r.shL, -30, 30, 10, 10); Joint(r.footR, r.shR, -30, 30, 10, 10);
             r.SetRagdoll(false);
+        }
+
+        /// <summary>Resize a bone's hitbox to the body drawn on it (center null / height &lt; 0 / dir &lt; 0 = keep).</summary>
+        static void Fit(Transform t, Vector3? center, float radius, float height, int dir)
+        {
+            var c = t != null ? t.GetComponent<CapsuleCollider>() : null;
+            if (c == null) return;
+            if (center.HasValue) c.center = center.Value;
+            c.radius = radius;
+            if (height > 0f) c.height = Mathf.Max(height, radius * 2f);
+            if (dir >= 0) c.direction = dir;
         }
 
         static void Cap(HumanRig r, Transform t, Vector3 center, float radius, float height, int dir, float mass)

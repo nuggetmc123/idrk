@@ -671,14 +671,24 @@ namespace Rago
                     var list = new List<KeyValuePair<ulong, Shops.Remote>>();
                     foreach (var kv in Shops.Others) if (kv.Value.entries.Count > 0) list.Add(kv);
                     _status.text = live ? list.Count + " shop(s) open" : "OFFLINE";
-                    if (list.Count == 0) { UI.Text(_content, live ? "Nobody's selling right now.\nOpen your own: MY MARKET." : "The Market isn't online.", new Vector3(0, 0.05f, -0.003f), 0.028f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleCenter); break; }
-                    _scroll = Mathf.Clamp(_scroll, 0, Mathf.Max(0, list.Count - per));
-                    for (int i = 0; i < per && _scroll + i < list.Count; i++)
+                    // your own market is always on the list, first
+                    var myProf = Profile.Current;
+                    int top = 0;
+                    if (myProf != null && myProf.shopOpen)
+                    {
+                        var me = Shops.MyEntries;
+                        Row(0, "YOUR MARKET", me.Count + " item(s)", new Color(0.5f, 0.8f, 1f), me.Count == 0 ? "nothing listed yet" : live ? "open to other players" : "closed (offline)");
+                        Btn(0, "MANAGE", 0.55f, new Color(0.15f, 0.25f, 0.5f), () => Go(Page.Mine));
+                        top = 1;
+                    }
+                    if (list.Count == 0) { UI.Text(_content, live ? "Nobody else is selling right now." + (top == 0 ? "\nOpen your own: MY MARKET." : "") : "The Market isn't online.", new Vector3(0, top == 1 ? -0.05f : 0.05f, -0.003f), 0.028f, new Color(0.3f, 0.8f, 0.4f), TextAnchor.MiddleCenter); break; }
+                    _scroll = Mathf.Clamp(_scroll, 0, Mathf.Max(0, list.Count - (per - top)));
+                    for (int i = 0; i < per - top && _scroll + i < list.Count; i++)
                     {
                         var kv = list[_scroll + i]; ulong who = kv.Key;
                         int money = 0, swaps = 0; foreach (var e in kv.Value.entries) if (Shops.ForMoney(e)) money++; else swaps++;
-                        Row(i, kv.Value.name.Split('#')[0].ToUpper() + "'S MARKET", kv.Value.entries.Count + " item(s)", new Color(1f, 0.9f, 0.4f), (money > 0 ? money + " for money" : "") + (money > 0 && swaps > 0 ? ", " : "") + (swaps > 0 ? swaps + " for trade" : ""));
-                        Btn(i, "OPEN", 0.55f, new Color(0.15f, 0.45f, 0.18f), () => { _open = who; Go(Page.Shop); });
+                        Row(i + top, kv.Value.name.Split('#')[0].ToUpper() + "'S MARKET", kv.Value.entries.Count + " item(s)", new Color(1f, 0.9f, 0.4f), (money > 0 ? money + " for money" : "") + (money > 0 && swaps > 0 ? ", " : "") + (swaps > 0 ? swaps + " for trade" : ""));
+                        Btn(i + top, "OPEN", 0.55f, new Color(0.15f, 0.45f, 0.18f), () => { _open = who; Go(Page.Shop); });
                     }
                     break;
                 }

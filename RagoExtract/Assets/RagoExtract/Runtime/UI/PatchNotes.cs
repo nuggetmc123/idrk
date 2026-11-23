@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.61", "Real night vision, your market, hitboxes", new[] {
+                "NIGHT VISION looks like the real thing: the picture turns monochrome phosphor green, fine grain fizzes and flickers across it, and you look down a round tube with black all round it. The dark lifts evenly instead of everything glowing flat green.",
+                "The BLACK MARKET screens list YOUR MARKET first (how many items you have up, open or closed), with a MANAGE button.",
+                "Hitboxes fixed on the snowmen and Evil Santa: shots that visibly hit their big snowballs, belly or beard used to go straight through - their hitboxes now match their bodies (and the thin twig arms are thin).",
+            }),
             ("2.60", "Server address", new[] {
                 "The game connects to the server by name now: game.idrk.dev:27015 (it keeps working if the server ever moves). The owner's admin panel is at http://game.idrk.dev:27015/.",
             }),

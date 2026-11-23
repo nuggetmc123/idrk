@@ -55,9 +55,10 @@ namespace Rago
             {
                 _sky = RenderSettings.ambientSkyColor; _eq = RenderSettings.ambientEquatorColor; _gr = RenderSettings.ambientGroundColor;
                 _fog = RenderSettings.fogColor; _fogD = RenderSettings.fogDensity; _saved = true;
-                RenderSettings.ambientSkyColor = new Color(0.32f, 0.75f, 0.36f);
-                RenderSettings.ambientEquatorColor = new Color(0.26f, 0.62f, 0.3f);
-                RenderSettings.ambientGroundColor = new Color(0.16f, 0.4f, 0.18f);
+                // amplified starlight: the darkness lifts evenly (the goggles' picture turns it all phosphor green)
+                RenderSettings.ambientSkyColor = new Color(0.55f, 0.6f, 0.55f);
+                RenderSettings.ambientEquatorColor = new Color(0.45f, 0.5f, 0.45f);
+                RenderSettings.ambientGroundColor = new Color(0.28f, 0.32f, 0.28f);
                 RenderSettings.fogColor = new Color(0.06f, 0.2f, 0.08f);
                 RenderSettings.fogDensity = _fogD * 0.6f;
                 Sfx.UI(Synth.Beep(), 0.25f);
