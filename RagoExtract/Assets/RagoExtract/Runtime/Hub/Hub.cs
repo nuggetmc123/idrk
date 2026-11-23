@@ -528,7 +528,7 @@ namespace Rago
             var it = ItemFactory.Spawn(new ItemData(d.id), free != null ? free.transform.position + Vector3.up * 0.1f : transform.TransformPoint(new Vector3(0, 1.2f, -0.2f)), transform.rotation);
             bool toStash = false;
             if (it != null && free != null && free.Accepts(it)) free.Store(it, false);
-            else if (it != null) { Profile.Deliver(it.Save()); Item.Discard(it); it = null; toStash = true; }   // the tray is full: to your bunker (the Armory floor)
+            else if (it != null) { Profile.Deliver(it.Save(), "Bought from " + _t.name); Item.Discard(it); it = null; toStash = true; }   // the tray is full: to the DELIVERIES screen in your bunker
             Sfx.UI(Synth.Cash(), 0.6f);
             RagoGame.I.Player.Toast("Bought " + d.name + (toStash ? " - the tray is full, it's on your Armory floor" : " - on the PICKUP tray"));
             prof.Save();

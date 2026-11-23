@@ -353,7 +353,33 @@ namespace Rago
     public static class Shops
     {
         public const int SellLevel = 5;   // you need level 5 to sell to other players
-        public class Remote { public string name; public float heard; public readonly List<ShopEntry> entries = new List<ShopEntry>(); }
+        public class Remote { public string name, key; public bool online = true; public float heard; public readonly List<ShopEntry> entries = new List<ShopEntry>(); }
+
+        // ---- on our own game server the black market is kept on the server: shops stay open while their owner is
+        // offline, and everyone sees every shop. (On Photon it's still player-to-player in the Market.)
+        static RelayBackend Srv => RelayBackend.Instance != null && RelayBackend.Instance.MarketReady ? RelayBackend.Instance : null;
+        public static bool ServerMode => Srv != null;
+        static float _fetchT;
+        static ulong IdOf(string key) { unchecked { ulong h = 1469598103934665603UL; foreach (char c in key ?? "") { h ^= c; h *= 1099511628211UL; } return h | (1UL << 63); } }
+        public static void PushToServer() { if (Profile.Current != null && Profile.Current.shopOpen) Srv?.ShopPut(new List<ShopEntry>(Mine)); }
+        static readonly List<(int id, int money, string buyer, List<string> items)> _soldLater = new List<(int, int, string, List<string>)>();
+
+        /// <summary>The server says one of our listings sold (maybe while we were away): take it off our shop, collect.</summary>
+        public static void OnServerSold(int id, int money, string buyer, List<string> items)
+        {
+            var prof = Profile.Current;
+            if (prof == null) { _soldLater.Add((id, money, buyer, items)); return; }   // the profile isn't loaded yet: in a moment
+            var e = Mine.Find(x => x.id == id);
+            if (e != null) Mine.Remove(e);
+            prof.money += money;
+            string what = e != null ? ItemName(e.item) : "a listing";
+            foreach (var j in items) { var d = MarketNet.Data(j); if (d != null) Profile.Deliver(d, "Traded " + what + " to " + buyer); }
+            if (money > 0) Profile.Notify("SOLD " + what + " to " + buyer + " for $" + money.ToString("N0"));
+            prof.Save();
+            Sfx.UI(Synth.Cash(), 0.6f);
+            RagoGame.I?.Player?.Toast(money > 0 ? "SOLD " + what + " to " + buyer + " for $" + money.ToString("N0") : "TRADED " + what + " to " + buyer + " - your items are in your bunker");
+            Changed?.Invoke();
+        }
         public static readonly Dictionary<ulong, Remote> Others = new Dictionary<ulong, Remote>();
         public static System.Action Changed;
 
@@ -374,6 +400,28 @@ namespace Rago
         {
             if (_tickFrame == Time.frameCount) return;   // several screens call this: once a frame
             _tickFrame = Time.frameCount;
+            if (_soldLater.Count > 0 && Profile.Current != null) { var l = new List<(int, int, string, List<string>)>(_soldLater); _soldLater.Clear(); foreach (var x in l) OnServerSold(x.Item1, x.Item2, x.Item3, x.Item4); }
+            if (ServerMode)
+            {
+                // every shop on the server, refreshed every few seconds while you're at a screen
+                if ((_fetchT -= Time.deltaTime) <= 0f)
+                {
+                    _fetchT = 5f;
+                    Srv.ShopGet(list =>
+                    {
+                        Others.Clear();
+                        foreach (var sh in list)
+                        {
+                            var rm = new Remote { name = sh.name, key = sh.key, online = sh.online, heard = Time.time };
+                            rm.entries.AddRange(sh.entries);
+                            Others[IdOf(sh.key)] = rm;
+                        }
+                        Changed?.Invoke();
+                    });
+                }
+                for (int i = _pending.Count - 1; i >= 0; i--) if (Time.time - _pending[i].t > 30f) { Undo(_pending[i], "The server didn't answer"); _pending.RemoveAt(i); }
+                return;
+            }
             MarketNet.Hook();
             // shops of players who left disappear
             List<ulong> gone = null;
@@ -392,6 +440,7 @@ namespace Rago
 
         public static void Broadcast()
         {
+            if (ServerMode) { PushToServer(); return; }
             if (!NetGame.Live || Profile.Current == null) return;
             var mine = new List<ShopEntry>(Mine);
             string name = Profile.Current.DisplayName;
@@ -419,9 +468,22 @@ namespace Rago
         public static void Unlist(int id)
         {
             var e = Mine.Find(x => x.id == id); if (e == null) return;
+            if (ServerMode)
+            {
+                // ask the server first: it might have just sold
+                Srv.ShopUnlist(id, ok =>
+                {
+                    if (!ok) { if (Mine.Contains(e)) RagoGame.I?.Player?.Toast("Couldn't take it off - it may have just sold"); return; }
+                    if (!Mine.Remove(e)) return;
+                    Profile.Deliver(e.item, "Taken off your shop"); Profile.Current.Save();
+                    RagoGame.I?.Player?.Toast(ItemName(e.item) + " taken off your shop - collect it at DELIVERIES in your bunker");
+                    PushToServer(); Changed?.Invoke();
+                });
+                return;
+            }
             Mine.Remove(e);
-            Profile.Deliver(e.item); Profile.Current.Save();
-            RagoGame.I.Player.Toast(ItemName(e.item) + " taken off your shop - it's in your bunker");
+            Profile.Deliver(e.item, "Taken off your shop"); Profile.Current.Save();
+            RagoGame.I.Player.Toast(ItemName(e.item) + " taken off your shop - collect it at DELIVERIES in your bunker");
             Broadcast(); Changed?.Invoke();
         }
 
@@ -433,6 +495,12 @@ namespace Rago
             prof.money -= e.price;   // held until the seller's game answers
             _pending.Add(new Pending { seller = seller, id = e.id, paid = e.price, t = Time.time });
             int id = e.id, price = e.price;
+            if (ServerMode && Others.TryGetValue(seller, out var srm) && srm.key != null)
+            {
+                Srv.ShopBuy(srm.key, id, price, null, (ok, txt) => ServerDone(seller, id, ok, txt, true));
+                Sfx.UI(Synth.UiClick(), 0.4f); Changed?.Invoke();
+                return;
+            }
             MarketNet.Send(w => { w.Write(MarketNet.BuyReq); w.Write(id); w.Write(price); }, seller);
             Sfx.UI(Synth.UiClick(), 0.4f);
             Changed?.Invoke();
@@ -457,15 +525,39 @@ namespace Rago
             string j = string.Join("\u0001", js);
             _pending.Add(new Pending { seller = seller, id = e.id, swap = true, offer = j, t = Time.time });
             int id = e.id;
+            if (ServerMode && Others.TryGetValue(seller, out var srm) && srm.key != null)
+            {
+                Srv.ShopBuy(srm.key, id, 0, js, (ok, txt) => ServerDone(seller, id, ok, txt, false));
+                RagoGame.I.Player.Toast("Trade offer sent...");
+                Changed?.Invoke();
+                return;
+            }
             MarketNet.Send(w => { w.Write(MarketNet.SwapReq); w.Write(id); w.Write((byte)js.Count); foreach (var x in js) w.Write(x); }, seller);
             RagoGame.I.Player.Toast("Trade offer sent to " + MarketNet.NameOf(seller) + "...");
+            Changed?.Invoke();
+        }
+
+        /// <summary>The server's answer to a buy / trade: the item to your bunker, or your money / items back.</summary>
+        static void ServerDone(ulong seller, int id, bool ok, string txt, bool money)
+        {
+            int pi = _pending.FindIndex(p => p.seller == seller && p.id == id);
+            if (pi < 0) return;   // already timed out and refunded
+            var p = _pending[pi]; _pending.RemoveAt(pi);
+            if (!ok) { Undo(p, txt); return; }
+            var d = MarketNet.Data(txt);
+            string sellerName = Others.TryGetValue(seller, out var srn) ? srn.name : "the black market";
+            if (d != null && Profile.Current != null) { Profile.Deliver(d, (money ? "Bought from " : "Traded with ") + sellerName); Profile.Current.Save(); }
+            Sfx.UI(Synth.Cash(), 0.6f);
+            RagoGame.I?.Player?.Toast((money ? "BOUGHT " : "TRADE DONE: ") + ItemName(d) + " - collect it at DELIVERIES in your bunker");
+            if (Others.TryGetValue(seller, out var rm)) rm.entries.RemoveAll(x => x.id == id);
+            _fetchT = 0.5f;
             Changed?.Invoke();
         }
 
         static void Undo(Pending p, string why)
         {
             var prof = Profile.Current; if (prof == null) return;
-            if (p.swap) { foreach (var part in p.offer.Split('\u0001')) { var d = MarketNet.Data(part); if (d != null) Profile.Deliver(d); } why += " - your items are back in your bunker"; }
+            if (p.swap) { foreach (var part in p.offer.Split('\u0001')) { var d = MarketNet.Data(part); if (d != null) Profile.Deliver(d, "Returned: trade fell through"); } why += " - your items are back (DELIVERIES, in your bunker)"; }
             else { prof.money += p.paid; why += " - refunded"; }
             prof.Save();
             RagoGame.I?.Player?.Toast(why);
@@ -510,7 +602,7 @@ namespace Rago
                     bool ok = e != null && !Shops.ForMoney(e) && offers.Count >= Count(e) && offers.TrueForAll(o => ShopScreen.Matches(e.want, Db.Get(o.id)));
                     if (ok && prof != null)
                     {
-                        Mine.Remove(e); foreach (var od2 in offers) Profile.Deliver(od2); prof.Save();
+                        Mine.Remove(e); foreach (var od2 in offers) Profile.Deliver(od2, "Traded " + ItemName(e.item) + " to " + MarketNet.NameOf(from)); prof.Save();
                         Sfx.UI(Synth.Cash(), 0.6f);
                         RagoGame.I.Player.Toast("TRADED " + ItemName(e.item) + " to " + MarketNet.NameOf(from) + " for " + offers.Count + " x " + ShopScreen.WantName(e.want) + " - in your bunker");
                         string j = JsonUtility.ToJson(e.item);
@@ -527,7 +619,7 @@ namespace Rago
                     int pi = _pending.FindIndex(p => p.seller == from && p.id == id);
                     if (pi >= 0) _pending.RemoveAt(pi);
                     else if (op == MarketNet.Sold && prof != null) prof.money -= Mathf.Min(paid, prof.money);   // arrived after we'd refunded: pay now
-                    if (d != null && prof != null) { Profile.Deliver(d); prof.Save(); }
+                    if (d != null && prof != null) { Profile.Deliver(d, (op == MarketNet.Sold ? "Bought from " : "Traded with ") + MarketNet.NameOf(from)); prof.Save(); }
                     Sfx.UI(Synth.Cash(), 0.6f);
                     RagoGame.I.Player.Toast((op == MarketNet.Sold ? "BOUGHT " : "TRADE DONE: ") + ItemName(d) + " - it's in your bunker");
                     Changed?.Invoke();
@@ -547,6 +639,7 @@ namespace Rago
         /// <summary>Leaving the Market with a purchase still waiting: undo it (money / item back).</summary>
         public static void LeaveMarket()
         {
+            if (ServerMode) return;   // server shops: purchases finish on their own, wherever you are
             foreach (var p in _pending) Undo(p, "Left the Market");
             _pending.Clear(); Others.Clear();
         }
@@ -670,6 +763,7 @@ namespace Rago
                     _title.text = "BLACK MARKET - PLAYER MARKETS";
                     var list = new List<KeyValuePair<ulong, Shops.Remote>>();
                     foreach (var kv in Shops.Others) if (kv.Value.entries.Count > 0) list.Add(kv);
+                    live = live || Shops.ServerMode;
                     _status.text = live ? list.Count + " shop(s) open" : "OFFLINE";
                     // your own market is always on the list, first
                     var myProf = Profile.Current;
@@ -687,7 +781,7 @@ namespace Rago
                     {
                         var kv = list[_scroll + i]; ulong who = kv.Key;
                         int money = 0, swaps = 0; foreach (var e in kv.Value.entries) if (Shops.ForMoney(e)) money++; else swaps++;
-                        Row(i + top, kv.Value.name.Split('#')[0].ToUpper() + "'S MARKET", kv.Value.entries.Count + " item(s)", new Color(1f, 0.9f, 0.4f), (money > 0 ? money + " for money" : "") + (money > 0 && swaps > 0 ? ", " : "") + (swaps > 0 ? swaps + " for trade" : ""));
+                        Row(i + top, kv.Value.name.Split('#')[0].ToUpper() + "'S MARKET", kv.Value.entries.Count + " item(s)", new Color(1f, 0.9f, 0.4f), (money > 0 ? money + " for money" : "") + (money > 0 && swaps > 0 ? ", " : "") + (swaps > 0 ? swaps + " for trade" : "") + (kv.Value.online ? "" : "  (owner offline - still open)"));
                         Btn(i + top, "OPEN", 0.55f, new Color(0.15f, 0.45f, 0.18f), () => { _open = who; Go(Page.Shop); });
                     }
                     break;

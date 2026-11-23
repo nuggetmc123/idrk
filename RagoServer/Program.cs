@@ -73,6 +73,7 @@ namespace RagoServer
             try { _udp.Client.IOControl(-1744830452, new byte[] { 0 }, null); } catch { }   // Windows: ignore ICMP "port unreachable"
             Log("Rago game server listening on TCP+UDP " + port);
             LoadData();
+            LoadMarket();
             StartPanel();
             _ = Task.Run(UdpLoop);
             _ = Task.Run(Housekeeping);
@@ -242,6 +243,12 @@ namespace RagoServer
                     Send(c, w.Frame());
                     break;
                 }
+                case P.ShopPut:
+                case P.ShopGet:
+                case P.ShopBuy:
+                case P.ShopUnlist:
+                    HandleMarket(c, type, r);
+                    break;
                 case P.ModReq:
                 {
                     byte act = r.U8(); string target = r.Str(), reason = r.Str(); int hours = r.I32();

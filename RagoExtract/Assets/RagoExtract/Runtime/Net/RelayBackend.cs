@@ -91,6 +91,31 @@ namespace Rago
             _searchCb = cb;
             _link.Send(new W(P.Search).Str(q.Trim()).I32(++_searchId).Frame());
         }
+        // ---- black market on the server (shops stay open while their owner is offline)
+        public class ServerShop { public string key, name; public bool online; public readonly List<ShopEntry> entries = new List<ShopEntry>(); }
+        Action<List<ServerShop>> _shopsCb; int _shopsId;
+        readonly Dictionary<string, Action<bool, string>> _buyCb = new Dictionary<string, Action<bool, string>>();
+        readonly Dictionary<int, Action<bool>> _unlistCb = new Dictionary<int, Action<bool>>();
+        public bool MarketReady => _link != null && _link.Connected && _welcomed;
+        bool _welcomed;
+        public void ShopPut(List<ShopEntry> mine)
+        {
+            if (!MarketReady) return;
+            var w = new W(P.ShopPut).U16(Mathf.Min(mine.Count, 40));
+            for (int i = 0; i < mine.Count && i < 40; i++) { var e = mine[i]; w.I32(e.id).Str(JsonUtility.ToJson(e.item)).I32(e.price).Str(e.want ?? ""); }
+            _link.Send(w.Frame());
+        }
+        public void ShopGet(Action<List<ServerShop>> cb) { if (!MarketReady) return; _shopsCb = cb; _link.Send(new W(P.ShopGet).I32(++_shopsId).Frame()); }
+        public void ShopBuy(string sellerKey, int entryId, int price, List<string> offers, Action<bool, string> cb)
+        {
+            if (!MarketReady) { cb?.Invoke(false, "Not connected"); return; }
+            _buyCb[sellerKey + "/" + entryId] = cb;
+            var w = new W(P.ShopBuy).Str(sellerKey).I32(entryId).I32(price).U16(offers != null ? offers.Count : 0);
+            if (offers != null) foreach (var o in offers) w.Str(o);
+            _link.Send(w.Frame());
+        }
+        public void ShopUnlist(int entryId, Action<bool> cb) { if (!MarketReady) { cb?.Invoke(false); return; } _unlistCb[entryId] = cb; _link.Send(new W(P.ShopUnlist).I32(entryId).Frame()); }
+
         /// <summary>A moderator's ban / unban / wipe / Market kick: goes to the owner for approval.</summary>
         public void ModRequest(byte act, string target, string reason, int hours)
         {
@@ -244,10 +269,43 @@ namespace Rago
                     r.U64(); r.U32(); _online = r.I32();
                     _status = "Online (Rago server)";
                     _retryT = 0f;
+                    _welcomed = true;
+                    Shops.PushToServer();   // our black market shop, as it is now
                     Log("connected to the game server as #" + _link.Id + " (" + _online + " online)");
                     if (_partyCode != null && _room == null) RejoinParty();
                     break;
                 case P.Online: _online = r.I32(); break;
+                case P.ShopsIn:
+                {
+                    int id = r.I32(); int n = r.U16(); var list = new List<ServerShop>();
+                    for (int i = 0; i < n; i++)
+                    {
+                        var sh = new ServerShop { key = r.Str(), name = r.Str(), online = r.Bool() }; int cnt = r.U16();
+                        for (int k = 0; k < cnt; k++) { var e = new ShopEntry { id = r.I32(), item = MarketNet.Data(r.Str()), price = r.I32(), want = r.Str() }; if (e.item != null) sh.entries.Add(e); }
+                        list.Add(sh);
+                    }
+                    if (id == _shopsId) { var cb = _shopsCb; _shopsCb = null; cb?.Invoke(list); }
+                    break;
+                }
+                case P.BuyResult:
+                {
+                    int eid = r.I32(); string sk = r.Str(); bool ok = r.Bool(); string txt = r.Str();
+                    if (_buyCb.TryGetValue(sk + "/" + eid, out var cb)) { _buyCb.Remove(sk + "/" + eid); cb?.Invoke(ok, txt); }
+                    break;
+                }
+                case P.UnlistResult:
+                {
+                    int eid = r.I32(); bool ok = r.Bool();
+                    if (_unlistCb.TryGetValue(eid, out var cb)) { _unlistCb.Remove(eid); cb?.Invoke(ok); }
+                    break;
+                }
+                case P.ShopSold:
+                {
+                    int eid = r.I32(), money = r.I32(); string buyer = r.Str(); int n = r.U16(); var items = new List<string>();
+                    for (int i = 0; i < n; i++) items.Add(r.Str());
+                    Shops.OnServerSold(eid, money, buyer, items);
+                    break;
+                }
                 case P.Role:
                     IsMod = r.U8() == 1;
                     Log(IsMod ? "you're a moderator (MOD tab in the menu)" : "moderator role removed");
@@ -349,6 +407,11 @@ namespace Rago
                 case P.Bye:
                 {
                     Log("lost the game server: " + _link.Error, true);
+                    _welcomed = false;
+                    foreach (var kv in _buyCb) kv.Value?.Invoke(false, "Lost the connection");
+                    _buyCb.Clear();
+                    foreach (var kv in _unlistCb) kv.Value?.Invoke(false);
+                    _unlistCb.Clear();
                     _status = "Disconnected from the game server";
                     bool was = _room != null;
                     ClearRoom();

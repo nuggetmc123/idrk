@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.62", "Black market always open, Deliveries screen", new[] {
+                "BLACK MARKET SHOPS STAY OPEN: on our game server every player's shop is kept on the server, so you can buy from (or trade with) anyone's shop even when they're offline - it says \"owner offline - still open\". They get the money or your items next time they play. Nothing can be bought twice.",
+                "DELIVERIES screen in your bunker (west wall of the main hall, where the Lost & Found used to be): everything you buy or trade for - black market, traders, DLC store - and anything taken off your shop waits there with where it came from. Press TAKE and it comes out on the shelf underneath. Your sales show up too (\"SOLD ... for $\") - press OK to clear them.",
+            }),
             ("2.61", "Real night vision, your market, hitboxes", new[] {
                 "NIGHT VISION looks like the real thing: the picture turns monochrome phosphor green, fine grain fizzes and flickers across it, and you look down a round tube with black all round it. The dark lifts evenly instead of everything glowing flat green.",
                 "The BLACK MARKET screens list YOUR MARKET first (how many items you have up, open or closed), with a MANAGE button.",

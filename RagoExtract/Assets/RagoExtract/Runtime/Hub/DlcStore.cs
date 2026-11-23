@@ -171,7 +171,7 @@ namespace Rago
             prof.money -= p.price;
             prof.dlc ??= new List<string>();
             prof.dlc.Add(p.id);
-            foreach (var id in p.items) Profile.Deliver(new ItemData(id));
+            foreach (var id in p.items) Profile.Deliver(new ItemData(id), p.name);
             prof.Save();
             Sfx.UI(Synth.Cash(), 0.7f);
             RagoGame.I?.Player?.Toast(p.name + " unlocked - new skins at your paint booth" + (p.items.Length > 0 ? ", items on the Armory floor" : ""));

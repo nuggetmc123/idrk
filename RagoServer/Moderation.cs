@@ -113,6 +113,7 @@ namespace RagoServer
                 _playersDirty = true;
                 if (Mods.ContainsKey(c.Key)) { Mods[c.Key] = c.Name; Send(c, new W(P.Role).U8(1).Frame()); }
                 if (Wipes.Remove(c.Key)) { Send(c, new W(P.Wipe).Frame()); SaveWipes(); Note("wiped " + c.Name + " (on connect)"); }
+                DeliverSales(c);   // black market sales made while they were away
             }
             return true;
         }
@@ -179,6 +180,8 @@ namespace RagoServer
         {
             var on = Clients.Values.FirstOrDefault(x => x.Key == key);
             if (on != null) Send(on, new W(P.Wipe).Frame()); else { Wipes.Add(key); SaveWipes(); }
+            if (ShopsByKey.Remove(key)) SaveShops();   // their black market shop goes too
+            if (Sales.RemoveAll(x => x.SellerKey == key) > 0) SaveSales();
             Note("WIPED " + name + (on != null ? "" : " (when they next connect)") + " (by " + by + ")");
             return "Wiped " + name + (on != null ? "" : " - happens when they next connect");
         }

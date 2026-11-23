@@ -7,6 +7,7 @@ namespace Rago
     /// <summary>An item left on the bunker floor (or a table, a shelf top...) and exactly where it was.</summary>
     [System.Serializable]
     public class FloorItem { public ItemData item; public Vector3 pos; public Quaternion rot = Quaternion.identity; }
+    [System.Serializable] public class MailItem { public ItemData item; public string note = ""; public long time; }   // the bunker's DELIVERIES screen (item null = just a message, e.g. "SOLD ... for $")
 
     /// <summary>Persistent player progress: money, stash, loadout, stats, settings. Saved as JSON.</summary>
     [System.Serializable]
@@ -40,6 +41,7 @@ namespace Rago
         public bool nameSet, tutorialDone;
         public bool inRaid;   // set while a raid is on: still set at the next launch = you quit mid-raid, which counts as dying
         public int tutorialStep;
+        public List<MailItem> mailbox = new List<MailItem>();   // DELIVERIES screen in the bunker: bought / traded / sold
         public List<string> dlc = new List<string>();       // DLC STORE packs bought (and "northpole": the South Pole vault)
         public List<string> friends = new List<string>();   // callsigns you added (menu > FRIENDS)
         public List<string> pendingFriends = new List<string>();   // typed in but not seen online yet: "CALLSIGN#1234|day added"
@@ -83,6 +85,7 @@ namespace Rago
             shop = new List<ShopEntry>(); shopNextId = 0; shopOpen = false;
             bunkerLevel = 0; jobProgress = new List<int>(); genCash = 0;
             medCabinet = new List<ItemData>(); medStocked = false; medRestockRaid = 0;
+            mailbox = new List<MailItem>();
             inRaid = false;
             Save();
         }
@@ -190,12 +193,35 @@ namespace Rago
             return p;
         }
 
+        public static event System.Action MailChanged;
+
         /// <summary>
-        /// Something you bought or traded for: it goes to your bunker, on the floor in the middle of the Armory (in a little
-        /// grid, so things don't land on top of each other) and stays there until you pick it up. If you're in the bunker
-        /// right now it appears straight away.
+        /// Something you bought, traded for or got back: it waits on the DELIVERIES screen in your bunker (west wall of the
+        /// main hall) until you press TAKE there.
         /// </summary>
-        public static void Deliver(ItemData d)
+        public static void Deliver(ItemData d, string note = null)
+        {
+            var p = Current;
+            if (p == null || d == null) return;
+            p.mailbox ??= new List<MailItem>();
+            p.mailbox.Add(new MailItem { item = d, note = note ?? "Delivered", time = System.DateTimeOffset.UtcNow.ToUnixTimeSeconds() });
+            p.Save();
+            MailChanged?.Invoke();
+        }
+
+        /// <summary>Just a message on the DELIVERIES screen (a sale: the money is already yours).</summary>
+        public static void Notify(string note)
+        {
+            var p = Current; if (p == null) return;
+            p.mailbox ??= new List<MailItem>();
+            p.mailbox.Add(new MailItem { item = null, note = note, time = System.DateTimeOffset.UtcNow.ToUnixTimeSeconds() });
+            while (p.mailbox.FindAll(m => m.item == null).Count > 20) p.mailbox.Remove(p.mailbox.Find(m => m.item == null));
+            p.Save();
+            MailChanged?.Invoke();
+        }
+
+        /// <summary>The old way (before 2.62): on the Armory floor.</summary>
+        public static void DeliverToFloor(ItemData d)
         {
             var p = Current;
             if (p == null || d == null) return;
