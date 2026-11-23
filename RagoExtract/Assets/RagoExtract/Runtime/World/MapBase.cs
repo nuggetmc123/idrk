@@ -254,7 +254,6 @@ namespace Rago
                 else if (CrateFits(s.pos, yaw, LootCrate.Kind.Optics)) AddCrate(s.pos, yaw, LootCrate.Kind.Optics);
                 else free.Add(s);
             }
-            if (IsRaid && (Festive.On || Id == "northpole")) PlacePresents(free);
             // this raid: each card spot has a card half the time (at least one somewhere), each radio spot likewise
             var at = new List<Vector3>(); var ids = new List<string>();
             void Fill(List<Vector3> spots, string id)
@@ -1362,6 +1361,18 @@ namespace Rago
                 NetGame.I?.Register(it);
                 _box.slots[i].Store(it, false);
             }
+            // Christmas (and always on the North Pole): crates often hold a small present - shake it open
+            if (_map != null && (Festive.On || _map.Id == "northpole") && kind != Kind.Present && rng.Chance(_map.Id == "northpole" ? 0.6f : 0.35f))
+            {
+                int gid = 10000 + index * 16 + 12;
+                Slot fs = null;
+                foreach (var sl in _box.slots) if (sl.item == null) { fs = sl; break; }
+                if (fs != null && !NetGame.Taken(gid))
+                {
+                    var gi = ItemFactory.Spawn(new ItemData("gift"), fs.transform.position, transform.rotation);
+                    if (gi != null) { gi.netId = gid; NetGame.I?.Register(gi); fs.Store(gi, false); }
+                }
+            }
             // vaults open with a keycard only: safes often have one
             // vaults (and air drops): a small chance of a Vault Keycard or a Military Radio - the only crates that ever have one
             if (vaultGrade)
@@ -1391,38 +1402,14 @@ namespace Rago
         void OpenPresent(Rng rng, bool opener)
         {
             Sfx.Play(Synth.UiClick(), transform.position, 0.6f, 1.3f, 1f, 8f);
-            float r = rng.Value;
-            var items = new System.Collections.Generic.List<ItemData>();
-            void Gun(System.Predicate<GunDef> which)
-            {
-                var pool = Db.Guns.FindAll(which);
-                if (pool.Count == 0) return;
-                var g = pool[rng.Range(0, pool.Count)];
-                items.Add(new ItemData(g.id) { rounds = g.magSize, chambered = false });   // a present comes loaded
-            }
-            void Roll(Db.LootTable t, int n) { for (int i = 0; i < n; i++) { var d = Db.Roll(t, rng); if (d != null) items.Add(new ItemData(d.id)); } }
-            // the North Pole Keycard only ever comes out of a present (more often on the North Pole itself)
             bool pole = _map != null && _map.Id == "northpole";
-            if (santaGift) { items.Add(new ItemData("key_xmas")); Roll(Db.LootTable.Vault, 1); Roll(Db.LootTable.Crate, 1); }
-            else if (rng.Chance(pole ? 0.07f : 0.02f)) { items.Add(new ItemData("key_xmas")); Roll(Db.LootTable.Crate, 1); }
-            else if (r < 0.32f) { Roll(Db.LootTable.Crate, 2); }
-            else if (r < 0.46f)
+            var items = PresentItem.Roll(rng, pole, santaGift, out bool grenade);
+            // the prank: a live grenade on a short fuse jumps out (only on the machine that opened it: the blast is shared)
+            if (grenade && opener && ItemFactory.Spawn(new ItemData("frag"), transform.position + Vector3.up * (Size.y + 0.15f), Quaternion.identity) is Grenade gr)
             {
-                // the prank: a live grenade on a short fuse jumps out (only on the machine that opened it: the blast is shared)
-               
-                if (opener && ItemFactory.Spawn(new ItemData("frag"), transform.position + Vector3.up * (Size.y + 0.15f), Quaternion.identity) is Grenade gr)
-                {
-                    gr.ArmNow(2.5f);
-                    if (gr.rb != null) { gr.rb.SetVel(Vector3.up * 3.2f + Random.insideUnitSphere * 0.6f); gr.rb.angularVelocity = Random.insideUnitSphere * 6f; }
-                }
+                gr.ArmNow(2.5f);
+                if (gr.rb != null) { gr.rb.SetVel(Vector3.up * 3.2f + Random.insideUnitSphere * 0.6f); gr.rb.angularVelocity = Random.insideUnitSphere * 6f; }
             }
-            else if (r < 0.6f) { Roll(Db.LootTable.Medical, 2); items.Add(new ItemData(rng.Chance(0.6f) ? "frag" : "flash")); }
-            else if (r < 0.78f) { Gun(g => g.rarity <= Rarity.Uncommon); Roll(Db.LootTable.Crate, 1); }
-            else if (r < 0.88f) { Roll(Db.LootTable.Armor, 1); Roll(Db.LootTable.Medical, 1); }
-            else if (r < 0.945f) { Gun(g => g.rarity == Rarity.Rare || g.rarity == Rarity.Epic); Roll(Db.LootTable.OpticsBox, 1); }
-            else if (r < 0.975f) { items.Add(new ItemData("key_vault")); }
-            else if (r < 0.993f) { items.Add(new ItemData("val_radio")); }
-            else { Roll(Db.LootTable.Vault, 4); }
             for (int i = 0; i < items.Count && i < _box.slots.Count; i++)
             {
                 int nid = 10000 + index * 16 + i;

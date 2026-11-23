@@ -54,7 +54,7 @@ namespace Rago
                 case 1: l.AddRange(Db.Armor); l.AddRange(Db.Packs); break;
                 case 2: l.AddRange(Db.Attachments); break;
                 case 3: l.AddRange(Db.Sights); break;
-                default: l.Add(Tester.PresentDef); l.Add(Tester.CartDef); l.AddRange(Db.Misc); break;
+                default: l.Add(Tester.CartDef); l.Add(Db.Get("gift")); l.Add(Db.Get("gift_santa")); foreach (var m in Db.Misc) if (m.id != "gift" && m.id != "gift_santa") l.Add(m); break;
             }
             return l;
         }
@@ -92,7 +92,10 @@ namespace Rago
         }
 
         /// <summary>A look-only copy of the item (no physics, not a real item), scaled into w x h and centred on the holder.</summary>
-        static void Model(ItemDef d, Transform holder, float w, float h)
+        static void Model(ItemDef d, Transform holder, float w, float h) => Model(d, holder, w, h, null);
+
+        /// <summary>A look-only model of an item (optionally a gun in a paint job), fitted into w x h on the holder.</summary>
+        public static GameObject Model(ItemDef d, Transform holder, float w, float h, string skin, float yaw = 25f)
         {
             GameObject go;
             if (d == Tester.PresentDef) go = MiniPresent();
@@ -100,7 +103,8 @@ namespace Rago
             else
             {
                 var it = ItemFactory.Spawn(new ItemData(d.id), holder.position, holder.rotation);
-                if (it == null) return;
+                if (it == null) return null;
+                if (skin != null && it is Gun gun) GunSkins.Apply(gun, skin);
                 foreach (var x in it.GetComponentsInChildren<Item>(true)) { Item.All.Remove(x); if (x.rb != null) { x.rb.isKinematic = true; x.rb.detectCollisions = false; } }
                 foreach (var cl in it.GetComponentsInChildren<Collider>(true)) Destroy(cl);
                 foreach (var x in it.GetComponentsInChildren<Item>(true)) Destroy(x);
@@ -109,9 +113,9 @@ namespace Rago
             }
             go.transform.SetParent(holder, false);
             go.transform.localPosition = Vector3.zero;
-            go.transform.localRotation = Quaternion.Euler(8f, 90f + 25f, 0f);
+            go.transform.localRotation = Quaternion.Euler(8f, 90f + yaw, 0f);
             var rs = go.GetComponentsInChildren<Renderer>();
-            if (rs.Length == 0) return;
+            if (rs.Length == 0) return go;
             foreach (var r in rs) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             Bounds b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
             // size in the board's plane
@@ -121,6 +125,7 @@ namespace Rago
             rs = go.GetComponentsInChildren<Renderer>();
             b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
             go.transform.position += holder.position - b.center;
+            return go;
         }
 
         static GameObject MiniPresent()

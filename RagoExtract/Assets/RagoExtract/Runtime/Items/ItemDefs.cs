@@ -512,6 +512,8 @@ namespace Rago
             P("pack_expedition", "Expedition Pack", new Vector3(0.42f, 0.62f, 0.3f), 2, 4, E, 11000, new Color(0.22f, 0.3f, 0.4f), "Tall expedition pack with a hip belt and sleeping mat. Armor, SMGs and a lot of loot.");
             P("pack_mule", "Mule Hauler", new Vector3(0.5f, 0.74f, 0.34f), 2, 5, V, 22000, new Color(0.45f, 0.38f, 0.16f), "Vault-only. Hauling frame pack - even a rifle fits inside.");
 
+            M("gift", "Christmas Present", ItemKind.Valuable, U, 500, 0, new Color(0.75f, 0.08f, 0.08f), "A small wrapped present. Pick it up and SHAKE it hard to open it - it could be anything from bandages to a top gun... or a live grenade.");
+            M("gift_santa", "Santa's Present", ItemKind.Valuable, V, 5000, 0, new Color(0.72f, 0.05f, 0.05f), "Dropped by Evil Santa. Shake it open: a North Pole Keycard is inside, with vault-grade loot.");
             M("key_xmas", "North Pole Keycard", ItemKind.Key, V, 30000, 1, new Color(0.75f, 0.06f, 0.06f), "A big festive keycard. Opens the giant present vault on the North Pole - inside: the best loot in the game and four skins you can't get anywhere else. Only ever found inside Christmas presents - most often on the North Pole.");
             M("key_vault", "Vault Keycard", ItemKind.Key, E, 14000, 0, new Color(0.85f, 0.15f, 0.12f), "Opens any raid vault: hold it to the card reader by the vault door. Found in safes and lying around on desks.");
         }
@@ -601,7 +603,7 @@ namespace Rago
                     break;
             }
             // vault keycards and military radios only lie at their own spots on each map - never in crates, safes or on bodies
-            pool.RemoveAll(d => d.kind == ItemKind.Key || d.id == "val_radio" || d.id == "candycane" || d.id == "key_xmas");
+            pool.RemoveAll(d => d.kind == ItemKind.Key || d.id == "val_radio" || d.id == "candycane" || d.id == "key_xmas" || d.id == "gift" || d.id == "gift_santa");
             float total = 0;
             foreach (var d in pool) total += Weight(d.rarity, t) * (d.kind == ItemKind.Key ? 0.08f : 1f);
             if (total <= 0) return Get("bandage");

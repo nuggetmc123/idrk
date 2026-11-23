@@ -16,7 +16,7 @@ namespace Rago
         /// <summary>Spawn-menu entries (OTHER) that aren't items: a Christmas present and a golf cart. Placed with the pointer like an item.</summary>
         public static readonly ItemDef PresentDef = new ItemDef { id = "spawn_present", name = "CHRISTMAS PRESENT" };
         public static readonly ItemDef CartDef = new ItemDef { id = "spawn_cart", name = "GOLF CART" };
-        public static bool IsWorldThing(ItemDef d) => d == PresentDef || d == CartDef;
+        public static bool IsWorldThing(ItemDef d) => d == CartDef;
 
         static Vector3 InFront(float dist, out Quaternion rot)
         {

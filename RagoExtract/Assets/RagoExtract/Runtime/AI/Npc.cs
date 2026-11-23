@@ -733,11 +733,10 @@ namespace Rago
                     if (it != null) { it.netId = 90000 + Id * 4 + 1 + i; NetGame.I?.Register(it); }
                 }
                 // Evil Santa drops a present with a North Pole Keycard in it (made the same on every machine, so it opens for everyone)
-                if (BossName.ToLowerInvariant().Contains("santa") && RagoGame.I != null && RagoGame.I.Map != null)
+                if (BossName.ToLowerInvariant().Contains("santa"))
                 {
-                    var gp = Rig.hips.position; gp.y = transform.position.y;
-                    var gift = LootCrate.Create(RagoGame.I.Map, 20000 + Id, gp + transform.forward * 0.8f, transform.eulerAngles.y + 180f, LootCrate.Kind.Present);
-                    gift.santaGift = true;
+                    var gift = ItemFactory.Spawn(new ItemData("gift_santa"), Rig.chest.position + Vector3.up * 0.4f, Random.rotation);
+                    if (gift != null) { gift.netId = 90000 + Id * 4 + 3; NetGame.I?.Register(gift); }
                 }
                 var pl = RagoGame.I != null ? RagoGame.I.Player : null;
                 if (pl != null && Vector3.Distance(pl.transform.position, transform.position) < 90f) pl.Toast("BOSS DOWN: " + BossName.ToUpper());

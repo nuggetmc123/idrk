@@ -31,6 +31,8 @@ namespace Rago
             new Skin { id = "frost", name = "Frostbite", pack = "holiday", spray = new Color(0.6f, 0.8f, 0.95f), mat = () => Paint("frost", Frostbite, 2.5f, false, 0.6f, 0.75f, 0.05f, 0.25f) },
             new Skin { id = "neon", name = "Neon Circuit", pack = "street", spray = new Color(0.2f, 1f, 0.5f), mat = () => Paint("neon", NeonCircuit, 3f, false, 0.2f, 0.7f, 0.05f, 0.1f) },
             new Skin { id = "toxic", name = "Hazard", pack = "street", spray = new Color(0.95f, 0.8f, 0.1f), mat = () => Paint("toxic", Hazard, 3f, false, 0.05f, 0.4f, 0.35f, 0.5f) },
+            new Skin { id = "graffiti", name = "Graffiti", pack = "street", spray = new Color(0.9f, 0.3f, 0.7f), mat = () => Paint("graffiti", Graffiti, 2.5f, false, 0.05f, 0.45f, 0.2f, 0.3f) },
+            new Skin { id = "rust", name = "Rust Bucket", pack = "survivor", spray = new Color(0.55f, 0.28f, 0.12f), mat = () => Paint("rust", Rust, 3f, false, 0.4f, 0.25f, 0.4f, 0.5f) },
             new Skin { id = "dragon", name = "Dragon Scale", pack = "collector", spray = new Color(0.6f, 0.08f, 0.05f), mat = () => Paint("dragon", DragonScale, 4f, false, 0.55f, 0.7f, 0.1f, 0.2f) },
             new Skin { id = "galaxy", name = "Galaxy", pack = "collector", spray = new Color(0.35f, 0.15f, 0.6f), mat = () => Paint("galaxy", Galaxy, 2f, false, 0.1f, 0.85f, 0.03f, 0.1f) },
             new Skin { id = "damascus", name = "Damascus Steel", pack = "collector", spray = new Color(0.6f, 0.6f, 0.62f), mat = () => Paint("damascus", Damascus, 3f, false, 0.95f, 0.8f, 0.05f, 0.15f) },
@@ -265,6 +267,20 @@ namespace Rago
             if (p > 0.7f) c = new Color(0.85f, 0.35f, 0.5f);
             if (Mathf.Abs(Fbm(u, v, 3f, 8.8f) - 0.5f) < 0.02f) c = new Color(0.25f, 0.15f, 0.12f);   // branches
             return c;
+        }
+        static Color Graffiti(float u, float v)
+        {
+            Color c = new Color(0.12f, 0.12f, 0.14f);
+            Color[] cans = { new Color(0.95f, 0.25f, 0.65f), new Color(0.2f, 0.85f, 0.95f), new Color(0.98f, 0.85f, 0.15f), new Color(0.35f, 0.95f, 0.35f) };
+            for (int k = 0; k < cans.Length; k++) { float n = Fbm(u, v, 3f, 1.7f + k * 2.3f); if (n > 0.62f) c = Color.Lerp(c, cans[k], Mathf.SmoothStep(0.62f, 0.66f, n)); }
+            if (Mathf.Abs(Fbm(u, v, 4f, 9.3f) - 0.5f) < 0.018f) c = Color.white;   // tag outlines
+            return c;
+        }
+        static Color Rust(float u, float v)
+        {
+            float n = Fbm(u, v, 5f, 2.4f), m = Fbm(u, v, 12f, 6.1f);
+            Color paint = new Color(0.25f, 0.33f, 0.28f), rust = Color.Lerp(new Color(0.45f, 0.2f, 0.08f), new Color(0.7f, 0.38f, 0.15f), m);
+            return Color.Lerp(paint, rust, Mathf.SmoothStep(0.45f, 0.6f, n)) * (0.9f + m * 0.2f);
         }
         static Color Aurora(float u, float v)
         {

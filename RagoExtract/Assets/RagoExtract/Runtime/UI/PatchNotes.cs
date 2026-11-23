@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.56", "Shake-to-open presents, better DLC store", new[] {
+                "CHRISTMAS PRESENTS are small now: over Christmas, crates often hold a little wrapped present (35% of crates, 60% on the North Pole). Pick it up and SHAKE it - five hard shakes and it bursts open, dropping the prize right there (it rattles as you shake it). Same odds as before: mostly supplies, sometimes a gun or armour, rarely a top gun, a keycard or a jackpot... and now and then a live grenade. The big floor presents are gone.",
+                "Evil Santa drops SANTA'S PRESENT (a bigger gold-ribboned one) - shake it open for a guaranteed North Pole Keycard and vault-grade loot.",
+                "DLC STORE redesigned: each pack card has its colour band, a showcase rifle that turns and changes into each of the pack's skins, a framed print of every skin pattern with its name, little models of any items with how many you get, and a big FREE / GET button.",
+                "2 new skins: Graffiti (Street Pack) and Rust Bucket (Survivor Pack).",
+                "Tester spawn board: Christmas Present and Santa's Present are real items in OTHER now.",
+            }),
             ("2.55", "Easier driving, rarer Santa, boss outfits", new[] {
                 "Golf carts are much easier to drive: the LEFT STICK steers (left / right) as well as the wheel; the wheel is easier to grab and needs less turning (full lock at 90 degrees); steering is sharp when slow and gentle at top speed (no more twitching); the tyres grip harder (no sliding) and it's much harder to tip over.",
                 "Evil Santa is rare now: he holds Santa's house on 1 North Pole raid in 20 (5%).",
