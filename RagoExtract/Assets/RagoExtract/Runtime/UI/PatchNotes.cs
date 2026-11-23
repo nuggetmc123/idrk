@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.75", "New season: everyone starts fresh", new[] {
+                "NEW SEASON: every account has been reset. Money is back to $6,000, level and stats to zero, and your stash, gear, ammo, bunker (rooms, floor, med cabinet) and deliveries are all gone. The black market starts empty too. Your callsign, friends, settings and any DLC packs you own are kept.",
+                "The TESTER menu tab is gone.",
+            }),
             ("2.74", "No level locks at the traders", new[] {
                 "TRADERS sell everything from the start - no more \"reach level X\" locks. Instead the better it is, the more it costs: common gear is about 1.8x its value, uncommon 2.4x, rare 3.2x, epic 4.2x. Ammo and meds stay cheap (1.5x). Selling to traders pays the same as before. You still level up from raids (it shows on your profile and watch).",
             }),

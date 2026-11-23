@@ -24,8 +24,20 @@ namespace RagoServer
         static string B64(string s) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s ?? ""));
         static string Un64(string s) { try { return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s ?? "")); } catch { return ""; } }
 
+        /// <summary>Raise with the game's Profile.Season: the first start after that clears the black market (every shop,
+        /// listing, sold-item record and unpaid sale), so a season wipe leaves nothing behind on the server either.</summary>
+        const int MarketSeason = 2;
+
         static void LoadMarket()
         {
+            int season = 1;
+            foreach (var f in Lines("season.tsv")) if (f.Length >= 1 && int.TryParse(f[0], out var sv)) season = sv;
+            if (season < MarketSeason)
+            {
+                Save("shops.tsv", new string[0]); Save("sales.tsv", new string[0]);
+                Save("season.tsv", new[] { MarketSeason.ToString() });
+                Log("NEW SEASON " + MarketSeason + ": black market cleared (every shop, listing and unpaid sale)");
+            }
             foreach (var f in Lines("shops.tsv"))
             {
                 if (f.Length < 4) continue;

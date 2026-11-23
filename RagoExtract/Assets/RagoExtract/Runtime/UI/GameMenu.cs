@@ -199,6 +199,9 @@ namespace Rago
             for (int i = 0; i < _tabBtns.Count; i++) _tabBtns[i].SetColor(i == (int)_tab ? new Color(0.2f, 0.42f, 0.2f) : new Color(0.28f, 0.3f, 0.32f));
             // the MOD tab: only for moderators (the server says who they are)
             _tabBtns[(int)Tab.Mod].gameObject.SetActive(RelayBackend.IsMod);
+            // the TESTER tab (god mode, spawn items...) is the developer's test account only
+            _tabBtns[(int)Tab.Tester].gameObject.SetActive(Spectator.IsTestAccount);
+            if (_tab == Tab.Tester && !Spectator.IsTestAccount) _tab = Tab.Party;
             if (_tab == Tab.Mod && !RelayBackend.IsMod) _tab = Tab.Party;
             if (_typing) { DrawKeyboard(); return; }
             switch (_tab)

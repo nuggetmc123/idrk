@@ -14,6 +14,11 @@ namespace Rago
     public class Profile
     {
         public static Profile Current;
+        /// <summary>The current season. Raise it to wipe every account (money, level, stash, gear, bunker) the next time each
+        /// player opens the game - paid DLC, callsign, friends and settings are kept.</summary>
+        public const int Season = 2;
+        public int season;
+        public static bool SeasonWiped;   // this launch wiped the account: say so once you're in
         public string name = "Operator";
         public int money = 6000;
         public int outfitSeed;
@@ -96,7 +101,19 @@ namespace Rago
         {
             // the profile, or if that's damaged (the game was closed mid-save), the backup - never a silent reset
             var p = TryRead(PathFile) ?? TryRead(BackupFile);
-            if (p != null) { p.Fix(); Current = p; return p; }
+            if (p != null)
+            {
+                p.Fix(); Current = p;
+                if (p.season < Season)
+                {
+                    // NEW SEASON: everyone starts from nothing (paid packs stay; the South Pole vault skins are earned again)
+                    p.Wipe();
+                    p.dlc?.Remove("northpole");
+                    p.season = Season; p.Save();
+                    SeasonWiped = true;
+                }
+                return p;
+            }
             if (File.Exists(PathFile))
                 try { File.Copy(PathFile, PathFile + ".damaged", true); } catch { }   // keep the broken one, just in case
             Current = NewProfile();
@@ -164,6 +181,7 @@ namespace Rago
         public static Profile NewProfile()
         {
             var p = new Profile();
+            p.season = Season;
             p.outfitSeed = Random.Range(1, 99999);
             p.name = "Operator-" + Random.Range(100, 999);
             p.loadout = new Loadout

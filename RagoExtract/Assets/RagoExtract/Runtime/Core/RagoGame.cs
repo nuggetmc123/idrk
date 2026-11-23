@@ -101,6 +101,7 @@ namespace Rago
             try { Mats.Foliage("_warm", Mats.LeafCard, Color.white); Shader.WarmupAllShaders(); }
             catch (System.Exception e) { Debug.LogWarning("[Rago Extract] shader warm-up skipped: " + e.Message); }
             var prof = Profile.LoadOrCreate();
+            if (Profile.SeasonWiped) StartCoroutine(SeasonMessage());
             MetaPlatform.Init();   // Quest store: ownership check, then age group and owned DLC
             if (Application.platform != RuntimePlatform.Android) AgeGate.Check();   // (on the headset these follow the ownership check)
             try { if (Application.platform != RuntimePlatform.Android) Dlc.Restore(); } catch (System.Exception e) { Debug.LogWarning("[Rago] restore purchases: " + e.Message); }   // paid packs come back after a reinstall
@@ -439,6 +440,14 @@ namespace Rago
             prof.loadout = Player.Gear.SaveLoadout();
             prof.loadout.ammo = null;
             prof.Save();
+        }
+
+        System.Collections.IEnumerator SeasonMessage()
+        {
+            float t = 0f;
+            while ((Player == null || _travelling) && t < 60f) { t += Time.unscaledDeltaTime; yield return null; }
+            yield return new WaitForSecondsRealtime(2f);
+            Player?.Hud.Center("NEW SEASON\n<size=40>Every account has been reset - everyone starts fresh with $6,000.\nYour DLC packs are still yours.</size>", 8f);
         }
 
         void OnLocalDeath(int killer)
