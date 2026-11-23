@@ -4,8 +4,7 @@ namespace Rago
 {
     /// <summary>
     /// Player level. XP comes from raids: every raider you kill (bosses are worth a lot), getting out alive, and how
-    /// much loot you bring out. Traders only sell a gun (or a better sight / attachment / bag) once you're high
-    /// enough level for it - anything you find in a raid is yours to use whatever your level.
+    /// much loot you bring out. Traders sell everything to everyone (no level locks); the better it is, the more it costs.
     /// </summary>
     public static class Levels
     {
@@ -53,26 +52,14 @@ namespace Rago
             if (after > before)
             {
                 Sfx.UI(Synth.Extracted(), 0.6f);
-                pl.Toast("LEVEL UP!  Level " + after + (Unlocks(after) > 0 ? "  -  " + Unlocks(after) + " new item(s) at the traders" : ""));
+                pl.Toast("LEVEL UP!  Level " + after);
             }
             else if (why != null) pl.Toast("+" + amount + " XP  " + why);
         }
 
-        /// <summary>The level a trader wants before they'll sell you this. Guns by rarity and size; gear by rarity.</summary>
-        public static int Required(ItemDef d)
-        {
-            if (d == null) return 1;
-            // one ladder for everything a trader sells: low tier at level 1, then every tier 5 levels further
-            if (d is GunDef || d.kind == ItemKind.Sight || d.kind == ItemKind.Attachment || d.kind == ItemKind.Backpack || d.kind == ItemKind.Armor || d.id == "nvg")
-                return d.rarity == Rarity.Common ? 1 : d.rarity == Rarity.Uncommon ? 5 : d.rarity == Rarity.Rare ? 10 : d.rarity == Rarity.Epic ? 15 : 20;
-            return 1;   // ammo, meds, grenades, knives
-        }
+        /// <summary>The level a trader wants before they'll sell you this: none any more - everything's for sale from the
+        /// start, the good stuff is just expensive (TraderStall.Price).</summary>
+        public static int Required(ItemDef d) => 1;
 
-        static int Unlocks(int level)
-        {
-            int n = 0;
-            foreach (var t in TraderStall.Defaults()) foreach (var id in t.stock) if (Required(Db.Get(id)) == level) n++;
-            return n;
-        }
     }
 }

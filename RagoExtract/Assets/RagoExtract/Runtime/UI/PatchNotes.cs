@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.74", "No level locks at the traders", new[] {
+                "TRADERS sell everything from the start - no more \"reach level X\" locks. Instead the better it is, the more it costs: common gear is about 1.8x its value, uncommon 2.4x, rare 3.2x, epic 4.2x. Ammo and meds stay cheap (1.5x). Selling to traders pays the same as before. You still level up from raids (it shows on your profile and watch).",
+            }),
             ("2.73", "Meta store switched on", new[] {
                 "The Meta XR Platform SDK now comes with the project (Unity downloads it by itself when you open it), so the ownership check and real-money DLC are on in headset builds.",
             }),
