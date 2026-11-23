@@ -315,9 +315,68 @@ namespace Rago
             if (_knockT > 0f) { foreach (var b in Rig.bodies) b.AddForce(impulse * 0.1f, ForceMode.Impulse); return; }
             _knockT = 2.6f;
             if (Agent != null) Agent.enabled = false;
+            // the gun stays in their hand (it used to hang in the air where they'd been standing)
+            if (GunModel != null && GunModel.root != null && Rig.handR != null)
+            {
+                GunModel.root.transform.SetParent(Rig.handR, true);
+                GunModel.root.transform.localPosition = new Vector3(0, -0.01f, 0.05f);
+                GunModel.root.transform.localRotation = Quaternion.identity;
+            }
             Rig.SetRagdoll(true, impulse, point, Vector3.zero);
             Rig.root.SetLayerRecursive(Layers.Ragdoll);
             Sfx.Play(Synth.BodyFall(), Rig.hips.position, 0.8f, 1f, 1f, 25f);
+        }
+
+        // ---- bleeding and bandaging
+        float _bleed, _dripT, _healT; GameObject _bandage;
+        public bool Healing => _healT > 0f;
+
+        void BleedTick(float dt)
+        {
+            if (_bleed > 0f)
+            {
+                Health -= _bleed * dt;
+                _dripT -= dt;
+                if (_dripT <= 0f) { _dripT = Mathf.Lerp(0.9f, 0.25f, _bleed / 4f); try { Fx.Drip(Rig.hips.position + transform.forward * 0.05f); } catch { } }
+                if (Health <= 0f) { Health = 0f; Die(Rig.chest.position, -transform.forward * 12f, false); return; }   // bled out
+                // out of the fight for a moment (lost sight of you, or not fighting at all): stop and bandage it
+                bool safe = State != NpcState.Combat || Time.time - _lastSeenT > 2.5f;
+                if (_healT <= 0f && safe && _blind <= 0f && _down <= 0f) StartHeal();
+            }
+            if (_healT > 0f)
+            {
+                _healT -= dt;
+                Stop();
+                if (_healT <= 0f) FinishHeal();
+            }
+        }
+
+        void StartHeal()
+        {
+            _healT = 3.6f;
+            Stop();
+            // a roll of bandage in the left hand
+            if (_bandage == null && Rig.handL != null)
+            {
+                _bandage = new MB().Cyl(new Vector3(-0.03f, 0, 0.06f), new Vector3(0.03f, 0, 0.06f), 0.025f, 0.025f, 12, new Color(0.92f, 0.9f, 0.85f))
+                    .Build("Bandage", Rig.handL, Mats.Lit("bandage_roll", Color.white, 0f, 0.2f, Mats.Fabric, null, 0.2f, 0f));
+            }
+            Sfx.Play(Synth.Zipper(), Rig.chest.position, 0.5f, 1.2f, 1f, 12f);
+        }
+
+        void StopHeal()
+        {
+            _healT = 0f;
+            if (_bandage != null) { Compat.KillWithMeshes(_bandage); _bandage = null; }
+        }
+
+        void FinishHeal()
+        {
+            _bleed = 0f;
+            Health = Mathf.Min(MaxHealth, Health + 20f);
+            _hunch = Mathf.Min(_hunch, 0.15f);
+            StopHeal();
+            Sfx.Play(Synth.Heal(), Rig.chest.position, 0.4f, 1f, 1f, 10f);
         }
 
         void GetUp()
@@ -328,6 +387,7 @@ namespace Rago
             transform.position = p;
             Rig.SetRagdoll(false);
             Rig.root.SetLayerRecursive(Layers.Npc);
+            if (GunModel != null && GunModel.root != null) GunModel.root.transform.SetParent(transform, true);   // back in the normal aiming pose next frame
             if (Agent != null) { Agent.enabled = true; if (Agent.isOnNavMesh) Agent.Warp(p); }
             _down = 1f; _stagger = 1f;   // a moment to get their bearings
             if (!Puppet && State != NpcState.Combat) { State = NpcState.Investigate; _lastKnown = p; _searchT = 6f; }
@@ -338,6 +398,8 @@ namespace Rago
             if (!Alive) return;
             float dt = Time.deltaTime;
             if (_knockT > 0f) { _knockT -= dt; if (_knockT <= 0f) GetUp(); return; }
+            if (!Puppet) BleedTick(dt);
+            if (!Alive) return;
             _flinch = Mathf.MoveTowards(_flinch, 0, dt * 3f);
             _stagger -= dt;
             _hunch = Mathf.MoveTowards(_hunch, 0, dt * 0.5f);
@@ -354,6 +416,7 @@ namespace Rago
 
         void Decide()
         {
+            if (_healT > 0f) { Stop(); return; }   // bandaging up: stays put
             if (_blind > 0) { Stop(); return; }   // flashed: standing there, blinking
             bool hasLos = _target.valid && Time.time - _lastSeenT < 0.35f;
             // a leash: once they've lost you and wandered far from their post, they head back instead of hunting on
@@ -645,6 +708,17 @@ namespace Rago
                 else { gripL = gripR; hl = hr; gripR = hang; hr = yawQ * Quaternion.Euler(90, 0, 0); }   // right arm out: the left hand takes the grip
                 GunModel.root.transform.rotation *= Quaternion.Euler(8f + Mathf.Sin(Time.time * 3f) * 3f, 0, 0);
             }
+            if (_healT > 0f)
+            {
+                // kneeling, gun down at their side, the left hand winding a bandage round the wound
+                head = root + Vector3.up * 1.12f + yawQ * new Vector3(0, 0, 0.12f);
+                headRot = yawQ * Quaternion.Euler(35f, 0, 0);
+                GunModel.root.transform.SetPositionAndRotation(root + Vector3.up * 0.55f + yawQ * new Vector3(0.25f, 0, 0.15f), yawQ * Quaternion.Euler(70f, 10f, 0));
+                gripR = GunModel.root.transform.position; hr = GunModel.root.transform.rotation;
+                float a = Time.time * 5f;
+                gripL = root + Vector3.up * 0.6f + yawQ * new Vector3(Mathf.Cos(a) * 0.08f, Mathf.Sin(a) * 0.05f, 0.2f);
+                hl = yawQ * Quaternion.Euler(60f, 30f, 0);
+            }
             Vector3 vel = Puppet ? _puppetVel : AgentOk ? Agent.velocity : Vector3.zero;
             Rig.Pose(root, Yaw, head, headRot, gripL, hl, gripR, hr, vel, dt);
         }
@@ -664,7 +738,8 @@ namespace Rago
             Health -= dmg;
             if (Health > 0) Wound(h, dmg);
             if (h.ammo == AmmoType.Incendiary && Health > 0f) Ignite(h);
-            if (h.gunId == "cart" && Health > 0f) Knock(h.dir * Mathf.Max(8f, h.force * 25f) + Vector3.up * 6f, h.point);   // run over: thrown as a ragdoll
+            // thrown off their feet as a ragdoll: run over, caught in a blast, or a really heavy hit (big rounds, sledgehammer...)
+            if (Health > 0f && (h.gunId == "cart" || h.gunId == "frag" || h.gunId == "impact" || h.force >= 5.5f)) Knock(h.dir * Mathf.Max(8f, h.force * 25f) + Vector3.up * 6f, h.point);
             if (Puppet)
             {
                 // every player's copy of this raider counts every hit (everyone's shots are sent to everyone), so whoever
@@ -688,6 +763,9 @@ namespace Rago
         void Wound(HitInfo h, float dmg)
         {
             if (dmg < 2f || Rig == null) return;
+            // a real wound bleeds: health drains (and drips) until they stop to bandage it - or they bleed out
+            if (h.part != BodyPart.Head && dmg >= 12f && h.gunId != "cart") _bleed = Mathf.Min(4f, _bleed + dmg * 0.045f);
+            if (_healT > 0f && dmg > 5f) StopHeal();   // shot while bandaging: they give up on it
             Vector3 d = h.dir.sqrMagnitude > 0.001f ? h.dir.normalized : -transform.forward;
             float k = Mathf.Clamp01(dmg / 40f);
             switch (h.part)

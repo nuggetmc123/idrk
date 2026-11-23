@@ -82,7 +82,7 @@ namespace Rago
                 holder.SetParent(_content, false);
                 holder.localPosition = c + new Vector3(0, 0.02f, -0.06f);
                 holder.localRotation = Quaternion.identity;
-                try { Model(d, holder, tw * 0.8f, th * 0.62f); } catch (System.Exception e) { Debug.LogWarning("[Rago] spawn browser model " + d.id + ": " + e.Message); }
+                try { Model(d, holder, tw * 0.62f, th * 0.5f); } catch (System.Exception e) { Debug.LogWarning("[Rago] spawn browser model " + d.id + ": " + e.Message); }
                 string nm = d.name ?? d.id; if (nm.Length > 20) nm = nm.Substring(0, 19) + ".";
                 UI.Text(_content, nm, c + new Vector3(0, -th * 0.38f, -0.024f), 0.017f, ItemDef.RarityColor(d.rarity), TextAnchor.MiddleCenter, FontStyle.Bold);
             }
@@ -117,14 +117,16 @@ namespace Rago
             var rs = go.GetComponentsInChildren<Renderer>();
             if (rs.Length == 0) return go;
             foreach (var r in rs) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            Bounds b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
-            // size in the board's plane
+            // measure only the solid model (laser beams, light cones and particles have huge bounds), in the board's plane
+            Bounds Solid() { bool any = false; Bounds bb = default; foreach (var r in go.GetComponentsInChildren<MeshRenderer>()) { if (!r.enabled) continue; if (!any) { bb = r.bounds; any = true; } else bb.Encapsulate(r.bounds); } return any ? bb : rs[0].bounds; }
+            Bounds b = Solid();
             Vector3 sz = holder.InverseTransformVector(b.size); sz = new Vector3(Mathf.Abs(sz.x), Mathf.Abs(sz.y), Mathf.Abs(sz.z));
-            float s = Mathf.Min(w / Mathf.Max(0.01f, sz.x), h / Mathf.Max(0.01f, sz.y));
+            float s = Mathf.Min(w / Mathf.Max(0.01f, sz.x), h / Mathf.Max(0.01f, sz.y), (w * 0.9f) / Mathf.Max(0.01f, sz.z));   // the depth too: it mustn't poke out of the board at you
+            s = Mathf.Min(s, 1.6f);   // small things (a keycard, a bandage) aren't blown up to the size of a rifle
             go.transform.localScale *= s;
-            rs = go.GetComponentsInChildren<Renderer>();
-            b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+            b = Solid();
             go.transform.position += holder.position - b.center;
+            foreach (var r in go.GetComponentsInChildren<Renderer>()) if (!(r is MeshRenderer)) r.enabled = false;   // no beams / glows sticking out of the board
             return go;
         }
 

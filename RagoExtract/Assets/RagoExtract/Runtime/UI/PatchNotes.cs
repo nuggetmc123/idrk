@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.64", "Creator Cam saves videos, wounded NPCs", new[] {
+                "CREATOR CAM RECORDS FOR REAL: pull the trigger at the cam and it films its steady first-person view to a video file (MP4, 30 fps, no sound). On a Quest it goes to Movies/Rago Extract (open it in Files or your headset's media). On PC it goes to your Videos\\Rago Extract folder - this needs ffmpeg.exe next to the game or installed (free from ffmpeg.org); it tells you if it can't find it. You get a message with the file name when you stop.",
+                "NPCs BLEED: a solid hit leaves them bleeding - blood drips and their health drains until they deal with it, and they can bleed out (the kill is yours).",
+                "NPCs PATCH THEMSELVES UP: once they're out of your sight (or not fighting) a bleeding NPC kneels, lowers their gun and wraps a bandage round the wound for a few seconds, then gets back up with the bleeding stopped and some health back. Shoot them while they do it and they give up on it.",
+                "NPCs KNOCKED DOWN by a car, a grenade or a big hit now go flying back with their gun still in their hand, instead of the gun hanging in the air where they stood.",
+                "Fixed: the models on the SPAWN ITEM board were huge - they now fit their tiles.",
+            }),
             ("2.63", "Creator Cam, comfort settings", new[] {
                 "CREATOR CAM (for content creators): an action camera that clips onto the right side of your helmet (hold it to your helmet and let go). One button: reach to it with an empty hand and pull the trigger to RECORD / stop (desktop: C). While recording its red light glows for everyone to see and your watch shows a blinking REC and the time. On PC the game window shows the camera's steady first-person view to capture with OBS; on a Quest, use the headset's own Record. Sold by Mara, found in raids, and in the tester spawn board (OTHER).",
                 "AUTO SPRINT (menu > SETTINGS > MORE): push the stick right forward and you break into a run by yourself.",
