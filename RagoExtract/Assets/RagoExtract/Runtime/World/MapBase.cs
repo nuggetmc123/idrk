@@ -254,7 +254,7 @@ namespace Rago
                 else if (CrateFits(s.pos, yaw, LootCrate.Kind.Optics)) AddCrate(s.pos, yaw, LootCrate.Kind.Optics);
                 else free.Add(s);
             }
-            if (IsRaid && Festive.On) PlacePresents(free);
+            if (IsRaid && (Festive.On || Id == "northpole")) PlacePresents(free);
             // this raid: each card spot has a card half the time (at least one somewhere), each radio spot likewise
             var at = new List<Vector3>(); var ids = new List<string>();
             void Fill(List<Vector3> spots, string id)
@@ -291,13 +291,13 @@ namespace Rago
             var prng = new Rng(LootSeed * 3119 + 47);
             var pool = new List<LootSpot>(free);
             var taken = new List<Vector3>();
-            int want = Id == "underground" ? 6 : 10;
+            int want = Id == "northpole" ? 32 : Id == "underground" ? 12 : 20;   // presents are everywhere (the North Pole most of all)
             for (int guard = 0; guard < 400 && taken.Count < want && pool.Count > 0; guard++)
             {
                 int k = prng.Range(0, pool.Count);
                 var s = pool[k]; pool.RemoveAt(k);
                 bool close = false;
-                foreach (var q in taken) if ((q - s.pos).sqrMagnitude < 16f * 16f) { close = true; break; }
+                foreach (var q in taken) if ((q - s.pos).sqrMagnitude < 9f * 9f) { close = true; break; }
                 if (close) continue;
                 float yaw = FaceRoom(s.pos, s.yaw, s.desk);
                 if (!CrateFits(s.pos, yaw, LootCrate.Kind.Present)) continue;
@@ -1400,7 +1400,10 @@ namespace Rago
                 items.Add(new ItemData(g.id) { rounds = g.magSize, chambered = false });   // a present comes loaded
             }
             void Roll(Db.LootTable t, int n) { for (int i = 0; i < n; i++) { var d = Db.Roll(t, rng); if (d != null) items.Add(new ItemData(d.id)); } }
-            if (r < 0.32f) { Roll(Db.LootTable.Crate, 2); }
+            // the North Pole Keycard only ever comes out of a present (more often on the North Pole itself)
+            bool pole = _map != null && _map.Id == "northpole";
+            if (rng.Chance(pole ? 0.07f : 0.02f)) { items.Add(new ItemData("key_xmas")); Roll(Db.LootTable.Crate, 1); }
+            else if (r < 0.32f) { Roll(Db.LootTable.Crate, 2); }
             else if (r < 0.46f)
             {
                 // the prank: a live grenade on a short fuse jumps out (only on the machine that opened it: the blast is shared)
@@ -1819,9 +1822,13 @@ namespace Rago
             return v;
         }
 
+        /// <summary>The card that opens it: the Vault Keycard, or the North Pole Keycard for the giant present.</summary>
+        public string CardId = "key_vault";
+        public bool Present => CardId == "key_xmas";
+
         public void TryCard(Item card)
         {
-            if (IsOpen || card == null || card.def == null || card.def.id != "key_vault") return;
+            if (IsOpen || card == null || card.def == null || card.def.id != CardId) return;
             card.primaryHand?.ForceRelease();
             Destroy(card.gameObject);
             Sfx.Play(Synth.QueueFound(), transform.position, 0.6f, 1.2f, 1f, 15f);
@@ -1861,7 +1868,19 @@ namespace Rago
                 NetGame.I?.Register(it);
                 if (slot.Accepts(it)) slot.Store(it, false);
             }
-            for (int i = 0; i < 3 && sh < _shelf.slots.Count; i++)
+            if (Present)
+            {
+                // the giant present: a second vault gun on the rack, and the shelves filled with the best there is
+                var g2 = rng.Pick(vaultGuns);
+                if (r < _rack.slots.Count)
+                {
+                    var slot = _rack.slots[r++];
+                    var it = ItemFactory.Spawn(new ItemData(g2.id), slot.transform.position, slot.transform.rotation);
+                    if (it != null) { it.netId = 40000 + Id * 32 + 30; NetGame.I?.Register(it); if (slot.Accepts(it)) slot.Store(it, false); }
+                }
+                gameObject.AddComponent<PresentVaultUnlock>().vault = this;
+            }
+            for (int i = 0; i < (Present ? 6 : 3) && sh < _shelf.slots.Count; i++)
             {
                 var d = Db.Roll(Db.LootTable.Vault, rng);
                 if (d == null || d is GunDef g3 && g3.TwoHanded) continue;
@@ -1894,6 +1913,32 @@ namespace Rago
         }
     }
 
+    /// <summary>
+    /// The giant present vault on the North Pole: the first time you step inside it (once it's open), its four skins
+    /// (Aurora, Gift Wrap, Gingerbread, North Star) unlock at your paint booth, with a big NEW SKINS UNLOCKED in front of you.
+    /// </summary>
+    public class PresentVaultUnlock : MonoBehaviour
+    {
+        public Vault vault;
+        bool _done;
+        void Update()
+        {
+            if (_done || vault == null || !vault.IsOpen) return;
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl == null || pl.Dead) return;
+            var lp = vault.transform.InverseTransformPoint(pl.Head.position);
+            if (Mathf.Abs(lp.x) > 3.2f || lp.z < 0.2f || lp.z > 5.4f || lp.y < 0f || lp.y > 4f) return;
+            _done = true;
+            var prof = Profile.Current;
+            if (prof == null) return;
+            prof.dlc ??= new List<string>();
+            bool fresh = !prof.dlc.Contains("northpole");
+            if (fresh) { prof.dlc.Add("northpole"); prof.Save(); }
+            Sfx.UI(Synth.QueueFound(), 0.8f);
+            pl.Hud.Center(fresh ? "NEW SKINS UNLOCKED\n<size=34>Aurora - Gift Wrap - Gingerbread - North Star\nat your paint booth</size>" : "THE GIANT PRESENT\n<size=34>(you already have its skins)</size>", 5f);
+        }
+    }
+
     public class KeycardReader : MonoBehaviour
     {
         public Vault vault;
@@ -1910,7 +1955,7 @@ namespace Rago
             if (vault == null || vault.IsOpen) return;
             foreach (var it in Item.All)
             {
-                if (it == null || !it.Held || it.def == null || it.def.id != "key_vault") continue;
+                if (it == null || !it.Held || it.def == null || it.def.id != vault.CardId) continue;
                 if (Vector3.Distance(it.transform.position, transform.position) < 0.15f) { vault.TryCard(it); break; }
             }
         }

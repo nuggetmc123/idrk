@@ -5,10 +5,13 @@ namespace Rago
 {
     public static class Maps
     {
-        public static readonly string[] RaidIds = { "dockyard", "pinewood", "oldtown", "underground" };
-        public static string Name(string id) => id == "welcome" ? "Rago Extract" : id == "dockyard" ? "Dockyard" : id == "pinewood" ? "Pinewood Outpost" : id == "oldtown" ? "Old Town" : id == "underground" ? "Underground Sector" : id;
+        static readonly string[] _all = { "dockyard", "pinewood", "oldtown", "underground", "northpole" }, _normal = { "dockyard", "pinewood", "oldtown", "underground" };
+        /// <summary>The raid maps (the North Pole only while the Christmas update is on: Festive.Enabled).</summary>
+        public static string[] RaidIds => Festive.Enabled ? _all : _normal;
+        public static string Name(string id) => id == "welcome" ? "Rago Extract" : id == "dockyard" ? "Dockyard" : id == "pinewood" ? "Pinewood Outpost" : id == "oldtown" ? "Old Town" : id == "underground" ? "Underground Sector" : id == "northpole" ? "North Pole" : id;
         public static string Blurb(string id) => id == "dockyard" ? "Container yard at dusk. Warehouses, cranes and the Harbor Office vault."
             : id == "pinewood" ? "Foggy forest and a military outpost with a bunker vault."
+            : id == "northpole" ? "Santa's village, overrun by evil elves and Evil Santa. Presents everywhere - and the Giant Present vault."
             : id == "underground" ? "A sealed underground research sector. Tight corridors, 6 operators max, squads of 2."
             : "Abandoned town at dawn. Streets, apartments and the old bank vault.";
 
@@ -31,6 +34,7 @@ namespace Rago
                 case "pinewood": m = go.AddComponent<PinewoodMap>(); break;
                 case "underground": m = go.AddComponent<UndergroundMap>(); break;
                 case "oldtown": m = go.AddComponent<OldTownMap>(); break;
+                case "northpole": m = go.AddComponent<NorthPoleMap>(); break;
                 default: m = go.AddComponent<DockyardMap>(); break;
             }
             m.Id = id;

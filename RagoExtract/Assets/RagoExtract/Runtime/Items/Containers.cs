@@ -234,6 +234,13 @@ namespace Rago
                     mb.Sub(0).Box(new Vector3(0, 0, 0.041f), new Vector3(0.09f, 0.03f, 0.003f), d.ammoType == AmmoType.AP ? new Color(0.08f, 0.08f, 0.1f) : d.ammoType == AmmoType.Incendiary ? new Color(0.85f, 0.15f, 0.08f) : new Color(0.85f, 0.75f, 0.2f), 0.001f);   // AP = black label, incendiary = red
                     mb.Sub(1).Box(new Vector3(0, 0.04f, 0), new Vector3(0.05f, 0.012f, 0.015f), new Color(0.3f, 0.3f, 0.3f), 0.004f);
                     break;
+                case ItemKind.Key when d.shape == 1:
+                    // the North Pole card: twice the size, red with a green stripe, a gold chip and a white snowflake
+                    mb.Sub(0).Box(Vector3.zero, new Vector3(0.15f, 0.095f, 0.006f), c, 0.004f);
+                    mb.Sub(0).Box(new Vector3(0, -0.028f, 0.0035f), new Vector3(0.15f, 0.018f, 0.002f), new Color(0.1f, 0.45f, 0.18f), 0f);
+                    mb.Sub(1).Box(new Vector3(-0.045f, 0.015f, 0.0035f), new Vector3(0.03f, 0.024f, 0.002f), new Color(1f, 0.8f, 0.3f), 0.001f);
+                    for (int i = 0; i < 3; i++) mb.Sub(0).Box(new Vector3(0.035f, 0.012f, 0.0038f), new Vector3(0.05f, 0.006f, 0.002f), Color.white, 0f, 1, Quaternion.Euler(0, 0, i * 60f));
+                    break;
                 case ItemKind.Key:
                     mb.Sub(0).Box(Vector3.zero, new Vector3(0.085f, 0.054f, 0.004f), c, 0.002f);
                     mb.Sub(1).Box(new Vector3(-0.02f, 0.005f, 0.0025f), new Vector3(0.022f, 0.018f, 0.002f), new Color(1f, 0.8f, 0.3f), 0.001f);

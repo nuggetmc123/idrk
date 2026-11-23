@@ -5,6 +5,14 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.52", "The North Pole", new[] {
+                "NEW MAP - THE NORTH POLE: Santa's village overrun by evil elves. Snow falls the whole raid; candy-cane posts line the avenue; a giant Christmas tree in the square; elf workshops, the Toy Factory, Santa's house, igloos, snowmen and piles of presents - with snowfields and forest all round. Pick it on the raid map (the ice floe, bottom left).",
+                "EVIL ELVES: every raider on the North Pole is an evil elf - pointy ears, angry red eyes, striped stockings and a hat with a bell (heavies wear red).",
+                "BOSS - EVIL SANTA: holds Santa's house at the north end of the avenue, with a heavy vest and a big gun. Drops a Vault Keycard like the other bosses.",
+                "THE GIANT PRESENT: a vault wrapped in red paper and gold ribbon in the middle of the village. Only the NORTH POLE KEYCARD opens it (a big red-and-green card). Inside: two vault guns and a full shelf of the best loot - and the first time you step in, NEW SKINS UNLOCKED: Aurora, Gift Wrap, Gingerbread and North Star at your paint booth.",
+                "The North Pole Keycard ONLY comes out of Christmas presents (7% on the North Pole, 2% elsewhere). Presents are very common now: 32 on the North Pole, 20 on the other maps (12 underground).",
+                "Tester menu: Evil Santa in the NPC spawner.",
+            }),
             ("2.51", "Batting practice", new[] {
                 "Hit a grenade with the baseball bat (or any blunt weapon - crowbar, sledgehammer, pan, candy cane) and it goes flying along your swing - the faster you swing, the further it goes. Toss one up and swing!",
                 "An impact grenade doesn't go off from the bat hit itself - it goes off on whatever it hits next.",

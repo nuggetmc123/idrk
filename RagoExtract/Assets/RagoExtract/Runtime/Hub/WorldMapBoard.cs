@@ -46,6 +46,15 @@ namespace Rago
             Island(p, "dockyard", new Vector3(-0.78f, 0.22f, 0), 0.34f, 11);
             Island(p, "pinewood", new Vector3(0.05f, -0.28f, 0), 0.32f, 23);
             Island(p, "oldtown", new Vector3(0.82f, 0.25f, 0), 0.33f, 37);
+            // the North Pole: an ice floe in the bottom-left corner (Christmas update only)
+            if (Festive.Enabled)
+            {
+                var np = new Vector3(-0.85f, -0.36f, 0);
+                Blob(p, np, 0.22f, 61, new Color(0.75f, 0.85f, 0.95f), -0.007f);
+                Blob(p, np, 0.18f, 61, new Color(0.96f, 0.97f, 1f), -0.008f);
+                new MB().Box(np + new Vector3(0.02f, 0.05f, -0.009f), new Vector3(0.05f, 0.05f, 0.002f), Color.white, 0f).Build("Gift", p, Mats.Unlit("board_gift", new Color(0.8f, 0.1f, 0.1f, 1f)));
+                Location(p, "northpole", np, -0.03f);
+            }
             // the hatch down to the Underground Sector, on a rock between them
             var u = new Vector3(0.12f, 0.36f, 0);
             Blob(p, u, 0.11f, 51, new Color(0.35f, 0.34f, 0.32f), -0.007f);

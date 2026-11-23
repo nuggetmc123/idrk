@@ -157,7 +157,7 @@ namespace Rago
         public static Outfit BossOutfit(string boss)
         {
             string b = boss.ToLowerInvariant();
-            return b.Contains("kessler") ? Outfit.BossKessler : b.Contains("harbor") ? Outfit.BossHarbor : b.Contains("warden") ? Outfit.BossWarden : b.Contains("banker") ? Outfit.BossBanker : b.Contains("courier") ? Outfit.BossCourier : Outfit.RaiderHeavy;
+            return b.Contains("kessler") ? Outfit.BossKessler : b.Contains("harbor") ? Outfit.BossHarbor : b.Contains("warden") ? Outfit.BossWarden : b.Contains("banker") ? Outfit.BossBanker : b.Contains("courier") ? Outfit.BossCourier : b.Contains("santa") ? Outfit.BossSanta : Outfit.RaiderHeavy;
         }
 
         ItemData _gunData;
@@ -185,6 +185,7 @@ namespace Rago
             else if (b.Contains("warden")) { gun = "boss_longbow"; helmet = "boss_helm_warden"; vest = "boss_vest_warden"; }
             else if (b.Contains("banker")) { gun = "boss_parachute"; helmet = "boss_helm_banker"; vest = "boss_vest_banker"; }
             else if (b.Contains("courier")) { gun = "boss_tommy"; helmet = "boss_helm_courier"; vest = "boss_vest_courier"; }
+            else if (b.Contains("santa")) { gun = "hailstorm"; helmet = null; vest = "vest_heavy"; }   // his hat stays on
             else { gun = "grizzly"; helmet = "helm_fast"; vest = "vest_heavy"; }
         }
 

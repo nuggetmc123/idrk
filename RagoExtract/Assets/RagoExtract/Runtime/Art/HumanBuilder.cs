@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Rago
 {
-    public enum Outfit { Operator, Raider, RaiderHeavy, Gunsmith, Medic, Fence, Quartermaster, Kiosk, Foreman, BossKessler, BossHarbor, BossWarden, BossBanker, BossCourier }
+    public enum Outfit { Operator, Raider, RaiderHeavy, Gunsmith, Medic, Fence, Quartermaster, Kiosk, Foreman, BossKessler, BossHarbor, BossWarden, BossBanker, BossCourier, BossSanta }
 
     /// <summary>
     /// A procedurally built humanoid made of rigid segments on a bone hierarchy. Used for the player's own
@@ -63,7 +63,9 @@ namespace Rago
             // limbs point along +Z in bone space; rotate the default pose so they hang down
             foreach (var b in new[] { r.uaL, r.uaR, r.thL, r.thR }) b.localRotation = Quaternion.Euler(90, 0, 0);
 
-            if (Snowman(outfit) && !localPlayer) BuildSnowman(r, outfit, rng);   // Christmas: the raiders are snowmen
+            if (outfit == Outfit.BossSanta) BuildSanta(r);                                   // Evil Santa (North Pole boss)
+            else if (PoleMap && (outfit == Outfit.Raider || outfit == Outfit.RaiderHeavy) && !localPlayer) BuildElf(r, outfit == Outfit.RaiderHeavy, rng);   // North Pole: evil elves
+            else if (Snowman(outfit) && !localPlayer) BuildSnowman(r, outfit, rng);   // Christmas: the raiders are snowmen
             else BuildMeshes(r, outfit, pal, rng, localPlayer);
             BuildPhysics(r);
             r.weaponR = new GameObject("WeaponR").transform;
@@ -449,9 +451,137 @@ namespace Rago
         }
 
         /// <summary>Christmas: raiders and bosses are snowmen (traders and players stay as they are).</summary>
-        public static bool Snowman(Outfit o) => Festive.On && (o == Outfit.Raider || o == Outfit.RaiderHeavy || o >= Outfit.BossKessler);
+        public static bool Snowman(Outfit o) => Festive.On && (o == Outfit.Raider || o == Outfit.RaiderHeavy || (o >= Outfit.BossKessler && o <= Outfit.BossCourier));
+
+        /// <summary>A raid on the North Pole is running (its raiders are evil elves).</summary>
+        public static bool PoleMap => RagoGame.I != null && RagoGame.I.Map != null && RagoGame.I.Map.Id == "northpole";
 
         static Material SnowmanMat => Mats.Lit("snowman", Color.white, 0f, 0.3f, Mats.Noise, null, 0.04f, 0f);
+
+        /// <summary>An evil elf on the raider skeleton: green tunic with a belt and zig-zag collar, red-and-white striped
+        /// stockings, curly shoes, pointy ears, angry red eyes and a floppy hat with a bell. Heavies wear red.</summary>
+        static void BuildElf(HumanRig r, bool heavy, Rng rng)
+        {
+            var mats = new[] { ClothMat, HardMat, PlasticMat, JointMat };
+            Color tunic = heavy ? new Color(0.6f, 0.06f, 0.06f) : rng.Chance(0.5f) ? new Color(0.1f, 0.38f, 0.16f) : new Color(0.08f, 0.3f, 0.12f);
+            Color trim = heavy ? new Color(0.1f, 0.38f, 0.16f) : new Color(0.7f, 0.08f, 0.08f);
+            Color skin = new Color(0.9f, 0.75f, 0.65f), white = new Color(0.95f, 0.95f, 0.93f), red = new Color(0.75f, 0.06f, 0.06f), black = new Color(0.06f, 0.05f, 0.05f), gold = new Color(0.9f, 0.7f, 0.2f);
+            // hips: tunic skirt and belt
+            var mb = new MB(4);
+            mb.Sub(CLOTH).Cyl(new Vector3(0, -0.13f, 0), new Vector3(0, 0.04f, 0), 0.2f, 0.16f, 16, tunic);
+            for (int i = 0; i < 8; i++) { float a = i / 8f * Mathf.PI * 2f; mb.Sub(CLOTH).Cyl(new Vector3(Mathf.Cos(a) * 0.19f, -0.13f, Mathf.Sin(a) * 0.19f), new Vector3(Mathf.Cos(a) * 0.21f, -0.19f, Mathf.Sin(a) * 0.21f), 0.05f, 0.005f, 6, trim); }   // zig-zag hem
+            mb.Sub(HARD).Cyl(new Vector3(0, 0.03f, 0), new Vector3(0, 0.08f, 0), 0.165f, 0.165f, 16, black);
+            mb.Sub(HARD).Box(new Vector3(0, 0.055f, 0.166f), new Vector3(0.07f, 0.055f, 0.01f), gold, 0.005f);
+            mb.Build("Mesh", r.hips, mats);
+            mb = new MB(4);
+            mb.Sub(CLOTH).Cyl(new Vector3(0, -0.02f, 0), new Vector3(0, 0.22f, 0), 0.16f, 0.15f, 16, tunic);
+            for (int i = 0; i < 3; i++) mb.Sub(HARD).Sphere(new Vector3(0, 0.05f + i * 0.06f, 0.152f), Vector3.one * 0.014f, 8, gold);
+            mb.Build("Mesh", r.spine, mats);
+            mb = new MB(4);
+            mb.Sub(CLOTH).Box(new Vector3(0, 0.08f, 0), new Vector3(0.34f, 0.24f, 0.22f), tunic, 0.08f, 2);
+            for (int i = 0; i < 10; i++) { float a = i / 10f * Mathf.PI * 2f; mb.Sub(CLOTH).Cyl(new Vector3(Mathf.Cos(a) * 0.1f, 0.19f, Mathf.Sin(a) * 0.09f), new Vector3(Mathf.Cos(a) * 0.15f, 0.15f, Mathf.Sin(a) * 0.13f), 0.035f, 0.004f, 5, trim); }   // pointed collar
+            mb.Build("Mesh", r.chest, mats);
+            mb = new MB(4);
+            mb.Sub(PLASTIC).Cyl(new Vector3(0, -0.01f, 0), new Vector3(0, 0.1f, 0), 0.045f, 0.042f, 10, skin);
+            mb.Build("Mesh", r.neck, mats);
+            // head: pointy ears, angry brows, red eyes, a long floppy hat with a bell
+            mb = new MB(4);
+            mb.Sub(PLASTIC).Sphere(new Vector3(0, 0.085f, 0.008f), new Vector3(0.088f, 0.105f, 0.098f), 16, skin);
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                mb.Sub(PLASTIC).Cyl(new Vector3(sx * 0.08f, 0.09f, 0), new Vector3(sx * 0.17f, 0.15f, -0.03f), 0.03f, 0.004f, 8, skin);
+                mb.Sub(HARD).Sphere(new Vector3(sx * 0.035f, 0.1f, 0.095f), new Vector3(0.016f, 0.01f, 0.006f), 8, new Color(0.95f, 0.1f, 0.05f));
+                mb.Sub(HARD).Box(new Vector3(sx * 0.037f, 0.125f, 0.094f), new Vector3(0.04f, 0.008f, 0.006f), black, 0.002f, 1, Quaternion.Euler(0, 0, sx * -25f));   // angry brows
+            }
+            mb.Sub(PLASTIC).Sphere(new Vector3(0, 0.075f, 0.105f), Vector3.one * 0.016f, 8, new Color(0.95f, 0.6f, 0.55f));   // nose
+            mb.Sub(HARD).Box(new Vector3(0, 0.035f, 0.097f), new Vector3(0.04f, 0.006f, 0.004f), black, 0.002f, 1, Quaternion.Euler(0, 0, 0));   // a scowl
+            mb.Sub(CLOTH).Cyl(new Vector3(0, 0.15f, 0), new Vector3(0, 0.18f, 0), 0.098f, 0.096f, 16, white);
+            mb.Sub(CLOTH).Cyl(new Vector3(0, 0.18f, 0), new Vector3(0, 0.33f, -0.06f), 0.092f, 0.04f, 14, tunic);
+            mb.Sub(CLOTH).Cyl(new Vector3(0, 0.33f, -0.06f), new Vector3(0, 0.3f, -0.2f), 0.04f, 0.008f, 10, tunic);
+            mb.Sub(HARD).Sphere(new Vector3(0, 0.29f, -0.21f), Vector3.one * 0.022f, 10, gold);   // the bell
+            mb.Build("Mesh", r.head, mats);
+            // arms: sleeves, white cuffs, skin hands
+            for (int s = 0; s < 2; s++)
+            {
+                var ua = s == 0 ? r.uaL : r.uaR; var fa = s == 0 ? r.faL : r.faR; var hand = s == 0 ? r.handL : r.handR;
+                mb = new MB(4); mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.03f), new Vector3(0, 0, r.upperArm - 0.02f), 0.055f, 0.048f, 12, tunic); mb.Build("Mesh", ua, mats);
+                mb = new MB(4); mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.foreArm - 0.04f), 0.046f, 0.04f, 12, tunic);
+                mb.Sub(CLOTH).Cyl(new Vector3(0, 0, r.foreArm - 0.06f), new Vector3(0, 0, r.foreArm - 0.01f), 0.05f, 0.05f, 12, white); mb.Build("Mesh", fa, mats);
+                mb = new MB(4); mb.Sub(PLASTIC).Box(new Vector3(0, -0.004f, 0.05f), new Vector3(0.07f, 0.03f, 0.09f), skin, 0.014f, 2); mb.Build("Mesh", hand, mats);
+            }
+            // legs: striped stockings, curly shoes
+            for (int s = 0; s < 2; s++)
+            {
+                var th = s == 0 ? r.thL : r.thR; var sh = s == 0 ? r.shL : r.shR; var ft = s == 0 ? r.footL : r.footR;
+                mb = new MB(4);
+                for (int k = 0; k < 6; k++) mb.Sub(CLOTH).Cyl(new Vector3(0, 0, 0.02f + k * r.thigh / 6f), new Vector3(0, 0, 0.02f + (k + 1) * r.thigh / 6f), 0.07f, 0.065f, 12, k % 2 == 0 ? red : white, k == 0);
+                mb.Build("Mesh", th, mats);
+                mb = new MB(4);
+                for (int k = 0; k < 6; k++) mb.Sub(CLOTH).Cyl(new Vector3(0, 0, k * r.shin / 6f), new Vector3(0, 0, (k + 1) * r.shin / 6f), 0.055f, 0.05f, 12, k % 2 == 0 ? white : red, false);
+                mb.Build("Mesh", sh, mats);
+                mb = new MB(4);
+                mb.Sub(CLOTH).Box(new Vector3(0, -0.06f, 0.035f), new Vector3(0.09f, 0.2f, 0.07f), tunic, 0.03f, 2);
+                mb.Sub(CLOTH).Cyl(new Vector3(0, -0.16f, 0.04f), new Vector3(0, -0.2f, 0.1f), 0.03f, 0.004f, 8, tunic);   // curled toe
+                mb.Sub(HARD).Sphere(new Vector3(0, -0.2f, 0.1f), Vector3.one * 0.012f, 6, gold);
+                mb.Build("Mesh", ft, mats);
+            }
+        }
+
+        /// <summary>Evil Santa: a big red suit with white fur trim, black belt and boots, a full white beard, glowing red
+        /// eyes and his hat.</summary>
+        static void BuildSanta(HumanRig r)
+        {
+            var mats = new[] { ClothMat, HardMat, PlasticMat, JointMat };
+            Color red = new Color(0.68f, 0.04f, 0.04f), fur = new Color(0.95f, 0.95f, 0.93f), black = new Color(0.05f, 0.05f, 0.05f), gold = new Color(0.9f, 0.72f, 0.2f), skin = new Color(0.88f, 0.68f, 0.58f);
+            var mb = new MB(4);
+            mb.Sub(CLOTH).Sphere(new Vector3(0, 0.0f, 0.02f), new Vector3(0.24f, 0.2f, 0.22f), 16, red);
+            mb.Sub(CLOTH).Cyl(new Vector3(0, -0.2f, 0.01f), new Vector3(0, -0.14f, 0.01f), 0.22f, 0.23f, 16, fur);
+            mb.Build("Mesh", r.hips, mats);
+            mb = new MB(4);
+            mb.Sub(CLOTH).Sphere(new Vector3(0, 0.1f, 0.04f), new Vector3(0.25f, 0.2f, 0.24f), 16, red);   // the belly
+            mb.Sub(HARD).Cyl(new Vector3(0, 0.0f, 0.03f), new Vector3(0, 0.06f, 0.03f), 0.245f, 0.245f, 18, black);
+            mb.Sub(HARD).Box(new Vector3(0, 0.03f, 0.27f), new Vector3(0.1f, 0.075f, 0.015f), gold, 0.006f);
+            mb.Sub(CLOTH).Box(new Vector3(0, 0.17f, 0.25f), new Vector3(0.06f, 0.18f, 0.03f), fur, 0.01f);
+            mb.Build("Mesh", r.spine, mats);
+            mb = new MB(4);
+            mb.Sub(CLOTH).Box(new Vector3(0, 0.08f, 0.01f), new Vector3(0.42f, 0.27f, 0.28f), red, 0.1f, 2);
+            mb.Sub(CLOTH).Box(new Vector3(0, 0.0f, 0.15f), new Vector3(0.06f, 0.2f, 0.02f), fur, 0.01f);
+            mb.Build("Mesh", r.chest, mats);
+            mb = new MB(4);
+            mb.Sub(CLOTH).Cyl(new Vector3(0, -0.02f, 0), new Vector3(0, 0.09f, 0), 0.08f, 0.07f, 12, fur);
+            mb.Build("Mesh", r.neck, mats);
+            mb = new MB(4);
+            mb.Sub(PLASTIC).Sphere(new Vector3(0, 0.085f, 0.008f), new Vector3(0.092f, 0.11f, 0.1f), 16, skin);
+            mb.Sub(CLOTH).Sphere(new Vector3(0, 0.0f, 0.06f), new Vector3(0.1f, 0.12f, 0.08f), 14, fur);   // beard
+            mb.Sub(CLOTH).Sphere(new Vector3(0, 0.055f, 0.1f), new Vector3(0.06f, 0.018f, 0.02f), 10, fur);   // moustache
+            mb.Sub(PLASTIC).Sphere(new Vector3(0, 0.08f, 0.108f), Vector3.one * 0.018f, 8, new Color(0.9f, 0.45f, 0.45f));
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                mb.Sub(HARD).Sphere(new Vector3(sx * 0.035f, 0.108f, 0.095f), new Vector3(0.015f, 0.009f, 0.006f), 8, new Color(1f, 0.05f, 0.02f));
+                mb.Sub(CLOTH).Box(new Vector3(sx * 0.038f, 0.132f, 0.096f), new Vector3(0.045f, 0.012f, 0.01f), fur, 0.004f, 1, Quaternion.Euler(0, 0, sx * -28f));
+            }
+            mb.Sub(CLOTH).Cyl(new Vector3(0, 0.15f, 0), new Vector3(0, 0.19f, 0), 0.106f, 0.104f, 18, fur);
+            mb.Sub(CLOTH).Cyl(new Vector3(0, 0.19f, 0), new Vector3(0.0f, 0.36f, -0.1f), 0.098f, 0.014f, 16, red);
+            mb.Sub(CLOTH).Sphere(new Vector3(0, 0.36f, -0.105f), Vector3.one * 0.03f, 10, fur);
+            mb.Build("Mesh", r.head, mats);
+            for (int s = 0; s < 2; s++)
+            {
+                var ua = s == 0 ? r.uaL : r.uaR; var fa = s == 0 ? r.faL : r.faR; var hand = s == 0 ? r.handL : r.handR;
+                mb = new MB(4); mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.03f), new Vector3(0, 0, r.upperArm - 0.02f), 0.07f, 0.06f, 12, red); mb.Build("Mesh", ua, mats);
+                mb = new MB(4); mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.foreArm - 0.05f), 0.06f, 0.052f, 12, red);
+                mb.Sub(CLOTH).Cyl(new Vector3(0, 0, r.foreArm - 0.07f), new Vector3(0, 0, r.foreArm - 0.01f), 0.065f, 0.065f, 12, fur); mb.Build("Mesh", fa, mats);
+                mb = new MB(4); mb.Sub(CLOTH).Box(new Vector3(0, -0.004f, 0.05f), new Vector3(0.08f, 0.035f, 0.1f), black, 0.015f, 2); mb.Build("Mesh", hand, mats);
+            }
+            for (int s = 0; s < 2; s++)
+            {
+                var th = s == 0 ? r.thL : r.thR; var sh = s == 0 ? r.shL : r.shR; var ft = s == 0 ? r.footL : r.footR;
+                mb = new MB(4); mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.04f), new Vector3(0, 0, r.thigh - 0.03f), 0.095f, 0.08f, 12, red); mb.Build("Mesh", th, mats);
+                mb = new MB(4); mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.shin * 0.45f), 0.075f, 0.07f, 12, red);
+                mb.Sub(HARD).Cyl(new Vector3(0, 0, r.shin * 0.4f), new Vector3(0, 0, r.shin), 0.07f, 0.065f, 12, black);
+                mb.Sub(CLOTH).Cyl(new Vector3(0, 0, r.shin * 0.38f), new Vector3(0, 0, r.shin * 0.46f), 0.078f, 0.078f, 12, fur); mb.Build("Mesh", sh, mats);
+                mb = new MB(4); mb.Sub(HARD).Box(new Vector3(0, -0.06f, 0.035f), new Vector3(0.1f, 0.22f, 0.08f), black, 0.03f, 2); mb.Build("Mesh", ft, mats);
+            }
+        }
 
         /// <summary>A snowman on the same skeleton (so it walks, aims, gets hit and falls over just like a raider): a big
         /// snowball for the hips, a middle one with coal buttons, a red scarf, a head with coal eyes and smile, a carrot

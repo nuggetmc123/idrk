@@ -218,7 +218,7 @@ namespace Rago
         // ------------------------------------------------------------------------------- tester tools
         static int _npcKind, _ammoKind;
         static readonly string[] AmmoKinds = { "STANDARD", "AP", "INCENDIARY" };
-        static readonly string[] NpcKinds = { "Raider", "Heavy raider", "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker", "The Courier" };
+        static readonly string[] NpcKinds = { "Raider", "Heavy raider", "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker", "The Courier", "Evil Santa" };
 
 
         void DrawTester()

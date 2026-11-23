@@ -31,7 +31,7 @@ namespace Rago
             Night = night;
             Rain = r.Chance(0.3f);
             Fog = r.Chance(0.25f);
-            if (Festive.On) { Snow = true; Rain = false; }   // Christmas: it snows instead of raining
+            if (Festive.On || map.Id == "northpole") { Snow = true; Rain = false; }   // Christmas: it snows instead of raining
             var sun = map.Sun;
             Color sky = RenderSettings.ambientSkyColor, eq = RenderSettings.ambientEquatorColor, gr = RenderSettings.ambientGroundColor;
             Color skyTop = new Color(0.32f, 0.45f, 0.62f), skyHor = new Color(0.68f, 0.72f, 0.75f);
