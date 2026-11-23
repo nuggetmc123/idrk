@@ -44,6 +44,7 @@ namespace Rago
         {
             var p = Profile.Current;
             if (p == null || amount <= 0) return;
+            amount *= LiveEvent.Mult(LiveEvent.DoubleXp);   // live event
             int before = LevelOf(p.xp);
             p.xp += amount;
             int after = LevelOf(p.xp);

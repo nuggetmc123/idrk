@@ -231,6 +231,7 @@ namespace RagoServer
                     if (c.Device.Length > 64) c.Device = c.Device.Substring(0, 64);
                     if (!OnHello(c)) break;   // banned: told why, connection closing
                     Send(c, new W(P.Welcome).U64(c.Id).U32(c.Token).I32(Clients.Count).Frame());
+                    SendEvent(c);   // a live event going on right now
                     if (first) Log(c + " connected, version " + c.Ver + " (" + Clients.Count + " online)");
                     break;
                 }
@@ -249,6 +250,12 @@ namespace RagoServer
                 case P.ShopUnlist:
                     HandleMarket(c, type, r);
                     break;
+                case P.EventReq:
+                {
+                    byte kind = r.U8(); int minutes = r.I32();
+                    OnEventRequest(c, kind, minutes);
+                    break;
+                }
                 case P.ModReq:
                 {
                     byte act = r.U8(); string target = r.Str(), reason = r.Str(); int hours = r.I32();

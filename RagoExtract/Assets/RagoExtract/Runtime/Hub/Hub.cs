@@ -541,6 +541,7 @@ namespace Rago
             foreach (var s in _sell.slots)
                 if (s.item != null) { total += SellValue(s.item); var it = s.item; s.Release(it); Item.Discard(it); }
             if (total == 0) { Sfx.UI(Synth.UiError(), 0.3f); return; }
+            total *= LiveEvent.Mult(LiveEvent.DoubleCash);   // live event
             Profile.Current.money += total;
             Profile.Current.Save();
             Sfx.UI(Synth.Cash(), 0.7f);

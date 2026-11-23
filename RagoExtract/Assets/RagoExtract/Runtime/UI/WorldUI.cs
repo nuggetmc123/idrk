@@ -569,7 +569,12 @@ namespace Rago
             if (_queueTimer && QueueText != null) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); QueueText.text = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
             _centerT -= dt; if (_centerT <= 0) _center.text = "";
             NvgTick();
-            if (_wristRec != null) _wristRec.text = CreatorCamRecorder.Since >= 0f ? ((Mathf.FloorToInt(Time.unscaledTime * 2f) % 2 == 0 ? "\u25CF " : "   ") + "REC " + CreatorCamRecorder.Clock()) : "";
+            if (_wristRec != null)
+            {
+                if (CreatorCamRecorder.Since >= 0f) { _wristRec.color = new Color(1f, 0.2f, 0.2f); _wristRec.text = (Mathf.FloorToInt(Time.unscaledTime * 2f) % 2 == 0 ? "\u25CF " : "   ") + "REC " + CreatorCamRecorder.Clock(); }
+                else if (LiveEvent.Active) { _wristRec.color = new Color(1f, 0.8f, 0.25f); _wristRec.text = LiveEvent.Names[LiveEvent.Kind] + " " + LiveEvent.Left(); }
+                else _wristRec.text = "";
+            }
             _crosshair.SetActive(!XRInputs.VR && !Desktop.Aiming && v.Alive);
             // wrist
             _wristHp.text = Mathf.CeilToInt(v.Health) + " HP" + (v.Bleed > 0 ? " <color=#ff4040>+</color>" : "");   // short, so the raid timer fits on the same row

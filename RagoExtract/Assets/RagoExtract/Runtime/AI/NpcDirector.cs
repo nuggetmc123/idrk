@@ -54,7 +54,7 @@ namespace Rago
             var brng = new Rng(seed * 31 + 11);
             foreach (var b in bosses)
             {
-                if (!brng.Chance(b.chance)) continue;
+                if (!brng.Chance(LiveEvent.Is(LiveEvent.BossHunt) && b.boss != null ? 1f : b.chance)) continue;   // BOSS HUNT event: every boss is out
                 if (b.guard)
                 {
                     for (int g = 0; g < b.count; g++) { Vector2 go = brng.InCircle() * 1.6f; SpawnOne(ref id, b.pos + new Vector3(go.x, 0, go.y), brng.Range(0f, 360f), seed, true, null, puppets); }

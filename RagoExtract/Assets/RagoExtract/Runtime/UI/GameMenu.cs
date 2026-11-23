@@ -426,6 +426,7 @@ namespace Rago
 
         // ---- MOD tab: pick a player, then ask for a ban / unban / wipe / Market kick. The owner approves it on the web panel.
         string _modTarget = "";
+        static int _evKind = 1, _evLen = 1;
         int _modReason, _modLen = 1;
         static readonly string[] ModReasons = { "Cheating", "Exploiting a bug", "Harassment", "Hate speech", "Spamming", "Griefing", "Other" };
         static readonly string[] ModLens = { "1 DAY", "7 DAYS", "30 DAYS", "PERMANENT" };
@@ -434,26 +435,37 @@ namespace Rago
         void DrawMod()
         {
             float y = 0.2f;
-            Line("MODERATOR TOOLS - everything here goes to the owner for approval first.", y, 0.024f, UI.Dim); y -= 0.08f;
+            if (!string.IsNullOrEmpty(RelayBackend.LastModReply)) Line(UI.Wrap(RelayBackend.LastModReply, 70), y, 0.022f, new Color(0.6f, 1f, 0.65f));
+            else Line("MODERATOR TOOLS - bans, wipes and kicks go to the owner for approval first.", y, 0.024f, UI.Dim);
+            y -= 0.07f;
             Line("Player:", y);
             Line(string.IsNullOrEmpty(_modTarget) ? "(none picked)" : _modTarget, y, 0.032f, string.IsNullOrEmpty(_modTarget) ? UI.Dim : UI.Accent, -0.3f);
-            Btn("FIND PLAYER", 0.36f, y, 0.26f, () => { _kbMod = true; _typing = true; _typed = ""; _suggest.Clear(); _searched = ""; Desktop.Typing = true; }, Go); y -= 0.09f;
+            Btn("FIND PLAYER", 0.36f, y, 0.26f, () => { _kbMod = true; _typing = true; _typed = ""; _suggest.Clear(); _searched = ""; Desktop.Typing = true; }, Go); y -= 0.08f;
             Line("Reason:", y);
             Btn("<", -0.22f, y, 0.07f, () => _modReason = (_modReason + ModReasons.Length - 1) % ModReasons.Length);
             Line(ModReasons[_modReason], y, 0.028f, Color.white, -0.17f);
-            Btn(">", 0.2f, y, 0.07f, () => _modReason = (_modReason + 1) % ModReasons.Length); y -= 0.08f;
+            Btn(">", 0.2f, y, 0.07f, () => _modReason = (_modReason + 1) % ModReasons.Length); y -= 0.075f;
             Line("Ban length:", y);
             Btn("<", -0.22f, y, 0.07f, () => _modLen = (_modLen + ModLens.Length - 1) % ModLens.Length);
             Line(ModLens[_modLen], y, 0.028f, Color.white, -0.17f);
-            Btn(">", 0.2f, y, 0.07f, () => _modLen = (_modLen + 1) % ModLens.Length); y -= 0.1f;
+            Btn(">", 0.2f, y, 0.07f, () => _modLen = (_modLen + 1) % ModLens.Length); y -= 0.085f;
             bool has = !string.IsNullOrEmpty(_modTarget);
             void Ask(byte act) { if (!has) { RagoGame.I?.Player?.Toast("Find a player first"); return; } RelayBackend.Instance?.ModRequest(act, _modTarget, ModReasons[_modReason], ModHours[_modLen]); }
             Btn("BAN", -0.39f, y, 0.22f, () => Ask(Rago.Relay.P.ActBan), Stop);
             Btn("UNBAN", -0.14f, y, 0.22f, () => Ask(Rago.Relay.P.ActUnban));
             Btn("WIPE", 0.11f, y, 0.22f, () => Ask(Rago.Relay.P.ActWipe), new Color(0.55f, 0.35f, 0.1f));
-            Btn("KICK (MARKET)", 0.39f, y, 0.26f, () => Ask(Rago.Relay.P.ActKick)); y -= 0.1f;
-            Line("Kick only works on someone in the Market right now. Wipe resets their money, stash, gear and level.", y, 0.02f, UI.Dim); y -= 0.07f;
-            if (!string.IsNullOrEmpty(RelayBackend.LastModReply)) Line(UI.Wrap(RelayBackend.LastModReply, 60), y, 0.024f, new Color(0.6f, 1f, 0.65f));
+            Btn("KICK (MARKET)", 0.39f, y, 0.26f, () => Ask(Rago.Relay.P.ActKick)); y -= 0.065f;
+            Line("Kick only works on someone in the Market right now. Wipe resets their money, stash, gear and level.", y, 0.02f, UI.Dim); y -= 0.075f;
+            // LIVE EVENT: starts straight away for everyone on the server (no approval needed)
+            Line("LIVE EVENT:", y, 0.026f, new Color(1f, 0.8f, 0.25f));
+            Btn("<", -0.27f, y, 0.07f, () => _evKind = _evKind <= 1 ? LiveEvent.Names.Length - 1 : _evKind - 1);
+            Line(LiveEvent.Names[_evKind], y, 0.024f, Color.white, -0.22f);
+            Btn(">", 0.04f, y, 0.07f, () => _evKind = _evKind >= LiveEvent.Names.Length - 1 ? 1 : _evKind + 1);
+            int len = LiveEvent.Lengths[_evLen];
+            Btn(len >= 60 ? (len / 60) + " H" : len + " MIN", 0.15f, y, 0.12f, () => _evLen = (_evLen + 1) % LiveEvent.Lengths.Length);
+            Btn("START", 0.29f, y, 0.14f, () => RelayBackend.Instance?.StartEvent((byte)_evKind, LiveEvent.Lengths[_evLen]), Go);
+            Btn("STOP", 0.44f, y, 0.13f, () => RelayBackend.Instance?.StartEvent(0, 0), Stop); y -= 0.055f;
+            Line(LiveEvent.Active ? "Running: " + LiveEvent.Names[LiveEvent.Kind] + " (" + LiveEvent.Left() + " left, by " + LiveEvent.By + ")" : "For every player on every server - " + LiveEvent.Blurb[_evKind] + ".", y, 0.02f, LiveEvent.Active ? new Color(1f, 0.8f, 0.25f) : UI.Dim);
         }
 
         float _calT = -1f;

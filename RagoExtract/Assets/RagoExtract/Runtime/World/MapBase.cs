@@ -1364,7 +1364,7 @@ namespace Rago
                 _box.slots[i].Store(it, false);
             }
             // Christmas (and always on the North Pole): crates often hold a small present - shake it open
-            if (_map != null && (Festive.On || _map.Id == "northpole") && kind != Kind.Present && rng.Chance(_map.Id == "northpole" ? 0.6f : 0.35f))
+            if (_map != null && (Festive.On || _map.Id == "northpole" || LiveEvent.Is(LiveEvent.Presents)) && kind != Kind.Present && rng.Chance(LiveEvent.Is(LiveEvent.Presents) ? 0.75f : _map.Id == "northpole" ? 0.6f : 0.35f))
             {
                 int gid = 10000 + index * 16 + 12;
                 Slot fs = null;

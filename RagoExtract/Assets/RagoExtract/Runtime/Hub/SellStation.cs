@@ -132,6 +132,7 @@ namespace Rago
             foreach (var s in _bin.slots)
                 if (s.item != null) { total += Offer(s.item, out _); n++; var it = s.item; s.Release(it); Item.Discard(it); }
             if (n == 0) return;
+            total *= LiveEvent.Mult(LiveEvent.DoubleCash);   // live event
             _last = n + " item(s)  $" + total.ToString("N0");
             Profile.Current.money += total;
             Profile.Current.Save();

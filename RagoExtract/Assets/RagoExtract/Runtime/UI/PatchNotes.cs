@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.65", "Live events", new[] {
+                "LIVE EVENTS: moderators can start an event for every player on every server at once, from the MOD tab in the menu (pick the event, how long, START - STOP ends it early). The owner can start them from the web panel too. One at a time:",
+                "  DOUBLE XP - all XP counts twice.   DOUBLE CASH - the traders pay double when you sell.",
+                "  BOSS HUNT - every map's boss is out in every raid.   AIR DROP RAIN - a plane drops a crate every 3-4 minutes in raids.   PRESENT RAIN - presents in crates everywhere.",
+                "When an event starts everyone gets a big announcement, and your watch shows the event and the time left while it runs. Players who log in during an event are told straight away.",
+            }),
             ("2.64", "Creator Cam saves videos, wounded NPCs", new[] {
                 "CREATOR CAM RECORDS FOR REAL: pull the trigger at the cam and it films its steady first-person view to a video file (MP4, 30 fps, no sound). On a Quest it goes to Movies/Rago Extract (open it in Files or your headset's media). On PC it goes to your Videos\\Rago Extract folder - this needs ffmpeg.exe next to the game or installed (free from ffmpeg.org); it tells you if it can't find it. You get a message with the file name when you stop.",
                 "NPCs BLEED: a solid hit leaves them bleeding - blood drips and their health drains until they deal with it, and they can bleed out (the kill is yours).",

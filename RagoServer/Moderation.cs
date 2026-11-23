@@ -57,6 +57,7 @@ namespace RagoServer
                     Pending.Add(new Request { Id = id, Act = byte.TryParse(f[1], out var a) ? a : (byte)0, Key = f[2], Device = f[3], Name = f[4], Hours = int.TryParse(f[5], out var h) ? h : 0, Reason = f[6], By = f[7], At = long.TryParse(f[8], out var at) ? at : 0 });
                     _nextReq = Math.Max(_nextReq, id + 1);
                 }
+            LoadEvent();
             Log("data folder " + _dataDir + ": " + Bans.Count + " bans, " + Mods.Count + " mods, " + Players.Count + " known players, " + Pending.Count + " requests waiting");
         }
 
@@ -391,6 +392,12 @@ namespace RagoServer
                 case "unban": { var b = Bans.FirstOrDefault(x => x.Key == key); return b == null ? "Not banned" : DoUnban(b.Key, b.Name, "owner"); }
                 case "wipe": { var k = K(); if (k == null) return "Unknown player"; return DoWipe(k.Key, k.Name, "owner"); }
                 case "kick": { var k = K(); if (k == null) return "Unknown player"; return DoKick(k.Key, k.Name, reason, "owner"); }
+                case "event":
+                {
+                    byte.TryParse(G("kind"), out byte kind); int.TryParse(G("minutes"), out int mins);
+                    return StartEvent(kind, mins, "owner");
+                }
+                case "stopevent": return StartEvent(0, 0, "owner");
                 case "mod":
                 {
                     var k = K(); if (k == null) return "Unknown player";
@@ -489,6 +496,14 @@ namespace RagoServer
                       .Append(H(b.Reason)).Append("</td><td>").Append(H(b.By)).Append("</td><td>").Append(Btn(sess, "unban", b.Key, "Unban")).Append("</td></tr>");
                 sb.Append("</table>");
             }
+            // live event
+            sb.Append("<h2>Live event</h2>");
+            if (EventOn) sb.Append("<p class=ok><b>").Append(EventNames[EvKind]).Append("</b> is on for everyone - ").Append((EvUntil - Now) / 60 + 1).Append(" min left (started by ").Append(H(EvBy)).Append(") ").Append(Btn(sess, "stopevent", "", "Stop it", "", "red")).Append("</p>");
+            else sb.Append("<p class=dim>No event running.</p>");
+            sb.Append("<form method=post action='act' class=inl><input type=hidden name=t value='").Append(sess).Append("'><input type=hidden name=op value='event'><select name=kind>");
+            for (int i = 1; i < EventNames.Length; i++) sb.Append("<option value=").Append(i).Append(">").Append(EventNames[i]).Append("</option>");
+            sb.Append("</select> <select name=minutes><option value=30>30 min</option><option value=60 selected>1 hour</option><option value=120>2 hours</option><option value=360>6 hours</option><option value=1440>24 hours</option></select> <button class=green>Start event</button></form>");
+            sb.Append("<p class=dim>Moderators can start and stop events from the MOD tab in the game too.</p>");
             // mods + history
             sb.Append("<h2>Moderators (").Append(Mods.Count).Append(")</h2><p>").Append(Mods.Count == 0 ? "<span class=dim>None yet - press Make mod next to a player.</span>" : string.Join(", ", Mods.Values.Select(H))).Append("</p>");
             sb.Append("<h2>Recent actions</h2><pre>").Append(H(string.Join("\n", Enumerable.Reverse(History)))).Append("</pre>");

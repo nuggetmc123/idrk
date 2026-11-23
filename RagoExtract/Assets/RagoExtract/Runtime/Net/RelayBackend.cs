@@ -124,6 +124,14 @@ namespace Rago
             LastModReply = "Sending...";
         }
 
+        /// <summary>A moderator starts a live event for everyone (kind 0 = stop the one running).</summary>
+        public void StartEvent(byte kind, int minutes)
+        {
+            if (_link == null || !_link.Connected) { LastModReply = "Not connected to the server."; return; }
+            _link.Send(new W(P.EventReq).U8(kind).I32(minutes).Frame());
+            LastModReply = "Sending...";
+        }
+
         static void HostPort(out string host, out int port)
         {
             host = Address.Trim(); port = P.Port;
@@ -338,6 +346,7 @@ namespace Rago
                     break;
                 }
                 case P.ModReply: LastModReply = r.Str(); RagoGame.I?.Player?.Toast(LastModReply); break;
+                case P.EventIn: { byte k = r.U8(); int secs = r.I32(); string by = r.Str(); LiveEvent.Set(k, secs, by); break; }
                 case P.Found:
                 {
                     int id = r.I32(); int cnt = r.U16(); var names = new List<string>();

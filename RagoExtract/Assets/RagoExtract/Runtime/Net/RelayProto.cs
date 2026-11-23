@@ -21,15 +21,17 @@ namespace Rago.Relay
         // game -> server
         public const byte Hello = 1, Join = 2, Leave = 3, Data = 4, SetProps = 5, List = 6, Whisper = 7, SetHost = 8, Ping = 9, Fast = 10,
                           ModReq = 11, Search = 12,
-                          ShopPut = 13, ShopGet = 14, ShopBuy = 15, ShopUnlist = 16;
+                          ShopPut = 13, ShopGet = 14, ShopBuy = 15, ShopUnlist = 16, EventReq = 17;
         // Search: callsigns starting with / containing some text (as you type). Shop*: the black market, kept on the
         // server so shops stay open while their owner is offline.
+        // EventReq: a moderator starts (kind, minutes) or stops (kind 0) a LIVE EVENT for everyone on the server
         // ModReq: a moderator asks for a ban / unban / wipe / Market kick (the owner approves it on the web panel)
         // server -> game
         public const byte Welcome = 101, Joined = 102, JoinFail = 103, DataIn = 104, Props = 105, Rooms = 106, WhisperIn = 107, NoSuch = 108,
                           Host = 109, Pong = 110, PeerJoin = 111, PeerLeft = 112, Online = 113, FastIn = 114, Bye = 115,
                           Role = 116, Banned = 117, Wipe = 118, Kicked = 119, ModReply = 120, Found = 121,
-                          ShopsIn = 122, BuyResult = 123, ShopSold = 124, UnlistResult = 125;
+                          ShopsIn = 122, BuyResult = 123, ShopSold = 124, UnlistResult = 125, EventIn = 126;
+        // EventIn: the live event right now (kind, seconds left, started by) - sent to everyone when it changes and on connect
         // moderation actions (ModReq)
         public const byte ActBan = 1, ActUnban = 2, ActWipe = 3, ActKick = 4;
     }
