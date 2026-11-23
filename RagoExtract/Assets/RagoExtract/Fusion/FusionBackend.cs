@@ -109,6 +109,7 @@ namespace Rago.Net
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Register()
         {
+            if (RelayBackend.Configured) return;   // our own game server is set up (Resources/Rago/server.txt): no Photon
             var go = new GameObject("RagoFusion");
             DontDestroyOnLoad(go);
             NetHub.Backend = go.AddComponent<FusionBackend>();

@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.53", "Our own game server", new[] {
+                "Multiplayer can now run through our OWN game server (idrk.dev) instead of Photon - no 100-player limit. It keeps parties, invites, raid queues, the Market and reconnecting exactly as before; invites now reach a player wherever they are (bunker, Market or raid).",
+                "Movement, voice and raiders go over UDP (fast); shots, hits, items and trades over TCP (never lost, always in order). If UDP is blocked it all goes over TCP.",
+                "Switched off until the server is installed: in Unity, open Resources/Rago/server.txt and remove the # in front of idrk.dev:27015. Photon is used while it's off.",
+                "Menu > RECENT shows the server connection (UDP ok / blocked, server ping, traffic).",
+            }),
             ("2.52", "The North Pole", new[] {
                 "NEW MAP - THE NORTH POLE: Santa's village overrun by evil elves. Snow falls the whole raid; candy-cane posts line the avenue; a giant Christmas tree in the square; elf workshops, the Toy Factory, Santa's house, igloos, snowmen and piles of presents - with snowfields and forest all round. Pick it on the raid map (the ice floe, bottom left).",
                 "EVIL ELVES: every raider on the North Pole is an evil elf - pointy ears, angry red eyes, striped stockings and a hat with a bell (heavies wear red).",

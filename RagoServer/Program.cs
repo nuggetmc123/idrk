@@ -27,7 +27,7 @@ namespace RagoServer
             public Room Room; public IPEndPoint Udp;
             public readonly Channel<byte[]> Out = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
             public long Queued; public bool Closed; public DateTime Seen = DateTime.UtcNow;
-            public override string ToString() => Name + "#" + Id;
+            public override string ToString() => Name + " (#" + Id + ")";
         }
 
         sealed class Room
@@ -50,14 +50,25 @@ namespace RagoServer
 
         static async Task Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "check") { Environment.Exit(await Check(args.Length > 1 ? args[1] : "127.0.0.1", args.Length > 2 && int.TryParse(args[2], out var cp) ? cp : P.Port)); return; }
             int port = args.Length > 0 && int.TryParse(args[0], out var p) ? p : P.Port;
-            var listener = new TcpListener(IPAddress.IPv6Any, port);
-            listener.Server.DualMode = true;
-            listener.Server.NoDelay = true;
-            listener.Start();
-            _udp = new UdpClient(AddressFamily.InterNetworkV6);
-            _udp.Client.DualMode = true;
-            _udp.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, port));
+            // IPv4 + IPv6 together where the machine has IPv6, else IPv4 only
+            TcpListener listener;
+            try
+            {
+                listener = new TcpListener(IPAddress.IPv6Any, port);
+                listener.Server.DualMode = true;
+                listener.Start();
+                _udp = new UdpClient(AddressFamily.InterNetworkV6);
+                _udp.Client.DualMode = true;
+                _udp.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, port));
+            }
+            catch (SocketException)
+            {
+                listener = new TcpListener(IPAddress.Any, port);
+                listener.Start();
+                _udp = new UdpClient(new IPEndPoint(IPAddress.Any, port));
+            }
             try { _udp.Client.IOControl(-1744830452, new byte[] { 0 }, null); } catch { }   // Windows: ignore ICMP "port unreachable"
             Log("Rago game server listening on TCP+UDP " + port);
             _ = Task.Run(UdpLoop);
@@ -69,6 +80,42 @@ namespace RagoServer
                 catch (Exception e) { Log("accept: " + e.Message); continue; }
                 _ = Task.Run(() => Serve(tcp));
             }
+        }
+
+        /// <summary>
+        /// "./ragoserver check idrk.dev 27015": connects to a running server like the game does and checks both TCP (log in)
+        /// and UDP (keep-alive answered). Run it from another machine to prove the firewall lets the game in.
+        /// </summary>
+        static async Task<int> Check(string host, int port)
+        {
+            Console.WriteLine("Checking the Rago game server at " + host + ":" + port + " ...");
+            try
+            {
+                var ip = (await Dns.GetHostAddressesAsync(host)).First(a => a.AddressFamily == AddressFamily.InterNetwork);
+                using var tcp = new TcpClient();
+                var conn = tcp.ConnectAsync(ip, port);
+                if (await Task.WhenAny(conn, Task.Delay(5000)) != conn || !tcp.Connected) { Console.WriteLine("TCP  FAIL - no answer on TCP " + port + " (server not running, or the firewall blocks TCP " + port + ")"); return 1; }
+                var s = tcp.GetStream();
+                var hello = new W(P.Hello).Str("CHECK#0000").Str("check").Frame();
+                await s.WriteAsync(hello, 0, hello.Length);
+                var head = new byte[4]; var cts = new CancellationTokenSource(5000);
+                int got = 0; while (got < 4) { int k = await s.ReadAsync(head, got, 4 - got, cts.Token); if (k <= 0) throw new Exception("closed"); got += k; }
+                int len = BitConverter.ToInt32(head, 0); var body = new byte[len]; got = 0;
+                while (got < len) { int k = await s.ReadAsync(body, got, len - got, cts.Token); if (k <= 0) throw new Exception("closed"); got += k; }
+                if (body[0] != P.Welcome) { Console.WriteLine("TCP  FAIL - something answered, but it isn't the Rago server"); return 1; }
+                var r = new R(body, 1, len - 1); r.U64(); uint token = r.U32(); int online = r.I32();
+                Console.WriteLine("TCP  OK   - logged in (" + online + " connected incl. this check)");
+                using var udp = new UdpClient(); udp.Connect(ip, port);
+                for (int i = 0; i < 5; i++)
+                {
+                    await udp.SendAsync(BitConverter.GetBytes(token), 4);
+                    var rcv = udp.ReceiveAsync();
+                    if (await Task.WhenAny(rcv, Task.Delay(800)) == rcv) { Console.WriteLine("UDP  OK   - keep-alive answered"); Console.WriteLine("All good: the game can connect."); return 0; }
+                }
+                Console.WriteLine("UDP  FAIL - no answer on UDP " + port + " (the firewall blocks UDP " + port + "). The game still works over TCP only, but movement and voice will be laggier.");
+                return 2;
+            }
+            catch (Exception e) { Console.WriteLine("FAIL - " + e.Message); return 1; }
         }
 
         // ------------------------------------------------------------------------------------------- TCP

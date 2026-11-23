@@ -162,7 +162,7 @@ namespace Rago
         {
             get
             {
-                if (Backend != null) return Backend.Ready ? "ONLINE - PHOTON FUSION (" + (Backend.Status ?? "") + ")" : "NOT ONLINE: " + (Backend.Status ?? "connecting...");
+                if (Backend != null) return Backend.Ready ? "ONLINE - " + (RelayBackend.Configured ? "RAGO SERVER" : "PHOTON FUSION") + " (" + (Backend.Status ?? "") + ")" : "NOT ONLINE: " + (Backend.Status ?? "connecting...");
 #if RAGO_DISABLE_NET
                 return "MULTIPLAYER SWITCHED OFF: THE FUSION MODULE HAD A COMPILE ERROR.\nOPEN RAGO EXTRACT > MULTIPLAYER AND PRESS FINISH.";
 #elif RAGO_FUSION
