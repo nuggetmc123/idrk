@@ -584,7 +584,7 @@ namespace Rago
             foreach (var g in Db.Guns) if ((!g.TwoHanded || g.cls == GunClass.SMG) && g.rarity <= Rarity.Epic) arms.stock.Add(g.id);
             foreach (var sg in Db.Sights) if (sg.rarity <= Rarity.Epic) arms.stock.Add(sg.id);
             foreach (var a in Db.Attachments) if (a.rarity <= Rarity.Epic) arms.stock.Add(a.id);
-            foreach (var m in Db.Misc) if ((m.kind == ItemKind.Ammo && m.ammoType == AmmoType.Standard) || m.kind == ItemKind.Throwable || m.kind == ItemKind.Melee) arms.stock.Add(m.id);   // AP / incendiary: still found only
+            foreach (var m in Db.Misc) if ((m.kind == ItemKind.Ammo && m.ammoType == AmmoType.Standard) || m.kind == ItemKind.Throwable || (m.kind == ItemKind.Melee && m.id != "candycane")) arms.stock.Add(m.id);   // the candy cane: Holiday Pack only   // AP / incendiary: still found only
             foreach (var b in Db.Packs) if (b.rarity <= Rarity.Epic) arms.stock.Add(b.id);
             foreach (var ar in Db.Armor) if (ar.rarity <= Rarity.Epic) arms.stock.Add(ar.id);
             arms.stock.Add("nvg");

@@ -266,6 +266,22 @@ namespace Rago
             Fill(cardSpots, "key_vault");
             Fill(radioSpots, "val_radio");
             if (at.Count > 0) { var ks = gameObject.AddComponent<KeycardSpawner>(); ks.At = at; ks.Ids = ids; }
+            // melee weapons lying around: bats, crowbars, pans, the odd machete, axe or sledgehammer, on spare spots
+            {
+                var mrng = new Rng(LootSeed * 5113 + 29);
+                var mAt = new List<Vector3>(); var mIds = new List<string>();
+                var pool = free.FindAll(f => { foreach (var c in Crates) if (c != null && (c.transform.position - f.pos).sqrMagnitude < 1.5f) return false; foreach (var q in at) if ((q - f.pos).sqrMagnitude < 1.5f) return false; return true; });
+                int want = Id == "underground" ? 4 : 6;
+                for (int guard = 0; guard < 200 && mAt.Count < want && pool.Count > 0; guard++)
+                {
+                    int k = mrng.Range(0, pool.Count); var sp = pool[k]; pool.RemoveAt(k);
+                    bool close = false; foreach (var q in mAt) if ((q - sp.pos).sqrMagnitude < 12f * 12f) { close = true; break; }
+                    if (close) continue;
+                    float r = mrng.Value;
+                    mAt.Add(sp.pos); mIds.Add(r < 0.25f ? "bat" : r < 0.48f ? "crowbar" : r < 0.66f ? "pan" : r < 0.82f ? "machete" : r < 0.93f ? "fireaxe" : "sledge");
+                }
+                if (mAt.Count > 0) { var ms = gameObject.AddComponent<KeycardSpawner>(); ms.At = mAt; ms.Ids = mIds; ms.BaseId = 960000; }
+            }
             _spots.Clear();
         }
 
@@ -1420,16 +1436,17 @@ namespace Rago
     {
         public List<Vector3> At;
         public List<string> Ids;
+        public int BaseId = 950000;   // network ids: 950000+ keycards / radios, 960000+ loose melee weapons
         System.Collections.IEnumerator Start()
         {
             yield return new WaitForSeconds(1f);
             for (int i = 0; At != null && i < At.Count; i++)
             {
-                if (NetGame.Taken(950000 + i)) continue;
+                if (NetGame.Taken(BaseId + i)) continue;
                 string id = Ids != null && i < Ids.Count ? Ids[i] : "key_vault";
                 var it = ItemFactory.Spawn(new ItemData(id), At[i] + Vector3.up * 0.04f, Quaternion.Euler(0, i * 67f + 20f, 0));
                 if (it == null) continue;
-                it.netId = 950000 + i;
+                it.netId = BaseId + i;
                 NetGame.I?.Register(it);
             }
         }

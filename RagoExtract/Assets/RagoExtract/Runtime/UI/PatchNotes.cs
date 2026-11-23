@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.50", "Melee around the maps, free DLC", new[] {
+                "Melee weapons lie around every raid map now (6 a raid, 4 in the Underground): bats, crowbars and frying pans are common, machetes less so, fire axes and sledgehammers rare. They're still in loot crates and Mara still sells them.",
+                "Every DLC STORE pack is FREE for now - press GET.",
+                "The Candy Cane is Holiday Pack only (no longer in loot or at Mara's).",
+            }),
             ("2.49", "Impact grenades, melee, skins, DLC store", new[] {
                 "RGN IMPACT GRENADE: pull the pin and throw - it goes off the moment it hits something (or 8 s after the pin). Mara sells them; found in loot too.",
                 "MELEE: Baseball Bat, Crowbar, Machete, Sledgehammer, Fire Axe, Frying Pan and (at Christmas) a Candy Cane club. Bats, hammers, crowbars and pans hit with a thud and a shove; heavy tools smash padlocks fast. Mara sells them; found in loot too.",

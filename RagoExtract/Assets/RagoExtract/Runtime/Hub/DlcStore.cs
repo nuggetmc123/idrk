@@ -6,7 +6,8 @@ namespace Rago
     /// <summary>
     /// The DLC STORE (Market, west wall): content packs bought with your in-game cash. A pack unlocks its gun skins at
     /// the paint booth and sends its items to your bunker (the Armory floor). Each pack is bought once.
-    /// The Holiday Pack is only on sale over Christmas (keep it if you bought it).
+    /// The Holiday Pack is only on sale over Christmas (keep it if you bought it). All packs are FREE for now (price 0);
+    /// paying real money later goes through the store's in-app purchases (see README "DLC for real money").
     /// </summary>
     public class DlcStore : MonoBehaviour
     {
@@ -17,13 +18,13 @@ namespace Rago
 
         public static readonly Pack[] Packs =
         {
-            new Pack { id = "holiday", name = "HOLIDAY PACK", price = 25000, col = new Color(0.75f, 0.1f, 0.1f), seasonal = true,
+            new Pack { id = "holiday", name = "HOLIDAY PACK", price = 0, col = new Color(0.75f, 0.1f, 0.1f), seasonal = true,
                 blurb = "Skins: Candy Cane, Ugly Sweater, Frostbite\nCandy Cane club\n3 impact grenades", items = new[] { "candycane", "impact", "impact", "impact" } },
-            new Pack { id = "street", name = "STREET PACK", price = 15000, col = new Color(0.15f, 0.6f, 0.35f),
+            new Pack { id = "street", name = "STREET PACK", price = 0, col = new Color(0.15f, 0.6f, 0.35f),
                 blurb = "Skins: Neon Circuit, Hazard\nBaseball bat, crowbar\nfrying pan", items = new[] { "bat", "crowbar", "pan" } },
-            new Pack { id = "survivor", name = "SURVIVOR PACK", price = 20000, col = new Color(0.2f, 0.4f, 0.65f),
+            new Pack { id = "survivor", name = "SURVIVOR PACK", price = 0, col = new Color(0.2f, 0.4f, 0.65f),
                 blurb = "Skins: Deep Ocean, Cherry Blossom\nMachete, sledgehammer\n2 impact grenades", items = new[] { "machete", "sledge", "impact", "impact" } },
-            new Pack { id = "collector", name = "COLLECTOR'S PACK", price = 60000, col = new Color(0.55f, 0.3f, 0.75f),
+            new Pack { id = "collector", name = "COLLECTOR'S PACK", price = 0, col = new Color(0.55f, 0.3f, 0.75f),
                 blurb = "Skins: Dragon Scale, Galaxy,\nDamascus Steel, Bone\nFire axe", items = new[] { "fireaxe" } },
         };
 
@@ -81,8 +82,8 @@ namespace Rago
                 UI.Text(card, p.name, new Vector3(0, 0.16f, -0.005f), 0.05f, Color.Lerp(p.col, Color.white, 0.45f), TextAnchor.MiddleCenter, FontStyle.Bold);
                 UI.Text(card, p.blurb, new Vector3(-0.47f, 0.07f, -0.005f), 0.034f, Color.white, TextAnchor.UpperLeft);
                 bool owned = Owns(p.id);
-                UI.Text(card, owned ? "OWNED" : "$" + p.price.ToString("N0"), new Vector3(0, -0.5f, -0.005f), 0.07f, owned ? new Color(0.5f, 1f, 0.55f) : UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
-                if (!owned) { var pp = p; UI.Button(card, "BUY", new Vector3(0, -0.72f, 0), new Vector2(0.5f, 0.12f), () => Buy(pp), new Color(0.2f, 0.42f, 0.2f), BtnStyle.Key); }
+                UI.Text(card, owned ? "OWNED" : p.price <= 0 ? "FREE" : "$" + p.price.ToString("N0"), new Vector3(0, -0.5f, -0.005f), 0.07f, owned ? new Color(0.5f, 1f, 0.55f) : UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
+                if (!owned) { var pp = p; UI.Button(card, p.price <= 0 ? "GET" : "BUY", new Vector3(0, -0.72f, 0), new Vector2(0.5f, 0.12f), () => Buy(pp), new Color(0.2f, 0.42f, 0.2f), BtnStyle.Key); }
             }
         }
 

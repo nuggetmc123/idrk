@@ -425,7 +425,7 @@ namespace Rago
             Mel("sledge", "Sledgehammer", R, 1900, 5, 88f, new Color(0.25f, 0.25f, 0.27f), "Slow and heavy - one good swing drops most raiders. Smashes padlocks.");
             Mel("fireaxe", "Fire Axe", R, 1700, 6, 76f, new Color(0.75f, 0.1f, 0.08f), "Red, sharp and heavy.");
             Mel("pan", "Frying Pan", C, 350, 7, 40f, new Color(0.12f, 0.12f, 0.12f), "Cast iron. The sound it makes is worth it.");
-            Mel("candycane", "Candy Cane", U, 1500, 8, 50f, new Color(0.9f, 0.15f, 0.15f), "A festive club. Peppermint scented. (Christmas)");
+            Mel("candycane", "Candy Cane", U, 1500, 8, 50f, new Color(0.9f, 0.15f, 0.15f), "A festive club. Peppermint scented. (Holiday Pack)");
             stim.heal = 30;
 
             // ---------------- AMMO (adds to your reserve when stashed / picked up)
@@ -600,7 +600,7 @@ namespace Rago
                     break;
             }
             // vault keycards and military radios only lie at their own spots on each map - never in crates, safes or on bodies
-            pool.RemoveAll(d => d.kind == ItemKind.Key || d.id == "val_radio" || (d.id == "candycane" && !Festive.On) || d.id == "key_xmas");
+            pool.RemoveAll(d => d.kind == ItemKind.Key || d.id == "val_radio" || d.id == "candycane" || d.id == "key_xmas");
             float total = 0;
             foreach (var d in pool) total += Weight(d.rarity, t) * (d.kind == ItemKind.Key ? 0.08f : 1f);
             if (total <= 0) return Get("bandage");
