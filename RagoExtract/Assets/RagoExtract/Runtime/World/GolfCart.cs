@@ -205,7 +205,7 @@ namespace Rago
             roof.center = new Vector3(0, 1.96f, -0.03f); roof.size = new Vector3(1.26f, 0.08f, 1.5f);
             rb = gameObject.AddComponent<Rigidbody>();
             rb.mass = 350f; rb.SetDamping(0.05f, 2f);
-            rb.centerOfMass = new Vector3(0, 0.35f, 0);
+            rb.centerOfMass = new Vector3(0, 0.15f, 0);   // low: hard to tip over in a turn
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             _motor = gameObject.AddComponent<AudioSource>();
@@ -327,16 +327,18 @@ namespace Rago
                     if (Brake > 0.02f) accel += -Mathf.Sign(fwdSpeed) * Mathf.Min(Mathf.Abs(fwdSpeed) / Time.fixedDeltaTime * 0.5f, Brake * 7f);   // brakes
                 }
                 rb.AddForce(transform.forward * accel * rb.mass);
-                rb.AddForce(-transform.right * Mathf.Clamp(sideSpeed * 6f, -12f, 12f) * rb.mass);   // tyres grip sideways
-                float yawRate = st * Mathf.Clamp(fwdSpeed / 3f, -1f, 1f) * 1.3f;
+                rb.AddForce(-transform.right * Mathf.Clamp(sideSpeed * 9f, -20f, 20f) * rb.mass);   // tyres grip sideways (firmly: no sliding about)
+                // steering: sharp at low speed, gentle at top speed (it used to turn just as hard flat out - twitchy)
+                float yawRate = st * Mathf.Clamp(fwdSpeed / 2.5f, -1f, 1f) * Mathf.Lerp(1.5f, 0.55f, Mathf.Clamp01(Mathf.Abs(fwdSpeed) / MaxSpeed));
                 var av = rb.angularVelocity;
                 Vector3 local = transform.InverseTransformDirection(av);
-                local.y = Mathf.Lerp(local.y, yawRate, 0.25f);
+                local.y = Mathf.Lerp(local.y, yawRate, 0.2f);
+                local.x *= 0.8f; local.z *= 0.8f;   // damp rocking and tipping
                 rb.angularVelocity = transform.TransformDirection(local);
             }
             // keep it from flipping on rough ground: it rights itself slowly
             Vector3 upErr = Vector3.Cross(transform.up, Vector3.up);
-            rb.AddTorque(upErr * rb.mass * 6f);
+            rb.AddTorque(upErr * rb.mass * 14f);
             // multiplayer: the driver's game says where the cart is
             if (driven && NetGame.Live)
             {

@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.55", "Easier driving, rarer Santa, boss outfits", new[] {
+                "Golf carts are much easier to drive: the LEFT STICK steers (left / right) as well as the wheel; the wheel is easier to grab and needs less turning (full lock at 90 degrees); steering is sharp when slow and gentle at top speed (no more twitching); the tyres grip harder (no sliding) and it's much harder to tip over.",
+                "Evil Santa is rare now: he holds Santa's house on 1 North Pole raid in 20 (5%).",
+                "When Evil Santa dies he drops a Christmas present with a guaranteed NORTH POLE KEYCARD inside (plus vault-grade loot). Everyone in the raid sees the same present.",
+                "Every boss has their own look again (they were all snowmen over Christmas): Doctor Kessler's lab coat with a red cross and name badge, the Harbormaster's orange coat with yellow reflective bands, the Warden's camo and leafy ghillie collar, the Banker's black suit with a gold watch chain, the Courier's pinstripes and red carnation, and Evil Santa's red suit.",
+            }),
             ("2.54", "Own server switched on", new[] {
                 "Multiplayer now goes through our own game server (77.42.36.49:27015, no player limit) instead of Photon. Everyone needs this version to play together.",
             }),

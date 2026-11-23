@@ -268,6 +268,31 @@ namespace Rago
                 mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.123f), new Vector3(0.025f, 0.17f, 0.01f), p.top2, 0.005f);
             }
             if (p.coat) mb.Sub(CLOTH).Box(new Vector3(0, 0.06f, 0.0f), new Vector3(0.37f, 0.27f, 0.23f), p.top, 0.07f, 2);
+            // each boss's signature details, so you can tell them apart at a glance
+            switch (o)
+            {
+                case Outfit.BossKessler:   // lab coat: red cross on the breast pocket, a pen, a name badge
+                    mb.Sub(CLOTH).Box(new Vector3(-0.08f, 0.11f, 0.118f), new Vector3(0.06f, 0.018f, 0.004f), new Color(0.8f, 0.08f, 0.08f), 0f);
+                    mb.Sub(CLOTH).Box(new Vector3(-0.08f, 0.11f, 0.118f), new Vector3(0.018f, 0.06f, 0.004f), new Color(0.8f, 0.08f, 0.08f), 0f);
+                    mb.Sub(HARD).Box(new Vector3(0.08f, 0.13f, 0.12f), new Vector3(0.008f, 0.06f, 0.008f), new Color(0.1f, 0.2f, 0.6f), 0.002f);
+                    mb.Sub(HARD).Box(new Vector3(0.08f, 0.05f, 0.119f), new Vector3(0.07f, 0.03f, 0.004f), new Color(0.95f, 0.95f, 0.95f), 0.002f);
+                    break;
+                case Outfit.BossHarbor:    // foul-weather coat: yellow reflective bands round the chest
+                    foreach (float y in new[] { 0.0f, 0.12f }) mb.Sub(CLOTH).Box(new Vector3(0, y, 0), new Vector3(0.375f, 0.03f, 0.235f), new Color(0.95f, 0.85f, 0.1f), 0.012f);
+                    break;
+                case Outfit.BossWarden:    // woodland camo blotches and a ghillie collar of leafy strips
+                    for (int i = 0; i < 9; i++) { float a1 = i * 0.7f; mb.Sub(CLOTH).Sphere(new Vector3(Mathf.Sin(a1 * 3f) * 0.14f, 0.0f + (i % 3) * 0.07f, 0.11f), new Vector3(0.04f, 0.025f, 0.008f), 6, i % 2 == 0 ? new Color(0.12f, 0.18f, 0.08f) : new Color(0.38f, 0.3f, 0.16f)); }
+                    for (int i = 0; i < 12; i++) { float a2 = i / 12f * Mathf.PI * 2f; mb.Sub(CLOTH).Box(new Vector3(Mathf.Cos(a2) * 0.15f, 0.2f, Mathf.Sin(a2) * 0.11f), new Vector3(0.03f, 0.1f, 0.01f), i % 2 == 0 ? new Color(0.2f, 0.28f, 0.12f) : new Color(0.32f, 0.3f, 0.16f), 0f, 1, Quaternion.Euler(Mathf.Sin(a2) * 25f, -a2 * Mathf.Rad2Deg, Mathf.Cos(a2) * 25f)); }
+                    break;
+                case Outfit.BossBanker:    // gold watch chain across the waistcoat and a red pocket square
+                    for (int i = 0; i < 6; i++) mb.Sub(HARD).Sphere(new Vector3(-0.1f + i * 0.04f, -0.02f - Mathf.Sin(i / 5f * Mathf.PI) * 0.03f, 0.122f), Vector3.one * 0.007f, 6, new Color(0.95f, 0.75f, 0.25f));
+                    mb.Sub(CLOTH).Box(new Vector3(-0.1f, 0.14f, 0.121f), new Vector3(0.04f, 0.025f, 0.006f), new Color(0.75f, 0.08f, 0.08f), 0.002f, 1, Quaternion.Euler(0, 0, 15));
+                    break;
+                case Outfit.BossCourier:   // pinstripes and a red carnation in the lapel
+                    for (int i = 0; i < 7; i++) mb.Sub(CLOTH).Box(new Vector3(-0.15f + i * 0.05f, 0.06f, 0.124f), new Vector3(0.003f, 0.26f, 0.002f), new Color(0.6f, 0.6f, 0.62f), 0f);
+                    mb.Sub(CLOTH).Sphere(new Vector3(0.11f, 0.15f, 0.125f), Vector3.one * 0.018f, 8, new Color(0.8f, 0.05f, 0.08f));
+                    break;
+            }
             if (p.dressed && p.look.shirt > 0)
             {
                 Color sc = Cosmetics.Col(p.look.shirtCol);
@@ -451,7 +476,7 @@ namespace Rago
         }
 
         /// <summary>Christmas: raiders and bosses are snowmen (traders and players stay as they are).</summary>
-        public static bool Snowman(Outfit o) => Festive.On && (o == Outfit.Raider || o == Outfit.RaiderHeavy || (o >= Outfit.BossKessler && o <= Outfit.BossCourier));
+        public static bool Snowman(Outfit o) => Festive.On && (o == Outfit.Raider || o == Outfit.RaiderHeavy);   // bosses keep their own outfits
 
         /// <summary>A raid on the North Pole is running (its raiders are evil elves).</summary>
         public static bool PoleMap => RagoGame.I != null && RagoGame.I.Map != null && RagoGame.I.Map.Id == "northpole";

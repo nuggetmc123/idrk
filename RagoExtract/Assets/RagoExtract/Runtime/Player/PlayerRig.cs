@@ -541,7 +541,7 @@ namespace Rago
                 var hand = i == 0 ? HandL : HandR;
                 var inp = i == 0 ? XRInputs.Left : XRInputs.Right;
                 if (_onWheel[i] && !inp.GripHeld) _onWheel[i] = false;   // let go
-                if (!_onWheel[i] && inp.GripHeld && hand.Held == null && c.WheelNear(hand.TrackedPosition, 0.32f))
+                if (!_onWheel[i] && inp.GripHeld && hand.Held == null && c.WheelNear(hand.TrackedPosition, 0.45f))
                 {
                     _onWheel[i] = true; _grabAngle[i] = WheelAngle(c, hand.TrackedPosition); _grabSteer = c.Steer;
                     if (_onWheel[1 - i]) _grabAngle[1 - i] = WheelAngle(c, (i == 0 ? HandR : HandL).TrackedPosition);   // the other hand's turn restarts from here too
@@ -566,7 +566,7 @@ namespace Rago
             bool holding = _onWheel[0] || _onWheel[1];
             if (holding)
             {
-                // turning the wheel: how far the hands have gone round it since they took hold (the wheel turns 120 deg each way)
+                // turning the wheel: how far the hands have gone round it since they took hold (full lock at 90 deg each way)
                 float delta = 0f; int n = 0;
                 for (int i = 0; i < 2; i++)
                 {
@@ -574,9 +574,12 @@ namespace Rago
                     delta += Mathf.DeltaAngle(_grabAngle[i], WheelAngle(c, (i == 0 ? HandL : HandR).TrackedPosition)); n++;
                 }
                 delta /= n;
-                c.Steer = Mathf.Clamp(_grabSteer - delta / 120f, -1f, 1f);
+                c.Steer = Mathf.Clamp(_grabSteer - delta / 90f, -1f, 1f);
             }
             else c.Steer = Mathf.MoveTowards(c.Steer, 0f, dt * 2f);   // let go: the wheel straightens up
+            // easier: the LEFT STICK steers too (left / right), and the wheel follows it
+            float sx = XRInputs.VR ? XRInputs.Left.Stick.x : Desktop.Move.x;
+            if (Mathf.Abs(sx) > 0.15f) { c.Steer = Mathf.MoveTowards(c.Steer, Mathf.Clamp(sx, -1f, 1f), dt * 4f); _grabSteer = c.Steer; for (int i = 0; i < 2; i++) if (_onWheel[i]) _grabAngle[i] = WheelAngle(c, (i == 0 ? HandL : HandR).TrackedPosition); }
             float gas = holding ? XRInputs.Right.Trigger : 0f;
             float brake = XRInputs.Left.Trigger;
             if (HandL.Held is Gun) brake = 0f;   // a gun in your left hand: its trigger fires it, it isn't the brake

@@ -1307,6 +1307,7 @@ namespace Rago
             c.local = true;
             return c;
         }
+        public bool santaGift;   // dropped by Evil Santa: always has a North Pole Keycard
         public bool local;   // spawned from the tester menu: only on this machine, so opening it isn't sent to anyone
 
         /// <summary>Every crate by its index, so another player opening one opens it here too.</summary>
@@ -1402,7 +1403,8 @@ namespace Rago
             void Roll(Db.LootTable t, int n) { for (int i = 0; i < n; i++) { var d = Db.Roll(t, rng); if (d != null) items.Add(new ItemData(d.id)); } }
             // the North Pole Keycard only ever comes out of a present (more often on the North Pole itself)
             bool pole = _map != null && _map.Id == "northpole";
-            if (rng.Chance(pole ? 0.07f : 0.02f)) { items.Add(new ItemData("key_xmas")); Roll(Db.LootTable.Crate, 1); }
+            if (santaGift) { items.Add(new ItemData("key_xmas")); Roll(Db.LootTable.Vault, 1); Roll(Db.LootTable.Crate, 1); }
+            else if (rng.Chance(pole ? 0.07f : 0.02f)) { items.Add(new ItemData("key_xmas")); Roll(Db.LootTable.Crate, 1); }
             else if (r < 0.32f) { Roll(Db.LootTable.Crate, 2); }
             else if (r < 0.46f)
             {
