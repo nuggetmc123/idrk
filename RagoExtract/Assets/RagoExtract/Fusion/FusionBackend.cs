@@ -130,6 +130,7 @@ namespace Rago.Net
 
         public void Init(Action<bool> done)
         {
+            if (AntiCheat.Tampered) { _ready = false; _status = "Online play is off: this copy of the game has been modified (" + AntiCheat.Why + ")"; Log(_status, true); done?.Invoke(false); return; }
             _ready = !string.IsNullOrEmpty(AppId());
             _status = _ready ? "Online (Photon)" : "Offline - paste your Photon App ID in Rago Extract > Multiplayer";
             Log(_ready ? "ready, app id set, region " + Region() : "no Photon App ID - offline");

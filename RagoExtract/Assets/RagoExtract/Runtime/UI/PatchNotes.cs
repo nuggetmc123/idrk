@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.58", "Anti-cheat", new[] {
+                "Anti-tamper: the game checks its own APK signature. A copy someone unpacked, modded and repacked is signed with a different key (or marked debuggable) - it still runs, but online play is switched off for it.",
+                "Hits from other players are checked: impossible damage for that weapon, unknown weapons and machine-gun-fast hit streams are ignored, so a modded client can't one-shot you.",
+                "The game server drops clients that flood it with messages.",
+            }),
             ("2.57", "Longer fights, run-overs, fixes", new[] {
                 "Longer time-to-kill: every bullet does 35% less damage (players and raiders alike), so fights last longer.",
                 "Golf carts plough through people: hit a raider or player at speed and they go flying as a ragdoll while you keep driving (the cart used to stop dead). Raiders get back up a couple of seconds later if they survive.",

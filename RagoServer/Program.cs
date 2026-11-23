@@ -27,6 +27,7 @@ namespace RagoServer
             public Room Room; public IPEndPoint Udp;
             public readonly Channel<byte[]> Out = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
             public long Queued; public bool Closed; public DateTime Seen = DateTime.UtcNow;
+            public long RateSec; public int RateFrames; public long RateBytes;   // flood guard: this second's frames / bytes
             public override string ToString() => Name + " (#" + Id + ")";
         }
 
@@ -143,12 +144,21 @@ namespace RagoServer
                     if (!await ReadExact(c.Stream, body, len)) break;
                     Interlocked.Add(ref _rxTcp, len + 4);
                     c.Seen = DateTime.UtcNow;
+                    if (Flooding(c, len + 4)) { Log(c + " flooding the server - dropped"); break; }
                     try { lock (Lock) Handle(c, body[0], new R(body, 1, len - 1)); }
                     catch (Exception e) { Log(c + " message " + body[0] + " failed: " + e.Message); }
                 }
             }
             catch (Exception) { }
             Drop(c);
+        }
+
+        /// <summary>Anti-abuse: a real game sends a few dozen messages and well under 1 MB a second. Far more is a
+        /// modded or broken client trying to swamp everyone else in the room.</summary>
+        static bool Flooding(Client c, int bytes)
+        {
+            long sec = Environment.TickCount64 / 1000;
+            lock (c) { if (c.RateSec != sec) { c.RateSec = sec; c.RateFrames = 0; c.RateBytes = 0; } c.RateFrames++; c.RateBytes += bytes; return c.RateFrames > 2000 || c.RateBytes > 4 * 1024 * 1024; }
         }
 
         static async Task<bool> ReadExact(NetworkStream s, byte[] b, int n)
@@ -312,6 +322,7 @@ namespace RagoServer
                 lock (Lock)
                 {
                     if (!ByToken.TryGetValue(token, out from) || from.Closed) continue;
+                    if (Flooding(from, b.Length)) continue;   // over the limit: its UDP packets are just dropped
                     from.Udp = res.RemoteEndPoint;
                     from.Seen = DateTime.UtcNow;
                     if (b.Length > 4 && from.Room != null)

@@ -713,6 +713,7 @@ namespace Rago
                                 var ha = r.BaseStream.Position < r.BaseStream.Length ? (AmmoType)r.ReadByte() : AmmoType.Standard;
                                 // it was sent only to us, so it's ours (not checking the id: a mismatch must never make you bulletproof)
                                 if (RagoGame.I == null || RagoGame.I.Player == null || RagoGame.I.Player.Dead) break;
+                                if (!AntiCheat.HitOk(from, dmg, hg, part)) { Debug.LogWarning("[Rago] ignored an impossible hit from #" + from + " (" + dmg.ToString("0") + " dmg, " + hg + ")"); break; }
                                 var v = RagoGame.I.Player.Vitals;
                                 v.TakeHit(new HitInfo { damage = dmg, part = part, point = pt, dir = dir, attacker = (int)from + 1, fromNet = true, force = force, gunId = hg, ammo = ha }, null);
                                 break;

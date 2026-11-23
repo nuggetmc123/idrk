@@ -113,6 +113,7 @@ namespace Rago
                 var sb = new System.Text.StringBuilder();
                 float now = Time.realtimeSinceStartup;
                 sb.Append("NETWORK  v").Append(Ver.Replace("_v", "").Replace('_', '.')).Append("  server ").Append(Address).Append('\n');
+                if (AntiCheat.Fingerprint.Length > 0) sb.Append("build signature ").Append(AntiCheat.Fingerprint.Substring(0, 16)).Append("...").Append(AntiCheat.Tampered ? "  MODIFIED" : "").Append('\n');
                 sb.Append(_status).Append(_link != null && _link.Connected ? (_link.UdpOk ? "  UDP ok" : "  UDP blocked (all TCP)") : "").Append('\n');
                 if (InSession)
                 {
@@ -134,6 +135,7 @@ namespace Rago
         // =========================================================================================== connection
         public void Init(Action<bool> done)
         {
+            if (AntiCheat.Tampered) { _status = "Online play is off: this copy of the game has been modified (" + AntiCheat.Why + ")"; _ready = false; Log(_status, true); done?.Invoke(false); return; }
             _wantOnline = true;
             Connect();
             done?.Invoke(true);   // "online" from the start: the connection comes up in the background
