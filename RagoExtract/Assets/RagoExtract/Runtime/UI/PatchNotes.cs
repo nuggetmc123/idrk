@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.70", "DLC menu, 5 new packs, better grips", new[] {
+                "DLC TAB in your menu: every pack as a tile with its price. Tap one to see everything it comes with - try each skin on a rifle by tapping it, see the items and where they go - then GET IT. Packs are FREE for now; the price they'll cost later is shown.",
+                "5 NEW DLC PACKS: GOLD (Solid Gold, Black Gold, Mirror Chrome + a gold chain), SYNTHWAVE (Synthwave, Vaporwave, Laser Grid), PREDATOR (Zebra, Leopard, Python), ELEMENTS (Lava, Ice Crystal, Lightning, Toxic Slime) and OPERATOR (Ranger Green, Mountain Shards, Desert Digital + 2 IFAKs and a stim).",
+                "The DLC STORE wall in the Market shows 4 packs a page (< > to flip).",
+                "FOREGRIPS: your support hand now actually holds the grip you fitted - wrapped round a vertical grip, leaning forward along the ramp of an angled grip with your thumb on the handguard, high and short on a stubby. Grab anywhere near the grip or the handguard.",
+                "The ANGLED GRIP looks like a real one: a long rail clamp, a ramp for your palm with grip ridges, and a lip at the front.",
+            }),
             ("2.69", "Camera fixed", new[] {
                 "Fixed: pressing the trigger at the Camera often did nothing - you had to hit a tiny spot your controller couldn't reach (it bumps the headset first). Now anywhere up by the right side of your head works, and the controller buzzes when it starts or stops.",
                 "Fixed: on PC, videos only saved if you had ffmpeg installed. Now they always save - as an .avi in Videos\\Rago Extract (plays in Films & TV, Windows Media Player and VLC), or as an .mp4 if ffmpeg is there.",

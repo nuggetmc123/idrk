@@ -4,29 +4,16 @@ using UnityEngine;
 namespace Rago
 {
     /// <summary>
-    /// The DLC STORE (Market, west wall): content packs bought with your in-game cash. A pack unlocks its gun skins at
-    /// the paint booth and sends its items to your bunker (the Armory floor). Each pack is bought once.
+    /// The DLC STORE (Market, west wall): content packs (see Dlc). A pack unlocks its gun skins at the paint booth and
+    /// sends its items to your Deliveries screen. Each pack is bought once. 4 cards a page.
     /// The Holiday Pack is only on sale over Christmas (keep it if you bought it). All packs are FREE for now (price 0);
     /// paying real money later goes through the store's in-app purchases (see README "DLC for real money").
     /// </summary>
     public class DlcStore : MonoBehaviour
     {
-        public class Pack
-        {
-            public string id, name, tagline; public int price; public Color col; public string[] items; public bool seasonal;
-        }
-
-        public static readonly Pack[] Packs =
-        {
-            new Pack { id = "holiday", name = "HOLIDAY PACK", price = 0, col = new Color(0.75f, 0.1f, 0.1f), seasonal = true,
-                tagline = "festive skins + a candy cane club", items = new[] { "candycane", "impact", "impact", "impact" } },
-            new Pack { id = "street", name = "STREET PACK", price = 0, col = new Color(0.15f, 0.6f, 0.35f),
-                tagline = "loud city paint jobs", items = new string[0] },
-            new Pack { id = "survivor", name = "SURVIVOR PACK", price = 0, col = new Color(0.2f, 0.4f, 0.65f),
-                tagline = "weathered and wild", items = new string[0] },
-            new Pack { id = "collector", name = "COLLECTOR'S PACK", price = 0, col = new Color(0.55f, 0.3f, 0.75f),
-                tagline = "the rarest finishes", items = new string[0] },
-        };
+        // the packs themselves (what's in them, prices, buying) live in Dlc
+        int _page;
+        const int PerPage = 4;
 
         /// <summary>A card's showcase rifle: one copy per skin in the pack, shown in turn.</summary>
         class Showcase { public List<GameObject> guns = new List<GameObject>(); public List<string> names = new List<string>(); public TextMesh label; public int at; }
@@ -69,14 +56,22 @@ namespace Rago
             if (_cards != null) Destroy(_cards.gameObject);
             _shows.Clear();
             _cards = new GameObject("Cards").transform; _cards.SetParent(transform, false);
-            var shown = new List<Pack>();
-            foreach (var p in Packs) if (!p.seasonal || Festive.On || Owns(p.id)) shown.Add(p);
+            var all = new List<Dlc.Pack>(Dlc.Shown());
+            int pages = Mathf.Max(1, (all.Count + PerPage - 1) / PerPage);
+            _page = Mathf.Clamp(_page, 0, pages - 1);
+            var shown = all.GetRange(_page * PerPage, Mathf.Min(PerPage, all.Count - _page * PerPage));
+            if (pages > 1)
+            {
+                UI.Button(_cards, "<", new Vector3(-2.3f, 0.3f, -0.03f), new Vector2(0.16f, 0.16f), () => { _page = (_page + pages - 1) % pages; Sfx.UI(Synth.Beep(), 0.2f); Redraw(); }, null, BtnStyle.Key);
+                UI.Button(_cards, ">", new Vector3(2.3f, 0.3f, -0.03f), new Vector2(0.16f, 0.16f), () => { _page = (_page + 1) % pages; Sfx.UI(Synth.Beep(), 0.2f); Redraw(); }, null, BtnStyle.Key);
+                UI.Text(_cards, "page " + (_page + 1) + " / " + pages + "  -  or open the DLC tab in your menu", new Vector3(0, 0.53f, -0.03f), 0.035f, UI.Dim, TextAnchor.MiddleCenter);
+            }
             float w = 1.06f, gap = 0.06f, x0 = -(shown.Count - 1) * (w + gap) / 2f;
             Db.Init();
             for (int i = 0; i < shown.Count; i++)
             {
                 var p = shown[i];
-                bool owned = Owns(p.id);
+                bool owned = Dlc.Owns(p.id);
                 var c = new Vector3(x0 + i * (w + gap), 1.56f, -0.02f);
                 var card = UI.Panel(_cards, "Card", c, Quaternion.identity, new Vector2(w, 1.9f), new Color(0.1f, 0.1f, 0.12f), true, Skin.Steel);
                 Color light = Color.Lerp(p.col, Color.white, 0.45f);
@@ -131,8 +126,9 @@ namespace Rago
                 }
                 else UI.Text(card, "unlocks at your paint booth\nin the bunker Armory", new Vector3(0, y - 0.05f, -0.006f), 0.024f, UI.Dim, TextAnchor.MiddleCenter);
                 // price and button
-                UI.Text(card, owned ? "OWNED" : p.price <= 0 ? "FREE" : "$" + p.price.ToString("N0"), new Vector3(0, -0.53f, -0.006f), 0.085f, owned ? new Color(0.5f, 1f, 0.55f) : light, TextAnchor.MiddleCenter, FontStyle.Bold);
-                if (!owned) { var pp = p; UI.Button(card, p.price <= 0 ? "GET" : "BUY", new Vector3(0, -0.75f, 0), new Vector2(0.55f, 0.13f), () => Buy(pp), new Color(0.2f, 0.45f, 0.22f), BtnStyle.Key); }
+                UI.Text(card, Dlc.PriceText(p), new Vector3(0, -0.53f, -0.006f), 0.085f, owned ? new Color(0.5f, 1f, 0.55f) : light, TextAnchor.MiddleCenter, FontStyle.Bold);
+                if (!owned && !Dlc.PaymentsLive) UI.Text(card, p.usd + " later - free for now", new Vector3(0, -0.615f, -0.006f), 0.024f, UI.Dim, TextAnchor.MiddleCenter);
+                if (!owned) { var pp = p; UI.Button(card, Dlc.PaymentsLive ? "BUY  " + p.usd : "GET", new Vector3(0, -0.75f, 0), new Vector2(0.55f, 0.13f), () => Buy(pp), new Color(0.2f, 0.45f, 0.22f), BtnStyle.Key); }
                 else UI.Text(card, "paint it on at the booth", new Vector3(0, -0.74f, -0.006f), 0.024f, UI.Dim, TextAnchor.MiddleCenter);
             }
         }
@@ -159,23 +155,19 @@ namespace Rago
             foreach (var sh in _shows) foreach (var g in sh.guns) if (g.activeSelf) g.transform.localRotation = Quaternion.Euler(0, Mathf.Sin(Time.time * 0.6f) * 25f, 0);
         }
 
-        static bool Owns(string id) => Profile.Current != null && Profile.Current.dlc != null && Profile.Current.dlc.Contains(id);
+        void OnEnable() { Dlc.Changed += Redraw; }
+        void OnDisable() { Dlc.Changed -= Redraw; }
 
         float _buyT;
-        void Buy(Pack p)
+        void Buy(Dlc.Pack p)
         {
             if (Time.unscaledTime < _buyT) return;
             _buyT = Time.unscaledTime + 0.6f;
-            var prof = Profile.Current; if (prof == null || Owns(p.id)) return;
-            if (prof.money < p.price) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I?.Player?.Toast("Not enough money - the " + p.name + " is $" + p.price.ToString("N0")); return; }
-            prof.money -= p.price;
-            prof.dlc ??= new List<string>();
-            prof.dlc.Add(p.id);
-            foreach (var id in p.items) Profile.Deliver(new ItemData(id), p.name);
-            prof.Save();
-            Sfx.UI(Synth.Cash(), 0.7f);
-            RagoGame.I?.Player?.Toast(p.name + " unlocked - new skins at your paint booth" + (p.items.Length > 0 ? ", items on the Armory floor" : ""));
-            Redraw();
+            Dlc.Buy(p, (ok, msg) =>
+            {
+                if (ok) { Sfx.UI(Synth.Cash(), 0.7f); RagoGame.I?.Player?.Toast(msg + " - new skins at your paint booth" + (p.items.Length > 0 ? ", items on your Deliveries screen" : "")); }
+                else { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I?.Player?.Toast(msg); }
+            });
         }
     }
 }

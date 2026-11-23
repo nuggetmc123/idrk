@@ -71,8 +71,26 @@ namespace Rago
                 muzzleAtt = a;
                 if (rig.muzzleDevice != null) rig.muzzleDevice.SetActive(a == null);   // the gun's own brake / flash hider comes off for the can
             }
-            else if (s == AttachSlot.Side) sideAtt = a; else gripAtt = a;
+            else if (s == AttachSlot.Side) sideAtt = a; else { gripAtt = a; RefreshSupport(); }
         }
+
+        Transform _supportPt;
+        /// <summary>Where the support hand goes: on the fitted foregrip (vertical, angled, stubby), else the handguard.</summary>
+        public void RefreshSupport()
+        {
+            if (rig == null || rig.foregrip == null) return;
+            if (gripAtt == null || gripAtt.transform.parent == null) { secondGrip = rig.foregrip; return; }
+            if (_supportPt == null) { _supportPt = new GameObject("SupportGrip").transform; _supportPt.SetParent(transform, false); }
+            int m = gripAtt.ad.model;
+            // the middle of where your fist closes on it (in the attachment's space: it hangs down -y, the muzzle is +z)
+            Vector3 hold = m == 1 ? new Vector3(0, -0.03f, -0.004f) : m == 2 ? new Vector3(0, -0.034f, 0) : new Vector3(0, -0.052f, -0.004f);
+            _supportPt.localPosition = transform.InverseTransformPoint(gripAtt.transform.TransformPoint(hold));
+            _supportPt.localRotation = Quaternion.identity;
+            secondGrip = _supportPt;
+        }
+
+        /// <summary>The fitted foregrip's kind (0 vertical, 1 angled, 2 stubby), or -1 for none.</summary>
+        public int GripKind => gripAtt != null && gripAtt.transform.parent != null ? gripAtt.ad.model : -1;
         public bool Quiet => g.suppressed || muzzleAtt != null && muzzleAtt.ad.suppress;
         float RecoilMul => (muzzleAtt != null ? muzzleAtt.ad.recoilMul : 1f) * (gripAtt != null ? gripAtt.ad.recoilMul : 1f) * (sideAtt != null ? sideAtt.ad.recoilMul : 1f);
         float SpreadMul => (muzzleAtt != null ? muzzleAtt.ad.spreadMul : 1f) * (gripAtt != null ? gripAtt.ad.spreadMul : 1f) * (sideAtt != null ? sideAtt.ad.spreadMul : 1f);
@@ -200,6 +218,7 @@ namespace Rago
             LoadAttachment(d.muzzle); LoadAttachment(d.side); LoadAttachment(d.gripAtt);
             if (sideAtt != null) sideAtt.Place(sideZ, sideLeft);
             if (gripAtt != null) gripAtt.Place(gripZ, false);
+            RefreshSupport();
             GunSkins.Apply(this, d.skin);
             autoMode = g.action == FireAction.Auto || g.action == FireAction.Burst;
         }

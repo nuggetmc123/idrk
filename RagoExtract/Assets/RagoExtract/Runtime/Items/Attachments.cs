@@ -85,6 +85,7 @@ namespace Rago
             }
             transform.SetParent(at, false);
             if (ad.slot == AttachSlot.Side) Place(g.sideZ, g.sideLeft); else if (ad.slot == AttachSlot.Grip) Place(g.gripZ, false); else Place(0f, false);
+            if (ad.slot == AttachSlot.Grip) g.RefreshSupport();   // the support hand moves onto it
             if (sound) { Sfx.Play(Synth.MagIn(), transform.position, 0.6f, 1.3f, 0.5f, 8f); RagoGame.I?.Player?.Toast(ad.name + " fitted to the " + g.g.name); }
         }
 

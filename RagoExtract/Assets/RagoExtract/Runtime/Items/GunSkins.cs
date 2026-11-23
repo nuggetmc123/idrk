@@ -40,6 +40,27 @@ namespace Rago
             new Skin { id = "ocean", name = "Deep Ocean", pack = "survivor", spray = new Color(0.1f, 0.3f, 0.55f), mat = () => Paint("ocean", Ocean, 3f, false, 0.1f, 0.5f, 0.15f, 0.3f) },
             new Skin { id = "cherry", name = "Cherry Blossom", pack = "survivor", spray = new Color(0.9f, 0.55f, 0.65f), mat = () => Paint("cherry", Cherry, 3f, false, 0f, 0.35f, 0.15f, 0.25f) },
             // ---- the South Pole present vault (not sold anywhere)
+            // gold pack
+            new Skin { id = "gold", name = "Solid Gold", pack = "gold", spray = new Color(1f, 0.78f, 0.3f), mat = () => Paint("gold", GoldLeaf, 3f, false, 1f, 0.85f, 0.03f, 0.08f) },
+            new Skin { id = "blackgold", name = "Black Gold", pack = "gold", spray = new Color(0.12f, 0.1f, 0.06f), mat = () => Paint("blackgold", BlackGold, 2.5f, false, 0.7f, 0.75f, 0.05f, 0.15f) },
+            new Skin { id = "chrome", name = "Mirror Chrome", pack = "gold", spray = new Color(0.9f, 0.9f, 0.92f), mat = () => Paint("chrome", Chrome, 3f, false, 1f, 0.95f, 0.02f, 0.05f) },
+            // synthwave pack
+            new Skin { id = "synth", name = "Synthwave", pack = "synthwave", spray = new Color(0.95f, 0.3f, 0.7f), mat = () => Paint("synth", Synthwave, 2f, false, 0.1f, 0.7f, 0.03f, 0.1f) },
+            new Skin { id = "vapor", name = "Vaporwave", pack = "synthwave", spray = new Color(0.6f, 0.85f, 0.95f), mat = () => Paint("vapor", Vaporwave, 2.5f, false, 0.05f, 0.6f, 0.03f, 0.1f) },
+            new Skin { id = "lasergrid", name = "Laser Grid", pack = "synthwave", spray = new Color(0.1f, 0.9f, 1f), mat = () => Paint("lasergrid", LaserGrid, 3f, false, 0.2f, 0.75f, 0.03f, 0.1f) },
+            // predator pack
+            new Skin { id = "zebra", name = "Zebra", pack = "predator", spray = new Color(0.9f, 0.9f, 0.88f), mat = () => Paint("zebra", Zebra, 2.5f, false, 0f, 0.35f, 0.15f, 0.25f) },
+            new Skin { id = "leopard", name = "Leopard", pack = "predator", spray = new Color(0.8f, 0.6f, 0.3f), mat = () => Paint("leopard", Leopard, 3f, false, 0f, 0.3f, 0.15f, 0.25f) },
+            new Skin { id = "python", name = "Python", pack = "predator", spray = new Color(0.45f, 0.4f, 0.2f), mat = () => Paint("python", Python, 3.5f, false, 0.1f, 0.5f, 0.15f, 0.2f) },
+            // elements pack
+            new Skin { id = "lava", name = "Lava", pack = "elements", spray = new Color(1f, 0.4f, 0.05f), mat = () => Paint("lava", Lava, 2.5f, false, 0.1f, 0.4f, 0.1f, 0.2f) },
+            new Skin { id = "ice", name = "Ice Crystal", pack = "elements", spray = new Color(0.7f, 0.9f, 1f), mat = () => Paint("ice", IceCrystal, 2.5f, false, 0.3f, 0.9f, 0.02f, 0.1f) },
+            new Skin { id = "lightning", name = "Lightning", pack = "elements", spray = new Color(0.6f, 0.4f, 1f), mat = () => Paint("lightning", Lightning, 2.5f, false, 0.2f, 0.7f, 0.03f, 0.1f) },
+            new Skin { id = "slime", name = "Toxic Slime", pack = "elements", spray = new Color(0.4f, 1f, 0.2f), mat = () => Paint("slime", ToxicSlime, 2.5f, false, 0.05f, 0.8f, 0.05f, 0.1f) },
+            // operator pack
+            new Skin { id = "ranger", name = "Ranger Green", pack = "operator", spray = new Color(0.25f, 0.3f, 0.2f), mat = () => Coat("ranger", new Color(0.24f, 0.29f, 0.19f), 0.28f) },
+            new Skin { id = "shards", name = "Mountain Shards", pack = "operator", spray = new Color(0.45f, 0.45f, 0.43f), mat = () => Paint("shards", MountainShards, 3f, false, 0.05f, 0.25f, 0.3f, 0.45f) },
+            new Skin { id = "digidesert", name = "Desert Digital", pack = "operator", spray = new Color(0.7f, 0.6f, 0.42f), mat = () => Paint("digidesert", DesertDigital, 3.5f, true, 0f, 0.22f, 0.3f, 0.45f) },
             new Skin { id = "aurora", name = "Aurora", pack = "northpole", spray = new Color(0.3f, 0.95f, 0.7f), mat = () => Paint("aurora", Aurora, 2f, false, 0.3f, 0.85f, 0.03f, 0.08f) },
             new Skin { id = "giftwrap", name = "Gift Wrap", pack = "northpole", spray = new Color(0.8f, 0.1f, 0.1f), mat = () => Paint("giftwrap", GiftWrap, 3f, false, 0.2f, 0.6f, 0.05f, 0.1f) },
             new Skin { id = "gingerbread", name = "Gingerbread", pack = "northpole", spray = new Color(0.6f, 0.38f, 0.2f), mat = () => Paint("gingerbread", Gingerbread, 3f, false, 0f, 0.3f, 0.15f, 0.2f) },
@@ -48,7 +69,13 @@ namespace Rago
 
         /// <summary>Free, or its pack is owned.</summary>
         public static bool Owned(Skin s) => s.pack == null || (Profile.Current != null && Profile.Current.dlc != null && Profile.Current.dlc.Contains(s.pack));
-        public static string PackName(string pack) => pack == "holiday" ? "Holiday Pack" : pack == "street" ? "Street Pack" : pack == "collector" ? "Collector's Pack" : pack == "survivor" ? "Survivor Pack" : pack == "northpole" ? "the South Pole vault" : pack;
+        public static string PackName(string pack)
+        {
+            if (pack == "northpole") return "the South Pole vault";
+            var p = Dlc.Get(pack);
+            if (p == null) return pack;
+            var n = p.name.ToLowerInvariant(); return char.ToUpper(n[0]) + n.Substring(1).Replace(" pack", " Pack").Replace("'s", "'s");
+        }
 
         public static Skin Get(string id) { foreach (var s in All) if (s.id == (id ?? "")) return s; return All[0]; }
 
@@ -312,6 +339,113 @@ namespace Rago
             float fu = u * 6f - Mathf.Floor(u * 6f) - 0.5f, fv = v * 6f - Mathf.Floor(v * 6f) - 0.5f;
             if (Mathf.Abs(fu) * Mathf.Abs(fv) < 0.002f && Mathf.Abs(fu) + Mathf.Abs(fv) < 0.4f) c = Color.white;   // four-point stars
             return c;
+        }
+
+        // ---- DLC patterns
+        static float Fr(float x) => x - Mathf.Floor(x);
+        static Color GoldLeaf(float u, float v)
+        {
+            Color dark = new Color(0.75f, 0.52f, 0.15f), light = new Color(1f, 0.86f, 0.45f);
+            float brush = Fbm(u, v, 48f, 3.3f) * 0.35f + Fbm(u, v, 4f, 1.2f) * 0.65f;
+            return Color.Lerp(dark, light, brush);
+        }
+        static Color BlackGold(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.04f, 0.04f, 0.05f), new Color(0.1f, 0.09f, 0.08f), Fbm(u, v, 6f, 2.2f));
+            for (int k = 0; k < 3; k++) if (Mathf.Abs(Fbm(u, v, 3f, 4.1f + k * 3.7f) - 0.5f) < 0.007f) c = new Color(1f, 0.78f, 0.3f);   // gold filigree
+            return c;
+        }
+        static Color Chrome(float u, float v)
+        {
+            float n = Fbm(u, v, 2f, 5.5f);
+            return Color.Lerp(new Color(0.7f, 0.72f, 0.75f), new Color(0.98f, 0.98f, 1f), Mathf.SmoothStep(0.3f, 0.7f, n));
+        }
+        static Color Synthwave(float u, float v)
+        {
+            // a sunset sky (orange to pink to deep purple) over a neon grid
+            Color c = v < 0.5f ? Color.Lerp(new Color(1f, 0.55f, 0.1f), new Color(0.95f, 0.2f, 0.6f), v * 2f) : Color.Lerp(new Color(0.95f, 0.2f, 0.6f), new Color(0.2f, 0.05f, 0.35f), (v - 0.5f) * 2f);
+            if (Fr(v * 10f) < 0.06f && Fr(v * 10f + 0.5f) > 0.12f) c = Color.Lerp(c, new Color(0.15f, 0.05f, 0.25f), 0.7f);   // sun stripes
+            if (Fr(u * 8f) < 0.04f || Fr(v * 8f) < 0.04f) c = new Color(0.2f, 1f, 1f);                                      // the grid
+            return c;
+        }
+        static Color Vaporwave(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(1f, 0.7f, 0.85f), new Color(0.55f, 0.9f, 1f), Mathf.Sin((u + v) * Mathf.PI * 2f) * 0.5f + 0.5f);
+            bool chk = ((int)(u * 8f) + (int)(v * 8f)) % 2 == 0;
+            if (chk && Fbm(u, v, 2f, 8.2f) > 0.6f) c = Color.Lerp(c, Color.white, 0.5f);
+            return c;
+        }
+        static Color LaserGrid(float u, float v)
+        {
+            Color c = new Color(0.02f, 0.02f, 0.05f);
+            float gu = Fr(u * 16f), gv = Fr(v * 16f);
+            if (gu < 0.05f || gv < 0.05f) c = new Color(0.1f, 0.95f, 1f);
+            if ((gu < 0.05f || gv < 0.05f) && Fbm(u, v, 4f, 3.9f) > 0.6f) c = new Color(1f, 0.2f, 0.8f);
+            return c;
+        }
+        static Color Zebra(float u, float v)
+        {
+            float w = Mathf.Sin((u * 14f + Fbm(u, v, 3f, 2.6f) * 3f) * Mathf.PI);
+            return w > 0.1f ? new Color(0.06f, 0.06f, 0.06f) : new Color(0.93f, 0.92f, 0.88f);
+        }
+        static Color Leopard(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.85f, 0.65f, 0.35f), new Color(0.75f, 0.5f, 0.22f), Fbm(u, v, 4f, 1.4f));
+            float n = Fbm(u, v, 12f, 6.6f);
+            if (n > 0.66f) c = n > 0.72f ? new Color(0.55f, 0.35f, 0.15f) : new Color(0.1f, 0.07f, 0.05f);   // rosettes: dark ring, brown inside
+            return c;
+        }
+        static Color Python(float u, float v)
+        {
+            float su = u * 24f, sv = v * 24f; float row = Mathf.Floor(sv); su += (row % 2) * 0.5f;
+            float fu = Fr(su) - 0.5f, fv = sv - row - 0.5f;
+            float d = Mathf.Abs(fu) + Mathf.Abs(fv);
+            Color b = Fbm(u, v, 4f, 7.7f) > 0.55f ? new Color(0.2f, 0.15f, 0.08f) : new Color(0.55f, 0.5f, 0.25f);   // big blotches
+            return b * (d > 0.42f ? 0.55f : 1f - d * 0.4f);
+        }
+        static Color Lava(float u, float v)
+        {
+            Color rock = Color.Lerp(new Color(0.06f, 0.05f, 0.05f), new Color(0.18f, 0.12f, 0.1f), Fbm(u, v, 8f, 2.1f));
+            float crack = Mathf.Abs(Fbm(u, v, 4f, 5.2f) - 0.5f);
+            if (crack < 0.06f) rock = Color.Lerp(new Color(1f, 0.9f, 0.3f), new Color(1f, 0.3f, 0.02f), crack / 0.06f);   // glowing cracks
+            return rock;
+        }
+        static Color IceCrystal(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.55f, 0.78f, 0.95f), new Color(0.85f, 0.95f, 1f), Fbm(u, v, 3f, 3.4f));
+            for (int k = 0; k < 2; k++) if (Mathf.Abs(Fbm(u, v, 5f, 8.8f + k * 2.1f) - 0.5f) < 0.01f) c = Color.white;   // frost lines
+            return c;
+        }
+        static Color Lightning(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.03f, 0.03f, 0.1f), new Color(0.12f, 0.06f, 0.25f), Fbm(u, v, 3f, 6.1f));
+            float bolt = Mathf.Abs(Fbm(u, v, 6f, 1.9f) - 0.5f);
+            if (bolt < 0.025f) c = Color.Lerp(Color.white, new Color(0.65f, 0.45f, 1f), bolt / 0.025f);
+            return c;
+        }
+        static Color ToxicSlime(float u, float v)
+        {
+            float drip = v + Mathf.Sin(u * Mathf.PI * 10f) * 0.05f + Fbm(u, v, 4f, 3.3f) * 0.2f;
+            Color c = Fr(drip * 3f) < 0.55f ? new Color(0.35f, 0.95f, 0.15f) : new Color(0.08f, 0.12f, 0.06f);
+            if (Fbm(u, v, 16f, 9.1f) > 0.75f) c = Color.Lerp(c, new Color(0.8f, 1f, 0.6f), 0.6f);   // bubbles
+            return c;
+        }
+        static Color MountainShards(float u, float v)
+        {
+            Color[] tones = { new Color(0.55f, 0.55f, 0.52f), new Color(0.4f, 0.4f, 0.38f), new Color(0.25f, 0.25f, 0.24f), new Color(0.12f, 0.12f, 0.12f) };
+            float a = Fbm(Mathf.Floor(u * 24f) / 24f, Mathf.Floor(v * 24f + Fr(u * 24f) * 0.6f) / 24f, 3f, 4.4f);   // angular scales
+            int i = Mathf.Clamp((int)(a * 4.4f) - 1, 0, 3);
+            return tones[i];
+        }
+        static Color DesertDigital(float u, float v)
+        {
+            Color l = new Color(0.82f, 0.72f, 0.52f), m = new Color(0.66f, 0.55f, 0.38f), d = new Color(0.5f, 0.4f, 0.28f), k = new Color(0.35f, 0.3f, 0.22f);
+            float cu = Mathf.Floor(u * 64f) / 64f, cv = Mathf.Floor(v * 64f) / 64f;
+            float a = Fbm(cu, cv, 4f, 3.2f), b = Fbm(cu, cv, 4f, 6.9f), c2 = Fbm(cu, cv, 8f, 1.8f);
+            if (c2 > 0.68f) return k;
+            if (a > 0.57f) return d;
+            if (b > 0.52f) return m;
+            return l;
         }
 
         /// <summary>Tileable fractal noise in 0..1: periodic gradient noise (wraps exactly at u/v = 0..1, no stretching).</summary>

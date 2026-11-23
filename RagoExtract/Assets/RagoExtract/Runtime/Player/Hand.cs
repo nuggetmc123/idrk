@@ -443,6 +443,17 @@ namespace Rago
                     _visual.rotation = Quaternion.LookRotation(slant * Vector3.forward, slant * Vector3.right * s);
                     _visual.position = Held.grip.position + slant * new Vector3(s * 0.03f, 0.004f, -0.012f);
                 }
+                else if (HeldAsSecondary && Held is Gun fg && fg.GripKind >= 0)
+                {
+                    // a foregrip: your fist closes round it like a pistol grip - straight down on a vertical grip, leaning
+                    // forward along the ramp on an angled grip (thumb up on the handguard), high and short on a stubby
+                    float s = left ? -1f : 1f;
+                    int k = fg.GripKind;
+                    float pitch = k == 1 ? -42f : k == 2 ? 2f : 8f;
+                    Quaternion slant = fg.transform.rotation * Quaternion.Euler(pitch, 0f, 0f);
+                    _visual.rotation = Quaternion.LookRotation(slant * Vector3.forward, slant * Vector3.right * s);
+                    _visual.position = fg.secondGrip.position + slant * new Vector3(s * 0.03f, k == 1 ? 0.012f : 0.004f, -0.012f);
+                }
                 else if (HeldAsSecondary && Held.secondGrip != null)
                 {
                     _visual.position = Held.secondGrip.position;
@@ -467,7 +478,7 @@ namespace Rago
             if (otherGun != null && !Other.HeldAsSecondary)
             {
                 if (otherGun.TryStartRack(this)) { BeginRack(otherGun); return; }
-                if (otherGun.secondGrip != null && Vector3.Distance(p, otherGun.secondGrip.position) < 0.16f)
+                if (otherGun.secondGrip != null && (Vector3.Distance(p, otherGun.secondGrip.position) < 0.16f || (otherGun.rig.foregrip != null && Vector3.Distance(p, otherGun.rig.foregrip.position) < 0.16f)))
                 {
                     Held = otherGun; HeldAsSecondary = true;
                     otherGun.secondaryHand = this;

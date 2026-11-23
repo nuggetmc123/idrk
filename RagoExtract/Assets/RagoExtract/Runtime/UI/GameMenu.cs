@@ -14,7 +14,7 @@ namespace Rago
     public class GameMenu : MonoBehaviour
     {
         public static GameMenu I;
-        enum Tab { Party, Friends, Recent, Settings, Tester, Notes, Mod }
+        enum Tab { Party, Friends, Recent, Settings, Tester, Notes, Mod, Dlc }
         Tab _tab = Tab.Party;
         Transform _panel, _content;
         TextMesh _header;
@@ -45,11 +45,11 @@ namespace Rago
             _panel = UI.Panel(transform, "Menu", Vector3.zero, Quaternion.identity, new Vector2(1.12f, 0.9f), null, true, Skin.Steel);
             _header = UI.Text(_panel, "", new Vector3(-0.52f, 0.39f, 0), 0.034f, UI.Accent, TextAnchor.MiddleLeft, FontStyle.Bold);
             UI.Button(_panel, "X", new Vector3(0.5f, 0.39f, 0), new Vector2(0.07f, 0.065f), () => Show(false), new Color(0.5f, 0.15f, 0.1f), BtnStyle.Key);
-            string[] names = { "PARTY", "FRIENDS", "RECENT", "SETTINGS", "TESTER", "NOTES", "MOD" };
+            string[] names = { "PARTY", "FRIENDS", "RECENT", "SETTINGS", "TESTER", "NOTES", "MOD", "DLC" };
             for (int i = 0; i < names.Length; i++)
             {
                 var t = (Tab)i;
-                _tabBtns.Add(UI.Button(_panel, names[i], new Vector3(-0.468f + i * 0.156f, 0.3f, 0), new Vector2(0.148f, 0.075f), () => { _tab = t; _typing = false; _page = 0; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }));
+                _tabBtns.Add(UI.Button(_panel, names[i], new Vector3(-0.48f + (i == 6 ? 7 : i == 7 ? 6 : i) * 0.137f, 0.3f, 0), new Vector2(0.13f, 0.075f), () => { _tab = t; _typing = false; _page = 0; _dlcSel = null; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }));
             }
             _content = new GameObject("Content").transform;
             _content.SetParent(_panel, false);
@@ -209,6 +209,7 @@ namespace Rago
                 case Tab.Tester: DrawTester(); break;
                 case Tab.Notes: DrawNotes(); break;
                 case Tab.Mod: DrawMod(); break;
+                case Tab.Dlc: DrawDlc(); break;
                 default: DrawSettings(); break;
             }
         }
@@ -467,6 +468,124 @@ namespace Rago
             Btn(nuke ? "LAUNCH" : "START", 0.29f, y, 0.14f, () => RelayBackend.Instance?.StartEvent((byte)_evKind, len), nuke ? Stop : Go);
             Btn("STOP", 0.44f, y, 0.13f, () => RelayBackend.Instance?.StartEvent(0, 0), Stop); y -= 0.055f;
             Line(LiveEvent.Active ? "Running: " + LiveEvent.Names[LiveEvent.Kind] + " (" + LiveEvent.Left() + " left, by " + LiveEvent.By + ")" : "For every player on every server - " + LiveEvent.Blurb[_evKind] + ".", y, 0.02f, LiveEvent.Active ? new Color(1f, 0.8f, 0.25f) : UI.Dim);
+        }
+
+        // ------------------------------------------------------------------------------- DLC
+        string _dlcSel, _dlcSkin;
+        static Material _swatchFrame;
+
+        /// <summary>DLC tab: every pack as a tile (price, owned); tap one for everything that comes with it, and BUY.</summary>
+        void DrawDlc()
+        {
+            Db.Init();
+            var pack = _dlcSel != null ? Dlc.Get(_dlcSel) : null;
+            if (pack == null) { DrawDlcList(); return; }
+            DrawDlcPack(pack);
+        }
+
+        void DrawDlcList()
+        {
+            var all = new List<Dlc.Pack>(Dlc.Shown());
+            const int per = 6;
+            int pages = Mathf.Max(1, (all.Count + per - 1) / per);
+            _page = Mathf.Clamp(_page, 0, pages - 1);
+            Line(Dlc.PaymentsLive ? "DLC PACKS - tap one to see what's in it" : "DLC PACKS - tap one to see what's in it  (all FREE for now)", 0.22f, 0.024f, UI.Dim);
+            var rifle = Db.Get("sentinel") ?? Db.Get("p9");
+            for (int k = 0; k < per; k++)
+            {
+                int idx = _page * per + k; if (idx >= all.Count) break;
+                var p = all[idx];
+                float x = -0.36f + (k % 3) * 0.36f, y = 0.06f - (k / 3) * 0.27f;
+                var pp = p;
+                bool owned = Dlc.Owns(p.id);
+                UI.Button(_content, "", new Vector3(x, y, 0), new Vector2(0.34f, 0.25f), () => { _dlcSel = pp.id; _dlcSkin = null; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }, Color.Lerp(p.col, new Color(0.12f, 0.12f, 0.14f), 0.72f));
+                UI.Text(_content, p.name, new Vector3(x, y + 0.095f, -0.02f), 0.022f, Color.Lerp(p.col, Color.white, 0.55f), TextAnchor.MiddleCenter, FontStyle.Bold);
+                var skins = Dlc.Skins(p);
+                if (rifle != null && skins.Count > 0)
+                {
+                    var holder = new GameObject("Preview").transform; holder.SetParent(_content, false); holder.localPosition = new Vector3(x, y + 0.02f, -0.05f);
+                    try { SpawnBrowser.Model(rifle, holder, 0.26f, 0.08f, skins[0].id, 15f); } catch { }
+                }
+                UI.Text(_content, skins.Count + " skins" + (p.items.Length > 0 ? " + " + p.items.Length + " items" : ""), new Vector3(x, y - 0.05f, -0.02f), 0.017f, UI.Dim, TextAnchor.MiddleCenter);
+                UI.Text(_content, owned ? "OWNED" : Dlc.PaymentsLive ? p.usd : "FREE  (" + p.usd + " later)", new Vector3(x, y - 0.09f, -0.02f), 0.02f, owned ? new Color(0.5f, 1f, 0.55f) : Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            }
+            if (pages > 1)
+            {
+                Btn("<", -0.2f, -0.39f, 0.09f, () => _page = (_page + pages - 1) % pages);
+                Line("PAGE " + (_page + 1) + " / " + pages, -0.39f, 0.024f, Color.white, -0.07f);
+                Btn(">", 0.2f, -0.39f, 0.09f, () => _page = (_page + 1) % pages);
+            }
+        }
+
+        void DrawDlcPack(Dlc.Pack p)
+        {
+            bool owned = Dlc.Owns(p.id);
+            var skins = Dlc.Skins(p);
+            if (_dlcSkin == null && skins.Count > 0) _dlcSkin = skins[0].id;
+            Btn("< ALL PACKS", -0.42f, 0.22f, 0.22f, () => { _dlcSel = null; });
+            Line(p.name, 0.22f, 0.034f, Color.Lerp(p.col, Color.white, 0.45f), -0.28f);
+            Line(p.tagline, 0.165f, 0.022f, UI.Dim, -0.28f);
+            // the rifle wearing the skin you picked
+            var rifle = Db.Get("sentinel") ?? Db.Get("p9");
+            if (rifle != null)
+            {
+                var holder = new GameObject("Showcase").transform; holder.SetParent(_content, false); holder.localPosition = new Vector3(-0.2f, 0.05f, -0.08f);
+                try { SpawnBrowser.Model(rifle, holder, 0.6f, 0.2f, _dlcSkin, 20f); } catch { }
+            }
+            var cur = skins.Find(k => k.id == _dlcSkin);
+            if (cur != null) Line(cur.name.ToUpper(), -0.07f, 0.024f, Color.white, -0.5f);
+            // the skins: tap one to put it on the rifle
+            Line("SKINS (" + skins.Count + ")  - tap one to try it on", -0.11f, 0.02f, UI.Accent, -0.5f);
+            if (_swatchFrame == null) _swatchFrame = Mats.Lit("dlc_frame", Color.white, 0.8f, 0.6f);
+            for (int k = 0; k < skins.Count && k < 5; k++)
+            {
+                var sk = skins[k];
+                float x = -0.45f + k * 0.12f, y = -0.19f;
+                UI.Button(_content, "", new Vector3(x, y, 0), new Vector2(0.11f, 0.09f), () => { _dlcSkin = sk.id; }, sk.id == _dlcSkin ? new Color(0.9f, 0.85f, 0.4f) : new Color(0.25f, 0.26f, 0.28f));
+                var print = new MB(); print.Box(Vector3.zero, new Vector3(0.095f, 0.07f, 0.004f), Color.white, 0f);
+                print.Build("Print", _content, sk.mat != null ? sk.mat() : _swatchFrame).transform.localPosition = new Vector3(x, y + 0.005f, -0.02f);
+                string nm = sk.name; if (nm.Length > 12) nm = nm.Substring(0, 11) + ".";
+                UI.Text(_content, nm, new Vector3(x, y - 0.06f, -0.02f), 0.014f, Color.white, TextAnchor.MiddleCenter);
+            }
+            // what comes with it
+            float ry = 0.1f;
+            Line("COMES WITH", ry, 0.024f, UI.Accent, 0.16f); ry -= 0.05f;
+            Line("- " + skins.Count + " gun skins for every gun", ry, 0.019f, Color.white, 0.16f); ry -= 0.035f;
+            Line("  (paint them on at the booth", ry, 0.017f, UI.Dim, 0.16f); ry -= 0.03f;
+            Line("   in your bunker Armory)", ry, 0.017f, UI.Dim, 0.16f); ry -= 0.045f;
+            if (p.items.Length > 0)
+            {
+                var counts = new Dictionary<string, int>(); var order = new List<string>();
+                foreach (var id in p.items) { if (!counts.ContainsKey(id)) { counts[id] = 0; order.Add(id); } counts[id]++; }
+                for (int k = 0; k < order.Count && k < 3; k++)
+                {
+                    var def = Db.Get(order[k]); if (def == null) continue;
+                    var holder = new GameObject("Item").transform; holder.SetParent(_content, false); holder.localPosition = new Vector3(0.2f, ry - 0.005f, -0.05f);
+                    try { SpawnBrowser.Model(def, holder, 0.07f, 0.045f, null, 30f); } catch { }
+                    Line((counts[order[k]] > 1 ? counts[order[k]] + "x " : "") + def.name, ry, 0.019f, Color.white, 0.26f); ry -= 0.06f;
+                }
+                Line("  (items go to your Deliveries screen)", ry, 0.017f, UI.Dim, 0.16f);
+            }
+            // price and BUY
+            if (owned)
+            {
+                Line("OWNED", -0.3f, 0.05f, new Color(0.5f, 1f, 0.55f), 0.2f);
+            }
+            else
+            {
+                Line(Dlc.PaymentsLive ? p.usd : "FREE", -0.27f, 0.05f, Color.white, 0.16f);
+                if (!Dlc.PaymentsLive) Line("will be " + p.usd, -0.32f, 0.018f, UI.Dim, 0.16f);
+                var pp = p;
+                Btn(Dlc.PaymentsLive ? "BUY" : "GET IT", 0.4f, -0.29f, 0.2f, () =>
+                {
+                    Dlc.Buy(pp, (ok, msg) =>
+                    {
+                        if (ok) Sfx.UI(Synth.Cash(), 0.7f); else Sfx.UI(Synth.UiError(), 0.4f);
+                        RagoGame.I?.Player?.Toast(msg);
+                        _dirty = true;
+                    });
+                }, Go);
+            }
         }
 
         float _calT = -1f;

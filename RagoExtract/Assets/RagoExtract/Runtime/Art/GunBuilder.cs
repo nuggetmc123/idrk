@@ -1225,8 +1225,21 @@ namespace Rago
                     }
                     else if (a.model == 1)
                     {
-                        var poly = new List<Vector2> { new Vector2(0.03f, -0.008f), new Vector2(-0.035f, -0.008f), new Vector2(-0.03f, -0.022f), new Vector2(0.0f, -0.05f), new Vector2(0.025f, -0.05f), new Vector2(0.04f, -0.03f) };
-                        mb.Sub(0).Extrude(poly, 0.024f, W, 0.005f);
+                        // an AFG: a long rail clamp, a ramp sloping down and forward for the palm, a rounded front lip that
+                        // stops the hand sliding off, grip ridges along the ramp
+                        var poly = new List<Vector2> {
+                            new Vector2(0.05f, -0.006f), new Vector2(-0.05f, -0.006f), new Vector2(-0.052f, -0.013f), new Vector2(-0.03f, -0.022f),
+                            new Vector2(0.005f, -0.04f), new Vector2(0.025f, -0.05f), new Vector2(0.04f, -0.05f), new Vector2(0.052f, -0.04f), new Vector2(0.055f, -0.02f) };
+                        mb.Sub(0).Extrude(poly, 0.026f, W, 0.004f);
+                        // ridges across the ramp
+                        for (int i = 0; i < 5; i++)
+                        {
+                            float t = (i + 0.5f) / 5f;
+                            var p = Vector3.Lerp(new Vector3(0, -0.02f, -0.036f), new Vector3(0, -0.044f, 0.014f), t);
+                            mb.Sub(1).Box(p, new Vector3(0.027f, 0.003f, 0.006f), W, 0f, 1, Quaternion.Euler(27f, 0, 0));
+                        }
+                        // the clamp's screw knobs
+                        foreach (float zz in new[] { -0.03f, 0.03f }) mb.Sub(1).Cyl(new Vector3(0.013f, -0.008f, zz), new Vector3(0.017f, -0.008f, zz), 0.004f, 0.004f, 8, W);
                     }
                     else
                     {
