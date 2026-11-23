@@ -6,7 +6,7 @@ namespace Rago
         public static readonly (string version, string title, string[] lines)[] All =
         {
             ("2.54", "Own server switched on", new[] {
-                "Multiplayer now goes through our own game server at idrk.dev (no player limit) instead of Photon. Everyone needs this version to play together.",
+                "Multiplayer now goes through our own game server (77.42.36.49:27015, no player limit) instead of Photon. Everyone needs this version to play together.",
             }),
             ("2.53", "Our own game server", new[] {
                 "Multiplayer can now run through our OWN game server (idrk.dev) instead of Photon - no 100-player limit. It keeps parties, invites, raid queues, the Market and reconnecting exactly as before; invites now reach a player wherever they are (bunker, Market or raid).",
