@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.60", "Server address", new[] {
+                "The game connects to the server by name now: game.idrk.dev:27015 (it keeps working if the server ever moves). The owner's admin panel is at http://game.idrk.dev:27015/.",
+            }),
             ("2.59", "Moderation", new[] {
                 "MODERATORS: players the owner makes moderators get a MOD tab in the menu. Find a player (type part of their callsign - matching players pop up as you type), pick a reason and a ban length, then BAN, UNBAN, WIPE or KICK (Market only). Nothing happens until the owner approves it on the admin panel.",
                 "Bans follow the headset, not just the callsign: changing your name doesn't get around one. A banned player sees why and until when, and can't play online.",

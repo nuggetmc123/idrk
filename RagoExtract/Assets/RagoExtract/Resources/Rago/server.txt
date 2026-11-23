@@ -1,8 +1,8 @@
 # Rago Extract: which multiplayer to use.
 #
 # To play through OUR OWN game server (no player limit), the address below must have no "#" in front.
-# Use the IP (or a DNS name with the Cloudflare proxy OFF, grey cloud): idrk.dev itself goes through Cloudflare,
+# Use game.idrk.dev (points straight at the server, Cloudflare proxy OFF) or the IP 77.42.36.49 - NOT idrk.dev, which goes through Cloudflare,
 # which only passes web traffic, so the game can't reach the server by that name.
 # Put a "#" in front of it (or delete this file) to use Photon instead.
 #
-77.42.36.49:27015
+game.idrk.dev:27015
