@@ -21,11 +21,11 @@ namespace Rago
             new Pack { id = "holiday", name = "HOLIDAY PACK", price = 0, col = new Color(0.75f, 0.1f, 0.1f), seasonal = true,
                 blurb = "Skins: Candy Cane, Ugly Sweater, Frostbite\nCandy Cane club\n3 impact grenades", items = new[] { "candycane", "impact", "impact", "impact" } },
             new Pack { id = "street", name = "STREET PACK", price = 0, col = new Color(0.15f, 0.6f, 0.35f),
-                blurb = "Skins: Neon Circuit, Hazard\nBaseball bat, crowbar\nfrying pan", items = new[] { "bat", "crowbar", "pan" } },
+                blurb = "Skins: Neon Circuit, Hazard", items = new string[0] },
             new Pack { id = "survivor", name = "SURVIVOR PACK", price = 0, col = new Color(0.2f, 0.4f, 0.65f),
-                blurb = "Skins: Deep Ocean, Cherry Blossom\nMachete, sledgehammer\n2 impact grenades", items = new[] { "machete", "sledge", "impact", "impact" } },
+                blurb = "Skins: Deep Ocean, Cherry Blossom", items = new string[0] },
             new Pack { id = "collector", name = "COLLECTOR'S PACK", price = 0, col = new Color(0.55f, 0.3f, 0.75f),
-                blurb = "Skins: Dragon Scale, Galaxy,\nDamascus Steel, Bone\nFire axe", items = new[] { "fireaxe" } },
+                blurb = "Skins: Dragon Scale, Galaxy,\nDamascus Steel, Bone", items = new string[0] },
         };
 
         Transform _cards;
@@ -102,7 +102,7 @@ namespace Rago
             foreach (var id in p.items) Profile.Deliver(new ItemData(id));
             prof.Save();
             Sfx.UI(Synth.Cash(), 0.7f);
-            RagoGame.I?.Player?.Toast(p.name + " unlocked - new skins at your paint booth, items on the Armory floor");
+            RagoGame.I?.Player?.Toast(p.name + " unlocked - new skins at your paint booth" + (p.items.Length > 0 ? ", items on the Armory floor" : ""));
             Redraw();
         }
     }
