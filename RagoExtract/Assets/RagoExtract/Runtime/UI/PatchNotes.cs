@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.72", "Meta store ready", new[] {
+                "Connected to the Meta Horizon Store (once the Meta XR Platform SDK is added in Unity): the game checks you own it, DLC packs are bought with real money through Meta's checkout (BUY in the DLC tab), and packs you own come back after a reinstall or on a new headset.",
+            }),
             ("2.71", "Safety for younger players", new[] {
                 "Younger players (Meta tells the game a player's age group): voice chat only with your own squad - strangers can't hear you and you can't hear them - and the Market casino is closed (18+). Everyone else plays as before.",
                 "Privacy policy: game.idrk.dev/privacy explains what the game uses (callsign, a random player ID, voice relayed live and never stored) and who to contact.",

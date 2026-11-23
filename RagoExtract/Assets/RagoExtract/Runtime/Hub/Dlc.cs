@@ -18,8 +18,16 @@ namespace Rago
     /// </summary>
     public static class Dlc
     {
-        /// <summary>Turn on once the store's add-ons / DLCs exist (see above). Off: every pack is free.</summary>
-        public static readonly bool PaymentsLive = false;
+        /// <summary>Real money: on by itself on the headset once the Meta XR Platform SDK is in the project (RAGO_META_IAP),
+        /// or on PC with Steamworks.NET (RAGO_STEAM). Otherwise every pack is free.</summary>
+        public static readonly bool PaymentsLive =
+#if RAGO_META_IAP
+            Application.platform == RuntimePlatform.Android ||
+#endif
+#if RAGO_STEAM
+            Application.platform != RuntimePlatform.Android ||
+#endif
+            false;
 
         public class Pack
         {
@@ -126,15 +134,7 @@ namespace Rago
     /// <summary>Meta Quest: the Platform SDK's in-app purchases (durable add-ons, one per pack SKU).</summary>
     public class MetaPayments : IStorePayments
     {
-        bool _init;
-        void Init()
-        {
-            if (_init) return;
-            _init = true;
-            var id = Resources.Load<TextAsset>("Rago/meta_app_id");
-            if (id != null) Oculus.Platform.Core.AsyncInitialize(id.text.Trim());
-            else Oculus.Platform.Core.AsyncInitialize();
-        }
+        void Init() { MetaPlatform.Init(); }   // started at boot (with the ownership check)
 
         public void Purchase(Dlc.Pack p, Action<bool, string> done)
         {

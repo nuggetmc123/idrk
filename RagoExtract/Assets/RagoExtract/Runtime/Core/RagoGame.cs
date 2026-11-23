@@ -101,8 +101,9 @@ namespace Rago
             try { Mats.Foliage("_warm", Mats.LeafCard, Color.white); Shader.WarmupAllShaders(); }
             catch (System.Exception e) { Debug.LogWarning("[Rago Extract] shader warm-up skipped: " + e.Message); }
             var prof = Profile.LoadOrCreate();
-            AgeGate.Check();
-            try { Dlc.Restore(); } catch (System.Exception e) { Debug.LogWarning("[Rago] restore purchases: " + e.Message); }   // paid packs come back after a reinstall
+            MetaPlatform.Init();   // Quest store: ownership check, then age group and owned DLC
+            if (Application.platform != RuntimePlatform.Android) AgeGate.Check();   // (on the headset these follow the ownership check)
+            try { if (Application.platform != RuntimePlatform.Android) Dlc.Restore(); } catch (System.Exception e) { Debug.LogWarning("[Rago] restore purchases: " + e.Message); }   // paid packs come back after a reinstall
             bool leftRaid = prof.inRaid;
             if (leftRaid) RaidManager.LoseRaidGear(prof);   // the game was closed mid-raid: like dying, everything you took in is gone
             if (prof.aimVersion < 1) { prof.gripPitch = 0f; prof.aimVersion = 1; prof.Save(); }   // the old tweak would now double the aim correction

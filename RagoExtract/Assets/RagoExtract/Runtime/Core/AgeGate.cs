@@ -17,6 +17,7 @@ namespace Rago
             if (_asked) return;
             _asked = true;
 #if RAGO_META_IAP
+            if (Application.platform != RuntimePlatform.Android) return;
             try
             {
                 Oculus.Platform.UserAgeCategory.Get().OnComplete(msg =>
