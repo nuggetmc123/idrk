@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.99", "No more getting kicked", new[] {
+                "Fixed: the game closed itself about 30 seconds after starting for anyone playing a copy that wasn't installed through the Meta store (the ownership check closed it) - it looked like a crash or being kicked from the server, over and over. It never closes the game now; a copy from outside the store just can't buy DLC.",
+            }),
             ("2.98", "Crash fixes", new[] {
                 "Fixed: the game could crash after a while of playing. Every trip between your bunker, the Market and a raid left the old area's meshes, textures and materials in memory, so after a few raids the headset ran out of memory and closed the game. They're freed on the loading screen now. The field map's photo (4-12 MB a raid) leaked the same way and is freed too.",
                 "Fixed: a scope being destroyed could break the other scopes of the same kind.",

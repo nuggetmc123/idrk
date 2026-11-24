@@ -72,12 +72,27 @@ namespace Rago
         void Retry() => CheckOwned();
 #endif
 
+        /// <summary>
+        /// Close the game when the store says this copy isn't owned. OFF while the game is being tested: friends playing a
+        /// copy installed straight from the APK (not through a Meta release channel) fail the check, and closing the game
+        /// on them 30 seconds in looked like a crash / being kicked from the server. Turn it on (true) for the build you
+        /// submit to the store, if Meta's review asks for it (VRC.Quest.Security.1).
+        /// </summary>
+        public const bool EnforceOwnership = false;
+
         System.Collections.IEnumerator NotOwned()
         {
-            // give the player time to read it (so it isn't mistaken for a crash), then close as the store requires
             float t = 0f;
             while ((RagoGame.I == null || RagoGame.I.Player == null) && t < 30f) { t += Time.unscaledDeltaTime; yield return null; }
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (!EnforceOwnership)
+            {
+                // testing: just say so (once) and carry on - DLC purchases need a store copy, everything else works
+                Debug.LogWarning("[Rago] not a Meta store copy - playing on (ownership not enforced)");
+                if (pl != null) pl.Toast("This copy isn't from the Meta store - DLC purchases are off, everything else works");
+                yield break;
+            }
+            // store builds: give the player time to read it (so it isn't mistaken for a crash), then close as the store requires
             if (pl != null) pl.Hud.Center("RAGO EXTRACT\n<size=40>Couldn't confirm this copy with the Meta store.\nCheck you're signed in and online, then start the game again.</size>", 15f);
             yield return new WaitForSecondsRealtime(15f);
             Application.Quit();
