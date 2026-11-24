@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.85", "Peanut Streamer Figurine", new[] {
+                "NEW VALUABLE: the Peanut Streamer Figurine - a cartoon peanut in a gaming headset, mic up, waving to chat, on a LIVE display base. Epic rarity: turns up in crates and safes and sells for $8,500.",
+            }),
             ("2.84", "Smarter raiders, smooth golf carts", new[] {
                 "Raiders take cover: when you hit them they often duck behind something low and fight from there, crouching between shots, and they kneel to shoot at range. Badly hurt, a scav runs off somewhere you can't see, crouches and bandages up, then comes back looking for you.",
                 "Everyone sees raiders bandaging, crouching and getting knocked down now - before, only the player whose game ran that raider saw it.",

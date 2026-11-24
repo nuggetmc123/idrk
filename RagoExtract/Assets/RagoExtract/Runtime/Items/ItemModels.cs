@@ -448,6 +448,72 @@ namespace Rago
                     mb.Sub(1).Tube(new Vector3(-0.0025f, 0, 0.078f), new Vector3(0.0025f, 0, 0.078f), 0.016f, 0.009f, 12, c);   // ring end
                     mb.Sub(1).Extrude(new List<Vector2> { new Vector2(-0.083f, -0.018f), new Vector2(-0.068f, -0.012f), new Vector2(-0.068f, 0.012f), new Vector2(-0.083f, 0.018f), new Vector2(-0.1f, 0.016f), new Vector2(-0.1f, 0.007f), new Vector2(-0.082f, 0.006f), new Vector2(-0.082f, -0.006f), new Vector2(-0.1f, -0.007f), new Vector2(-0.1f, -0.016f) }, 0.006f, c, 0.001f);   // open jaw
                     break;
+                case 32: // peanut streamer figurine: a cartoon peanut in a gaming headset with a boom mic, waving, on a LIVE base
+                {
+                    Color shell = c, dark = c * 0.72f; dark.a = 1f;
+                    // round display base with a red LIVE plate on the front
+                    mb.Sub(0).Cyl(new Vector3(0, -0.07f, 0), new Vector3(0, -0.058f, 0), 0.045f, 0.042f, 28, DarkGrey);
+                    mb.Sub(0).Cyl(new Vector3(0, -0.058f, 0), new Vector3(0, -0.055f, 0), 0.038f, 0.038f, 28, new Color(0.45f, 0.2f, 0.75f));   // purple top
+                    mb.Sub(0).Box(new Vector3(0, -0.064f, 0.043f), new Vector3(0.026f, 0.009f, 0.003f), Red, 0.001f, 1, Quaternion.Euler(-6f, 0, 0));
+                    mb.Sub(3).Box(new Vector3(0, -0.064f, 0.0448f), new Vector3(0.018f, 0.0025f, 0.0008f), Color.white, 0f, 1, Quaternion.Euler(-6f, 0, 0));   // the LIVE lettering strip
+                    // the peanut: two lobes with a pinched waist, tilted a touch
+                    mb.Push(new Vector3(0, -0.006f, 0), Quaternion.Euler(0, 0, -4f));
+                    mb.Sub(0).Sphere(new Vector3(0, -0.022f, 0), new Vector3(0.03f, 0.033f, 0.028f), 18, shell);
+                    mb.Sub(0).Sphere(new Vector3(0, 0.03f, 0), new Vector3(0.028f, 0.031f, 0.026f), 18, shell);
+                    mb.Sub(0).Cyl(new Vector3(0, -0.006f, 0), new Vector3(0, 0.014f, 0), 0.024f, 0.023f, 18, shell);   // waist
+                    // shell texture: rows of little pits and the faint ridges
+                    for (int row = 0; row < 7; row++)
+                        for (int k = 0; k < 9; k++)
+                        {
+                            float y = -0.044f + row * 0.013f; float a = (k + (row % 2) * 0.5f) * Mathf.PI * 2f / 9f;
+                            if (a > Mathf.PI * 0.3f && a < Mathf.PI * 0.7f && row >= 4) continue;   // keep the face clear
+                            float lobe = y < 0.004f ? 0.03f * Mathf.Sqrt(Mathf.Max(0.05f, 1f - Mathf.Pow((y + 0.022f) / 0.033f, 2f))) : 0.028f * Mathf.Sqrt(Mathf.Max(0.05f, 1f - Mathf.Pow((y - 0.03f) / 0.031f, 2f)));
+                            float r = Mathf.Max(0.018f, lobe);
+                            { var n = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)); mb.Sub(0).Sphere(new Vector3(n.x * r * 0.955f, y, n.z * r * 0.93f * 0.955f), new Vector3(0.0022f, 0.0022f, 0.0022f), 6, dark * 0.85f); }
+                        }
+                    // face (on the top lobe, +Z): big eyes, eyebrows, a happy open mouth
+                    foreach (float x in new[] { -1f, 1f })
+                    {
+                        mb.Sub(3).Sphere(new Vector3(x * 0.0095f, 0.036f, 0.022f), new Vector3(0.0075f, 0.009f, 0.005f), 12, Color.white);
+                        mb.Sub(3).Sphere(new Vector3(x * 0.0085f, 0.0355f, 0.0262f), new Vector3(0.0038f, 0.0046f, 0.0022f), 10, Black);
+                        mb.Sub(3).Sphere(new Vector3(x * 0.0078f, 0.0375f, 0.0282f), Vector3.one * 0.0012f, 6, Color.white);   // catch-light
+                        mb.Sub(0).Box(new Vector3(x * 0.0095f, 0.0475f, 0.022f), new Vector3(0.008f, 0.0018f, 0.002f), dark * 0.6f, 0.0006f, 1, Quaternion.Euler(-20f, 0, x * -12f));
+                    }
+                    mb.Sub(0).Sphere(new Vector3(0, 0.0245f, 0.0232f), new Vector3(0.0095f, 0.0068f, 0.003f), 14, new Color(0.22f, 0.04f, 0.05f), 0.5f, 1f);   // big open smile (lower half)
+                    mb.Sub(0).Sphere(new Vector3(0, 0.0195f, 0.0242f), new Vector3(0.0048f, 0.0018f, 0.0014f), 8, new Color(0.9f, 0.4f, 0.45f));   // tongue
+                    foreach (float x in new[] { -1f, 1f }) mb.Sub(0).Sphere(new Vector3(x * 0.017f, 0.027f, 0.018f), new Vector3(0.004f, 0.0025f, 0.002f), 8, new Color(0.95f, 0.5f, 0.45f));   // cheeks
+                    // gaming headset: padded band over the top, big ear cups with purple rings, a boom mic to the mouth
+                    for (int i = 0; i <= 10; i++)
+                    {
+                        float a0 = Mathf.PI * i / 10f, a1 = Mathf.PI * (i + 1) / 10f;
+                        if (i == 10) break;
+                        var p0 = new Vector3(Mathf.Cos(a0) * 0.031f, 0.03f + Mathf.Sin(a0) * 0.034f, -0.002f);
+                        var p1 = new Vector3(Mathf.Cos(a1) * 0.031f, 0.03f + Mathf.Sin(a1) * 0.034f, -0.002f);
+                        mb.Sub(0).Capsule(p0, p1, 0.0032f, 6, DarkGrey);
+                    }
+                    foreach (float x in new[] { -1f, 1f })
+                    {
+                        mb.Sub(0).Cyl(new Vector3(x * 0.026f, 0.03f, 0), new Vector3(x * 0.036f, 0.03f, 0), 0.012f, 0.011f, 18, DarkGrey);
+                        mb.Sub(0).Tube(new Vector3(x * 0.0362f, 0.03f, 0), new Vector3(x * 0.0372f, 0.03f, 0), 0.0105f, 0.007f, 18, new Color(0.6f, 0.3f, 1f));   // glowing ring
+                        mb.Sub(3).Cyl(new Vector3(x * 0.0365f, 0.03f, 0), new Vector3(x * 0.0372f, 0.03f, 0), 0.0068f, 0.0068f, 14, Black);
+                    }
+                    mb.Sub(1).Capsule(new Vector3(-0.034f, 0.026f, 0.006f), new Vector3(-0.02f, 0.02f, 0.024f), 0.0016f, 6, Steel);   // boom
+                    mb.Sub(0).Capsule(new Vector3(-0.019f, 0.0198f, 0.0245f), new Vector3(-0.012f, 0.0195f, 0.027f), 0.0034f, 8, DarkGrey);   // mic tip
+                    // stick arms in little white gloves: one waving, one on the hip
+                    mb.Sub(0).Capsule(new Vector3(0.027f, 0.0f, 0.004f), new Vector3(0.045f, 0.024f, 0.008f), 0.0022f, 6, Black);
+                    mb.Sub(3).Sphere(new Vector3(0.047f, 0.028f, 0.009f), new Vector3(0.0065f, 0.0075f, 0.004f), 10, Color.white);
+                    mb.Sub(0).Capsule(new Vector3(-0.028f, -0.002f, 0.004f), new Vector3(-0.04f, -0.018f, 0.006f), 0.0022f, 6, Black);
+                    mb.Sub(0).Capsule(new Vector3(-0.04f, -0.018f, 0.006f), new Vector3(-0.031f, -0.03f, 0.01f), 0.0022f, 6, Black);
+                    mb.Sub(3).Sphere(new Vector3(-0.03f, -0.031f, 0.011f), Vector3.one * 0.0055f, 10, Color.white);
+                    // little legs and sneakers standing on the base
+                    foreach (float x in new[] { -1f, 1f })
+                    {
+                        mb.Sub(0).Capsule(new Vector3(x * 0.01f, -0.052f, 0), new Vector3(x * 0.012f, -0.062f, 0.002f), 0.0022f, 6, Black);
+                        mb.Sub(0).Sphere(new Vector3(x * 0.012f, -0.0625f, 0.007f), new Vector3(0.006f, 0.0035f, 0.0095f), 10, x < 0 ? Red : new Color(0.45f, 0.2f, 0.75f));
+                    }
+                    mb.Pop();
+                    break;
+                }
                 default:
                     mb.Sub(1).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(0.0f, -0.02f), new Vector2(0.022f, 0.004f), new Vector2(0.016f, 0.012f), new Vector2(0.0f, 0.013f) }, 8, c);
                     break;
