@@ -55,7 +55,7 @@ namespace Rago
         public void SendVoice(byte[] frame)
         {
             if (!Live || Spectator.Active) return;
-            if (NetHub.Backend.Rtt > 0.3f) return;   // the line is backing up: voice is the biggest thing we send, skip it until it clears
+            if (NetHub.Backend.Rtt > 1.0f) return;   // the line is badly backed up: skip voice until it clears (at 0.3 s it cut out all the time on a TCP-only connection)
             // voice is by far the biggest thing we send: only to the players who can actually hear you - near you, or in
             // your squad (they hear you on the radio). It used to go to everyone once anyone was near.
             var me = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.transform.position : Vector3.zero;

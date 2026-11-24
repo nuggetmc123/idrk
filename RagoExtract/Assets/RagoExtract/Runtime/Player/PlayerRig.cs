@@ -667,6 +667,56 @@ namespace Rago
             if (exit) LeaveCart();
         }
 
+        // ---- vaulting through windows
+        float _vaultT = -1f, _vaultPush; Vector3 _vaultFrom, _vaultTo; float _vaultSill;
+        const float VaultTime = 0.55f;
+
+        /// <summary>Right in front of an open window (glass gone, sill below waist, room to land beyond)? Starts the hop.</summary>
+        bool TryWindowVault(Vector3 fwd)
+        {
+            _vaultPush += Time.deltaTime;
+            Vector3 feet = transform.position;
+            int glass = Ballistics.WallMask | (1 << Window.Layer);
+            // a wall just in front at knee height (the sill)...
+            if (!Physics.Raycast(feet + Vector3.up * 0.55f, fwd, out var low, 0.75f, Ballistics.WallMask, QueryTriggerInteraction.Ignore) || low.normal.y > 0.5f) { _vaultPush = 0f; return false; }
+            // ...find the top of the sill...
+            if (!Physics.Raycast(low.point + fwd * 0.06f + Vector3.up * 1.0f, Vector3.down, out var top, 1.0f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) return false;
+            float sill = top.point.y - feet.y;
+            if (sill < 0.45f || sill > 1.3f) return false;   // a step (just walk) or too high (climb it)
+            // ...and the opening above it is clear (no glass, no wall) for the height of a crouched body
+            Vector3 over = new Vector3(low.point.x, top.point.y, low.point.z);
+            if (Physics.Raycast(over + Vector3.up * 0.25f - fwd * 0.4f, fwd, 1.1f, glass, QueryTriggerInteraction.Ignore)) return false;
+            if (Physics.Raycast(over + Vector3.up * 0.75f - fwd * 0.4f, fwd, 1.1f, glass, QueryTriggerInteraction.Ignore)) return false;
+            // the wall's thickness: walk on past it until there's floor to land on
+            Vector3 land = Vector3.zero; bool found = false;
+            for (float d = 0.45f; d <= 1.2f && !found; d += 0.15f)
+            {
+                Vector3 p = over + fwd * d + Vector3.up * 0.5f;
+                if (Physics.CheckSphere(p + Vector3.up * 0.3f, 0.25f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) continue;   // still inside the wall
+                if (Physics.Raycast(p, Vector3.down, out var g, 4f, Ballistics.WallMask, QueryTriggerInteraction.Ignore) && g.normal.y > 0.6f && g.point.y < over.y - 0.2f)
+                { land = g.point + fwd * 0.25f; found = true; }
+            }
+            if (!found || _vaultPush < 0.2f) return false;   // a moment of pushing into it, so you don't vault by brushing past
+            _vaultFrom = feet; _vaultTo = land; _vaultSill = top.point.y; _vaultT = 0f; _vaultPush = 0f;
+            Cc.enabled = false; _vy = 0f; MoveVelocity = Vector3.zero;
+            HandL.Haptic(0.25f, 0.05f); HandR.Haptic(0.25f, 0.05f);
+            Sfx.Play(Synth.Footstep(Synth.Surface.Wood, 2, false), feet + Vector3.up * 0.6f, 0.4f, 1f, 1f, 12f);
+            return true;
+        }
+
+        /// <summary>The hop: up and over the sill (feet clear it by a hand's width), down the other side.</summary>
+        void VaultStep(float dt)
+        {
+            _vaultT += dt / VaultTime;
+            float k = Mathf.Clamp01(_vaultT), e = Mathf.SmoothStep(0f, 1f, k);
+            Vector3 p = Vector3.Lerp(_vaultFrom, _vaultTo, e);
+            float arc = Mathf.Max(_vaultSill + 0.12f - Mathf.Lerp(_vaultFrom.y, _vaultTo.y, e), 0f) * Mathf.Sin(k * Mathf.PI);
+            Vector3 delta = p + Vector3.up * arc - transform.position;
+            transform.position += delta;
+            MoveVelocity = Vector3.zero;
+            if (k >= 1f) { _vaultT = -1f; if (!Dead) Cc.enabled = true; _vy = 0f; }
+        }
+
         void Locomotion(float dt)
         {
             Vector2 move = XRInputs.VR ? XRInputs.Left.Stick : Desktop.Move;
@@ -723,6 +773,8 @@ namespace Rago
             float speed = Sprinting ? SprintSpeed * (Vitals.StimBoost > 0 ? 1.15f : 1f) : MoveSpeed * (Crouched || headH < 1.25f ? 0.55f : 1f);
             speed *= Vitals.LegPenalty;
             Vector3 vel = (fwd * move.y + right * move.x) * speed;
+            // walking into an open window: hop over the sill to the other side (it took a hand-over-hand climb before)
+            if (_vaultT >= 0f || (move.y > 0.5f && TryWindowVault(fwd))) { VaultStep(dt); return; }
             MoveVelocity = Vector3.Lerp(MoveVelocity, vel, dt * 10f);
             if (Cc.isGrounded && _vy < 0) _vy = -1f;
             // jump: A (or X) - always, gun in hand or not (the mag release is on B / Y)

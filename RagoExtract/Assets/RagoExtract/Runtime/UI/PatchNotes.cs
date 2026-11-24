@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.00", "Voices back, vault through windows", new[] {
+                "Voice chat works again: teen accounts could only be heard by their own squad (now that's just for under-13 accounts), voice cut out whenever the connection lagged a little, and quieter headset mics never opened. Everyone near you hears you again.",
+                "Climb through windows the easy way: walk up to a window with the glass broken out and keep pushing forward - you hop over the sill and land on the other side. (Glass still has to be shot or smashed out first.)",
+            }),
             ("2.99", "No more getting kicked", new[] {
                 "Fixed: the game closed itself about 30 seconds after starting for anyone playing a copy that wasn't installed through the Meta store (the ownership check closed it) - it looked like a crash or being kicked from the server, over and over. It never closes the game now; a copy from outside the store just can't buy DLC.",
             }),

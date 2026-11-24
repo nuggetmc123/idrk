@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Rago
 {
     /// <summary>
-    /// Younger players (Meta says the account is a child's or a teen's): voice chat only with their own squad (no strangers),
+    /// Children (Meta says the account is a child's, under 13): voice chat only with their own squad (no strangers),
     /// and the play-money casino is closed. Adults - and everyone until Meta answers, or on builds without the Meta
     /// Platform SDK - get the full game. Asked once at start-up (needs the RAGO_META_IAP define and the SDK, like DLC).
     /// </summary>
@@ -24,7 +24,9 @@ namespace Rago
                 {
                     if (msg == null || msg.IsError || msg.Data == null) return;
                     var c = msg.Data.AgeCategory;
-                    Restricted = c == Oculus.Platform.AccountAgeCategory.Ch || c == Oculus.Platform.AccountAgeCategory.Tn;
+                    // children's accounts only (under 13): teens used to be restricted too, so most players' voices only reached
+                    // their own squad - nobody else could hear them
+                    Restricted = c == Oculus.Platform.AccountAgeCategory.Ch;
                     if (Restricted) Debug.Log("[Rago] younger player: voice chat with squad only, casino closed");
                 });
             }
