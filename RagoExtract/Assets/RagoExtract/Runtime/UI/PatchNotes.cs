@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.04", "Straight drums", new[] {
+                "Drum mags on the AK-type rifles and the box shotguns now hang straight down instead of tipping back towards the trigger (they leaned like the curved mag does). They still face forward, winding key towards the muzzle.",
+            }),
             ("3.03", "Mags seated like the real thing", new[] {
                 "Every magazine now goes up INSIDE its gun the way it does in real life - no more gap between the mag and the gun. Fixed on all AKs (and their drum mags), both box shotguns, the boxy SMGs, the bullpups and the anti-materiel rifle; the pistols and machine pistols were done in 3.02.",
                 "The DLC STORE wall is gone from the Market - buy packs from the DLC tab in your menu instead (same packs, same prices).",

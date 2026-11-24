@@ -533,7 +533,7 @@ namespace Rago
             }
             rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, hz + 0.16f + bl + (d.suppressed ? 0.17f : 0.045f)));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.02f, 0.075f, 0.07f));
-            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.05f, 0.1f), Quaternion.Euler(10, 0, 0));   // the mag's lip goes 2 cm up inside the receiver (it stopped at its underside)
+            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.05f, 0.1f), Quaternion.Euler(d.drum ? 0f : 10f, 0, 0));   // a drum hangs straight down (only the curved mag rakes forward)   // the mag's lip goes 2 cm up inside the receiver (it stopped at its underside)
             rig.magStyle = d.drum ? MagStyle.Drum : MagStyle.Banana;
             if (d.optics) rig.rail = Anchor(rig.root, "Rail", new Vector3(0, 0.105f, 0.0f));
             rig.foregrip = Anchor(rig.root, "Foregrip", new Vector3(0, 0.04f, hz + 0.08f));
