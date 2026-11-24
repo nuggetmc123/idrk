@@ -42,7 +42,6 @@ namespace RagoServer
 <tr><td><b>Voice chat</b> (microphone)</td><td>Only when you use voice chat: your voice is sent live to players near you in the same game.</td><td><b>Not stored.</b> It's relayed and then gone.</td></tr>
 <tr><td><b>Headset and hand positions</b></td><td>Sent live to other players in your game so they can see your body and what you're doing.</td><td>Not stored.</td></tr>
 <tr><td><b>Black market listings, trades and sales</b></td><td>To keep your shop open while you're offline and give you money or items from sales.</td><td>On our game server until the listing is sold or removed. A record of sold items is kept so nothing can be bought twice.</td></tr>
-<tr><td><b>Your view, while being watched</b></td><td>The owner can watch a player's first-person view live (a small picture about twice a second) to check for cheating and keep the game safe. Your watch shows SPECTATED while this is happening.</td><td>Not stored. Only the latest picture is kept in memory while someone is watching.</td></tr>
 <tr><td><b>Moderation records</b> (bans, wipes, Market kicks and the reason; moderator requests)</td><td>To keep the game fair and safe.</td><td>On our game server while they're relevant.</td></tr>
 <tr><td><b>Meta account data</b>: your Meta User ID, your add-on purchases, and your age group</td><td>To unlock DLC packs you bought (and restore them after a reinstall), and to adjust features such as voice chat for younger players.</td><td>Not stored on our server. Checked with Meta when needed.</td></tr>
 </table>

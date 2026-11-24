@@ -230,7 +230,7 @@ namespace RagoServer
             }
             public string Q(string k) { var d = ParseForm(Query); return d.TryGetValue(k, out var v) ? v : null; }
         }
-        sealed class Resp { public int Code = 200; public string Html = "", Location, SetCookie, Type; public byte[] Bin; public bool Script; }   // Script: this page may run the panel's own script files (the watch page)
+        sealed class Resp { public int Code = 200; public string Html = "", Location, SetCookie, Type; public byte[] Bin; }
 
         static bool LooksLikeHttp(byte[] h) => (h[0] == 'G' && h[1] == 'E' && h[2] == 'T' && h[3] == ' ') || (h[0] == 'P' && h[1] == 'O' && h[2] == 'S' && h[3] == 'T') || (h[0] == 'H' && h[1] == 'E' && h[2] == 'A' && h[3] == 'D');
 
@@ -299,7 +299,7 @@ namespace RagoServer
                 sb.Append("HTTP/1.1 ").Append(rs.Code).Append(rs.Code == 200 ? " OK" : rs.Code == 303 ? " See Other" : rs.Code == 400 ? " Bad Request" : " Error").Append("\r\n");
                 var bytes = rs.Bin ?? Encoding.UTF8.GetBytes(rs.Html ?? "");
                 sb.Append("Content-Type: ").Append(rs.Type ?? "text/html; charset=utf-8").Append("\r\nCache-Control: no-store\r\nX-Frame-Options: DENY\r\nReferrer-Policy: no-referrer\r\n");
-                sb.Append("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'").Append(rs.Script ? "; script-src 'self'" : "").Append("\r\n");
+                sb.Append("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'").Append("\r\n");
                 if (rs.Location != null) sb.Append("Location: ").Append(rs.Location).Append("\r\n");
                 if (rs.SetCookie != null) sb.Append("Set-Cookie: ").Append(rs.SetCookie).Append("\r\n");
                 sb.Append("Content-Length: ").Append(bytes.Length).Append("\r\nConnection: close\r\n\r\n");
@@ -367,9 +367,6 @@ namespace RagoServer
                 string msg; lock (Lock) msg = Act(f);
                 return Go(msg);
             }
-            if (path.EndsWith("/watchimg")) { byte[] img; lock (Lock) img = WatchImage(rq.Q("key")); return new Resp { Bin = img, Type = img.Length > 0 && img[0] == 0xFF ? "image/jpeg" : "image/gif" }; }
-            if (path.EndsWith("/watch.js")) return new Resp { Html = WatchJs, Type = "text/javascript; charset=utf-8" };
-            if (path.EndsWith("/watch")) { string wp; lock (Lock) wp = WatchPage(rq.Q("key")); return new Resp { Html = wp, Script = true }; }
             if (path.EndsWith("/logout")) { lock (Lock) Sessions.Remove(sess); return Go(); }
             string html; lock (Lock) html = Dashboard(sess, rq.Q("m"), rq.Q("q"));
             return new Resp { Html = html };
@@ -482,7 +479,6 @@ namespace RagoServer
                 if (banned) sb.Append(Btn(sess, "unban", k.Key, "Unban")); else sb.Append(BanForm(sess, k.Key));
                 sb.Append(Btn(sess, "wipe", k.Key, "Wipe", "", "orange"));
                 if (on != null && InMarket(on)) sb.Append(Btn(sess, "kick", k.Key, "Kick from Market"));
-                if (on != null) sb.Append("<a class=inl href='watch?key=").Append(WebUtility.UrlEncode(k.Key)).Append("'><button type=button>Watch</button></a>");
                 sb.Append(mod ? Btn(sess, "unmod", k.Key, "Remove mod") : Btn(sess, "mod", k.Key, "Make mod"));
                 sb.Append(Btn(sess, "trophy", k.Key, "Give CC trophy", "", "green"));
                 sb.Append(Btn(sess, "betaskin", k.Key, "Give Beta skin", "", "green"));

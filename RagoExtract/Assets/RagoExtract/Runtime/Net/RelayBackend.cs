@@ -124,13 +124,6 @@ namespace Rago
             LastModReply = "Sending...";
         }
 
-        /// <summary>A view of what we see, for the owner watching us (WatchView).</summary>
-        public void SendWatchFrame(byte[] jpg)
-        {
-            if (_link == null || !_link.Connected || jpg == null) return;
-            _link.Send(new W(P.WatchFrame).Bytes(jpg).Frame());
-        }
-
         /// <summary>A moderator starts a live event for everyone (kind 0 = stop the one running).</summary>
         public void StartEvent(byte kind, int minutes)
         {
@@ -370,8 +363,7 @@ namespace Rago
                     RagoGame.I?.Player?.Toast("You got the " + Db.Get(id).name + "! It's waiting on the Deliveries screen in your bunker.");
                     break;
                 }
-                case P.WatchOn: WatchView.On(); break;
-                case P.WatchOff: WatchView.Off(); break;
+                case P.WatchOn: case P.WatchOff: break;   // the owner's Watch feature was removed: an older server's requests are ignored
                 case P.Rename:
                 {
                     // the owner changed our callsign (the #tag stays): the next keep-alive tells the server the new name

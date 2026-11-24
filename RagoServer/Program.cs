@@ -250,9 +250,7 @@ namespace RagoServer
                 case P.ShopUnlist:
                     HandleMarket(c, type, r);
                     break;
-                case P.WatchFrame:
-                    OnWatchFrame(c, r.Bytes());
-                    break;
+                case P.WatchFrame: break;   // the Watch feature was removed: an older game's views are ignored
                 case P.EventReq:
                 {
                     byte kind = r.U8(); int minutes = r.I32();

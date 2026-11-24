@@ -5,8 +5,8 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
-            ("2.90", "Spectate view fix", new[] {
-                "Fixed: when the owner watched a player for moderation, the picture came through upside down.",
+            ("2.91", "No more spectating", new[] {
+                "The owner can no longer watch a player's view - that feature is gone completely, and your watch never shows SPECTATED.",
             }),
             ("2.89", "Sidecar bike: proper handlebars, all bolted together", new[] {
                 "The sidecar bike has real handlebars now: wide chrome bars on risers with ribbed rubber grips, levers, mirrors, a speedo, and the headlamp on the forks (it turns with them).",
