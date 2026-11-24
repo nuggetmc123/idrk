@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.03", "Mags seated like the real thing", new[] {
+                "Every magazine now goes up INSIDE its gun the way it does in real life - no more gap between the mag and the gun. Fixed on all AKs (and their drum mags), both box shotguns, the boxy SMGs, the bullpups and the anti-materiel rifle; the pistols and machine pistols were done in 3.02.",
+                "The DLC STORE wall is gone from the Market - buy packs from the DLC tab in your menu instead (same packs, same prices).",
+            }),
             ("3.02", "New injuries, true aim, mags that fit", new[] {
                 "INJURIES: bleeding never stops on its own any more - use a bandage or a medkit. A shot leg makes you limp until you press a SYRINGE (stim) to that leg and pull the trigger. Take enough hits on one arm or leg and it BREAKS (a broken arm shakes your aim badly, a broken leg slows you right down) - hold a syringe to it to set it. Medkits still heal and fix gut wounds; the body map stays.",
                 "Shots go exactly where your sight points: the line through your scope, red dot or iron sights is followed out to whatever it's on, and the bullet goes straight there - right on at every range.",

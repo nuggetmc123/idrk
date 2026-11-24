@@ -533,7 +533,7 @@ namespace Rago
             }
             rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, hz + 0.16f + bl + (d.suppressed ? 0.17f : 0.045f)));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.02f, 0.075f, 0.07f));
-            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.03f, 0.1f), Quaternion.Euler(10, 0, 0));
+            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.05f, 0.1f), Quaternion.Euler(10, 0, 0));   // the mag's lip goes 2 cm up inside the receiver (it stopped at its underside)
             rig.magStyle = d.drum ? MagStyle.Drum : MagStyle.Banana;
             if (d.optics) rig.rail = Anchor(rig.root, "Rail", new Vector3(0, 0.105f, 0.0f));
             rig.foregrip = Anchor(rig.root, "Foregrip", new Vector3(0, 0.04f, hz + 0.08f));
@@ -586,7 +586,7 @@ namespace Rago
             if (d.optics) Rail(mb, new Vector3(0, 0.093f, -0.04f), 0.15f);
             rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, bz + (d.suppressed ? 0.21f : 0.06f)));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.02f, 0.075f, 0.06f));
-            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.025f, 0.105f), Quaternion.Euler(12, 0, 0));
+            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.045f, 0.105f), Quaternion.Euler(12, 0, 0));   // up inside the magwell housing
             rig.magStyle = d.cal == Caliber.C45 ? MagStyle.SmgStick : MagStyle.SmgCurved;   // .45: a slim straight stick, not the big 7.62 rifle mag
             if (d.optics) rig.rail = Anchor(rig.root, "Rail", new Vector3(0, 0.102f, 0.02f));
             rig.foregrip = Anchor(rig.root, "Foregrip", new Vector3(0, 0.038f, 0.24f));
@@ -736,7 +736,7 @@ namespace Rago
             float bpLine = IronSights(mb, -0.1f, 0.15f, 0.12f, true);
             rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, 0.29f + bl));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.025f, 0.07f, -0.15f));
-            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.0f, -0.15f), Quaternion.Euler(6, 0, 0));
+            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.032f, -0.15f), Quaternion.Euler(6, 0, 0));   // up inside the stock body
             rig.magStyle = pdw ? MagStyle.LongBox : MagStyle.Stanag;
             rig.rail = Anchor(rig.root, "Rail", new Vector3(0, 0.12f, -0.03f));
             rig.foregrip = Anchor(rig.root, "Foregrip", new Vector3(0, 0.02f, 0.17f));
@@ -977,7 +977,7 @@ namespace Rago
             mb.Sub(DARK).Box(new Vector3(-0.02f, 0.035f, 0.55f), new Vector3(0.008f, 0.008f, 0.26f), W, 0.002f, 1, Quaternion.Euler(-8, 0, 0));
             rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, 0.37f + bl));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.03f, 0.08f, 0.05f));
-            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.02f, 0.11f));
+            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.048f, 0.11f));   // up inside the receiver
             rig.magStyle = MagStyle.BigBox;
             rig.rail = Anchor(rig.root, "Rail", new Vector3(0, 0.123f, 0.0f));
             rig.foregrip = Anchor(rig.root, "Foregrip", new Vector3(0, 0.03f, 0.42f));

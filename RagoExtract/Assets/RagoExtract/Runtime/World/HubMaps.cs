@@ -617,9 +617,7 @@ namespace Rago
                 }
                 if (Festive.On) Festive.Garland(transform, sc + new Vector3(-2.05f, 2.9f, -0.62f), sc + new Vector3(2.05f, 2.9f, -0.62f), 0.25f);
             }
-            // ---- the DLC STORE on the west wall (north of Bruno)
-            DlcStore.Create(transform, new Vector3(-W / 2 + 0.2f, 0, 5.2f), -90f);
-            HangingSign(new Vector3(-W / 2 + 2.6f, 4.9f, 5.2f), -90f, "DLC STORE", "skin packs and gear", new Color(0.5f, 0.85f, 1f));
+            // (the DLC store is only in the menu now - its DLC tab)
             // ---- players' own trading: a trade table and four stalls anyone can claim
             TradeTable.Create(transform, new Vector3(-6.5f, 0, -3.5f), 90f);
             // the black market: three screens in a row in the middle of the hall, facing the lift (you see them as you
