@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.06", "SEASON 2 - full wipe", new[] {
+                "SEASON 2: every account is reset the first time you start this version - money, level, stash, gear, bunker and your Market shop. Everyone starts fresh with $6,000 and the starter kit. Your callsign, clothes, friends, settings and DLC packs you bought are kept.",
+                "The black market on the server is cleared for the new season too (once the server is updated).",
+                "Fixed: players on a slow or patchy connection could get kicked from the server - movement and voice that can't get through in time are now skipped instead of piling up until the server dropped you.",
+            }),
             ("3.05", "Reload on the move, grab mags crouched", new[] {
                 "Fixed: crouched, you could hardly pull a mag from your hip pouches (your hands were treated as reaching for the floor, which skips your own gear). The floor cut-off now goes down with you.",
                 "Fixed: loading a mag while running kept missing - the magwell is lined up with where the gun is in your hand right now, not where it was drawn a frame ago, and the mouth of the well is more forgiving while you move. Same for shells and speedloaders.",

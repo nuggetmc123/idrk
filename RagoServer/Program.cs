@@ -196,11 +196,14 @@ namespace RagoServer
             Drop(c);
         }
 
-        static void Send(Client c, byte[] frame)
+        static void Send(Client c, byte[] frame, bool lossy = false)
         {
             if (c.Closed) return;
-            // a player who can't keep up (connection stalled) gets dropped instead of eating the server's memory
-            if (Interlocked.Add(ref c.Queued, frame.Length) > 8 * 1024 * 1024) { Log(c + " too far behind - dropped"); Drop(c); return; }
+            // movement / voice for a player whose connection is slow just gets skipped (the next update replaces it) -
+            // it used to pile up until they were DROPPED, which looked like being kicked on a weak Wi-Fi
+            if (lossy && Interlocked.Read(ref c.Queued) > 256 * 1024) return;
+            // a connection that's really stalled still gets dropped instead of eating the server's memory
+            if (Interlocked.Add(ref c.Queued, frame.Length) > 32 * 1024 * 1024) { Log(c + " too far behind - dropped"); Drop(c); return; }
             c.Out.Writer.TryWrite(frame);
         }
 
@@ -292,7 +295,7 @@ namespace RagoServer
                     ulong target = r.U64(); var data = r.Bytes();
                     var room = c.Room; if (room == null) break;
                     var f = new W(type == P.Data ? P.DataIn : P.FastIn).U64(c.Id).Bytes(data).Frame();
-                    foreach (var o in room.Members) if (o != c && (target == 0 || o.Id == target)) Send(o, f);
+                    foreach (var o in room.Members) if (o != c && (target == 0 || o.Id == target)) Send(o, f, type == P.Fast);
                     break;
                 }
                 case P.SetProps:
@@ -384,7 +387,7 @@ namespace RagoServer
                 foreach (var (ep, c) in to)
                 {
                     if (ep != null) { try { await _udp.SendAsync(outPkt, outPkt.Length, ep); Interlocked.Add(ref _txUdp, outPkt.Length); } catch { } }
-                    else { var data = new byte[b.Length - 4]; Buffer.BlockCopy(b, 4, data, 0, data.Length); lock (Lock) Send(c, new W(P.FastIn).U64(from.Id).Bytes(data).Frame()); }   // they have no UDP: send it over TCP
+                    else { var data = new byte[b.Length - 4]; Buffer.BlockCopy(b, 4, data, 0, data.Length); lock (Lock) Send(c, new W(P.FastIn).U64(from.Id).Bytes(data).Frame(), true); }   // they have no UDP: send it over TCP
                 }
             }
         }

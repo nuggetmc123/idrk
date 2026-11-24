@@ -453,7 +453,7 @@ namespace Rago
             float t = 0f;
             while ((Player == null || _travelling) && t < 60f) { t += Time.unscaledDeltaTime; yield return null; }
             yield return new WaitForSecondsRealtime(2f);
-            Player?.Hud.Center("SEASON " + Profile.Season + "\n<size=40>The test period is over - every account has been reset.\nEveryone starts fresh with $6,000. DLC packs you bought come back automatically.</size>", 8f);
+            Player?.Hud.Center("SEASON " + Profile.Season + "\n<size=40>New season - every account has been reset.\nEveryone starts fresh with $6,000 and the starter kit. DLC packs you bought come back automatically.</size>", 8f);
         }
 
         void OnLocalDeath(int killer)
