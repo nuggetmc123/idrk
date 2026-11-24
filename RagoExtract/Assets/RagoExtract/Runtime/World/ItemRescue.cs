@@ -13,6 +13,7 @@ namespace Rago
         public MapBase map;
         readonly Dictionary<Item, Vector3> _safe = new Dictionary<Item, Vector3>();
         readonly Dictionary<Item, float> _void = new Dictionary<Item, float>();
+        static readonly RaycastHit[] _hits = new RaycastHit[8];
         int _next;
         float _t;
 
@@ -34,6 +35,15 @@ namespace Rago
                 // under the terrain: straight back up on top of it
                 float tt = map != null && map.B != null ? map.B.TerrainTop(p) : float.NegativeInfinity;
                 if (tt > p.y + 0.12f && tt < p.y + 25f) { Put(it, new Vector3(p.x, tt + 0.25f, p.z)); continue; }
+                // buried in a floor / wall / table (let go deep inside one): straight up onto the top of it
+                Vector3 c = it.transform.TransformPoint(it.localBounds.center);
+                if (Physics.CheckSphere(c, 0.015f, mask, QueryTriggerInteraction.Ignore))
+                {
+                    int hn = Physics.RaycastNonAlloc(c + Vector3.up * 1.2f, Vector3.down, _hits, 1.25f, mask, QueryTriggerInteraction.Ignore);
+                    float top = float.NaN;
+                    for (int i = 0; i < hn; i++) { var h = _hits[i]; if (h.collider.attachedRigidbody != null || h.normal.y < 0.5f || h.point.y < c.y) continue; if (float.IsNaN(top) || h.point.y < top) top = h.point.y; }
+                    if (!float.IsNaN(top)) { Put(it, it.transform.position + Vector3.up * (top - c.y + Mathf.Max(0.05f, it.localBounds.extents.y) + 0.02f)); continue; }
+                }
                 // resting on something solid: remember the spot
                 if (it.rb.Vel().sqrMagnitude < 0.04f && Physics.Raycast(p + Vector3.up * 0.1f, Vector3.down, 0.6f, mask, QueryTriggerInteraction.Ignore))
                 { _safe[it] = p + Vector3.up * 0.05f; _void.Remove(it); continue; }

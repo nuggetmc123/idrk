@@ -214,7 +214,12 @@ namespace Rago
             var m = Matrix4x4.Rotate(transform.rotation);
             Vector3 e = Vector3.Scale(localBounds.extents, transform.lossyScale);
             float half = Mathf.Max(0.02f, Mathf.Abs(m.m10) * e.x + Mathf.Abs(m.m11) * e.y + Mathf.Abs(m.m12) * e.z);
-            float floor = FloorBelow(mid + Vector3.up * 0.4f, 0.4f + half + 0.05f);
+            // (the ray starts above the floor you stand on: let go with your hand pushed deep under the floor - your real floor
+            // a bit lower than the game's - and it used to start inside the floor, miss it, and the gun fell out underneath)
+            float startY = mid.y + 0.4f;
+            var who = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (who != null && Mathf.Abs(mid.y - who.transform.position.y) < 1.5f) startY = Mathf.Max(startY, who.transform.position.y + 0.3f);
+            float floor = FloorBelow(new Vector3(mid.x, startY, mid.z), startY - mid.y + half + 0.05f);
             if (!float.IsNaN(floor) && mid.y - half < floor) transform.position += Vector3.up * (floor - (mid.y - half) + 0.01f);
             // let go with your hand (and the item) through a wall: it lands on your side
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;

@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.96", "Guns stay on the floor", new[] {
+                "Fixed: putting a gun down on the floor could drop it straight through and lose it under the house - if your hand went a little below the floor as you let go, it got stuck in the floor and fell out underneath. Now it's lifted onto the floor when you let go, and anything that ever ends up stuck inside a floor, table or wall pops back up onto it.",
+            }),
             ("2.95", "Real nuke, sitting riders, better grabbing", new[] {
                 "The NUKE is a proper show now: a missile streaks down out of the sky, a blinding flash, a fireball swells, a shockwave ring and a wall of dust race out across the ground - the blast kills you when it reaches you - and a churning mushroom cloud climbs on its stem with a condensation ring, slowly cooling from orange fire to grey smoke.",
                 "Picking things up off the floor: your hand no longer grabs your own holstered gun or armour when you reach down for something, and it catches things lying on the floor even if your hand dips a little under them.",
