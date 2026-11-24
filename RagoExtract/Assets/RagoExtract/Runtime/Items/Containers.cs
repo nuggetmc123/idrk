@@ -201,6 +201,14 @@ namespace Rago
             var mats = ItemModels.Materials(d);
             var model = mb.Build("Model", go.transform, mats);
             var mesh = model.GetComponent<MeshFilter>().sharedMesh;
+            // streamer figurines: their name in white on the plate at the front of the base
+            var plate = ItemModels.Nameplate(d, out var at);
+            if (plate != null)
+            {
+                var t = UI.Text(model.transform, plate, Vector3.zero, 0.0085f, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+                t.transform.localPosition = at;
+                t.transform.localRotation = Quaternion.Euler(-6f, 0, 0) * Quaternion.Euler(0, 180f, 0);   // facing out of the front, read from in front
+            }
             var col = go.AddComponent<BoxCollider>();
             col.center = mesh.bounds.center;
             col.size = Vector3.Max(mesh.bounds.size, Vector3.one * 0.02f);
