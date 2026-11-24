@@ -492,7 +492,7 @@ namespace Rago
             const int per = 6;
             int pages = Mathf.Max(1, (all.Count + per - 1) / per);
             _page = Mathf.Clamp(_page, 0, pages - 1);
-            Line(Dlc.PaymentsLive ? "DLC PACKS - tap one to see what's in it" : "DLC PACKS - tap one to see what's in it  (all FREE for now)", 0.22f, 0.024f, UI.Dim);
+            Line("DLC PACKS - tap one to see what's in it", 0.22f, 0.024f, UI.Dim);
             var rifle = Db.Get("sentinel") ?? Db.Get("p9");
             for (int k = 0; k < per; k++)
             {
@@ -510,7 +510,7 @@ namespace Rago
                     try { SpawnBrowser.Model(rifle, holder, 0.26f, 0.08f, skins[0].id, 15f); } catch { }
                 }
                 UI.Text(_content, skins.Count + " skins" + (p.items.Length > 0 ? " + " + p.items.Length + " items" : ""), new Vector3(x, y - 0.05f, -0.02f), 0.017f, UI.Dim, TextAnchor.MiddleCenter);
-                UI.Text(_content, owned ? "OWNED" : Dlc.PaymentsLive ? p.usd : "FREE  (" + p.usd + " later)", new Vector3(x, y - 0.09f, -0.02f), 0.02f, owned ? new Color(0.5f, 1f, 0.55f) : Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+                UI.Text(_content, owned ? "OWNED" : p.usd, new Vector3(x, y - 0.09f, -0.02f), 0.02f, owned ? new Color(0.5f, 1f, 0.55f) : Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
             }
             if (pages > 1)
             {
@@ -576,10 +576,9 @@ namespace Rago
             }
             else
             {
-                Line(Dlc.PaymentsLive ? p.usd : "FREE", -0.27f, 0.05f, Color.white, 0.16f);
-                if (!Dlc.PaymentsLive) Line("will be " + p.usd, -0.32f, 0.018f, UI.Dim, 0.16f);
+                Line(p.usd, -0.27f, 0.05f, Color.white, 0.16f);
                 var pp = p;
-                Btn(Dlc.PaymentsLive ? "BUY" : "GET IT", 0.4f, -0.29f, 0.2f, () =>
+                Btn("BUY", 0.4f, -0.29f, 0.2f, () =>
                 {
                     Dlc.Buy(pp, (ok, msg) =>
                     {

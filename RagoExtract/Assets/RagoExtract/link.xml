@@ -1,0 +1,37 @@
+<!-- Keep everything the game creates in code at runtime. The world, the UI, lights, audio, physics, networking:
+     all of it is built by scripts (nothing is placed in a scene), so the build's code stripping can't see it being used
+     and must not remove it. Missing assemblies (e.g. the Meta or Photon SDK not installed) are skipped. -->
+<linker>
+  <assembly fullname="RagoExtract.Runtime" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Oculus.Platform" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Fusion.Runtime" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Fusion.Realtime" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Fusion.Sockets" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Fusion.Common" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Fusion.Log" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="PhotonVoice" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Photon.Voice" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.XR.OpenXR" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="Unity.XR.Management" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.CoreModule" preserve="all"/>
+  <assembly fullname="UnityEngine.PhysicsModule" preserve="all"/>
+  <assembly fullname="UnityEngine.AudioModule" preserve="all"/>
+  <assembly fullname="UnityEngine.AnimationModule" preserve="all"/>
+  <assembly fullname="UnityEngine.AIModule" preserve="all"/>
+  <assembly fullname="UnityEngine.ParticleSystemModule" preserve="all"/>
+  <assembly fullname="UnityEngine.TextRenderingModule" preserve="all"/>
+  <assembly fullname="UnityEngine.UIModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.IMGUIModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.InputLegacyModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.AndroidJNIModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.ImageConversionModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.JSONSerializeModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.VRModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.XRModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.SubsystemsModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.UnityWebRequestModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.TerrainModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.TerrainPhysicsModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.VideoModule" preserve="all" ignoreIfMissing="1"/>
+  <assembly fullname="UnityEngine.ScreenCaptureModule" preserve="all" ignoreIfMissing="1"/>
+</linker>

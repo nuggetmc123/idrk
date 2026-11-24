@@ -7,8 +7,7 @@ namespace Rago
     /// <summary>
     /// DLC packs: what each one is, what it costs, what comes in it, who owns it, and buying it.
     ///
-    /// REAL MONEY. Until <see cref="PaymentsLive"/> is turned on, BUY gives the pack away free (the price is shown so
-    /// players know what it will cost). To charge for real:
+    /// REAL MONEY: packs are never free. To sell them:
     ///   Meta Quest - create an Add-on (durable) for each pack in the Meta developer dashboard with the pack's <c>sku</c>,
     ///                put the app's id in Resources/Rago/meta_app_id.txt, add the Meta XR Platform SDK and the scripting
     ///                define RAGO_META_IAP, then set PaymentsLive = true.
@@ -18,16 +17,10 @@ namespace Rago
     /// </summary>
     public static class Dlc
     {
-        /// <summary>Real money: on by itself on the headset once the Meta XR Platform SDK is in the project (RAGO_META_IAP),
-        /// or on PC with Steamworks.NET (RAGO_STEAM). Otherwise every pack is free.</summary>
-        public static readonly bool PaymentsLive =
-#if RAGO_META_IAP
-            Application.platform == RuntimePlatform.Android ||
-#endif
-#if RAGO_STEAM
-            Application.platform != RuntimePlatform.Android ||
-#endif
-            false;
+        /// <summary>The packs are always paid for with real money - never free. Where there's no store to pay through
+        /// (a build without the Meta Platform SDK, the editor, PC without Steam) BUY says so instead of giving it away.
+        /// Only the developer's test account can unlock them there, to test.</summary>
+        public static readonly bool PaymentsLive = true;
 
         public class Pack
         {
@@ -53,7 +46,7 @@ namespace Rago
         public static IEnumerable<Pack> Shown() { foreach (var p in Packs) if (!p.seasonal || Festive.On || Owns(p.id)) yield return p; }
         public static Pack Get(string id) { foreach (var p in Packs) if (p.id == id) return p; return null; }
         public static bool Owns(string id) => Profile.Current != null && Profile.Current.dlc != null && Profile.Current.dlc.Contains(id);
-        public static string PriceText(Pack p) => Owns(p.id) ? "OWNED" : PaymentsLive ? p.usd : "FREE";
+        public static string PriceText(Pack p) => Owns(p.id) ? "OWNED" : p.usd;
         public static List<GunSkins.Skin> Skins(Pack p) => GunSkins.All.FindAll(s => s.pack == p.id);
 
         public static event Action Changed;
@@ -80,9 +73,13 @@ namespace Rago
         {
             if (p == null || Owns(p.id)) { done?.Invoke(false, "You already own it"); return; }
             if (_busy) { done?.Invoke(false, "A purchase is already open"); return; }
-            if (!PaymentsLive) { Grant(p); done?.Invoke(true, p.name + " unlocked (free for now)"); return; }
             var s = Store;
-            if (s == null) { done?.Invoke(false, "Purchases aren't available on this version of the game"); return; }
+            if (s == null)
+            {
+                if (Spectator.IsTestAccount) { Grant(p); done?.Invoke(true, p.name + " unlocked (test account)"); return; }
+                done?.Invoke(false, "DLC packs are bought through the Meta Quest store - get the game from the Meta Horizon Store to buy them");
+                return;
+            }
             _busy = true;
             try
             {
@@ -111,7 +108,7 @@ namespace Rago
         /// <summary>At start-up (payments on): whatever the store says this player has bought, they have.</summary>
         public static void Restore()
         {
-            if (!PaymentsLive || Store == null) return;
+            if (Store == null) return;
             try
             {
                 Store.Owned(ids =>

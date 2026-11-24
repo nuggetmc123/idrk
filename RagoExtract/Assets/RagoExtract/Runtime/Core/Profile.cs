@@ -19,6 +19,7 @@ namespace Rago
         /// friends and settings are kept. Saves from the test period have season 0.</summary>
         public const int Season = 1;
         public int season;
+        public int dlcPaidCheck;   // 1 = packs claimed for free in the test period were taken back (bought ones come back from the store)
         public static bool SeasonWiped;   // this launch wiped the account: say so once you're in
         public string name = "Operator";
         public int money = 6000;
@@ -110,8 +111,15 @@ namespace Rago
                     // SEASON 1 (or a later one): everyone starts from nothing (paid packs stay; the South Pole vault skins are earned again)
                     p.Wipe();
                     p.dlc?.Remove("northpole");
-                    p.season = Season; p.Save();
+                    p.season = Season; p.dlcPaidCheck = 1; p.Save();
                     SeasonWiped = true;
+                }
+                if (p.dlcPaidCheck < 1)
+                {
+                    // the packs were free during the test period: those claims go. Packs really bought come straight back from
+                    // the store at start-up (Dlc.Restore), so nobody loses one they paid for
+                    p.dlc?.RemoveAll(id => Dlc.Get(id) != null);
+                    p.dlcPaidCheck = 1; p.Save();
                 }
                 return p;
             }

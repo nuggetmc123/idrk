@@ -127,8 +127,7 @@ namespace Rago
                 else UI.Text(card, "unlocks at your paint booth\nin the bunker Armory", new Vector3(0, y - 0.05f, -0.006f), 0.024f, UI.Dim, TextAnchor.MiddleCenter);
                 // price and button
                 UI.Text(card, Dlc.PriceText(p), new Vector3(0, -0.53f, -0.006f), 0.085f, owned ? new Color(0.5f, 1f, 0.55f) : light, TextAnchor.MiddleCenter, FontStyle.Bold);
-                if (!owned && !Dlc.PaymentsLive) UI.Text(card, p.usd + " later - free for now", new Vector3(0, -0.615f, -0.006f), 0.024f, UI.Dim, TextAnchor.MiddleCenter);
-                if (!owned) { var pp = p; UI.Button(card, Dlc.PaymentsLive ? "BUY  " + p.usd : "GET", new Vector3(0, -0.75f, 0), new Vector2(0.55f, 0.13f), () => Buy(pp), new Color(0.2f, 0.45f, 0.22f), BtnStyle.Key); }
+                if (!owned) { var pp = p; UI.Button(card, "BUY  " + p.usd, new Vector3(0, -0.75f, 0), new Vector2(0.55f, 0.13f), () => Buy(pp), new Color(0.2f, 0.45f, 0.22f), BtnStyle.Key); }
                 else UI.Text(card, "paint it on at the booth", new Vector3(0, -0.74f, -0.006f), 0.024f, UI.Dim, TextAnchor.MiddleCenter);
             }
         }

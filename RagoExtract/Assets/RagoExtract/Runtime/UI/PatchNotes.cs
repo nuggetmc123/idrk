@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.78", "Crash fix", new[] {
+                "Fixed: the game crashed as soon as it started (store and release builds). The build was stripping out parts of Unity the game builds its world with; nothing is stripped now.",
+                "DLC packs are never free: they're bought through the Meta Quest store. Packs claimed for free during the test period are taken back; any you actually bought come back automatically.",
+            }),
             ("2.77", "Store start-up fixes", new[] {
                 "Fixed: the game could close by itself right after starting from the Meta store. The ownership check now retries if Meta's store is slow to answer, and if it really can't confirm your copy it says so on screen for 15 seconds instead of just closing.",
                 "The game keeps a log file on the headset (rago_log.txt) to help track down crashes.",
