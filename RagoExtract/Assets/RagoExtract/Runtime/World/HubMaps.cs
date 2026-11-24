@@ -631,6 +631,9 @@ namespace Rago
             // ---- the casino: along the south wall, east of the roller door (customers face the wall)
             Casino.Build(transform, new Vector3(8.6f, 0, -D / 2 + 1.0f), 180f);
             b.AddLight(new Vector3(8.6f, 4.2f, -D / 2 + 2.6f), new Color(1f, 0.75f, 0.45f), 7f, 1.3f);
+            // ---- the Skin Wheel: between the roller door and the casino, facing into the hall
+            SkinWheel.Create(transform, new Vector3(3.3f, 0, -D / 2 + 1.0f), 180f);
+            b.AddLight(new Vector3(3.3f, 4.0f, -D / 2 + 2.4f), new Color(0.85f, 0.6f, 1f), 6f, 1.3f);
             // ---- Bruno the Foreman on the west wall, facing the room
             Foreman = QuestStall.Create(transform, new Vector3(-W / 2 + 3.6f, 0, -1f), -90f, 211);
             b.AddLight(new Vector3(-W / 2 + 4.6f, 3.6f, -1f), new Color(1f, 0.8f, 0.55f), 7f, 1.2f);
@@ -656,7 +659,7 @@ namespace Rago
             // ---- directory board right by the lift doors
             var nb = UI.Panel(transform, "Directory", new Vector3(W / 2 - 0.2f, 1.9f, -2.2f), Quaternion.Euler(0, 90, 0), new Vector2(1.6f, 1.15f), null, true, Skin.Paper);
             UI.Text(nb, "THE MARKET", new Vector3(0, 0.47f, 0), 0.07f, UI.PaperInk, TextAnchor.MiddleCenter, FontStyle.Bold);
-            UI.Text(nb, "SELL  -  straight ahead (orange counter)\nTRADERS  -  along the back wall (unlock with your level)\nBLACK MARKET  -  computer by the lift\nPLAYER STALLS + TRADE TABLE  -  sell to other players\nBUNKER JOBS  -  Bruno, far wall\nLIFT  -  back down to your bunker\n\nSafe zone - weapons cold.", new Vector3(-0.74f, 0.33f, 0), 0.042f, UI.PaperInk, TextAnchor.UpperLeft);
+            UI.Text(nb, "SELL  -  straight ahead (orange counter)\nTRADERS  -  along the back wall (unlock with your level)\nBLACK MARKET  -  computer by the lift\nPLAYER STALLS + TRADE TABLE  -  sell to other players\nSKIN WHEEL  -  south wall, $10,000 a spin\nBUNKER JOBS  -  Bruno, far wall\nLIFT  -  back down to your bunker\n\nSafe zone - weapons cold.", new Vector3(-0.74f, 0.33f, 0), 0.042f, UI.PaperInk, TextAnchor.UpperLeft);
             b.Sign(new Vector3(0, 6.3f, D / 2 - 0.3f), Quaternion.identity, "THE MARKET", UI.Accent, 0.55f);
             Elevator.Create(b, transform, new Vector3(W / 2, 0, -6), 90, "Market", "Bunker", false, () => RagoGame.I.GoTo(Area.Bunker));
             b.Sign(new Vector3(W / 2 - 0.3f, 3.15f, -6), Quaternion.Euler(0, 90, 0), "LIFT - BUNKER", new Color(0.9f, 0.8f, 0.6f), 0.18f);

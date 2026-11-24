@@ -54,7 +54,7 @@ namespace Rago
                 case 1: l.AddRange(Db.Armor); l.AddRange(Db.Packs); break;
                 case 2: l.AddRange(Db.Attachments); break;
                 case 3: l.AddRange(Db.Sights); break;
-                default: l.Add(Tester.CartDef); l.Add(Db.Get("gift")); l.Add(Db.Get("gift_santa")); foreach (var m in Db.Misc) if (m.id != "gift" && m.id != "gift_santa") l.Add(m); break;
+                default: l.Add(Tester.CartDef); l.Add(Tester.BikeDef); l.Add(Db.Get("gift")); l.Add(Db.Get("gift_santa")); foreach (var m in Db.Misc) if (m.id != "gift" && m.id != "gift_santa") l.Add(m); break;
             }
             return l;
         }
@@ -100,6 +100,7 @@ namespace Rago
             GameObject go;
             if (d == Tester.PresentDef) go = MiniPresent();
             else if (d == Tester.CartDef) go = MiniCart();
+            else if (d == Tester.BikeDef) go = GolfCart.BikeModel().Build("MiniBike", null, GolfCart.BikeMats);
             else
             {
                 var it = ItemFactory.Spawn(new ItemData(d.id), holder.position, holder.rotation);

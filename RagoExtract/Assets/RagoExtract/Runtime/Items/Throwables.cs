@@ -183,7 +183,7 @@ namespace Rago
                 case 5:   // sledgehammer: long wooden handle, a heavy steel head
                     len = 0.66f; hitFrom = 0.58f; mass = 2.4f; colC = new Vector3(0, 0, 0.24f); colS = new Vector3(0.08f, 0.2f, 0.9f); _force = 7f; Blunt = true; break;
                 case 6:   // fire axe: red head, blade one side, spike the other
-                    len = 0.64f; hitFrom = 0.55f; mass = 1.8f; colC = new Vector3(0, 0.02f, 0.23f); colS = new Vector3(0.06f, 0.3f, 0.82f); _force = 4f; break;
+                    len = 0.64f; hitFrom = 0.55f; mass = 1.8f; colC = new Vector3(0, -0.02f, 0.23f); colS = new Vector3(0.06f, 0.3f, 0.82f); _force = 4f; break;
                 case 7:   // frying pan: a cast-iron disc on a short handle
                     len = 0.34f; hitFrom = 0.12f; mass = 1.4f; colC = new Vector3(0, 0, 0.17f); colS = new Vector3(0.26f, 0.04f, 0.46f); _force = 4f; Blunt = true; break;
                 default:  // candy cane: red and white stripes with a hook

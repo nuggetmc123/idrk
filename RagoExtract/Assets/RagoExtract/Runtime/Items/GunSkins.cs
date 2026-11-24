@@ -23,7 +23,7 @@ namespace Rago
             new Skin { id = "urban", name = "Urban Digital", spray = new Color(0.5f, 0.52f, 0.55f), mat = () => Paint("urban", UrbanDigital, 3.5f, true) },
             new Skin { id = "tiger", name = "Tiger Stripe", spray = new Color(0.42f, 0.42f, 0.26f), mat = () => Paint("tiger", TigerStripe, 2.8f) },
             new Skin { id = "crimson", name = "Crimson Cerakote", spray = new Color(0.5f, 0.07f, 0.07f), mat = () => Coat("crimson", new Color(0.5f, 0.06f, 0.06f), 0.32f) },
-            new Skin { id = "gold", name = "Gold Rush", spray = new Color(1f, 0.8f, 0.25f), mat = () => Obj(Mats.Lit("skin_gold", new Color(1f, 0.76f, 0.34f), 1f, 0.82f, Mats.Metal, null, 0.06f, 0.18f, true, 3f)) },
+            new Skin { id = "goldrush", name = "Gold Rush", spray = new Color(1f, 0.8f, 0.25f), mat = () => Obj(Mats.Lit("skin_gold", new Color(1f, 0.76f, 0.34f), 1f, 0.82f, Mats.Metal, null, 0.06f, 0.18f, true, 3f)) },
             new Skin { id = "carbon", name = "Carbon Fibre", spray = new Color(0.1f, 0.1f, 0.11f), mat = () => Paint("carbon", CarbonTwill, 14f, false, 0.25f, 0.9f, 0.08f, 0.05f) },
             // ---- DLC STORE packs
             new Skin { id = "candy", name = "Candy Cane", pack = "holiday", spray = new Color(0.9f, 0.15f, 0.15f), mat = () => Paint("candy", CandyCane, 3f, false, 0.05f, 0.6f, 0.08f, 0.2f) },
@@ -69,8 +69,22 @@ namespace Rago
             new Skin { id = "northstar", name = "North Star", pack = "northpole", spray = new Color(1f, 0.95f, 0.8f), mat = () => Paint("northstar", NorthStar, 2.5f, false, 0.9f, 0.85f, 0.03f, 0.1f) },
         };
 
-        /// <summary>Free, or its pack is owned.</summary>
-        public static bool Owned(Skin s) => s.pack == null || (Profile.Current != null && Profile.Current.dlc != null && Profile.Current.dlc.Contains(s.pack));
+        /// <summary>Yours to paint with: won on the Skin Wheel, or its DLC pack is owned. (No free skins: the factory
+        /// finish - "" - is just stripping a gun back.)</summary>
+        public static bool Owned(Skin s)
+        {
+            if (s == null) return false;
+            if (s.mat == null) return true;
+            var p = Profile.Current; if (p == null) return false;
+            if (p.skins != null && p.skins.Contains(s.id)) return true;
+            return s.pack != null && p.dlc != null && p.dlc.Contains(s.pack);
+        }
+
+        /// <summary>The skins on the Market's Skin Wheel: every skin that isn't in a DLC pack or the South Pole vault.</summary>
+        public static List<Skin> WheelSkins() => All.FindAll(s => s.mat != null && s.pack == null);
+
+        /// <summary>Where a skin comes from, for the paint booth and the wheel.</summary>
+        public static string Source(Skin s) => s == null || s.mat == null ? "Strip the paint back to the factory finish" : s.pack == null ? "Won on the Skin Wheel" : "From " + PackName(s.pack);
         public static string PackName(string pack)
         {
             if (pack == "northpole") return "the South Pole vault";
@@ -501,7 +515,7 @@ namespace Rago
     /// </summary>
     public class PaintBooth : MonoBehaviour
     {
-        ItemContainer _clamp; TextMesh _name, _hint; int _pick = 1;
+        ItemContainer _clamp; TextMesh _name, _hint, _src, _count; int _pick; Transform _preview, _swatch; string _shownKey;
         Transform _can; ParticleSystem _mist; AudioSource _hiss; float _sprayT = -1f; string _paintTo; WorldButton _paintBtn;
         const float SprayTime = 3.2f;
 
@@ -529,25 +543,30 @@ namespace Rago
             // guns lie along the bench (barrel to your right)
             _clamp = ItemContainer.Grid(transform, new Vector3(0, 0.93f, 0), Quaternion.identity, 1, 1, new Vector2(1.2f, 0.4f), 1.15f, it => it is Gun, Quaternion.Euler(0, 90, 0));
             _clamp.onChanged = Refresh;
-            // a few cans of paint on the bench
+            // a few plain cans of primer on the bench
             var cans = new MB(2);
-            int k = 0;
-            foreach (var s in GunSkins.All)
+            var canCols = new[] { new Color(0.25f, 0.25f, 0.26f), new Color(0.6f, 0.6f, 0.58f), new Color(0.85f, 0.85f, 0.82f), new Color(0.45f, 0.4f, 0.3f) };
+            for (int k = 0; k < 4; k++)
             {
-                if (s.mat == null) continue;
-                float x = -0.6f + (k % 4) * 0.07f, z = 0.18f + (k / 4) * 0.07f; k++;
-                cans.Sub(0).Cyl(new Vector3(x, 0.91f, z), new Vector3(x, 1.05f, z), 0.028f, 0.028f, 10, s.spray);
+                float x = -0.6f + k * 0.07f, z = 0.18f;
+                cans.Sub(0).Cyl(new Vector3(x, 0.91f, z), new Vector3(x, 1.05f, z), 0.028f, 0.028f, 10, canCols[k]);
                 cans.Sub(1).Cyl(new Vector3(x, 1.05f, z), new Vector3(x, 1.075f, z), 0.012f, 0.01f, 8, new Color(0.85f, 0.85f, 0.85f));
             }
             cans.Build("Cans", transform, Mats.Lit("paint_cans", Color.white, 0.5f, 0.6f, null, null, 0.1f, 0.1f), Mats.Lit("paint_nozzle", Color.white, 0.2f, 0.4f));
-            // the board on the pegboard behind: skin name, < >, PAINT
-            var board = UI.Panel(transform, "PaintBoard", new Vector3(0, 1.55f, 0.36f), Quaternion.identity, new Vector2(1.1f, 0.5f), null, true, Skin.Steel);
-            UI.Text(board, "PAINT BOOTH", new Vector3(0, 0.19f, -0.003f), 0.05f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
-            _name = UI.Text(board, "", new Vector3(0, 0.07f, -0.003f), 0.045f, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
-            _hint = UI.Text(board, "", new Vector3(0, -0.02f, -0.003f), 0.024f, UI.Dim, TextAnchor.MiddleCenter);
-            UI.Button(board, "<", new Vector3(-0.42f, 0.07f, 0), new Vector2(0.1f, 0.09f), () => { Step(-1); Refresh(); }, new Color(0.3f, 0.3f, 0.32f), BtnStyle.Key);
-            UI.Button(board, ">", new Vector3(0.42f, 0.07f, 0), new Vector2(0.1f, 0.09f), () => { Step(1); Refresh(); }, new Color(0.3f, 0.3f, 0.32f), BtnStyle.Key);
-            _paintBtn = UI.Button(board, "PAINT", new Vector3(0, -0.15f, 0), new Vector2(0.36f, 0.1f), Paint, new Color(0.55f, 0.15f, 0.12f), BtnStyle.Key);
+            // the board on the pegboard behind: a big preview of the gun in the chosen skin, its name and where it's
+            // from, < > through the skins you own, and PAINT. Nothing goes on until you press PAINT.
+            var board = UI.Panel(transform, "PaintBoard", new Vector3(0, 1.62f, 0.36f), Quaternion.identity, new Vector2(1.5f, 0.8f), null, true, Skin.Steel);
+            UI.Text(board, "PAINT BOOTH", new Vector3(0, 0.34f, -0.003f), 0.05f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
+            _preview = new GameObject("Preview").transform; _preview.SetParent(board, false); _preview.localPosition = new Vector3(-0.3f, 0.05f, -0.09f);
+            _name = UI.Text(board, "", new Vector3(0.42f, 0.17f, -0.003f), 0.05f, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            _src = UI.Text(board, "", new Vector3(0.42f, 0.09f, -0.003f), 0.024f, new Color(0.75f, 0.8f, 0.85f), TextAnchor.MiddleCenter);
+            _count = UI.Text(board, "", new Vector3(0.42f, 0.02f, -0.003f), 0.028f, UI.Dim, TextAnchor.MiddleCenter);
+            _swatch = new MB().Box(Vector3.zero, new Vector3(0.36f, 0.025f, 0.01f), Color.white, 0.004f).Build("Swatch", board, Mats.Lit("paint_swatch", Color.white, 0.3f, 0.5f)).transform;
+            _swatch.localPosition = new Vector3(0.42f, 0.235f, -0.004f);
+            _hint = UI.Text(board, "", new Vector3(0, -0.3f, -0.003f), 0.024f, UI.Dim, TextAnchor.MiddleCenter);
+            UI.Button(board, "<", new Vector3(0.17f, -0.07f, 0), new Vector2(0.1f, 0.09f), () => { Step(-1); Refresh(); }, new Color(0.3f, 0.3f, 0.32f), BtnStyle.Key);
+            UI.Button(board, ">", new Vector3(0.67f, -0.07f, 0), new Vector2(0.1f, 0.09f), () => { Step(1); Refresh(); }, new Color(0.3f, 0.3f, 0.32f), BtnStyle.Key);
+            _paintBtn = UI.Button(board, "PAINT", new Vector3(0.42f, -0.18f, 0), new Vector2(0.36f, 0.1f), Paint, new Color(0.55f, 0.15f, 0.12f), BtnStyle.Key);
             // the spray can that does the work (parked at the side)
             var can = new MB(2);
             can.Sub(0).Cyl(new Vector3(0, -0.07f, 0), new Vector3(0, 0.07f, 0), 0.03f, 0.03f, 12, Color.white);
@@ -574,36 +593,77 @@ namespace Rago
         Gun Clamped => _clamp.slots[0].item as Gun;
         void Park() { _can.localPosition = new Vector3(0.55f, 0.99f, 0.15f); _can.localRotation = Quaternion.identity; }
 
-        void Refresh()
+        /// <summary>What you can pick: the skins you own, plus the factory finish if the gun on the mat is painted.</summary>
+        List<GunSkins.Skin> Options()
         {
-            var s = GunSkins.All[_pick];
+            var l = new List<GunSkins.Skin>();
             var g = Clamped;
-            if (!GunSkins.Owned(s)) { Step(1); s = GunSkins.All[_pick]; }
-            _name.text = s.name;
-            _hint.text = _sprayT >= 0f ? "painting..." : g == null ? "Put a gun on the red mat" : g.skin == s.id ? "The " + g.g.name + " already has this" : "Paint the " + g.g.name;
-            _paintBtn.Interactable = g != null && _sprayT < 0f && g.skin != s.id;
-            if (_paintBtn.Label != null) _paintBtn.Label.text = s.mat == null ? "STRIP" : "PAINT";
+            if (g != null && !string.IsNullOrEmpty(g.skin)) l.Add(GunSkins.All[0]);
+            foreach (var s in GunSkins.All) if (s.mat != null && GunSkins.Owned(s) && !l.Contains(s)) l.Add(s);
+            return l;
         }
 
-        /// <summary>Next skin you own (skins from DLC packs and events don't show up here until you have them).</summary>
+        GunSkins.Skin Current { get { var o = Options(); if (o.Count == 0) return null; _pick = Mathf.Clamp(_pick, 0, o.Count - 1); return o[_pick]; } }
+
+        void Refresh()
+        {
+            var o = Options();
+            var s = Current;
+            var g = Clamped;
+            if (s == null)
+            {
+                _name.text = "NO SKINS YET"; _src.text = "Win skins at the SKIN WHEEL in the Market\nor get them in DLC packs"; _count.text = "";
+                _swatch.gameObject.SetActive(false);
+            }
+            else
+            {
+                _name.text = s.name; _src.text = GunSkins.Source(s); _count.text = (_pick + 1) + " / " + o.Count;
+                _swatch.gameObject.SetActive(s.mat != null);
+                if (s.mat != null) { var r = _swatch.GetComponent<Renderer>(); if (r != null) r.sharedMaterial = s.mat(); }
+            }
+            _hint.text = _sprayT >= 0f ? "painting..." : g == null ? "Put a gun on the red mat to see it in each skin" : s == null ? "" : g.skin == s.id ? "The " + g.g.name + " already has this" : "Press PAINT to put it on the " + g.g.name;
+            _paintBtn.Interactable = g != null && s != null && _sprayT < 0f && g.skin != s.id;
+            if (_paintBtn.Label != null) _paintBtn.Label.text = s != null && s.mat == null ? "STRIP" : "PAINT";
+            ShowPreview(g, s);
+        }
+
+        /// <summary>The gun on the mat (or a sample rifle) shown big on the board in the chosen skin, turning slowly.</summary>
+        void ShowPreview(Gun g, GunSkins.Skin s)
+        {
+            ItemDef def = g != null ? (ItemDef)g.g : Db.Guns.Find(x => x.TwoHanded);
+            string key = (def != null ? def.id : "") + "|" + (s != null ? s.id : "-");
+            if (key == _shownKey) return;
+            _shownKey = key;
+            SpawnBrowser.ReturnPreviews(_preview);
+            if (def == null) return;
+            SpawnBrowser.Preview(def, _preview, 0.62f, 0.4f, s != null ? s.id : "", 0f);
+        }
+
+        /// <summary>Next / previous of the skins you can pick.</summary>
         void Step(int dir)
         {
-            int n = GunSkins.All.Count;
-            for (int k = 0; k < n; k++) { _pick = ((_pick + dir) % n + n) % n; if (GunSkins.Owned(GunSkins.All[_pick])) return; }
-            _pick = 0;
+            int n = Options().Count;
+            _pick = n == 0 ? 0 : ((_pick + dir) % n + n) % n;
+            Sfx.UI(Synth.UiClick(), 0.3f);
         }
 
         void Paint()
         {
             var g = Clamped;
             if (g == null || _sprayT >= 0f) return;
-            var s = GunSkins.All[_pick];
-            if (!GunSkins.Owned(s)) return;
+            var s = Current;
+            if (s == null || !GunSkins.Owned(s)) return;
             _paintTo = s.id;
             _sprayT = 0f;
             var main = _mist.main; main.startColor = new ParticleSystem.MinMaxGradient(s.spray, Color.Lerp(s.spray, Color.white, 0.25f));
             Sfx.Play(Synth.CanRattle(), _can.position, 0.7f, 1f, 0.4f, 6f);
             Refresh();
+        }
+
+        void LateUpdate()
+        {
+            if (_preview != null) _preview.localRotation = Quaternion.Euler(0, Mathf.Sin(Time.time * 0.6f) * 35f, 0);
+            if (Time.frameCount % 20 == 0 && _sprayT < 0f) Refresh();   // a gun put on / taken off the mat, a skin just won
         }
 
         void Update()

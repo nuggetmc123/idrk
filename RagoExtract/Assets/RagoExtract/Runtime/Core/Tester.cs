@@ -16,7 +16,8 @@ namespace Rago
         /// <summary>Spawn-menu entries (OTHER) that aren't items: a Christmas present and a golf cart. Placed with the pointer like an item.</summary>
         public static readonly ItemDef PresentDef = new ItemDef { id = "spawn_present", name = "CHRISTMAS PRESENT" };
         public static readonly ItemDef CartDef = new ItemDef { id = "spawn_cart", name = "GOLF CART" };
-        public static bool IsWorldThing(ItemDef d) => d == CartDef;
+        public static readonly ItemDef BikeDef = new ItemDef { id = "spawn_bike", name = "SIDECAR BIKE" };
+        public static bool IsWorldThing(ItemDef d) => d == CartDef || d == BikeDef;
 
         static Vector3 InFront(float dist, out Quaternion rot)
         {
@@ -100,7 +101,7 @@ namespace Rago
             if (Tester.IsWorldThing(d))
             {
                 // see-through box the size of the present / cart
-                bool cart = d == Tester.CartDef;
+                bool cart = d == Tester.CartDef || d == Tester.BikeDef;
                 Vector3 sz = cart ? new Vector3(1.3f, 1.9f, 2.4f) : LootCrate.SizeOf(LootCrate.Kind.Present);
                 _i._marker = new MB().Box(Vector3.up * sz.y * 0.5f, sz, Color.white, 0.02f).Build("SpawnMarker", _i.transform,
                     Mats.Unlit("spawn_marker_green", new Color(0.3f, 1f, 0.4f, 0.3f), null, Mats.BlendKind.Alpha));
@@ -184,6 +185,7 @@ namespace Rago
             }
             else if (_def == Tester.PresentDef) LootCrate.SpawnPresent(_pos, _yaw);
             else if (_def == Tester.CartDef) GolfCart.SpawnHere(_pos, _yaw + 90f);
+            else if (_def == Tester.BikeDef) GolfCart.SpawnHere(_pos, _yaw + 90f, true);
             else Tester.SpawnNpcAt(_npc, _pos, _yaw);
             Clear();
         }

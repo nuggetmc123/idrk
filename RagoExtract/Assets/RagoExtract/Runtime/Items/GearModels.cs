@@ -403,17 +403,17 @@ namespace Rago
                     mb.Sub(1).Box(new Vector3(0, 0, 0.678f), new Vector3(0.008f, 0.03f, 0.002f), Steel, 0f);   // wedge
                     break;
                 }
-                case 6:   // fire axe: a red head with a polished bit and a pick, a yellow-banded handle with a flared knob
-                {
+                case 6:   // fire axe: a red head with a polished bit and a pick, a yellow-banded handle with a flared knob.
+                {         // The cutting edge is on -y, the side you swing with (like the machete and knives): it used to point back at you.
                     Color red = new Color(0.75f, 0.1f, 0.08f);
                     mb.Sub(0).Lathe(Vector3.zero, Z, new List<Vector2> { new Vector2(0f, -0.152f), new Vector2(0.022f, -0.152f), new Vector2(0.02f, -0.135f), new Vector2(0.016f, -0.1f), new Vector2(0.017f, 0.55f), new Vector2(0.018f, 0.63f), new Vector2(0f, 0.635f) }, 16, ash);
                     mb.Sub(2).Tube(new Vector3(0, 0, 0.4f), new Vector3(0, 0, 0.44f), 0.0178f, 0.016f, 14, new Color(0.9f, 0.75f, 0.1f));
                     mb.Sub(0).Box(new Vector3(0, 0.0f, 0.6f), new Vector3(0.042f, 0.065f, 0.07f), red, 0.008f, 2);   // eye
-                    var bit = new List<Vector2> { new Vector2(0.565f, 0.03f), new Vector2(0.635f, 0.03f), new Vector2(0.67f, 0.2f), new Vector2(0.6f, 0.17f), new Vector2(0.53f, 0.2f) };
+                    var bit = new List<Vector2> { new Vector2(0.565f, -0.03f), new Vector2(0.635f, -0.03f), new Vector2(0.67f, -0.2f), new Vector2(0.6f, -0.17f), new Vector2(0.53f, -0.2f) };
                     mb.Sub(0).Extrude(bit, 0.016f, red, 0.003f);
-                    mb.Sub(1).Extrude(new List<Vector2> { new Vector2(0.535f, 0.18f), new Vector2(0.6f, 0.157f), new Vector2(0.665f, 0.18f), new Vector2(0.67f, 0.205f), new Vector2(0.6f, 0.175f), new Vector2(0.53f, 0.205f) }, 0.006f, w * 0.95f, 0.001f);   // ground edge
-                    mb.Sub(0).Extrude(new List<Vector2> { new Vector2(0.575f, -0.03f), new Vector2(0.625f, -0.03f), new Vector2(0.6f, -0.13f) }, 0.016f, red, 0.003f);   // pick
-                    mb.Sub(1).Box(new Vector3(0, -0.12f, 0.6f), new Vector3(0.006f, 0.014f, 0.008f), w * 0.8f, 0.001f);
+                    mb.Sub(1).Extrude(new List<Vector2> { new Vector2(0.535f, -0.18f), new Vector2(0.6f, -0.157f), new Vector2(0.665f, -0.18f), new Vector2(0.67f, -0.205f), new Vector2(0.6f, -0.175f), new Vector2(0.53f, -0.205f) }, 0.006f, w * 0.95f, 0.001f);   // ground edge
+                    mb.Sub(0).Extrude(new List<Vector2> { new Vector2(0.575f, 0.03f), new Vector2(0.625f, 0.03f), new Vector2(0.6f, 0.13f) }, 0.016f, red, 0.003f);   // pick
+                    mb.Sub(1).Box(new Vector3(0, 0.12f, 0.6f), new Vector3(0.006f, 0.014f, 0.008f), w * 0.8f, 0.001f);
                     break;
                 }
                 case 7:   // frying pan: a cast-iron pan with a pour lip, a riveted handle with a hanging hole

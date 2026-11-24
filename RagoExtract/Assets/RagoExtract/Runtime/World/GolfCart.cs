@@ -13,7 +13,7 @@ namespace Rago
     /// Physics is a simple raycast suspension on a rigidbody. In multiplayer the driver's game moves the cart and sends
     /// where it is; everyone else shows it there (and can't get in while someone's driving).
     /// </summary>
-    public class GolfCart : MonoBehaviour
+    public partial class GolfCart : MonoBehaviour
     {
         public static readonly List<GolfCart> All = new List<GolfCart>();
         public int Id;
@@ -26,8 +26,17 @@ namespace Rago
         Transform _steerWheel;
         AudioSource _motor;
 
-        const float MaxSpeed = 15f, MaxReverse = 5f;   // m/s (~54 km/h forward)
-        static readonly Vector3[] Corners = { new Vector3(-0.55f, 0.45f, 0.82f), new Vector3(0.55f, 0.45f, 0.82f), new Vector3(-0.55f, 0.45f, -0.82f), new Vector3(0.55f, 0.45f, -0.82f) };
+        /// <summary>A motorcycle with a sidecar (and a machine gun on the sidecar) instead of a golf cart.</summary>
+        public bool Bike;
+        public Turret Turret;
+        float MaxSpeed = 15f, MaxReverse = 5f;   // m/s (~54 km/h forward; the bike does 20)
+        Vector3[] Corners = { new Vector3(-0.55f, 0.45f, 0.82f), new Vector3(0.55f, 0.45f, 0.82f), new Vector3(-0.55f, 0.45f, -0.82f), new Vector3(0.55f, 0.45f, -0.82f) };
+        float _wheelR = 0.22f;
+        /// <summary>How far your hands sit from the middle of the wheel / bars, and how far they turn it for full lock.</summary>
+        public float WheelR => Bike ? 0.33f : 0.17f;
+        public float SteerLock => Bike ? 30f : 60f;   // less turning of the wheel / bars for full lock: easier to steer
+        /// <summary>Which way you step out (driver to the left; on the bike the sidecar passenger steps out further right).</summary>
+        public float ExitSide(bool passenger) => passenger ? (Bike ? 1.55f : 1.3f) : (Bike ? -1.2f : -1.3f);
         const float SuspLen = 0.62f, Rest = 0.45f;
 
         // remote driving (multiplayer)
@@ -42,7 +51,7 @@ namespace Rago
         /// <summary>The steering wheel's centre and its plane (for turning it by hand).</summary>
         public void WheelFrame(out Vector3 center, out Vector3 right, out Vector3 up)
         {
-            var q = transform.rotation * Quaternion.Euler(WheelTilt, 0, 0);
+            var q = transform.rotation * (Bike ? Quaternion.Euler(90f, 0, 0) : Quaternion.Euler(WheelTilt, 0, 0));   // handlebars turn flat, about the head stock
             center = WheelGrab != null ? WheelGrab.position : transform.position;
             right = q * Vector3.right; up = q * Vector3.up;
         }
@@ -80,12 +89,12 @@ namespace Rago
                     if (h.normal.y < 0.9f) continue;   // too steep
                     Vector3 p = h.point;
                     if (Physics.CheckBox(p + Vector3.up * 1.1f, new Vector3(0.9f, 0.85f, 1.5f), Quaternion.identity, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) continue;   // something in the way
-                    Create(spots.Count, p + Vector3.up * 0.5f, Quaternion.Euler(0, rng.Range(0f, 360f), 0), map.transform);
+                    Create(spots.Count, p + Vector3.up * 0.5f, Quaternion.Euler(0, rng.Range(0f, 360f), 0), map.transform, spots.Count % 3 == 1);   // every third one's a sidecar bike
                     spots.Add(ns.pos);
                     break;
                 }
             }
-            Debug.Log("[Rago] " + spots.Count + " golf carts parked on " + map.Id);
+            Debug.Log("[Rago] " + spots.Count + " vehicles parked on " + map.Id);
         }
 
         public static void Clear()
@@ -98,7 +107,7 @@ namespace Rago
 
         static int _spawnN;
         /// <summary>Tester: a new cart in front of you (and on everyone else's screen in multiplayer).</summary>
-        public static GolfCart SpawnHere(Vector3 pos, float yaw)
+        public static GolfCart SpawnHere(Vector3 pos, float yaw, bool bike = false)
         {
             var map = RagoGame.I != null ? RagoGame.I.Map : null;
             if (map != null && map.Id == "underground") { RagoGame.I.Player?.Toast("No golf carts in the Underground"); return null; }
@@ -106,20 +115,20 @@ namespace Rago
             int id = 1000 + (int)(me % 200) * 100 + (_spawnN++ % 100);
             if (Physics.Raycast(pos + Vector3.up * 3f, Vector3.down, out var h, 20f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) pos = h.point;
             var parent = RagoGame.I != null && RagoGame.I.Map != null ? RagoGame.I.Map.transform : null;
-            var c = Create(id, pos + Vector3.up * 0.5f, Quaternion.Euler(0, yaw, 0), parent);
-            if (NetGame.Live) NetGame.I.CartSpawned(id, c.transform.position, yaw);
+            var c = Create(id, pos + Vector3.up * 0.5f, Quaternion.Euler(0, yaw, 0), parent, bike);
+            if (NetGame.Live) NetGame.I.CartSpawned(id, c.transform.position, yaw, bike);
             return c;
         }
 
-        public static GolfCart Create(int id, Vector3 pos, Quaternion rot, Transform parent)
+        public static GolfCart Create(int id, Vector3 pos, Quaternion rot, Transform parent, bool bike = false)
         {
             var old = Find(id); if (old != null) Destroy(old.gameObject);
-            var go = new GameObject("GolfCart_" + id);
+            var go = new GameObject((bike ? "SidecarBike_" : "GolfCart_") + id);
             if (parent != null) go.transform.SetParent(parent, true);
             go.transform.SetPositionAndRotation(pos, rot);
             var c = go.AddComponent<GolfCart>();
-            c.Id = id;
-            c.Build();
+            c.Id = id; c.Bike = bike;
+            if (bike) c.BuildBike(); else c.Build();
             All.Add(c);
             return c;
         }
@@ -204,7 +213,7 @@ namespace Rago
             var roof = gameObject.AddComponent<BoxCollider>();
             roof.center = new Vector3(0, 1.96f, -0.03f); roof.size = new Vector3(1.26f, 0.08f, 1.5f);
             rb = gameObject.AddComponent<Rigidbody>();
-            rb.mass = 350f; rb.SetDamping(0.05f, 2f);
+            rb.mass = 350f; rb.SetDamping(0.05f, 0.6f);   // light angular drag: it pitches over crests and flies off ramps
             rb.centerOfMass = new Vector3(0, 0.15f, 0);   // low: hard to tip over in a turn
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
@@ -215,7 +224,15 @@ namespace Rago
         void OnDestroy() { All.Remove(this); if (LocalInside) RagoGame.I.Player.LeaveCart(); }
 
         // ------------------------------------------------------------------------------------------- driving
-        public bool WheelNear(Vector3 p, float r = 0.3f) => WheelGrab != null && (WheelGrab.position - p).sqrMagnitude < r * r;
+        public bool WheelNear(Vector3 p, float r = 0.3f)
+        {
+            if (WheelGrab == null) return false;
+            if (!Bike) return (WheelGrab.position - p).sqrMagnitude < r * r;
+            // handlebars: anywhere along the bar (the grips are out at the ends)
+            Vector3 a = WheelGrab.position - transform.right * WheelR, b = WheelGrab.position + transform.right * WheelR;
+            Vector3 ab = b - a; float t = Mathf.Clamp01(Vector3.Dot(p - a, ab) / ab.sqrMagnitude);
+            return (a + ab * t - p).sqrMagnitude < r * r * 0.5f;
+        }
         /// <summary>Which door's handle a hand is on: 0 driver's, 1 passenger's, -1 neither.</summary>
         public int DoorNear(Vector3 p, float r = 0.3f)
         {
@@ -338,17 +355,17 @@ namespace Rago
                 rb.AddForce(transform.forward * accel * rb.mass);
                 rb.AddForce(-transform.right * Mathf.Clamp(sideSpeed * 9f, -20f, 20f) * rb.mass);   // tyres grip sideways (firmly: no sliding about)
                 // steering: sharp at low speed, gentle at top speed (it used to turn just as hard flat out - twitchy)
-                float yawRate = st * Mathf.Clamp(fwdSpeed / 2.5f, -1f, 1f) * Mathf.Lerp(1.5f, 0.55f, Mathf.Clamp01(Mathf.Abs(fwdSpeed) / MaxSpeed));
+                float yawRate = st * Mathf.Clamp(fwdSpeed / 1.5f, -1f, 1f) * Mathf.Lerp(2.3f, 0.95f, Mathf.Clamp01(Mathf.Abs(fwdSpeed) / MaxSpeed));   // turns tighter (it used to take a lot of room)
                 var av = rb.angularVelocity;
                 Vector3 local = transform.InverseTransformDirection(av);
                 local.y = Mathf.Lerp(local.y, yawRate, 0.2f);
-                local.x *= 0.8f; local.z *= 0.8f;   // damp rocking and tipping
+                local.x *= 0.93f; local.z *= 0.9f;   // damp rocking and tipping a little (hard damping glued it to the ground: it couldn't pitch up a ramp's lip)
                 rb.angularVelocity = transform.TransformDirection(local);
             }
             LateFixed();
             // keep it from flipping on rough ground: it rights itself (firmly while someone's in it, so it never drives leaning)
             Vector3 upErr = Vector3.Cross(transform.up, Vector3.up);
-            rb.AddTorque(upErr * rb.mass * (inside ? 40f : 14f));
+            rb.AddTorque(upErr * rb.mass * (grounded >= 2 ? (inside ? 40f : 14f) : 5f));   // in the air: only a gentle nudge, so it flies and lands naturally
             // multiplayer: the driver's game says where the cart is
             if (driven && NetGame.Live)
             {
@@ -360,10 +377,19 @@ namespace Rago
         void Update()
         {
             float speed = rb != null ? Vector3.Dot(rb.Vel(), transform.forward) : 0f;
-            _wheelSpin += speed / 0.22f * Mathf.Rad2Deg * Time.deltaTime;
-            for (int i = 0; i < 4; i++) if (_wheels[i] != null) _wheels[i].localRotation = Quaternion.Euler(_wheelSpin, i < 2 ? Steer * 25f * (LocalDriving ? 1f : 0f) : 0f, 0);
+            _wheelSpin += speed / _wheelR * Mathf.Rad2Deg * Time.deltaTime;
             _steerVis = Mathf.Lerp(_steerVis, LocalDriving ? Steer : 0f, Time.deltaTime * 8f);
-            if (_steerWheel != null) _steerWheel.localRotation = Quaternion.Euler(WheelTilt, 0, -_steerVis * 90f);   // turns the same way as your hands (and the cart)
+            if (Bike)
+            {
+                // the front wheel turns with the bars; the rear and sidecar wheels just roll
+                for (int i = 0; i < 3; i++) if (_wheels[i] != null) _wheels[i].localRotation = Quaternion.Euler(0, i == 0 ? _steerVis * 28f : 0f, 0) * Quaternion.Euler(_wheelSpin, 0, 0);
+                if (_steerWheel != null) _steerWheel.localRotation = Quaternion.Euler(0, _steerVis * 28f, 0);
+            }
+            else
+            {
+                for (int i = 0; i < 4; i++) if (_wheels[i] != null) _wheels[i].localRotation = Quaternion.Euler(_wheelSpin, i < 2 ? Steer * 25f * (LocalDriving ? 1f : 0f) : 0f, 0);
+                if (_steerWheel != null) _steerWheel.localRotation = Quaternion.Euler(WheelTilt, 0, -_steerVis * 90f);   // turns the same way as your hands (and the cart)
+            }
             for (int i = 0; i < 2; i++)
             {
                 if (_doors[i] == null) continue;

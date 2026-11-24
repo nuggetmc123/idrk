@@ -528,6 +528,7 @@ namespace Rago
             var c = Driving; bool wasPassenger = Passenger;
             Driving = null; Passenger = false;
             WheelHandsOff();
+            if (c != null && c.Turret != null) c.Turret.Release(this);
             if (c != null)
             {
                 c.SwingDoor(wasPassenger ? 1 : 0);
@@ -538,7 +539,7 @@ namespace Rago
                     if (NetGame.Live) NetGame.I.CartState(c.Id, c.transform.position, c.transform.rotation, false);
                 }
                 // step out on your side, on the ground
-                Vector3 at = c.transform.position + c.transform.right * (wasPassenger ? 1.3f : -1.3f) + Vector3.up * 0.4f;
+                Vector3 at = c.transform.position + c.transform.right * c.ExitSide(wasPassenger) + Vector3.up * 0.4f;
                 if (Physics.Raycast(at + Vector3.up * 2f, Vector3.down, out var h, 6f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) at = h.point + Vector3.up * 0.05f;
                 transform.position = at;
             }
@@ -585,7 +586,7 @@ namespace Rago
                 if (v.sqrMagnitude < 1e-4f) v = i == 0 ? -wr : wr;
                 Vector3 radial = v.normalized;
                 Vector3 tangent = Vector3.Cross(wn, radial); if (Vector3.Dot(tangent, wu) < 0f) tangent = -tangent;   // fingers over the top of the rim
-                hand.WheelPos = wc + radial * 0.17f - radial * 0.02f;
+                hand.WheelPos = wc + radial * c.WheelR - radial * 0.02f;
                 hand.WheelRot = Quaternion.LookRotation(tangent, -wn) * Quaternion.Euler(0, 0, i == 0 ? 70f : -70f);
             }
             bool holding = _onWheel[0] || _onWheel[1];
@@ -599,7 +600,7 @@ namespace Rago
                     delta += Mathf.DeltaAngle(_grabAngle[i], WheelAngle(c, (i == 0 ? HandL : HandR).TrackedPosition)); n++;
                 }
                 delta /= n;
-                c.Steer = Mathf.Clamp(_grabSteer - delta / 90f, -1f, 1f);
+                c.Steer = Mathf.Clamp(_grabSteer - delta / c.SteerLock, -1f, 1f);
             }
             else c.Steer = Mathf.MoveTowards(c.Steer, 0f, dt * 2f);   // let go: the wheel straightens up
             // easier: the LEFT STICK steers too (left / right), and the wheel follows it
@@ -633,7 +634,8 @@ namespace Rago
             else { Desktop.Yaw += dYaw; transform.position = seat + Vector3.up * (0.78f - 1.65f); }
             _cartLastYaw = yaw; _cartLastPos = seat;
             MoveVelocity = c.rb != null ? c.rb.Vel() : Vector3.zero;
-            // controls
+            // controls (in the sidecar: the machine gun)
+            if (Passenger && c.Turret != null) c.Turret.LocalControl(this, dt);
             if (!Passenger)
             {
                 if (XRInputs.VR) WheelControls(c, dt);

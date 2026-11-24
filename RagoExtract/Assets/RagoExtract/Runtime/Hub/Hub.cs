@@ -488,9 +488,11 @@ namespace Rago
                 int price = Price(def);
                 UI.Text(row, "$" + price.ToString("N0"), new Vector3(0.45f, 0, 0), 0.048f, UI.ChalkYellow, TextAnchor.MiddleRight, FontStyle.Bold);
                 var d2 = def;
-                UI.Button(row, "buy", new Vector3(0.61f, 0, 0), new Vector2(0.17f, 0.085f), () => Buy(d2), null, BtnStyle.Tag);
+                int need = Levels.Required(def);
+                if (need > Levels.Current) UI.Text(row, "LVL " + need, new Vector3(0.61f, 0, 0), 0.04f, new Color(1f, 0.45f, 0.4f), TextAnchor.MiddleCenter, FontStyle.Bold);
+                else UI.Button(row, "buy", new Vector3(0.61f, 0, 0), new Vector2(0.17f, 0.085f), () => Buy(d2), null, BtnStyle.Tag);
             }
-            _money.text = "your cash  $" + Profile.Current.money.ToString("N0");
+            _money.text = "level " + Levels.Current + "   your cash  $" + Profile.Current.money.ToString("N0");
             int v = 0, n = 0;
             foreach (var s in _sell.slots) if (s.item != null) { v += SellValue(s.item); n++; }
             _sellLabel.text = n == 0 ? "Put items on the SELL tray" : n + " item(s) for <color=#1d6b2a>$" + v.ToString("N0") + "</color>";
@@ -518,6 +520,7 @@ namespace Rago
             _buyT = Time.unscaledTime + 0.5f;
             int price = Price(d);
             var prof = Profile.Current;
+            if (Levels.Required(d) > Levels.Current) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I.Player.Toast("Reach level " + Levels.Required(d) + " to buy " + d.name); return; }
             if (prof.money < price) { Sfx.UI(Synth.UiError(), 0.4f); RagoGame.I.Player.Toast("Not enough money"); return; }
             if (d.kind == ItemKind.Ammo)
             {
@@ -584,7 +587,7 @@ namespace Rago
         public static List<TraderDef> Defaults()
         {
             Db.Init();
-            // everything's for sale from the start - no level locks; the better it is, the more it costs (Price)
+            // everything's for sale - each tier unlocks with your level (Levels.Required: 1, 5, 10, 15, 20) and costs more (Price)
             var gunsmith = new TraderDef { name = "Viktor", title = "Gunsmith - rifles & shotguns", outfit = Outfit.Gunsmith, color = new Color(0.75f, 0.45f, 0.2f), sellRate = 0.5f };
             foreach (var g in Db.Guns) if (g.TwoHanded && g.rarity <= Rarity.Epic && g.cls != GunClass.SMG) gunsmith.stock.Add(g.id);
             if (!gunsmith.stock.Contains("anzio")) gunsmith.stock.Add("anzio");   // the 20mm

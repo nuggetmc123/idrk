@@ -382,6 +382,16 @@ namespace Rago
         }
 
         // -------------------------------------------------------------------------------- gameplay hooks
+        /// <summary>A shot from the sidecar machine gun: goes out like any gun's shot.</summary>
+        public void TurretFire(string gunId, Vector3 origin, Vector3 dir)
+        {
+            if (!Live) return;
+            var w = W(Msg.Fire);
+            w.Write(gunId); V3(w, origin); V3(w, dir); w.Write((byte)AmmoType.Standard);
+            Send(true);
+            NetHub.Backend?.FlushNow();
+        }
+
         void LocalFire(Gun g, Vector3 origin, Vector3 dir)
         {
             var w = W(Msg.Fire);
@@ -561,10 +571,10 @@ namespace Rago
         }
 
         /// <summary>A tester spawned a cart: everyone gets one in the same place.</summary>
-        public void CartSpawned(int id, Vector3 pos, float yaw)
+        public void CartSpawned(int id, Vector3 pos, float yaw, bool bike = false)
         {
             if (!Live) return;
-            var w = W(Msg.CartSpawn); w.Write((short)id); V3(w, pos); w.Write(yaw);
+            var w = W(Msg.CartSpawn); w.Write((short)id); V3(w, pos); w.Write(yaw); w.Write(bike);
             Send(true);
         }
 
@@ -720,7 +730,8 @@ namespace Rago
                                 // just the shot you see and hear - the shooter tells whoever they hit (Msg.HitPlayer)
                                 Ballistics.Fire(o, d, g, (int)from + 1, rp != null ? rp.transform : null, rp, true, g.cls == GunClass.LMG, false, fa);
                                 Sfx.Gunshot(g, o, false);
-                                if (rp != null) rp.MuzzleFlash(g); else Fx.TracerLine(o, o + d * 50f);
+                                if (Turret.RemoteShot(o, d)) { }   // fired from a sidecar gun: that gun flashes
+                                else if (rp != null) rp.MuzzleFlash(g); else Fx.TracerLine(o, o + d * 50f);
                                 break;
                             }
                         case Msg.HitPlayer:
@@ -813,7 +824,8 @@ namespace Rago
                         case Msg.CartSpawn:
                             {
                                 int cid = r.ReadInt16(); var cp = V3(r); float cy = r.ReadSingle();
-                                if (GolfCart.Find(cid) == null) GolfCart.Create(cid, cp, Quaternion.Euler(0, cy, 0), RagoGame.I != null && RagoGame.I.Map != null ? RagoGame.I.Map.transform : null);
+                                bool cbike = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean();
+                                if (GolfCart.Find(cid) == null) GolfCart.Create(cid, cp, Quaternion.Euler(0, cy, 0), RagoGame.I != null && RagoGame.I.Map != null ? RagoGame.I.Map.transform : null, cbike);
                                 break;
                             }
                         case Msg.Door:

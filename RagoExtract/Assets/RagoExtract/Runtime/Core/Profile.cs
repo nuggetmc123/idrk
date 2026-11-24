@@ -51,6 +51,7 @@ namespace Rago
         public bool inRaid;   // set while a raid is on: still set at the next launch = you quit mid-raid, which counts as dying
         public int tutorialStep;
         public List<MailItem> mailbox = new List<MailItem>();   // DELIVERIES screen in the bunker: bought / traded / sold
+        public List<string> skins = new List<string>();      // gun skins won on the Market's Skin Wheel
         public List<string> dlc = new List<string>();       // DLC STORE packs bought (and "northpole": the South Pole vault)
         public List<string> friends = new List<string>();   // callsigns you added (menu > FRIENDS)
         public List<string> pendingFriends = new List<string>();   // typed in but not seen online yet: "CALLSIGN#1234|day added"
@@ -146,6 +147,7 @@ namespace Rago
             if (stashAp == null || stashAp.Length != n) { var a = new int[n]; if (stashAp != null) System.Array.Copy(stashAp, a, Mathf.Min(n, stashAp.Length)); stashAp = a; }
             if (stashInc == null || stashInc.Length != n) { var a = new int[n]; if (stashInc != null) System.Array.Copy(stashInc, a, Mathf.Min(n, stashInc.Length)); stashInc = a; }
             if (stash == null) stash = new List<ItemData>();
+            if (skins == null) skins = new List<string>();
             if (loadout == null) loadout = new Loadout();
             if (jobProgress == null) jobProgress = new List<int>();
             if (tag <= 0) tag = NewTagFor();

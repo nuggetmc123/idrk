@@ -5,6 +5,14 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.88", "Sidecar bike, Skin Wheel, better paint booth", new[] {
+                "NEW VEHICLE: the SIDECAR BIKE - an old army motorcycle with a sidecar and a mounted machine gun. One rider drives with the handlebars (grab the bars or the saddle to get on; right trigger gas, left trigger brake / reverse); a second player climbs into the sidecar (grab its handle) and works the gun: grab its two grips, aim by moving your hands, pull either trigger. 250-round belt, then a reload. Every third parked vehicle on the outdoor maps is a bike.",
+                "SKIN WHEEL in the Market (south wall, by the casino): $10,000 a spin and you win a gun skin for good - it only ever lands on skins you don't have yet.",
+                "The PAINT BOOTH has a new board: put a gun on the mat and see it in each of your skins - big, turning, with the skin's name and where it came from - before you press PAINT. There are no free starter skins any more: the booth is empty until you win skins on the wheel or own a DLC pack. (Guns you already painted keep their paint.)",
+                "Trader level locks are back: better guns and gear unlock as you level up (common at level 1, then levels 5, 10, 15 and 20). Ammo, meds, grenades and knives are always for sale.",
+                "Golf carts and bikes turn much tighter, need less turning of the wheel, and fly off ramps and crests instead of sticking to the ground.",
+                "Fixed: the fire axe was held with its blade facing back at you - the edge now faces the way you swing.",
+            }),
             ("2.87", "Stash walls remember", new[] {
                 "Fixed: guns and gear hung on a bunker wall didn't stay where you put them. Coming back, everything was refilled into the first wall of its kind - guns on the Gear wall jumped to the Armory, and rifles that didn't fit there were dumped on the main hall floor. Now every item goes back on the exact wall and spot you left it on.",
             }),
