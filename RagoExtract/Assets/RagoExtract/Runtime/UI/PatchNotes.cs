@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.89", "Sidecar bike: proper handlebars, all bolted together", new[] {
+                "The sidecar bike has real handlebars now: wide chrome bars on risers with ribbed rubber grips, levers, mirrors, a speedo, and the headlamp on the forks (it turns with them).",
+                "Everything on the bike is connected: a swingarm and a sprung shock for the back wheel, a subframe under the saddle and pillion, fender stays, footboard brackets, an arm and an arched mudguard for the sidecar wheel, a carrier for the jerrycan.",
+                "The gunner can see: the machine gun sits higher, at a seated gunner's eye line, and the shield has a wide window over the barrel to aim through (it stops at chin height, so you see out over it too). The ammo can sits low, out of the way.",
+            }),
             ("2.88", "Sidecar bike, Skin Wheel, better paint booth", new[] {
                 "NEW VEHICLE: the SIDECAR BIKE - an old army motorcycle with a sidecar and a mounted machine gun. One rider drives with the handlebars (grab the bars or the saddle to get on; right trigger gas, left trigger brake / reverse); a second player climbs into the sidecar (grab its handle) and works the gun: grab its two grips, aim by moving your hands, pull either trigger. 250-round belt, then a reload. Every third parked vehicle on the outdoor maps is a bike.",
                 "SKIN WHEEL in the Market (south wall, by the casino): $10,000 a spin and you win a gun skin for good - it only ever lands on skins you don't have yet.",

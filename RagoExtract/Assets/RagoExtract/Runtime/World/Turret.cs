@@ -24,6 +24,16 @@ namespace Rago
         {
             Vehicle = v;
             Pivot = new GameObject("Pivot").transform; Pivot.SetParent(transform, false);
+            GunModel().Build("MG", Pivot, GunMats);
+            Muzzle = new GameObject("Muzzle").transform; Muzzle.SetParent(Pivot, false); Muzzle.localPosition = new Vector3(0, 0.06f, 0.9f);
+            for (int i = 0; i < 2; i++) { _grips[i] = new GameObject("Grip" + i).transform; _grips[i].SetParent(Pivot, false); _grips[i].localPosition = new Vector3((i == 0 ? -1f : 1f) * 0.075f, 0f, -0.34f); }
+        }
+
+        public static Material[] GunMats => new[] { Mats.GunMetal, Mats.Lit("mg_brass", Color.white, 0.9f, 0.6f, Mats.Metal, null, 0.1f, 0.2f), Mats.Lit("mg_olive", Color.white, 0.2f, 0.4f, Mats.Noise, null, 0.3f, 0.2f) };
+
+        /// <summary>The gun on its yoke, origin at the pivot: receiver, jacketed barrel, ammo can, shield, spade grips.</summary>
+        public static MB GunModel()
+        {
             Color dark = new Color(0.11f, 0.11f, 0.12f), metal = new Color(0.3f, 0.31f, 0.33f), olive = new Color(0.25f, 0.29f, 0.19f), brass = new Color(0.85f, 0.66f, 0.3f);
             var mb = new MB(3);
             // yoke, receiver, feed cover, barrel in a ventilated jacket, flash hider, bipod folded up, ammo can and belt
@@ -37,11 +47,14 @@ namespace Rago
             foreach (float s in new[] { -1f, 1f }) mb.Sub(0).Cyl(new Vector3(s * 0.02f, 0.03f, 0.55f), new Vector3(s * 0.03f, 0.03f, 0.2f), 0.008f, 0.008f, 6, dark);   // bipod legs, folded
             mb.Sub(0).Box(new Vector3(0, 0.13f, 0.08f), new Vector3(0.012f, 0.03f, 0.012f), dark, 0.002f);   // front sight
             mb.Sub(0).Box(new Vector3(0, 0.14f, -0.15f), new Vector3(0.03f, 0.02f, 0.02f), dark, 0.003f);    // rear sight
-            mb.Sub(2).Box(new Vector3(-0.12f, 0.02f, -0.04f), new Vector3(0.1f, 0.15f, 0.24f), olive, 0.01f, 2);   // ammo can
-            for (int i = 0; i < 6; i++) mb.Sub(1).Cyl(new Vector3(-0.07f + i * 0.0f, 0.1f - i * 0.004f, -0.1f + i * 0.02f), new Vector3(-0.03f, 0.1f - i * 0.004f, -0.1f + i * 0.02f), 0.006f, 0.006f, 6, brass);   // the belt going in
-            // gun shield: a plate in front of the gunner with a sighting notch
-            mb.Sub(2).Box(new Vector3(0, 0.05f, 0.12f), new Vector3(0.5f, 0.3f, 0.015f), olive, 0.01f, 2);
-            mb.Sub(2).Box(new Vector3(0, 0.19f, 0.12f), new Vector3(0.12f, 0.02f, 0.016f), olive * 0.8f, 0.003f);
+            mb.Sub(2).Box(new Vector3(-0.115f, -0.03f, -0.06f), new Vector3(0.09f, 0.12f, 0.22f), olive, 0.01f, 2);   // ammo can, low down out of the sight line
+            for (int i = 0; i < 7; i++) { float t = i / 6f; float bx = Mathf.Lerp(-0.13f, -0.05f, t), by = Mathf.Lerp(0.035f, 0.075f, Mathf.Sqrt(t)); mb.Sub(1).Cyl(new Vector3(bx, by, -0.13f + i * 0.018f), new Vector3(bx + 0.035f, by, -0.13f + i * 0.018f), 0.0055f, 0.0055f, 6, brass); }   // the belt, from the can up into the feed
+            // gun shield: low plates either side and below, with a wide sighting window cut out over the barrel so the
+            // gunner aims through it (and sees out over the top - it stops at chin height)
+            mb.Sub(2).Box(new Vector3(0, -0.04f, 0.12f), new Vector3(0.5f, 0.12f, 0.015f), olive, 0.008f, 2);          // below the window
+            foreach (float sx in new[] { -1f, 1f }) mb.Sub(2).Box(new Vector3(sx * 0.17f, 0.08f, 0.12f), new Vector3(0.16f, 0.14f, 0.015f), olive, 0.008f, 2);   // either side
+            mb.Sub(2).Box(new Vector3(0, 0.155f, 0.12f), new Vector3(0.5f, 0.014f, 0.017f), olive * 0.75f, 0.004f);      // top edge
+            foreach (float sx in new[] { -1f, 1f }) mb.Sub(2).Box(new Vector3(sx * 0.255f, 0.05f, 0.12f), new Vector3(0.014f, 0.2f, 0.017f), olive * 0.75f, 0.004f);
             // spade grips behind the receiver, with a butterfly trigger between them
             foreach (float s in new[] { -1f, 1f })
             {
@@ -49,9 +62,7 @@ namespace Rago
                 mb.Sub(0).Cyl(new Vector3(s * 0.075f, 0.06f, -0.34f), new Vector3(s * 0.075f, -0.07f, -0.34f), 0.018f, 0.018f, 10, dark);
             }
             mb.Sub(1).Box(new Vector3(0, -0.02f, -0.3f), new Vector3(0.05f, 0.03f, 0.01f), metal, 0.004f);
-            mb.Build("MG", Pivot, Mats.GunMetal, Mats.Lit("mg_brass", Color.white, 0.9f, 0.6f, Mats.Metal, null, 0.1f, 0.2f), Mats.Lit("mg_olive", Color.white, 0.2f, 0.4f, Mats.Noise, null, 0.3f, 0.2f));
-            Muzzle = new GameObject("Muzzle").transform; Muzzle.SetParent(Pivot, false); Muzzle.localPosition = new Vector3(0, 0.06f, 0.9f);
-            for (int i = 0; i < 2; i++) { _grips[i] = new GameObject("Grip" + i).transform; _grips[i].SetParent(Pivot, false); _grips[i].localPosition = new Vector3((i == 0 ? -1f : 1f) * 0.075f, 0f, -0.34f); }
+            return mb;
         }
 
         void LateUpdate()
