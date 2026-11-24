@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.93", "Hop on the bike by the throttle", new[] {
+                "Grab the sidecar bike's handlebar (the right grip is the throttle) and you climb straight on with your hand already on the bars - just pull the right trigger to ride. The grips are easier to catch, too.",
+            }),
             ("2.92", "Shushed figurine", new[] {
                 "NEW STREAMER FIGURINE: SHUSHED - the operator in full Juggernaut armour (black plates with gold trim and rivets, shoulder plates), red helmet with a gold crest, red gloves, one finger to his lips. Epic rarity: crates and safes, sells for $9,000.",
                 "Streamer figurines have their streamer's name on the front of the base: PEANUT8 and SHUSHED. (The peanut one is now called the Peanut8 Figurine.)",

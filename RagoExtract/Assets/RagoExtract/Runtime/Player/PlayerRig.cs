@@ -477,7 +477,7 @@ namespace Rago
                         if (c == null) continue;
                         int door = c.DoorNear(hand.TrackedPosition);
                         if (door >= 0) { pick = c; passenger = door == 1; break; }
-                        if (c.WheelNear(hand.TrackedPosition)) { pick = c; passenger = false; break; }
+                        if (c.WheelNear(hand.TrackedPosition)) { pick = c; passenger = false; _autoGrab[hand == HandL ? 0 : 1] = true; break; }   // grabbed the wheel / the bike's throttle: you're holding it as you get on
                     }
                 }
             }
@@ -495,6 +495,7 @@ namespace Rago
             }
             if (pick == null) return;
             if (!passenger && pick.Busy) { passenger = true; Toast("Someone's driving - you're riding along"); }
+            if (passenger) _autoGrab[0] = _autoGrab[1] = false;
             EnterCart(pick, passenger);
         }
 
@@ -520,6 +521,7 @@ namespace Rago
             else Desktop.Yaw = c.transform.eulerAngles.y;
             _cartLastPos = seatT.position; _cartLastYaw = c.transform.eulerAngles.y;
             if (passenger) Toast(XRInputs.VR ? "Riding along - A / X to get out" : "Riding along - F or Space to get out");
+            else if (c.Bike) Toast(XRInputs.VR ? "On the bike - keep hold of the bars and steer with them. Right trigger = throttle, left trigger = brake / reverse. A / X to get off" : "Riding: W throttle, S brake / reverse, A D steer. F or Space to get off");
             else Toast(XRInputs.VR ? "Hold the wheel and turn it. Right trigger = gas, left trigger = brake / reverse. A / X to get out" : "Driving: W gas, S brake / reverse, A D steer. F or Space to get out");
         }
 
@@ -550,6 +552,7 @@ namespace Rago
         // ---- the steering wheel in VR: hold it (grip) with one or both hands and turn it; right trigger = gas, left
         // trigger = brake (and reverse once you've stopped). Let go of the wheel and the cart rolls to a stop.
         readonly bool[] _onWheel = new bool[2];
+        readonly bool[] _autoGrab = new bool[2];   // the hand that got you in by grabbing the wheel / bars keeps hold of it
         readonly float[] _grabAngle = new float[2];
         float _grabSteer;
 
@@ -567,7 +570,8 @@ namespace Rago
                 var hand = i == 0 ? HandL : HandR;
                 var inp = i == 0 ? XRInputs.Left : XRInputs.Right;
                 if (_onWheel[i] && !inp.GripHeld) _onWheel[i] = false;   // let go
-                if (!_onWheel[i] && inp.GripHeld && hand.Held == null && c.WheelNear(hand.TrackedPosition, 0.45f))
+                bool auto = _autoGrab[i]; _autoGrab[i] = false;
+                if (!_onWheel[i] && inp.GripHeld && hand.Held == null && (auto || c.WheelNear(hand.TrackedPosition, 0.45f)))
                 {
                     _onWheel[i] = true; _grabAngle[i] = WheelAngle(c, hand.TrackedPosition); _grabSteer = c.Steer;
                     if (_onWheel[1 - i]) _grabAngle[1 - i] = WheelAngle(c, (i == 0 ? HandR : HandL).TrackedPosition);   // the other hand's turn restarts from here too

@@ -34,6 +34,8 @@ namespace Rago
         float _wheelR = 0.22f;
         /// <summary>How far your hands sit from the middle of the wheel / bars, and how far they turn it for full lock.</summary>
         public float WheelR => Bike ? 0.33f : 0.17f;
+        /// <summary>The middle of the handlebar where the grips are (they sit a little up and back from the head stock).</summary>
+        Vector3 BarCentre => WheelGrab.TransformPoint(new Vector3(0, 0.075f, -0.1f));
         public float SteerLock => Bike ? 30f : 60f;   // less turning of the wheel / bars for full lock: easier to steer
         /// <summary>Which way you step out (driver to the left; on the bike the sidecar passenger steps out further right).</summary>
         public float ExitSide(bool passenger) => passenger ? (Bike ? 1.55f : 1.3f) : (Bike ? -1.2f : -1.3f);
@@ -52,7 +54,7 @@ namespace Rago
         public void WheelFrame(out Vector3 center, out Vector3 right, out Vector3 up)
         {
             var q = transform.rotation * (Bike ? Quaternion.Euler(90f, 0, 0) : Quaternion.Euler(WheelTilt, 0, 0));   // handlebars turn flat, about the head stock
-            center = WheelGrab != null ? WheelGrab.position : transform.position;
+            center = WheelGrab == null ? transform.position : Bike ? BarCentre : WheelGrab.position;
             right = q * Vector3.right; up = q * Vector3.up;
         }
         public float ForwardSpeed => rb != null ? Vector3.Dot(rb.Vel(), transform.forward) : 0f;
@@ -229,9 +231,11 @@ namespace Rago
             if (WheelGrab == null) return false;
             if (!Bike) return (WheelGrab.position - p).sqrMagnitude < r * r;
             // handlebars: anywhere along the bar (the grips are out at the ends)
-            Vector3 a = WheelGrab.position - transform.right * WheelR, b = WheelGrab.position + transform.right * WheelR;
+            // handlebars: anywhere along the bar, and a good handful round each grip (the right one is the throttle)
+            Vector3 a = BarCentre - transform.right * WheelR, b = BarCentre + transform.right * WheelR;
             Vector3 ab = b - a; float t = Mathf.Clamp01(Vector3.Dot(p - a, ab) / ab.sqrMagnitude);
-            return (a + ab * t - p).sqrMagnitude < r * r * 0.5f;
+            if ((a + ab * t - p).sqrMagnitude < r * r * 0.5f) return true;
+            return (a - p).sqrMagnitude < 0.18f * 0.18f || (b - p).sqrMagnitude < 0.18f * 0.18f;
         }
         /// <summary>Which door's handle a hand is on: 0 driver's, 1 passenger's, -1 neither.</summary>
         public int DoorNear(Vector3 p, float r = 0.3f)
