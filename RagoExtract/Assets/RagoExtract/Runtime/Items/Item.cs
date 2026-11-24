@@ -17,6 +17,7 @@ namespace Rago
         public string skin = "";             // paint job from the bunker's paint booth ("" = factory finish)
         public int count = 1;
         public string contents = "";  // backpacks: JSON of the items inside
+        public int stashSec, stashSlot;   // bunker stash: which wall (1-based, 0 = none) and which spot on it, so it goes back exactly there
         public ItemData() { }
         public ItemData(string id) { this.id = id; }
         public ItemData Clone() => (ItemData)MemberwiseClone();

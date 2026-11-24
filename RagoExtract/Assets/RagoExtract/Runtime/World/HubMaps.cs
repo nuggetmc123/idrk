@@ -13,7 +13,7 @@ namespace Rago
         public List<ItemData> SaveStash()
         {
             var l = new List<ItemData>();
-            foreach (var s in Stash) if (s != null) l.AddRange(s.Save());
+            for (int i = 0; i < Stash.Count; i++) if (Stash[i] != null) l.AddRange(Stash[i].Save(i));   // each item remembers its wall and spot
             // the med cabinet keeps its own contents (it used to go into the stash too, so the meds came back twice and spilled into the Lost & Found)
             if (_medCabinet != null && Profile.Current != null) Profile.Current.medCabinet = _medCabinet.Save();
             foreach (var pb in GetComponentsInChildren<PaintBooth>()) pb.SaveTo(l);   // a gun in the paint booth's clamp
@@ -66,8 +66,22 @@ namespace Rago
         {
             if (Profile.Current == null) return;
             var overflow = new List<ItemData>();
+            var rest = new List<ItemData>();
+            // first, everything back exactly where it was hung (it used to go to the first wall of its kind: guns hung on the
+            // Gear wall came back on the Armory, and rifles that didn't fit there ended up on the main hall floor)
             foreach (var d in new List<ItemData>(Profile.Current.stash))
             {
+                if (d == null) continue;
+                int si = d.stashSec - 1;
+                bool ok = false;
+                try { ok = si >= 0 && si < Stash.Count && Stash[si] != null && Stash[si].PlaceAt(d, d.stashSlot); } catch (System.Exception e) { Debug.LogWarning("[Rago] stash spot: " + e.Message); }
+                if (!ok) rest.Add(d);
+            }
+            foreach (var d in rest)
+            {
+                // it had no spot (new, or a page that was full): its own wall first, then any wall of that kind, then the floor
+                int si = d.stashSec - 1;
+                if (si >= 0 && si < Stash.Count && Stash[si] != null && Stash[si].Place(d, false)) continue;
                 // fill the main rooms first, then the expansion rooms; overflow goes on the first section's next page
                 var k = StashSection.For(d);
                 bool placed = false;

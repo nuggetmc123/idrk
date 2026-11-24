@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.87", "Stash walls remember", new[] {
+                "Fixed: guns and gear hung on a bunker wall didn't stay where you put them. Coming back, everything was refilled into the first wall of its kind - guns on the Gear wall jumped to the Armory, and rifles that didn't fit there were dumped on the main hall floor. Now every item goes back on the exact wall and spot you left it on.",
+            }),
             ("2.86", "New gear models", new[] {
                 "Every helmet, vest, grenade and melee weapon has a new, much more detailed model. Helmets get liners, chin straps, proper ear defenders with mics, rails with slots, NVG shrouds, vents, velcro and visor hinges. Vests get MOLLE webbing, mag pouches with flaps and pull tabs, cummerbunds, padded shoulder straps, radio and tourniquet pouches and drag handles. Grenades have real fuses, curved spoons and pull rings, and the flashbang is perforated. Knives get proper blade shapes with fullers, edges and serrations; the bat, crowbar, machete, sledgehammer, fire axe, frying pan and candy cane are all rebuilt.",
             }),

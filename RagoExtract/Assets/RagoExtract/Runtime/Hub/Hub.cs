@@ -811,12 +811,39 @@ namespace Rago
             Refresh();
         }
 
-        public List<ItemData> Save()
+        public List<ItemData> Save() => Save(-1);
+
+        /// <summary>Everything on this wall. Each item remembers this wall (index = its place in the bunker's list) and its spot.</summary>
+        public List<ItemData> Save(int index)
         {
             var l = new List<ItemData>();
-            foreach (var s in AllSlots()) if (s.item != null) l.Add(s.item.Save());
-            l.AddRange(_overflow);
+            int k = 0;
+            foreach (var s in AllSlots())
+            {
+                k++;
+                if (s.item == null) continue;
+                var d = s.item.Save();
+                if (d == null) continue;
+                d.stashSec = index + 1; d.stashSlot = k;
+                l.Add(d);
+            }
+            foreach (var d in _overflow) { if (d != null) { d.stashSec = index + 1; d.stashSlot = 0; } l.Add(d); }
             return l;
+        }
+
+        /// <summary>Put it back on the exact spot it was saved from (spot = 1-based). False if that spot's taken or doesn't take it.</summary>
+        public bool PlaceAt(ItemData d, int spot)
+        {
+            if (spot <= 0) return false;
+            Slot target = null; int k = 0;
+            foreach (var s in AllSlots()) if (++k == spot) { target = s; break; }
+            if (target == null || target.item != null) return false;
+            var it = ItemFactory.Spawn(d, transform.position + Vector3.up, transform.rotation);
+            if (it == null) return true;
+            it.transform.SetParent(null, true);
+            if (!target.Accepts(it)) { Compat.Kill(it.gameObject); return false; }
+            target.Store(it, false);
+            return true;
         }
 
         void Update() { if (Time.frameCount % 30 == 0) Refresh(); }
