@@ -896,17 +896,31 @@ namespace Rago
 
         /// <summary>A sewn name tape high on the chest: the person's name (a player's name without the #tag).
         /// Returns the text so it can be changed later; the tape goes away with the rig.</summary>
-        public static TextMesh NameTape(HumanRig r, string name)
+        public static TextMesh NameTape(HumanRig r, string name, bool creator = false)
         {
             if (r == null || r.chest == null) return null;
             var root = new GameObject("NameTape").transform;
             root.SetParent(r.chest, false);
             root.localPosition = new Vector3(0, 0.15f, 0.104f);
             root.localRotation = Quaternion.Euler(-18f, 0, 0);
-            var tape = new MB().Box(Vector3.zero, new Vector3(0.15f, 0.034f, 0.006f), new Color(0.2f, 0.22f, 0.16f), 0.002f)
-                .Build("Tape", root, Mats.Lit("name_tape", Color.white, 0f, 0.15f));
+            // a content creator's tape is red with white letters, with a CC badge (camera icon) beside it
+            var tmb = new MB().Box(Vector3.zero, new Vector3(0.15f, 0.034f, 0.006f), creator ? new Color(0.78f, 0.08f, 0.07f) : new Color(0.2f, 0.22f, 0.16f), 0.002f);
+            if (creator)
+            {
+                var bc = new Vector3(0.112f, 0f, 0.0005f);
+                tmb.Cyl(bc + new Vector3(0, 0, -0.003f), bc + new Vector3(0, 0, 0.003f), 0.024f, 0.024f, 20, new Color(0.95f, 0.8f, 0.25f));   // gold rim
+                tmb.Cyl(bc + new Vector3(0, 0, -0.0035f), bc + new Vector3(0, 0, 0.0036f), 0.02f, 0.02f, 20, new Color(0.78f, 0.08f, 0.07f));   // red patch
+                tmb.Box(bc + new Vector3(-0.002f, 0.007f, 0.0042f), new Vector3(0.018f, 0.011f, 0.002f), Color.white, 0.001f);                 // camera body
+                tmb.Cyl(bc + new Vector3(0.007f, 0.007f, 0.0042f), bc + new Vector3(0.007f, 0.007f, 0.0055f), 0.0035f, 0.0035f, 10, new Color(0.78f, 0.08f, 0.07f));   // lens
+            }
+            var tape = tmb.Build("Tape", root, Mats.Lit("name_tape", Color.white, 0f, 0.15f));
             tape.layer = r.chest.gameObject.layer;
-            var tm = UI.Text(root, "", new Vector3(0, 0, 0.0065f), 0.02f, new Color(0.05f, 0.05f, 0.04f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            if (creator)
+            {
+                var cc = UI.Text(root, "CC", new Vector3(0.112f, -0.0075f, 0.0068f), 0.0085f, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+                cc.transform.localRotation = Quaternion.Euler(0, 180f, 0); cc.gameObject.layer = r.chest.gameObject.layer;
+            }
+            var tm = UI.Text(root, "", new Vector3(0, 0, 0.0065f), 0.02f, creator ? Color.white : new Color(0.05f, 0.05f, 0.04f), TextAnchor.MiddleCenter, FontStyle.Bold);
             tm.transform.localRotation = Quaternion.Euler(0, 180f, 0);   // readable from the front (text faces away from its +Z)
             tm.gameObject.layer = r.chest.gameObject.layer;
             SetTape(tm, name);

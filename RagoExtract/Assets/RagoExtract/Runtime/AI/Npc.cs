@@ -80,6 +80,7 @@ namespace Rago
 
         /// <summary>A map boss (null for an ordinary raider): tough, well armed, better shot, stays near their lair.</summary>
         public string BossName;
+        public string DisplayName;   // the name on their chest (a boss: their full title)
         public bool IsBoss => BossName != null;
 
         public static Npc Spawn(int id, Vector3 pos, float yaw, int seed, bool heavy, Transform parent, string boss = null)
@@ -92,6 +93,7 @@ namespace Rago
             n._rng = new Rng(seed);
             n.Heavy = heavy;
             n.BossName = boss;
+            n.DisplayName = boss ?? HumanRig.ScavName(seed);
             n.MaxHealth = n.Health = boss != null ? 1400 : heavy ? 150 : 100;   // a boss soaks up a magazine or two
             n.Rig = HumanRig.Build(boss != null ? BossOutfit(boss) : heavy ? Outfit.RaiderHeavy : Outfit.Raider, seed, go.transform);
             HumanRig.NameTape(n.Rig, boss != null ? boss.Replace("The ", "") : HumanRig.ScavName(seed));   // name on the chest

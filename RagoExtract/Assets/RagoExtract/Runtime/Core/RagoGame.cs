@@ -491,6 +491,7 @@ namespace Rago
         public bool extracted, lost;   // lost = the connection to the raid dropped
         public string map, exit, killer, weapon;
         public int value, kills;
+        public List<string> killNames = new List<string>();   // everyone you killed, in order
         public float time;
     }
 
@@ -599,7 +600,7 @@ namespace Rago
             Levels.Award(Levels.ExtractXp + lootXp, "extracted");   // kills already paid out as they happened
             prof.Save();
             Sfx.UI(Synth.Extracted(), 0.7f);
-            _g.LastResult = new RaidResult { extracted = true, map = _map.DisplayName, exit = exit, value = Value(gear) - _startValue, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
+            _g.LastResult = new RaidResult { extracted = true, map = _map.DisplayName, exit = exit, value = Value(gear) - _startValue, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, killNames = NpcDirector.I != null ? new List<string>(NpcDirector.I.KillNames) : new List<string>(), time = Time.time - _start };
             _g.GoTo(Area.Bunker);
         }
 
@@ -618,7 +619,7 @@ namespace Rago
             for (int i = 0; i < prof.stashAmmo.Length; i++) { prof.stashAmmo[i] += gear.Ammo[i]; prof.stashAp[i] += gear.ApAmmo[i]; prof.stashInc[i] += gear.IncAmmo[i]; }
             prof.loadout.ammo = null;
             prof.Save();
-            _g.LastResult = new RaidResult { lost = true, exit = NetHub.Backend != null ? NetHub.Backend.Status : null, map = _map.DisplayName, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
+            _g.LastResult = new RaidResult { lost = true, exit = NetHub.Backend != null ? NetHub.Backend.Status : null, map = _map.DisplayName, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, killNames = NpcDirector.I != null ? new List<string>(NpcDirector.I.KillNames) : new List<string>(), time = Time.time - _start };
             _g.Player.Hud.Center("CONNECTION LOST\n<size=40>Returning to your bunker - you keep your gear.\nPress RECONNECT on the raid terminal to get back in.</size>", 5f);
             StartCoroutine(LostToBunker());
         }
@@ -673,7 +674,7 @@ namespace Rago
             if (prof.stashAmmo[(int)Caliber.C9mm] < 34) prof.stashAmmo[(int)Caliber.C9mm] = 34;
             prof.Save();
             DeathCause(killer, out string by, out string with);
-            _g.LastResult = new RaidResult { extracted = false, map = _map.DisplayName, killer = by, weapon = with, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, time = Time.time - _start };
+            _g.LastResult = new RaidResult { extracted = false, map = _map.DisplayName, killer = by, weapon = with, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, killNames = NpcDirector.I != null ? new List<string>(NpcDirector.I.KillNames) : new List<string>(), time = Time.time - _start };
             _g.Player.Hud.Center("DIED IN ACTION\n<size=40>" + (with != null ? "Killed by " + by + " - " + with : by) + "</size>", 6f);
         }
 
@@ -687,7 +688,7 @@ namespace Rago
             if (killer >= 1000)
             {
                 var npc = NpcDirector.I != null ? NpcDirector.I.Get(killer - 1000) : null;
-                by = npc == null ? "Scav" : npc.IsBoss ? npc.BossName : npc.Heavy ? "Heavy Scav" : "Scav";
+                by = npc == null ? "Scav" : npc.IsBoss ? npc.BossName : (npc.Heavy ? "Heavy Scav " : "Scav ") + (npc.DisplayName ?? "");   // with the name on their chest
                 if (def == null && npc != null) def = npc.Weapon;
             }
             else if (killer > 0)
@@ -726,13 +727,28 @@ namespace Rago
             var root = new GameObject("Results").transform;
             root.SetParent(parent, false);
             root.position = new Vector3(0, 1.6f, 1.2f);
-            var p = UI.Panel(root, "Panel", Vector3.zero, Quaternion.identity, new Vector2(1.3f, 0.75f));
-            UI.Text(p, r.lost ? "CONNECTION LOST" : r.extracted ? "EXTRACTED" : "DIED IN ACTION", new Vector3(0, 0.27f, 0), 0.07f, r.lost ? new Color(1f, 0.8f, 0.3f) : r.extracted ? new Color(0.4f, 1f, 0.5f) : new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
-            string body = r.lost ? r.map + "\n" + (r.exit ?? "") + "\nYou kept everything you were carrying.\nRECONNECT on the raid terminal (5 min)"  : r.map + "\n" + (r.extracted ? "Exit: " + r.exit + "\nLoot gained: $" + r.value.ToString("N0")
-                                       : (r.weapon != null ? "Killed by " + r.killer + "\nwith " + r.weapon : r.killer) + "\nYour gear was lost") +
-                          "\nKills: " + r.kills + "     Time: " + Mathf.FloorToInt(r.time / 60) + "m " + Mathf.FloorToInt(r.time % 60) + "s";
-            UI.Text(p, body, new Vector3(0, -0.03f, 0), 0.032f, Color.white);
-            UI.Button(p, "OK", new Vector3(0, -0.27f, 0), new Vector2(0.3f, 0.1f), () => Object.Destroy(root.gameObject));
+            var p = UI.Panel(root, "Panel", Vector3.zero, Quaternion.identity, new Vector2(1.7f, 0.95f));
+            UI.Text(p, r.lost ? "CONNECTION LOST" : r.extracted ? "EXTRACTED" : "DIED IN ACTION", new Vector3(0, 0.38f, 0), 0.075f, r.lost ? new Color(1f, 0.8f, 0.3f) : r.extracted ? new Color(0.4f, 1f, 0.5f) : new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            // left: the raid - where, how it ended (who killed you and with what), loot, time
+            string clock = Mathf.FloorToInt(r.time / 60) + "m " + Mathf.FloorToInt(r.time % 60) + "s";
+            string left = r.lost ? r.map + "\n" + (r.exit ?? "") + "\nYou kept everything you were carrying.\nRECONNECT on the raid terminal (5 min)"
+                : r.map + "\n\n" + (r.extracted ? "Exit:  " + r.exit + "\nLoot gained:  $" + r.value.ToString("N0") : "Your gear was lost") + "\nTime:  " + clock;
+            UI.Text(p, left, new Vector3(-0.8f, 0.24f, 0), 0.03f, Color.white, TextAnchor.UpperLeft);
+            if (!r.extracted && !r.lost)
+            {
+                UI.Text(p, "KILLED BY", new Vector3(-0.8f, -0.06f, 0), 0.03f, new Color(1f, 0.45f, 0.4f), TextAnchor.UpperLeft, FontStyle.Bold);
+                UI.Text(p, (r.killer ?? "unknown") + (r.weapon != null ? "\nwith " + r.weapon : ""), new Vector3(-0.8f, -0.12f, 0), 0.034f, Color.white, TextAnchor.UpperLeft, FontStyle.Bold);
+            }
+            // right: everyone you killed
+            var names = r.killNames ?? new List<string>();
+            int shown = Mathf.Min(names.Count, 11);
+            UI.Text(p, "YOU KILLED  (" + Mathf.Max(r.kills, names.Count) + ")", new Vector3(0.05f, 0.24f, 0), 0.03f, new Color(0.5f, 1f, 0.55f), TextAnchor.UpperLeft, FontStyle.Bold);
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < shown; i++) sb.Append(i + 1).Append(".  ").Append(names[i]).Append('\n');
+            if (names.Count > shown) sb.Append("... and ").Append(names.Count - shown).Append(" more");
+            if (names.Count == 0) sb.Append("nobody this time");
+            UI.Text(p, sb.ToString(), new Vector3(0.05f, 0.18f, 0), 0.027f, Color.white, TextAnchor.UpperLeft);
+            UI.Button(p, "OK", new Vector3(0, -0.38f, 0), new Vector2(0.3f, 0.1f), () => Object.Destroy(root.gameObject));
         }
     }
 }

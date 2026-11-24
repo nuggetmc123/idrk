@@ -124,6 +124,9 @@ namespace Rago
 
         string _gear = "";
         /// <summary>Shows the helmet, vest and backpack this player is wearing.</summary>
+        /// <summary>A content creator (the owner gave them the CC trophy): red name tape and a CC badge.</summary>
+        public bool Creator;
+
         public void ApplyGear(string key)
         {
             key = key ?? "";
@@ -132,6 +135,9 @@ namespace Rago
             var parts = key.Split('|');
             string P(int i) => parts.Length > i ? parts[i] : "";
             ArmorBuilder.Dress(_rig, Db.Get<ArmorDef>(P(0)), Db.Get<ArmorDef>(P(1)), Db.Get<BackpackDef>(P(2)), false, P(3) == "2" ? 2 : P(3) == "1" ? 1 : 0, P(4) == "2" ? 2 : P(4) == "1" ? 1 : 0);
+            bool cc = P(5) == "cc";
+            if (cc != Creator && _tape != null) { Destroy(_tape.transform.parent.gameObject); _tape = null; }   // rebuilt in red with the badge (or back to plain)
+            Creator = cc;
             _tapeDirty = true;   // the name tape moves onto (or off) the vest - next frame, once the old vest is gone
         }
 
@@ -367,7 +373,7 @@ namespace Rago
                 // no name text over players (teammates keep the green dot) - it used to be rebuilt every frame while hidden
                 if (_tag.gameObject.activeSelf) _tag.gameObject.SetActive(false);
                 // their name sewn on the chest instead (rebuilt if the body is rebuilt)
-                if (_tape == null) { _tape = HumanRig.NameTape(_rig, DisplayName); _tapeName = DisplayName; _tapeDirty = false; }
+                if (_tape == null) { _tape = HumanRig.NameTape(_rig, DisplayName, Creator); _tapeName = DisplayName; _tapeDirty = false; }
                 else if (_tapeDirty) { HumanRig.PlaceTape(_rig, _tape); _tapeDirty = false; }
                 else if (_tapeName != DisplayName) { HumanRig.SetTape(_tape, DisplayName); _tapeName = DisplayName; }
             }

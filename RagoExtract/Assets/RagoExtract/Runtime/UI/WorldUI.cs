@@ -573,6 +573,7 @@ namespace Rago
             {
                 if (CreatorCamRecorder.Since >= 0f) { _wristRec.color = new Color(1f, 0.2f, 0.2f); _wristRec.text = (Mathf.FloorToInt(Time.unscaledTime * 2f) % 2 == 0 ? "\u25CF " : "   ") + "REC " + CreatorCamRecorder.Clock(); }
                 else if (LiveEvent.Active) { _wristRec.color = new Color(1f, 0.8f, 0.25f); _wristRec.text = LiveEvent.Names[LiveEvent.Kind] + " " + LiveEvent.Left(); }
+                else if (Profile.Current != null && Profile.Current.creator) { _wristRec.color = new Color(1f, 0.25f, 0.2f); _wristRec.text = "\u25A0 CC  CONTENT CREATOR"; }   // your badge
                 else _wristRec.text = "";
             }
             _crosshair.SetActive(!XRInputs.VR && !Desktop.Aiming && v.Alive);

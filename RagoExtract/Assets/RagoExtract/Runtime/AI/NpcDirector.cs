@@ -10,6 +10,8 @@ namespace Rago
         public readonly List<Npc> Npcs = new List<Npc>();
         readonly Dictionary<int, Npc> _byId = new Dictionary<int, Npc>();
         public int Kills;
+        /// <summary>Everyone you killed this raid, in order (for the raid summary).</summary>
+        public readonly System.Collections.Generic.List<string> KillNames = new System.Collections.Generic.List<string>();
 
         public static NpcDirector Create(Transform parent)
         {
@@ -104,6 +106,7 @@ namespace Rago
             // only the player who killed it gets the kill and the XP (+ a bonus for a headshot)
             if (n.KillerId != Levels.MyKillerId) return;
             Kills++;
+            KillNames.Add((n.IsBoss ? "BOSS  " : "") + (n.DisplayName ?? "Raider") + (n.KillerHeadshot ? "  - headshot" : ""));
             if (Profile.Current != null) Profile.Current.kills++;
             int xp = (n.IsBoss ? Levels.BossXp : Levels.KillXp) + (n.KillerHeadshot ? Levels.HeadshotXp : 0);
             Levels.Award(xp, (n.IsBoss ? "boss killed" : "kill") + (n.KillerHeadshot ? " - HEADSHOT" : ""));

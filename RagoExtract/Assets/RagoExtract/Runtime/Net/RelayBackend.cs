@@ -359,6 +359,7 @@ namespace Rago
                         break;
                     }
                     if (id != "cc_trophy" || Db.Get(id) == null) break;   // only what the owner hands out
+                    if (Profile.Current != null) Profile.Current.creator = true;   // a content creator: red name tape + CC badge for everyone to see
                     Profile.Deliver(new ItemData(id), note);
                     RagoGame.I?.Player?.Toast("You got the " + Db.Get(id).name + "! It's waiting on the Deliveries screen in your bunker.");
                     break;

@@ -51,6 +51,7 @@ namespace Rago
         public bool inRaid;   // set while a raid is on: still set at the next launch = you quit mid-raid, which counts as dying
         public int tutorialStep;
         public List<MailItem> mailbox = new List<MailItem>();   // DELIVERIES screen in the bunker: bought / traded / sold
+        public bool creator;   // a content creator: the owner gave them the CC trophy (red name tape and a CC badge)
         public List<string> skins = new List<string>();      // gun skins won on the Market's Skin Wheel
         public List<string> dlc = new List<string>();       // DLC STORE packs bought (and "northpole": the South Pole vault)
         public List<string> friends = new List<string>();   // callsigns you added (menu > FRIENDS)
@@ -148,6 +149,8 @@ namespace Rago
             if (stashInc == null || stashInc.Length != n) { var a = new int[n]; if (stashInc != null) System.Array.Copy(stashInc, a, Mathf.Min(n, stashInc.Length)); stashInc = a; }
             if (stash == null) stash = new List<ItemData>();
             if (skins == null) skins = new List<string>();
+            // given the CC trophy before the badge existed: still a creator
+            if (!creator && (stash.Exists(d => d != null && d.id == "cc_trophy") || (mailbox != null && mailbox.Exists(m => m != null && m.item != null && m.item.id == "cc_trophy")) || (bunkerFloor != null && bunkerFloor.Exists(f => f != null && f.item != null && f.item.id == "cc_trophy")))) creator = true;
             if (loadout == null) loadout = new Loadout();
             if (jobProgress == null) jobProgress = new List<int>();
             if (tag <= 0) tag = NewTagFor();

@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.97", "Raid summary, creator badge", new[] {
+                "RAID SUMMARY: after every raid - extracted or dead - the board in your bunker shows everyone you killed, by name (bosses marked, headshots noted, other players you took out), and if you died, who killed you and with what.",
+                "CONTENT CREATORS: players who get the CC trophy from the owner now wear a red name tape with a gold-rimmed CC badge (a little camera) for everyone to see, and their watch shows CONTENT CREATOR.",
+            }),
             ("2.96", "Guns stay on the floor", new[] {
                 "Fixed: putting a gun down on the floor could drop it straight through and lose it under the house - if your hand went a little below the floor as you let go, it got stuck in the floor and fell out underneath. Now it's lifted onto the floor when you let go, and anything that ever ends up stuck inside a floor, table or wall pops back up onto it.",
             }),

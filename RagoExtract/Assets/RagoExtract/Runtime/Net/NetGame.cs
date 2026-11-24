@@ -194,7 +194,7 @@ namespace Rago
         {
             var g = p.Gear;
             var pack = g.PackSlot.item as Backpack;
-            return (g.Helmet != null ? g.Helmet.id : "") + "|" + (g.Vest != null ? g.Vest.id : "") + "|" + (pack != null ? pack.def.id : "") + "|" + (g.NvgWorn ? (g.NvgOn ? "2" : "1") : "0") + "|" + (g.CamWorn ? (g.CamRec ? "2" : "1") : "0");
+            return (g.Helmet != null ? g.Helmet.id : "") + "|" + (g.Vest != null ? g.Vest.id : "") + "|" + (pack != null ? pack.def.id : "") + "|" + (g.NvgWorn ? (g.NvgOn ? "2" : "1") : "0") + "|" + (g.CamWorn ? (g.CamRec ? "2" : "1") : "0") + "|" + (Profile.Current != null && Profile.Current.creator ? "cc" : "");
         }
 
         /// <summary>Introduce yourself to everyone (after you stop spectating).</summary>
@@ -435,6 +435,7 @@ namespace Rago
                 w.Write(h.gunId ?? "");
                 w.Write((byte)h.ammo);
                 Send(true, mrp.NetId);
+                _lastHitOn[mrp.NetId] = Time.time;   // if they die in the next few seconds, it was you
             }
             else if (z.owner is Npc npc)
             {
@@ -583,6 +584,8 @@ namespace Rago
         public void LockBroken(int doorId) { if (!Live) return; var w = W(Msg.LockBroken); w.Write(doorId); Send(true); }
 
         public void VaultOpened(int id) { if (!Live) return; var w = W(Msg.Vault); w.Write(id); Send(true); }
+
+        readonly Dictionary<ulong, float> _lastHitOn = new Dictionary<ulong, float>();
 
         public void NpcDamageToRemote(ulong target, HitInfo h)
         {
@@ -751,6 +754,8 @@ namespace Rago
                                 var pos = V3(r);
                                 int n = r.ReadInt32();
                                 if (Remotes.TryGetValue(from, out var rp)) rp.Die();
+                                // you hit them just before they died: your kill (for the raid summary)
+                                if (rp != null && _lastHitOn.TryGetValue(from, out var lh) && Time.time - lh < 4f && NpcDirector.I != null) { NpcDirector.I.KillNames.Add("PLAYER  " + rp.DisplayName); _lastHitOn.Remove(from); }
                                 for (int i = 0; i < n; i++)
                                 {
                                     int id = r.ReadInt32(); var d = JsonUtility.FromJson<ItemData>(r.ReadString());
