@@ -10,6 +10,7 @@ namespace Rago.EditorTools
     /// (so an old project gets fixed too, not only a new one):
     ///   - target Android API 34 (the store rejects 35 for now: "targetSdkVersion ... should be 34 or lower")
     ///   - install location "auto" (android:installLocation; leaving it out means internalOnly, which is also rejected)
+    ///   - version code from the game version (3.06 -> 306): every upload needs a higher one
     ///   - no engine code stripping and the least managed stripping (see link.xml): the game builds its world in code,
     ///     so stripping removed parts it needs and the build crashed on boot
     /// </summary>
@@ -49,6 +50,19 @@ namespace Rago.EditorTools
             catch (System.Exception e) { Debug.LogWarning("[Rago Extract] couldn't set the install location: " + e.Message); }
             // the world is built entirely in code at runtime (nothing sits in a scene), so code stripping can't tell what's
             // used: a stripped build crashed on boot. No engine stripping, the least managed stripping (and link.xml)
+            // version: the store refuses an APK whose version code isn't higher than the last one uploaded, so it comes
+            // from the game version (menu > NOTES): 3.06 -> code 306, name "3.06". Never lowered.
+            try
+            {
+                string ver = Rago.PatchNotes.All[0].version;
+                if (decimal.TryParse(ver, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var v))
+                {
+                    int code = (int)System.Math.Round(v * 100m);
+                    if (PlayerSettings.Android.bundleVersionCode < code) { PlayerSettings.Android.bundleVersionCode = code; changed = true; }
+                    if (PlayerSettings.bundleVersion != ver) { PlayerSettings.bundleVersion = ver; changed = true; }
+                }
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Rago Extract] couldn't set the version code: " + e.Message); }
             try { if (PlayerSettings.stripEngineCode) { PlayerSettings.stripEngineCode = false; changed = true; } }
             catch (System.Exception e) { Debug.LogWarning("[Rago Extract] couldn't turn off engine stripping: " + e.Message); }
             try

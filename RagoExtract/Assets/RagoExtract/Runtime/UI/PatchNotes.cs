@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.07", "Store upload fix", new[] {
+                "The Android version code now follows the game version (3.07 = 307), so every new build can be uploaded to the Meta store (it refused a second upload with version code 1).",
+            }),
             ("3.06", "SEASON 2 - full wipe", new[] {
                 "SEASON 2: every account is reset the first time you start this version - money, level, stash, gear, bunker and your Market shop. Everyone starts fresh with $6,000 and the starter kit. Your callsign, clothes, friends, settings and DLC packs you bought are kept.",
                 "The black market on the server is cleared for the new season too (once the server is updated).",
