@@ -714,10 +714,23 @@ namespace Rago
         {
             base.GetHeldPose(out pos, out rot);
             if (_rail == null || _rail.rig == null || _rail.rig.magwell == null) return;
-            var w = _rail.rig.magwell;
-            float y = Mathf.Clamp(w.InverseTransformPoint(pos).y, Mathf.Min(-0.14f, _rail.rig.magEntry - 0.02f), 0f);
-            pos = w.TransformPoint(new Vector3(0, y, 0));
-            rot = w.rotation;
+            WellFrame(_rail, out var wp, out var wr);
+            float y = Mathf.Clamp((Quaternion.Inverse(wr) * (pos - wp)).y, Mathf.Min(-0.14f, _rail.rig.magEntry - 0.02f), 0f);
+            pos = wp + wr * new Vector3(0, y, 0);
+            rot = wr;
+        }
+
+        /// <summary>The gun's magwell where the gun is being held THIS frame (from its hand), not where it was drawn last
+        /// frame - running, those differ by several cm and the mag kept missing the well.</summary>
+        static void WellFrame(Gun gun, out Vector3 wp, out Quaternion wr)
+        {
+            var w = gun.rig.magwell;
+            wp = w.position; wr = w.rotation;
+            if (!gun.Held || gun.primaryHand == null) return;
+            gun.GetHeldPose(out var gp, out var gr);
+            var inv = Quaternion.Inverse(gun.transform.rotation);
+            wp = gp + gr * (inv * (w.position - gun.transform.position));
+            wr = gr * (inv * w.rotation);
         }
 
         public override void HeldUpdate(Hand h, HandInput input)
@@ -727,7 +740,8 @@ namespace Rago
             if (gun == null || cal != gun.g.cal || gun.rig == null || gun.rig.magwell == null) { _rail = null; return; }
             if (gun.Internal)
             {
-                if (Vector3.Distance(transform.position, gun.rig.magwell.position) > 0.12f) return;
+                WellFrame(gun, out var iwp, out _); base.GetHeldPose(out var ip, out _);
+                if (Vector3.Distance(ip, iwp) > 0.13f) return;
                 if (gun.Accepts(this)) { gun.InsertMag(this); other.Haptic(0.5f, 0.06f); }
                 return;
             }
@@ -736,23 +750,26 @@ namespace Rago
             var saved = _rail; _rail = null;
             base.GetHeldPose(out var wantPos, out var wantRot);
             _rail = saved;
-            var w = gun.rig.magwell;
-            Vector3 l = w.InverseTransformPoint(wantPos);
-            float upAng = Vector3.Angle(wantRot * Vector3.up, w.up), fwdAng = Vector3.Angle(wantRot * Vector3.forward, w.forward);
+            WellFrame(gun, out var wp, out var wr);
+            Vector3 l = Quaternion.Inverse(wr) * (wantPos - wp);
+            float upAng = Vector3.Angle(wantRot * Vector3.up, wr * Vector3.up), fwdAng = Vector3.Angle(wantRot * Vector3.forward, wr * Vector3.forward);
+            // moving, hands shake: a more forgiving mouth
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            float slack = pl != null && pl.MoveVelocity.sqrMagnitude > 1f ? 1.4f : 1.15f;
             if (_rail == null)
             {
                 // engage: top of the mag in the mouth of the well, roughly upright and facing the right way
-                if (Mathf.Abs(l.x) < 0.03f && Mathf.Abs(l.z) < 0.035f && l.y > gun.rig.magEntry && l.y < 0.015f && upAng < 35f && fwdAng < 55f)
+                if (Mathf.Abs(l.x) < 0.03f * slack && Mathf.Abs(l.z) < 0.035f * slack && l.y > gun.rig.magEntry * slack && l.y < 0.015f && upAng < 35f * slack && fwdAng < 55f * slack)
                 {
                     _rail = gun;
                     other.Haptic(0.2f, 0.02f); h.Haptic(0.2f, 0.02f);
-                    Sfx.Play(Synth.Grab(1), w.position, 0.25f, 1.4f, 0.5f, 5f);
+                    Sfx.Play(Synth.Grab(1), wp, 0.25f, 1.4f, 0.5f, 5f);
                 }
                 return;
             }
             if (_rail != gun) { _rail = null; return; }
             // on the rail: pulled away or twisted off line - it comes back out
-            if (Mathf.Abs(l.x) > 0.07f || Mathf.Abs(l.z) > 0.08f || l.y < Mathf.Min(-0.17f, gun.rig.magEntry - 0.05f) || upAng > 50f) { _rail = null; return; }
+            if (Mathf.Abs(l.x) > 0.07f * slack || Mathf.Abs(l.z) > 0.08f * slack || l.y < Mathf.Min(-0.17f, gun.rig.magEntry - 0.05f) || upAng > 50f) { _rail = null; return; }
             // pushed home: click
             if (l.y > -0.006f)
             {

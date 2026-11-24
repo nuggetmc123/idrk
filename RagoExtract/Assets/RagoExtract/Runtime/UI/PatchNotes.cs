@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.05", "Reload on the move, grab mags crouched", new[] {
+                "Fixed: crouched, you could hardly pull a mag from your hip pouches (your hands were treated as reaching for the floor, which skips your own gear). The floor cut-off now goes down with you.",
+                "Fixed: loading a mag while running kept missing - the magwell is lined up with where the gun is in your hand right now, not where it was drawn a frame ago, and the mouth of the well is more forgiving while you move. Same for shells and speedloaders.",
+            }),
             ("3.04", "Straight drums", new[] {
                 "Drum mags on the AK-type rifles and the box shotguns now hang straight down instead of tipping back towards the trigger (they leaned like the curved mag does). They still face forward, winding key towards the muzzle.",
             }),

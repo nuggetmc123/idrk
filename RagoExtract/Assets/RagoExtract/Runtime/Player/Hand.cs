@@ -489,7 +489,8 @@ namespace Rago
             // 2. nearest item / interactable. Something lying in the world always beats your own holstered gear (reaching
             // down past your hip for a gun on the floor used to pull your holstered pistol or your armour instead), and
             // with your hand down by the floor your body gear isn't picked at all.
-            bool low = p.y < rig.transform.position.y + 0.5f;
+            // (relative to your head too: crouched, your hip pouches are below half a metre and used to count as "the floor")
+            bool low = p.y < Mathf.Min(rig.transform.position.y + 0.5f, rig.Head.position.y - 0.88f);
             // reaching for the floor: a bigger reach, a little up from the hand (with the play area's floor a few cm off,
             // your hand ends up just under things lying on the floor and missed them)
             int n = low ? Physics.OverlapSphereNonAlloc(p + Vector3.up * 0.06f, 0.15f, _overlap, ~0, QueryTriggerInteraction.Collide)
