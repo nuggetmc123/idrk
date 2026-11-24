@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using Rago.Relay;
 
 namespace RagoServer
@@ -79,6 +81,105 @@ namespace RagoServer
             if (mine.Count == 0) return;
             foreach (var f in mine) SendGift(c, f[1], f[2]);
             Save("gifts.tsv", all.Where(f => f[0] != c.Key).Select(f => string.Join("\t", f)));
+        }
+    
+        // ------------------------------------------------------------------ renames (owner panel)
+        /// <summary>A callsign the game would accept: 3-14 of A-Z, 0-9 and _ (upper-cased here).</summary>
+        static string CleanCallsign(string n)
+        {
+            n = (n ?? "").Trim().ToUpperInvariant();
+            if (n.Length < 3 || n.Length > 14) return null;
+            foreach (var ch in n) if (!(ch >= 'A' && ch <= 'Z') && !(ch >= '0' && ch <= '9') && ch != '_') return null;
+            if (n.Trim('_').Length == 0) return null;
+            return n;
+        }
+
+        static string WithTag(string oldDisplay, string newName)
+        {
+            int h = (oldDisplay ?? "").IndexOf('#');
+            return h >= 0 ? newName + oldDisplay.Substring(h) : newName;
+        }
+
+        /// <summary>The owner renames a player: their callsign changes on the server now, and in their game straight away (or
+        /// the next time they connect). Their #tag stays the same.</summary>
+        static string RenamePlayer(string key, string newName)
+        {
+            if (!Players.TryGetValue(key, out var k)) return "Unknown player";
+            var n = CleanCallsign(newName);
+            if (n == null) return "Callsign must be 3-14 letters, numbers or _";
+            string old = k.Name, shown = WithTag(old, n);
+            if (Players.Values.Any(o => o.Key != key && string.Equals(o.Name, shown, StringComparison.OrdinalIgnoreCase))) return shown + " is already taken";
+            k.Name = shown; _playersDirty = true;
+            if (Mods.ContainsKey(key)) { Mods[key] = shown; SaveMods(); }
+            var on = Clients.Values.FirstOrDefault(x => x.Key == key && !x.Refused);
+            if (on != null) { on.Name = shown; Send(on, new W(P.Rename).Str(n).Frame()); }
+            else
+            {
+                var all = Lines("renames.tsv").Where(f => f.Length >= 2 && f[0] != key).Select(f => string.Join("\t", f)).ToList();
+                all.Add(Clean(key) + "\t" + n);
+                Save("renames.tsv", all);
+            }
+            Note("renamed " + old + " to " + shown + (on != null ? "" : " (when they next log in)"));
+            return "Renamed " + old + " to " + shown + (on != null ? "" : " - it changes in their game next time they play");
+        }
+
+        static void DeliverRename(Client c)
+        {
+            var all = Lines("renames.tsv").Where(f => f.Length >= 2).ToList();
+            var mine = all.LastOrDefault(f => f[0] == c.Key);
+            if (mine == null) return;
+            Send(c, new W(P.Rename).Str(mine[1]).Frame());
+            Save("renames.tsv", all.Where(f => f[0] != c.Key).Select(f => string.Join("\t", f)));
+        }
+    
+        // ------------------------------------------------------------------ watching a player (owner panel)
+        // While the watch page is open it asks again every second; the player's game is told to keep sending small views
+        // (a JPEG of what they see, about 2 a second) and stops on its own a few seconds after the page closes.
+        static readonly Dictionary<string, long> WatchAsked = new Dictionary<string, long>();   // key -> last page refresh
+        static readonly Dictionary<string, long> WatchSent = new Dictionary<string, long>();    // key -> last WatchOn sent
+        static readonly Dictionary<string, byte[]> WatchFrames = new Dictionary<string, byte[]>();
+        static readonly byte[] Blank = { 0x47,0x49,0x46,0x38,0x39,0x61,1,0,1,0,0x80,0,0,0,0,0,0,0,0,0x21,0xF9,4,1,0,0,0,0,0x2C,0,0,0,0,1,0,1,0,0,2,2,0x44,1,0 };
+
+        static void KeepWatching(string key)
+        {
+            WatchAsked[key] = Now;
+            var on = Clients.Values.FirstOrDefault(x => x.Key == key && !x.Refused);
+            if (on != null && (!WatchSent.TryGetValue(key, out var t) || Now - t >= 4)) { Send(on, new W(P.WatchOn).Frame()); WatchSent[key] = Now; }
+            // anyone no longer being watched: tell their game to stop
+            foreach (var k in WatchAsked.Where(kv => Now - kv.Value > 12).Select(kv => kv.Key).ToList())
+            {
+                WatchAsked.Remove(k); WatchSent.Remove(k); WatchFrames.Remove(k);
+                var c = Clients.Values.FirstOrDefault(x => x.Key == k); if (c != null) Send(c, new W(P.WatchOff).Frame());
+            }
+        }
+
+        static void OnWatchFrame(Client c, byte[] jpg)
+        {
+            if (string.IsNullOrEmpty(c.Key) || !WatchAsked.ContainsKey(c.Key) || jpg == null || jpg.Length < 4 || jpg.Length > 300_000) return;
+            if (jpg[0] != 0xFF || jpg[1] != 0xD8) return;   // JPEG only
+            WatchFrames[c.Key] = jpg;
+        }
+
+        static byte[] WatchImage(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return Blank;
+            if (WatchAsked.ContainsKey(key)) WatchAsked[key] = Now;
+            return WatchFrames.TryGetValue(key, out var j) ? j : Blank;
+        }
+
+        static string WatchPage(string key)
+        {
+            if (string.IsNullOrEmpty(key) || !Players.TryGetValue(key, out var k)) return Page("Watch", "<p>Unknown player. <a href='./'>Back</a></p>");
+            var on = Clients.Values.FirstOrDefault(x => x.Key == key && !x.Refused);
+            if (on == null) return Page("Watch", "<h1>" + H(k.Name) + "</h1><p class=dim>Not online right now. <a href='./'>Back to the panel</a></p>");
+            KeepWatching(key);
+            string where = on.Room == null ? "bunker" : InMarket(on) ? "Market" : on.Room.Name.Contains("_q_") ? "raid" : "online";
+            string img = "watchimg?key=" + WebUtility.UrlEncode(key) + "&t=" + DateTime.UtcNow.Ticks;
+            return "<!doctype html><html><head><meta charset=utf-8><meta http-equiv=refresh content=1><meta name=viewport content='width=device-width,initial-scale=1'><title>Watching " + H(k.Name) + "</title>"
+                 + "<style>body{font:15px system-ui,sans-serif;background:#0d0e10;color:#e8e6e1;margin:0;padding:12px;text-align:center}img{width:100%;max-width:960px;aspect-ratio:16/9;background:#000;border-radius:8px;object-fit:contain}a{color:#7ab4ff}.dim{color:#8a8e95}</style></head><body>"
+                 + "<h2 style='margin:4px 0'>" + H(k.Name) + " <span class=dim>(" + where + ")</span></h2>"
+                 + "<img src='" + img + "' alt='waiting for their view...'>"
+                 + "<p class=dim>Their first-person view, updated every second. Their watch shows SPECTATED while you're here. <a href='./'>Stop watching</a></p></body></html>";
         }
     }
 }

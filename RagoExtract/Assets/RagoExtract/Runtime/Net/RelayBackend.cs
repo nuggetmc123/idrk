@@ -124,6 +124,13 @@ namespace Rago
             LastModReply = "Sending...";
         }
 
+        /// <summary>A view of what we see, for the owner watching us (WatchView).</summary>
+        public void SendWatchFrame(byte[] jpg)
+        {
+            if (_link == null || !_link.Connected || jpg == null) return;
+            _link.Send(new W(P.WatchFrame).Bytes(jpg).Frame());
+        }
+
         /// <summary>A moderator starts a live event for everyone (kind 0 = stop the one running).</summary>
         public void StartEvent(byte kind, int minutes)
         {
@@ -349,9 +356,34 @@ namespace Rago
                 case P.Gift:
                 {
                     string id = r.Str(), note = r.Str();
+                    if (id == "skin_beta")
+                    {
+                        // the BETA TESTER skin: unlocked at the paint booth (a gift - it stays through season resets)
+                        var pf = Profile.Current;
+                        if (pf != null) { pf.dlc ??= new System.Collections.Generic.List<string>(); if (!pf.dlc.Contains("beta")) pf.dlc.Add("beta"); pf.Save(); }
+                        Sfx.UI(Synth.Ding(), 0.6f);
+                        RagoGame.I?.Player?.Hud.Center("BETA TESTER SKIN\n<size=40>" + note + "\nPaint it on any gun at the booth in your bunker.</size>", 6f);
+                        break;
+                    }
                     if (id != "cc_trophy" || Db.Get(id) == null) break;   // only what the owner hands out
                     Profile.Deliver(new ItemData(id), note);
                     RagoGame.I?.Player?.Toast("You got the " + Db.Get(id).name + "! It's waiting on the Deliveries screen in your bunker.");
+                    break;
+                }
+                case P.WatchOn: WatchView.On(); break;
+                case P.WatchOff: WatchView.Off(); break;
+                case P.Rename:
+                {
+                    // the owner changed our callsign (the #tag stays): the next keep-alive tells the server the new name
+                    string nn = r.Str().Trim().ToUpperInvariant();
+                    var pf = Profile.Current;
+                    if (pf == null || nn.Length < IdTerminal.MinLen || nn.Length > IdTerminal.MaxLen) break;
+                    bool okName = true; foreach (var ch in nn) if (!(ch >= 'A' && ch <= 'Z') && !(ch >= '0' && ch <= '9') && ch != '_') okName = false;
+                    if (!okName) break;   // (the owner may give a reserved-looking name; only the characters are checked)
+                    string was = pf.DisplayName;
+                    pf.name = nn; pf.nameSet = true; pf.Save();
+                    RagoGame.I?.Player?.Toast("Your callsign is now " + pf.DisplayName + " (was " + was + ")");
+                    Log("callsign changed by the owner: " + was + " -> " + pf.DisplayName);
                     break;
                 }
                 case P.EventIn: { byte k = r.U8(); int secs = r.I32(); string by = r.Str(); LiveEvent.Set(k, secs, by); break; }

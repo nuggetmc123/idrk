@@ -572,6 +572,7 @@ namespace Rago
             if (_wristRec != null)
             {
                 if (CreatorCamRecorder.Since >= 0f) { _wristRec.color = new Color(1f, 0.2f, 0.2f); _wristRec.text = (Mathf.FloorToInt(Time.unscaledTime * 2f) % 2 == 0 ? "\u25CF " : "   ") + "REC " + CreatorCamRecorder.Clock(); }
+                else if (WatchView.Active) { _wristRec.color = new Color(0.6f, 0.8f, 1f); _wristRec.text = "SPECTATED"; }
                 else if (LiveEvent.Active) { _wristRec.color = new Color(1f, 0.8f, 0.25f); _wristRec.text = LiveEvent.Names[LiveEvent.Kind] + " " + LiveEvent.Left(); }
                 else _wristRec.text = "";
             }

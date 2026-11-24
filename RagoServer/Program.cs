@@ -250,6 +250,9 @@ namespace RagoServer
                 case P.ShopUnlist:
                     HandleMarket(c, type, r);
                     break;
+                case P.WatchFrame:
+                    OnWatchFrame(c, r.Bytes());
+                    break;
                 case P.EventReq:
                 {
                     byte kind = r.U8(); int minutes = r.I32();

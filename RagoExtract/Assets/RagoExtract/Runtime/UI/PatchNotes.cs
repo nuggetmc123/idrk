@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.81", "Beta Tester skin", new[] {
+                "BETA TESTER SKIN: dark carbon with orange chevrons and teal pinstripes - a thank-you gift for beta testers from the owner. If you get it, paint it on any gun at the booth in your bunker.",
+                "The owner can watch a player's view for moderation - your watch shows SPECTATED while that's happening.",
+            }),
             ("2.80", "Mod spawn tools, smooth DLC tab", new[] {
                 "Moderators: the MOD tab has a SPAWN TOOLS page - spawn any item, spawn raiders and bosses, ammo, god mode and invisible-to-AI.",
                 "Fixed: the DLC tab stuttered every second or so while you looked at it. The rifle previews are built once and reused now, and the page doesn't keep redrawing itself. The Market's DLC wall flips pages without a hitch too.",

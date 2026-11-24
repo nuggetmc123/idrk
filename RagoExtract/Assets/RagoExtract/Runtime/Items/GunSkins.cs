@@ -61,6 +61,8 @@ namespace Rago
             new Skin { id = "ranger", name = "Ranger Green", pack = "operator", spray = new Color(0.25f, 0.3f, 0.2f), mat = () => Coat("ranger", new Color(0.24f, 0.29f, 0.19f), 0.28f) },
             new Skin { id = "shards", name = "Mountain Shards", pack = "operator", spray = new Color(0.45f, 0.45f, 0.43f), mat = () => Paint("shards", MountainShards, 3f, false, 0.05f, 0.25f, 0.3f, 0.45f) },
             new Skin { id = "digidesert", name = "Desert Digital", pack = "operator", spray = new Color(0.7f, 0.6f, 0.42f), mat = () => Paint("digidesert", DesertDigital, 3.5f, true, 0f, 0.22f, 0.3f, 0.45f) },
+            // a gift from the owner to beta testers (owner panel > Give Beta skin)
+            new Skin { id = "beta", name = "Beta Tester", pack = "beta", spray = new Color(1f, 0.45f, 0.05f), mat = () => Paint("beta", BetaTester, 3f, false, 0.3f, 0.7f, 0.05f, 0.15f) },
             new Skin { id = "aurora", name = "Aurora", pack = "northpole", spray = new Color(0.3f, 0.95f, 0.7f), mat = () => Paint("aurora", Aurora, 2f, false, 0.3f, 0.85f, 0.03f, 0.08f) },
             new Skin { id = "giftwrap", name = "Gift Wrap", pack = "northpole", spray = new Color(0.8f, 0.1f, 0.1f), mat = () => Paint("giftwrap", GiftWrap, 3f, false, 0.2f, 0.6f, 0.05f, 0.1f) },
             new Skin { id = "gingerbread", name = "Gingerbread", pack = "northpole", spray = new Color(0.6f, 0.38f, 0.2f), mat = () => Paint("gingerbread", Gingerbread, 3f, false, 0f, 0.3f, 0.15f, 0.2f) },
@@ -72,6 +74,7 @@ namespace Rago
         public static string PackName(string pack)
         {
             if (pack == "northpole") return "the South Pole vault";
+            if (pack == "beta") return "a gift for beta testers";
             var p = Dlc.Get(pack);
             if (p == null) return pack;
             var n = p.name.ToLowerInvariant(); return char.ToUpper(n[0]) + n.Substring(1).Replace(" pack", " Pack").Replace("'s", "'s");
@@ -218,6 +221,17 @@ namespace Rago
             float across = warp ? fx : fy;   // which way this tow runs
             float shade = 0.07f + 0.08f * Mathf.Sin(across * Mathf.PI) + (warp ? 0.03f : 0f);
             return new Color(shade, shade, shade * 1.1f);
+        }
+
+        /// <summary>BETA TESTER: dark carbon with bright orange chevrons running along the gun and a thin teal pinstripe.</summary>
+        static Color BetaTester(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.06f, 0.06f, 0.07f), new Color(0.13f, 0.13f, 0.15f), ((int)(u * 64f) + (int)(v * 64f)) % 2 == 0 ? 0.3f : 0.7f);   // carbon weave
+            float band = Mathf.Abs(v - 0.5f);
+            float chev = Fr(u * 6f + Mathf.Abs(v - 0.5f) * 3f);
+            if (band < 0.18f && chev < 0.45f) c = new Color(1f, 0.45f, 0.05f);   // >>> chevrons
+            if (Mathf.Abs(band - 0.24f) < 0.012f) c = new Color(0.1f, 0.85f, 0.8f);   // pinstripes
+            return c;
         }
 
         // ---- DLC patterns
