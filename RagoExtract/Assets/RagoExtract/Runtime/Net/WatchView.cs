@@ -4,7 +4,7 @@ namespace Rago
 {
     /// <summary>
     /// The owner is watching this player (owner panel > Watch): a small first-person view - the player's head camera,
-    /// 480x270 - goes to the server as a JPEG about twice a second. It runs only while the server keeps asking (it renews
+    /// 480x270 - goes to the server as a JPEG about three times a second. It runs only while the server keeps asking (it renews
     /// every few seconds while the watch page is open) and stops by itself 15 s after the last request. The player's
     /// watch shows SPECTATED meanwhile.
     /// </summary>
@@ -33,7 +33,7 @@ namespace Rago
             if (!Active) { if (_cam != null && _cam.enabled) _cam.enabled = false; return; }
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             if (pl == null || pl.Head == null || Time.unscaledTime < _next || _busy) return;
-            _next = Time.unscaledTime + 0.5f;
+            _next = Time.unscaledTime + 0.33f;   // ~3 views a second
             if (_cam == null)
             {
                 var go = new GameObject("WatchCam"); go.transform.SetParent(transform, false);
@@ -65,14 +65,13 @@ namespace Rago
             }
         }
 
-        static readonly byte[] _flip = new byte[W * H * 4];
         static void SendFrame(byte[] px)
         {
             try
             {
-                int row = W * 4;
-                for (int y = 0; y < H; y++) System.Buffer.BlockCopy(px, (H - 1 - y) * row, _flip, y * row, row);   // GPU rows are bottom-first
-                var jpg = ImageConversion.EncodeArrayToJPG(_flip, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_SRGB, W, H, 0, 55);
+                // read back in Unity's own row order (bottom row first) - exactly what the JPEG encoder expects. It used to
+                // flip the rows "to fix" that, which turned the view upside down on the headset.
+                var jpg = ImageConversion.EncodeArrayToJPG(px, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_SRGB, W, H, 0, 60);
                 RelayBackend.Instance?.SendWatchFrame(jpg);
             }
             catch (System.Exception e) { Debug.LogWarning("[Rago] watch frame: " + e.Message); }

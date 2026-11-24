@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.90", "Spectate view fix", new[] {
+                "Fixed: when the owner watched a player for moderation, the picture came through upside down.",
+            }),
             ("2.89", "Sidecar bike: proper handlebars, all bolted together", new[] {
                 "The sidecar bike has real handlebars now: wide chrome bars on risers with ribbed rubber grips, levers, mirrors, a speedo, and the headlamp on the forks (it turns with them).",
                 "Everything on the bike is connected: a swingarm and a sprung shock for the back wheel, a subframe under the saddle and pillion, fender stays, footboard brackets, an arm and an arched mudguard for the sidecar wheel, a carrier for the jerrycan.",

@@ -163,9 +163,16 @@ namespace RagoServer
         static byte[] WatchImage(string key)
         {
             if (string.IsNullOrEmpty(key)) return Blank;
-            if (WatchAsked.ContainsKey(key)) WatchAsked[key] = Now;
+            if (WatchAsked.ContainsKey(key)) KeepWatching(key);   // the page fetching frames keeps the watch going (and renews the player's game)
             return WatchFrames.TryGetValue(key, out var j) ? j : Blank;
         }
+
+        /// <summary>The watch page's script: fetches the next frame in the background and swaps it in when it has loaded,
+        /// about 3 times a second - the page itself never reloads (it used to, every second: it flashed and jumped).</summary>
+        const string WatchJs = @"(function(){var img=document.getElementById('v');if(!img)return;var key=img.getAttribute('data-key');var st=document.getElementById('st');var fails=0;
+function next(){var n=new Image();n.onload=function(){img.src=n.src;fails=0;if(st)st.textContent=n.naturalWidth>1?'live':'waiting for their view...';setTimeout(next,300);};
+n.onerror=function(){fails++;if(st)st.textContent='connection lost - retrying';setTimeout(next,fails>3?3000:1000);};
+n.src='watchimg?key='+encodeURIComponent(key)+'&t='+Date.now();}next();})();";
 
         static string WatchPage(string key)
         {
@@ -174,12 +181,12 @@ namespace RagoServer
             if (on == null) return Page("Watch", "<h1>" + H(k.Name) + "</h1><p class=dim>Not online right now. <a href='./'>Back to the panel</a></p>");
             KeepWatching(key);
             string where = on.Room == null ? "bunker" : InMarket(on) ? "Market" : on.Room.Name.Contains("_q_") ? "raid" : "online";
-            string img = "watchimg?key=" + WebUtility.UrlEncode(key) + "&t=" + DateTime.UtcNow.Ticks;
-            return "<!doctype html><html><head><meta charset=utf-8><meta http-equiv=refresh content=1><meta name=viewport content='width=device-width,initial-scale=1'><title>Watching " + H(k.Name) + "</title>"
+            return "<!doctype html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>Watching " + H(k.Name) + "</title>"
                  + "<style>body{font:15px system-ui,sans-serif;background:#0d0e10;color:#e8e6e1;margin:0;padding:12px;text-align:center}img{width:100%;max-width:960px;aspect-ratio:16/9;background:#000;border-radius:8px;object-fit:contain}a{color:#7ab4ff}.dim{color:#8a8e95}</style></head><body>"
-                 + "<h2 style='margin:4px 0'>" + H(k.Name) + " <span class=dim>(" + where + ")</span></h2>"
-                 + "<img src='" + img + "' alt='waiting for their view...'>"
-                 + "<p class=dim>Their first-person view, updated every second. Their watch shows SPECTATED while you're here. <a href='./'>Stop watching</a></p></body></html>";
+                 + "<h2 style='margin:4px 0'>" + H(k.Name) + " <span class=dim>(" + where + ")</span> <span id=st class=dim>connecting...</span></h2>"
+                 + "<img id=v data-key='" + H(key) + "' alt=''>"
+                 + "<p class=dim>Their first-person view, live. Their watch shows SPECTATED while you're here. <a href='./'>Stop watching</a></p>"
+                 + "<script src='watch.js'></script></body></html>";
         }
     }
 }
