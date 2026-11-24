@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.08", "Clearer store errors", new[] {
+                "A DLC purchase that the Meta store refuses now says why in plain words (for example: this account doesn't own this copy - install it from the Store app) instead of a wall of error codes.",
+            }),
             ("3.07", "Store upload fix", new[] {
                 "The Android version code now follows the game version (3.07 = 307), so every new build can be uploaded to the Meta store (it refused a second upload with version code 1).",
             }),

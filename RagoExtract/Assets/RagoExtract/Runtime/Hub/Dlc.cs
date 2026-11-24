@@ -151,10 +151,22 @@ namespace Rago
             Init();
             Oculus.Platform.IAP.LaunchCheckoutFlow(p.sku).OnComplete(msg =>
             {
-                if (msg.IsError) { done(false, msg.GetError() != null ? msg.GetError().Message : "Purchase failed"); return; }
+                if (msg.IsError) { done(false, Friendly(msg.GetError() != null ? msg.GetError().Message : null)); return; }
                 var pur = msg.GetPurchase();
                 done(pur != null && pur.Sku == p.sku, null);
             });
+        }
+
+        /// <summary>The store's raw error is a wall of codes on your wrist: say what it means.</summary>
+        static string Friendly(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return "Purchase failed - try again";
+            Debug.LogWarning("[Rago] checkout: " + raw);
+            if (raw.Contains("PackageNotInLibrary") || raw.Contains("not entitled"))
+                return "Meta says this account doesn't own this copy of the game. Install Rago Extract from the Store app (your Alpha/Beta channel, signed in with that account) - not by cable - then try again.";
+            if (raw.Contains("cancel") || raw.Contains("Cancel")) return "Purchase cancelled";
+            if (raw.Contains("sku") || raw.Contains("SKU") || raw.Contains("not found")) return "This pack isn't set up in the store yet";
+            return "Purchase failed: " + (raw.Length > 140 ? raw.Substring(0, 140) + "..." : raw);
         }
 
         public void Owned(Action<HashSet<string>> done)
