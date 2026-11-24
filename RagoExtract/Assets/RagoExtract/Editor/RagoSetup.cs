@@ -252,7 +252,8 @@ namespace Rago.EditorTools
             Try(() => { PlayerSettings.SplashScreen.show = false; PlayerSettings.SplashScreen.showUnityLogo = false; });
             Try(() => PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft);
             Try(() => PlayerSettings.Android.minSdkVersion = (AndroidSdkVersions)29);
-            Try(() => PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto);
+            Try(() => PlayerSettings.Android.targetSdkVersion = (AndroidSdkVersions)RagoStoreBuild.TargetSdk);   // the Meta store rejects 35 for now
+            Try(() => PlayerSettings.Android.preferredInstallLocation = AndroidPreferredInstallLocation.Auto);       // android:installLocation="auto" (store rule)
             Try(() => PlayerSettings.Android.forceInternetPermission = true);
             Try(() => PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64);
             Try(() => { PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false); PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { UnityEngine.Rendering.GraphicsDeviceType.OpenGLES3 }); });

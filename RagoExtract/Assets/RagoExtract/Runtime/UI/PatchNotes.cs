@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.76", "Meta store build fixes", new[] {
+                "Builds now pass Meta's store checks: Android target version 34 and install location \"auto\".",
+            }),
             ("2.75", "Season 1: everyone starts fresh", new[] {
                 "SEASON 1 - the test period is over and every account has been reset. Money is back to $6,000, level and stats to zero, and your stash, gear, ammo, bunker (rooms, floor, med cabinet) and deliveries are all gone. The black market starts empty too. Your callsign, friends, settings and any DLC packs you own are kept.",
                 "The TESTER menu tab is gone.",
