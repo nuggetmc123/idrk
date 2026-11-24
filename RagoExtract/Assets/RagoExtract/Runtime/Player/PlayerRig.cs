@@ -150,6 +150,16 @@ namespace Rago
 
         public static System.Action AfterRenderSnap;
 
+        /// <summary>Put the hands and what they hold exactly on the controllers right now (a shot is fired from where you
+        /// see the gun: running sideways, the physics copy trailed behind and shots went off to the side you ran from).</summary>
+        public void SnapHandsNow()
+        {
+            if (!XRInputs.VR || Dead) return;
+            HandTargets(out var lp, out var lr, out var rp, out var rr);
+            HandL.RenderSnap(lp, lr); HandR.RenderSnap(rp, rr);
+            HandL.RenderSnapHeld(); HandR.RenderSnapHeld();
+        }
+
         void ApplyHead()
         {
             Head.localPosition = XRInputs.HeadPos + Vector3.up * ((XRInputs.VR ? Lift : 0f) - _crouchOffset);
@@ -508,6 +518,7 @@ namespace Rago
             c.RidersChanged();   // stop the cart's body pushing yours right away (not half a second later)
             if (!passenger) c.Settle();   // sits flat on its wheels again (pressed down on one side, it drove leaning)
             c.SwingDoor(passenger ? 1 : 0);
+            c.SyncNow();   // everyone's copy of it jumps to where it really is, so they see you get in here (not somewhere else)
             var seatT = passenger ? c.PassSeat : c.Seat;
             Cc.enabled = false;
             _vy = 0f; MoveVelocity = Vector3.zero; Sprinting = false;

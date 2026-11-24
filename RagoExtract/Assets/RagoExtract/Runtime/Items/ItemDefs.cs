@@ -389,7 +389,7 @@ namespace Rago
             S("hex_holo", "Hex Holo Mk.II", 3, new Color(0.3f, 2.8f, 4f), 2, 0.016f, V, 6000, Finish.Gray, "Vault-only. Cyan chevron hex holographic.");
 
             // ---------------- MEDS
-            var bandage = M("bandage", "Bandage", ItemKind.Med, C, 120, 0, new Color(0.9f, 0.88f, 0.82f), "Stops bleeding. Hold it to your chest and squeeze trigger.");
+            var bandage = M("bandage", "Bandage", ItemKind.Med, C, 120, 0, new Color(0.9f, 0.88f, 0.82f), "Stops bleeding - the only way besides a medkit, it doesn't stop on its own. Hold it to your chest and squeeze trigger.");
             bandage.stopsBleed = true; bandage.heal = 5;
             var medkit = M("medkit", "Field Medkit", ItemKind.Med, U, 600, 1, new Color(0.75f, 0.12f, 0.1f), "Heals 60 HP over a few seconds and stops bleeding.");
             medkit.heal = 60; medkit.stopsBleed = true; medkit.healTime = 4f;
@@ -399,7 +399,7 @@ namespace Rago
             ifak.heal = 40; ifak.stopsBleed = true; ifak.healTime = 3f;
             var trauma = M("trauma_kit", "Trauma Kit", ItemKind.Med, R, 2400, 1, new Color(0.15f, 0.35f, 0.75f), "Surgical trauma kit: heals 90 HP over a few seconds.");
             trauma.heal = 90; trauma.stopsBleed = true; trauma.healTime = 5f;
-            var stim = M("stim", "Adrenal Stim", ItemKind.Med, R, 1200, 2, new Color(0.2f, 0.75f, 0.9f), "Instant 30 HP and a burst of stamina.");
+            var stim = M("stim", "Adrenal Stim", ItemKind.Med, R, 1200, 2, new Color(0.2f, 0.75f, 0.9f), "Syringe. Press it to a broken arm or leg (or a shot leg) and pull the trigger to fix it - nothing else does. Or at your chest: instant 30 HP and a burst of stamina.");
             // night vision goggles: put them on your head, flip them down with an empty hand at your forehead + trigger
             M("cc_cam", "Camera", ItemKind.Valuable, Rarity.Epic, 6000, 0, new Color(0.08f, 0.08f, 0.09f), "A helmet camera that records video. Hold it to your helmet and let go to clip it on (right side). One button: reach to it with an empty hand and pull the trigger to RECORD / stop (desktop: C). Grab it to take it off.");
             M("cc_trophy", "CC Trophy", ItemKind.Valuable, Rarity.Vault, 1, 0, new Color(0.95f, 0.75f, 0.2f), "The Content Creator trophy: a gold cup with a play button on it, handed out by the owner to the people who make videos of the game. Put it on show in your bunker.");

@@ -295,6 +295,16 @@ namespace Rago
 
         public void RidersChanged() { _ignoreT = 0f; IgnoreRiders(); }
 
+        float _parkSyncT;
+        /// <summary>Put everyone else's copy of this vehicle exactly where ours is (getting in, or sitting in it parked).
+        /// Not while someone else is driving it - then theirs is the one that counts.</summary>
+        public void SyncNow()
+        {
+            if (!NetGame.Live || rb == null) return;
+            if (RemoteDriver != 0 && Time.time - _remoteT < 1.5f) return;
+            NetGame.I.CartState(Id, rb.position, rb.rotation, false);
+        }
+
         void FixedUpdate()
         {
             if (rb == null) return;
@@ -325,6 +335,9 @@ namespace Rago
             {
                 if (!rb.isKinematic) { rb.SetVel(Vector3.zero); rb.angularVelocity = Vector3.zero; rb.isKinematic = true; }
                 _holding = true;
+                // sitting still in it: keep telling everyone where it is (their copy could have been bumped somewhere else -
+                // you appeared to teleport into a different spot on their screens)
+                if ((_parkSyncT -= Time.fixedDeltaTime) <= 0f) { _parkSyncT = 1.5f; SyncNow(); }
                 return;
             }
             if (rb.isKinematic) { rb.isKinematic = false; if (!_holding) RemoteDriver = 0; }
@@ -497,7 +510,8 @@ namespace Rago
                 }
             }
             else { _netVel = Vector3.zero; _netAng = Vector3.zero; }
-            if (LocalDriving && driving) { if (from < (NetHub.Backend != null ? NetHub.Backend.LocalId : 0)) RagoGame.I.Player.LeaveCart(); else return; }   // both got in at once: the lower id keeps it
+            if (LocalDriving && driving) { if (from < (NetHub.Backend != null ? NetHub.Backend.LocalId : 0)) RagoGame.I.Player.LeaveCart(); else return; }
+            if (!driving && LocalDriving) return;   // we're the one driving it: ours is the real one   // both got in at once: the lower id keeps it
             if (driving) { RemoteDriver = from; _remoteT = Time.time; _netPos = pos; _netRot = rot; if (rb != null && !rb.isKinematic) { rb.isKinematic = true; } }
             else
             {

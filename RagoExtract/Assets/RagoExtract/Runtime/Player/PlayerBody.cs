@@ -130,12 +130,49 @@ namespace Rago
         public float Stamina = 100, MaxStamina = 100;
         public float StimBoost;
         public float Bleed;      // hp per second
-        public float LegPenalty = 1f;   // leg wounds: < 1 slows you (and below 0.7 you can't sprint)
-        public float ArmInjury;         // 0..1: your hands shake (aim wobbles)
+        public float LegPenalty = 1f;   // leg wounds: < 1 slows you (and below 0.7 you can't sprint) - only a syringe on the leg fixes it
+        public float ArmInjury;         // 0..1: your hands shake (aim wobbles) - a broken arm shakes until a syringe sets it
+        /// <summary>Limbs: broken (hit hard, again and again, in the same arm or leg) and shot legs. Only a syringe (stim)
+        /// pressed against that limb fixes them - bandages and medkits don't.</summary>
+        public readonly bool[] Broken = new bool[7];
+        public readonly bool[] LegShot = new bool[7];
+        static bool IsLimb(int z) => z >= (int)Zone.ArmL;
+        static string LimbName(int z) => z == (int)Zone.ArmL ? "LEFT ARM" : z == (int)Zone.ArmR ? "RIGHT ARM" : z == (int)Zone.LegL ? "LEFT LEG" : z == (int)Zone.LegR ? "RIGHT LEG" : "";
+        void RecomputeLimbs()
+        {
+            bool legBroken = Broken[(int)Zone.LegL] || Broken[(int)Zone.LegR];
+            bool legShot = LegShot[(int)Zone.LegL] || LegShot[(int)Zone.LegR];
+            LegPenalty = legBroken ? 0.45f : legShot ? 0.65f : 1f;
+            if (Broken[(int)Zone.ArmL] || Broken[(int)Zone.ArmR]) ArmInjury = 1f;
+        }
+
+        /// <summary>A syringe pressed against a hurt arm or leg: sets the break / fixes the shot leg. True if it did.</summary>
+        public bool TreatLimb(Vector3 at)
+        {
+            var r = rig != null && rig.Body != null ? rig.Body.Rig : null;
+            if (r == null) return false;
+            int best = -1; float bd = 0.3f * 0.3f;
+            for (int z = (int)Zone.ArmL; z <= (int)Zone.LegR; z++)
+            {
+                if (!Broken[z] && !LegShot[z]) continue;
+                Vector3 p = z == (int)Zone.ArmL ? r.faL.position : z == (int)Zone.ArmR ? r.faR.position
+                          : z == (int)Zone.LegL ? (r.thL.position + r.shL.position) * 0.5f : (r.thR.position + r.shR.position) * 0.5f;
+                Vector3 p2 = z == (int)Zone.ArmL ? r.uaL.position : z == (int)Zone.ArmR ? r.uaR.position : z == (int)Zone.LegL ? r.shL.position : r.shR.position;
+                float d = Mathf.Min((p - at).sqrMagnitude, (p2 - at).sqrMagnitude);
+                if (d < bd) { bd = d; best = z; }
+            }
+            if (best < 0) return false;
+            bool was = Broken[best];
+            Broken[best] = false; LegShot[best] = false; PartDmg[best] = 0f;
+            if (best == (int)Zone.ArmL || best == (int)Zone.ArmR) ArmInjury = 0f;
+            RecomputeLimbs();
+            rig.Toast(LimbName(best) + (was ? " set - not broken any more" : " fixed - no more limp"));
+            return true;
+        }
         public float GutInjury;         // 0..1: stamina drains faster
         public bool CanSprint => LegPenalty >= 0.7f;
         /// <summary>A medkit / surgery: every injury fixed.</summary>
-        public void TreatInjuries() { LegPenalty = 1f; ArmInjury = 0f; GutInjury = 0f; for (int i = 0; i < PartDmg.Length; i++) PartDmg[i] *= 0.5f; }
+        public void TreatInjuries() { GutInjury = 0f; ArmInjury = 0f; for (int i = 0; i < PartDmg.Length; i++) if (!Broken[i]) PartDmg[i] *= 0.5f; RecomputeLimbs(); }   // a medkit: not broken limbs or shot legs (that's the syringe)
 
         // ---- body map (tap your watch): damage per part and where each hit landed
         public enum Zone { Head, Thorax, Stomach, ArmL, ArmR, LegL, LegR }
@@ -159,6 +196,12 @@ namespace Rago
         {
             int z = ZoneOf(h);
             PartDmg[z] += dmg;
+            if (IsLimb(z) && !Broken[z] && PartDmg[z] >= PartMax[z] * 0.75f && Health - 0f > 0f)
+            {
+                Broken[z] = true; RecomputeLimbs();
+                rig.Toast(LimbName(z) + " BROKEN - hold a syringe (stim) to it and pull the trigger");
+                Sfx.UI(Synth.BodyFall(), 0.3f);
+            }
             // where on that part: across from the body's facing, up/down from a hash of the point (bones move too much to be exact)
             Vector2 at = new Vector2(Random.Range(-0.8f, 0.8f), Random.Range(-0.8f, 0.8f));
             if (rig != null && rig.Body != null && rig.Body.Rig != null)
@@ -178,7 +221,7 @@ namespace Rago
         public static HitInfo LastKillHit;      // the hit that killed you (who, with what, where)
         public static string LastDeathReason;   // no killer: "Bled out", "Drowned", raid time ran out...
 
-        public void ResetFull() { System.Array.Clear(PartDmg, 0, PartDmg.Length); Hits.Clear(); Health = MaxHealth; Stamina = MaxStamina; Bleed = 0; LegPenalty = 1; ArmInjury = 0; GutInjury = 0; _hot = 0; StimBoost = 0; }
+        public void ResetFull() { System.Array.Clear(Broken, 0, Broken.Length); System.Array.Clear(LegShot, 0, LegShot.Length); System.Array.Clear(PartDmg, 0, PartDmg.Length); Hits.Clear(); Health = MaxHealth; Stamina = MaxStamina; Bleed = 0; LegPenalty = 1; ArmInjury = 0; GutInjury = 0; _hot = 0; StimBoost = 0; }
 
         public void Heal(float hp) { Health = Mathf.Min(MaxHealth, Health + hp); float k = Mathf.Clamp01(hp / MaxHealth); for (int i = 0; i < PartDmg.Length; i++) PartDmg[i] = Mathf.Max(0f, PartDmg[i] - PartMax[i] * k); }
         public void HealOverTime(float hp, float secs) { _hot += hp; _hotRate = hp / Mathf.Max(0.1f, secs); }
@@ -188,7 +231,7 @@ namespace Rago
             return Vector3.Distance(h.TrackedPosition, h.rig.Body.Rig.chest.position) < 0.28f;
         }
 
-        public void StopBleeding() { Bleed = 0; LegPenalty = Mathf.Max(LegPenalty, 0.85f); rig.Toast("Bleeding stopped"); }
+        public void StopBleeding() { Bleed = 0; rig.Toast("Bleeding stopped"); }
 
         public void TakeHit(HitInfo h, HitZone zone)
         {
@@ -214,12 +257,14 @@ namespace Rago
                 switch (h.part)
                 {
                     case BodyPart.Leg:
-                        bool wasOk = LegPenalty >= 0.7f;
-                        LegPenalty = Mathf.Max(0.45f, LegPenalty - 0.2f);
-                        if (wasOk && LegPenalty < 0.7f) rig.Toast("LEG HIT - you're limping and can't sprint (bandage or medkit)");
+                    {
+                        int lz = ZoneOf(h);
+                        if (!LegShot[lz] && !Broken[lz]) rig.Toast(LimbName(lz) + " SHOT - you're limping and can't sprint (a syringe on that leg fixes it)");
+                        LegShot[lz] = true; RecomputeLimbs();
                         break;
+                    }
                     case BodyPart.Arm:
-                        if (ArmInjury <= 0f) rig.Toast("ARM HIT - your aim shakes (medkit)");
+                        if (ArmInjury <= 0f) rig.Toast("ARM HIT - your aim shakes (medkit; hit it more and it breaks)");
                         ArmInjury = Mathf.Min(1f, ArmInjury + 0.4f);
                         break;
                     case BodyPart.Stomach:
@@ -296,24 +341,12 @@ namespace Rago
             if (_hot > 0) { float k = Mathf.Min(_hot, _hotRate * dt); _hot -= k; Heal(k); }
             if (Bleed > 0)
             {
-                // pressing an empty hand on your chest (grip) slows the bleeding and helps it clot
+                // pressing an empty hand on your chest (grip) slows the bleeding - but it never stops on its own any more:
+                // only a bandage or a medkit (IFAK, trauma kit) stops it
                 bool pressure = Pressing(rig.HandL) || Pressing(rig.HandR);
                 Health -= Bleed * dt * (pressure ? 0.5f : 1f);
-                // without meds it's a gamble: every few seconds a wound may clot on its own - light bleeds often do,
-                // heavy ones rarely; resting helps, sprinting doesn't
                 _clotT -= dt;
-                if (_clotT <= 0f)
-                {
-                    _clotT = 5f;
-                    float chance = Bleed <= 0.61f ? 0.22f : Bleed <= 1.21f ? 0.12f : Bleed <= 2.41f ? 0.06f : 0.03f;
-                    if (pressure) chance *= 3f;
-                    if (rig.Sprinting) chance *= 0.4f; else if (rig.MoveVelocity.sqrMagnitude < 0.2f) chance *= 1.5f;
-                    if (Random.value < chance)
-                    {
-                        Bleed = Mathf.Max(0f, Bleed - 0.6f);
-                        rig.Toast(Bleed <= 0f ? "Your bleeding stopped on its own" : "A wound clotted - still bleeding");
-                    }
-                }
+                if (_clotT <= 0f) { _clotT = 25f; rig.Toast("BLEEDING - use a bandage or a medkit"); }
                 _dripT -= dt;
                 if (_dripT <= 0) { _dripT = Random.Range(0.3f, 0.8f) / Bleed; Fx.Drip(rig.Body.Rig.spine.position + Random.insideUnitSphere * 0.1f); }
                 if (God) { Health = MaxHealth; Bleed = 0; }   // tester god mode

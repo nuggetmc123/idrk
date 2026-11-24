@@ -11,6 +11,7 @@ namespace Rago
         public Transform under;   // pistols: the accessory rail under the frame (lights / lasers)
         public GameObject muzzleDevice;   // the gun's own flash hider / brake: hidden while a suppressor or brake is screwed on
         public Vector3 slideTravel = new Vector3(0, 0, -0.03f);
+        public float magEntry = -0.07f;   // how far below the magwell a mag's top is caught to slide in (pistols: the bottom of the grip)
         public Vector3 pumpTravel = new Vector3(0, 0, -0.07f);
         public Bounds bounds;
         public MagStyle magStyle;
@@ -337,7 +338,10 @@ namespace Rago
             rig.slideTravel = new Vector3(0, 0, -slideLen * 0.28f);
             rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, zF + 0.004f));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.012f, sy + 0.01f, zB + slideLen * 0.55f));
-            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, -0.075f, -0.005f), Quaternion.Euler(-14, 0, 0));
+            // the mag goes right up inside the grip (only its base plate shows under it): the magwell is at the top of the
+            // grip, square to it. It used to sit under the grip, tipped forward - the mag hung off the bottom of the gun
+            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.018f, -0.009f), Quaternion.Euler(3, 0, 0));
+            rig.magEntry = -0.13f;
             rig.magStyle = MagStyle.PistolBox;
             rig.under = Anchor(rig.root, "UnderRail", new Vector3(0, 0.017f, zF - 0.035f), Quaternion.Euler(0, 0, -90));
             if (d.optics)
@@ -667,7 +671,8 @@ namespace Rago
             if (d.optics) Rail(mb, new Vector3(0, 0.1f, 0.0f), 0.12f, 0.02f);
             rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, 0.2f));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.02f, 0.085f, 0.04f));
-            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, -0.06f, -0.01f), Quaternion.Euler(-8, 0, 0));
+            rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.025f, -0.004f), Quaternion.Euler(14, 0, 0));   // up inside the raked grip (it hung under it)
+            rig.magEntry = -0.13f;
             rig.magStyle = MagStyle.PistolBox;
             if (d.optics) rig.rail = Anchor(rig.root, "Rail", new Vector3(0, 0.11f, 0.05f));
             rig.foregrip = Anchor(rig.root, "Foregrip", new Vector3(0, 0.02f, 0.115f));

@@ -327,6 +327,7 @@ namespace Rago
 
         void Fire()
         {
+            if (primaryHand != null && RagoGame.I != null && RagoGame.I.Player != null) RagoGame.I.Player.SnapHandsNow();   // fire from where you see it
             OnShot?.Invoke(this);
             chambered = false;
             _hasSpent = true;
@@ -532,15 +533,44 @@ namespace Rago
         /// Sights are zeroed: the bullet leaves the barrel angled up a hair so it crosses the line of sight at the
         /// zero distance (irons 25 m, red dots / holos 50 m, magnified scopes 100 m) - it hits where you aim.
         /// </summary>
+        /// <summary>
+        /// Where the shot goes: exactly where the sight is looking. The line through the scope / red dot / iron sights is
+        /// followed out into the world to whatever it lands on, and the bullet leaves the muzzle straight for that point -
+        /// so the reticle is right at every range (it used to be zeroed at one fixed distance, off a little everywhere
+        /// else, and a scope sitting a touch crooked on its rail missed).
+        /// </summary>
         Vector3 ZeroedDir()
         {
             Vector3 f = rig.muzzle.forward;
-            Vector3 eye; float zero;
-            if (sight != null && sight.Lens != null) { eye = sight.Lens.position; zero = sight.sd.mag > 0f ? 100f : 50f; }
-            else if (rig.sightLine != null) { eye = rig.sightLine.position; zero = g.TwoHanded ? 25f : 15f; }
+            Vector3 eye, axis;
+            if (sight != null && sight.Lens != null) { eye = sight.Lens.position; axis = sight.transform.forward; }
+            else if (rig.sightLine != null) { eye = rig.sightLine.position; axis = transform.forward; }
             else return f;
-            Vector3 d = (eye + transform.forward * zero - rig.muzzle.position).normalized;
-            return Vector3.Angle(d, f) < 2f ? d : f;
+            Vector3 target = eye + axis * 300f;
+            int n = Physics.RaycastNonAlloc(eye + axis * 0.05f, axis, _aimHits, 800f, AimMask, QueryTriggerInteraction.Ignore);
+            float best = float.MaxValue;
+            for (int i = 0; i < n; i++)
+            {
+                var h = _aimHits[i];
+                if (h.collider.GetComponentInParent<Item>() != null) continue;   // the gun itself, its attachments, things in your hands
+                if (h.distance < best) { best = h.distance; target = h.point; }
+            }
+            Vector3 d = target - rig.muzzle.position;
+            if (d.sqrMagnitude < 0.25f) return f;   // right up against something: straight out of the barrel
+            d.Normalize();
+            return Vector3.Angle(d, f) < 6f ? d : f;   // never wildly off the barrel (a sight knocked sideways)
+        }
+        static readonly RaycastHit[] _aimHits = new RaycastHit[16];
+        static int _aimMask;
+        static int AimMask
+        {
+            get
+            {
+                if (_aimMask != 0) return _aimMask;
+                _aimMask = ~0;
+                foreach (int l in new[] { Layers.Hands, Layers.LocalBody, Layers.Player, Layers.Items }) if (l > 0) _aimMask &= ~(1 << l);
+                return _aimMask;
+            }
         }
 
         Transform _muzzleEnd;
@@ -685,7 +715,7 @@ namespace Rago
             base.GetHeldPose(out pos, out rot);
             if (_rail == null || _rail.rig == null || _rail.rig.magwell == null) return;
             var w = _rail.rig.magwell;
-            float y = Mathf.Clamp(w.InverseTransformPoint(pos).y, -0.14f, 0f);
+            float y = Mathf.Clamp(w.InverseTransformPoint(pos).y, Mathf.Min(-0.14f, _rail.rig.magEntry - 0.02f), 0f);
             pos = w.TransformPoint(new Vector3(0, y, 0));
             rot = w.rotation;
         }
@@ -712,7 +742,7 @@ namespace Rago
             if (_rail == null)
             {
                 // engage: top of the mag in the mouth of the well, roughly upright and facing the right way
-                if (Mathf.Abs(l.x) < 0.03f && Mathf.Abs(l.z) < 0.035f && l.y > -0.07f && l.y < 0.015f && upAng < 35f && fwdAng < 55f)
+                if (Mathf.Abs(l.x) < 0.03f && Mathf.Abs(l.z) < 0.035f && l.y > gun.rig.magEntry && l.y < 0.015f && upAng < 35f && fwdAng < 55f)
                 {
                     _rail = gun;
                     other.Haptic(0.2f, 0.02f); h.Haptic(0.2f, 0.02f);
@@ -722,7 +752,7 @@ namespace Rago
             }
             if (_rail != gun) { _rail = null; return; }
             // on the rail: pulled away or twisted off line - it comes back out
-            if (Mathf.Abs(l.x) > 0.07f || Mathf.Abs(l.z) > 0.08f || l.y < -0.17f || upAng > 50f) { _rail = null; return; }
+            if (Mathf.Abs(l.x) > 0.07f || Mathf.Abs(l.z) > 0.08f || l.y < Mathf.Min(-0.17f, gun.rig.magEntry - 0.05f) || upAng > 50f) { _rail = null; return; }
             // pushed home: click
             if (l.y > -0.006f)
             {

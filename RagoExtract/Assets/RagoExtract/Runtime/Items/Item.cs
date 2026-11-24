@@ -398,6 +398,14 @@ namespace Rago
             if (_using || sd == null) return;
             bool atBody = Vector3.Distance(transform.position, pl.Head.position - Vector3.up * 0.2f) < 0.45f
                        || (pl.Body != null && pl.Body.Rig != null && Vector3.Distance(transform.position, pl.Body.Rig.chest.position) < 0.4f);
+            // a syringe pressed against a broken arm / leg or a shot leg: fixes that limb (the only thing that does)
+            if (input.TriggerDown && def.id == "stim" && pl.Vitals.TreatLimb(transform.position))
+            {
+                _using = true;
+                Sfx.Play(Synth.Inject(), transform.position, 0.6f, 1f, 0.5f, 6f);
+                h.Haptic(0.4f, 0.2f); Consumed = true; h.ForceRelease(); Destroy(gameObject);
+                return;
+            }
             if (input.TriggerDown && atBody)
             {
                 _using = true;
@@ -412,7 +420,7 @@ namespace Rago
                 {
                     Sfx.Play(Synth.Heal(), transform.position, 0.6f, 1f, 0.5f, 6f);
                     if (sd.stopsBleed) pl.Vitals.StopBleeding();
-                    if (sd.heal >= 40f) { pl.Vitals.TreatInjuries(); pl.Toast(def.name + ": wounds treated - limp, shaking and gut wound gone"); }   // a proper medkit
+                    if (sd.heal >= 40f) { pl.Vitals.TreatInjuries(); pl.Toast(def.name + ": wounds treated - shaking and gut wound gone (a broken limb or shot leg needs a syringe)"); }   // a proper medkit
                     pl.Vitals.HealOverTime(sd.heal, sd.healTime);
                 }
                 h.Haptic(0.4f, 0.2f);

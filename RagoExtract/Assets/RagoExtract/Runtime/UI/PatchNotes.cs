@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.02", "New injuries, true aim, mags that fit", new[] {
+                "INJURIES: bleeding never stops on its own any more - use a bandage or a medkit. A shot leg makes you limp until you press a SYRINGE (stim) to that leg and pull the trigger. Take enough hits on one arm or leg and it BREAKS (a broken arm shakes your aim badly, a broken leg slows you right down) - hold a syringe to it to set it. Medkits still heal and fix gut wounds; the body map stays.",
+                "Shots go exactly where your sight points: the line through your scope, red dot or iron sights is followed out to whatever it's on, and the bullet goes straight there - right on at every range.",
+                "Fixed: running sideways while shooting threw your shots off to one side - the gun is snapped to your hand at the moment you fire.",
+                "Fixed: pistol and machine pistol magazines hung under the grip - they slide right up inside it now, only the base plate showing.",
+                "Fixed: getting into a vehicle in multiplayer could look like you teleported somewhere else - everyone's copy of it is put exactly where it really is when you get in (and while you sit in it).",
+            }),
             ("3.01", "Manda plays fetch", new[] {
                 "Your pug Manda plays FETCH: there's a tennis ball by her bed - throw it (or anything small) across the bunker and she watches it land, runs after it, picks it up in her mouth and trots it back to drop at your feet, tail going like mad. Grab it out of her mouth any time.",
             }),
