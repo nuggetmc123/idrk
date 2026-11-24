@@ -273,6 +273,12 @@ namespace Rago
             NightVision.Reset(Player); if (Player != null && Player.Gear != null) Player.Gear.NvgOn = false;   // goggles up when you leave
             if (MapRoot != null) { Fx.ClearMapEffects(); Destroy(MapRoot.gameObject); }
             yield return null;
+            // free the old area's meshes, colliders, textures and materials: they're built in code, and destroying the
+            // objects left all of that in memory - every trip between the bunker, the Market and a raid added more until
+            // the headset ran out and closed the game ("random" crashes after a few raids)
+            var unload = Resources.UnloadUnusedAssets();
+            float unloadStart = Time.realtimeSinceStartup;
+            while (!unload.isDone && Time.realtimeSinceStartup - unloadStart < 10f) yield return null;
             System.GC.Collect();
             // build the new one
             MapRoot = new GameObject("World").transform;

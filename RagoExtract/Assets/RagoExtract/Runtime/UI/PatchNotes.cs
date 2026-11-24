@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.98", "Crash fixes", new[] {
+                "Fixed: the game could crash after a while of playing. Every trip between your bunker, the Market and a raid left the old area's meshes, textures and materials in memory, so after a few raids the headset ran out of memory and closed the game. They're freed on the loading screen now. The field map's photo (4-12 MB a raid) leaked the same way and is freed too.",
+                "Fixed: a scope being destroyed could break the other scopes of the same kind.",
+            }),
             ("2.97", "Raid summary, creator badge", new[] {
                 "RAID SUMMARY: after every raid - extracted or dead - the board in your bunker shows everyone you killed, by name (bosses marked, headshots noted, other players you took out), and if you died, who killed you and with what.",
                 "CONTENT CREATORS: players who get the CC trophy from the owner now wear a red name tape with a gold-rimmed CC badge (a little camera) for everyone to see, and their watch shows CONTENT CREATOR.",

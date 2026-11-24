@@ -55,8 +55,18 @@ namespace Rago
                     Debug.LogWarning("[Rago] scope shader unavailable - using a plain lens");
                 }
             }
+            else if (_mat != null)
+            {
+                // our own copy of the lens material: the shared one belongs to every scope of this kind (each needs its own
+                // picture, and destroying the shared one when this scope went away broke the others)
+                _mat = new Material(_mat);
+                var mr = _sight.Lens != null ? _sight.Lens.GetComponent<MeshRenderer>() : null;
+                if (mr != null) mr.sharedMaterial = _mat;
+            }
+            _ownMat = _mat != null;
             if (_mat != null) _mat.SetTexture("_MainTex", _rt);
         }
+        bool _ownMat;
 
         void LateUpdate()
         {
@@ -84,7 +94,7 @@ namespace Rago
         void OnDestroy()
         {
             if (_rt != null) { _rt.Release(); Destroy(_rt); }
-            if (_mat != null) Destroy(_mat);
+            if (_mat != null && _ownMat) Destroy(_mat);   // only the copy we made
         }
     }
 }

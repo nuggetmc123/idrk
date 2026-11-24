@@ -86,6 +86,8 @@ namespace Rago
         }
 
         readonly List<Transform> _pages = new List<Transform>();
+        readonly List<Object> _made = new List<Object>();   // the photos and their materials: freed with the map (they leaked every raid)
+        void OnDestroy() { foreach (var o in _made) if (o != null) Destroy(o); _made.Clear(); }
         float[] _floors;
         int _page = -1;
 
@@ -106,7 +108,9 @@ namespace Rago
                 if (tex != null)
                 {
                     var img = new MB().Quad(new Vector3(-h, -h, 0), new Vector3(h, -h, 0), new Vector3(h, h, 0), new Vector3(-h, h, 0), Color.white, Vector2.one);
-                    img.Build("Photo", page, Mats.Unlit(null, Color.white, tex, Mats.BlendKind.Alpha, true));
+                    var pm = Mats.Unlit(null, Color.white, tex, Mats.BlendKind.Alpha, true);
+                    _made.Add(tex); _made.Add(pm);
+                    img.Build("Photo", page, pm);
                 }
                 string floorName = _floors != null && map.MapFloorNames != null && pg < map.MapFloorNames.Length ? "  -  " + map.MapFloorNames[pg] : "";
                 UI.Text(page, title.ToUpper() + floorName + "  -  FIELD MAP", new Vector3(-h, h + 0.035f, -0.002f), 0.022f, UI.PaperInk, TextAnchor.MiddleLeft, FontStyle.Bold);
