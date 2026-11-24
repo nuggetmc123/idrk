@@ -515,7 +515,7 @@ namespace Rago
                     try { SpawnBrowser.Preview(rifle, holder, 0.26f, 0.08f, skins[0].id, 15f); } catch { }
                 }
                 UI.Text(_content, skins.Count + " skins" + (p.items.Length > 0 ? " + " + p.items.Length + " items" : ""), new Vector3(x, y - 0.05f, -0.02f), 0.017f, UI.Dim, TextAnchor.MiddleCenter);
-                UI.Text(_content, owned ? "OWNED" : p.usd, new Vector3(x, y - 0.09f, -0.02f), 0.02f, owned ? new Color(0.5f, 1f, 0.55f) : Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+                UI.Text(_content, owned ? "OWNED" : Dlc.Price(p), new Vector3(x, y - 0.09f, -0.02f), 0.02f, owned ? new Color(0.5f, 1f, 0.55f) : Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
             }
             if (pages > 1)
             {
@@ -581,7 +581,7 @@ namespace Rago
             }
             else
             {
-                Line(p.usd, -0.27f, 0.05f, Color.white, 0.16f);
+                Line(Dlc.Price(p), -0.27f, 0.05f, Color.white, 0.16f);
                 var pp = p;
                 Btn("BUY", 0.4f, -0.29f, 0.2f, () =>
                 {

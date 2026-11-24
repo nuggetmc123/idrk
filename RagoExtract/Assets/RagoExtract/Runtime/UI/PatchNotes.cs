@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.94", "Holiday Pack for in-game cash", new[] {
+                "The HOLIDAY PACK now costs $25,000 of in-game cash instead of real money - buy it from the DLC tab or the DLC store in the Market. You still get its 3 festive skins, the Candy Cane club and 3 impact grenades.",
+            }),
             ("2.93", "Hop on the bike by the throttle", new[] {
                 "Grab the sidecar bike's handlebar (the right grip is the throttle) and you climb straight on with your hand already on the bars - just pull the right trigger to ride. The grips are easier to catch, too.",
             }),

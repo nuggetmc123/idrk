@@ -25,11 +25,12 @@ namespace Rago
         public class Pack
         {
             public string id, name, tagline, usd, sku; public uint steamDlc; public Color col; public string[] items = new string[0]; public bool seasonal;
+            public int cash;   // > 0: bought with in-game cash in the DLC tab / store, not real money
         }
 
         public static readonly Pack[] Packs =
         {
-            new Pack { id = "holiday", name = "HOLIDAY PACK", usd = "$1.99", sku = "rago_pack_holiday", col = new Color(0.75f, 0.1f, 0.1f), seasonal = true,
+            new Pack { id = "holiday", name = "HOLIDAY PACK", usd = "$1.99", cash = 25000, sku = "rago_pack_holiday", col = new Color(0.75f, 0.1f, 0.1f), seasonal = true,
                 tagline = "festive skins + a candy cane club", items = new[] { "candycane", "impact", "impact", "impact" } },
             new Pack { id = "street", name = "STREET PACK", usd = "$2.99", sku = "rago_pack_street", col = new Color(0.15f, 0.6f, 0.35f), tagline = "loud city paint jobs" },
             new Pack { id = "survivor", name = "SURVIVOR PACK", usd = "$2.99", sku = "rago_pack_survivor", col = new Color(0.2f, 0.4f, 0.65f), tagline = "weathered and wild" },
@@ -46,7 +47,9 @@ namespace Rago
         public static IEnumerable<Pack> Shown() { foreach (var p in Packs) if (!p.seasonal || Festive.On || Owns(p.id)) yield return p; }
         public static Pack Get(string id) { foreach (var p in Packs) if (p.id == id) return p; return null; }
         public static bool Owns(string id) => Profile.Current != null && Profile.Current.dlc != null && Profile.Current.dlc.Contains(id);
-        public static string PriceText(Pack p) => Owns(p.id) ? "OWNED" : p.usd;
+        public static string PriceText(Pack p) => Owns(p.id) ? "OWNED" : Price(p);
+        /// <summary>What it costs: real money, or for an in-game-cash pack "$25,000 CASH".</summary>
+        public static string Price(Pack p) => p.cash > 0 ? "$" + p.cash.ToString("N0") + " CASH" : p.usd;
         public static List<GunSkins.Skin> Skins(Pack p) => GunSkins.All.FindAll(s => s.pack == p.id);
 
         public static event Action Changed;
@@ -73,6 +76,16 @@ namespace Rago
         {
             if (p == null || Owns(p.id)) { done?.Invoke(false, "You already own it"); return; }
             if (_busy) { done?.Invoke(false, "A purchase is already open"); return; }
+            if (p.cash > 0)
+            {
+                // bought with in-game money: straight from your cash, no store checkout
+                var prof = Profile.Current;
+                if (prof == null || prof.money < p.cash) { done?.Invoke(false, "Not enough cash - " + p.name + " costs $" + p.cash.ToString("N0")); return; }
+                prof.money -= p.cash;
+                Grant(p);
+                done?.Invoke(true, p.name + " unlocked for $" + p.cash.ToString("N0") + "!");
+                return;
+            }
             var s = Store;
             if (s == null)
             {
