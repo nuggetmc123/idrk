@@ -120,18 +120,15 @@ namespace Rago
             Vector3 fl = pl.Head.forward; fl.y = 0; if (fl.sqrMagnitude < 0.01f) fl = Vector3.forward;
             if ((gz - pl.transform.position).magnitude < 250f) gz = pl.transform.position + fl.normalized * 450f;
             gz.y = pl.transform.position.y;
-            // the flash: everything goes white, then the cloud starts to climb
+            // the missile comes down, the flash, then the shockwave rolls out - you're gone when it reaches you
+            var fx = NukeFx.Play(gz);
+            Sfx.Play(Synth.Alarm(), pl.Head.position + Vector3.up * 30f, 0.7f, 0.7f, 40f, 400f);
+            while (fx != null && fx.T < 0f) yield return null;
             pl.Hud.Flashbang(3f);
-            var cloud = Mushroom(gz);
             Sfx.UI(Synth.ExplosionFar(), 1f);
             Sfx.Play(Synth.Explosion(), pl.Head.position + (gz - pl.Head.position).normalized * 40f, 1f, 0.35f, 60f, 800f, 0.3f);
-            float t = 0f;
-            while (t < 2.6f)
-            {
-                t += Time.deltaTime;
-                GrowCloud(cloud, t);
-                yield return null;
-            }
+            float dist = new Vector2(pl.transform.position.x - gz.x, pl.transform.position.z - gz.z).magnitude;
+            while (fx != null && fx.WaveRadius < dist) yield return null;
             // the blast wave: everyone still in the raid is gone, raiders and all
             if (InRaid && !pl.Dead)
             {
@@ -142,39 +139,6 @@ namespace Rago
                         if (n != null && n.Alive && !n.Puppet) n.Die(n.transform.position + Vector3.up, (n.transform.position - gz).normalized * 60f + Vector3.up * 20f, false);
                 pl.Vitals.Kill("NUKED - the strike hit before you got out");
             }
-            while (t < 30f && cloud != null) { t += Time.deltaTime; GrowCloud(cloud, t); yield return null; }
-            if (cloud != null) Compat.KillWithMeshes(cloud);
-        }
-
-        static GameObject Mushroom(Vector3 at)
-        {
-            var go = new GameObject("NukeCloud");
-            go.transform.position = at;
-            var mb = new MB(2);
-            mb.Sub(0).Cyl(Vector3.zero, new Vector3(0, 1f, 0), 0.16f, 0.1f, 20, new Color(0.9f, 0.55f, 0.3f));                          // the stem
-            mb.Sub(1).Sphere(new Vector3(0, 1.05f, 0), new Vector3(0.45f, 0.28f, 0.45f), 20, new Color(1f, 0.7f, 0.35f));                // the cap
-            mb.Sub(1).Sphere(new Vector3(0, 0.98f, 0), new Vector3(0.55f, 0.12f, 0.55f), 20, new Color(0.85f, 0.5f, 0.3f));              // the ring under it
-            mb.Sub(0).Sphere(new Vector3(0, 0.02f, 0), new Vector3(0.6f, 0.08f, 0.6f), 20, new Color(0.8f, 0.55f, 0.4f));                 // dust at the base
-            mb.Build("Cloud", go.transform,
-                Mats.Lit("nuke_stem", Color.white, 0f, 0.1f, Mats.Noise, null, 0.2f, 0f, false, 0.5f, new Color(1.6f, 0.6f, 0.15f)),
-                Mats.Lit("nuke_cap", Color.white, 0f, 0.1f, Mats.Noise, null, 0.2f, 0f, false, 0.5f, new Color(2.4f, 1.1f, 0.3f)));
-            foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            var l = new GameObject("Glow").AddComponent<Light>(); l.transform.SetParent(go.transform, false); l.transform.localPosition = Vector3.up * 0.8f;
-            l.type = LightType.Point; l.range = 2000f; l.intensity = 6f; l.color = new Color(1f, 0.75f, 0.45f); l.shadows = LightShadows.None;
-            go.transform.localScale = Vector3.one * 20f;
-            return go;
-        }
-
-        static void GrowCloud(GameObject c, float t)
-        {
-            if (c == null) return;
-            float h = Mathf.Lerp(20f, 320f, 1f - Mathf.Exp(-t * 0.35f));   // climbs fast, then slows
-            c.transform.localScale = new Vector3(h * 0.9f, h, h * 0.9f);
-            var l = c.GetComponentInChildren<Light>();
-            if (l != null) l.intensity = Mathf.Lerp(8f, 0.6f, Mathf.Clamp01(t / 12f));
-            float cool = Mathf.Clamp01(t / 20f);   // the fireball cools to grey smoke
-            foreach (var r in c.GetComponentsInChildren<Renderer>())
-                foreach (var m in r.materials) m.SetColor("_EmissionColor", Color.Lerp(new Color(2.4f, 1.1f, 0.3f), new Color(0.05f, 0.04f, 0.04f), cool));
         }
     }
 }

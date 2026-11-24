@@ -743,7 +743,7 @@ namespace Rago
                 if (InCore(x, z) || EastSea(x)) return -8f;
                 if (Mathf.Abs(x) < land - 41f && Mathf.Abs(z) < land - 41f) return -0.4f;   // under the flat ground slabs
                 float d = IslandD(x, z), e = ShoreAt(x, z, land);
-                return d < e ? -0.02f : -0.02f - (d - e) * 0.3f;   // dives under the sand at the shoreline
+                return d < e ? -0.06f : -0.06f - (d - e) * 0.3f;   // dives under the sand at the shoreline (and stays clear of the flat ground's edge)
             }
             Color SandCol(float x, float z)
             {
@@ -882,16 +882,21 @@ namespace Rago
             return false;
         }
 
+        int _roadN;
         void Road(Vector3 a, Vector3 c, Material m)
         {
             var d = c - a; d.y = 0; float len = d.magnitude;
             if (len < 1) return;
             // split long roads so each piece lands in its own world chunk
             int pieces = Mathf.CeilToInt(len / 60f);
+            _roadN++;
             for (int i = 0; i < pieces; i++)
             {
                 var p0 = a + d * (i / (float)pieces); var p1 = a + d * ((i + 1) / (float)pieces);
-                B.Box((p0 + p1) / 2 + Vector3.up * 0.015f, new Vector3(7, 0.02f, len / pieces + 0.2f), m, Color.white, Quaternion.LookRotation(d.normalized), false);
+                // every road (and every other piece of one) a few mm higher than the last: roads crossing or overlapping
+                // used to lie at exactly the same height and flicker between each other
+                float y = 0.02f + (_roadN % 6) * 0.006f + (i % 2) * 0.003f;
+                B.Box((p0 + p1) / 2 + Vector3.up * y, new Vector3(7, 0.02f, len / pieces + 0.2f), m, Color.white, Quaternion.LookRotation(d.normalized), false);
             }
         }
 
@@ -977,7 +982,7 @@ namespace Rago
             var roadMat = wooden ? Maps.GroundDirt : Maps.Asphalt;
             // crossroads
             b.Box(p + Vector3.up * 0.01f, new Vector3(60f, 0.02f, 7f), roadMat, Color.white, q, false);
-            b.Box(p + Vector3.up * 0.012f, new Vector3(7f, 0.02f, 60f), roadMat, Color.white, q, false);
+            b.Box(p + Vector3.up * 0.03f, new Vector3(7f, 0.02f, 60f), roadMat, Color.white, q, false);   // clearly above the other road (they flickered where they cross)
             Material[] walls = wooden ? new[] { Maps.WoodPlank, Maps.WoodPlank, Maps.Plaster } : new[] { Maps.Brick, Maps.Plaster, Maps.WoodPlank, Maps.Brick };
             Color[] tints = { new Color(0.85f, 0.8f, 0.72f), new Color(0.75f, 0.68f, 0.6f), new Color(0.9f, 0.88f, 0.82f), new Color(0.65f, 0.55f, 0.45f), new Color(0.8f, 0.82f, 0.75f) };
             int houses = b.Rng.Range(5, 9);
@@ -1141,7 +1146,9 @@ namespace Rago
             _hills = true;
             float size = slab * 2f;
             int res = Mathf.Clamp(Mathf.RoundToInt(size / 6.5f), 60, 240);
-            b.Terrain(new Vector3(-slab, 0, -slab), size, res, (x, z) => HillY(new Vector3(x, 0, z)), ground, (x, z) => Color.white, Synth.Surface.Grass);
+            // where it's flat the hills mesh sits a few cm under the flat ground slabs (it used to lie exactly on them: the two
+            // surfaces fought over every pixel and the ground flickered); it blends back up to the real height on slopes
+            b.Terrain(new Vector3(-slab, 0, -slab), size, res, (x, z) => { float h = HillY(new Vector3(x, 0, z)); return h - 0.07f * (1f - Mathf.Clamp01(h / 0.4f)); }, ground, (x, z) => Color.white, Synth.Surface.Grass);
         }
 
         /// <summary>Scatter random loot crates around interior points.</summary>

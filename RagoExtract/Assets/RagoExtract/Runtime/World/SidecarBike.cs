@@ -26,6 +26,8 @@ namespace Rago
             foreach (float s in new[] { -1f, 1f }) mb.Sub(3).Cyl(new Vector3(x + s * 0.17f, 0.62f, 0.12f), new Vector3(x + s * 0.17f, 0.62f, 0.02f), 0.07f, 0.07f, 14, chrome);   // cylinder heads
             mb.Sub(1).Cyl(new Vector3(x, 0.72f, 0.55f), new Vector3(x, 0.45f, -0.6f), 0.035f, 0.035f, 8, dark);            // down tube / backbone
             mb.Sub(1).Cyl(new Vector3(x, 0.85f, 0.45f), new Vector3(x, 0.85f, -0.55f), 0.03f, 0.03f, 8, dark);
+            mb.Sub(1).Cyl(new Vector3(x, 0.85f, 0.45f), new Vector3(x, 0.99f, 0.62f), 0.032f, 0.032f, 8, dark);   // up to the head stock
+            mb.Sub(1).Cyl(new Vector3(x, 0.72f, 0.55f), new Vector3(x, 0.98f, 0.62f), 0.03f, 0.03f, 8, dark);
             // rider's saddle: a sculpted sprung seat - wide at the back, narrowing to the tank - on chrome coil springs,
             // piped edge, then a pillion pad with a grab strap and a chrome grab rail behind it
             Color pipe = leather * 0.6f; pipe.a = 1f;
@@ -149,10 +151,11 @@ namespace Rago
             var bm = new MB(3);
             Color dark = new Color(0.09f, 0.09f, 0.1f), chrome = new Color(0.8f, 0.8f, 0.82f);
             const float R = 0.33f;
+            bm.Sub(1).Cyl(new Vector3(0, -0.05f, 0.02f), new Vector3(0, -0.3f, 0.06f), 0.035f, 0.035f, 12, chrome);   // head tube down to the frame
             foreach (float s in new[] { -1f, 1f })
             {
-                bm.Sub(1).Cyl(new Vector3(s * 0.08f, -0.05f, 0.02f), new Vector3(s * 0.08f, -0.78f, 0.22f), 0.03f, 0.026f, 12, chrome);   // fork legs down to the axle
-                bm.Sub(0).Cyl(new Vector3(s * 0.08f, -0.55f, 0.155f), new Vector3(s * 0.08f, -0.78f, 0.22f), 0.036f, 0.036f, 12, dark);   // fork sliders
+                bm.Sub(1).Cyl(new Vector3(s * 0.08f, -0.05f, 0.02f), new Vector3(s * 0.08f, -0.96f, 0.22f), 0.03f, 0.026f, 12, chrome);   // fork legs down to the axle
+                bm.Sub(0).Cyl(new Vector3(s * 0.08f, -0.7f, 0.16f), new Vector3(s * 0.08f, -0.96f, 0.22f), 0.036f, 0.036f, 12, dark);   // fork sliders
                 bm.Sub(1).Cyl(new Vector3(s * 0.06f, -0.02f, 0.0f), new Vector3(s * 0.07f, 0.08f, -0.04f), 0.02f, 0.02f, 10, chrome);   // risers
             }
             bm.Sub(1).Box(new Vector3(0, -0.04f, 0.02f), new Vector3(0.22f, 0.04f, 0.07f), chrome, 0.012f);   // top yoke
@@ -199,7 +202,7 @@ namespace Rago
                 _wheels[i] = wt;
             }
             // front forks + handlebars: they turn together with the front wheel
-            var bars = new GameObject("Handlebars").transform; bars.SetParent(transform, false); bars.localPosition = new Vector3(BikeX, 1.1f, 0.56f);
+            var bars = new GameObject("Handlebars").transform; bars.SetParent(transform, false); bars.localPosition = new Vector3(BikeX, 1.28f, 0.56f);   // tall bars: the grips sit at a seated rider's hands (easy to grab)
             var bm = BarsModel();
             bm.Build("Bars", bars, BarsMats);
             _steerWheel = bars; WheelGrab = bars;

@@ -486,9 +486,15 @@ namespace Rago
                     return;
                 }
             }
-            // 2. nearest item / interactable
-            int n = Physics.OverlapSphereNonAlloc(p, 0.09f, _overlap, ~0, QueryTriggerInteraction.Collide);
-            Item best = null; Interactable bestI = null; float bd = 1e9f, bdi = 1e9f;
+            // 2. nearest item / interactable. Something lying in the world always beats your own holstered gear (reaching
+            // down past your hip for a gun on the floor used to pull your holstered pistol or your armour instead), and
+            // with your hand down by the floor your body gear isn't picked at all.
+            bool low = p.y < rig.transform.position.y + 0.5f;
+            // reaching for the floor: a bigger reach, a little up from the hand (with the play area's floor a few cm off,
+            // your hand ends up just under things lying on the floor and missed them)
+            int n = low ? Physics.OverlapSphereNonAlloc(p + Vector3.up * 0.06f, 0.15f, _overlap, ~0, QueryTriggerInteraction.Collide)
+                        : Physics.OverlapSphereNonAlloc(p, 0.09f, _overlap, ~0, QueryTriggerInteraction.Collide);
+            Item best = null, bestBody = null; Interactable bestI = null; float bd = 1e9f, bdb = 1e9f, bdi = 1e9f;
             for (int i = 0; i < n; i++)
             {
                 var c = _overlap[i];
@@ -501,7 +507,7 @@ namespace Rago
                     if (!it.CanGrab(this)) continue;
                     if (!rig.CanReach(c.ClosestPoint(p))) continue;   // on the other side of a wall
                     float d = (c.ClosestPoint(p) - p).sqrMagnitude;
-                    // prefer magazines in guns and sights on guns when very close
+                    if (OnMyBody(it)) { if (!low && d < bdb) { bdb = d; bestBody = it; } continue; }
                     if (d < bd) { bd = d; best = it; }
                     continue;
                 }
@@ -512,6 +518,7 @@ namespace Rago
                     if (d < bdi) { bdi = d; bestI = ia; }
                 }
             }
+            if (best == null) best = bestBody;
             if (best != null)
             {
                 // gun held in the other hand: taking it swaps hands
@@ -521,13 +528,23 @@ namespace Rago
             }
             if (bestI != null) { bestI.OnGrab(this); _interact = bestI; return; }
             // 3. gear on your body (holsters, back, pouches)
-            var fromBody = rig.Gear.TakeFromBody(this);
+            var fromBody = low ? null : rig.Gear.TakeFromBody(this);   // reaching for the floor: never your own gear
             if (fromBody != null) { Grab(fromBody); return; }
             // 4. pointing at something further away: pull it into your hand (or open the crate you point at)
             if (_remote != null && _remote.primaryHand == null) { StartPull(_remote); return; }
             if (_remoteCrate != null && !_remoteCrate.opened) { _remoteCrate.Open(); Haptic(0.3f, 0.04f); return; }
             // 5. nothing to pick up: grab the world itself and climb (walls, ledges, ladders, fences, rocks)
             if (XRInputs.VR && RagoGame.I != null && CanClimbHere(p)) { Climbing = true; ClimbAnchor = TrackedPosition; ClimbStart = Time.time; Haptic(0.35f, 0.05f); }
+        }
+
+        /// <summary>In one of your own holsters / pouches / your hands (not lying in the world or on a rack).</summary>
+        bool OnMyBody(Item it)
+        {
+            if (it == null) return false;
+            if (it.Held) return true;
+            if (it.slot == null) return false;
+            var t = it.slot.transform;
+            return t.IsChildOf(rig.transform) || (rig.Body != null && t.IsChildOf(rig.Body.transform)) || (rig.Gear != null && rig.Gear.Root != null && t.IsChildOf(rig.Gear.Root));   // holsters, pouches, your worn bag
         }
 
         static int _worldMask = 0;

@@ -779,7 +779,7 @@ namespace Rago
         /// rootPos = point on the ground under the body, yaw = body facing.
         /// </summary>
         public void Pose(Vector3 rootPos, float yaw, Vector3 headPos, Quaternion headRot, Vector3 handLPos, Quaternion handLRot,
-            Vector3 handRPos, Quaternion handRRot, Vector3 velocity, float dt, bool handsValid = true, bool seated = false)
+            Vector3 handRPos, Quaternion handRRot, Vector3 velocity, float dt, bool handsValid = true, bool seated = false, Vector3? seatFoot = null)
         {
             if (ragdoll) return;
             Quaternion yawQ = Quaternion.Euler(0, yaw, 0);
@@ -834,7 +834,8 @@ namespace Rago
                 for (int s = 0; s < 2; s++)
                 {
                     float side = s == 0 ? -1 : 1;
-                    Vector3 foot = rootPos + fwd * 0.42f + right * side * 0.15f + Vector3.down * 0.4f;
+                    Vector3 sf = seatFoot ?? new Vector3(0.15f, -0.4f, 0.42f);   // out to the side, down, forward from the seat
+                    Vector3 foot = rootPos + fwd * sf.z + right * side * sf.x + Vector3.up * sf.y;
                     LegIK(s == 0 ? thL : thR, s == 0 ? shL : shR, s == 0 ? footL : footR, foot, fwd + Vector3.up * 0.5f, right * side);
                 }
                 return;

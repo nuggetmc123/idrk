@@ -459,6 +459,8 @@ namespace Rago
         public bool Passenger;   // in the cart, but in the passenger seat (no controls)
         Vector3 _cartLastPos; float _cartLastYaw;
         Transform CartSeat => Driving == null ? null : Passenger ? Driving.PassSeat : Driving.Seat;
+        /// <summary>Riding: the top of the seat you're on (your body sits there, whether you play standing or sitting). On foot: where you stand.</summary>
+        public Vector3 SeatPoint => CartSeat != null ? CartSeat.position : transform.position;
 
         /// <summary>Grab a cart's steering wheel (or press F next to one on desktop) to get in.</summary>
         void TryEnterCart()

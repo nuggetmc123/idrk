@@ -36,6 +36,9 @@ namespace Rago
         public float WheelR => Bike ? 0.33f : 0.17f;
         /// <summary>The middle of the handlebar where the grips are (they sit a little up and back from the head stock).</summary>
         Vector3 BarCentre => WheelGrab.TransformPoint(new Vector3(0, 0.075f, -0.1f));
+        /// <summary>Where a seated rider's feet go, from the seat in the vehicle's frame (x out to each side, y down, z
+        /// forward): the cart's floor, the bike's footboards, the sidecar's footwell.</summary>
+        public Vector3 SeatFoot(bool passenger) => !Bike ? new Vector3(0.15f, -0.42f, 0.42f) : passenger ? new Vector3(0.11f, -0.17f, 0.55f) : new Vector3(0.24f, -0.6f, 0.38f);
         public float SteerLock => Bike ? 30f : 60f;   // less turning of the wheel / bars for full lock: easier to steer
         /// <summary>Which way you step out (driver to the left; on the bike the sidecar passenger steps out further right).</summary>
         public float ExitSide(bool passenger) => passenger ? (Bike ? 1.55f : 1.3f) : (Bike ? -1.2f : -1.3f);

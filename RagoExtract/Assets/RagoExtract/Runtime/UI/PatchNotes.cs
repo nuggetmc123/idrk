@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.95", "Real nuke, sitting riders, better grabbing", new[] {
+                "The NUKE is a proper show now: a missile streaks down out of the sky, a blinding flash, a fireball swells, a shockwave ring and a wall of dust race out across the ground - the blast kills you when it reaches you - and a churning mushroom cloud climbs on its stem with a condensation ring, slowly cooling from orange fire to grey smoke.",
+                "Picking things up off the floor: your hand no longer grabs your own holstered gun or armour when you reach down for something, and it catches things lying on the floor even if your hand dips a little under them.",
+                "Sidecar bike: taller handlebars, easy to grab. Riders really sit now - on the saddle with feet on the footboards, or down in the sidecar - whether you play standing or sitting, and that's how everyone else sees you too.",
+                "Fixed: the ground flickered like a texture glitch in places (two layers of ground lay at exactly the same height), and roads flickered where they cross.",
+            }),
             ("2.94", "Holiday Pack for in-game cash", new[] {
                 "The HOLIDAY PACK now costs $25,000 of in-game cash instead of real money - buy it from the DLC tab or the DLC store in the Market. You still get its 3 festive skins, the Candy Cane club and 3 impact grenades.",
             }),

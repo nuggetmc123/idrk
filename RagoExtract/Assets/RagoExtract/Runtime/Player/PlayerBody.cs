@@ -71,9 +71,10 @@ namespace Rago
         void PoseNow(float dt)
         {
             // arms end at the wrists of the hands you see, so arm, hand and controller line up
-            Rig.Pose(_p.transform.position, _yaw, _p.Head.position, _p.Head.rotation,
+            // riding: the body sits on the seat (the rig itself is placed for your real head height, standing or sitting)
+            Rig.Pose(_p.SeatPoint, _yaw, _p.Head.position, _p.Head.rotation,
                 _p.HandL.WristPosition, _p.HandL.WristRotation,
-                _p.HandR.WristPosition, _p.HandR.WristRotation, _p.Driving != null ? Vector3.zero : _vel, dt, true, _p.Driving != null);
+                _p.HandR.WristPosition, _p.HandR.WristRotation, _p.Driving != null ? Vector3.zero : _vel, dt, true, _p.Driving != null, _p.Driving != null ? _p.Driving.SeatFoot(_p.Passenger) : (Vector3?)null);
         }
 
         /// <summary>Called right before the frame is drawn (VR), after the hands snapped to the controllers.</summary>

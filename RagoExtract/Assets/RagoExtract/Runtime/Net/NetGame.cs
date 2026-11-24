@@ -235,7 +235,7 @@ namespace Rago
                 if (others >= 4) step = Mathf.Max(step, 1f / 10f);
                 _poseT = step;
                 var w = W(Msg.Pose);
-                var root = p.transform.position;
+                var root = p.SeatPoint;   // riding: the seat (everyone else draws you sitting on it)
                 // what each hand is holding (the gun itself, with its attachments), where it is, and whether the light /
                 // laser is on - so other players see your gun exactly where it is, your hands on its grips, and its beam
                 var il = PrimaryHeld(p.HandL); var ir = PrimaryHeld(p.HandR);

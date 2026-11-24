@@ -348,7 +348,9 @@ namespace Rago
                 if (_itemL is Gun) { hlP = _itemL.grip != null ? _itemL.grip.position : _itemL.transform.position; hlQ = _itemL.transform.rotation; }
                 if (_supR && _itemL.secondGrip != null) { hrP = _itemL.secondGrip.position; hrQ = _itemL.transform.rotation * Quaternion.Euler(0, 0, -70); }
             }
-            _rig.Pose(_sRoot, _yaw, _sHead, _sHeadR, hlP, hlQ, hrP, hrQ, seated ? Vector3.zero : _vel, dt, true, seated);
+            Vector3? foot = null;
+            if (seated) { bool pass = (_sRoot - _cart.PassSeat.position).sqrMagnitude < (_sRoot - _cart.Seat.position).sqrMagnitude; foot = _cart.SeatFoot(pass); }
+            _rig.Pose(_sRoot, _yaw, _sHead, _sHeadR, hlP, hlQ, hrP, hrQ, seated ? Vector3.zero : _vel, dt, true, seated, foot);
             if (_voice != null) _voice.transform.position = _sHead;
             var cam = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.Head : null;
             if (cam != null)
