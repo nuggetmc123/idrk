@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.01", "Manda plays fetch", new[] {
+                "Your pug Manda plays FETCH: there's a tennis ball by her bed - throw it (or anything small) across the bunker and she watches it land, runs after it, picks it up in her mouth and trots it back to drop at your feet, tail going like mad. Grab it out of her mouth any time.",
+            }),
             ("3.00", "Voices back, vault through windows", new[] {
                 "Voice chat works again: teen accounts could only be heard by their own squad (now that's just for under-13 accounts), voice cut out whenever the connection lagged a little, and quieter headset mics never opened. Everyone near you hears you again.",
                 "Climb through windows the easy way: walk up to a window with the glass broken out and keep pushing forward - you hop over the sill and land on the other side. (Glass still has to be shot or smashed out first.)",

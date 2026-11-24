@@ -579,6 +579,17 @@ namespace Rago
                     mb.Pop();
                     break;
                 }
+                case 34: // tennis ball: fuzzy yellow-green with the curving white seam
+                {
+                    mb.Sub(2).Sphere(Vector3.zero, Vector3.one * 0.033f, 16, c);
+                    for (int i = 0; i < 40; i++)
+                    {
+                        float t = i / 40f * Mathf.PI * 2f, t2 = (i + 1) / 40f * Mathf.PI * 2f;
+                        Vector3 P(float a) => new Vector3(Mathf.Cos(a) + 0.35f * Mathf.Cos(3f * a), Mathf.Sin(a) - 0.35f * Mathf.Sin(3f * a), 0.75f * Mathf.Sin(2f * a)).normalized * 0.0334f;
+                        mb.Sub(0).Capsule(P(t), P(t2), 0.0018f, 4, new Color(0.95f, 0.95f, 0.92f));
+                    }
+                    break;
+                }
                 default:
                     mb.Sub(1).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(0.0f, -0.02f), new Vector2(0.022f, 0.004f), new Vector2(0.016f, 0.012f), new Vector2(0.0f, 0.013f) }, 8, c);
                     break;

@@ -470,6 +470,7 @@ namespace Rago
             M("junk_wrench", "Rusty Wrench", ItemKind.Valuable, C, 95, 31, new Color(0.5f, 0.35f, 0.25f), "Seized up, but it's good steel.");
             M("val_peanut", "Peanut8 Figurine", ItemKind.Valuable, E, 8500, 32, new Color(0.78f, 0.6f, 0.36f), "A streamer collectible: PEANUT8, everyone's favourite streaming peanut - headset on, mic up, waving to chat. Collectors pay a fortune.");
             M("val_shush", "Shushed Figurine", ItemKind.Valuable, E, 9000, 33, new Color(0.08f, 0.08f, 0.09f), "A streamer collectible: SHUSHED, the operator in full Juggernaut armour, red helmet on, one finger to his lips - shhh. Collectors pay a fortune.");
+            M("dog_ball", "Tennis Ball", ItemKind.Valuable, C, 15, 34, new Color(0.8f, 0.92f, 0.2f), "Manda's favourite. Throw it and she'll fetch it.");
             M("val_ring", "Silver Ring", ItemKind.Valuable, U, 1100, 16, new Color(0.85f, 0.85f, 0.9f), "Engraved. Not yours.");
             M("val_laptop", "Rugged Laptop", ItemKind.Valuable, R, 6500, 17, new Color(0.25f, 0.27f, 0.25f), "Field laptop full of data.");
             M("val_idol", "Gold Idol", ItemKind.Valuable, E, 16000, 18, new Color(1f, 0.75f, 0.25f), "A small golden statue. Huge payday.");

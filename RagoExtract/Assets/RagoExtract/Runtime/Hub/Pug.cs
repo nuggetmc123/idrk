@@ -9,7 +9,7 @@ namespace Rago
     /// </summary>
     public class Pug : MonoBehaviour
     {
-        enum Mode { Idle, Walk, Eat, Sleep, Follow, Beg }
+        enum Mode { Idle, Walk, Eat, Sleep, Follow, Beg, Fetch, Return }
         Mode _mode = Mode.Idle;
         Transform _body, _head, _tail, _kibble;
         readonly Transform[] _legs = new Transform[4];
@@ -64,7 +64,17 @@ namespace Rago
             p._kibble.localPosition = bowl + new Vector3(0, 0.015f, 0);
             p.ShowBowl();
             p._mode = Mode.Sleep; p._modeT = 6f;
+            p.Invoke(nameof(EnsureBall), 1.5f);   // after the bunker's saved items are back
             return p;
+        }
+
+        /// <summary>Her tennis ball: one by her bed if there isn't one anywhere in the bunker (stash, floor, your hands).</summary>
+        void EnsureBall()
+        {
+            foreach (var it in Item.All) if (it != null && !it.Gone && it.def != null && it.def.id == "dog_ball") return;
+            var prof = Profile.Current;
+            if (prof != null && prof.stash != null && prof.stash.Exists(d => d != null && d.id == "dog_ball")) return;
+            ItemFactory.Spawn(new ItemData("dog_ball"), transform.parent.TransformPoint(_bed + new Vector3(0.3f, 0.25f, 0.3f)), Quaternion.identity);
         }
 
         void BuildModel(Material mat)
@@ -121,6 +131,7 @@ namespace Rago
             _happy = Mathf.MoveTowards(_happy, 0, dt * 0.25f);
             _modeT -= dt;
             if (pl != null) { Feed(pl.HandL); Feed(pl.HandR); Pet(pl.HandL); Pet(pl.HandR); }
+            WatchForThrows();
 
             Vector3 flat = Pos; flat.y = 0;
             float distMe = Vector3.Distance(flat, me);
@@ -153,6 +164,24 @@ namespace Rago
                     if (Bowl > 0.05f) { _mode = Mode.Eat; }
                     else if (_modeT <= 0) Next(me);
                     break;
+                case Mode.Fetch:
+                {
+                    // chase the thrown thing: wait for it to land, then run to it and pick it up
+                    if (!Fetchable(_fetch, false)) { _fetch = null; Next(me); break; }
+                    Vector3 at = transform.parent.InverseTransformPoint(_fetch.transform.position); at.y = 0;
+                    bool moving = _fetch.rb != null && _fetch.rb.Vel().sqrMagnitude > 0.5f * 0.5f;
+                    if (Vector3.Distance(flat, at) > 0.22f) Steer(at, moving ? 1.1f : 1.7f, dt, 0.18f);
+                    else if (!moving) { PickUp(_fetch); _mode = Mode.Return; _modeT = 25f; }
+                    if (_modeT <= 0) { _fetch = null; Next(me); }
+                    break;
+                }
+                case Mode.Return:
+                    // trot back to you with it and drop it at your feet
+                    if (_carry == null || _carry.Held || _carry.slot != null) { _carry = null; _happy = 1f; Next(me); break; }   // you took it from her mouth
+                    if (distMe > 0.75f) Steer(me + (flat - me).normalized * 0.6f, 1.4f, dt, 0.1f);
+                    else { _speed = 0; Face(me, dt); DropCarry(); _happy = 1f; Bark(); _mode = Mode.Idle; _modeT = 4f; }
+                    if (_modeT <= 0) { DropCarry(); Next(me); }
+                    break;
                 default:   // idle: sit and watch you
                     _speed = Mathf.MoveTowards(_speed, 0, dt * 2f);
                     if (distMe < 6f) Face(me, dt);
@@ -167,6 +196,65 @@ namespace Rago
             }
             Animate(dt, me);
         }
+
+        // ---- fetch: throw her tennis ball (or anything small) and she brings it back
+        Item _fetch, _carry; Transform _mouth;
+        readonly System.Collections.Generic.HashSet<Item> _ignored = new System.Collections.Generic.HashSet<Item>();
+        float _scanT;
+
+        bool Fetchable(Item it, bool needFlying)
+        {
+            if (it == null || it.Gone || it.Held || it.slot != null || it.rb == null || it.rb.isKinematic || !it.gameObject.activeInHierarchy) return false;
+            var b = it.localBounds.size; if (Mathf.Max(b.x, Mathf.Max(b.y, b.z)) > 0.4f) return false;   // only small things fit in a pug's mouth
+            Vector3 lp = transform.parent.InverseTransformPoint(it.transform.position);
+            if (lp.x < _area.xMin - 1f || lp.x > _area.xMax + 1f || lp.z < _area.yMin - 1f || lp.z > _area.yMax + 1f) return false;   // out of her room
+            if (needFlying) { var v = it.rb.Vel(); v.y = 0; if (v.sqrMagnitude < 2.2f * 2.2f) return false; }   // thrown (moving sideways), not just dropped
+            return true;
+        }
+
+        void WatchForThrows()
+        {
+            if (_mode == Mode.Fetch || _mode == Mode.Return || _mode == Mode.Eat || (_mode == Mode.Sleep && _energy < 0.6f)) return;
+            if ((_scanT -= Time.deltaTime) > 0f) return;
+            _scanT = 0.1f;
+            Item best = null;
+            foreach (var it in Item.All)
+            {
+                if (!Fetchable(it, true)) continue;
+                if (best == null || (it.def != null && it.def.id == "dog_ball")) best = it;   // her ball first
+            }
+            if (best == null) return;
+            _fetch = best; _mode = Mode.Fetch; _modeT = 20f; Bark();
+        }
+
+        void PickUp(Item it)
+        {
+            _carry = it; _fetch = null;
+            if (_mouth == null) { _mouth = new GameObject("Mouth").transform; _mouth.SetParent(_head, false); _mouth.localPosition = new Vector3(0, -0.04f, 0.13f); }
+            it.rb.isKinematic = true;
+            it.SetCollidersTrigger(true);   // doesn't knock into her while she carries it
+            Sfx.Play(Synth.PugSnort(1), _head.position, 0.4f, 1.3f, 0.4f, 8f);
+        }
+
+        void DropCarry()
+        {
+            var it = _carry; _carry = null;
+            if (it == null || it.Held || it.slot != null) return;
+            it.SetCollidersTrigger(false);
+            it.rb.isKinematic = false;
+            it.rb.SetVel(transform.forward * 0.4f + Vector3.up * 0.3f);
+        }
+
+        void LateUpdate()
+        {
+            // the thing she's carrying sits in her mouth (not parented: if the bunker saves now, it's saved where it is)
+            if (_carry == null || _mouth == null) return;
+            if (_carry.Held || _carry.slot != null) { _carry = null; return; }
+            _carry.transform.SetPositionAndRotation(_mouth.position, _mouth.rotation);
+            if (_carry.rb != null) _carry.rb.position = _mouth.position;
+        }
+
+        void OnDestroy() { if (_carry != null && _carry.rb != null) { _carry.SetCollidersTrigger(false); _carry.rb.isKinematic = false; } }
 
         void Next(Vector3 me)
         {
