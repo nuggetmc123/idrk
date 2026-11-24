@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.82", "New item models", new[] {
+                "Every med, ammo box, keycard, valuable and piece of junk has a new, much more detailed model: the medkit has latches, a handle and corner bumpers, pill bottles have ribbed caps, the stim is a proper auto-injector, drinks cans have real can shapes and ring pulls, the whiskey bottle has a label and cork, the graphics card has its fans, the laptop is a rugged case, wire comes on a reel, and so on. Screens, glass and glossy labels now shine.",
+            }),
             ("2.81", "Beta Tester skin", new[] {
                 "BETA TESTER SKIN: dark carbon with orange chevrons and teal pinstripes - a thank-you gift for beta testers from the owner. If you get it, paint it on any gun at the booth in your bunker.",
                 "The owner can watch a player's view for moderation - your watch shows SPECTATED while that's happening.",
