@@ -53,7 +53,7 @@ namespace Rago
 
         void Redraw()
         {
-            if (_cards != null) Destroy(_cards.gameObject);
+            if (_cards != null) { SpawnBrowser.ReturnPreviews(_cards); Destroy(_cards.gameObject); }
             _shows.Clear();
             _cards = new GameObject("Cards").transform; _cards.SetParent(transform, false);
             var all = new List<Dlc.Pack>(Dlc.Shown());
@@ -88,7 +88,7 @@ namespace Rago
                 foreach (var sk in skins)
                 {
                     var holder = new GameObject("Skin_" + sk.id).transform; holder.SetParent(stand, false);
-                    var g = rifle != null ? SpawnBrowser.Model(rifle, holder, w * 0.86f, 0.36f, sk.id, 20f) : null;
+                    var g = rifle != null ? SpawnBrowser.Preview(rifle, holder, w * 0.86f, 0.36f, sk.id, 20f) : null;
                     holder.gameObject.SetActive(show.guns.Count == 0);
                     show.guns.Add(holder.gameObject); show.names.Add(sk.name);
                 }
@@ -120,7 +120,7 @@ namespace Rago
                         var def = Db.Get(order[k]); if (def == null) continue;
                         float ix = -(order.Count - 1) * 0.3f / 2f + k * 0.3f;
                         var holder = new GameObject("Item_" + def.id).transform; holder.SetParent(card, false); holder.localPosition = new Vector3(ix, y - 0.04f, -0.06f);
-                        SpawnBrowser.Model(def, holder, 0.24f, 0.14f, null, 30f);
+                        SpawnBrowser.Preview(def, holder, 0.24f, 0.14f, null, 30f);
                         UI.Text(card, (counts[order[k]] > 1 ? counts[order[k]] + "x " : "") + def.name, new Vector3(ix, y - 0.15f, -0.006f), 0.019f, Color.white, TextAnchor.MiddleCenter);
                     }
                 }

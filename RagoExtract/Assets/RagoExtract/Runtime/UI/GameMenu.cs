@@ -49,7 +49,7 @@ namespace Rago
             for (int i = 0; i < names.Length; i++)
             {
                 var t = (Tab)i;
-                _tabBtns.Add(UI.Button(_panel, names[i], new Vector3(-0.48f + (i == 6 ? 7 : i == 7 ? 6 : i) * 0.137f, 0.3f, 0), new Vector2(0.13f, 0.075f), () => { _tab = t; _typing = false; _page = 0; _dlcSel = null; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }));
+                _tabBtns.Add(UI.Button(_panel, names[i], new Vector3(-0.48f + (i == 6 ? 7 : i == 7 ? 6 : i) * 0.137f, 0.3f, 0), new Vector2(0.13f, 0.075f), () => { _tab = t; _typing = false; _page = 0; _dlcSel = null; _modTools = false; _dirty = true; Sfx.UI(Synth.Beep(), 0.2f); }));
             }
             _content = new GameObject("Content").transform;
             _content.SetParent(_panel, false);
@@ -85,7 +85,7 @@ namespace Rago
             if (!_open) return;
             if (p.Dead || Vector3.Distance(p.Head.position, transform.position) > 2.5f) { Show(false); return; }
             _refresh -= Time.unscaledDeltaTime;
-            if (_refresh <= 0f) { _refresh = 1.5f; if (!_typing) _dirty = true; }
+            if (_refresh <= 0f) { _refresh = 1.5f; if (!_typing && _tab != Tab.Dlc) _dirty = true; }   // (nothing on the DLC tab changes by itself: no redraw - it was a stutter every 1.5 s)
             if (Time.unscaledTime > _pendT) { _pendT = Time.unscaledTime + 3f; CheckPending(); }
             SearchTick();
             CalTick();
@@ -191,7 +191,7 @@ namespace Rago
         // ------------------------------------------------------------------ drawing
         void Rebuild()
         {
-            if (_content != null) Destroy(_content.gameObject);
+            if (_content != null) { SpawnBrowser.ReturnPreviews(_content); Destroy(_content.gameObject); }
             _content = new GameObject("Content").transform;
             _content.SetParent(_panel, false);
             var prof = Profile.Current;
@@ -436,8 +436,13 @@ namespace Rago
         static readonly string[] ModLens = { "1 DAY", "7 DAYS", "30 DAYS", "PERMANENT" };
         static readonly int[] ModHours = { 24, 168, 720, 0 };
 
+        bool _modTools;
+
         void DrawMod()
         {
+            // page 2: the spawning tools (items, raiders and bosses, ammo, god mode) - the same as the developer's TESTER tab
+            Btn(_modTools ? "< MOD TOOLS" : "SPAWN TOOLS >", 0.4f, -0.39f, 0.26f, () => { _modTools = !_modTools; _typing = false; });
+            if (_modTools) { DrawTester(); return; }
             float y = 0.2f;
             if (!string.IsNullOrEmpty(RelayBackend.LastModReply)) Line(UI.Wrap(RelayBackend.LastModReply, 70), y, 0.022f, new Color(0.6f, 1f, 0.65f));
             else Line("MODERATOR TOOLS - bans, wipes and kicks go to the owner for approval first.", y, 0.024f, UI.Dim);
@@ -507,7 +512,7 @@ namespace Rago
                 if (rifle != null && skins.Count > 0)
                 {
                     var holder = new GameObject("Preview").transform; holder.SetParent(_content, false); holder.localPosition = new Vector3(x, y + 0.02f, -0.05f);
-                    try { SpawnBrowser.Model(rifle, holder, 0.26f, 0.08f, skins[0].id, 15f); } catch { }
+                    try { SpawnBrowser.Preview(rifle, holder, 0.26f, 0.08f, skins[0].id, 15f); } catch { }
                 }
                 UI.Text(_content, skins.Count + " skins" + (p.items.Length > 0 ? " + " + p.items.Length + " items" : ""), new Vector3(x, y - 0.05f, -0.02f), 0.017f, UI.Dim, TextAnchor.MiddleCenter);
                 UI.Text(_content, owned ? "OWNED" : p.usd, new Vector3(x, y - 0.09f, -0.02f), 0.02f, owned ? new Color(0.5f, 1f, 0.55f) : Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -533,7 +538,7 @@ namespace Rago
             if (rifle != null)
             {
                 var holder = new GameObject("Showcase").transform; holder.SetParent(_content, false); holder.localPosition = new Vector3(-0.2f, 0.05f, -0.08f);
-                try { SpawnBrowser.Model(rifle, holder, 0.6f, 0.2f, _dlcSkin, 20f); } catch { }
+                try { SpawnBrowser.Preview(rifle, holder, 0.6f, 0.2f, _dlcSkin, 20f); } catch { }
             }
             var cur = skins.Find(k => k.id == _dlcSkin);
             if (cur != null) Line(cur.name.ToUpper(), -0.07f, 0.024f, Color.white, -0.5f);
@@ -564,7 +569,7 @@ namespace Rago
                 {
                     var def = Db.Get(order[k]); if (def == null) continue;
                     var holder = new GameObject("Item").transform; holder.SetParent(_content, false); holder.localPosition = new Vector3(0.2f, ry - 0.005f, -0.05f);
-                    try { SpawnBrowser.Model(def, holder, 0.07f, 0.045f, null, 30f); } catch { }
+                    try { SpawnBrowser.Preview(def, holder, 0.07f, 0.045f, null, 30f); } catch { }
                     Line((counts[order[k]] > 1 ? counts[order[k]] + "x " : "") + def.name, ry, 0.019f, Color.white, 0.26f); ry -= 0.06f;
                 }
                 Line("  (items go to your Deliveries screen)", ry, 0.017f, UI.Dim, 0.16f);

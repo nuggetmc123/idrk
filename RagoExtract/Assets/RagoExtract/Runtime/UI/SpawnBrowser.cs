@@ -130,6 +130,50 @@ namespace Rago
             return go;
         }
 
+        // ---- cached previews: building a skinned gun model is slow (a whole gun is made, then stripped), so each preview
+        // is built once and reused - menus that redraw (the DLC tab, the Market's DLC wall) just borrow it again
+        static readonly Dictionary<string, GameObject> _cache = new Dictionary<string, GameObject>();
+        static readonly List<GameObject> _lent = new List<GameObject>();
+        static Transform _pool;
+
+        /// <summary>A look-only item model like <see cref="Model"/>, but built once and kept: call <see cref="ReturnPreviews"/>
+        /// before the holder is destroyed so it goes back to the pool.</summary>
+        public static GameObject Preview(ItemDef d, Transform holder, float w, float h, string skin, float yaw = 25f)
+        {
+            if (d == null || holder == null) return null;
+            if (_pool == null) { var pg = new GameObject("PreviewPool"); DontDestroyOnLoad(pg); pg.SetActive(false); _pool = pg.transform; }
+            string key = d.id + "|" + (skin ?? "") + "|" + w.ToString("0.###") + "|" + h.ToString("0.###") + "|" + yaw.ToString("0");
+            if (!_cache.TryGetValue(key, out var go) || go == null)
+            {
+                // build it on a stand-in holder at the origin, so its local placement is the same wherever it's shown
+                var stand = new GameObject("Stand").transform; stand.SetParent(_pool, false);
+                go = Model(d, stand, w, h, skin, yaw);
+                if (go == null) { Destroy(stand.gameObject); return null; }
+                go.transform.SetParent(_pool, false);
+                Destroy(stand.gameObject);
+                if (_cache.Count > 120) { foreach (var kv in _cache) if (kv.Value != null && !_lent.Contains(kv.Value)) Compat.KillWithMeshes(kv.Value); _cache.Clear(); }
+                _cache[key] = go;
+            }
+            if (_lent.Contains(go)) return null;   // already on show somewhere else this frame
+            go.transform.SetParent(holder, false);
+            _lent.Add(go);
+            return go;
+        }
+
+        /// <summary>Everything lent out goes back to the pool (before the menu that showed it throws its contents away).</summary>
+        public static void ReturnPreviews(Transform under = null)
+        {
+            if (_pool == null) return;
+            for (int i = _lent.Count - 1; i >= 0; i--)
+            {
+                var go = _lent[i];
+                if (go == null) { _lent.RemoveAt(i); continue; }
+                if (under != null && !go.transform.IsChildOf(under)) continue;
+                go.transform.SetParent(_pool, false);
+                _lent.RemoveAt(i);
+            }
+        }
+
         static GameObject MiniPresent()
         {
             var mb = new MB();

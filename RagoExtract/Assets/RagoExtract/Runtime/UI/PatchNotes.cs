@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.80", "Mod spawn tools, smooth DLC tab", new[] {
+                "Moderators: the MOD tab has a SPAWN TOOLS page - spawn any item, spawn raiders and bosses, ammo, god mode and invisible-to-AI.",
+                "Fixed: the DLC tab stuttered every second or so while you looked at it. The rifle previews are built once and reused now, and the page doesn't keep redrawing itself. The Market's DLC wall flips pages without a hitch too.",
+            }),
             ("2.79", "Season reset fixes", new[] {
                 "The Season 1 reset now gives everyone the normal starter kit (a pistol and rifle, meds, ammo, and a helmet and vest on the stands) instead of an empty bunker with no gun.",
                 "The reset can no longer get stuck and run again on every start.",
