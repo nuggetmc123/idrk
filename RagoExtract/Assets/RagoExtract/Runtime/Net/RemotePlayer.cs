@@ -103,6 +103,16 @@ namespace Rago
                 if (it is Gun g) { g.RemoteOn = true; g.SideOn = sideOn; }
         }
 
+        GolfCart _cart; bool _inCart;
+        /// <summary>Riding a cart (its poses come relative to the cart) or not. Switching drops the old poses (other frame).</summary>
+        public void SetCart(GolfCart c)
+        {
+            if (c == _cart && (c != null) == _inCart) return;
+            _cart = c; _inCart = c != null; _snaps.Clear();
+            _hasPose = false;   // the next pose places them at once
+        }
+        public bool InCart => _inCart && _cart != null;
+
         public void ApplyPose(bool dead, Vector3 root, Vector3 head, Quaternion headR, Vector3 hl, Quaternion hlR, Vector3 hr, Quaternion hrR, Vector3 vel)
         {
             if (dead && !_dead) Die();
@@ -297,21 +307,34 @@ namespace Rago
                 tRoot = sn.root; tHead = sn.head; tHl = sn.hl; tHr = sn.hr; tHeadR = sn.headR; tHlR = sn.hlR; tHrR = sn.hrR;
                 _gl = sn.gl; _gr = sn.gr; _glR = sn.glR; _grR = sn.grR;
             }
+            bool seated = InCart;
+            if (seated)
+            {
+                // their pose is in the cart's frame: put it on the cart as we see it now, so they sit in the seat (no trailing)
+                var ct = _cart.transform; var q = ct.rotation;
+                tRoot = ct.TransformPoint(tRoot); tHead = ct.TransformPoint(tHead); tHl = ct.TransformPoint(tHl); tHr = ct.TransformPoint(tHr);
+                tHeadR = q * tHeadR; tHlR = q * tHlR; tHrR = q * tHrR;
+                _gl = ct.TransformPoint(_gl); _gr = ct.TransformPoint(_gr); _glR = q * _glR; _grR = q * _grR;
+                k = 1f;
+            }
             if ((_sRoot - tRoot).sqrMagnitude > 9f) k = 1f;   // a real jump (respawn, fell through): go there at once
             _sRoot = Vector3.Lerp(_sRoot, tRoot + ahead, k); _sHead = Vector3.Lerp(_sHead, tHead + ahead, k);
             _sHl = Vector3.Lerp(_sHl, tHl + ahead, k); _sHr = Vector3.Lerp(_sHr, tHr + ahead, k);
             _sHeadR = Quaternion.Slerp(_sHeadR, tHeadR, k); _sHlR = Quaternion.Slerp(_sHlR, tHlR, k); _sHrR = Quaternion.Slerp(_sHrR, tHrR, k);
             if (_dead) return;
-            Footsteps.Track(ref _stepLast, ref _stepDist, ref _stepLeft, _sRoot, _sHeadR * Vector3.forward, dt, 0.65f, 1.8f, 55f);   // other players' footsteps: clearly audible walking, loud running (~50 m)
+            if (!seated) Footsteps.Track(ref _stepLast, ref _stepDist, ref _stepLeft, _sRoot, _sHeadR * Vector3.forward, dt, 0.65f, 1.8f, 55f);
+            else _stepLast = _sRoot;   // other players' footsteps: clearly audible walking, loud running (~50 m)
             // raiders hear other players' footsteps too (unless they're crouched)
             _noiseT -= dt;
             float spd = new Vector2(_vel.x, _vel.z).magnitude;
             if (_noiseT <= 0f && spd > 0.6f && _sHead.y - _sRoot.y > 1.25f) { _noiseT = 0.5f; Noise.Emit(_sRoot, spd > 3.4f ? 16f : 8f, (int)NetId + 1); }
             float hy = _sHeadR.eulerAngles.y;
-            if (Mathf.Abs(Mathf.DeltaAngle(_yaw, hy)) > 35f || _vel.sqrMagnitude > 0.3f) _yaw = Mathf.MoveTowardsAngle(_yaw, hy, dt * 220f);
+            if (seated) _yaw = _cart.transform.eulerAngles.y;   // sitting square in the seat
+            else if (Mathf.Abs(Mathf.DeltaAngle(_yaw, hy)) > 35f || _vel.sqrMagnitude > 0.3f) _yaw = Mathf.MoveTowardsAngle(_yaw, hy, dt * 220f);
             // what they hold sits exactly where it is for them; their hands go on its grips (like the raiders' hands)
-            _sGl = Vector3.Lerp(_sGl, _gl + ahead, k); _sGr = Vector3.Lerp(_sGr, _gr + ahead, k);
-            _sGlR = Quaternion.Slerp(_sGlR, _glR, k); _sGrR = Quaternion.Slerp(_sGrR, _grR, k);
+            float kg = seated ? 1f : k;
+            _sGl = Vector3.Lerp(_sGl, _gl + ahead, kg); _sGr = Vector3.Lerp(_sGr, _gr + ahead, kg);
+            _sGlR = Quaternion.Slerp(_sGlR, _glR, kg); _sGrR = Quaternion.Slerp(_sGrR, _grR, kg);
             Vector3 hlP = _sHl, hrP = _sHr; Quaternion hlQ = _sHlR, hrQ = _sHrR;
             if (_itemR != null)
             {
@@ -325,7 +348,7 @@ namespace Rago
                 if (_itemL is Gun) { hlP = _itemL.grip != null ? _itemL.grip.position : _itemL.transform.position; hlQ = _itemL.transform.rotation; }
                 if (_supR && _itemL.secondGrip != null) { hrP = _itemL.secondGrip.position; hrQ = _itemL.transform.rotation * Quaternion.Euler(0, 0, -70); }
             }
-            _rig.Pose(_sRoot, _yaw, _sHead, _sHeadR, hlP, hlQ, hrP, hrQ, _vel, dt);
+            _rig.Pose(_sRoot, _yaw, _sHead, _sHeadR, hlP, hlQ, hrP, hrQ, seated ? Vector3.zero : _vel, dt, true, seated);
             if (_voice != null) _voice.transform.position = _sHead;
             var cam = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.Head : null;
             if (cam != null)

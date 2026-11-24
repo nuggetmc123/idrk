@@ -33,7 +33,7 @@ namespace Rago
         // remote driving (multiplayer)
         public ulong RemoteDriver;
         float _remoteT;
-        Vector3 _netPos; Quaternion _netRot;
+        Vector3 _netPos, _netVel, _netAng; Quaternion _netRot; float _netSentT, _netClock = float.MaxValue, _netBase;
         float _sendT;
         readonly Dictionary<object, float> _hitCooldown = new Dictionary<object, float>();
         float _wheelSpin, _steerVis;
@@ -280,8 +280,14 @@ namespace Rago
             {
                 // someone else is driving it: show it where their game says it is
                 if (!rb.isKinematic) rb.isKinematic = true;
-                rb.MovePosition(Vector3.Lerp(rb.position, _netPos, 0.35f));
-                rb.MoveRotation(Quaternion.Slerp(rb.rotation, _netRot, 0.35f));
+                // where it is right now: the last update moved on by its speed (it used to stop at each update and wait for the
+                // next, 12 times a second - that's the stutter), then eased onto
+                float age = Mathf.Clamp(Time.time - _remoteT + RemoteLag, 0f, 0.3f);
+                Vector3 tp = _netPos + _netVel * age;
+                Quaternion tr = _netAng.sqrMagnitude > 1e-4f ? Quaternion.AngleAxis(_netAng.magnitude * Mathf.Rad2Deg * age, _netAng.normalized) * _netRot : _netRot;
+                if ((rb.position - tp).sqrMagnitude > 16f) { rb.position = tp; rb.rotation = tr; }
+                rb.MovePosition(Vector3.Lerp(rb.position, tp, 0.4f));
+                rb.MoveRotation(Quaternion.Slerp(rb.rotation, tr, 0.4f));
                 return;
             }
             // someone's sitting in it and nobody's pressing the gas: it doesn't move at all (frozen in place) - it used to
@@ -347,7 +353,7 @@ namespace Rago
             if (driven && NetGame.Live)
             {
                 _sendT -= dt;
-                if (_sendT <= 0f) { _sendT = 1f / 12f; NetGame.I.CartState(Id, rb.position, rb.rotation, true); }
+                if (_sendT <= 0f) { _sendT = 1f / 15f; NetGame.I.CartState(Id, rb.position, rb.rotation, true, rb.Vel(), rb.angularVelocity); }
             }
         }
 
@@ -440,8 +446,24 @@ namespace Rago
         }
 
         // ------------------------------------------------------------------------------------------- multiplayer
-        public void NetState(ulong from, Vector3 pos, Quaternion rot, bool driving)
+        /// <summary>How old the driver's last update already was when it got here (one-way delay, from their clock).</summary>
+        float RemoteLag => _netClock == float.MaxValue ? 0.05f : Mathf.Clamp(_netClock, 0f, 0.25f);
+
+        public void NetState(ulong from, Vector3 pos, Quaternion rot, bool driving, Vector3 vel = default, Vector3 ang = default, float sentT = -1f)
         {
+            if (driving)
+            {
+                _netVel = vel; _netAng = ang;
+                if (sentT >= 0f)
+                {
+                    // the line's delay, judged by the quickest updates (their clock vs ours): new drivers start fresh
+                    float off = Time.time - sentT;
+                    if (from != RemoteDriver || _netClock == float.MaxValue) { _netBase = off; _netClock = 0.05f; }
+                    else { if (off < _netBase) _netBase = off; else _netBase += 0.002f; _netClock = Mathf.Lerp(_netClock, Mathf.Clamp(off - _netBase + 0.04f, 0f, 0.25f), 0.2f); }
+                    _netSentT = sentT;
+                }
+            }
+            else { _netVel = Vector3.zero; _netAng = Vector3.zero; }
             if (LocalDriving && driving) { if (from < (NetHub.Backend != null ? NetHub.Backend.LocalId : 0)) RagoGame.I.Player.LeaveCart(); else return; }   // both got in at once: the lower id keeps it
             if (driving) { RemoteDriver = from; _remoteT = Time.time; _netPos = pos; _netRot = rot; if (rb != null && !rb.isKinematic) { rb.isKinematic = true; } }
             else

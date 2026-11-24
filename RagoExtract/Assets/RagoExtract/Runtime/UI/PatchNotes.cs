@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.84", "Smarter raiders, smooth golf carts", new[] {
+                "Raiders take cover: when you hit them they often duck behind something low and fight from there, crouching between shots, and they kneel to shoot at range. Badly hurt, a scav runs off somewhere you can't see, crouches and bandages up, then comes back looking for you.",
+                "Everyone sees raiders bandaging, crouching and getting knocked down now - before, only the player whose game ran that raider saw it.",
+                "Golf carts in multiplayer: other players now sit in the seat on your screen instead of running along behind the cart, and the cart drives smoothly instead of stuttering. Everyone sees the cart and its riders in the same place.",
+            }),
             ("2.83", "Bosses fight back", new[] {
                 "Bosses and scavs now react when you shoot them from anywhere - from behind, from far away, or from inside a building. They spin round to face where the shots came from, spot you from any angle up to 160 m away and shoot back. If they can't see you, they come after you. No more farming a boss that just stands there taking it.",
             }),

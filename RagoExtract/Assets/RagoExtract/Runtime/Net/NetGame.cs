@@ -251,16 +251,22 @@ namespace Rago
                 _gearT -= step;
                 bool keys = kl != _lastKl || kr != _lastKr || _gearT <= 0f, gear = gk != _lastGear || _gearT <= 0f;
                 if (_gearT <= 0f) _gearT = 2f;
-                byte f2 = (byte)((keys ? 1 : 0) | (gear ? 2 : 0) | (p.Vitals.OnFire ? 4 : 0));
+                // riding a golf cart: the whole pose goes relative to the cart, so on everyone's screen you sit in the seat of
+                // the cart they see (it used to be two separate positions, each lagging differently: you ran along behind it)
+                var cart = p.Driving; Transform ct = cart != null ? cart.transform : null;
+                Quaternion inv = ct != null ? Quaternion.Inverse(ct.rotation) : Quaternion.identity;
+                Vector3 Dv(Vector3 v) => ct != null ? ct.InverseTransformDirection(v) : v;
+                byte f2 = (byte)((keys ? 1 : 0) | (gear ? 2 : 0) | (p.Vitals.OnFire ? 4 : 0) | (ct != null ? 8 : 0));
                 w.Write(f); w.Write(f2);
                 w.Write(Time.time);   // our clock: the others show us smoothly at a fixed delay (no jumping when packets bunch up)
-                V3(w, root);
-                S3(w, p.Head.position - root, 0.001f); Q(w, p.Head.rotation);
-                S3(w, p.HandL.Visual.position - root, 0.001f); Q(w, p.HandL.Visual.rotation);
-                S3(w, p.HandR.Visual.position - root, 0.001f); Q(w, p.HandR.Visual.rotation);
-                S3(w, p.MoveVelocity, 0.01f);
-                if (il != null) { S3(w, il.transform.position - root, 0.001f); Q(w, il.transform.rotation); }
-                if (ir != null) { S3(w, ir.transform.position - root, 0.001f); Q(w, ir.transform.rotation); }
+                if (ct != null) w.Write((short)cart.Id);
+                V3(w, ct != null ? ct.InverseTransformPoint(root) : root);
+                S3(w, Dv(p.Head.position - root), 0.001f); Q(w, inv * p.Head.rotation);
+                S3(w, Dv(p.HandL.Visual.position - root), 0.001f); Q(w, inv * p.HandL.Visual.rotation);
+                S3(w, Dv(p.HandR.Visual.position - root), 0.001f); Q(w, inv * p.HandR.Visual.rotation);
+                S3(w, ct != null ? Vector3.zero : p.MoveVelocity, 0.01f);
+                if (il != null) { S3(w, Dv(il.transform.position - root), 0.001f); Q(w, inv * il.transform.rotation); }
+                if (ir != null) { S3(w, Dv(ir.transform.position - root), 0.001f); Q(w, inv * ir.transform.rotation); }
                 if (keys) { w.Write(kl); w.Write(kr); _lastKl = kl; _lastKr = kr; }
                 if (gear) { w.Write(gk); _lastGear = gk; }
                 // who gets this one: everyone near you (and your squad) every time, players far away only a few times a
@@ -547,10 +553,10 @@ namespace Rago
         }
 
         /// <summary>The cart I'm driving is here (fast lane while driving; reliable when I get out, so it's parked in the same spot for everyone).</summary>
-        public void CartState(int id, Vector3 pos, Quaternion rot, bool driving)
+        public void CartState(int id, Vector3 pos, Quaternion rot, bool driving, Vector3 vel = default, Vector3 ang = default)
         {
             if (!Live) return;
-            var w = W(Msg.Cart); w.Write((short)id); V3(w, pos); Q(w, rot); w.Write((byte)(driving ? 1 : 0));
+            var w = W(Msg.Cart); w.Write((short)id); V3(w, pos); Q(w, rot); w.Write((byte)(driving ? 1 : 0)); V3(w, vel); V3(w, ang); w.Write(Time.time);
             Send(!driving);
         }
 
@@ -586,7 +592,7 @@ namespace Rago
             {
                 if (n == null || n.Puppet) continue;   // only the raiders this player runs
                 if (!NearAnyPlayer(n.transform.position, 320f)) continue;   // nobody's near enough to see it: nothing to send (far enough out that nobody sees them pop in)
-                byte st = (byte)((byte)n.State | (n.Alive ? 0x80 : 0));
+                byte st = (byte)((byte)n.State | n.NetFlags | (n.Alive ? 0x80 : 0));
                 if (!full && _npcSent.TryGetValue(n.Id, out var last) && last.st == st && (last.pos - n.transform.position).sqrMagnitude < 0.0036f
                     && Mathf.Abs(Mathf.DeltaAngle(last.yaw, n.Yaw)) < 3f && (last.aim - n.AimPoint).sqrMagnitude < 0.04f) continue;
                 _npcSent[n.Id] = (n.transform.position, n.Yaw, st, n.AimPoint);
@@ -606,7 +612,7 @@ namespace Rago
                     w.Write((short)n.Id);
                     P3(w, n.transform.position);
                     w.Write((byte)Mathf.RoundToInt(Mathf.Repeat(n.Yaw, 360f) / 360f * 255f));
-                    w.Write((byte)((byte)n.State | (n.Alive ? 0x80 : 0)));
+                    w.Write((byte)((byte)n.State | n.NetFlags | (n.Alive ? 0x80 : 0)));
                     P3(w, n.AimPoint);
                 }
                 Send(false);
@@ -678,12 +684,16 @@ namespace Rago
                                 byte f = r.ReadByte(), f2 = r.ReadByte();
                                 if ((f2 & 4) != 0) rp.ShowBurning();
                                 float st = r.ReadSingle();
+                                GolfCart rc = null; bool inCart = (f2 & 8) != 0;
+                                if (inCart) rc = GolfCart.Find(r.ReadInt16());
                                 var root = V3(r); var hp = root + S3(r, 0.001f); var hr = Q(r); var lp = root + S3(r, 0.001f); var lr = Q(r); var rpp = root + S3(r, 0.001f); var rr = Q(r); var vel = S3(r, 0.01f);
                                 Vector3 glp = default, grp = default; Quaternion glr = Quaternion.identity, grr = Quaternion.identity;
                                 if ((f & 8) != 0) { glp = root + S3(r, 0.001f); glr = Q(r); }
                                 if ((f & 16) != 0) { grp = root + S3(r, 0.001f); grr = Q(r); }
                                 if ((f2 & 1) != 0) rp.ApplyHeld(r.ReadString(), r.ReadString());
                                 if ((f2 & 2) != 0) rp.ApplyGear(r.ReadString());
+                                if (inCart && rc == null) break;   // a cart we don't have (yet): can't place them in it
+                                rp.SetCart(rc);   // before the pose: switching in / out of a cart starts their playback over
                                 rp.ApplyPose((f & 1) != 0, root, hp, hr, lp, lr, rpp, rr, vel);
                                 rp.ApplyHeldPose((f & 8) != 0, glp, glr, (f & 16) != 0, grp, grr, (f & 32) != 0, (f & 64) != 0, (f & 128) != 0);
                                 rp.CommitSnap(st);
@@ -772,7 +782,7 @@ namespace Rago
                                 {
                                     int id = r.ReadInt16(); var pos = P3(r); float yaw = r.ReadByte() / 255f * 360f; byte sb = r.ReadByte(); var aim = P3(r);
                                     var sn = NpcDirector.I.Get(id);
-                                    if (sn != null && sn.Puppet) sn.ApplyNetState(pos, yaw, (NpcState)(sb & 0x7f), aim, (sb & 0x80) != 0, from, st);   // ones we run ourselves: ours wins
+                                    if (sn != null && sn.Puppet) { sn.ApplyNetState(pos, yaw, (NpcState)(sb & 0x0f), aim, (sb & 0x80) != 0, from, st); sn.ApplyNetFlags(sb); }   // ones we run ourselves: ours wins
                                 }
                                 break;
                             }
@@ -795,8 +805,9 @@ namespace Rago
                         case Msg.Cart:
                             {
                                 int cid = r.ReadInt16(); var cp = V3(r); var cr = Q(r); bool drv = r.ReadByte() == 1;
+                                var cv = V3(r); var ca = V3(r); float ct = r.ReadSingle();
                                 var cart = GolfCart.Find(cid);
-                                if (cart != null) cart.NetState(from, cp, cr, drv);
+                                if (cart != null) cart.NetState(from, cp, cr, drv, cv, ca, ct);
                                 break;
                             }
                         case Msg.CartSpawn:

@@ -50,6 +50,7 @@ namespace Rago
         Target _target;
         // who just shot us: for a few seconds they're spotted from any direction and much further away, and we turn to face them
         Target _shooter; float _shotUntil; Vector3 _shotFrom;
+        bool _flee, _kneel; float _fledAt = -99f;   // hiding to patch up / kneeling to shoot
         bool _crouch;
         // ---- wounds: where they're hit changes how they move and shoot
         float _armHurt, _legHurt, _down, _hunch, _armJerk, _limpPhase; bool _oneArm, _armLeft;
@@ -344,7 +345,7 @@ namespace Rago
                 if (_dripT <= 0f) { _dripT = Mathf.Lerp(0.9f, 0.25f, _bleed / 4f); try { Fx.Drip(Rig.hips.position + transform.forward * 0.05f); } catch { } }
                 if (Health <= 0f) { Health = 0f; Die(Rig.chest.position, -transform.forward * 12f, false); return; }   // bled out
                 // out of the fight for a moment (lost sight of you, or not fighting at all): stop and bandage it
-                bool safe = State != NpcState.Combat || Time.time - _lastSeenT > 2.5f;
+                bool safe = (State != NpcState.Combat || Time.time - _lastSeenT > 2.5f) && !(_flee && AgentOk && Agent.remainingDistance > 0.8f);   // not mid-run to a hiding spot
                 if (_healT <= 0f && safe && _blind <= 0f && _down <= 0f) StartHeal();
             }
             if (_healT > 0f)
@@ -359,6 +360,12 @@ namespace Rago
         {
             _healT = 3.6f;
             Stop();
+            StartHealVisual();
+        }
+
+        void StartHealVisual()
+        {
+            _healT = Mathf.Max(_healT, 1f);
             // a roll of bandage in the left hand
             if (_bandage == null && Rig.handL != null)
             {
@@ -423,6 +430,7 @@ namespace Rago
             if (_healT > 0f) { Stop(); return; }   // bandaging up: stays put
             if (_blind > 0) { Stop(); return; }   // flashed: standing there, blinking
             bool hasLos = _target.valid && Time.time - _lastSeenT < 0.35f;
+            if (State != NpcState.Combat && State != NpcState.Cover) { _crouch = false; _flee = false; }
             // a leash: once they've lost you and wandered far from their post, they head back instead of hunting on
             if ((State == NpcState.Search || State == NpcState.Investigate) && !IsBoss && (transform.position - _home).sqrMagnitude > 55f * 55f)
             { State = NpcState.Patrol; _awareness = 0.1f; Go(_home, 1.6f); }
@@ -474,9 +482,11 @@ namespace Rago
                         float dist = Vector3.Distance(transform.position, _target.aim.position);
                         if (_rng.Chance(0.03f)) Say(ScavVoice.Line.Attack);
                         _coverT -= 0.2f;
+                        _crouch = _kneel && (!AgentOk || Agent.velocity.sqrMagnitude < 0.25f);   // kneeling to shoot when they stop
                         if (_coverT <= 0)
                         {
                             _coverT = _rng.Range(3f, 7f);
+                            _kneel = dist > 12f && _rng.Chance(0.4f);
                             if (FindCover(_target.aim.position, out var cover)) { Go(cover, 3.8f); State = NpcState.Cover; }
                             else if (dist > 28f) Go(Vector3.MoveTowards(transform.position, _target.aim.position, 8f), 2.4f);
                             else if (_rng.Chance(0.5f)) { var side = Quaternion.Euler(0, Yaw + 90f * (_rng.Chance(0.5f) ? 1 : -1), 0) * Vector3.forward; Go(transform.position + side * 3f, 2f); }
@@ -485,7 +495,15 @@ namespace Rago
                     }
                     break;
                 case NpcState.Cover:
-                    if (!_target.valid || !_target.d.Alive) { State = NpcState.Search; break; }
+                    if (_flee)
+                    {
+                        // hiding: run there, crouch down out of sight (and bandage up), then come back to the fight
+                        if (AgentOk && !Agent.pathPending && Agent.remainingDistance < 0.8f) { Stop(); _crouch = true; }
+                        _coverT -= 0.2f;
+                        if (_coverT <= 0 && _healT <= 0f) { _flee = false; _crouch = false; State = _target.valid && _target.d.Alive ? NpcState.Search : NpcState.Patrol; _searchT = 10f; Go(_lastKnown, 2.4f); }
+                        break;
+                    }
+                    if (!_target.valid || !_target.d.Alive) { State = NpcState.Search; _crouch = false; break; }
                     if (AgentOk && !Agent.pathPending && Agent.remainingDistance < 0.6f)
                     {
                         Stop();
@@ -624,6 +642,22 @@ namespace Rago
         struct NetSnap { public float t; public Vector3 p; public float yaw; public Vector3 aim; }
         readonly NetSnap[] _snaps = new NetSnap[10]; int _snapN; ulong _snapFrom; float _clockOff, _gap = 0.1f;
 
+        /// <summary>What the others need to see besides position: bandaging (0x10), crouched (0x20), knocked down (0x40).
+        /// Packed into the state byte next to the state (low 4 bits) and alive (0x80).</summary>
+        public byte NetFlags => (byte)((_healT > 0f ? 0x10 : 0) | (_crouch ? 0x20 : 0) | (_down > 0f ? 0x40 : 0));
+
+        bool _netCrouch;
+        public void ApplyNetFlags(byte sb)
+        {
+            if (!Puppet || !Alive) return;
+            bool heal = (sb & 0x10) != 0;
+            if (heal && _healT <= 0f) StartHealVisual();
+            else if (!heal && _healT > 0f) { bool done = _bandage != null; StopHeal(); if (done) Sfx.Play(Synth.Heal(), Rig.chest.position, 0.4f, 1f, 1f, 10f); }
+            if (heal) _healT = 1f;
+            _netCrouch = (sb & 0x20) != 0;
+            if ((sb & 0x40) != 0) _down = Mathf.Max(_down, 0.3f);
+        }
+
         public void ApplyNetState(Vector3 pos, float yaw, NpcState st, Vector3 aim, bool alive, ulong from = 0, float senderT = -1f)
         {
             if (!Puppet) return;
@@ -676,7 +710,7 @@ namespace Rago
             _puppetVel = (transform.position - before) / Mathf.Max(dt, 0.001f);
             Yaw = Mathf.LerpAngle(Yaw, yaw, 1f - Mathf.Exp(-20f * dt));
             AimPoint = Vector3.Lerp(AimPoint, aim, 1f - Mathf.Exp(-20f * dt));
-            _crouch = false;
+            _crouch = _netCrouch;
         }
         Vector3 _puppetVel;
 
@@ -793,6 +827,7 @@ namespace Rago
             _awareness = 1.2f;
             ShotBy(h);
             if (State != NpcState.Combat && State != NpcState.Cover) { State = NpcState.Combat; _lastSeenT = Time.time - 0.5f; _coverT = 0; }
+            if (Health > 0) TakeCoverFrom(_shotFrom);
             if (Health <= 0) Die(h.point, h.dir * Mathf.Max(20f, h.force * 20f), false);
             else Say(ScavVoice.Line.Hit, 0.55f, true);
         }
@@ -811,6 +846,47 @@ namespace Rago
             _shooter = t; _shotFrom = from; _shotUntil = Time.time + (IsBoss ? 8f : 5f);
             _lastKnown = from;
             if (t.valid && !(_target.valid && Time.time - _lastSeenT < 0.35f)) _target = t;   // not busy with someone in sight: go after the shooter
+        }
+
+        /// <summary>Hit: badly hurt, a scav runs off somewhere the shooter can't see, crouches there and patches up (then
+        /// comes back). Otherwise they often duck behind something low and fight from there, crouching between shots.
+        /// Bosses never run; they only sometimes step into cover.</summary>
+        void TakeCoverFrom(Vector3 threat)
+        {
+            if (_down > 0f || _knockT > 0f || Agent == null) return;
+            bool hurt = Health < MaxHealth * (IsBoss ? 0f : 0.45f);
+            if (hurt && !_flee && Time.time - _fledAt > 12f)
+            {
+                if (FindHide(threat, out var spot))
+                {
+                    _flee = true; _fledAt = Time.time; _crouch = false; _kneel = false;
+                    State = NpcState.Cover; _coverT = _rng.Range(7f, 11f);
+                    Go(spot, 4.4f);
+                    Say(ScavVoice.Line.Hit, 1f, true);
+                    return;
+                }
+            }
+            if (_flee || State == NpcState.Cover) return;
+            if (_rng.Chance(IsBoss ? 0.15f : 0.45f) && FindCover(threat, out var cover)) { Go(cover, 4f); State = NpcState.Cover; _coverT = _rng.Range(3f, 6f); }
+        }
+
+        /// <summary>Somewhere 6-20 m away, mostly away from the threat, where it can't see them even standing.</summary>
+        bool FindHide(Vector3 threat, out Vector3 spot)
+        {
+            spot = Vector3.zero;
+            Vector3 away = transform.position - threat; away.y = 0;
+            away = away.sqrMagnitude > 0.01f ? away.normalized : -(Quaternion.Euler(0, Yaw, 0) * Vector3.forward);
+            Vector3 eye = threat + Vector3.up * 0.3f;
+            for (int i = 0; i < 16; i++)
+            {
+                Vector3 dir = Quaternion.Euler(0, _rng.Range(-80f, 80f), 0) * away;
+                Vector3 p = transform.position + dir * _rng.Range(6f, 20f);
+                if (!NavMesh.SamplePosition(p, out var h, 2.5f, NavMesh.AllAreas)) continue;
+                if (Physics.Linecast(eye, h.position + Vector3.up * 1.6f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) { spot = h.position; return true; }
+            }
+            // nowhere hidden: at least get some distance
+            if (NavMesh.SamplePosition(transform.position + away * 14f, out var far, 5f, NavMesh.AllAreas)) { spot = far.position; return true; }
+            return false;
         }
 
         /// <summary>React to where the hit landed: head snaps back, chest / gut doubles them over, arm hits ruin their aim
@@ -867,6 +943,7 @@ namespace Rago
             _knockT = 0f;
             Health = 0;
             State = NpcState.Dead;
+            StopHeal();
             if (!Puppet && NpcDirector.I != null)
                 foreach (var o in NpcDirector.I.Npcs)
                     if (o != null && o != this && o.Alive && !o.Puppet && (o.transform.position - transform.position).sqrMagnitude < 18f * 18f) { o.Say(ScavVoice.Line.ManDown, 0.85f, true); break; }

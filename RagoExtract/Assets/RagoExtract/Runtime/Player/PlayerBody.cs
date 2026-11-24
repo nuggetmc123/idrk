@@ -73,7 +73,7 @@ namespace Rago
             // arms end at the wrists of the hands you see, so arm, hand and controller line up
             Rig.Pose(_p.transform.position, _yaw, _p.Head.position, _p.Head.rotation,
                 _p.HandL.WristPosition, _p.HandL.WristRotation,
-                _p.HandR.WristPosition, _p.HandR.WristRotation, _vel, dt, true);
+                _p.HandR.WristPosition, _p.HandR.WristRotation, _p.Driving != null ? Vector3.zero : _vel, dt, true, _p.Driving != null);
         }
 
         /// <summary>Called right before the frame is drawn (VR), after the hands snapped to the controllers.</summary>

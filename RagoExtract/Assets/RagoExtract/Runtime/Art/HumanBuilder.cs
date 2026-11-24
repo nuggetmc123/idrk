@@ -779,7 +779,7 @@ namespace Rago
         /// rootPos = point on the ground under the body, yaw = body facing.
         /// </summary>
         public void Pose(Vector3 rootPos, float yaw, Vector3 headPos, Quaternion headRot, Vector3 handLPos, Quaternion handLRot,
-            Vector3 handRPos, Quaternion handRRot, Vector3 velocity, float dt, bool handsValid = true)
+            Vector3 handRPos, Quaternion handRRot, Vector3 velocity, float dt, bool handsValid = true, bool seated = false)
         {
             if (ragdoll) return;
             Quaternion yawQ = Quaternion.Euler(0, yaw, 0);
@@ -797,6 +797,13 @@ namespace Rago
             spineUp = Vector3.Slerp(Vector3.up, spineUp, 0.85f).normalized;
             Vector3 hipsPos = neckBase - spineUp * 0.42f;
             hipsPos.y = Mathf.Clamp(hipsPos.y, rootPos.y + 0.35f, rootPos.y + 1.02f);
+            if (seated)
+            {
+                // sitting (cart seat): rootPos is the top of the cushion - hips on it, back upright, no lean from crouching
+                hipsPos = rootPos + Vector3.up * 0.1f - fwd * 0.04f; crouch = 0f;
+                toNeck = neckBase - hipsPos;
+                spineUp = toNeck.sqrMagnitude > 0.0001f ? Vector3.Slerp(Vector3.up, toNeck.normalized, 0.85f).normalized : Vector3.up;
+            }
             Vector3 bodyFwd = Vector3.ProjectOnPlane(fwd, spineUp).normalized;
             if (bodyFwd.sqrMagnitude < 0.01f) bodyFwd = fwd;
 
@@ -820,6 +827,18 @@ namespace Rago
                 RelaxArm(uaL, faL, -1); RelaxArm(uaR, faR, 1);
             }
 
+            if (seated)
+            {
+                // knees forward over the seat edge, feet on the floor in front (no walking while you ride)
+                _phase = 0f;
+                for (int s = 0; s < 2; s++)
+                {
+                    float side = s == 0 ? -1 : 1;
+                    Vector3 foot = rootPos + fwd * 0.42f + right * side * 0.15f + Vector3.down * 0.4f;
+                    LegIK(s == 0 ? thL : thR, s == 0 ? shL : shR, s == 0 ? footL : footR, foot, fwd + Vector3.up * 0.5f, right * side);
+                }
+                return;
+            }
             // legs: walk cycle driven by planar speed
             Vector3 planar = Vector3.ProjectOnPlane(velocity, Vector3.up);
             float speed = planar.magnitude;
