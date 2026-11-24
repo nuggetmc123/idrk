@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.86", "New gear models", new[] {
+                "Every helmet, vest, grenade and melee weapon has a new, much more detailed model. Helmets get liners, chin straps, proper ear defenders with mics, rails with slots, NVG shrouds, vents, velcro and visor hinges. Vests get MOLLE webbing, mag pouches with flaps and pull tabs, cummerbunds, padded shoulder straps, radio and tourniquet pouches and drag handles. Grenades have real fuses, curved spoons and pull rings, and the flashbang is perforated. Knives get proper blade shapes with fullers, edges and serrations; the bat, crowbar, machete, sledgehammer, fire axe, frying pan and candy cane are all rebuilt.",
+            }),
             ("2.85", "Peanut Streamer Figurine", new[] {
                 "NEW VALUABLE: the Peanut Streamer Figurine - a cartoon peanut in a gaming headset, mic up, waving to chat, on a LIVE display base. Epic rarity: turns up in crates and safes and sells for $8,500.",
             }),

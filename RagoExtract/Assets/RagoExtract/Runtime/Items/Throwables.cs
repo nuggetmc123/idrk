@@ -26,36 +26,14 @@ namespace Rago
             g.def = d;
             g.Flash = d.shape == 1; g.Impact = d.shape == 2;
             Color w = Color.white;
-            var mb = new MB(2);
             Material body = g.Flash ? Mats.Lit("flash_body", Color.white, 0.6f, 0.45f, Mats.Metal, null, 0.3f, 0.3f) : Mats.Lit("frag_body", Color.white, 0.2f, 0.35f, Mats.Noise, null, 0.45f, 0.25f);
             Material metal = Mats.Lit("grenade_metal", Color.white, 0.9f, 0.6f, Mats.Metal, null, 0.2f, 0.3f);
-            if (g.Flash)
-            {
-                mb.Sub(0).Cyl(new Vector3(0, -0.055f, 0), new Vector3(0, 0.045f, 0), 0.024f, 0.024f, 16, new Color(0.55f, 0.57f, 0.58f));
-                for (int i = 0; i < 6; i++) { float a = i * 60f * Mathf.Deg2Rad; mb.Sub(0).Box(new Vector3(Mathf.Cos(a) * 0.0235f, 0f, Mathf.Sin(a) * 0.0235f), new Vector3(0.008f, 0.03f, 0.008f), new Color(0.12f, 0.12f, 0.12f)); }
-                mb.Sub(0).Cyl(new Vector3(0, -0.03f, 0), new Vector3(0, -0.02f, 0), 0.0245f, 0.0245f, 16, new Color(0.15f, 0.15f, 0.15f));
-            }
-            else if (g.Impact)
-            {
-                // round body with a black band and a yellow stripe, impact fuse on top
-                mb.Sub(0).Sphere(new Vector3(0, -0.012f, 0), new Vector3(0.034f, 0.034f, 0.034f), 16, new Color(0.22f, 0.27f, 0.2f));
-                mb.Sub(0).Cyl(new Vector3(0, -0.018f, 0), new Vector3(0, -0.006f, 0), 0.0352f, 0.0352f, 16, new Color(0.06f, 0.06f, 0.06f));
-                mb.Sub(0).Cyl(new Vector3(0, 0.004f, 0), new Vector3(0, 0.009f, 0), 0.0338f, 0.033f, 16, new Color(0.85f, 0.7f, 0.1f));
-            }
-            else
-            {
-                mb.Sub(0).Sphere(new Vector3(0, -0.015f, 0), new Vector3(0.032f, 0.038f, 0.032f), 16, new Color(0.3f, 0.34f, 0.22f));
-                mb.Sub(0).Cyl(new Vector3(0, -0.05f, 0), new Vector3(0, -0.054f, 0), 0.014f, 0.012f, 12, new Color(0.25f, 0.28f, 0.18f));
-            }
-            // fuse head + spoon down the side
-            mb.Sub(1).Cyl(new Vector3(0, 0.02f, 0), new Vector3(0, 0.05f, 0), 0.012f, 0.011f, 12, w);
-            mb.Sub(1).Box(new Vector3(0.018f, 0.025f, 0), new Vector3(0.008f, 0.06f, 0.014f), w * 0.85f, 0.002f, 1, Quaternion.Euler(0, 0, -8));
+            var mb = GearModels.Grenade(d.shape);
             mb.Build("Body", go.transform, body, metal);
             // pin ring (comes off when you pull the pin)
             g._pin = new GameObject("Pin").transform; g._pin.SetParent(go.transform, false);
             g._pin.localPosition = new Vector3(-0.016f, 0.045f, 0);
-            var ring = new MB();
-            for (int i = 0; i < 12; i++) { float a = i * 30f; ring.Box(Quaternion.Euler(0, 0, a) * new Vector3(0.011f, 0, 0) + new Vector3(-0.01f, 0, 0), new Vector3(0.002f, 0.006f, 0.002f), w, 0, 0, Quaternion.Euler(0, 0, a)); }
+            var ring = GearModels.PinRing();
             ring.Build("Ring", g._pin, metal);
             var col = go.AddComponent<SphereCollider>(); col.radius = g.Flash ? 0.032f : 0.04f; col.center = new Vector3(0, -0.005f, 0);
             g.localBounds = new Bounds(Vector3.zero, new Vector3(0.07f, 0.11f, 0.07f));
@@ -174,15 +152,7 @@ namespace Rago
             k._damage = d.heal > 0 ? d.heal : 45f;   // melee keeps its damage in the def's "heal" slot
             if (d.shape >= 2) { k.BuildLong(d.shape); return k; }
             bool hunt = d.shape == 1;
-            float blade = hunt ? 0.17f : 0.14f;
-            var mb = new MB(2);
-            Color w = Color.white;
-            // handle along -z, guard at 0, blade along +z (the hand holds the handle like a pistol grip)
-            mb.Sub(0).Box(new Vector3(0, 0, -0.055f), new Vector3(0.024f, 0.03f, 0.11f), hunt ? new Color(0.42f, 0.28f, 0.16f) : new Color(0.1f, 0.1f, 0.1f), 0.008f, 2);
-            mb.Sub(1).Box(new Vector3(0, 0, 0.004f), new Vector3(0.03f, 0.05f, 0.008f), w * 0.7f, 0.003f);
-            mb.Sub(1).Box(new Vector3(0, 0.002f, 0.008f + blade * 0.5f), new Vector3(0.004f, 0.028f, blade), w, 0.001f);
-            mb.Sub(1).Box(new Vector3(0, -0.006f, 0.008f + blade + 0.008f), new Vector3(0.004f, 0.016f, 0.02f), w, 0.001f, 1, Quaternion.Euler(-35, 0, 0));
-            mb.Sub(1).Cyl(new Vector3(0, 0, -0.115f), new Vector3(0, 0, -0.105f), 0.016f, 0.016f, 10, w * 0.6f);
+            var mb = GearModels.Knife(d.shape, out float blade);
             mb.Build("Model", go.transform, Mats.Lit(hunt ? "knife_wood" : "knife_grip", Color.white, 0f, 0.3f, hunt ? Mats.Wood : Mats.Noise, null, 0.3f, 0.1f),
                 Mats.Lit("knife_steel", Color.white, 0.95f, 0.8f, Mats.Metal, null, 0.1f, 0.4f));
             k.grip = new GameObject("Grip").transform; k.grip.SetParent(go.transform, false); k.grip.localPosition = new Vector3(0, 0, -0.055f);
@@ -200,47 +170,23 @@ namespace Rago
         void BuildLong(int shape)
         {
             var go = gameObject;
-            var mb = new MB(3);   // 0 wood / grip / paint, 1 steel, 2 tape
-            Color w = Color.white, tape = new Color(0.08f, 0.08f, 0.08f);
+            var mb = GearModels.Long(shape);
             float len, hitFrom, mass; Vector3 colC, colS; Synth.Surface surf = Synth.Surface.Metal;
             switch (shape)
             {
                 case 2:   // baseball bat: knob, taped handle, swelling barrel
-                    mb.Sub(0).Cyl(new Vector3(0, 0, -0.1f), new Vector3(0, 0, -0.085f), 0.026f, 0.026f, 14, new Color(0.62f, 0.45f, 0.28f));
-                    mb.Sub(0).Cyl(new Vector3(0, 0, -0.085f), new Vector3(0, 0, 0.25f), 0.014f, 0.019f, 14, new Color(0.62f, 0.45f, 0.28f), false);
-                    mb.Sub(0).Cyl(new Vector3(0, 0, 0.25f), new Vector3(0, 0, 0.7f), 0.019f, 0.033f, 16, new Color(0.62f, 0.45f, 0.28f), false);
-                    mb.Sub(0).Sphere(new Vector3(0, 0, 0.7f), new Vector3(0.033f, 0.033f, 0.02f), 14, new Color(0.62f, 0.45f, 0.28f));
-                    mb.Sub(2).Cyl(new Vector3(0, 0, -0.085f), new Vector3(0, 0, 0.12f), 0.0165f, 0.0175f, 14, tape, false);
                     len = 0.72f; hitFrom = 0.35f; mass = 0.9f; colC = new Vector3(0, 0, 0.31f); colS = new Vector3(0.06f, 0.06f, 0.82f); surf = Synth.Surface.Wood; _force = 5f; Blunt = true; break;
                 case 3:   // crowbar: a hex bar with a hook at the top and a flat claw at the bottom
-                    mb.Sub(0).Cyl(new Vector3(0, 0, -0.12f), new Vector3(0, 0, 0.42f), 0.011f, 0.011f, 6, new Color(0.6f, 0.08f, 0.06f));
-                    for (int i = 0; i < 6; i++) { float a = i / 5f * Mathf.PI; mb.Sub(0).Cyl(new Vector3(0, -0.05f + Mathf.Cos(a) * 0.05f, 0.42f + Mathf.Sin(a) * 0.05f), new Vector3(0, -0.05f + Mathf.Cos(a + 0.63f) * 0.05f, 0.42f + Mathf.Sin(a + 0.63f) * 0.05f), 0.011f, 0.011f, 6, new Color(0.6f, 0.08f, 0.06f)); }
-                    mb.Sub(1).Box(new Vector3(0, 0.012f, -0.13f), new Vector3(0.026f, 0.03f, 0.03f), w * 0.6f, 0.003f, 1, Quaternion.Euler(-30, 0, 0));
                     len = 0.47f; hitFrom = 0.2f; mass = 0.8f; colC = new Vector3(0, -0.02f, 0.17f); colS = new Vector3(0.03f, 0.08f, 0.62f); _force = 3.5f; Blunt = true; break;
                 case 4:   // machete: wrapped grip, long slightly curved blade
-                    mb.Sub(0).Box(new Vector3(0, 0, -0.06f), new Vector3(0.026f, 0.032f, 0.13f), new Color(0.12f, 0.12f, 0.12f), 0.009f, 2);
-                    for (int i = 0; i < 5; i++) mb.Sub(1).Box(new Vector3(0, 0.004f + i * 0.0015f, 0.06f + i * 0.08f), new Vector3(0.0035f, 0.045f + i * 0.004f, 0.085f), w * 0.85f, 0.001f, 1, Quaternion.Euler(-1.5f * i, 0, 0));
                     len = 0.46f; hitFrom = 0.1f; mass = 0.6f; colC = new Vector3(0, 0.005f, 0.17f); colS = new Vector3(0.03f, 0.06f, 0.6f); _force = 2.2f; break;
                 case 5:   // sledgehammer: long wooden handle, a heavy steel head
-                    mb.Sub(0).Cyl(new Vector3(0, 0, -0.18f), new Vector3(0, 0, 0.62f), 0.017f, 0.017f, 12, new Color(0.55f, 0.4f, 0.25f));
-                    mb.Sub(1).Box(new Vector3(0, 0, 0.64f), new Vector3(0.07f, 0.2f, 0.075f), new Color(0.28f, 0.28f, 0.3f), 0.012f, 2);
-                    mb.Sub(2).Cyl(new Vector3(0, 0, -0.18f), new Vector3(0, 0, 0.0f), 0.019f, 0.019f, 12, tape, false);
                     len = 0.66f; hitFrom = 0.58f; mass = 2.4f; colC = new Vector3(0, 0, 0.24f); colS = new Vector3(0.08f, 0.2f, 0.9f); _force = 7f; Blunt = true; break;
                 case 6:   // fire axe: red head, blade one side, spike the other
-                    mb.Sub(0).Cyl(new Vector3(0, 0, -0.15f), new Vector3(0, 0, 0.6f), 0.016f, 0.017f, 12, new Color(0.55f, 0.4f, 0.25f));
-                    mb.Sub(0).Box(new Vector3(0, 0.0f, 0.6f), new Vector3(0.04f, 0.06f, 0.07f), new Color(0.75f, 0.1f, 0.08f), 0.008f);
-                    mb.Sub(0).Box(new Vector3(0, 0.08f, 0.6f), new Vector3(0.014f, 0.12f, 0.08f), new Color(0.75f, 0.1f, 0.08f), 0.004f);
-                    mb.Sub(1).Box(new Vector3(0, 0.15f, 0.6f), new Vector3(0.006f, 0.03f, 0.13f), w * 0.9f, 0.001f);
-                    mb.Sub(0).Cyl(new Vector3(0, -0.03f, 0.6f), new Vector3(0, -0.12f, 0.6f), 0.016f, 0.003f, 6, new Color(0.75f, 0.1f, 0.08f));
                     len = 0.64f; hitFrom = 0.55f; mass = 1.8f; colC = new Vector3(0, 0.02f, 0.23f); colS = new Vector3(0.06f, 0.3f, 0.82f); _force = 4f; break;
                 case 7:   // frying pan: a cast-iron disc on a short handle
-                    mb.Sub(0).Box(new Vector3(0, 0, 0.0f), new Vector3(0.026f, 0.018f, 0.2f), new Color(0.1f, 0.1f, 0.1f), 0.006f);
-                    mb.Sub(0).Cyl(new Vector3(0, -0.012f, 0.22f), new Vector3(0, 0.02f, 0.22f), 0.12f, 0.13f, 24, new Color(0.12f, 0.12f, 0.12f));
-                    mb.Sub(1).Cyl(new Vector3(0, 0.0205f, 0.22f), new Vector3(0, 0.0215f, 0.22f), 0.11f, 0.11f, 24, new Color(0.22f, 0.22f, 0.23f), false);
                     len = 0.34f; hitFrom = 0.12f; mass = 1.4f; colC = new Vector3(0, 0, 0.17f); colS = new Vector3(0.26f, 0.04f, 0.46f); _force = 4f; Blunt = true; break;
                 default:  // candy cane: red and white stripes with a hook
-                    for (int i = 0; i < 14; i++) mb.Sub(0).Cyl(new Vector3(0, 0, -0.12f + i * 0.045f), new Vector3(0, 0, -0.075f + i * 0.045f), 0.02f, 0.02f, 12, i % 2 == 0 ? new Color(0.9f, 0.12f, 0.12f) : new Color(0.95f, 0.95f, 0.95f), i == 0 || i == 13);
-                    for (int i = 0; i < 8; i++) { float a = i / 7f * Mathf.PI, a2 = (i + 1) / 7f * Mathf.PI; if (i == 7) break; mb.Sub(0).Cyl(new Vector3(0, -0.07f + Mathf.Cos(a) * 0.07f, 0.51f + Mathf.Sin(a) * 0.07f), new Vector3(0, -0.07f + Mathf.Cos(a2) * 0.07f, 0.51f + Mathf.Sin(a2) * 0.07f), 0.02f, 0.02f, 12, i % 2 == 0 ? new Color(0.95f, 0.95f, 0.95f) : new Color(0.9f, 0.12f, 0.12f)); }
                     len = 0.58f; hitFrom = 0.25f; mass = 0.7f; colC = new Vector3(0, -0.03f, 0.23f); colS = new Vector3(0.05f, 0.12f, 0.75f); surf = Synth.Surface.Wood; _force = 3f; Blunt = true; break;
             }
             mb.Build("Model", go.transform, Mats.Lit("melee_body", Color.white, 0.05f, 0.35f, Mats.Noise, null, 0.3f, 0.15f),

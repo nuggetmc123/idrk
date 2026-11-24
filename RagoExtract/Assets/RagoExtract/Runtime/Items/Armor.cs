@@ -14,86 +14,8 @@ namespace Rago
         static Material Visor => Mats.Lit("armor_visor", new Color(0.05f, 0.07f, 0.09f), 0.6f, 0.92f);
         static readonly Color Dark = new Color(0.1f, 0.1f, 0.11f);
 
-        public static MB Helmet(ArmorDef d)
-        {
-            var mb = new MB(4);
-            Color c = Lin(d.color), t = Lin(d.trim);
-            float s = d.style == 4 ? 1.1f : d.style == 0 ? 0.96f : 1f;
-            float cut = d.style == 2 ? 0.48f : 0.55f;
-            mb.Sub(0).Sphere(new Vector3(0, 0.105f, -0.002f), new Vector3(0.122f, 0.118f, 0.132f) * s, 18, c, 0f, cut);
-            mb.Sub(0).Cyl(new Vector3(0, 0.1f - 0.005f * s, -0.002f), new Vector3(0, 0.108f, -0.002f), 0.123f * s, 0.123f * s, 18, c * 0.85f, false); // rim
-            switch (d.style)
-            {
-                case 0: // bump helmet: vents + strap
-                    for (int i = -1; i <= 1; i++) mb.Sub(1).Box(new Vector3(i * 0.035f, 0.215f, -0.01f), new Vector3(0.018f, 0.006f, 0.05f), Dark, 0.002f);
-                    break;
-                case 1: // ballistic: ear pro + chin strap
-                    Ears(mb);
-                    break;
-                case 2: // FAST: rails, NVG shroud, velcro
-                    Ears(mb);
-                    mb.Sub(1).Box(new Vector3(-0.118f, 0.115f, 0.03f), new Vector3(0.012f, 0.025f, 0.09f), Dark, 0.003f);
-                    mb.Sub(1).Box(new Vector3(0.118f, 0.115f, 0.03f), new Vector3(0.012f, 0.025f, 0.09f), Dark, 0.003f);
-                    mb.Sub(1).Box(new Vector3(0, 0.16f, 0.118f), new Vector3(0.05f, 0.035f, 0.02f), Dark, 0.005f);
-                    mb.Sub(2).Box(new Vector3(0, 0.205f, -0.04f), new Vector3(0.07f, 0.004f, 0.05f), t, 0.002f);
-                    break;
-                case 3: // assault visor
-                    Ears(mb);
-                    mb.Sub(3).Sphere(new Vector3(0, 0.07f, 0.03f), new Vector3(0.118f, 0.1f, 0.115f), 16, Color.white, 0.25f, 0.62f);
-                    mb.Sub(1).Box(new Vector3(0, 0.165f, 0.12f), new Vector3(0.16f, 0.02f, 0.03f), t, 0.005f);
-                    break;
-                default: // juggernaut: full face plate with eye slit and gold trim
-                    mb.Sub(0).Box(new Vector3(0, 0.05f, 0.1f), new Vector3(0.2f, 0.16f, 0.06f), c, 0.03f, 2);
-                    mb.Sub(3).Box(new Vector3(0, 0.08f, 0.132f), new Vector3(0.15f, 0.022f, 0.01f), Color.white, 0.004f);
-                    mb.Sub(1).Box(new Vector3(0, 0.215f, 0.0f), new Vector3(0.03f, 0.012f, 0.24f), t, 0.004f);
-                    mb.Sub(1).Box(new Vector3(0, 0.045f, 0.134f), new Vector3(0.19f, 0.01f, 0.006f), t, 0.002f);
-                    Ears(mb);
-                    break;
-            }
-            return mb;
-        }
-
-        static void Ears(MB mb)
-        {
-            mb.Sub(1).Box(new Vector3(-0.115f, 0.07f, 0.0f), new Vector3(0.04f, 0.07f, 0.07f), new Color(0.12f, 0.12f, 0.12f), 0.015f, 2);
-            mb.Sub(1).Box(new Vector3(0.115f, 0.07f, 0.0f), new Vector3(0.04f, 0.07f, 0.07f), new Color(0.12f, 0.12f, 0.12f), 0.015f, 2);
-        }
-
-        public static MB Vest(ArmorDef d)
-        {
-            var mb = new MB(4);
-            Color c = Lin(d.color), c2 = Lin(d.color * 0.8f), t = Lin(d.trim);
-            c2.a = 1;
-            float thick = d.style == 0 ? 0.035f : d.style >= 2 ? 0.07f : 0.06f;
-            mb.Sub(2).Box(new Vector3(0, 0.04f, 0.12f), new Vector3(0.3f, 0.32f, thick), c, 0.02f, 2);
-            mb.Sub(2).Box(new Vector3(0, 0.04f, -0.12f), new Vector3(0.3f, 0.32f, thick * 0.9f), c, 0.02f, 2);
-            mb.Sub(2).Box(new Vector3(-0.165f, 0.0f, 0), new Vector3(0.04f, 0.15f, 0.2f), c2, 0.01f);
-            mb.Sub(2).Box(new Vector3(0.165f, 0.0f, 0), new Vector3(0.04f, 0.15f, 0.2f), c2, 0.01f);
-            mb.Sub(2).Box(new Vector3(-0.1f, 0.19f, 0), new Vector3(0.06f, 0.03f, 0.25f), c2, 0.01f);
-            mb.Sub(2).Box(new Vector3(0.1f, 0.19f, 0), new Vector3(0.06f, 0.03f, 0.25f), c2, 0.01f);
-            if (d.style >= 1)
-            {
-                int pouches = d.style >= 3 ? 4 : 3;
-                for (int i = 0; i < pouches; i++) mb.Sub(2).Box(new Vector3(-0.09f * (pouches - 1) / 2f + i * 0.09f * (3f / pouches), -0.06f, 0.12f + thick * 0.5f + 0.018f), new Vector3(0.07f, 0.12f, 0.036f), c2, 0.012f);
-                mb.Sub(2).Box(new Vector3(0, 0.12f, 0.12f + thick * 0.5f + 0.012f), new Vector3(0.16f, 0.06f, 0.025f), c2, 0.01f);
-            }
-            if (d.style >= 2)
-            {
-                // shoulder pads + collar
-                mb.Sub(0).Box(new Vector3(-0.2f, 0.17f, 0), new Vector3(0.1f, 0.04f, 0.16f), c, 0.015f, 2, Quaternion.Euler(0, 0, -25));
-                mb.Sub(0).Box(new Vector3(0.2f, 0.17f, 0), new Vector3(0.1f, 0.04f, 0.16f), c, 0.015f, 2, Quaternion.Euler(0, 0, 25));
-                mb.Sub(0).Box(new Vector3(0, 0.22f, -0.04f), new Vector3(0.22f, 0.05f, 0.14f), c2, 0.02f, 2);
-            }
-            if (d.style >= 3) mb.Sub(2).Box(new Vector3(0, -0.2f, 0.125f), new Vector3(0.16f, 0.14f, 0.03f), c, 0.012f, 2); // groin flap
-            if (d.style >= 4)
-            {
-                mb.Sub(0).Box(new Vector3(0, 0.04f, 0.16f), new Vector3(0.32f, 0.34f, 0.03f), c, 0.02f, 2);
-                mb.Sub(1).Box(new Vector3(0, 0.21f, 0.18f), new Vector3(0.3f, 0.012f, 0.012f), t, 0.003f);
-                mb.Sub(1).Box(new Vector3(0, -0.13f, 0.18f), new Vector3(0.3f, 0.012f, 0.012f), t, 0.003f);
-            }
-            mb.Sub(1).Box(new Vector3(0.1f, 0.15f, 0.12f + thick * 0.5f + 0.002f), new Vector3(0.04f, 0.035f, 0.004f), t, 0.002f); // patch
-            return mb;
-        }
+        public static MB Helmet(ArmorDef d) => GearModels.Helmet(d);
+        public static MB Vest(ArmorDef d) => GearModels.Vest(d);
 
         // =========================================================================================== BACKPACKS
         // Soft military rucksacks. One shared body builder is used for the bag you hold open in front of you
