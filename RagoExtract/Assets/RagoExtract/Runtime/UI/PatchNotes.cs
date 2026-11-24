@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.83", "Bosses fight back", new[] {
+                "Bosses and scavs now react when you shoot them from anywhere - from behind, from far away, or from inside a building. They spin round to face where the shots came from, spot you from any angle up to 160 m away and shoot back. If they can't see you, they come after you. No more farming a boss that just stands there taking it.",
+            }),
             ("2.82", "New item models", new[] {
                 "Every med, ammo box, keycard, valuable and piece of junk has a new, much more detailed model: the medkit has latches, a handle and corner bumpers, pill bottles have ribbed caps, the stim is a proper auto-injector, drinks cans have real can shapes and ring pulls, the whiskey bottle has a label and cork, the graphics card has its fans, the laptop is a rugged case, wire comes on a reel, and so on. Screens, glass and glossy labels now shine.",
             }),

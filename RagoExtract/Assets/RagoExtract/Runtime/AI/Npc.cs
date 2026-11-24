@@ -48,6 +48,8 @@ namespace Rago
         Vector3 _lastKnown, _flinchDir;
         Vector3 _netPos, _netAim, _netVel; float _netYaw, _netT; bool _netInit;
         Target _target;
+        // who just shot us: for a few seconds they're spotted from any direction and much further away, and we turn to face them
+        Target _shooter; float _shotUntil; Vector3 _shotFrom;
         bool _crouch;
         // ---- wounds: where they're hit changes how they move and shoot
         float _armHurt, _legHurt, _down, _hunch, _armJerk, _limpPhase; bool _oneArm, _armLeft;
@@ -234,12 +236,14 @@ namespace Rago
             {
                 Vector3 to = cand.aim.position - eye;
                 float dist = to.magnitude;
-                if (dist > 70f * Weather.SightMul) continue;   // night and fog: they see much less far
+                if (dist > 160f) continue;   // night and fog cut this to 70 m (below) unless they're the one shooting at us
                 float ang = Vector3.Angle(fwd, to);
-                bool inCone = ang < 65f || dist < 4f;
+                bool shooter = Time.time < _shotUntil && _shooter.valid && cand.d == _shooter.d;
+                if (dist > 70f * Weather.SightMul && !shooter) continue;
+                bool inCone = ang < 65f || dist < 4f || shooter;
                 if (!inCone) continue;
                 if (!ClearLine(eye, cand.aim.position, cand.d)) continue; // blocked
-                float score = (1f - dist / (70f * Weather.SightMul)) * (ang < 30f ? 1.4f : 0.8f);
+                float score = shooter ? 2f : (1f - dist / (70f * Weather.SightMul)) * (ang < 30f ? 1.4f : 0.8f);
                 if (score > bestScore) { bestScore = score; best = cand; best.valid = true; }
             }
             if (best.valid)
@@ -556,11 +560,12 @@ namespace Rago
             {
                 Vector3 dir = vel.sqrMagnitude > 0.2f ? vel.normalized : Quaternion.Euler(0, Yaw, 0) * Vector3.forward;
                 lookAt = Rig.head.position + dir * 10f + Vector3.down * 2f;
+                if (Time.time < _shotUntil && _blind <= 0) lookAt = _shotFrom;   // just got shot: face where it came from
                 AimPoint = Vector3.Lerp(AimPoint, lookAt, dt * 3f);
                 if (_reloadT > 0) _reloadT -= dt;
             }
             Vector3 flat = (lookAt - transform.position); flat.y = 0;
-            if (flat.sqrMagnitude > 0.01f) Yaw = Mathf.MoveTowardsAngle(Yaw, Quaternion.LookRotation(flat).eulerAngles.y, dt * (engaging ? 260f : 140f));
+            if (flat.sqrMagnitude > 0.01f) Yaw = Mathf.MoveTowardsAngle(Yaw, Quaternion.LookRotation(flat).eulerAngles.y, dt * (engaging || Time.time < _shotUntil ? (IsBoss ? 420f : 300f) : 140f));
         }
 
         void TryShoot(float dt, float dist)
@@ -786,9 +791,26 @@ namespace Rago
             _aimErr = Mathf.Min(1.5f, _aimErr + 0.5f);
             if (dmg > 25f) _stagger = 0.6f;
             _awareness = 1.2f;
-            if (State != NpcState.Combat && State != NpcState.Cover) { State = NpcState.Combat; _lastKnown = h.point - h.dir * 15f; _lastSeenT = Time.time - 0.5f; _coverT = 0; }
+            ShotBy(h);
+            if (State != NpcState.Combat && State != NpcState.Cover) { State = NpcState.Combat; _lastSeenT = Time.time - 0.5f; _coverT = 0; }
             if (Health <= 0) Die(h.point, h.dir * Mathf.Max(20f, h.force * 20f), false);
             else Say(ScavVoice.Line.Hit, 0.55f, true);
+        }
+
+        /// <summary>Shot from anywhere (behind, far away, from inside a building): they turn to face the shooter, can spot them
+        /// from any angle up to 160 m for the next few seconds, and head for them if they can't see them.</summary>
+        void ShotBy(HitInfo h)
+        {
+            if (h.gunId == "cart" || h.dir == Vector3.down) return;   // run over / burning: no shooter to look for
+            var t = new Target();
+            if (h.attacker == 0 && RagoGame.I != null && RagoGame.I.Player != null)
+            { var p = RagoGame.I.Player; t = new Target { d = p.Vitals, aim = p.Body.Rig.chest, vel = p.MoveVelocity, valid = true }; }
+            else if (h.attacker > 0 && h.attacker < 1000 && NetGame.I != null && NetGame.I.Remotes.TryGetValue((ulong)(h.attacker - 1), out var r) && r != null)
+                t = new Target { d = r, aim = r.Chest, vel = Vector3.zero, valid = true };
+            Vector3 from = t.valid ? t.aim.position : h.point - h.dir.normalized * 40f;
+            _shooter = t; _shotFrom = from; _shotUntil = Time.time + (IsBoss ? 8f : 5f);
+            _lastKnown = from;
+            if (t.valid && !(_target.valid && Time.time - _lastSeenT < 0.35f)) _target = t;   // not busy with someone in sight: go after the shooter
         }
 
         /// <summary>React to where the hit landed: head snaps back, chest / gut doubles them over, arm hits ruin their aim
