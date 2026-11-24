@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.77", "Store start-up fixes", new[] {
+                "Fixed: the game could close by itself right after starting from the Meta store. The ownership check now retries if Meta's store is slow to answer, and if it really can't confirm your copy it says so on screen for 15 seconds instead of just closing.",
+                "The game keeps a log file on the headset (rago_log.txt) to help track down crashes.",
+            }),
             ("2.76", "Meta store build fixes", new[] {
                 "Builds now pass Meta's store checks: Android target version 34 and install location \"auto\".",
             }),

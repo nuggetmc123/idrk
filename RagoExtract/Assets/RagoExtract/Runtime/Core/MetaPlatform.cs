@@ -20,6 +20,8 @@ namespace Rago
             get { var t = Resources.Load<TextAsset>("Rago/meta_app_id"); return t != null ? t.text.Trim() : null; }
         }
 
+        static int _tries;
+
         public static void Init()
         {
             if (_started) return;
@@ -33,35 +35,52 @@ namespace Rago
                 if (string.IsNullOrEmpty(id)) { Debug.LogWarning("[Rago] no Meta App ID (Resources/Rago/meta_app_id.txt)"); return; }
                 Oculus.Platform.Core.AsyncInitialize(id).OnComplete(init =>
                 {
-                    if (init == null || init.IsError) { Debug.LogWarning("[Rago] Meta platform didn't start: " + (init?.GetError()?.Message ?? "?")); return; }
-                    Oculus.Platform.Entitlements.IsUserEntitledToApplication().OnComplete(msg =>
-                    {
-                        if (msg == null || msg.IsError)
-                        {
-                            Debug.LogError("[Rago] this Meta account doesn't own Rago Extract - closing");
-                            _i.StartCoroutine(_i.NotOwned());
-                            return;
-                        }
-                        Ready = true;
-                        AgeGate.Check();
-                        Dlc.Restore();
-                    });
+                    if (init == null || init.IsError) { Debug.LogWarning("[Rago] Meta platform didn't start: " + (init?.GetError()?.Message ?? "?") + " - playing on without store features"); return; }
+                    Debug.Log("[Rago] Meta platform started");
+                    CheckOwned();
                 });
             }
-            catch (System.Exception e) { Debug.LogWarning("[Rago] Meta platform: " + e.Message); }
+            catch (System.Exception e) { Debug.LogWarning("[Rago] Meta platform: " + e); }
 #endif
-        }
-
-        System.Collections.IEnumerator NotOwned()
-        {
-            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
-            if (pl != null) pl.Hud.Center("RAGO EXTRACT\n<size=40>This copy isn't linked to your Meta account.\nGet the game from the Meta Horizon Store.</size>", 8f);
-            yield return new WaitForSecondsRealtime(6f);
-            Application.Quit();
         }
 
 #if RAGO_META_IAP
-        void Update() { try { Oculus.Platform.Request.RunCallbacks(); } catch { } }   // deliver the store's answers
+        /// <summary>The store's ownership check. A failed answer is asked again (it can be a slow network or the store
+        /// still waking up); only after several failures in a row is the copy treated as not owned.</summary>
+        static void CheckOwned()
+        {
+            try
+            {
+                Oculus.Platform.Entitlements.IsUserEntitledToApplication().OnComplete(msg =>
+                {
+                    if (msg != null && !msg.IsError)
+                    {
+                        Ready = true;
+                        Debug.Log("[Rago] Meta ownership check: ok");
+                        try { AgeGate.Check(); } catch (System.Exception e) { Debug.LogWarning("[Rago] age group: " + e.Message); }
+                        try { Dlc.Restore(); } catch (System.Exception e) { Debug.LogWarning("[Rago] restore purchases: " + e.Message); }
+                        return;
+                    }
+                    _tries++;
+                    Debug.LogWarning("[Rago] Meta ownership check failed (" + _tries + "/4): " + (msg?.GetError()?.Message ?? "?"));
+                    if (_tries < 4) { if (_i != null) _i.Invoke(nameof(Retry), 5f); return; }
+                    if (_i != null) _i.StartCoroutine(_i.NotOwned());
+                });
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Rago] ownership check: " + e); }
+        }
+        void Retry() => CheckOwned();
 #endif
+
+        System.Collections.IEnumerator NotOwned()
+        {
+            // give the player time to read it (so it isn't mistaken for a crash), then close as the store requires
+            float t = 0f;
+            while ((RagoGame.I == null || RagoGame.I.Player == null) && t < 30f) { t += Time.unscaledDeltaTime; yield return null; }
+            var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (pl != null) pl.Hud.Center("RAGO EXTRACT\n<size=40>Couldn't confirm this copy with the Meta store.\nCheck you're signed in and online, then start the game again.</size>", 15f);
+            yield return new WaitForSecondsRealtime(15f);
+            Application.Quit();
+        }
     }
 }
