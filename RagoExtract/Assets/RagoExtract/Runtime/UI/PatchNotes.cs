@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("2.79", "Season reset fixes", new[] {
+                "The Season 1 reset now gives everyone the normal starter kit (a pistol and rifle, meds, ammo, and a helmet and vest on the stands) instead of an empty bunker with no gun.",
+                "The reset can no longer get stuck and run again on every start.",
+            }),
             ("2.78", "Crash fix", new[] {
                 "Fixed: the game crashed as soon as it started (store and release builds). The build was stripping out parts of Unity the game builds its world with; nothing is stripped now.",
                 "DLC packs are never free: they're bought through the Meta Quest store. Packs claimed for free during the test period are taken back; any you actually bought come back automatically.",

@@ -96,6 +96,13 @@ namespace Rago
             medCabinet = new List<ItemData>(); medStocked = false; medRestockRaid = 0;
             mailbox = new List<MailItem>();
             inRaid = false;
+            // the same starter kit a brand-new account gets (guns, meds, armour on the stands, ammo) - not an empty bunker
+            var fresh = NewProfile();
+            loadout = fresh.loadout;
+            stash = fresh.stash;
+            stashAmmo = fresh.stashAmmo; stashAp = fresh.stashAp; stashInc = fresh.stashInc;
+            version = fresh.version;
+            Fix();
             Save();
         }
 
@@ -106,20 +113,22 @@ namespace Rago
             if (p != null)
             {
                 p.Fix(); Current = p;
+                // each one-time fix is marked done even if it goes wrong, so it can never block start-up again
                 if (p.season < Season)
                 {
-                    // SEASON 1 (or a later one): everyone starts from nothing (paid packs stay; the South Pole vault skins are earned again)
-                    p.Wipe();
-                    p.dlc?.Remove("northpole");
-                    p.season = Season; p.dlcPaidCheck = 1; p.Save();
-                    SeasonWiped = true;
+                    // SEASON 1 (or a later one): everyone starts over with the starter kit (the South Pole vault skins are earned again)
+                    try { p.Wipe(); p.dlc?.Remove("northpole"); SeasonWiped = true; }
+                    catch (System.Exception e) { Debug.LogError("[Rago] season wipe: " + e); }
+                    p.season = Season;
+                    try { p.Save(); } catch { }
                 }
                 if (p.dlcPaidCheck < 1)
                 {
                     // the packs were free during the test period: those claims go. Packs really bought come straight back from
                     // the store at start-up (Dlc.Restore), so nobody loses one they paid for
-                    p.dlc?.RemoveAll(id => Dlc.Get(id) != null);
-                    p.dlcPaidCheck = 1; p.Save();
+                    try { p.dlc?.RemoveAll(id => Dlc.Get(id) != null); } catch (System.Exception e) { Debug.LogError("[Rago] dlc check: " + e); }
+                    p.dlcPaidCheck = 1;
+                    try { p.Save(); } catch { }
                 }
                 return p;
             }
@@ -190,7 +199,7 @@ namespace Rago
         public static Profile NewProfile()
         {
             var p = new Profile();
-            p.season = Season;
+            p.season = Season; p.dlcPaidCheck = 1;
             p.outfitSeed = Random.Range(1, 99999);
             p.name = "Operator-" + Random.Range(100, 999);
             p.loadout = new Loadout
