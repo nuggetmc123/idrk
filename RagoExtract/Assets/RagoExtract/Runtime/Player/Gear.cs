@@ -875,14 +875,26 @@ namespace Rago
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             // the bag turns with your hand (where the hand points, flattened) and stays level, mouth up; with the hand
             // pointing straight up or down it falls back to the back of the hand, then to head-to-hand
+            // steady: mostly from where the hand is relative to your head (that doesn't wobble), only a little from the
+            // way the hand points - big bags hang a long way from the hand and swung all over the place with every twitch
             Vector3 fwd = a.forward; fwd.y = 0;
             if (fwd.sqrMagnitude < 0.04f) { fwd = -a.up * Mathf.Sign(Vector3.Dot(a.forward, Vector3.down) + 0.0001f); fwd.y = 0; }
+            if (pl != null)
+            {
+                Vector3 fromHead = a.position - pl.Head.position; fromHead.y = 0;
+                if (fromHead.sqrMagnitude > 0.0025f) fwd = fromHead.normalized * 0.8f + (fwd.sqrMagnitude > 0.0001f ? fwd.normalized : Vector3.zero) * 0.2f;
+            }
             if (fwd.sqrMagnitude < 0.04f && pl != null) { fwd = a.position - pl.Head.position; fwd.y = 0; }
             if (fwd.sqrMagnitude < 0.0025f && pl != null) { fwd = pl.Head.forward; fwd.y = 0; }
             if (fwd.sqrMagnitude < 0.0001f) fwd = Vector3.forward;
             var want = Quaternion.LookRotation(fwd.normalized, Vector3.up);
             if (!_heldRotInit || Time.frameCount - _heldRotFrame > 2) _heldRot = want;
-            else if (Time.frameCount != _heldRotFrame) _heldRot = Quaternion.Slerp(_heldRot, want, 1f - Mathf.Exp(-18f * Time.deltaTime));   // follows the hand closely
+            else if (Time.frameCount != _heldRotFrame)
+            {
+                float size = bd != null ? Mathf.Max(bd.inner.x, bd.inner.y, bd.inner.z) : 0.3f;
+                float rate = Mathf.Lerp(10f, 5f, Mathf.InverseLerp(0.25f, 0.5f, size));   // big bags turn more slowly (they're heavy)
+                if (Quaternion.Angle(_heldRot, want) > 2f) _heldRot = Quaternion.Slerp(_heldRot, want, 1f - Mathf.Exp(-rate * Time.deltaTime));   // a small dead zone: no jitter
+            }
             _heldRotInit = true; _heldRotFrame = Time.frameCount;
             rot = _heldRot;
             var n = In;

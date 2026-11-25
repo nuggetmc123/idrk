@@ -5,6 +5,16 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.16", "Party, lift and raid fixes", new[] {
+                "Fixed: after a raid (dying or extracting) your party could stop taking you into raids until you restarted - the leader's next queue into the same raid slot was ignored. Back in your bunker the game also keeps trying to put you back in your party's room.",
+                "Fixed: \"JOINING RAID 0:00\" stuck in the top left for ever (in raids, the Market, the bunker). It's cleared properly, and a raid start that arrives during another loading screen now waits for it instead of being lost.",
+                "Fixed: the lift could close its doors and never leave, trapping you until you restarted. Standing anywhere in the cab counts, a trip that didn't start reopens the doors, and GO works with the doors shut.",
+                "Fixed: you kept vaulting over the extract computer. Vaulting is only for windows now (wall above, nothing you can use or grab).",
+                "You take ALL your ammo for the guns you carry into a raid, not just 5 mags' worth. What you don't use comes home when you extract.",
+                "Mags, sights and attachments can't be pulled off a gun that's holstered or slung on you, and on a gun in your hand you have to grab right on them - no more scopes coming off when you reach for something next to them.",
+                "Bags are steady in your hand: they face away from you instead of swinging with every twitch of your wrist, and big bags turn more slowly.",
+                "A mag sliding into the magwell is drawn on the gun as you see it (it could look like it was loading into the air beside it).",
+            }),
             ("3.15", "Oways Cereal is a streamer item", new[] {
                 "OWAYS CEREAL is now a streamer collectible (like the Peanut8 and Shushed figurines): Epic, worth $8,000, with a red LIVE sticker on the box. Found in the rarer loot spots.",
             }),

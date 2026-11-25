@@ -694,6 +694,13 @@ namespace Rago
             if (!Physics.Raycast(low.point + fwd * 0.06f + Vector3.up * 1.0f, Vector3.down, out var top, 1.0f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) return false;
             float sill = top.point.y - feet.y;
             if (sill < 0.45f || sill > 1.3f) return false;   // a step (just walk) or too high (climb it)
+            // only WINDOWS: a free-standing thing at waist height (the extract computer, a crate, a counter, a terminal)
+            // isn't vaulted - you used to hop over the extract button again and again. Something you can use or grab
+            // never counts, and a window has wall above it (the lintel); a desk or a computer has open air.
+            if (low.collider.GetComponentInParent<Interactable>() != null || low.collider.GetComponentInParent<Item>() != null) { _vaultPush = 0f; return false; }
+            bool lintel = Physics.Raycast(feet + Vector3.up * 2.15f - fwd * 0.1f, fwd, 1.0f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)
+                       || Physics.Raycast(feet + Vector3.up * 2.45f - fwd * 0.1f, fwd, 1.0f, Ballistics.WallMask, QueryTriggerInteraction.Ignore);
+            if (!lintel) { _vaultPush = 0f; return false; }
             // ...and the opening above it is clear (no glass, no wall) for the height of a crouched body
             Vector3 over = new Vector3(low.point.x, top.point.y, low.point.z);
             if (Physics.Raycast(over + Vector3.up * 0.25f - fwd * 0.4f, fwd, 1.1f, glass, QueryTriggerInteraction.Ignore)) return false;
@@ -707,7 +714,7 @@ namespace Rago
                 if (Physics.Raycast(p, Vector3.down, out var g, 4f, Ballistics.WallMask, QueryTriggerInteraction.Ignore) && g.normal.y > 0.6f && g.point.y < over.y - 0.2f)
                 { land = g.point + fwd * 0.25f; found = true; }
             }
-            if (!found || _vaultPush < 0.2f) return false;   // a moment of pushing into it, so you don't vault by brushing past
+            if (!found || _vaultPush < 0.3f) return false;   // a moment of pushing into it, so you don't vault by brushing past
             _vaultFrom = feet; _vaultTo = land; _vaultSill = top.point.y; _vaultT = 0f; _vaultPush = 0f;
             Cc.enabled = false; _vy = 0f; MoveVelocity = Vector3.zero;
             HandL.Haptic(0.25f, 0.05f); HandR.Haptic(0.25f, 0.05f);

@@ -20,6 +20,7 @@ namespace Rago
         public bool SafeZone;
         public RaidResult LastResult;
         bool _travelling; float _travelStart;
+        public static bool Travelling => I != null && I._travelling;
         static bool _soundsReady;
         public bool ElevatorArrival;   // set by a lift: the next arrival starts inside the destination lift
 
@@ -152,7 +153,16 @@ namespace Rago
         /// <summary>Leave the hub WITHOUT saving what's lying in it (after a moderation wipe).</summary>
         public static bool SkipHubSave;
         public void GoTo(Area a) { if (!_travelling) StartCoroutine(Safe(Travel(a, null))); }
-        public void StartRaid(RaidStart rs) { if (!_travelling) StartCoroutine(Safe(Travel(Area.Raid, rs))); }
+        public void StartRaid(RaidStart rs) { if (!_travelling) StartCoroutine(Safe(Travel(Area.Raid, rs))); else StartCoroutine(RaidAfterTravel(rs)); }
+        // a raid start that comes in during another loading screen (the lift, a party member's queue) used to be dropped:
+        // you stayed put with "JOINING RAID" stuck in the corner. Now it waits for that load and then goes.
+        IEnumerator RaidAfterTravel(RaidStart rs)
+        {
+            float t = 0f;
+            while (_travelling && t < 30f) { t += Time.unscaledDeltaTime; yield return null; }
+            if (!_travelling && Area != Area.Raid) StartCoroutine(Safe(Travel(Area.Raid, rs)));
+            else Player?.Hud?.Queue("");
+        }
 
         /// <summary>The map's spawn points, farthest-apart first, starting from one picked by the seed (same on every machine).</summary>
         static List<Pose> SpawnOrder(List<Pose> spots, int seed)

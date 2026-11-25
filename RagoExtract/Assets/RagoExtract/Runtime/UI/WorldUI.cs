@@ -522,7 +522,16 @@ namespace Rago
             _p.HandL.Haptic(0.35f, 0.1f);
         }
         /// <summary>Top-left matchmaking line (FINDING RAID 0:12 / RAID FOUND / JOINING RAID); empty hides it.</summary>
-        public void Queue(string s, bool timer = false) { _queueLabel = s ?? ""; _queueTimer = timer && _queueLabel.Length > 0; _queueStart = Time.unscaledTime; var q = QueueText; if (q != null) { q.text = _queueTimer ? _queueLabel + "  0:00" : _queueLabel; q.color = new Color(0.55f, 1f, 0.6f); } }
+        public void Queue(string s, bool timer = false) { _queueLabel = s ?? ""; _queueTimer = timer && _queueLabel.Length > 0; _queueStart = Time.unscaledTime; ShowQueue(); }
+        // written to BOTH lines (the watch and the screen corner): the one not in use is blanked. It used to write only to
+        // whichever was active, so if that switched (headset on / off) the old line kept "JOINING RAID 0:00" for ever
+        void ShowQueue()
+        {
+            string txt = _queueLabel;
+            if (_queueTimer) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); txt = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
+            var q = QueueText;
+            foreach (var t in new[] { _queue, _wristQueue }) if (t != null) { t.text = t == q ? txt : ""; t.color = new Color(0.55f, 1f, 0.6f); }
+        }
         TextMesh QueueText => XRInputs.VR && _wristQueue != null ? _wristQueue : _queue;   // VR: on the watch
         string _queueLabel = ""; bool _queueTimer; float _queueStart;
         string _objText = "";
@@ -566,7 +575,9 @@ namespace Rago
                 }
                 else _wristQueue.text = "";
             }
-            if (_queueTimer && QueueText != null) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); QueueText.text = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
+            // a matchmaking line nobody cleared (a raid start that got lost): once you're not queued or loading, it goes
+            if (_queueLabel.Length > 0 && !Kiosk.AnyQueued && !RagoGame.Travelling && Time.unscaledTime - _queueStart > 12f) { _queueLabel = ""; _queueTimer = false; }
+            ShowQueue();
             _centerT -= dt; if (_centerT <= 0) _center.text = "";
             NvgTick();
             if (_wristRec != null)

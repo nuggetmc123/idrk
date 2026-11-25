@@ -74,6 +74,8 @@ namespace Rago
 
         // ------------------------------------------------------------ grab lifecycle
         public virtual bool CanGrab(Hand h) => true;
+        /// <summary>The gun this is fitted to (a mag in it, a sight / attachment on it), or null.</summary>
+        public virtual Gun MountedOn => null;
 
         public virtual void OnGrab(Hand h)
         {

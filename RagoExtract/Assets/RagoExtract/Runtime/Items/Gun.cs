@@ -697,6 +697,8 @@ namespace Rago
             }
         }
 
+        public override Gun MountedOn => inGun;
+
         public override void OnGrab(Hand h)
         {
             if (inGun != null) { var g = inGun; g.mag = null; inGun = null; SetMounted(false); Sfx.Play(Synth.MagOut(), transform.position, 0.6f, 1f, 0.5f, 8f); }
@@ -714,10 +716,13 @@ namespace Rago
         {
             base.GetHeldPose(out pos, out rot);
             if (_rail == null || _rail.rig == null || _rail.rig.magwell == null) return;
+            // drawn on the gun as you SEE it (its magwell transform), so the mag never hangs in the air beside it; where
+            // it sits along the well comes from the hand (lined up against the gun's current held pose, in HeldUpdate)
+            var w = _rail.rig.magwell;
             WellFrame(_rail, out var wp, out var wr);
             float y = Mathf.Clamp((Quaternion.Inverse(wr) * (pos - wp)).y, Mathf.Min(-0.14f, _rail.rig.magEntry - 0.02f), 0f);
-            pos = wp + wr * new Vector3(0, y, 0);
-            rot = wr;
+            pos = w.TransformPoint(new Vector3(0, y, 0));
+            rot = w.rotation;
         }
 
         /// <summary>The gun's magwell where the gun is being held THIS frame (from its hand), not where it was drawn last
@@ -812,6 +817,7 @@ namespace Rago
     {
         public SightDef sd;
         public Gun onGun;
+        public override Gun MountedOn => onGun;
         public Transform Lens;   // the holo window / the scope's eyepiece
 
         public static SightItem Create(SightDef def, Vector3 pos, Quaternion rot)

@@ -110,10 +110,13 @@ namespace Rago
             if (_state == State.Open) _openFor = 0;
         }
 
+        float _sentAt = -99f, _stuckT;
+
         public void GoNow()
         {
-            if (!PlayerInside()) { RagoGame.I?.Player?.Toast("Step into the lift first"); return; }
+            if (!PlayerInside() && !PlayerInCab()) { RagoGame.I?.Player?.Toast("Step into the lift first"); return; }
             if (_state == State.Open || _state == State.Opening) { _needExit = false; Close(); }
+            else if (_state == State.Closed && !RagoGame.Travelling) { _state = State.Departing; _t = 0; }
         }
 
         /// <summary>The player just rode here: start inside with the doors shut, then ding and open.</summary>
@@ -141,6 +144,15 @@ namespace Rago
             if (p == null || p.Dead) return false;
             var l = transform.InverseTransformPoint(p.transform.position);
             return Mathf.Abs(l.x) < HalfW && l.z > Inside && l.z < Depth + 0.3f && Mathf.Abs(l.y) < 1.5f;
+        }
+
+        /// <summary>Anywhere in the cab, generously (the back corners, crouched, leaning): never shut someone in.</summary>
+        bool PlayerInCab()
+        {
+            var p = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (p == null || p.Dead) return false;
+            var l = transform.InverseTransformPoint(p.transform.position);
+            return Mathf.Abs(l.x) < HalfW + 0.35f && l.z > Inside - 0.1f && l.z < Depth + 0.8f && l.y > -1f && l.y < 2.5f;
         }
 
         bool PlayerInDoorway()
@@ -174,14 +186,24 @@ namespace Rago
                     _door = Mathf.MoveTowards(_door, 0, dt / DoorTime);
                     if (_door <= 0)
                     {
-                        if (inside) { _state = State.Departing; _t = 0; Sfx.Play(Synth.Beep(), transform.position + transform.up * 1.3f, 0.3f, 0.7f, 0.5f, 6f); }
+                        if (inside || PlayerInCab()) { _state = State.Departing; _t = 0; Sfx.Play(Synth.Beep(), transform.position + transform.up * 1.3f, 0.3f, 0.7f, 0.5f, 6f); }
                         else _state = State.Closed;
                     }
                     break;
                 case State.Departing:
                     _t += dt;
-                    if (!inside) { _state = State.Closed; break; }
-                    if (_t > 0.6f) { _state = State.Closed; RagoGame.I.ElevatorArrival = true; _go?.Invoke(); }
+                    if (!inside && !PlayerInCab()) { _state = State.Closed; break; }
+                    if (_t > 0.6f) { _state = State.Closed; _sentAt = Time.unscaledTime; RagoGame.I.ElevatorArrival = true; _go?.Invoke(); }
+                    break;
+                case State.Closed:
+                    // never a trap: someone shut in here and not on the way anywhere (the trip didn't start) gets the
+                    // doors opened again after a moment - they can press GO again
+                    if (PlayerInCab() && !RagoGame.Travelling && Time.unscaledTime - _sentAt > 4f)
+                    {
+                        _stuckT += dt;
+                        if (_stuckT > 1.2f) { _stuckT = 0; RagoGame.I.ElevatorArrival = false; Open(); }
+                    }
+                    else _stuckT = 0;
                     break;
                 case State.Arriving:
                     _t += dt;

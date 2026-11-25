@@ -11,6 +11,7 @@ namespace Rago
     {
         public AttachDef ad;
         public Gun onGun;
+        public override Gun MountedOn => onGun;
         Transform _emit;
         Light _light;
         LineRenderer _beam;

@@ -296,7 +296,8 @@ namespace Rago
             catch (System.Exception e) { Debug.LogWarning("[Rago] profile save failed: " + e.Message); }
         }
 
-        /// <summary>Pack ammo from the stash for the guns you're bringing (up to 5 mags each).</summary>
+        /// <summary>Pack ammo from the stash for the guns you're bringing: ALL of it for each gun's calibre (it used to be
+        /// only 5 mags' worth). What you don't use comes home with you when you extract.</summary>
         public void PackAmmoForLoadout()
         {
             if (loadout.ammo == null || loadout.ammo.Length != stashAmmo.Length) loadout.ammo = new int[stashAmmo.Length];
@@ -304,9 +305,8 @@ namespace Rago
             {
                 var g = d != null ? Db.Get<GunDef>(d.id) : null;
                 if (g == null) continue;
-                int want = g.magSize * (g.cls == GunClass.LMG ? 2 : 5);
                 int c = (int)g.cal;
-                int take = Mathf.Clamp(want - loadout.ammo[c], 0, stashAmmo[c]);
+                int take = Mathf.Max(0, stashAmmo[c]);
                 stashAmmo[c] -= take;
                 loadout.ammo[c] += take;
             }

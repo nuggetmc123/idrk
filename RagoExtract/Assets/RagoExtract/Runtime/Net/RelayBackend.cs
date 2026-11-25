@@ -797,7 +797,10 @@ namespace Rago
         readonly List<string> _sessionPlayers = new List<string>();
         readonly List<PartyInvite> _invites = new List<PartyInvite>();
         readonly HashSet<ulong> _acks = new HashSet<ulong>();
-        string _pendingRaidSession, _lastRaid; int _pendingPartySize = 1; bool _pendingNight;
+        string _pendingRaidSession, _lastRaid; int _pendingPartySize = 1; bool _pendingNight; float _lastFollowAt = -999f;
+        // raid rooms reuse their names (slot 1 of a map...): "already followed" only counts for a moment, or after one raid the
+        // party leader's next queue into the same slot was ignored and you couldn't go with them again until you restarted
+        bool FollowedRecently(string session) => session == _lastRaid && Time.realtimeSinceStartup - _lastFollowAt < 30f;
 
         public string PartyCode => _partyCode;
         public bool PartyLeader
@@ -920,6 +923,7 @@ namespace Rago
             if (ok && !create && _peers.Count == 0) { ok = false; Log("that party is empty"); Shutdown(); }
             if (!ok) { if (_link != null && _link.Connected) _status = "Online (Rago server)"; OnPartyChanged?.Invoke(); return false; }
             _partyCode = id; _inPartySession = true;
+            _pendingRaidSession = null;   // a follow left over from before the last raid
             _wasLeader = Key(id) == Key(MyName()) || IsHost;
             _status = "Party (" + (_peers.Count + 1) + ")";
             OnPartyChanged?.Invoke();
@@ -928,7 +932,7 @@ namespace Rago
 
         void FollowLeader(string map, string session, string size, bool night)
         {
-            _lastRaid = session; _pendingRaidSession = session; int.TryParse(size, out _pendingPartySize); _pendingNight = night; _wasLeader = false;
+            _lastRaid = session; _lastFollowAt = Time.realtimeSinceStartup; _pendingRaidSession = session; int.TryParse(size, out _pendingPartySize); _pendingNight = night; _wasLeader = false;
             Log("leader queued for " + map);
             OnPartyQueue?.Invoke(map);
         }
@@ -1035,7 +1039,7 @@ namespace Rago
                     SendSys(from, 10, "ok");
                     if (!_inPartySession || _queueing) break;
                     var p = text.Split('|');
-                    if (p.Length >= 3 && p[1] != _pendingRaidSession && p[1] != _lastRaid) FollowLeader(p[0], p[1], p[2], p.Length >= 4 && p[3] == "1");
+                    if (p.Length >= 3 && p[1] != _pendingRaidSession && !FollowedRecently(p[1])) FollowLeader(p[0], p[1], p[2], p.Length >= 4 && p[3] == "1");
                     break;
                 }
                 case 9: SendSys(from, 3, MyName()); if (_partyCode != null && !_inPartySession) SendSys(from, 4, _partyCode); break;
@@ -1053,7 +1057,7 @@ namespace Rago
         }
 
         // =========================================================================================== frame
-        float _scanT, _pingT, _hostAskT;
+        float _scanT, _pingT, _hostAskT, _rejoinT;
 
         void Tick(float now)
         {
@@ -1069,9 +1073,13 @@ namespace Rago
                 if (_inPartySession && !_queueing && _pendingRaidSession == null && raid != null)
                 {
                     var rp = raid.Split('|');
-                    if (rp.Length >= 5 && rp[1] != _lastRaid && long.TryParse(rp[4], out var when) && DateTimeOffset.UtcNow.ToUnixTimeSeconds() - when < 25)
+                    if (rp.Length >= 5 && !FollowedRecently(rp[1]) && long.TryParse(rp[4], out var when) && DateTimeOffset.UtcNow.ToUnixTimeSeconds() - when < 25)
                         FollowLeader(rp[0], rp[1], rp[2], rp[3] == "1");
                 }
+                // home in the bunker but not back in the party room (a rejoin that failed after a raid / a death): keep trying
+                if (_partyCode != null && !_inPartySession && !InSession && !_queueing && !_starting && _ready && now > _rejoinT
+                    && RagoGame.I != null && RagoGame.I.Area == Area.Bunker && !RagoGame.Travelling)
+                { _rejoinT = now + 10f; RejoinParty(); }
                 // in a raid / the Market, tell everyone which party we're in (a message can arrive before they know us)
                 if (_partyCode != null && !_inPartySession)
                     foreach (var p in _peers) if (!_peerParty.ContainsKey(p) || !_names.ContainsKey(p)) { SendSys(p, 4, _partyCode); SendSys(p, 9, "?"); }

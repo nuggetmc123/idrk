@@ -508,6 +508,17 @@ namespace Rago
                     if (!it.CanGrab(this)) continue;
                     if (!rig.CanReach(c.ClosestPoint(p))) continue;   // on the other side of a wall
                     float d = (c.ClosestPoint(p) - p).sqrMagnitude;
+                    // a mag / sight / attachment fitted to a gun: never off a gun that's holstered or slung on you, and
+                    // only when your hand is right on it (3.5 cm) - reaching for the gun, a pouch or something next to it
+                    // used to pull the scope or the mag off
+                    var mg = it.MountedOn;
+                    if (mg != null)
+                    {
+                        if (!mg.Held && OnMyBody(mg)) continue;
+                        float reach = it is Magazine && mg.Held ? 0.06f : 0.035f;   // pulling the mag from the gun in your other hand: a bit more
+                        if (d > reach * reach) continue;
+                        d += 0.01f;   // and anything else just as close wins
+                    }
                     if (OnMyBody(it)) { if (!low && d < bdb) { bdb = d; bestBody = it; } continue; }
                     if (d < bd) { bd = d; best = it; }
                     continue;
