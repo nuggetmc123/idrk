@@ -232,7 +232,7 @@ namespace Rago
                 if (o.z > 0.01f) Seg(a, dir, rot, o0, o1, 0, o.z, thick, m, tint, s);           // below window
                 if (o.w < height - 0.01f) Seg(a, dir, rot, o0, o1, o.w, height, thick, m, tint, s); // lintel
                 // a window (not a doorway): glass in it that shatters when shot
-                if (GlassWindows && o.z >= 0.25f && o1 - o0 > 0.3f && o.w - o.z > 0.3f)
+                if (GlassWindows && o.z >= 0.5f && o1 - o0 > 0.3f && o.w - o.z > 0.3f)
                     Window.Create(Root, a + dir * ((o0 + o1) * 0.5f) + Vector3.up * ((o.z + o.w) * 0.5f), new Vector3(0.02f, o.w - o.z, o1 - o0), rot);
                 cursor = Mathf.Max(cursor, o1);
             }
@@ -271,7 +271,7 @@ namespace Rago
                         {
                             float c = (w + 0.5f) * len / nw;
                             if (ops.Count > 0 && Mathf.Abs(c - ops[0].x) < 1.8f && f == 0) continue;
-                            ops.Add(new Vector4(c, 1.25f, 0.3f, 2.1f));   // the sill is a low step (30 cm): break the glass and walk or crouch straight through (no vaulting)
+                            ops.Add(new Vector4(c, 1.2f, 1.0f, 2.1f));   // (the old windows: a 30 cm sill made them look like doorways and swing doors were put in them)
                         }
                     }
                     bool keep = NoSwingDoors;

@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.28", "Old windows back", new[] {
+                "Fixed: doors were appearing in windows - the windows are back to how they were (sill at waist height, glass in them).",
+            }),
             ("3.27", "Used items vanish for everyone", new[] {
                 "Fixed: a grenade you threw, a keycard you used on a vault or a radio that called an air drop stayed in the world on the other players' screens. Anything used up or destroyed now disappears for everyone.",
             }),
