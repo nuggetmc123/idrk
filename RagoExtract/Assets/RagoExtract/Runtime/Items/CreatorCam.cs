@@ -43,7 +43,8 @@ namespace Rago
         public Gun onGun;
         public bool Rec;
         public override Gun MountedOn => onGun;
-        public static CamItem GunCam;   // the one on a gun you're carrying (for the record button)
+        public static CamItem GunCam;
+        const float GunScale = 0.55f;   // on a gun it's about half size (a small action camera), so it doesn't hide the gun   // the one on a gun you're carrying (for the record button)
 
         /// <summary>Clip onto a gun. at: where on the gun (its local space) - wherever you let go of it, pulled onto the gun's
         /// surface; null = the right side of the receiver. The lens always looks down the barrel.</summary>
@@ -61,13 +62,14 @@ namespace Rago
                 // onto the outside of the gun: inside its bounds it's pushed out to the nearest side, outside it's pulled in
                 var b = g.localBounds; b.Expand(0.03f);
                 lp = b.ClosestPoint(lp);
-                Vector3 c = g.localBounds.center, e = g.localBounds.extents + Vector3.one * 0.022f;
+                Vector3 c = g.localBounds.center, e = g.localBounds.extents + Vector3.one * 0.013f;   // (half the small camera's size: it sits on the surface)
                 Vector3 d = lp - c;
                 float fx = e.x - Mathf.Abs(d.x), fy = e.y - Mathf.Abs(d.y);
                 if (fx >= 0f && fy >= 0f && Mathf.Abs(d.z) <= e.z) { if (fx < fy) lp.x = c.x + Mathf.Sign(d.x == 0 ? 1 : d.x) * e.x; else lp.y = c.y + Mathf.Sign(d.y == 0 ? 1 : d.y) * e.y; }
             }
             transform.localPosition = lp;
             transform.localRotation = Quaternion.identity;
+            transform.localScale = Vector3.one * GunScale;   // a compact action-cam size on a gun
             g.camPos = lp;
         }
 
@@ -94,6 +96,7 @@ namespace Rago
                 var pl = RagoGame.I != null ? RagoGame.I.Player : null;
                 if (Rec && pl != null) ToggleRec(pl);
                 onGun.camAtt = null; onGun = null; SetMounted(false);
+                transform.localScale = Vector3.one;   // full size again in your hand
                 Sfx.Play(Synth.MagOut(), transform.position, 0.4f, 1.5f, 0.5f, 6f);
             }
             base.OnGrab(h);

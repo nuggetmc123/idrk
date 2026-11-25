@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.26", "Smaller gun camera", new[] {
+                "The camera is about half size when it's clipped on a gun (a small action cam) so it doesn't cover the gun - full size again when you take it off.",
+            }),
             ("3.25", "Camera fixes", new[] {
                 "The CAMERA on a gun stays wherever you put it: let go of it anywhere against the gun (top, side, under the barrel) and it clips on right there, lens down the barrel. The spot is saved with the gun.",
                 "Fixed: you couldn't take the camera off - grab anywhere on it (helmet, vest or gun) and it comes off.",
