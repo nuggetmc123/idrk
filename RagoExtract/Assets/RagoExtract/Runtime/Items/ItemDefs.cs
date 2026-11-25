@@ -457,6 +457,7 @@ namespace Rago
             M("val_radio", "Military Radio", ItemKind.Valuable, R, 3500, 15, new Color(0.3f, 0.33f, 0.24f), "Encrypted military handset. In a raid, hold it and pull the trigger to call in an AIR DROP where you stand (not underground). Found only at a few spots on each map.");
             // more junk: cheap stuff lying around everywhere, sells for a little at the Exchange
             M("junk_tape", "Duct Tape", ItemKind.Valuable, C, 120, 20, new Color(0.55f, 0.56f, 0.58f), "Fixes everything. Traders love it.");
+            M("junk_cereal", "Oways Cereal", ItemKind.Valuable, C, 180, 35, new Color(0.95f, 0.55f, 0.1f), "A box of OWAYS cereal. Crunchy, sugary and somehow still sealed. Shake it - it rattles.");
             M("junk_screws", "Box of Screws", ItemKind.Valuable, C, 70, 21, new Color(0.6f, 0.45f, 0.25f), "Rattles when you shake it.");
             M("junk_wire", "Copper Wire", ItemKind.Valuable, C, 180, 22, new Color(0.85f, 0.5f, 0.25f), "A coil of salvaged copper.");
             M("junk_bulb", "Light Bulb", ItemKind.Valuable, C, 45, 23, new Color(0.95f, 0.95f, 0.85f), "Might still work. Probably doesn't.");

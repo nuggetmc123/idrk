@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.14", "Join the Discord, Oways Cereal", new[] {
+                "JOIN THE DISCORD poster: a glowing screen in your bunker (south wall, right of the VIBE CODED screen) and in the Market (west wall, where the DLC store was). Press JOIN and the invite opens in your headset's browser.",
+                "New loot: OWAYS CEREAL - a cereal box with the name across the top and a bowl of rings on the front. Turns up in crates, safes and on bodies.",
+            }),
             ("3.13", "No more black flicker", new[] {
                 "Fixed: the whole view kept flickering black in the Market and in raids (store installs). Voice chat asked for microphone permission again every frame until it was allowed - each ask put the system prompt over the game. It now asks once; allow it and voice turns on by itself. If you said no, allow the microphone for Rago Extract in the Quest's Settings > Apps > Permissions.",
             }),

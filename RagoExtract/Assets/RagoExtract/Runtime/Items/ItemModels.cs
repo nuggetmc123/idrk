@@ -37,6 +37,14 @@ namespace Rago
             return null;
         }
 
+        /// <summary>Printed words on an item (text, local position, size, colour), drawn facing out of the front (+Z).</summary>
+        public static (string text, Vector3 at, float size, Color col)[] Labels(SimpleDef d)
+        {
+            if (d == null || d.kind != ItemKind.Valuable) return null;
+            if (d.shape == 35) return new[] { ("OWAYS", new Vector3(0, 0.072f, 0.0272f), 0.011f, Color.white), ("CEREAL", new Vector3(0, 0.05f, 0.0272f), 0.0055f, new Color(1f, 0.85f, 0.3f)), ("crunchy  rings", new Vector3(0, 0.022f, 0.0262f), 0.0035f, Color.white) };
+            return null;
+        }
+
         public static MB Build(SimpleDef d)
         {
             var mb = new MB(4);
@@ -577,6 +585,19 @@ namespace Rago
                     foreach (float x in new[] { -0.04f, 0.04f }) mb.Sub(0).Sphere(new Vector3(x, 1.79f, 0.11f), Vector3.one * 0.012f, 6, Black);
                     foreach (float x in new[] { -0.045f, 0.045f }) mb.Sub(3).Box(new Vector3(x, 1.7f, 0.122f), new Vector3(0.05f, 0.014f, 0.006f), new Color(0.9f, 0.9f, 0.95f), 0.002f);
                     mb.Pop();
+                    break;
+                }
+                case 35: // cereal box: a tall printed carton - orange front, a blue band, a bowl of cereal, the name across the top
+                {
+                    var blue = new Color(0.15f, 0.35f, 0.8f); var milk = new Color(0.97f, 0.96f, 0.92f);
+                    mb.Sub(0).Box(Vector3.zero, new Vector3(0.14f, 0.2f, 0.05f), c, 0.003f);
+                    mb.Sub(0).Box(new Vector3(0, 0.068f, 0.0255f), new Vector3(0.13f, 0.05f, 0.002f), blue, 0f);          // name band (front)
+                    mb.Sub(0).Box(new Vector3(0, 0.068f, -0.0255f), new Vector3(0.13f, 0.05f, 0.002f), blue, 0f);         // and on the back
+                    mb.Sub(0).Sphere(new Vector3(0, -0.045f, 0.0262f), new Vector3(0.045f, 0.03f, 0.002f), 16, milk);       // the bowl of milk
+                    mb.Sub(0).Box(new Vector3(0, -0.07f, 0.0262f), new Vector3(0.07f, 0.012f, 0.002f), new Color(0.85f, 0.15f, 0.15f), 0.004f);   // the bowl
+                    for (int i = 0; i < 9; i++)   // cereal rings floating in it
+                        mb.Sub(0).Sphere(new Vector3(-0.03f + (i % 5) * 0.015f, -0.04f + (i / 5) * 0.012f - (i % 2) * 0.004f, 0.0272f), new Vector3(0.0055f, 0.0055f, 0.0015f), 8, i % 3 == 0 ? new Color(0.95f, 0.8f, 0.2f) : i % 3 == 1 ? new Color(0.9f, 0.3f, 0.5f) : new Color(0.4f, 0.75f, 0.3f));
+                    mb.Sub(0).Box(new Vector3(0, 0.1f, 0), new Vector3(0.142f, 0.004f, 0.052f), c * 0.85f, 0f);              // the top flap
                     break;
                 }
                 case 34: // tennis ball: fuzzy yellow-green with the curving white seam

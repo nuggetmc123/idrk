@@ -209,6 +209,14 @@ namespace Rago
                 t.transform.localPosition = at;
                 t.transform.localRotation = Quaternion.Euler(-6f, 0, 0) * Quaternion.Euler(0, 180f, 0);   // facing out of the front, read from in front
             }
+            var labels = ItemModels.Labels(d);
+            if (labels != null)
+                foreach (var l in labels)
+                {
+                    var t = UI.Text(model.transform, l.text, Vector3.zero, l.size, l.col, TextAnchor.MiddleCenter, FontStyle.Bold);
+                    t.transform.localPosition = l.at;
+                    t.transform.localRotation = Quaternion.Euler(0, 180f, 0);   // read from in front of the box
+                }
             var col = go.AddComponent<BoxCollider>();
             col.center = mesh.bounds.center;
             col.size = Vector3.Max(mesh.bounds.size, Vector3.one * 0.02f);

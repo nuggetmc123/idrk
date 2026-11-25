@@ -363,6 +363,7 @@ namespace Rago
             if (Application.isPlaying) Wardrobe.Create(transform, new Vector3(-W / 2 + 0.16f, 1.45f, -2.6f), -90f, new Vector3(-W / 2 + 0.6f, 0, -4.1f), 90f);
             // a wall screen on the south wall, right of the lift
             Posters.Screen(transform, new Vector3(5.6f, 1.75f, -D / 2 + 0.16f), 180f, new Vector2(1.1f, 0.65f));
+            Posters.Discord(transform, new Vector3(7.15f, 1.7f, -D / 2 + 0.16f), 180f, new Vector2(0.72f, 0.95f));   // right of the VIBE CODED screen
             // the secret one: low on the wall behind the raid kiosk - you have to look behind it
             Posters.Put(transform, new Vector3(W / 2 - 0.55f, 0.5f, D / 2 - 0.16f), 0f, "#CHUDLIFE", new Color(0.1f, 0.1f, 0.12f), new Color(0.3f, 1f, 0.4f), new Vector2(0.44f, 0.26f), 0.13f);   // tucked low in the corner behind the kiosk
             if (Application.isPlaying) Pug.Create(transform, new Vector3(6.4f, 0, -4.4f), new Vector3(4.9f, 0, -5.1f), new Rect(-6.5f, -4.5f, 13f, 9f));   // the bunker pug: bed and bowl in the south-east corner   // west wall of the main hall, by the range tunnel
@@ -617,7 +618,8 @@ namespace Rago
                 }
                 if (Festive.On) Festive.Garland(transform, sc + new Vector3(-2.05f, 2.9f, -0.62f), sc + new Vector3(2.05f, 2.9f, -0.62f), 0.25f);
             }
-            // (the DLC store is only in the menu now - its DLC tab)
+            // (the DLC store is only in the menu now - its DLC tab). Its wall has the Discord poster instead
+            Posters.Discord(transform, new Vector3(-W / 2 + 0.2f, 1.75f, 5.2f), -90f, new Vector2(0.9f, 1.2f));
             // ---- players' own trading: a trade table and four stalls anyone can claim
             TradeTable.Create(transform, new Vector3(-6.5f, 0, -3.5f), 90f);
             // the black market: three screens in a row in the middle of the hall, facing the lift (you see them as you
@@ -714,6 +716,46 @@ namespace Rago
                 mb.Box(new Vector3(c.x * size.x * 0.44f, c.y * size.y * 0.48f, -0.003f), new Vector3(size.x * 0.14f, 0.03f, 0.001f), new Color(0.9f, 0.88f, 0.75f, 1f), 0f, 1, Quaternion.Euler(0, 0, c.x * 25f));
             var go = mb.Build("Paper", t, Mats.Lit("poster_paper", Color.white, 0f, 0.15f, Mats.Plaster, null, 0.3f, 0f));
             UI.Text(t, text, new Vector3(0, 0, -0.004f), textSize, ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+        }
+
+        public const string DiscordUrl = "https://discord.gg/yzXkXEA4gF";
+        static float _discordT;
+
+        /// <summary>The community poster: a glowing Discord-blue screen with a JOIN button that opens the server invite in the
+        /// headset's browser. The reader stands at local -Z.</summary>
+        public static void Discord(Transform parent, Vector3 pos, float yaw, Vector2 size)
+        {
+            var t = new GameObject("DiscordPoster").transform;
+            t.SetParent(parent, false);
+            t.localPosition = pos; t.localRotation = Quaternion.Euler(0, yaw, 0);
+            var bez = new MB();
+            bez.Box(new Vector3(0, 0, 0.02f), new Vector3(size.x + 0.06f, size.y + 0.06f, 0.05f), new Color(0.05f, 0.05f, 0.06f), 0.006f);
+            bez.Box(new Vector3(0, 0, 0.055f), new Vector3(0.25f, 0.2f, 0.03f), new Color(0.08f, 0.08f, 0.09f), 0.004f);   // wall bracket
+            bez.Build("Bezel", t, Mats.Lit("screen_bezel", Color.white, 0.3f, 0.6f));
+            var blurple = new Color(0.345f, 0.396f, 0.949f);
+            var pan = new MB();
+            pan.Box(new Vector3(0, 0, -0.006f), new Vector3(size.x, size.y, 0.002f), Color.white, 0f);
+            pan.Build("Panel", t, Mats.Lit("discord_screen", blurple * 0.55f, 0f, 0.9f, null, null, 0f, 0f, false, 0.5f, blurple * 0.45f));
+            // a chat bubble icon: a rounded white block with two "eyes" and a little tail
+            var ic = new MB(2);
+            float iy = size.y * 0.26f, iw = size.x * 0.34f;
+            ic.Sub(0).Box(new Vector3(0, iy, -0.009f), new Vector3(iw, iw * 0.62f, 0.004f), Color.white, iw * 0.2f);
+            ic.Sub(0).Box(new Vector3(-iw * 0.28f, iy - iw * 0.36f, -0.009f), new Vector3(iw * 0.18f, iw * 0.18f, 0.004f), Color.white, 0.002f, 1, Quaternion.Euler(0, 0, 45));
+            foreach (float ex in new[] { -1f, 1f }) ic.Sub(1).Sphere(new Vector3(ex * iw * 0.17f, iy + iw * 0.02f, -0.0115f), new Vector3(iw * 0.13f, iw * 0.16f, 0.002f), 10, Color.white);
+            ic.Build("Icon", t, Mats.Lit("discord_icon", Color.white, 0f, 0.5f, null, null, 0f, 0f, false, 0.5f, new Color(0.6f, 0.6f, 0.6f)), Mats.Lit("discord_eyes", blurple * 0.55f, 0f, 0.5f));
+            float k = size.x / 0.8f;
+            UI.Text(t, "JOIN THE", new Vector3(0, -size.y * 0.02f, -0.009f), 0.075f * k, new Color(0.85f, 0.88f, 1f), TextAnchor.MiddleCenter, FontStyle.Bold);
+            UI.Text(t, "DISCORD", new Vector3(0, -size.y * 0.13f, -0.009f), 0.13f * k, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            UI.Text(t, "discord.gg/yzXkXEA4gF", new Vector3(0, -size.y * 0.24f, -0.009f), 0.042f * k, new Color(0.8f, 0.84f, 1f), TextAnchor.MiddleCenter);
+            UI.Button(t, "JOIN", new Vector3(0, -size.y * 0.37f, -0.006f), new Vector2(size.x * 0.55f, size.y * 0.13f), OpenDiscord, new Color(0.2f, 0.62f, 0.32f), BtnStyle.Key);
+        }
+
+        static void OpenDiscord()
+        {
+            if (Time.unscaledTime < _discordT) return;   // one press, one browser tab
+            _discordT = Time.unscaledTime + 3f;
+            RagoGame.I?.Player?.Toast("Opening the Discord invite in your browser...");
+            Application.OpenURL(DiscordUrl);
         }
 
         /// <summary>A wall-mounted screen (black bezel, glowing panel) that owns up to how the game was made.</summary>
