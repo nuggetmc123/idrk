@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.18", "Maps on the raid terminal, map difficulty", new[] {
+                "The raid terminal's board shows a real top-down picture of every map (Dockyard, Old Town, Pinewood and the Underground's floor plan), bigger - no need to have played it first.",
+                "Every map shows how hard it is: OLD TOWN - NORMAL, DOCKYARD - NORMAL, PINEWOOD OUTPOST - NORMAL, UNDERGROUND SECTOR - EXTREME (and the North Pole - EXTREME). It's on the board, the map list and the queue line (\"FINDING OLD TOWN - NORMAL\").",
+                "The time button is back to TIME: DAY / NIGHT.",
+            }),
             ("3.17", "New look, garage concerts, smarter scavs", new[] {
                 "NEW FONT: the whole game uses its own typeface now (Chakra Petch), and the menu has its own look - a field terminal with an amber header, corner brackets, a hazard-striped footer and a status light.",
                 "Your watch has a strap round your wrist. Your hands rest naturally curled instead of dead straight.",

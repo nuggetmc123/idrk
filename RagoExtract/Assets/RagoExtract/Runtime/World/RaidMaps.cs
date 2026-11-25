@@ -9,6 +9,11 @@ namespace Rago
         /// <summary>The raid maps (the North Pole only while the Christmas update is on: Festive.Enabled).</summary>
         public static string[] RaidIds => Festive.Enabled ? _all : _normal;
         public static string Name(string id) => id == "welcome" ? "Rago Extract" : id == "dockyard" ? "Dockyard" : id == "pinewood" ? "Pinewood Outpost" : id == "oldtown" ? "Old Town" : id == "underground" ? "Underground Sector" : id == "northpole" ? "North Pole" : id;
+        /// <summary>How hard the map is: the Underground and the North Pole are EXTREME, the islands NORMAL.</summary>
+        public static bool Extreme(string id) => id == "underground" || id == "northpole";
+        public static string Difficulty(string id) => Extreme(id) ? "EXTREME" : "NORMAL";
+        /// <summary>"OLD TOWN - NORMAL", "UNDERGROUND SECTOR - EXTREME".</summary>
+        public static string NameWithDifficulty(string id) => Name(id).ToUpper() + " - " + Difficulty(id);
         public static string Blurb(string id) => id == "dockyard" ? "Container yard at dusk. Warehouses, cranes and the Harbor Office vault."
             : id == "pinewood" ? "Foggy forest and a military outpost with a bunker vault."
             : id == "northpole" ? "Santa's village, overrun by evil elves and Evil Santa. Presents everywhere - and the Giant Present vault."

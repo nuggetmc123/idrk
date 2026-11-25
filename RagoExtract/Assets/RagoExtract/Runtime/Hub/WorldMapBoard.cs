@@ -79,7 +79,10 @@ namespace Rago
         /// island. False if you haven't played that map yet (then the drawn island stays).</summary>
         bool Photo(Transform p, string id, Vector3 c, float size)
         {
-            var tex = FieldMap.LoadShot(id);
+            // the map's picture that ships with the game (Resources/Rago/MapPhotos), else the photo from your last raid there
+            var tex = Resources.Load<Texture2D>("Rago/MapPhotos/" + id);
+            bool own = false;
+            if (tex == null) { tex = FieldMap.LoadShot(id); own = tex != null; }
             if (tex == null) return false;
             float h = size / 2f;
             var frame = new MB();
@@ -87,14 +90,15 @@ namespace Rago
             frame.Build("PhotoFrame_" + id, p, Mats.Unlit("board_photo_frame", new Color(0.92f, 0.88f, 0.76f, 1f)));
             var img = new MB().Quad(new Vector3(c.x - h, c.y - h, -0.0105f), new Vector3(c.x + h, c.y - h, -0.0105f), new Vector3(c.x + h, c.y + h, -0.0105f), new Vector3(c.x - h, c.y + h, -0.0105f), Color.white, Vector2.one);
             var m = Mats.Unlit(null, Color.white, tex, Mats.BlendKind.Alpha, true);
-            _made.Add(tex); _made.Add(m);
+            if (own) _made.Add(tex);   // (a built-in picture is shared: never destroyed)
+            _made.Add(m);
             img.Build("Photo_" + id, p, m);
             return true;
         }
 
         void Island(Transform p, string id, Vector3 c, float r, int seed)
         {
-            if (Photo(p, id, c + new Vector3(0, 0.04f, 0), r * 1.35f)) { Location(p, id, c + new Vector3(0, -r * 0.62f, 0), -0.02f); return; }
+            if (Photo(p, id, c + new Vector3(0, 0.05f, 0), r * 1.6f)) { Location(p, id, c, -(r * 0.8f - 0.05f + 0.05f)); return; }   // the name tag just under the picture
             Blob(p, c, r, seed, new Color(0.86f, 0.78f, 0.58f), -0.007f);          // beach
             Blob(p, c, r * 0.84f, seed, new Color(0.28f, 0.42f, 0.22f), -0.008f);   // land
             // a few dots for buildings / woods
@@ -110,6 +114,9 @@ namespace Rago
         {
             _where[id] = c;
             var btn = UI.Button(p, Maps.Name(id).ToUpper(), c + new Vector3(0, labelY, -0.012f), new Vector2(0.4f, 0.085f), () => Kiosk.Current?.SelectMap(id), new Color(0.12f, 0.12f, 0.12f), BtnStyle.Tag);
+            // the difficulty, under the name: NORMAL in green, EXTREME in red
+            bool ex = Maps.Extreme(id);
+            UI.Text(p, Maps.Difficulty(id), c + new Vector3(0.21f, labelY + 0.03f, -0.016f), 0.024f, ex ? new Color(1f, 0.3f, 0.22f) : new Color(0.45f, 1f, 0.5f), TextAnchor.MiddleLeft, FontStyle.Bold);
             _buttons[id] = btn;
             UI.Text(p, UI.Wrap(Maps.Blurb(id), 34), c + new Vector3(0, labelY - 0.07f, -0.012f), 0.021f, new Color(0.95f, 0.95f, 0.9f), TextAnchor.UpperCenter);
         }
@@ -136,7 +143,7 @@ namespace Rago
             foreach (var kv in _buttons) kv.Value.SetColor(kv.Key == id ? new Color(0.85f, 0.45f, 0.1f) : new Color(0.12f, 0.12f, 0.12f));
             if (_where.TryGetValue(id, out var c) && _ring != null) _ring.localPosition = new Vector3(c.x, c.y, -0.010f);
             if (_rules != null)
-                _rules.text = Maps.Name(id).ToUpper() + "   /   " + (QueueRules.MinFor(id)) + "-" + QueueRules.MaxFor(id) + " OPERATORS" + (QueueRules.PartyMaxFor(id) < QueueRules.Max ? "   /   SQUADS OF " + QueueRules.PartyMaxFor(id) : "") + "   /   AUTO-LAUNCH AT 01:00";
+                _rules.text = Maps.NameWithDifficulty(id) + "   /   " + (QueueRules.MinFor(id)) + "-" + QueueRules.MaxFor(id) + " OPERATORS" + (QueueRules.PartyMaxFor(id) < QueueRules.Max ? "   /   SQUADS OF " + QueueRules.PartyMaxFor(id) : "") + "   /   AUTO-LAUNCH AT 01:00";
         }
     }
 }

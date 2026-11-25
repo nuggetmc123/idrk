@@ -143,18 +143,18 @@ namespace Rago
 
         void ToggleTime()
         {
-            if (_queued) { RagoGame.I.Player.Toast("Cancel the queue to change the mode"); Sfx.UI(Synth.UiError(), 0.3f); return; }
-            if (NetHub.Online && NetHub.Backend.PartyCode != null && !NetHub.Backend.PartyLeader) { RagoGame.I.Player.Toast("Your party leader picks NORMAL or EXTREME"); Sfx.UI(Synth.UiError(), 0.3f); return; }
+            if (_queued) { RagoGame.I.Player.Toast("Cancel the queue to change the time of day"); Sfx.UI(Synth.UiError(), 0.3f); return; }
+            if (NetHub.Online && NetHub.Backend.PartyCode != null && !NetHub.Backend.PartyLeader) { RagoGame.I.Player.Toast("Your party leader picks day or night"); Sfx.UI(Synth.UiError(), 0.3f); return; }
             RaidChoice.Night = !RaidChoice.Night;
             Sfx.UI(Synth.Beep(), 0.4f);
             RefreshTime();
-            RagoGame.I.Player.Toast(RaidChoice.Night ? "EXTREME raid (night): dark - bring a weapon light or night vision. Raiders see less far too." : "NORMAL raid (day)");
+            RagoGame.I.Player.Toast(RaidChoice.Night ? "NIGHT raid: dark - bring a weapon light or night vision. Raiders see less far too." : "DAY raid");
         }
 
         void RefreshTime()
         {
             if (_timeBtn == null) return;
-            _timeBtn.SetText(RaidChoice.Night ? "MODE: EXTREME" : "MODE: NORMAL");
+            _timeBtn.SetText(RaidChoice.Night ? "TIME: NIGHT" : "TIME: DAY");
             _timeBtn.SetColor(RaidChoice.Night ? new Color(0.12f, 0.14f, 0.3f) : new Color(0.55f, 0.5f, 0.2f));
         }
         float _onlineT, _partyT;
@@ -213,7 +213,7 @@ namespace Rago
                 bool sel = Maps.RaidIds[i] == id;
                 _mapBtns[i].SetColor(sel ? new Color(0.3f, 0.85f, 0.4f) : new Color(0.03f, 0.1f, 0.05f));
                 _mapBtns[i].SetTextColor(sel ? new Color(0.02f, 0.08f, 0.03f) : UI.CrtGreen);
-                _mapBtns[i].SetText((sel ? "> " : "  ") + Maps.Name(Maps.RaidIds[i]).ToUpper());
+                _mapBtns[i].SetText((sel ? "> " : "  ") + Maps.NameWithDifficulty(Maps.RaidIds[i]));
             }
             _mapInfo.text = "";
             OnMapSelected?.Invoke(id);
@@ -243,7 +243,7 @@ namespace Rago
         void StartQueue()
         {
             _queued = true; AnyQueued = true; _joining = false; _queueStart = Time.time;
-            HudQueue(RaidChoice.Night ? "FINDING EXTREME RAID" : "FINDING NORMAL RAID", true);
+            HudQueue("FINDING " + Maps.NameWithDifficulty(_map), true);   // e.g. FINDING OLD TOWN - NORMAL
             _queueBtn.SetText("CANCEL"); _queueBtn.SetColor(new Color(0.6f, 0.14f, 0.1f));
             Sfx.UI(Synth.Beep(), 0.5f);
             // save the loadout before matchmaking so a crash can't eat gear
