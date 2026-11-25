@@ -78,6 +78,10 @@ namespace Rago
         // Pick a map and it ZOOMS IN out of the island: a big map on the left, everything about it on the right, BACK to
         // the islands. (Pressing QUEUE below queues for the map you picked.)
         Transform _detail, _chart; Vector3 _detailFrom; float _detailT = -1f; bool _detailOpen;
+        WorldButton _deploy; bool _deployQueued;
+
+        /// <summary>The map's boss (each turns up in about 1 raid in 4 with heavy guards - every raid during BOSS HUNT).</summary>
+        static string BossOf(string id) => id == "dockyard" ? "THE HARBORMASTER" : id == "pinewood" ? "THE WARDEN" : id == "oldtown" ? "THE BANKER" : id == "underground" ? "DOCTOR KESSLER" : id == "northpole" ? "EVIL SANTA" : "-";
 
         static string Facts(string id)
         {
@@ -100,6 +104,7 @@ namespace Rago
             _detail = new GameObject("Detail").transform;
             _detail.SetParent(board, false);
             if (_chart != null) _chart.gameObject.SetActive(false);
+            _deployQueued = false;   // the new DEPLOY button picks up the queue state next frame
             float w = BW - 0.06f, h = BH - 0.06f;
             // dark sheet over the islands
             var sheet = new MB().Box(new Vector3(0, 0, -0.02f), new Vector3(w, h, 0.004f), Color.white, 0f).Build("Sheet", _detail, Mats.Lit("board_detail_bg", new Color(0.05f, 0.07f, 0.09f), 0f, 0.2f));
@@ -126,15 +131,18 @@ namespace Rago
             UI.Text(_detail, Maps.Difficulty(id), new Vector3(x, y, -0.026f), 0.07f, ex ? new Color(1f, 0.3f, 0.22f) : new Color(0.45f, 1f, 0.5f), TextAnchor.MiddleLeft, FontStyle.Bold); y -= 0.09f;
             UI.Text(_detail, UI.Wrap(Maps.Blurb(id), 36), new Vector3(x, y, -0.026f), 0.04f, new Color(0.88f, 0.9f, 0.92f), TextAnchor.UpperLeft); y -= 0.17f;
             void Stat(string k, string v) { UI.Text(_detail, k, new Vector3(x, y, -0.026f), 0.04f, UI.Dim, TextAnchor.MiddleLeft, FontStyle.Bold); UI.Text(_detail, v, new Vector3(x + 0.5f, y, -0.026f), 0.04f, new Color(1f, 0.78f, 0.3f), TextAnchor.MiddleLeft, FontStyle.Bold); y -= 0.062f; }
-            Stat("OPERATORS", QueueRules.MinFor(id) + " - " + QueueRules.MaxFor(id));
+            Stat("PLAYERS", QueueRules.MinFor(id) + " - " + QueueRules.MaxFor(id));
+            UI.Text(_detail, "BOSS", new Vector3(x, y, -0.026f), 0.04f, UI.Dim, TextAnchor.MiddleLeft, FontStyle.Bold);
+            UI.Text(_detail, BossOf(id), new Vector3(x + 0.5f, y, -0.026f), 0.04f, new Color(1f, 0.35f, 0.25f), TextAnchor.MiddleLeft, FontStyle.Bold); y -= 0.062f;
             Stat("SQUADS", "up to " + QueueRules.PartyMaxFor(id));
             Stat("RAID TIME", "40:00");
             Stat("TIME OF DAY", RaidChoice.Night ? "NIGHT (your pick)" : "DAY (your pick)");
             Stat("AUTO-LAUNCH", "01:00");
             y -= 0.02f;
             UI.Text(_detail, Facts(id), new Vector3(x, y, -0.026f), 0.034f, new Color(0.82f, 0.85f, 0.87f), TextAnchor.UpperLeft);
-            UI.Text(_detail, "SELECTED - press QUEUE to deploy", new Vector3(x, -h / 2 + 0.08f, -0.026f), 0.036f, new Color(1f, 0.62f, 0.18f), TextAnchor.MiddleLeft, FontStyle.Bold);
-            UI.Button(_detail, "< BACK", new Vector3(w / 2 - 0.16f, -h / 2 + 0.08f, -0.024f), new Vector2(0.26f, 0.1f), CloseDetail, new Color(0.2f, 0.22f, 0.25f), BtnStyle.Key);
+            // DEPLOY: queues for this map right here (CANCEL while you're in the queue); BACK to the islands
+            _deploy = UI.Button(_detail, "DEPLOY", new Vector3(x + 0.2f, -h / 2 + 0.09f, -0.024f), new Vector2(0.4f, 0.12f), () => { Kiosk.Current?.SelectMap(id); Kiosk.Current?.Deploy(); }, new Color(0.15f, 0.5f, 0.2f), BtnStyle.Key);
+            UI.Button(_detail, "< BACK", new Vector3(w / 2 - 0.16f, -h / 2 + 0.09f, -0.024f), new Vector2(0.26f, 0.12f), CloseDetail, new Color(0.2f, 0.22f, 0.25f), BtnStyle.Key);
             // zoom in from the island
             _detailFrom = from; _detailT = 0f; _detailOpen = true;
             _detail.localPosition = new Vector3(from.x, from.y, 0); _detail.localScale = Vector3.one * 0.12f;
@@ -150,6 +158,13 @@ namespace Rago
 
         void Update()
         {
+            // the DEPLOY button turns into CANCEL while you're queued
+            if (_deploy != null && Kiosk.Current != null && Kiosk.Current.Queued != _deployQueued)
+            {
+                _deployQueued = Kiosk.Current.Queued;
+                _deploy.SetText(_deployQueued ? "CANCEL" : "DEPLOY");
+                _deploy.SetColor(_deployQueued ? new Color(0.6f, 0.14f, 0.1f) : new Color(0.15f, 0.5f, 0.2f));
+            }
             if (_detail == null || _detailT < 0f) return;
             _detailT += Time.deltaTime / 0.28f;
             float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(_detailT));

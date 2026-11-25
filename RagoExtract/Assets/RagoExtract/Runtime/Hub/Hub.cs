@@ -220,6 +220,10 @@ namespace Rago
             _status.text = NetHub.Online ? "" : "> " + UI.Wrap(NetHub.StatusText.ToUpper(), 44).Replace("\n", "\n  ");   // only shown when something is wrong
         }
 
+        /// <summary>The map screen's DEPLOY / CANCEL button: the same as QUEUE on the terminal.</summary>
+        public void Deploy() => ToggleQueue();
+        public bool Queued => _queued;
+
         void ToggleQueue()
         {
             if (_joining) return;   // raid already found: on the way in

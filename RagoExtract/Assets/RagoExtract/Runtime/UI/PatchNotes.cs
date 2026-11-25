@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.21", "Deploy from the map screen", new[] {
+                "The map screen shows the map's BOSS (The Harbormaster, The Warden, The Banker, Doctor Kessler, Evil Santa) and the number of PLAYERS, and has a DEPLOY button: press it to queue for that map right there (it turns into CANCEL while you're queued).",
+            }),
             ("3.20", "Cleaner map screen", new[] {
                 "Raid terminal: the board shows just the islands again - no map pictures until you pick one.",
                 "Pick a map and the map screen takes over the whole board (the islands, photos and labels no longer show through it): a big map on the left, larger text on the right - name, NORMAL / EXTREME, what's there, operators, squads, raid time - and a big BACK button.",
