@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.20", "Cleaner map screen", new[] {
+                "Raid terminal: the board shows just the islands again - no map pictures until you pick one.",
+                "Pick a map and the map screen takes over the whole board (the islands, photos and labels no longer show through it): a big map on the left, larger text on the right - name, NORMAL / EXTREME, what's there, operators, squads, raid time - and a big BACK button.",
+            }),
             ("3.19", "Map screens, driving, floating items", new[] {
                 "Raid terminal: pick a map and it ZOOMS IN - a big map of it, its difficulty, what's there (the vault, the layout), operators, squad size, raid time and your time of day. BACK returns to the islands.",
                 "Fixed: grabbing your slung rifle, holster or an item instead of the wheel / handlebars while driving - near the wheel, grip always takes the wheel.",

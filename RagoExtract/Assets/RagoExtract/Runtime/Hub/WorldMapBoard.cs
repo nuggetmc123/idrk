@@ -57,7 +57,6 @@ namespace Rago
             }
             // the hatch down to the Underground Sector, on a rock between them
             var u = new Vector3(0.12f, 0.36f, 0);
-            if (Photo(p, "underground", u + new Vector3(0.3f, 0.02f, 0), 0.26f)) { }   // the top floor's plan beside the hatch
             Blob(p, u, 0.11f, 51, new Color(0.35f, 0.34f, 0.32f), -0.007f);
             new MB().Box(u + new Vector3(0, 0.03f, -0.009f), new Vector3(0.1f, 0.1f, 0.002f), Color.white, 0f).Build("HatchRim", p, Mats.Unlit("board_hatch_rim", new Color(0.85f, 0.68f, 0.08f, 1f)));
             new MB().Box(u + new Vector3(0, 0.03f, -0.011f), new Vector3(0.065f, 0.065f, 0.002f), Color.white, 0f).Build("Hatch", p, Mats.Unlit("board_hatch", new Color(0.08f, 0.08f, 0.08f, 1f)));
@@ -67,6 +66,10 @@ namespace Rago
             var ring = new MB();
             for (int i = 0; i < 24; i++) { float a = i * 15f; ring.Box(Quaternion.Euler(0, 0, a) * new Vector3(0.2f, 0, 0), new Vector3(0.012f, 0.05f, 0.002f), Color.white, 0f, 0, Quaternion.Euler(0, 0, a)); }
             ring.Build("Ring", _ring, Mats.Unlit("board_ring", new Color(1f, 0.62f, 0.18f, 1f)));
+            // everything on the chart goes in one object: opening a map hides it completely (it used to show through)
+            _chart = new GameObject("Chart").transform; _chart.SetParent(p, false);
+            var kids = new List<Transform>(); foreach (Transform t in p) if (t != _chart && t.name != "bg") kids.Add(t);
+            foreach (var t in kids) t.SetParent(_chart, true);
             Kiosk.OnMapSelected += Show;
             Show(Kiosk.Current != null ? Kiosk.Current.SelectedMap : "dockyard");
         }
@@ -74,7 +77,7 @@ namespace Rago
         // ---------------------------------------------------------------------------------------------- map details
         // Pick a map and it ZOOMS IN out of the island: a big map on the left, everything about it on the right, BACK to
         // the islands. (Pressing QUEUE below queues for the map you picked.)
-        Transform _detail; Vector3 _detailFrom; float _detailT = -1f; bool _detailOpen;
+        Transform _detail, _chart; Vector3 _detailFrom; float _detailT = -1f; bool _detailOpen;
 
         static string Facts(string id)
         {
@@ -96,14 +99,15 @@ namespace Rago
             if (board == null) return;
             _detail = new GameObject("Detail").transform;
             _detail.SetParent(board, false);
+            if (_chart != null) _chart.gameObject.SetActive(false);
             float w = BW - 0.06f, h = BH - 0.06f;
             // dark sheet over the islands
-            var sheet = new MB().Box(new Vector3(0, 0, -0.02f), new Vector3(w, h, 0.004f), Color.white, 0f).Build("Sheet", _detail, Mats.Unlit("board_detail_bg", new Color(0.04f, 0.06f, 0.08f, 1f)));
+            var sheet = new MB().Box(new Vector3(0, 0, -0.02f), new Vector3(w, h, 0.004f), Color.white, 0f).Build("Sheet", _detail, Mats.Lit("board_detail_bg", new Color(0.05f, 0.07f, 0.09f), 0f, 0.2f));
             var sc = sheet.AddComponent<BoxCollider>(); sc.center = new Vector3(0, 0, -0.02f); sc.size = new Vector3(w, h, 0.004f);   // the island buttons behind it can't be pressed through it
-            new MB().Box(new Vector3(0, h / 2 - 0.004f, -0.023f), new Vector3(w, 0.008f, 0.001f), Color.white, 0f).Build("TopLine", _detail, Mats.Unlit("board_detail_amber", new Color(1f, 0.62f, 0.18f, 1f)));
+            new MB().Box(new Vector3(0, h / 2 - 0.004f, -0.023f), new Vector3(w, 0.008f, 0.001f), Color.white, 0f).Build("TopLine", _detail, Mats.Lit("board_detail_amber", new Color(1f, 0.62f, 0.18f), 0f, 0.3f, null, null, 0, 0, false, 0.5f, new Color(0.6f, 0.35f, 0.08f)));
             // the big map
             float ms = 1.18f; var mc = new Vector3(-w / 2 + 0.05f + ms / 2, -0.04f, -0.024f);
-            new MB().Box(mc + new Vector3(0, 0, 0.001f), new Vector3(ms + 0.03f, ms + 0.03f, 0.001f), Color.white, 0f).Build("MapFrame", _detail, Mats.Unlit("board_photo_frame2", new Color(0.92f, 0.88f, 0.76f, 1f)));
+            new MB().Box(mc + new Vector3(0, 0, 0.001f), new Vector3(ms + 0.03f, ms + 0.03f, 0.001f), Color.white, 0f).Build("MapFrame", _detail, Mats.Lit("board_photo_frame2", new Color(0.92f, 0.88f, 0.76f), 0f, 0.2f));
             var tex = Resources.Load<Texture2D>("Rago/MapPhotos/" + id);
             bool own = false; if (tex == null) { tex = FieldMap.LoadShot(id); own = tex != null; }
             if (tex != null)
@@ -118,19 +122,19 @@ namespace Rago
             // the details
             float x = mc.x + ms / 2 + 0.07f, y = h / 2 - 0.1f;
             bool ex = Maps.Extreme(id);
-            UI.Text(_detail, Maps.Name(id).ToUpper(), new Vector3(x, y, -0.026f), 0.075f, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold); y -= 0.085f;
-            UI.Text(_detail, Maps.Difficulty(id), new Vector3(x, y, -0.026f), 0.05f, ex ? new Color(1f, 0.3f, 0.22f) : new Color(0.45f, 1f, 0.5f), TextAnchor.MiddleLeft, FontStyle.Bold); y -= 0.09f;
-            UI.Text(_detail, UI.Wrap(Maps.Blurb(id), 44), new Vector3(x, y, -0.026f), 0.03f, new Color(0.85f, 0.88f, 0.9f), TextAnchor.UpperLeft); y -= 0.15f;
-            void Stat(string k, string v) { UI.Text(_detail, k, new Vector3(x, y, -0.026f), 0.03f, UI.Dim, TextAnchor.MiddleLeft, FontStyle.Bold); UI.Text(_detail, v, new Vector3(x + 0.42f, y, -0.026f), 0.03f, new Color(1f, 0.78f, 0.3f), TextAnchor.MiddleLeft, FontStyle.Bold); y -= 0.055f; }
+            UI.Text(_detail, Maps.Name(id).ToUpper(), new Vector3(x, y, -0.026f), 0.1f, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold); y -= 0.1f;
+            UI.Text(_detail, Maps.Difficulty(id), new Vector3(x, y, -0.026f), 0.07f, ex ? new Color(1f, 0.3f, 0.22f) : new Color(0.45f, 1f, 0.5f), TextAnchor.MiddleLeft, FontStyle.Bold); y -= 0.09f;
+            UI.Text(_detail, UI.Wrap(Maps.Blurb(id), 36), new Vector3(x, y, -0.026f), 0.04f, new Color(0.88f, 0.9f, 0.92f), TextAnchor.UpperLeft); y -= 0.17f;
+            void Stat(string k, string v) { UI.Text(_detail, k, new Vector3(x, y, -0.026f), 0.04f, UI.Dim, TextAnchor.MiddleLeft, FontStyle.Bold); UI.Text(_detail, v, new Vector3(x + 0.5f, y, -0.026f), 0.04f, new Color(1f, 0.78f, 0.3f), TextAnchor.MiddleLeft, FontStyle.Bold); y -= 0.062f; }
             Stat("OPERATORS", QueueRules.MinFor(id) + " - " + QueueRules.MaxFor(id));
             Stat("SQUADS", "up to " + QueueRules.PartyMaxFor(id));
             Stat("RAID TIME", "40:00");
             Stat("TIME OF DAY", RaidChoice.Night ? "NIGHT (your pick)" : "DAY (your pick)");
             Stat("AUTO-LAUNCH", "01:00");
             y -= 0.02f;
-            UI.Text(_detail, Facts(id), new Vector3(x, y, -0.026f), 0.027f, new Color(0.8f, 0.83f, 0.85f), TextAnchor.UpperLeft);
-            UI.Text(_detail, "SELECTED - press QUEUE on the terminal to deploy", new Vector3(x, -h / 2 + 0.07f, -0.026f), 0.026f, new Color(1f, 0.62f, 0.18f), TextAnchor.MiddleLeft, FontStyle.Bold);
-            UI.Button(_detail, "< BACK", new Vector3(w / 2 - 0.13f, -h / 2 + 0.07f, -0.024f), new Vector2(0.2f, 0.08f), CloseDetail, new Color(0.2f, 0.22f, 0.25f), BtnStyle.Key);
+            UI.Text(_detail, Facts(id), new Vector3(x, y, -0.026f), 0.034f, new Color(0.82f, 0.85f, 0.87f), TextAnchor.UpperLeft);
+            UI.Text(_detail, "SELECTED - press QUEUE to deploy", new Vector3(x, -h / 2 + 0.08f, -0.026f), 0.036f, new Color(1f, 0.62f, 0.18f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            UI.Button(_detail, "< BACK", new Vector3(w / 2 - 0.16f, -h / 2 + 0.08f, -0.024f), new Vector2(0.26f, 0.1f), CloseDetail, new Color(0.2f, 0.22f, 0.25f), BtnStyle.Key);
             // zoom in from the island
             _detailFrom = from; _detailT = 0f; _detailOpen = true;
             _detail.localPosition = new Vector3(from.x, from.y, 0); _detail.localScale = Vector3.one * 0.12f;
@@ -152,7 +156,7 @@ namespace Rago
             if (!_detailOpen) k = 1f - k;
             _detail.localScale = Vector3.one * Mathf.Lerp(0.12f, 1f, k);
             _detail.localPosition = Vector3.Lerp(new Vector3(_detailFrom.x, _detailFrom.y, 0), Vector3.zero, k);
-            if (_detailT >= 1f) { _detailT = -1f; if (!_detailOpen) { Destroy(_detail.gameObject); _detail = null; } }
+            if (_detailT >= 1f) { _detailT = -1f; if (!_detailOpen) { Destroy(_detail.gameObject); _detail = null; if (_chart != null) _chart.gameObject.SetActive(true); } }
         }
 
         void OnDestroy() { Kiosk.OnMapSelected -= Show; foreach (var o in _made) if (o != null) Destroy(o); _made.Clear(); }
@@ -182,7 +186,6 @@ namespace Rago
 
         void Island(Transform p, string id, Vector3 c, float r, int seed)
         {
-            if (Photo(p, id, c + new Vector3(0, 0.05f, 0), r * 1.6f)) { Location(p, id, c, -(r * 0.8f - 0.05f + 0.05f)); return; }   // the name tag just under the picture
             Blob(p, c, r, seed, new Color(0.86f, 0.78f, 0.58f), -0.007f);          // beach
             Blob(p, c, r * 0.84f, seed, new Color(0.28f, 0.42f, 0.22f), -0.008f);   // land
             // a few dots for buildings / woods
