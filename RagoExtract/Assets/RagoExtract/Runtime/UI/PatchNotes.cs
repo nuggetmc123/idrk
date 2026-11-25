@@ -5,9 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
-            ("3.22", "SEASON 3 - full wipe", new[] {
-                "SEASON 3: every account is reset the first time you start this version - money, level, stash, gear, bunker, your Market shop AND your gun skins. Everyone starts fresh with $6,000 and the starter kit. The BETA TESTER skin is kept, and DLC packs you paid real money for come straight back from the store. Your callsign, clothes, friends and settings stay.",
-                "The black market on the server is cleared for the new season too (once the server is updated).",
+            ("3.23", "No wipe pop-up", new[] {
+                "No big pop-up after the wipe any more - you just start fresh.",
+            }),
+            ("3.22", "Full wipe", new[] {
+                "FULL WIPE: every account is reset the first time you start this version - money, level, stash, gear, bunker, your Market shop AND your gun skins. Everyone starts fresh with $6,000 and the starter kit. The BETA TESTER skin is kept, and DLC packs you paid real money for come straight back from the store. Your callsign, clothes, friends and settings stay.",
+                "The black market on the server is cleared too (once the server is updated).",
                 "The raid terminal's QUEUE key is gone - pick a map on the board and press DEPLOY on its screen. While you're queued the key shows as CANCEL.",
             }),
             ("3.21", "Deploy from the map screen", new[] {

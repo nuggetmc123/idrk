@@ -102,7 +102,7 @@ namespace Rago
             try { Mats.Foliage("_warm", Mats.LeafCard, Color.white); Shader.WarmupAllShaders(); }
             catch (System.Exception e) { Debug.LogWarning("[Rago Extract] shader warm-up skipped: " + e.Message); }
             var prof = Profile.LoadOrCreate();
-            if (Profile.SeasonWiped) StartCoroutine(SeasonMessage());
+            // (no "SEASON" pop-up after a wipe any more: the account is just fresh)
             MetaPlatform.Init();   // Quest store: ownership check, then age group and owned DLC
             if (Application.platform != RuntimePlatform.Android) AgeGate.Check();   // (on the headset these follow the ownership check)
             try { if (Application.platform != RuntimePlatform.Android) Dlc.Restore(); } catch (System.Exception e) { Debug.LogWarning("[Rago] restore purchases: " + e.Message); }   // paid packs come back after a reinstall
