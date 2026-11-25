@@ -479,6 +479,9 @@ namespace Rago
         void TryGrab()
         {
             Vector3 p = Anchor.position;
+            // driving: a grip near the wheel / handlebars takes the wheel - never your slung rifle, your holster or
+            // something lying on the seat, which are all right there in your lap
+            if (rig.Driving != null && !rig.Passenger && rig.Driving.WheelNear(TrackedPosition, 0.45f)) return;
             // 1. support grip on the gun held in the other hand
             var otherGun = Other.Held as Gun;
             if (otherGun != null && !Other.HeldAsSecondary)
@@ -669,7 +672,6 @@ namespace Rago
         }
 
         float _curl, _trig;
-        static readonly float[] RestCurl = { 0.16f, 0.22f, 0.28f, 0.34f };   // index, middle, ring, little
         void UpdateFingers(HandInput input)
         {
             float targetCurl = Held != null || Racking != null || OnWheel ? 1f : input.Grip;
@@ -680,12 +682,9 @@ namespace Rago
             {
                 float c = f == 0 ? _trig : _curl;
                 if (Held is Gun && !HeldAsSecondary && f == 0) c = _trig;
-                // a relaxed hand is never dead straight: each finger rests a little bent, more towards the little finger
-                c = Mathf.Max(c, RestCurl[Mathf.Min(f, RestCurl.Length - 1)]);
                 for (int k = 0; k < 3; k++) _fingers[f][k].localRotation = Quaternion.Euler(c * (k == 0 ? 70f : 80f), 0, 0);
             }
-            float tc = Mathf.Max(_curl, 0.18f);
-            _thumb.localRotation = Quaternion.Euler(tc * 25f, (left ? 1 : -1) * (45f - tc * 20f), (left ? -1 : 1) * 30f);
+            _thumb.localRotation = Quaternion.Euler(_curl * 25f, (left ? 1 : -1) * (45f - _curl * 20f), (left ? -1 : 1) * 30f);
         }
 
         /// <summary>Where your body's forearm should end: the wrist of the hand you see (not the controller's centre).</summary>
@@ -759,8 +758,12 @@ namespace Rago
 
         class RemoteCmp : IComparer<RaycastHit> { public static readonly RemoteCmp Inst = new RemoteCmp(); public int Compare(RaycastHit a, RaycastHit b) => a.distance.CompareTo(b.distance); }
 
+        /// <summary>The item this hand is pulling towards itself (distance grab), if any.</summary>
+        public Item Pulling => _pulling;
+
         void StartPull(Item it)
         {
+            if (_pulling != null && _pulling != it && _pulling.primaryHand == null) _pulling.Drop(Vector3.zero, Vector3.zero);   // a pull cut short: it falls, it doesn't hang in the air
             if (it.slot != null) it.slot.Release(it);
             it.rb.isKinematic = true;
             it.SetCollidersTrigger(true);

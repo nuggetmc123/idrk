@@ -13,6 +13,7 @@ namespace Rago
         public MapBase map;
         readonly Dictionary<Item, Vector3> _safe = new Dictionary<Item, Vector3>();
         readonly Dictionary<Item, float> _void = new Dictionary<Item, float>();
+        readonly Dictionary<Item, float> _stuck = new Dictionary<Item, float>();   // seconds a loose item has hung frozen in mid-air
         static readonly RaycastHit[] _hits = new RaycastHit[8];
         int _next;
         float _t;
@@ -30,7 +31,19 @@ namespace Rago
             {
                 if (_next >= all.Count) _next = 0;
                 var it = all[_next++];
-                if (it == null || it.Held || it.slot != null || it.rb == null || it.rb.isKinematic || !it.gameObject.activeInHierarchy) continue;
+                if (it == null || it.Held || it.slot != null || it.rb == null || !it.gameObject.activeInHierarchy) continue;
+                // frozen in mid-air: a loose item left kinematic (a distance-grab pull that got cut short, a mag that came
+                // off a gun the wrong way) hung there for good and couldn't be picked up - after a second it just drops
+                if (it.rb.isKinematic)
+                {
+                    bool loose = it.MountedOn == null && (it.transform.parent == null || (RagoGame.I != null && it.transform.parent == RagoGame.I.MapRoot));
+                    var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+                    bool pulled = pl != null && ((pl.HandL != null && pl.HandL.Pulling == it) || (pl.HandR != null && pl.HandR.Pulling == it));
+                    if (!loose || pulled) { _stuck.Remove(it); continue; }
+                    float st = (_stuck.TryGetValue(it, out var s0) ? s0 : 0f) + dt * (all.Count / (float)n);
+                    if (st > 1f) { _stuck.Remove(it); it.Drop(Vector3.zero, Vector3.zero); } else _stuck[it] = st;
+                    continue;
+                }
                 Vector3 p = it.transform.position;
                 // under the terrain: straight back up on top of it
                 float tt = map != null && map.B != null ? map.B.TerrainTop(p) : float.NegativeInfinity;

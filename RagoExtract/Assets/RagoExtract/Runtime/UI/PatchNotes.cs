@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.19", "Map screens, driving, floating items", new[] {
+                "Raid terminal: pick a map and it ZOOMS IN - a big map of it, its difficulty, what's there (the vault, the layout), operators, squad size, raid time and your time of day. BACK returns to the islands.",
+                "Fixed: grabbing your slung rifle, holster or an item instead of the wheel / handlebars while driving - near the wheel, grip always takes the wheel.",
+                "Fixed: mags (and other items) hanging frozen in mid-air so you had to get a new one - a distance-grab pull that got cut short left them there. They drop now, and anything stuck floating falls after a second.",
+                "Removed the resting finger curl (it made the hands look wrong on grips).",
+            }),
             ("3.18", "Maps on the raid terminal, map difficulty", new[] {
                 "The raid terminal's board shows a real top-down picture of every map (Dockyard, Old Town, Pinewood and the Underground's floor plan), bigger - no need to have played it first.",
                 "Every map shows how hard it is: OLD TOWN - NORMAL, DOCKYARD - NORMAL, PINEWOOD OUTPOST - NORMAL, UNDERGROUND SECTOR - EXTREME (and the North Pole - EXTREME). It's on the board, the map list and the queue line (\"FINDING OLD TOWN - NORMAL\").",
