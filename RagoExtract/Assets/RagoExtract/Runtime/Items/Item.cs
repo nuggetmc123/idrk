@@ -49,7 +49,13 @@ namespace Rago
         {
             All.Add(this);
         }
-        protected virtual void OnDestroy() { All.Remove(this); }
+        protected virtual void OnDestroy()
+        {
+            All.Remove(this);
+            // a shared item used up or destroyed here (a grenade that went off, a keycard put in a vault, a radio that called
+            // an air drop): gone for everyone else too - it used to stay in the world on the other players' screens
+            if (netId != 0 && NetGame.I != null && NetGame.Live) { try { NetGame.I.OnItemTaken(this); } catch { } }
+        }
         /// <summary>Set once the item has been saved into the stash and is on its way out (destroyed at the end of the frame).</summary>
         public bool Gone;
         /// <summary>Remove a swept item right now: off the list at once, so nothing that runs later this frame saves it twice.</summary>

@@ -452,7 +452,7 @@ namespace Rago
                         // and vanishes for everyone else too (or it could be picked up again: a duplicate)
                         if (it.netId != 0 && NetGame.I != null && market != null)
                         {
-                            if (!NetGame.I.MyDrop(it.netId)) { Item.Discard(it); continue; }
+                            if (!NetGame.I.MyDrop(it.netId)) { it.netId = 0; Item.Discard(it); continue; }   // theirs: it stays for them
                             if (NetGame.Live) NetGame.I.OnItemTaken(it);
                         }
                         loose.Add(it.Save());

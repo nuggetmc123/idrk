@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.27", "Used items vanish for everyone", new[] {
+                "Fixed: a grenade you threw, a keycard you used on a vault or a radio that called an air drop stayed in the world on the other players' screens. Anything used up or destroyed now disappears for everyone.",
+            }),
             ("3.26", "Smaller gun camera", new[] {
                 "The camera is about half size when it's clipped on a gun (a small action cam) so it doesn't cover the gun - full size again when you take it off.",
             }),

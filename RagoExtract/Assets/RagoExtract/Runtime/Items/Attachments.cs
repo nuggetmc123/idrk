@@ -62,7 +62,7 @@ namespace Rago
             return a;
         }
 
-        void OnDestroy() { if (_dot != null) Destroy(_dot.gameObject); }
+        protected override void OnDestroy() { base.OnDestroy(); if (_dot != null) Destroy(_dot.gameObject); }
         void OnEnable() { PlayerRig.AfterRenderSnap += Beam; }
         void OnDisable() { PlayerRig.AfterRenderSnap -= Beam; }
         static readonly RaycastHit[] _rh = new RaycastHit[1];

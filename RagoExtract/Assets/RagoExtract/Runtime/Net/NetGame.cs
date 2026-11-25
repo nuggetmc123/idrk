@@ -501,7 +501,7 @@ namespace Rago
         public void Register(Item it)
         {
             if (it == null || it.netId == 0) return;
-            if (Taken(it.netId)) { var s = it.slot; if (s != null) s.Release(it); it.gameObject.SetActive(false); Destroy(it.gameObject); return; }
+            if (Taken(it.netId)) { var s = it.slot; if (s != null) s.Release(it); it.gameObject.SetActive(false); it.netId = 0; Destroy(it.gameObject); return; }
             Items[it.netId] = it;
         }
 
@@ -780,6 +780,7 @@ namespace Rago
                                 if (Items.TryGetValue(id, out var it) && it != null && !it.Held)
                                 {
                                     if (it.slot != null) it.slot.Release(it);
+                                    it.netId = 0;   // already gone for everyone: don't announce it again
                                     Destroy(it.gameObject);
                                 }
                                 Items.Remove(id);

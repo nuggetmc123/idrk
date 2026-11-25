@@ -116,7 +116,7 @@ namespace Rago
             return base.TrySlot(h);
         }
 
-        void OnDestroy() { if (Rec) { var pl = RagoGame.I != null ? RagoGame.I.Player : null; if (pl != null) CreatorCamRecorder.Set(pl, false); } }
+        protected override void OnDestroy() { base.OnDestroy(); if (Rec) { var pl = RagoGame.I != null ? RagoGame.I.Player : null; if (pl != null) CreatorCamRecorder.Set(pl, false); } }
     }
 
     /// <summary>
