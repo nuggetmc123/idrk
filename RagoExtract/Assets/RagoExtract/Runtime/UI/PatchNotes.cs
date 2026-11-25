@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.25", "Camera fixes", new[] {
+                "The CAMERA on a gun stays wherever you put it: let go of it anywhere against the gun (top, side, under the barrel) and it clips on right there, lens down the barrel. The spot is saved with the gun.",
+                "Fixed: you couldn't take the camera off - grab anywhere on it (helmet, vest or gun) and it comes off.",
+                "Steadier recording from the gun and the vest: the picture follows more smoothly and keeps the horizon level instead of jumping and tilting with every move.",
+            }),
             ("3.24", "Mags held like real mags", new[] {
                 "Fixed: putting a mag in the gun was really hard - the mag lay flat in your hand with its top pointing where your hand points, so you had to point at the ceiling to load. Now you hold it like a real mag (like a pistol grip): body in your fist, the top sticking up out of it, rounds facing forward - hand held normally, it's already lined up to push straight up into the magwell.",
             }),

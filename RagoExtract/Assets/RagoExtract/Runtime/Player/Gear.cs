@@ -369,7 +369,7 @@ namespace Rago
             Vector3 hp = _p.Head.position;
             // night vision: grab it at your forehead
             if (NvgWorn && Vector3.Distance(p, NvgPoint) < 0.13f) return TakeOffNvg(p, h.Anchor.rotation);
-            if (CamWorn && Vector3.Distance(p, CamPoint) < 0.1f) return TakeOffCam(p, h.Anchor.rotation);
+            if (CamWorn && (Vector3.Distance(p, CamPoint) < 0.16f || NearCam(p))) return TakeOffCam(p, h.Anchor.rotation);   // grip anywhere on it (the controller bumps your head / chest long before it's within a few cm)
             if (Helmet != null && (Vector3.Distance(p, HeadTop) < 0.19f || (Vector3.Distance(p, hp) < 0.18f && p.y > hp.y + 0.02f)))
                 return TakeOff(ArmorSlot.Helmet, p, h.Anchor.rotation);
             if (Vest != null && Vector3.Distance(p, VestGrab) < 0.17f) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);

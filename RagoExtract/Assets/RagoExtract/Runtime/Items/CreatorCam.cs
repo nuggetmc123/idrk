@@ -45,7 +45,9 @@ namespace Rago
         public override Gun MountedOn => onGun;
         public static CamItem GunCam;   // the one on a gun you're carrying (for the record button)
 
-        public void MountOn(Gun g)
+        /// <summary>Clip onto a gun. at: where on the gun (its local space) - wherever you let go of it, pulled onto the gun's
+        /// surface; null = the right side of the receiver. The lens always looks down the barrel.</summary>
+        public void MountOn(Gun g, Vector3? at = null)
         {
             if (g == null) return;
             onGun = g; g.camAtt = this;
@@ -53,8 +55,26 @@ namespace Rago
             SetCollidersTrigger(true);
             transform.SetParent(g.transform, false);
             float y = g.rig != null ? g.rig.boreY + 0.03f : 0.08f;
-            transform.localPosition = new Vector3(0.042f, y, 0.06f);
+            Vector3 lp = at ?? new Vector3(0.042f, y, 0.06f);
+            if (at.HasValue)
+            {
+                // onto the outside of the gun: inside its bounds it's pushed out to the nearest side, outside it's pulled in
+                var b = g.localBounds; b.Expand(0.03f);
+                lp = b.ClosestPoint(lp);
+                Vector3 c = g.localBounds.center, e = g.localBounds.extents + Vector3.one * 0.022f;
+                Vector3 d = lp - c;
+                float fx = e.x - Mathf.Abs(d.x), fy = e.y - Mathf.Abs(d.y);
+                if (fx >= 0f && fy >= 0f && Mathf.Abs(d.z) <= e.z) { if (fx < fy) lp.x = c.x + Mathf.Sign(d.x == 0 ? 1 : d.x) * e.x; else lp.y = c.y + Mathf.Sign(d.y == 0 ? 1 : d.y) * e.y; }
+            }
+            transform.localPosition = lp;
             transform.localRotation = Quaternion.identity;
+            g.camPos = lp;
+        }
+
+        bool NearGun(Gun g)
+        {
+            var b = g.localBounds; b.Expand(0.1f);
+            return b.Contains(g.transform.InverseTransformPoint(transform.position));
         }
 
         public void ToggleRec(PlayerRig pl)
@@ -86,8 +106,8 @@ namespace Rago
             {
                 // a gun in either hand, the camera let go next to its receiver
                 foreach (var hh in new[] { pl.HandL, pl.HandR })
-                    if (hh != null && hh.Held is Gun g && g.camAtt == null && g.rig != null && Vector3.Distance(transform.position, g.transform.TransformPoint(new Vector3(0.04f, g.rig.boreY, 0.06f))) < 0.14f)
-                    { MountOn(g); h.Haptic(0.4f, 0.08f); pl.Toast("Camera on your gun - an empty hand on it + trigger to RECORD"); return true; }
+                    if (hh != null && hh.Held is Gun g && g.camAtt == null && g.rig != null && NearGun(g))
+                    { MountOn(g, g.transform.InverseTransformPoint(transform.position)); h.Haptic(0.4f, 0.08f); pl.Toast("Camera on your gun - an empty hand on it + trigger to RECORD"); return true; }
                 if (pl.Gear.TryWearCam(this, h)) return true;
             }
             return base.TrySlot(h);
@@ -188,6 +208,13 @@ namespace Rago
             Vector3 wantP = _src != null ? _src.position + _src.forward * (_src == _head ? 0f : 0.17f) + _src.up * 0.08f : _head.position + _head.up * 0.06f;
             Quaternion wantR = _src != null ? _src.rotation : _head.rotation;
             if (_src != null && _src.GetComponentInParent<Gun>() != null) { wantP = _src.position + _src.forward * 0.04f; wantR = _src.rotation; }   // on a gun: straight down the barrel
+            if (_src != null && _src != _head)
+            {
+                // a gun or a vest moves all the time: a steadier picture - slower to follow, and the horizon kept level
+                Vector3 f = wantR * Vector3.forward;
+                if (Mathf.Abs(f.y) < 0.98f) wantR = Quaternion.LookRotation(f, Vector3.up);
+                k = 1f - Mathf.Exp(-8f * Time.unscaledDeltaTime); kr = 1f - Mathf.Exp(-4f * Time.unscaledDeltaTime);
+            }
             _pos = Vector3.Lerp(_pos, wantP, k);
             _rot = Quaternion.Slerp(_rot, wantR, kr);
             _cam.transform.SetPositionAndRotation(_pos, _rot);

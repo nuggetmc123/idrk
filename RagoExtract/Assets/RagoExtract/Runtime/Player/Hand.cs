@@ -524,7 +524,7 @@ namespace Rago
                     if (mg != null)
                     {
                         if (!mg.Held && OnMyBody(mg)) continue;
-                        float reach = it is Magazine && mg.Held ? 0.06f : 0.035f;   // pulling the mag from the gun in your other hand: a bit more
+                        float reach = it is CamItem ? 0.09f : it is Magazine && mg.Held ? 0.06f : 0.035f;   // a camera clipped on: easy to take back off; the mag from the gun in your other hand: a bit more
                         if (d > reach * reach) continue;
                         d += 0.01f;   // and anything else just as close wins
                     }
