@@ -74,6 +74,27 @@ namespace Rago
             return r;
         }
 
+        static readonly System.Collections.Generic.Dictionary<int, AnimationCurve> _curves = new System.Collections.Generic.Dictionary<int, AnimationCurve>();
+        /// <summary>Volume over distance as a fraction of maxDist: 1 inside minDist, then ~minDist/d (logarithmic), eased to 0 at maxDist.</summary>
+        static AnimationCurve Falloff(float ratio)
+        {
+            ratio = Mathf.Clamp(ratio, 0.005f, 0.9f);
+            int k = Mathf.RoundToInt(ratio * 400f);
+            if (_curves.TryGetValue(k, out var c)) return c;
+            c = new AnimationCurve();
+            const int n = 14;
+            for (int i = 0; i <= n; i++)
+            {
+                float t = i / (float)n; t = t * t;   // more keys up close where it changes fast
+                t = Mathf.Max(t, i == 0 ? 0f : ratio * 0.5f);
+                float v = t <= ratio ? 1f : ratio / t;
+                v *= 1f - Mathf.Pow(t, 3f);            // the tail fades out completely by maxDist
+                c.AddKey(new Keyframe(t, Mathf.Clamp01(v)));
+            }
+            _curves[k] = c;
+            return c;
+        }
+
         public static AudioSource Play(AudioClip clip, Vector3 pos, float vol = 1f, float pitch = 1f, float minDist = 1.5f, float maxDist = 60f, float spatial = 1f)
         {
             if (clip == null) return null;
@@ -86,7 +107,10 @@ namespace Rago
             s.maxDistance = maxDist;
             s.spatialBlend = spatial;
             s.loop = false;
-            s.rolloffMode = AudioRolloffMode.Logarithmic;
+            // like the natural (logarithmic) falloff up close, but it reaches SILENCE at maxDist: plain logarithmic falloff
+            // stops getting quieter past maxDist, so footsteps, reloads and other players could be heard from across the map
+            s.rolloffMode = AudioRolloffMode.Custom;
+            s.SetCustomCurve(AudioSourceCurveType.CustomRolloff, Falloff(minDist / Mathf.Max(0.01f, maxDist)));
             var lp = s.GetComponent<AudioLowPassFilter>(); if (lp != null) lp.enabled = false;
             // Underground: footsteps, voices and small sounds don't carry through the concrete floors; gunshots and
             // blasts come through faint and muffled

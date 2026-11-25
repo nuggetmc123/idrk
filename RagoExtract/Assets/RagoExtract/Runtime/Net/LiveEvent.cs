@@ -11,7 +11,7 @@ namespace Rago
     ///   AIR DROP RAIN - a plane drops a crate every few minutes in every raid
     ///   PRESENT RAIN  - crates everywhere hold presents
     ///   CONCERT       - a stage, a DJ, lights and lasers in the Market
-    ///   NUKE          - a 5-minute countdown in every raid: extract before it hits, or die in the blast
+    ///   NUKE          - a 1-minute countdown in every raid: extract before it hits, or die in the blast
     /// </summary>
     public class LiveEvent : MonoBehaviour
     {
@@ -19,7 +19,7 @@ namespace Rago
         public static readonly string[] Names = { "", "DOUBLE XP", "DOUBLE CASH", "BOSS HUNT", "AIR DROP RAIN", "PRESENT RAIN", "CONCERT", "NUKE" };
         public static readonly string[] Blurb = { "", "all XP counts twice", "traders pay double", "every boss is out in every raid", "air drops every few minutes in raids", "presents in crates everywhere",
             "live DJ, lights and lasers in the Market - come down!", "every raid gets nuked when the timer hits zero - EXTRACT NOW" };
-        public const int NukeMinutes = 5;
+        public const int NukeMinutes = 2;   // the event: a minute of countdown, then a minute for the blast
         public static readonly int[] Lengths = { 30, 60, 120, 360, 1440 };
 
         public static byte Kind { get; private set; }
@@ -44,6 +44,9 @@ namespace Rago
             bool was = Active; byte old = Kind;
             if (kind != old || !was) _detonated = false;
             Kind = kind < Names.Length ? kind : None; By = by ?? "";
+            // the nuke hits ONE minute after it's called: the event runs a minute longer than that (so the blast isn't cut
+            // short by the event ending), and an older server's 5-minute nuke is capped to a minute too
+            if (Kind == Nuke) seconds = Mathf.Clamp(seconds - 60, 0, 60);
             _ends = Time.realtimeSinceStartup + Mathf.Max(0, seconds);
             if (_i == null) { var go = new GameObject("LiveEvent"); DontDestroyOnLoad(go); _i = go.AddComponent<LiveEvent>(); }
             _i._nextDrop = Time.time + 60f;

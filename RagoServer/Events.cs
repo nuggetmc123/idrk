@@ -40,8 +40,9 @@ namespace RagoServer
             }
             else
             {
-                if (kind == 7) minutes = 5;   // the nuke: a 5-minute countdown, then every raid is hit
-                minutes = Math.Clamp(minutes, 3, 1440);
+                // the nuke: a ONE-minute countdown (the event runs a minute more, for the blast), then every raid is hit
+                if (kind == 7) minutes = 2;
+                else minutes = Math.Clamp(minutes, 3, 1440);
                 EvKind = kind; EvUntil = Now + minutes * 60L; EvBy = by;
                 Note("live event " + EventNames[kind] + " started for " + minutes + " min (by " + by + ")");
             }

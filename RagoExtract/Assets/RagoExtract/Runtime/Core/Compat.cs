@@ -52,6 +52,9 @@ namespace Rago
             get
             {
                 if (_font != null) return _font;
+                // the game's own typeface: Chakra Petch (SIL Open Font License - Resources/Rago/Fonts/ChakraPetch_OFL.txt)
+                try { _font = Resources.Load<Font>("Rago/Fonts/ChakraPetch"); } catch { _font = null; }
+                if (_font != null) return _font;
                 string[] names = { "LegacyRuntime.ttf", "Arial.ttf" };
                 foreach (var n in names)
                 {

@@ -446,7 +446,15 @@ namespace Rago
                         if (it.Held || it.slot != null || it is Magazine) continue;
                         if (it is SightItem si && si.onGun != null) continue;
                         if (it is AttachItem ai && ai.onGun != null) continue;
+                        if (it is CamItem ci && ci.onGun != null) continue;
                         if (!it.transform.IsChildOf(MapRoot) && it.transform.parent != null) continue;
+                        // shared drops: something another player dropped isn't yours to take home; your own drop goes home
+                        // and vanishes for everyone else too (or it could be picked up again: a duplicate)
+                        if (it.netId != 0 && NetGame.I != null && market != null)
+                        {
+                            if (!NetGame.I.MyDrop(it.netId)) { Item.Discard(it); continue; }
+                            if (NetGame.Live) NetGame.I.OnItemTaken(it);
+                        }
                         loose.Add(it.Save());
                         Item.Discard(it);
                     }

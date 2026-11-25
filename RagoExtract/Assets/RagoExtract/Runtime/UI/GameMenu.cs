@@ -53,6 +53,42 @@ namespace Rago
             }
             _content = new GameObject("Content").transform;
             _content.SetParent(_panel, false);
+            Dress(_panel, 1.12f, 0.9f);
+        }
+
+        Renderer _blink;
+        /// <summary>The menu's own look - a field terminal: a dark header band with an amber edge and the RAGO // EXTRACT
+        /// stamp, amber corner brackets, a divider under the tabs, side rails with bolts, and a hazard-striped footer with a
+        /// status line and a blinking light. Only round the edges: nothing covers the buttons or the text.</summary>
+        void Dress(Transform p, float w, float h)
+        {
+            var amber = new Color(1f, 0.78f, 0.16f);
+            var deco = new MB(4);
+            float hx = w / 2, hy = h / 2, z = -0.0012f;
+            // header band behind the title row, amber strip down its left end
+            deco.Sub(0).Box(new Vector3(0, hy - 0.05f, -0.0006f), new Vector3(w - 0.02f, 0.085f, 0.001f), new Color(0.05f, 0.055f, 0.06f), 0f);
+            deco.Sub(1).Box(new Vector3(-hx + 0.016f, hy - 0.05f, z), new Vector3(0.008f, 0.085f, 0.001f), amber, 0f);
+            // divider under the tabs
+            deco.Sub(1).Box(new Vector3(0, 0.255f, z), new Vector3(w - 0.06f, 0.0025f, 0.001f), amber, 0f);
+            // corner brackets, just outside the panel
+            foreach (float sx in new[] { -1f, 1f }) foreach (float sy in new[] { -1f, 1f })
+            {
+                deco.Sub(1).Box(new Vector3(sx * (hx + 0.006f - 0.035f), sy * (hy + 0.006f), z), new Vector3(0.07f, 0.008f, 0.004f), amber, 0f);
+                deco.Sub(1).Box(new Vector3(sx * (hx + 0.006f), sy * (hy + 0.006f - 0.035f), z), new Vector3(0.008f, 0.07f, 0.004f), amber, 0f);
+                deco.Sub(2).Cyl(new Vector3(sx * (hx - 0.025f), sy * (hy - 0.025f) + (sy > 0 ? -0.075f : 0f), z), new Vector3(sx * (hx - 0.025f), sy * (hy - 0.025f) + (sy > 0 ? -0.075f : 0f), z - 0.003f), 0.007f, 0.006f, 8, new Color(0.55f, 0.56f, 0.58f));   // bolts
+            }
+            // side rails
+            foreach (float sx in new[] { -1f, 1f }) deco.Sub(2).Box(new Vector3(sx * (hx - 0.004f), -0.05f, z), new Vector3(0.006f, h * 0.62f, 0.002f), new Color(0.3f, 0.31f, 0.33f), 0f);
+            // hazard-striped footer
+            float fy = -hy + 0.018f;
+            deco.Sub(0).Box(new Vector3(0, fy, -0.0006f), new Vector3(w - 0.02f, 0.026f, 0.001f), new Color(0.05f, 0.05f, 0.05f), 0f);
+            for (float x = -hx + 0.03f; x < -hx + 0.32f; x += 0.03f)
+                deco.Sub(1).Box(new Vector3(x, fy, z), new Vector3(0.012f, 0.03f, 0.001f), amber, 0f, 0, Quaternion.Euler(0, 0, 35f));
+            deco.Build("MenuDress", p, Mats.Unlit("menu_dark", new Color(0.05f, 0.055f, 0.06f, 1f)), Mats.Unlit("menu_amber", new Color(amber.r, amber.g, amber.b, 1f)), Mats.Lit("menu_bolt", Color.white, 0.8f, 0.6f), Mats.Unlit("menu_unused", Color.white));
+            UI.Text(p, "RAGO // EXTRACT", new Vector3(0.4f, hy - 0.05f, -0.002f), 0.026f, amber, TextAnchor.MiddleRight, FontStyle.Bold);
+            UI.Text(p, "FIELD TERMINAL  //  " + PatchNotes.All[0].version + "  //  SECURE LINK", new Vector3(hx - 0.06f, fy, -0.002f), 0.014f, new Color(0.6f, 0.62f, 0.6f), TextAnchor.MiddleRight);
+            var led = new MB().Sphere(new Vector3(hx - 0.035f, fy, -0.002f), Vector3.one * 0.006f, 8, Color.white).Build("Led", p, Mats.Unlit("menu_led", new Color(0.3f, 1f, 0.4f, 1f)));
+            _blink = led.GetComponent<Renderer>();
         }
 
         void Show(bool on)
@@ -76,6 +112,7 @@ namespace Rago
 
         void Update()
         {
+            if (_blink != null && _open) _blink.enabled = Mathf.Repeat(Time.unscaledTime, 1.2f) < 0.8f;
             HookNet();
             var p = RagoGame.I != null ? RagoGame.I.Player : null;
             if (p == null) return;
@@ -470,7 +507,7 @@ namespace Rago
             Btn("<", -0.27f, y, 0.07f, () => _evKind = _evKind <= 1 ? LiveEvent.Names.Length - 1 : _evKind - 1);
             Line(LiveEvent.Names[_evKind], y, 0.024f, Color.white, -0.22f);
             Btn(">", 0.04f, y, 0.07f, () => _evKind = _evKind >= LiveEvent.Names.Length - 1 ? 1 : _evKind + 1);
-            bool nuke = _evKind == LiveEvent.Nuke;   // the nuke's length is its countdown: always 5 minutes
+            bool nuke = _evKind == LiveEvent.Nuke;   // the nuke's length is fixed: a 1-minute countdown (+1 for the blast)
             int len = nuke ? LiveEvent.NukeMinutes : LiveEvent.Lengths[_evLen];
             Btn(len >= 60 ? (len / 60) + " H" : len + " MIN", 0.15f, y, 0.12f, () => { if (!nuke) _evLen = (_evLen + 1) % LiveEvent.Lengths.Length; });
             Btn(nuke ? "LAUNCH" : "START", 0.29f, y, 0.14f, () => RelayBackend.Instance?.StartEvent((byte)_evKind, len), nuke ? Stop : Go);

@@ -513,7 +513,7 @@ namespace RagoServer
             sb.Append("<form method=post action='act' class=inl><input type=hidden name=t value='").Append(sess).Append("'><input type=hidden name=op value='event'><select name=kind>");
             for (int i = 1; i < EventNames.Length; i++) sb.Append("<option value=").Append(i).Append(">").Append(EventNames[i]).Append("</option>");
             sb.Append("</select> <select name=minutes><option value=30>30 min</option><option value=60 selected>1 hour</option><option value=120>2 hours</option><option value=360>6 hours</option><option value=1440>24 hours</option></select> <button class=green>Start event</button></form>");
-            sb.Append("<p class=dim>Nuke: always a 5-minute countdown, then everyone still in a raid dies (the length you pick is ignored).</p>");
+            sb.Append("<p class=dim>Nuke: always a 1-minute countdown, then everyone still in a raid dies (the length you pick is ignored).</p>");
             sb.Append("<p class=dim>Moderators can start and stop events from the MOD tab in the game too.</p>");
             // mods + history
             sb.Append("<h2>Moderators (").Append(Mods.Count).Append(")</h2><p>").Append(Mods.Count == 0 ? "<span class=dim>None yet - press Make mod next to a player.</span>" : string.Join(", ", Mods.Values.Select(H))).Append("</p>");

@@ -57,6 +57,7 @@ namespace Rago
             }
             // the hatch down to the Underground Sector, on a rock between them
             var u = new Vector3(0.12f, 0.36f, 0);
+            if (Photo(p, "underground", u + new Vector3(0.3f, 0.02f, 0), 0.26f)) { }   // the top floor's plan beside the hatch
             Blob(p, u, 0.11f, 51, new Color(0.35f, 0.34f, 0.32f), -0.007f);
             new MB().Box(u + new Vector3(0, 0.03f, -0.009f), new Vector3(0.1f, 0.1f, 0.002f), Color.white, 0f).Build("HatchRim", p, Mats.Unlit("board_hatch_rim", new Color(0.85f, 0.68f, 0.08f, 1f)));
             new MB().Box(u + new Vector3(0, 0.03f, -0.011f), new Vector3(0.065f, 0.065f, 0.002f), Color.white, 0f).Build("Hatch", p, Mats.Unlit("board_hatch", new Color(0.08f, 0.08f, 0.08f, 1f)));
@@ -70,10 +71,30 @@ namespace Rago
             Show(Kiosk.Current != null ? Kiosk.Current.SelectedMap : "dockyard");
         }
 
-        void OnDestroy() { Kiosk.OnMapSelected -= Show; }
+        void OnDestroy() { Kiosk.OnMapSelected -= Show; foreach (var o in _made) if (o != null) Destroy(o); _made.Clear(); }
+
+        readonly List<Object> _made = new List<Object>();
+
+        /// <summary>The real top-down photo of the map (from the last raid there), framed like a chart pinned over the
+        /// island. False if you haven't played that map yet (then the drawn island stays).</summary>
+        bool Photo(Transform p, string id, Vector3 c, float size)
+        {
+            var tex = FieldMap.LoadShot(id);
+            if (tex == null) return false;
+            float h = size / 2f;
+            var frame = new MB();
+            frame.Box(new Vector3(c.x, c.y, -0.0095f), new Vector3(size + 0.03f, size + 0.03f, 0.002f), Color.white, 0f);
+            frame.Build("PhotoFrame_" + id, p, Mats.Unlit("board_photo_frame", new Color(0.92f, 0.88f, 0.76f, 1f)));
+            var img = new MB().Quad(new Vector3(c.x - h, c.y - h, -0.0105f), new Vector3(c.x + h, c.y - h, -0.0105f), new Vector3(c.x + h, c.y + h, -0.0105f), new Vector3(c.x - h, c.y + h, -0.0105f), Color.white, Vector2.one);
+            var m = Mats.Unlit(null, Color.white, tex, Mats.BlendKind.Alpha, true);
+            _made.Add(tex); _made.Add(m);
+            img.Build("Photo_" + id, p, m);
+            return true;
+        }
 
         void Island(Transform p, string id, Vector3 c, float r, int seed)
         {
+            if (Photo(p, id, c + new Vector3(0, 0.04f, 0), r * 1.35f)) { Location(p, id, c + new Vector3(0, -r * 0.62f, 0), -0.02f); return; }
             Blob(p, c, r, seed, new Color(0.86f, 0.78f, 0.58f), -0.007f);          // beach
             Blob(p, c, r * 0.84f, seed, new Color(0.28f, 0.42f, 0.22f), -0.008f);   // land
             // a few dots for buildings / woods

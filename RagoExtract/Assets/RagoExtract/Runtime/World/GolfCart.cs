@@ -394,8 +394,19 @@ namespace Rago
             }
         }
 
+        float _noiseT; Vector3 _noisePos;
+
         void Update()
         {
+            // scavs hear an engine coming: 30 m when it's crawling, up to ~75 m flat out (anyone's car or bike - measured
+            // from how far it moved, so a remote player's cart counts too)
+            _noiseT -= Time.deltaTime;
+            if (_noiseT <= 0f)
+            {
+                float moved = (transform.position - _noisePos).magnitude / 0.5f;
+                _noisePos = transform.position; _noiseT = 0.5f;
+                if (moved > 1f && moved < 60f) Noise.Emit(transform.position, Mathf.Min(75f, 30f + moved * 4f), 0);
+            }
             float speed = rb != null ? Vector3.Dot(rb.Vel(), transform.forward) : 0f;
             _wheelSpin += speed / _wheelR * Mathf.Rad2Deg * Time.deltaTime;
             _steerVis = Mathf.Lerp(_steerVis, LocalDriving ? Steer : 0f, Time.deltaTime * 8f);

@@ -792,7 +792,7 @@ namespace Rago
             speed *= Vitals.LegPenalty;
             Vector3 vel = (fwd * move.y + right * move.x) * speed;
             // walking into an open window: hop over the sill to the other side (it took a hand-over-hand climb before)
-            if (_vaultT >= 0f || (move.y > 0.5f && TryWindowVault(fwd))) { VaultStep(dt); return; }
+            if (_vaultT >= 0f) { VaultStep(dt); return; }   // (vaulting is off: windows are low enough to walk / crouch through once the glass is broken)
             MoveVelocity = Vector3.Lerp(MoveVelocity, vel, dt * 10f);
             if (Cc.isGrounded && _vy < 0) _vy = -1f;
             // jump: A (or X) - always, gun in hand or not (the mag release is on B / Y)
@@ -837,7 +837,9 @@ namespace Rago
             {
                 _stepDist = 0;
                 PlayStep(Sprinting, Crouched ? 0.12f : Sprinting ? 0.5f : 0.33f);
-                if (!Crouched && Head.localPosition.y > 1.25f) Noise.Emit(transform.position, Sprinting ? 16f : 8f, 0);   // scavs hear you walking (8 m) and running (16 m); crouched you're silent
+                // scavs hear you walking (14 m) and running (28 m); crouched you're much quieter (4 m)
+                bool low = Crouched || Head.localPosition.y <= 1.25f;
+                Noise.Emit(transform.position, low ? 4f : Sprinting ? 28f : 14f, 0);
             }
             // stopping short from a walk or run: one scuff
             if (grounded && _lastPlanar > 1.2f && planar < 0.35f && !Crouched) { PlayStep(_lastPlanar > 3.4f, 0.22f); _stepDist = 0; }

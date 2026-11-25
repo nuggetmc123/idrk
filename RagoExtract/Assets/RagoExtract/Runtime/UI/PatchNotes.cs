@@ -5,6 +5,22 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.17", "New look, garage concerts, smarter scavs", new[] {
+                "NEW FONT: the whole game uses its own typeface now (Chakra Petch), and the menu has its own look - a field terminal with an amber header, corner brackets, a hazard-striped footer and a status light.",
+                "Your watch has a strap round your wrist. Your hands rest naturally curled instead of dead straight.",
+                "Your body sits a little further forward and higher under your view, and when you crouch your own legs no longer come up into your face.",
+                "The CAMERA clips onto your VEST (hold it to your chest and let go) or onto a GUN you're holding (let go of it against the side of the gun) as well as the helmet. On a gun: an empty hand on it + trigger to record; it's saved with the gun.",
+                "Vaulting is gone. Windows are low now (a 30 cm sill): break the glass and walk or crouch straight through.",
+                "Raid terminal: the modes are NORMAL (day) and EXTREME (night), and the queue line says which. The map board shows the REAL top-down photo of each map once you've played it.",
+                "Scavs hear much better: walking (14 m) and running (28 m) - yours and other players' - and engines from 30 to 75 m depending on speed. Crouched you're still quiet.",
+                "Fixed: you could hear people (footsteps, reloads...) from across the map - sounds now fade out completely at their range.",
+                "Fewer raiders in the Underground Sector (18, was 32).",
+                "Rocks: you bump into the rock you see - no more invisible walls round them or sinking into their sides.",
+                "Fixed: items dropping through tiled / boarded floors and lying hidden inside them - every floor you can see is a floor things land on.",
+                "MARKET: drop an item and other players see it and can pick it up (only your own drops go home with you). The trade table is gone.",
+                "MARKET CONCERT: the garage door on the south wall rolls up and the stage is in the garage.",
+                "The NUKE hits ONE minute after it's called (it was 5).",
+            }),
             ("3.16", "Party, lift and raid fixes", new[] {
                 "Fixed: after a raid (dying or extracting) your party could stop taking you into raids until you restarted - the leader's next queue into the same raid slot was ignored. Back in your bunker the game also keeps trying to put you back in your party's room.",
                 "Fixed: \"JOINING RAID 0:00\" stuck in the top left for ever (in raids, the Market, the bunker). It's cleared properly, and a raid start that arrives during another loading screen now waits for it instead of being lost.",

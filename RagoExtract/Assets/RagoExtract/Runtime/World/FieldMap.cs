@@ -105,6 +105,7 @@ namespace Rago
                 _pages.Add(page);
                 // one floor: the camera just under that floor's ceiling, looking down to just below its floor
                 var tex = _floors != null ? Photograph(_floors[pg] + map.MapFloorHeight - 0.05f, 0.01f, map.MapFloorHeight + 0.4f) : Photograph();
+                if (tex != null && pg == 0) SaveShot(map.Id, tex);
                 if (tex != null)
                 {
                     var img = new MB().Quad(new Vector3(-h, -h, 0), new Vector3(h, -h, 0), new Vector3(h, h, 0), new Vector3(-h, h, 0), Color.white, Vector2.one);
@@ -117,6 +118,45 @@ namespace Rago
                 BuildExtracts(map, page, pg);
             }
             BuildCommon(map);
+        }
+
+        // ---- the raid terminal shows these: the real photo of each map, kept from the last raid you played there
+        public const int ShotVersion = 1;
+        public static string ShotPath(string id) => System.IO.Path.Combine(Application.persistentDataPath, "mapshots", id + "_v" + ShotVersion + ".png");
+        static void SaveShot(string id, Texture2D tex)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            try
+            {
+                string path = ShotPath(id);
+                if (System.IO.File.Exists(path)) return;   // the layouts are fixed: once is enough
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                // a small copy (256 px is plenty for the terminal's board)
+                var rt = RenderTexture.GetTemporary(256, 256, 0);
+                Graphics.Blit(tex, rt);
+                var prev = RenderTexture.active; RenderTexture.active = rt;
+                var small = new Texture2D(256, 256, TextureFormat.RGB24, false);
+                small.ReadPixels(new Rect(0, 0, 256, 256), 0, 0); small.Apply();
+                RenderTexture.active = prev; RenderTexture.ReleaseTemporary(rt);
+                System.IO.File.WriteAllBytes(path, small.EncodeToPNG());
+                Destroy(small);
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Rago] map photo for the terminal: " + e.Message); }
+        }
+
+        /// <summary>The saved photo of a map, or null if you haven't been there yet.</summary>
+        public static Texture2D LoadShot(string id)
+        {
+            try
+            {
+                string path = ShotPath(id);
+                if (!System.IO.File.Exists(path)) return null;
+                var t = new Texture2D(2, 2, TextureFormat.RGB24, false);
+                if (!t.LoadImage(System.IO.File.ReadAllBytes(path))) { Destroy(t); return null; }
+                t.wrapMode = TextureWrapMode.Clamp;
+                return t;
+            }
+            catch { return null; }
         }
 
         /// <summary>Which page (floor) a height belongs to: the highest floor at or below it.</summary>

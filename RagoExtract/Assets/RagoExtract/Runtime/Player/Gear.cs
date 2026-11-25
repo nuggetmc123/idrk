@@ -231,11 +231,16 @@ namespace Rago
         }
 
         // ---- creator cam (helmet camera, right side): one button - record
-        public bool CamWorn, CamRec;
-        public Vector3 CamPoint => _p.Head.position + _p.Head.right * 0.13f + _p.Head.up * 0.04f;
+        public bool CamWorn, CamRec, CamOnVest;
+        /// <summary>For your body and other players: 0 none, 1 / 2 helmet (off / recording), 3 / 4 vest.</summary>
+        public int CamCode => !CamWorn ? 0 : (CamOnVest ? 3 : 1) + (CamRec ? 1 : 0);
+        public Vector3 CamPoint => CamOnVest ? Root.TransformPoint(new Vector3(0.1f, -0.3f, 0.2f)) : _p.Head.position + _p.Head.right * 0.13f + _p.Head.up * 0.04f;
+        /// <summary>Where the recording is filmed from: your head (helmet) or your chest (vest).</summary>
+        public Transform CamSource => CamOnVest && _p.Body != null && _p.Body.Rig != null ? _p.Body.Rig.chest : null;
         /// <summary>Is a hand at the camera? Anywhere up by the right side of your head (not the forehead - that's the NVG).</summary>
         public bool NearCam(Vector3 p)
         {
+            if (CamOnVest) return Vector3.Distance(p, CamPoint) < 0.14f;
             if (Vector3.Distance(p, CamPoint) < 0.22f) return true;
             var l = _p.Head.InverseTransformPoint(p);
             return l.x > 0.06f && l.x < 0.32f && l.y > -0.12f && l.y < 0.22f && l.z > -0.2f && l.z < 0.2f;
@@ -243,13 +248,18 @@ namespace Rago
 
         public bool TryWearCam(Item cam, Hand h)
         {
-            if (CamWorn || Vector3.Distance(cam.transform.position, _p.Head.position) > 0.3f) return false;
-            if (Helmet == null) { _p.Toast("The Camera clips onto a helmet - put a helmet on first"); return false; }
+            if (CamWorn) return false;
+            bool atHead = Vector3.Distance(cam.transform.position, _p.Head.position) < 0.3f;
+            bool atChest = Vector3.Distance(cam.transform.position, ChestCenter) < 0.3f;
+            if (!atHead && !atChest) return false;
+            if (atHead && Helmet == null && !(atChest && Vest != null)) { _p.Toast("The Camera clips onto a helmet or a vest - put one on first"); return false; }
+            if (!atHead && Vest == null) { _p.Toast("The Camera clips onto a vest (or a helmet) - put one on first"); return false; }
+            CamOnVest = !(atHead && Helmet != null);
             CamWorn = true; CamRec = false;
             cam.Consumed = true; Destroy(cam.gameObject);
             Sfx.Play(Synth.Zipper(), _p.Head.position, 0.45f, 1.6f, 0.5f, 6f);
             h.Haptic(0.4f, 0.1f);
-            _p.Toast("Camera on your helmet - reach to the right side of it and pull the trigger to RECORD" + (XRInputs.VR ? "" : " (C)"));
+            _p.Toast("Camera on your " + (CamOnVest ? "vest - reach to it (right of your chest)" : "helmet - reach to the right side of it") + " and pull the trigger to RECORD" + (XRInputs.VR ? "" : " (C)"));
             Changed();
             return true;
         }
@@ -257,7 +267,7 @@ namespace Rago
         public Item TakeOffCam(Vector3 p, Quaternion rot)
         {
             if (!CamWorn) return null;
-            SetRec(false); CamWorn = false;
+            SetRec(false); CamWorn = false; CamOnVest = false;
             Sfx.Play(Synth.Zipper(), p, 0.4f, 1.5f, 0.5f, 6f);
             Changed();
             return ItemFactory.Spawn("cc_cam", p, rot);
@@ -269,7 +279,7 @@ namespace Rago
             on = on && CamWorn;
             if (on == CamRec) return;
             CamRec = on;
-            CreatorCamRecorder.Set(_p, on);
+            CreatorCamRecorder.Set(_p, on, CamSource);
             _p.Toast(on ? "REC - recording" : "Recording stopped");
         }
 
@@ -319,7 +329,8 @@ namespace Rago
             var it = ItemFactory.Spawn(d.id, p, rot);
             // the goggles come off with the helmet (they're mounted on it): they drop just below it
             if (slot == ArmorSlot.Helmet && NvgWorn) { NvgWorn = false; SetNvg(false); ItemFactory.Spawn("nvg", p + Vector3.down * 0.15f, rot); }
-            if (slot == ArmorSlot.Helmet && CamWorn) { SetRec(false); CamWorn = false; ItemFactory.Spawn("cc_cam", p + Vector3.down * 0.2f, rot); }
+            if (slot == ArmorSlot.Helmet && CamWorn && !CamOnVest) { SetRec(false); CamWorn = false; ItemFactory.Spawn("cc_cam", p + Vector3.down * 0.2f, rot); }
+            if (slot == ArmorSlot.Vest && CamWorn && CamOnVest) { SetRec(false); CamWorn = false; CamOnVest = false; ItemFactory.Spawn("cc_cam", p + Vector3.down * 0.2f, rot); }
             Sfx.Play(Synth.Zipper(), p, 0.45f, 1.1f, 0.5f, 6f);
             Changed();
             return it;
@@ -386,7 +397,7 @@ namespace Rago
             l.pack = packOnMe ? Pack.SaveContents() : new List<ItemData>();
             l.helmet = Helmet != null ? Helmet.id : "";
             l.nvg = NvgWorn;
-            l.cam = CamWorn;
+            l.cam = CamWorn; l.camVest = CamWorn && CamOnVest;
             l.vest = Vest != null ? Vest.id : "";
             // items held in hands go to the best matching slot
             foreach (var hand in new[] { _p.HandL, _p.HandR })
@@ -442,7 +453,7 @@ namespace Rago
             }
             Helmet = string.IsNullOrEmpty(l.helmet) ? null : Db.Get<ArmorDef>(l.helmet);
             NvgWorn = l.nvg; SetNvg(false);
-            CamWorn = l.cam; SetRec(false);
+            CamWorn = l.cam; CamOnVest = l.cam && l.camVest; SetRec(false);
             Vest = string.IsNullOrEmpty(l.vest) ? null : Db.Get<ArmorDef>(l.vest);
             Changed();
             if (l.ammo != null) for (int i = 0; i < Mathf.Min(Ammo.Length, l.ammo.Length); i++) Ammo[i] = l.ammo[i];
@@ -559,6 +570,7 @@ namespace Rago
         public string helmet = "", vest = "";      // worn armour (ArmorDef ids, "" = none)
         public bool nvg;                           // night vision goggles worn
         public bool cam;                           // creator cam on the helmet
+        public bool camVest;                       // ...on the vest instead
         public int[] ammo;
     }
 

@@ -15,6 +15,7 @@ namespace Rago
         public float sightZ, sideZ, gripZ;   // where along the rail each attachment was placed (metres from its default spot)
         public bool sideLeft;                // light / laser on the left side of the handguard
         public string skin = "";             // paint job from the bunker's paint booth ("" = factory finish)
+        public bool cam;                     // guns: a creator cam clipped to the side
         public int count = 1;
         public string contents = "";  // backpacks: JSON of the items inside
         public int stashSec, stashSlot;   // bunker stash: which wall (1-based, 0 = none) and which spot on it, so it goes back exactly there

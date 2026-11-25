@@ -38,12 +38,62 @@ namespace Rago
                 Mats.Lit("cam_parts", Color.white, 0.6f, 0.8f, null, null, 0f, 0f, false, 0.5f, rec ? new Color(1.5f, 0.1f, 0.1f) : (Color?)null));
         }
 
+        // ---- on a gun: let go of it against the side of a gun you're holding and it clips on (right side of the
+        // receiver, lens down the barrel). Saved with the gun. An empty hand on it + trigger = RECORD / stop.
+        public Gun onGun;
+        public bool Rec;
+        public override Gun MountedOn => onGun;
+        public static CamItem GunCam;   // the one on a gun you're carrying (for the record button)
+
+        public void MountOn(Gun g)
+        {
+            if (g == null) return;
+            onGun = g; g.camAtt = this;
+            SetMounted(true);
+            SetCollidersTrigger(true);
+            transform.SetParent(g.transform, false);
+            float y = g.rig != null ? g.rig.boreY + 0.03f : 0.08f;
+            transform.localPosition = new Vector3(0.042f, y, 0.06f);
+            transform.localRotation = Quaternion.identity;
+        }
+
+        public void ToggleRec(PlayerRig pl)
+        {
+            Rec = !Rec;
+            CreatorCamRecorder.Set(pl, Rec, transform);
+            var old = transform.Find("CamModel"); if (old != null) Destroy(old.gameObject);
+            Model(transform, Rec);
+            Sfx.Play(Synth.Beep(), transform.position, 0.3f, Rec ? 1.4f : 0.9f, 0.3f, 4f);
+            pl.Toast(Rec ? "REC - recording from your gun" : "Recording stopped");
+        }
+
+        public override void OnGrab(Hand h)
+        {
+            if (onGun != null)
+            {
+                var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+                if (Rec && pl != null) ToggleRec(pl);
+                onGun.camAtt = null; onGun = null; SetMounted(false);
+                Sfx.Play(Synth.MagOut(), transform.position, 0.4f, 1.5f, 0.5f, 6f);
+            }
+            base.OnGrab(h);
+        }
+
         protected override bool TrySlot(Hand h)
         {
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
-            if (pl != null && !pl.Dead && pl.Gear.TryWearCam(this, h)) return true;
+            if (pl != null && !pl.Dead)
+            {
+                // a gun in either hand, the camera let go next to its receiver
+                foreach (var hh in new[] { pl.HandL, pl.HandR })
+                    if (hh != null && hh.Held is Gun g && g.camAtt == null && g.rig != null && Vector3.Distance(transform.position, g.transform.TransformPoint(new Vector3(0.04f, g.rig.boreY, 0.06f))) < 0.14f)
+                    { MountOn(g); h.Haptic(0.4f, 0.08f); pl.Toast("Camera on your gun - an empty hand on it + trigger to RECORD"); return true; }
+                if (pl.Gear.TryWearCam(this, h)) return true;
+            }
             return base.TrySlot(h);
         }
+
+        void OnDestroy() { if (Rec) { var pl = RagoGame.I != null ? RagoGame.I.Player : null; if (pl != null) CreatorCamRecorder.Set(pl, false); } }
     }
 
     /// <summary>
@@ -58,17 +108,19 @@ namespace Rago
     {
         public static float Since = -1f;
         public const int W = 1024, H = 576, Fps = 30;
-        Camera _cam; Transform _head; PlayerRig _p;
+        Camera _cam; Transform _head, _src; PlayerRig _p;
         Quaternion _rot; Vector3 _pos;
         RenderTexture _rt;
         float _nextFrame; long _frames; bool _busy; string _err;
         Texture2D _cpu;   // the slow way, where the GPU can't hand frames back by itself
         IVideoSink _sink;
 
-        public static void Set(PlayerRig p, bool on)
+        /// <summary>Start / stop recording. source: what it films from - null = the helmet (your head, smoothed), or the
+        /// vest (your chest) or a camera fitted to a gun.</summary>
+        public static void Set(PlayerRig p, bool on, Transform source = null)
         {
             var r = p.GetComponent<CreatorCamRecorder>() ?? p.gameObject.AddComponent<CreatorCamRecorder>();
-            r._head = p.Head; r._p = p;
+            r._head = p.Head; r._p = p; r._src = source;
             if (on) r.Begin(); else r.End();
         }
 
@@ -87,7 +139,7 @@ namespace Rago
             }
             if (_rt == null) { _rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32); _rt.Create(); }
             _cam.targetTexture = _rt;
-            _pos = _head.position; _rot = _head.rotation;
+            _pos = (_src != null ? _src : _head).position; _rot = (_src != null ? _src : _head).rotation;
             _frames = 0; _nextFrame = Time.unscaledTime;
             string where;
             try
@@ -133,8 +185,11 @@ namespace Rago
             if (Since < 0f || _cam == null || _head == null) return;
             // first person, from the helmet: follows your head but smoothed, so the footage isn't shaky
             float k = 1f - Mathf.Exp(-12f * Time.unscaledDeltaTime), kr = 1f - Mathf.Exp(-7f * Time.unscaledDeltaTime);
-            _pos = Vector3.Lerp(_pos, _head.position + _head.up * 0.06f, k);
-            _rot = Quaternion.Slerp(_rot, _head.rotation, kr);
+            Vector3 wantP = _src != null ? _src.position + _src.forward * (_src == _head ? 0f : 0.17f) + _src.up * 0.08f : _head.position + _head.up * 0.06f;
+            Quaternion wantR = _src != null ? _src.rotation : _head.rotation;
+            if (_src != null && _src.GetComponentInParent<Gun>() != null) { wantP = _src.position + _src.forward * 0.04f; wantR = _src.rotation; }   // on a gun: straight down the barrel
+            _pos = Vector3.Lerp(_pos, wantP, k);
+            _rot = Quaternion.Slerp(_rot, wantR, kr);
             _cam.transform.SetPositionAndRotation(_pos, _rot);
             if (Time.unscaledTime < _nextFrame) return;
             _nextFrame = Mathf.Max(_nextFrame + 1f / Fps, Time.unscaledTime - 0.1f);

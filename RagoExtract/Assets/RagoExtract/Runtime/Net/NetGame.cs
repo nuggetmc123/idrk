@@ -194,7 +194,7 @@ namespace Rago
         {
             var g = p.Gear;
             var pack = g.PackSlot.item as Backpack;
-            return (g.Helmet != null ? g.Helmet.id : "") + "|" + (g.Vest != null ? g.Vest.id : "") + "|" + (pack != null ? pack.def.id : "") + "|" + (g.NvgWorn ? (g.NvgOn ? "2" : "1") : "0") + "|" + (g.CamWorn ? (g.CamRec ? "2" : "1") : "0") + "|" + (Profile.Current != null && Profile.Current.creator ? "cc" : "");
+            return (g.Helmet != null ? g.Helmet.id : "") + "|" + (g.Vest != null ? g.Vest.id : "") + "|" + (pack != null ? pack.def.id : "") + "|" + (g.NvgWorn ? (g.NvgOn ? "2" : "1") : "0") + "|" + g.CamCode.ToString() + "|" + (Profile.Current != null && Profile.Current.creator ? "cc" : "");
         }
 
         /// <summary>Introduce yourself to everyone (after you stop spectating).</summary>
@@ -463,9 +463,17 @@ namespace Rago
 
         public int NewDropId() => 200000000 + (int)(NetHub.Backend.LocalId % 1000) * 100000 + (++_dropCounter % 90000);
 
+        /// <summary>Loose items are shared in raids AND the Market: drop something there and other players see it and can
+        /// pick it up.</summary>
+        bool ShareItems => InRaid || (RagoGame.I != null && RagoGame.I.Area == Area.Market);
+        readonly HashSet<int> _mine = new HashSet<int>();
+        /// <summary>Did I drop this (shared) item? Leaving the Market, only your own drops go home with you.</summary>
+        public bool MyDrop(int id) => _mine.Contains(id);
+
         public void OnItemTaken(Item it)
         {
-            if (it.netId == 0 || !InRaid) return;
+            if (it.netId == 0 || !ShareItems) return;
+            _mine.Remove(it.netId);
             var w = W(Msg.ItemTaken); w.Write(it.netId); Send(true);
             Items.Remove(it.netId);
             it.netId = 0;
@@ -473,8 +481,9 @@ namespace Rago
 
         public void OnItemDropped(Item it)
         {
-            if (!InRaid || it is Magazine || it is Backpack || it.Consumed) return;
+            if (!ShareItems || it is Magazine || it is Backpack || it.Consumed) return;
             it.netId = NewDropId();
+            _mine.Add(it.netId);
             Items[it.netId] = it;
             var w = W(Msg.ItemSpawned);
             w.Write(it.netId); w.Write(JsonUtility.ToJson(it.Save())); V3(w, it.transform.position); Q(w, it.transform.rotation);

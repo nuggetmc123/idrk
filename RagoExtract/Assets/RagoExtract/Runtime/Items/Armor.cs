@@ -246,7 +246,7 @@ namespace Rago
                 var g = Attach(hm, rig.head, "Helmet", local);
                 rig.gearVisuals.Add(g);
                 if (local) rig.headRenderers.Add(g.GetComponent<Renderer>());
-                if (cam > 0)
+                if (cam == 1 || cam == 2)
                 {
                     // the creator cam on the right side of the helmet, lens forward
                     var holder = new GameObject("CreatorCam").transform; holder.SetParent(rig.head, false);
@@ -255,6 +255,15 @@ namespace Rago
                     rig.gearVisuals.Add(holder.gameObject);
                     if (local) foreach (var rr in holder.GetComponentsInChildren<Renderer>()) { rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly; rig.headRenderers.Add(rr); }
                 }
+            }
+            if (vest != null && (cam == 3 || cam == 4))
+            {
+                // the creator cam clipped to the front of the vest, right side, lens forward
+                var holder = new GameObject("CreatorCamVest").transform; holder.SetParent(rig.chest, false);
+                holder.localPosition = new Vector3(0.1f, 0.1f, 0.16f);
+                CamItem.Model(holder, cam == 4);
+                rig.gearVisuals.Add(holder.gameObject);
+                if (local) foreach (var rr in holder.GetComponentsInChildren<Renderer>()) rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
             }
             if (vest != null)
             {

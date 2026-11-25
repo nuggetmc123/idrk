@@ -62,6 +62,20 @@ namespace Rago
             var r = rot ?? Quaternion.identity;
             Batch(m, c).Box(c, size, tint, bevel, bevel > 0 ? 1 : 0, r);
             if (col) Collider(c, size, r, s);
+            else if (FloorLike(m, size, r)) Collider(c, size, r, s);   // a floor you can see is a floor things land on
+        }
+
+        static readonly string[] NotFloors = { "water", "sea", "ocean", "lake", "river", "pond", "glass", "beam", "light", "lamp", "bulb", "fog", "shadow", "decal", "laser", "glow", "led" };
+        /// <summary>A flat, level, wide, thin box drawn without a collider (a tiled floor, boards laid on the ground, a rug, a
+        /// slab): items fell through it to the real floor underneath and lay hidden inside it, "the floor higher than its
+        /// hitbox". Those get their own collider now - not water, glass, light beams and the like.</summary>
+        static bool FloorLike(Material m, Vector3 size, Quaternion r)
+        {
+            if (size.y > 0.3f || size.x < 1.2f || size.z < 1.2f) return false;
+            if (Vector3.Dot(r * Vector3.up, Vector3.up) < 0.98f) return false;
+            string n = m != null ? m.name.ToLowerInvariant() : "";
+            foreach (var w in NotFloors) if (n.Contains(w)) return false;
+            return true;
         }
 
         public void Cyl(Vector3 a, Vector3 b, float r1, float r2, int seg, Material m, Color tint, bool col = true, Synth.Surface s = Synth.Surface.Concrete)
@@ -78,6 +92,10 @@ namespace Rago
             }
         }
 
+        static Mesh _unitEgg;
+        /// <summary>A low-poly unit sphere for rock colliders (scaled to each rock's radii).</summary>
+        static Mesh UnitEgg { get { if (_unitEgg == null) _unitEgg = new MB().Sphere(Vector3.zero, Vector3.one, 9, Color.white).ToMesh("rock_collider"); return _unitEgg; } }
+
         public void Sphere(Vector3 c, Vector3 radii, int seg, Material m, Color tint, bool col = true, Synth.Surface s = Synth.Surface.Concrete)
         {
             Batch(m, c).Sphere(c, radii, seg, tint);
@@ -86,11 +104,15 @@ namespace Rago
                 var go = new GameObject("c");
                 go.transform.SetParent(ColRoot(s), false);
                 go.transform.position = c;
-                go.AddComponent<SphereCollider>().radius = Mathf.Min(radii.x, Mathf.Min(radii.y, radii.z)) * 0.95f;
-                // a squashed / stretched one (rocks): the sphere above only filled its thinnest direction and you walked
-                // straight through the rest - a box filling most of the shape covers it
+                // a squashed / stretched one (rocks): collide with its real shape - the same egg, as a mesh. (It was a ball the
+                // size of its thinnest side plus a box: the box's corners stuck out as invisible walls round the rock and the
+                // middle of its sides was inside the rock, so you sank into it)
                 if (Mathf.Max(radii.x, Mathf.Max(radii.y, radii.z)) > Mathf.Min(radii.x, Mathf.Min(radii.y, radii.z)) * 1.15f)
-                    go.AddComponent<BoxCollider>().size = new Vector3(radii.x * 1.5f, radii.y * 1.5f, radii.z * 1.5f);
+                {
+                    go.transform.localScale = radii;
+                    go.AddComponent<MeshCollider>().sharedMesh = UnitEgg;
+                }
+                else go.AddComponent<SphereCollider>().radius = Mathf.Min(radii.x, Mathf.Min(radii.y, radii.z)) * 0.95f;
             }
         }
 
@@ -210,7 +232,7 @@ namespace Rago
                 if (o.z > 0.01f) Seg(a, dir, rot, o0, o1, 0, o.z, thick, m, tint, s);           // below window
                 if (o.w < height - 0.01f) Seg(a, dir, rot, o0, o1, o.w, height, thick, m, tint, s); // lintel
                 // a window (not a doorway): glass in it that shatters when shot
-                if (GlassWindows && o.z >= 0.5f && o1 - o0 > 0.3f && o.w - o.z > 0.3f)
+                if (GlassWindows && o.z >= 0.25f && o1 - o0 > 0.3f && o.w - o.z > 0.3f)
                     Window.Create(Root, a + dir * ((o0 + o1) * 0.5f) + Vector3.up * ((o.z + o.w) * 0.5f), new Vector3(0.02f, o.w - o.z, o1 - o0), rot);
                 cursor = Mathf.Max(cursor, o1);
             }
@@ -249,7 +271,7 @@ namespace Rago
                         {
                             float c = (w + 0.5f) * len / nw;
                             if (ops.Count > 0 && Mathf.Abs(c - ops[0].x) < 1.8f && f == 0) continue;
-                            ops.Add(new Vector4(c, 1.2f, 1.0f, 2.1f));
+                            ops.Add(new Vector4(c, 1.25f, 0.3f, 2.1f));   // the sill is a low step (30 cm): break the glass and walk or crouch straight through (no vaulting)
                         }
                     }
                     bool keep = NoSwingDoors;

@@ -789,7 +789,9 @@ namespace Rago
             // headPos is the eye point. Head bone sits at the base of the skull, neck bone at the top of the chest.
             // mostly your facing, only a little of your head's tilt: looking down used to swing the neck (and with it your
             // chest and arms) ~11 cm back, so the body looked like it was behind your head
-            Vector3 headBone = headPos - Quaternion.Slerp(yawQ, headRot, 0.3f) * new Vector3(0, 0.08f, 0.07f);
+            // (eyes 6 cm above and 4 cm in front of the head bone: it was 8 / 7 cm, which put your body a bit too far back
+            // and low under your view)
+            Vector3 headBone = headPos - Quaternion.Slerp(yawQ, headRot, 0.3f) * new Vector3(0, 0.06f, 0.04f);
             Vector3 neckBase = headBone - Vector3.Slerp(Vector3.up, headRot * Vector3.up, 0.3f) * 0.1f;
             Vector3 hipsGuess = rootPos + Vector3.up * Mathf.Lerp(0.98f, 0.6f, crouch) - fwd * crouch * 0.1f;
             Vector3 toNeck = neckBase - hipsGuess;

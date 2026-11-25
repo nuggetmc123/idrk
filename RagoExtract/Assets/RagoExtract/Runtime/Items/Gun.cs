@@ -16,6 +16,7 @@ namespace Rago
         public Magazine mag;
         public SightItem sight;
         public AttachItem muzzleAtt, sideAtt, gripAtt;
+        public CamItem camAtt;   // a creator cam clipped to the side
         public float sightZ, sideZ, gripZ; public bool sideLeft;   // where the attachments sit on their rails
         public string skin = "";   // paint job (GunSkins)
 
@@ -218,6 +219,7 @@ namespace Rago
             LoadAttachment(d.muzzle); LoadAttachment(d.side); LoadAttachment(d.gripAtt);
             if (sideAtt != null) sideAtt.Place(sideZ, sideLeft);
             if (gripAtt != null) gripAtt.Place(gripZ, false);
+            if (d.cam && camAtt == null) { var ci = ItemFactory.Spawn("cc_cam", transform.position, transform.rotation) as CamItem; if (ci != null) ci.MountOn(this); }
             RefreshSupport();
             GunSkins.Apply(this, d.skin);
             autoMode = g.action == FireAction.Auto || g.action == FireAction.Burst;
@@ -228,7 +230,7 @@ namespace Rago
             int r = Rounds + (chambered ? 1 : 0);   // everything in the gun, the chambered round included (Load takes it back out)
             return new ItemData(g.id) { rounds = r, chambered = chambered, sight = sight != null ? sight.def.id : "",
                 muzzle = muzzleAtt != null ? muzzleAtt.def.id : "", side = sideAtt != null ? sideAtt.def.id : "", gripAtt = gripAtt != null ? gripAtt.def.id : "",
-                sightZ = sight != null ? sightZ : 0f, sideZ = sideAtt != null ? sideZ : 0f, gripZ = gripAtt != null ? gripZ : 0f, sideLeft = sideAtt != null && sideLeft, skin = skin ?? "" };
+                sightZ = sight != null ? sightZ : 0f, sideZ = sideAtt != null ? sideZ : 0f, gripZ = gripAtt != null ? gripZ : 0f, sideLeft = sideAtt != null && sideLeft, skin = skin ?? "", cam = camAtt != null };
         }
 
         // ------------------------------------------------------------ magazines

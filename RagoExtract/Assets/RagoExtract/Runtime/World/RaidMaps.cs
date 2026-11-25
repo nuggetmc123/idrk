@@ -480,7 +480,7 @@ namespace Rago
             Ambience = Synth.Amb.Bunker;
             KeepFog = true; Indoor = true;
             NpcSafeRadius = 14f;   // only keep them off your own spawn: they're everywhere down here
-            MaxRaiders = 32;
+            MaxRaiders = 18;   // was 32: too many down here
             float ex = NX * Pitch / 2f + 2f, ez = NZ * Pitch / 2f + 2f;   // outer walls (84 x 68)
             float yBot = LevelY(Levels - 1), yTop = LevelY(0) + Ht;
             // every floor, not the top of the roof slab

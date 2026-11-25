@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Rago
 {
     /// <summary>
-    /// CONCERT live event: a stage goes up in the Market in front of the roller door - a DJ on the decks, a flashing LED
+    /// CONCERT live event: the Market's garage door rolls up and the stage is in there - a DJ on the decks, a flashing LED
     /// wall, speaker stacks, moving spotlights with beams and sweeping lasers, all on the beat of a looping dance track.
     /// The music runs off the world clock, so everyone in the Market hears (and sees) the same beat.
     /// </summary>
@@ -37,7 +37,7 @@ namespace Rago
         {
             var go = new GameObject("ConcertStage");
             go.transform.SetParent(map, false);
-            go.transform.localPosition = new Vector3(-2f, 0f, -9.9f);   // in front of the roller door, facing the hall (+z)
+            go.transform.localPosition = new Vector3(-2f, 0f, -16.4f);   // in the garage behind the roller door (it rolls up for the show), facing the hall (+z)
             _i = go.AddComponent<ConcertStage>();
             _i.Make();
         }

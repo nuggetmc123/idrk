@@ -306,6 +306,25 @@ namespace Rago
             // taller than before: messages (air drops, vaults, pick-ups...) and the queue timer live here now, not floating in your view
             w.Sub(0).Box(new Vector3(0, -0.012f, 0), new Vector3(0.075f, 0.075f, 0.012f), Color.white, 0.006f, 2);
             w.Sub(1).Box(new Vector3(0, -0.012f, -0.0065f), new Vector3(0.068f, 0.068f, 0.001f), Color.white, 0);
+            // the strap: a band right round the wrist (the wrist runs along the watch's local x), lugs at the face's edges
+            // and a buckle underneath - so it's a watch, not a floating square
+            {
+                var band = new Color(0.13f, 0.13f, 0.12f);
+                Vector3 c0 = new Vector3(0, -0.012f, 0.032f);   // the middle of the wrist, under the face
+                float ry = 0.037f, rz = 0.033f, bw = 0.026f;
+                const int segs = 22;
+                for (int i = 0; i < segs; i++)
+                {
+                    float a0 = i * Mathf.PI * 2f / segs, a1 = (i + 1) * Mathf.PI * 2f / segs;
+                    Vector3 p0 = c0 + new Vector3(0, Mathf.Cos(a0) * ry, -Mathf.Sin(a0) * rz), p1 = c0 + new Vector3(0, Mathf.Cos(a1) * ry, -Mathf.Sin(a1) * rz);
+                    if (p0.z < -0.004f && p1.z < -0.004f && Mathf.Abs(p0.y - c0.y) < 0.036f && Mathf.Abs(p1.y - c0.y) < 0.036f) continue;   // hidden under the face
+                    Vector3 mid = (p0 + p1) * 0.5f, tan = p1 - p0;
+                    var q = Quaternion.LookRotation(tan.normalized, Vector3.Cross(Vector3.right, tan).normalized);   // length along the band, thickness outwards, width along the wrist
+                    w.Sub(0).Box(mid, new Vector3(bw, 0.0028f, tan.magnitude + 0.0015f), band, 0f, 0, q);
+                }
+                foreach (float sy in new[] { -1f, 1f }) w.Sub(0).Box(new Vector3(0, -0.012f + sy * 0.0385f, 0.002f), new Vector3(bw + 0.004f, 0.006f, 0.01f), new Color(0.22f, 0.22f, 0.22f), 0.001f);   // lugs
+                w.Sub(0).Box(c0 + new Vector3(0, 0, rz + 0.001f), new Vector3(bw + 0.006f, 0.016f, 0.004f), new Color(0.55f, 0.55f, 0.55f), 0.001f);   // buckle
+            }
             w.Build("watch", _wrist, Mats.Polymer, Mats.Lit("watch_screen", new Color(0.02f, 0.03f, 0.03f), 0f, 0.9f));
             _wristTimer = UI.Text(_wrist, "", new Vector3(0.032f, 0.012f, -0.008f), 0.0085f, new Color(1f, 0.85f, 0.4f), TextAnchor.MiddleRight, FontStyle.Bold);
             _wristHp = UI.Text(_wrist, "", new Vector3(-0.032f, 0.012f, -0.008f), 0.0085f, new Color(0.4f, 1f, 0.5f), TextAnchor.MiddleLeft, FontStyle.Bold);

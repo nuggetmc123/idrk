@@ -45,7 +45,7 @@ namespace Rago
         public void ApplyGear()
         {
             if (Rig == null || _p == null || _p.Gear == null) return;
-            ArmorBuilder.Dress(Rig, _p.Gear.Helmet, _p.Gear.Vest, null, true, _p.Gear.NvgWorn ? (_p.Gear.NvgOn ? 2 : 1) : 0, _p.Gear.CamWorn ? (_p.Gear.CamRec ? 2 : 1) : 0);
+            ArmorBuilder.Dress(Rig, _p.Gear.Helmet, _p.Gear.Vest, null, true, _p.Gear.NvgWorn ? (_p.Gear.NvgOn ? 2 : 1) : 0, _p.Gear.CamCode);
             foreach (var g in Rig.gearVisuals) g.SetLayerRecursive(Layers.LocalBody);
         }
 
@@ -68,8 +68,27 @@ namespace Rago
 
         Vector3 _vel;
 
+        Renderer[] _legs; bool _legsHidden;
+        /// <summary>Your own legs, hidden from your eyes while you're crouched (they still cast a shadow, and other players
+        /// see them): kneeling or squatting for real, your thighs and knees came up right in front of your face.</summary>
+        void LegsInView()
+        {
+            if (_legs == null)
+            {
+                var l = new System.Collections.Generic.List<Renderer>();
+                foreach (var t in new[] { Rig.thL, Rig.thR }) if (t != null) l.AddRange(t.GetComponentsInChildren<Renderer>(true));
+                _legs = l.ToArray();
+            }
+            float headH = _p.Head.position.y - _p.transform.position.y;
+            bool hide = _p.Driving == null && (_p.Crouched || headH < 1.2f);
+            if (hide == _legsHidden) return;
+            _legsHidden = hide;
+            foreach (var r in _legs) if (r != null) r.shadowCastingMode = hide ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly : UnityEngine.Rendering.ShadowCastingMode.On;
+        }
+
         void PoseNow(float dt)
         {
+            LegsInView();
             // arms end at the wrists of the hands you see, so arm, hand and controller line up
             // riding: the body sits on the seat (the rig itself is placed for your real head height, standing or sitting)
             Rig.Pose(_p.SeatPoint, _yaw, _p.Head.position, _p.Head.rotation,

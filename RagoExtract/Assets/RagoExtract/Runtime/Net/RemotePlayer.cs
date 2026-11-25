@@ -134,7 +134,7 @@ namespace Rago
             _gear = key;
             var parts = key.Split('|');
             string P(int i) => parts.Length > i ? parts[i] : "";
-            ArmorBuilder.Dress(_rig, Db.Get<ArmorDef>(P(0)), Db.Get<ArmorDef>(P(1)), Db.Get<BackpackDef>(P(2)), false, P(3) == "2" ? 2 : P(3) == "1" ? 1 : 0, P(4) == "2" ? 2 : P(4) == "1" ? 1 : 0);
+            ArmorBuilder.Dress(_rig, Db.Get<ArmorDef>(P(0)), Db.Get<ArmorDef>(P(1)), Db.Get<BackpackDef>(P(2)), false, P(3) == "2" ? 2 : P(3) == "1" ? 1 : 0, int.TryParse(P(4), out var camV) && camV >= 0 && camV <= 4 ? camV : 0);   // camera: 1/2 helmet, 3/4 vest (off / recording)
             bool cc = P(5) == "cc";
             if (cc != Creator && _tape != null) { Destroy(_tape.transform.parent.gameObject); _tape = null; }   // rebuilt in red with the badge (or back to plain)
             Creator = cc;
@@ -333,7 +333,7 @@ namespace Rago
             // raiders hear other players' footsteps too (unless they're crouched)
             _noiseT -= dt;
             float spd = new Vector2(_vel.x, _vel.z).magnitude;
-            if (_noiseT <= 0f && spd > 0.6f && _sHead.y - _sRoot.y > 1.25f) { _noiseT = 0.5f; Noise.Emit(_sRoot, spd > 3.4f ? 16f : 8f, (int)NetId + 1); }
+            if (_noiseT <= 0f && spd > 0.6f) { _noiseT = 0.5f; Noise.Emit(_sRoot, _sHead.y - _sRoot.y <= 1.25f ? 4f : spd > 3.4f ? 28f : 14f, (int)NetId + 1); }   // other players' footsteps: same as yours
             float hy = _sHeadR.eulerAngles.y;
             if (seated) _yaw = _cart.transform.eulerAngles.y;   // sitting square in the seat
             else if (Mathf.Abs(Mathf.DeltaAngle(_yaw, hy)) > 35f || _vel.sqrMagnitude > 0.3f) _yaw = Mathf.MoveTowardsAngle(_yaw, hy, dt * 220f);

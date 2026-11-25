@@ -29,6 +29,7 @@ namespace Rago
                 if (it == null || it.Gone || it.Held || it.slot != null || it is Magazine) continue;
                 if (it is SightItem si && si.onGun != null) continue;
                 if (it is AttachItem ai && ai.onGun != null) continue;
+                        if (it is CamItem ci && ci.onGun != null) continue;
                 if (it.transform.parent != null && it.transform.parent != root) continue;   // in a bag, on a gun, carried
                 ItemData d = null;
                 try { d = it.Save(); } catch (System.Exception e) { Debug.LogWarning("[Rago] floor save: " + e.Message); }
@@ -561,7 +562,7 @@ namespace Rago
             var corr = Maps.Corrugated;
             Color wc = new Color(0.45f, 0.5f, 0.52f);
             b.Wall(new Vector3(-W / 2, 0, D / 2), new Vector3(W / 2, 0, D / 2), H, 0.3f, corr, wc, null, Synth.Surface.Metal);
-            b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), H, 0.3f, corr, wc, null, Synth.Surface.Metal);
+            b.Wall(new Vector3(W / 2, 0, -D / 2), new Vector3(-W / 2, 0, -D / 2), H, 0.3f, corr, wc, new List<Vector4> { new Vector4(W / 2 + 2f, 6f, 0, 4.8f) }, Synth.Surface.Metal);   // the garage door opening
             b.Wall(new Vector3(W / 2, 0, D / 2), new Vector3(W / 2, 0, -D / 2), H, 0.3f, corr, wc, new List<Vector4> { new Vector4(D / 2 + 6f, 1.8f, 0, 2.4f) }, Synth.Surface.Metal); // lift
             b.Wall(new Vector3(-W / 2, 0, -D / 2), new Vector3(-W / 2, 0, D / 2), H, 0.3f, corr, wc, null, Synth.Surface.Metal);
             b.Box(new Vector3(0, H + 0.1f, 0), new Vector3(W, 0.2f, D), corr, new Color(0.3f, 0.32f, 0.33f), null, true, Synth.Surface.Metal);
@@ -570,9 +571,18 @@ namespace Rago
                 float x = -W / 2 + (i + 0.5f) * W / 5;
                 b.Box(new Vector3(x, H - 0.2f, 0), new Vector3(0.3f, 0.4f, D), Maps.Metal, new Color(0.3f, 0.3f, 0.3f), null, false);
             }
-            // a closed roller door on the south wall (the way the goods come in)
-            b.Box(new Vector3(-2f, 2.4f, -D / 2 + 0.2f), new Vector3(6f, 4.8f, 0.08f), Maps.Metal, new Color(0.42f, 0.36f, 0.22f), null, false);
-            for (int i = 0; i < 16; i++) b.Box(new Vector3(-2f, 0.15f + i * 0.3f, -D / 2 + 0.25f), new Vector3(6f, 0.03f, 0.02f), Maps.Metal, new Color(0.3f, 0.26f, 0.16f), null, false);
+            // the GARAGE behind the roller door on the south wall: the concert stage is in there, and the door rolls up
+            // when a CONCERT is on (it stays shut the rest of the time)
+            {
+                float gz0 = -D / 2 - 0.15f, gd = 7.5f, gx = -2f, gw = 11f, gh = 6.4f;
+                b.Box(new Vector3(gx, -0.1f, gz0 - gd / 2), new Vector3(gw, 0.2f, gd), Maps.ConcreteDark, new Color(0.55f, 0.55f, 0.55f), null, true, Synth.Surface.Concrete);
+                b.Box(new Vector3(gx, gh + 0.1f, gz0 - gd / 2), new Vector3(gw, 0.2f, gd), corr, new Color(0.3f, 0.32f, 0.33f), null, true, Synth.Surface.Metal);
+                b.Wall(new Vector3(gx - gw / 2, 0, gz0), new Vector3(gx - gw / 2, 0, gz0 - gd), gh, 0.3f, corr, wc, null, Synth.Surface.Metal);
+                b.Wall(new Vector3(gx + gw / 2, 0, gz0 - gd), new Vector3(gx + gw / 2, 0, gz0), gh, 0.3f, corr, wc, null, Synth.Surface.Metal);
+                b.Wall(new Vector3(gx + gw / 2, 0, gz0 - gd), new Vector3(gx - gw / 2, 0, gz0 - gd), gh, 0.3f, corr, wc, null, Synth.Surface.Metal);
+                b.AddLight(new Vector3(gx, gh - 0.6f, gz0 - gd / 2), new Color(0.9f, 0.85f, 0.8f), 9f, 0.8f);
+                RollerDoor.Create(transform, new Vector3(gx, 0, -D / 2 + 0.05f), 6f, 4.8f);
+            }
             // string lights + bunting
             var bulb = Mats.Lit("bulb", new Color(1f, 0.8f, 0.5f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(3f, 2f, 1f));
             var bunting = Mats.Lit("bunting", Color.white, 0f, 0.1f, Mats.Fabric, null, 0.3f, 0f);
@@ -621,7 +631,7 @@ namespace Rago
             // (the DLC store is only in the menu now - its DLC tab). Its wall has the Discord poster instead
             Posters.Discord(transform, new Vector3(-W / 2 + 0.2f, 1.75f, 5.2f), -90f, new Vector2(0.9f, 1.2f));
             // ---- players' own trading: a trade table and four stalls anyone can claim
-            TradeTable.Create(transform, new Vector3(-6.5f, 0, -3.5f), 90f);
+            // (the trade table is gone: drop an item in the Market and other players can pick it up)
             // the black market: three screens in a row in the middle of the hall, facing the lift (you see them as you
             // step out), under their own hanging sign
             for (int bm = 0; bm < 3; bm++) ShopScreen.Create(transform, new Vector3(-1.5f, 0, -0.5f + bm * 2.6f), -90f);

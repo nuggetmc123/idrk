@@ -253,6 +253,12 @@ namespace Rago
                 rig.Gear.ToggleRec();
                 Haptic(0.5f, 0.08f);
             }
+            // a camera on the gun in your other hand: an empty hand on it + trigger = RECORD / stop
+            else if (Held == null && Racking == null && input.TriggerDown && Other != null && Other.Held is Gun cg && cg.camAtt != null && Vector3.Distance(TrackedPosition, cg.camAtt.transform.position) < 0.09f)
+            {
+                cg.camAtt.ToggleRec(rig);
+                Haptic(0.5f, 0.08f);
+            }
             // rack with the free hand on the slide / charging handle: hold the TRIGGER (or grip), pull back, let go
             if (Racking == null && Held == null && _interact == null && input.TriggerDown && Other.Held is Gun rg && !Other.HeldAsSecondary && rg.TryStartRack(this))
             {
@@ -663,6 +669,7 @@ namespace Rago
         }
 
         float _curl, _trig;
+        static readonly float[] RestCurl = { 0.16f, 0.22f, 0.28f, 0.34f };   // index, middle, ring, little
         void UpdateFingers(HandInput input)
         {
             float targetCurl = Held != null || Racking != null || OnWheel ? 1f : input.Grip;
@@ -673,9 +680,12 @@ namespace Rago
             {
                 float c = f == 0 ? _trig : _curl;
                 if (Held is Gun && !HeldAsSecondary && f == 0) c = _trig;
+                // a relaxed hand is never dead straight: each finger rests a little bent, more towards the little finger
+                c = Mathf.Max(c, RestCurl[Mathf.Min(f, RestCurl.Length - 1)]);
                 for (int k = 0; k < 3; k++) _fingers[f][k].localRotation = Quaternion.Euler(c * (k == 0 ? 70f : 80f), 0, 0);
             }
-            _thumb.localRotation = Quaternion.Euler(_curl * 25f, (left ? 1 : -1) * (45f - _curl * 20f), (left ? -1 : 1) * 30f);
+            float tc = Mathf.Max(_curl, 0.18f);
+            _thumb.localRotation = Quaternion.Euler(tc * 25f, (left ? 1 : -1) * (45f - tc * 20f), (left ? -1 : 1) * 30f);
         }
 
         /// <summary>Where your body's forearm should end: the wrist of the hand you see (not the controller's centre).</summary>
@@ -722,6 +732,7 @@ namespace Rago
                         if (it is Magazine mm && mm.inGun != null) continue;
                         if (it is SightItem si && si.onGun != null) continue;
                         if (it is AttachItem ai && ai.onGun != null) continue;
+                        if (it is CamItem ci && ci.onGun != null) continue;
                         best = it; break;
                     }
                     var lc = c.GetComponentInParent<LootCrate>();
