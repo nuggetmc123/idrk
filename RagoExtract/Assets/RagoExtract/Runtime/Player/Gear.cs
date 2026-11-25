@@ -255,7 +255,8 @@ namespace Rago
             if (atHead && Helmet == null && !(atChest && Vest != null)) { _p.Toast("The Camera clips onto a helmet or a vest - put one on first"); return false; }
             if (!atHead && Vest == null) { _p.Toast("The Camera clips onto a vest (or a helmet) - put one on first"); return false; }
             CamOnVest = !(atHead && Helmet != null);
-            CamWorn = true; CamRec = false;
+            CamWorn = true; CamRec = CreatorCamRecorder.Active;   // put back on while it's still recording: it films from you again
+            if (CamRec) CreatorCamRecorder.Retarget(_p, CamSource);
             cam.Consumed = true; Destroy(cam.gameObject);
             Sfx.Play(Synth.Zipper(), _p.Head.position, 0.45f, 1.6f, 0.5f, 6f);
             h.Haptic(0.4f, 0.1f);
@@ -267,13 +268,18 @@ namespace Rago
         public Item TakeOffCam(Vector3 p, Quaternion rot)
         {
             if (!CamWorn) return null;
-            SetRec(false); CamWorn = false; CamOnVest = false;
+            bool rec = CamRec;
+            CamRec = false; CamWorn = false; CamOnVest = false;
             Sfx.Play(Synth.Zipper(), p, 0.4f, 1.5f, 0.5f, 6f);
             Changed();
-            return ItemFactory.Spawn("cc_cam", p, rot);
+            var item = ItemFactory.Spawn("cc_cam", p, rot);
+            // still recording: it carries on from the camera itself, wherever it goes (even if you hand it to someone) -
+            // until you die
+            if (rec && item != null) { CreatorCamRecorder.Retarget(_p, item.transform); if (item is CamItem ci) ci.Rec = true; }
+            return item;
         }
 
-        public void ToggleRec() { if (CamWorn) { SetRec(!CamRec); Sfx.Play(Synth.Beep(), _p.Head.position, 0.3f, CamRec ? 1.4f : 0.9f, 0.3f, 4f); Changed(); } }
+        public void ToggleRec() { if (CamWorn) { if (!CamRec && CreatorCamRecorder.Active) { CreatorCamRecorder.Stop(_p); _p.Toast("Recording stopped"); Changed(); return; } SetRec(!CamRec); Sfx.Play(Synth.Beep(), _p.Head.position, 0.3f, CamRec ? 1.4f : 0.9f, 0.3f, 4f); Changed(); } }
         void SetRec(bool on)
         {
             on = on && CamWorn;

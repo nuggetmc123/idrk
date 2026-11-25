@@ -81,7 +81,7 @@ namespace Rago
 
         public void ToggleRec(PlayerRig pl)
         {
-            Rec = !Rec;
+            Rec = !CreatorCamRecorder.Active;
             CreatorCamRecorder.Set(pl, Rec, transform);
             var old = transform.Find("CamModel"); if (old != null) Destroy(old.gameObject);
             Model(transform, Rec);
@@ -93,9 +93,7 @@ namespace Rago
         {
             if (onGun != null)
             {
-                var pl = RagoGame.I != null ? RagoGame.I.Player : null;
-                if (Rec && pl != null) ToggleRec(pl);
-                onGun.camAtt = null; onGun = null; SetMounted(false);
+                onGun.camAtt = null; onGun = null; SetMounted(false);   // (still recording if it was: it films from your hand now)
                 transform.localScale = Vector3.one;   // full size again in your hand
                 Sfx.Play(Synth.MagOut(), transform.position, 0.4f, 1.5f, 0.5f, 6f);
             }
@@ -116,7 +114,7 @@ namespace Rago
             return base.TrySlot(h);
         }
 
-        protected override void OnDestroy() { base.OnDestroy(); if (Rec) { var pl = RagoGame.I != null ? RagoGame.I.Player : null; if (pl != null) CreatorCamRecorder.Set(pl, false); } }
+        protected override void OnDestroy() { base.OnDestroy(); }   // (recording carries on: the recorder finds the camera again wherever it went)
     }
 
     /// <summary>
@@ -143,8 +141,45 @@ namespace Rago
         public static void Set(PlayerRig p, bool on, Transform source = null)
         {
             var r = p.GetComponent<CreatorCamRecorder>() ?? p.gameObject.AddComponent<CreatorCamRecorder>();
-            r._head = p.Head; r._p = p; r._src = source;
+            r._head = p.Head; r._p = p; r._src = source; r._follow = source != null && source.GetComponentInParent<CamItem>() != null;
             if (on) r.Begin(); else r.End();
+        }
+
+        /// <summary>Recording right now (whoever has the camera).</summary>
+        public static bool Active => Since >= 0f;
+        /// <summary>Keep recording, but film from somewhere else: null = your helmet, your chest (vest), or the camera
+        /// itself wherever it goes (taken off, handed to another player, on their gun / helmet / vest).</summary>
+        public static void Retarget(PlayerRig p, Transform source)
+        {
+            if (p == null) return;
+            var r = p.GetComponent<CreatorCamRecorder>(); if (r == null) return;
+            r._src = source; r._follow = source != null && source.GetComponentInParent<CamItem>() != null;
+        }
+        public static void Stop(PlayerRig p) { if (p == null) return; var r = p.GetComponent<CreatorCamRecorder>(); if (r != null) r.End(); }
+
+        bool _follow; float _searchT;
+        void Awake() { Vitals.OnLocalDeath += OnDied; }
+        void OnDied(int killer) { if (Active) { End(); } }   // the person recording died: that's the end of the video
+
+        /// <summary>The camera's gone from where we were filming (picked up by someone else, put on their helmet or vest):
+        /// find it again - our own copy if we have one, else the one we see on another player.</summary>
+        Transform FindCamera()
+        {
+            foreach (var it in Item.All) if (it is CamItem ci && ci != null && !ci.Consumed) return ci.transform;
+            if (NetGame.I != null)
+                foreach (var kv in NetGame.I.Remotes)
+                {
+                    if (kv.Value == null) continue;
+                    var t = FindDeep(kv.Value.transform, "CamModel");
+                    if (t != null) return t;
+                }
+            return null;
+        }
+        static Transform FindDeep(Transform t, string name)
+        {
+            if (t.name == name) return t;
+            for (int i = 0; i < t.childCount; i++) { var f = FindDeep(t.GetChild(i), name); if (f != null) return f; }
+            return null;
         }
 
         void Begin()
@@ -200,12 +235,20 @@ namespace Rago
 
         void Toast(string m) { try { if (_p != null) _p.Toast(m); } catch { } }
 
-        void OnDestroy() { End(); if (_rt != null) { _rt.Release(); Destroy(_rt); } if (_cpu != null) Destroy(_cpu); }
+        void OnDestroy() { Vitals.OnLocalDeath -= OnDied; End(); if (_rt != null) { _rt.Release(); Destroy(_rt); } if (_cpu != null) Destroy(_cpu); }
         void OnApplicationQuit() { End(); }
 
         void LateUpdate()
         {
             if (Since < 0f || _cam == null || _head == null) return;
+            // following the camera and it's gone (another player picked it up): look for it again twice a second; meanwhile
+            // the picture holds where it was
+            if (_follow && _src == null)
+            {
+                _searchT -= Time.unscaledDeltaTime;
+                if (_searchT <= 0f) { _searchT = 0.5f; _src = FindCamera(); }
+                if (_src == null) { if (Time.unscaledTime >= _nextFrame) { _nextFrame = Time.unscaledTime + 1f / Fps; _cam.Render(); } return; }
+            }
             // first person, from the helmet: follows your head but smoothed, so the footage isn't shaky
             float k = 1f - Mathf.Exp(-12f * Time.unscaledDeltaTime), kr = 1f - Mathf.Exp(-7f * Time.unscaledDeltaTime);
             Vector3 wantP = _src != null ? _src.position + _src.forward * (_src == _head ? 0f : 0.17f) + _src.up * 0.08f : _head.position + _head.up * 0.06f;

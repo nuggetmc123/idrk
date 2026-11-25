@@ -327,7 +327,7 @@ namespace Rago
             var mb = new MB(2);
             Color w = Color.white, grip = hunt ? new Color(0.42f, 0.28f, 0.16f) : new Color(0.1f, 0.1f, 0.1f);
             // handle: a lathed, slightly flattened grip with finger swells (or a wooden handle with brass pins)
-            mb.Sub(0).Push(new Vector3(0, 0, -0.008f), Quaternion.Euler(-90f, 0, 0), new Vector3(0.8f, 1f, 1f));
+            mb.Sub(0).Push(new Vector3(0, 0, 0.003f), Quaternion.Euler(90f, 0, 0), new Vector3(0.8f, 1f, 1f));   // lathe up = -z: the handle behind the guard (it was -90: built over the blade)
             var prof = hunt
                 ? new List<Vector2> { new Vector2(0.0f, -0.104f), new Vector2(0.015f, -0.104f), new Vector2(0.017f, -0.09f), new Vector2(0.0155f, -0.06f), new Vector2(0.0145f, -0.03f), new Vector2(0.0165f, -0.008f), new Vector2(0.0f, -0.006f) }
                 : new List<Vector2> { new Vector2(0.0f, -0.104f), new Vector2(0.016f, -0.104f), new Vector2(0.0165f, -0.09f), new Vector2(0.0145f, -0.075f), new Vector2(0.0165f, -0.06f), new Vector2(0.0145f, -0.045f), new Vector2(0.0165f, -0.03f), new Vector2(0.0145f, -0.015f), new Vector2(0.016f, -0.006f), new Vector2(0.0f, -0.004f) };
@@ -337,8 +337,8 @@ namespace Rago
             else for (int i = 0; i < 7; i++) mb.Sub(0).Tube(new Vector3(0, 0, -0.098f + i * 0.013f), new Vector3(0, 0, -0.096f + i * 0.013f), 0.0172f, 0.014f, 14, Mul(grip, 0.6f));   // grip rings
             // guard, pommel with a lanyard hole
             mb.Sub(1).Box(new Vector3(0, -0.004f, 0.002f), new Vector3(0.028f, 0.056f, 0.008f), w * 0.7f, 0.003f, 2);
-            mb.Sub(1).Cyl(new Vector3(0, 0, -0.118f), new Vector3(0, 0, -0.104f), 0.015f, 0.017f, 14, w * 0.6f);
-            mb.Sub(0).Cyl(new Vector3(-0.016f, 0, -0.113f), new Vector3(0.016f, 0, -0.113f), 0.004f, 0.004f, 8, Black);
+            mb.Sub(1).Cyl(new Vector3(0, 0, -0.114f), new Vector3(0, 0, -0.1f), 0.015f, 0.017f, 14, w * 0.6f);   // pommel, right against the handle
+            mb.Sub(0).Cyl(new Vector3(-0.016f, 0, -0.109f), new Vector3(0.016f, 0, -0.109f), 0.004f, 0.004f, 8, Black);
             // blade: a real side profile - a spine with a clip point, a belly, the fuller groove and a sharpened edge
             float L = blade, z0 = 0.006f, h = hunt ? 0.032f : 0.028f;
             var bl = new List<Vector2>

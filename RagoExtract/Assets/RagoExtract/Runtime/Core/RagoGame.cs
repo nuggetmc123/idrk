@@ -262,6 +262,8 @@ namespace Rago
         IEnumerator Travel(Area to, RaidStart rs)
         {
             _travelling = true; _recovered = false; _travelStart = Time.unscaledTime;
+            // a recording that was following the camera around (handed to someone / taken off) ends with the raid
+            if (CreatorCamRecorder.Active && Player != null && Player.Gear != null && !Player.Gear.CamWorn) CreatorCamRecorder.Stop(Player);
             RemoveEditorPreview();
             ConfigureFramePacing();   // the headset may have come up after boot
             GameMenu.Close();
