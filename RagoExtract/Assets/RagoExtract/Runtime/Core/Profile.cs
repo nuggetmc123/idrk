@@ -84,8 +84,9 @@ namespace Rago
             catch (System.Exception e) { Debug.LogWarning("[Rago] couldn't read " + path + ": " + e.Message); return null; }
         }
 
-        /// <summary>Moderation WIPE: progress back to a fresh start (money, stash, gear, level, bunker). Your callsign,
-        /// clothes, settings, friends and DLC packs stay.</summary>
+        /// <summary>Moderation / season WIPE: progress back to a fresh start (money, stash, gear, level, bunker). Your callsign,
+        /// clothes, settings, friends, DLC packs and ALL your gun skins (packs, Skin Wheel, South Pole vault) stay - keep it
+        /// that way: never clear <c>skins</c> or <c>dlc</c> here.</summary>
         public void Wipe()
         {
             money = 6000; xp = 0; raids = extracts = deaths = kills = 0;
@@ -118,8 +119,9 @@ namespace Rago
                 // each one-time fix is marked done even if it goes wrong, so it can never block start-up again
                 if (p.season < Season)
                 {
-                    // SEASON 1 (or a later one): everyone starts over with the starter kit (the South Pole vault skins are earned again)
-                    try { p.Wipe(); p.dlc?.Remove("northpole"); SeasonWiped = true; }
+                    // a new season: everyone starts over with the starter kit. EVERY skin is kept (DLC packs, Skin Wheel wins,
+                    // the South Pole vault skins) - Wipe() never touches skins / dlc
+                    try { p.Wipe(); SeasonWiped = true; }
                     catch (System.Exception e) { Debug.LogError("[Rago] season wipe: " + e); }
                     p.season = Season;
                     try { p.Save(); } catch { }

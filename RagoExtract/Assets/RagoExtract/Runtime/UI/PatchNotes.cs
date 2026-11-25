@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.12", "Wipes keep your skins", new[] {
+                "Wipes (a new season, or a wipe from a moderator) never take your gun skins: DLC pack skins, Skin Wheel wins and the South Pole vault skins all stay at your paint booth. Only money, level, stash, gear and bunker reset.",
+            }),
             ("3.11", "DLC checkout details", new[] {
                 "When the Meta store can't sell a DLC pack, the message now names the pack's SKU and what the store said, so the add-on can be matched up in the developer dashboard.",
             }),
