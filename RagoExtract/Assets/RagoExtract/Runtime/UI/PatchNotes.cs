@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.15", "Oways Cereal is a streamer item", new[] {
+                "OWAYS CEREAL is now a streamer collectible (like the Peanut8 and Shushed figurines): Epic, worth $8,000, with a red LIVE sticker on the box. Found in the rarer loot spots.",
+            }),
             ("3.14", "Join the Discord, Oways Cereal", new[] {
                 "JOIN THE DISCORD poster: a glowing screen in your bunker (south wall, right of the VIBE CODED screen) and in the Market (west wall, where the DLC store was). Press JOIN and the invite opens in your headset's browser.",
                 "New loot: OWAYS CEREAL - a cereal box with the name across the top and a bowl of rings on the front. Turns up in crates, safes and on bodies.",

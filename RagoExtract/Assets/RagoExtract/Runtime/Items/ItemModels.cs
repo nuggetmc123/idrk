@@ -41,7 +41,7 @@ namespace Rago
         public static (string text, Vector3 at, float size, Color col)[] Labels(SimpleDef d)
         {
             if (d == null || d.kind != ItemKind.Valuable) return null;
-            if (d.shape == 35) return new[] { ("OWAYS", new Vector3(0, 0.072f, 0.0272f), 0.011f, Color.white), ("CEREAL", new Vector3(0, 0.05f, 0.0272f), 0.0055f, new Color(1f, 0.85f, 0.3f)), ("crunchy  rings", new Vector3(0, 0.022f, 0.0262f), 0.0035f, Color.white) };
+            if (d.shape == 35) return new[] { ("OWAYS", new Vector3(0, 0.072f, 0.0272f), 0.011f, Color.white), ("CEREAL", new Vector3(0, 0.05f, 0.0272f), 0.0055f, new Color(1f, 0.85f, 0.3f)), ("crunchy  rings", new Vector3(-0.012f, 0.022f, 0.0262f), 0.0035f, Color.white), ("LIVE", new Vector3(0.046f, 0.008f, 0.0275f), 0.0045f, Color.white) };
             return null;
         }
 
@@ -587,7 +587,7 @@ namespace Rago
                     mb.Pop();
                     break;
                 }
-                case 35: // cereal box: a tall printed carton - orange front, a blue band, a bowl of cereal, the name across the top
+                case 35: // OWAYS cereal (a streamer item) box: a tall printed carton - orange front, a blue band, a bowl of cereal, the name across the top
                 {
                     var blue = new Color(0.15f, 0.35f, 0.8f); var milk = new Color(0.97f, 0.96f, 0.92f);
                     mb.Sub(0).Box(Vector3.zero, new Vector3(0.14f, 0.2f, 0.05f), c, 0.003f);
@@ -598,6 +598,7 @@ namespace Rago
                     for (int i = 0; i < 9; i++)   // cereal rings floating in it
                         mb.Sub(0).Sphere(new Vector3(-0.03f + (i % 5) * 0.015f, -0.04f + (i / 5) * 0.012f - (i % 2) * 0.004f, 0.0272f), new Vector3(0.0055f, 0.0055f, 0.0015f), 8, i % 3 == 0 ? new Color(0.95f, 0.8f, 0.2f) : i % 3 == 1 ? new Color(0.9f, 0.3f, 0.5f) : new Color(0.4f, 0.75f, 0.3f));
                     mb.Sub(0).Box(new Vector3(0, 0.1f, 0), new Vector3(0.142f, 0.004f, 0.052f), c * 0.85f, 0f);              // the top flap
+                    mb.Sub(0).Box(new Vector3(0.046f, 0.008f, 0.0262f), new Vector3(0.038f, 0.016f, 0.002f), new Color(0.85f, 0.08f, 0.08f), 0.003f);   // the streamer's red LIVE sticker
                     break;
                 }
                 case 34: // tennis ball: fuzzy yellow-green with the curving white seam
