@@ -21,6 +21,17 @@ namespace Rago
         }
 
         static int _tries;
+        static string _lastError;
+
+        /// <summary>What the store check is using, to find out why it fails: the App ID, the package, the version and who
+        /// installed this copy (the Meta store, or a cable / file manager).</summary>
+        public static string Diagnostics()
+        {
+            string inst = "?";
+            try { inst = Application.installerName; } catch { }
+            string from = string.IsNullOrEmpty(inst) ? "a cable / adb (not the store)" : inst.Contains("oculus") || inst.Contains("horizon") || inst.Contains("meta") ? "the Meta store (" + inst + ")" : inst;
+            return "App ID " + (AppId ?? "none") + "\nPackage " + Application.identifier + "  v" + Application.version + "\nInstalled by " + from;
+        }
 
         public static void Init()
         {
@@ -62,6 +73,8 @@ namespace Rago
                         return;
                     }
                     _tries++;
+                    _lastError = msg?.GetError()?.Message;
+                    if (_lastError != null && _lastError.Length > 160) _lastError = _lastError.Substring(0, 160) + "...";
                     Debug.LogWarning("[Rago] Meta ownership check failed (" + _tries + "/4): " + (msg?.GetError()?.Message ?? "?"));
                     if (_tries < 4) { if (_i != null) _i.Invoke(nameof(Retry), 5f); return; }
                     if (_i != null) _i.StartCoroutine(_i.NotOwned());
@@ -90,6 +103,7 @@ namespace Rago
                 // testing: just say so (once) and carry on - DLC purchases need a store copy, everything else works
                 Debug.LogWarning("[Rago] not a Meta store copy - playing on (ownership not enforced)");
                 if (pl != null) pl.Toast("This copy isn't from the Meta store - DLC purchases are off, everything else works");
+                if (pl != null) pl.Hud.Center("STORE CHECK FAILED\n<size=30>" + Diagnostics() + "\n" + (_lastError ?? "") + "</size>", 20f);
                 yield break;
             }
             // store builds: give the player time to read it (so it isn't mistaken for a crash), then close as the store requires

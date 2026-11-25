@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.09", "Store check details", new[] {
+                "When the Meta store check fails, the game shows what it checked: the App ID, the package name and version, and who installed this copy (the store, or a cable) - so a wrong App ID or a sideloaded copy is easy to spot.",
+            }),
             ("3.08", "Clearer store errors", new[] {
                 "A DLC purchase that the Meta store refuses now says why in plain words (for example: this account doesn't own this copy - install it from the Store app) instead of a wall of error codes.",
             }),
