@@ -96,7 +96,9 @@ namespace Rago
             var console = new GameObject("Console").transform; console.SetParent(transform, false);
             console.localPosition = new Vector3(0, 1.124f, -0.131f); console.localRotation = Quaternion.Euler(55, 0, 0);
             _queueBtn = UI.Button(console, "QUEUE", new Vector3(0.1f, 0, 0), new Vector2(0.34f, 0.15f), ToggleQueue, new Color(0.2f, 0.42f, 0.2f), BtnStyle.Key);
-            UI.Text(console, "PRESS TO\nDEPLOY", new Vector3(-0.3f, 0, -0.002f), 0.03f, UI.Stencil, TextAnchor.MiddleCenter, FontStyle.Bold);
+            // (no QUEUE key any more: you DEPLOY from a map's screen on the board. The key only shows as CANCEL while
+            // you're queued, so you can still back out after leaving the map screen)
+            _queueBtn.gameObject.SetActive(false);
             // day or night: night raids are matched with other night players (rain and fog are a chance either way)
             _timeBtn = UI.Button(console, "", new Vector3(0.1f, -0.13f, 0), new Vector2(0.34f, 0.08f), ToggleTime, new Color(0.25f, 0.3f, 0.4f), BtnStyle.Key);
             RefreshTime();
@@ -184,6 +186,7 @@ namespace Rago
 
         void Update()
         {
+            if (_queueBtn != null) { bool show = _queued; if (_queueBtn.gameObject.activeSelf != show) _queueBtn.gameObject.SetActive(show); }
             _onlineT -= Time.deltaTime;
             if (_onlineT <= 0f) { _onlineT = 2f; UpdateOnline(); }
             _partyT -= Time.deltaTime;

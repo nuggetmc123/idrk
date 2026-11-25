@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.22", "SEASON 3 - full wipe", new[] {
+                "SEASON 3: every account is reset the first time you start this version - money, level, stash, gear, bunker, your Market shop AND your gun skins. Everyone starts fresh with $6,000 and the starter kit. The BETA TESTER skin is kept, and DLC packs you paid real money for come straight back from the store. Your callsign, clothes, friends and settings stay.",
+                "The black market on the server is cleared for the new season too (once the server is updated).",
+                "The raid terminal's QUEUE key is gone - pick a map on the board and press DEPLOY on its screen. While you're queued the key shows as CANCEL.",
+            }),
             ("3.21", "Deploy from the map screen", new[] {
                 "The map screen shows the map's BOSS (The Harbormaster, The Warden, The Banker, Doctor Kessler, Evil Santa) and the number of PLAYERS, and has a DEPLOY button: press it to queue for that map right there (it turns into CANCEL while you're queued).",
             }),

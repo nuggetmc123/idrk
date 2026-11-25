@@ -17,7 +17,7 @@ namespace Rago
         /// <summary>The current season (1 = the first real one; everything before it was the test period). Raise it to wipe
         /// every account (money, level, stash, gear, bunker) the next time each player opens the game - paid DLC, callsign,
         /// friends and settings are kept. Saves from the test period have season 0.</summary>
-        public const int Season = 2;   // 2: full wipe in 3.06
+        public const int Season = 3;   // 2: full wipe in 3.06; 3: full wipe + skins (except the beta skin) in 3.22
         public int season;
         public int dlcPaidCheck;   // 1 = packs claimed for free in the test period were taken back (bought ones come back from the store)
         public static bool SeasonWiped;   // this launch wiped the account: say so once you're in
@@ -119,9 +119,16 @@ namespace Rago
                 // each one-time fix is marked done even if it goes wrong, so it can never block start-up again
                 if (p.season < Season)
                 {
-                    // a new season: everyone starts over with the starter kit. EVERY skin is kept (DLC packs, Skin Wheel wins,
-                    // the South Pole vault skins) - Wipe() never touches skins / dlc
+                    // a new season: everyone starts over with the starter kit. Season 3 also takes the gun skins (Skin Wheel
+                    // wins, DLC / South Pole unlocks) - except the BETA TESTER skin. Packs bought with real money come straight
+                    // back from the store at start-up (Dlc.Restore). Each step on its own: one going wrong never stops the game
                     try { p.Wipe(); SeasonWiped = true; }
+                    catch (System.Exception e) { Debug.LogError("[Rago] season wipe: " + e); }
+                    try
+                    {
+                        if (p.skins != null) p.skins.RemoveAll(sk => sk != "beta");
+                        if (p.dlc != null) p.dlc.RemoveAll(d => d != "beta");
+                    }
                     catch (System.Exception e) { Debug.LogError("[Rago] season wipe: " + e); }
                     p.season = Season;
                     try { p.Save(); } catch { }

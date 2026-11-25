@@ -26,7 +26,7 @@ namespace RagoServer
 
         /// <summary>Raise with the game's Profile.Season: the first start after that clears the black market (every shop,
         /// listing, sold-item record and unpaid sale), so a season wipe leaves nothing behind on the server either.</summary>
-        const int MarketSeason = 2;   // season 2: full wipe (3.06)
+        const int MarketSeason = 3;   // season 2: full wipe (3.06); season 3: full wipe (3.22)
 
         static void LoadMarket()
         {
