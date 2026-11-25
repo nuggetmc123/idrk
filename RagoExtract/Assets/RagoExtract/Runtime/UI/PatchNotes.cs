@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.24", "Mags held like real mags", new[] {
+                "Fixed: putting a mag in the gun was really hard - the mag lay flat in your hand with its top pointing where your hand points, so you had to point at the ceiling to load. Now you hold it like a real mag (like a pistol grip): body in your fist, the top sticking up out of it, rounds facing forward - hand held normally, it's already lined up to push straight up into the magwell.",
+            }),
             ("3.23", "No wipe pop-up", new[] {
                 "No big pop-up after the wipe any more - you just start fresh.",
             }),

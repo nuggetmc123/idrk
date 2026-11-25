@@ -663,7 +663,10 @@ namespace Rago
         void PlaceGrip(Bounds b)
         {
             grip.localPosition = new Vector3(b.center.x, Mathf.Lerp(b.min.y, b.max.y, 0.45f), b.center.z);
-            grip.localRotation = Quaternion.LookRotation(Vector3.up, Vector3.back);   // hand's fist axis = mag's up, hand's back = mag's back
+            // held like a pistol grip: the mag's top straight up out of your fist, rounds facing where your hand points. (It
+            // was "top = where your hand points": with your hand held normally the mag lay flat, top forwards, and you had to
+            // point your hand at the ceiling to get it into a magwell)
+            grip.localRotation = Quaternion.identity;
         }
 
         public override string Label => Db.CalName(cal) + (ammoType == AmmoType.AP ? " AP" : ammoType == AmmoType.Incendiary ? " INCENDIARY" : "") + "  " + rounds + "/" + capacity;
