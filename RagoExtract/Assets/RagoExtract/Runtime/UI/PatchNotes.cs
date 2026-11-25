@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.11", "DLC checkout details", new[] {
+                "When the Meta store can't sell a DLC pack, the message now names the pack's SKU and what the store said, so the add-on can be matched up in the developer dashboard.",
+            }),
             ("3.10", "DLC store fix", new[] {
                 "Fixed: buying DLC failed with \"not entitled\" / \"PackageNotInLibrary\" and the game said it wasn't a Meta store copy - it was checking the wrong Meta App ID. It now uses the game's real App ID, so the store check passes and DLC packs can be bought.",
             }),
