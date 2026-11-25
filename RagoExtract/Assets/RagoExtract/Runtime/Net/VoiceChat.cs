@@ -20,6 +20,7 @@ namespace Rago
         float[] _read = new float[MicRate];
         float _hangover;
         string _status = "Voice ready";
+        static bool _permAsked;
 
         public bool Ready => true;
         public string Status => Microphone.devices.Length == 0 ? "No microphone found" : _status;
@@ -48,8 +49,14 @@ namespace Rago
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Microphone))
             {
-                UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Microphone);
-                return; // try again next frame once allowed
+                // ask ONCE per launch. It used to ask again every frame until allowed: each ask puts the system's permission
+                // prompt over the game, so on a fresh store install the whole view kept flickering black in the Market and raids
+                if (_permAsked) return;
+                _permAsked = true;
+                var cb = new UnityEngine.Android.PermissionCallbacks();
+                cb.PermissionDenied += _ => { _status = "Microphone not allowed - voice off (allow it in the Quest's Settings > Apps > Permissions)"; };
+                UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Microphone, cb);
+                return; // starts by itself on a later frame once allowed
             }
 #endif
             if (Microphone.devices.Length == 0) return;

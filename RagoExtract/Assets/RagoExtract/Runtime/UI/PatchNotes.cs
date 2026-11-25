@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.13", "No more black flicker", new[] {
+                "Fixed: the whole view kept flickering black in the Market and in raids (store installs). Voice chat asked for microphone permission again every frame until it was allowed - each ask put the system prompt over the game. It now asks once; allow it and voice turns on by itself. If you said no, allow the microphone for Rago Extract in the Quest's Settings > Apps > Permissions.",
+            }),
             ("3.12", "Wipes keep your skins", new[] {
                 "Wipes (a new season, or a wipe from a moderator) never take your gun skins: DLC pack skins, Skin Wheel wins and the South Pole vault skins all stay at your paint booth. Only money, level, stash, gear and bunker reset.",
             }),
