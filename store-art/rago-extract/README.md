@@ -2,6 +2,7 @@
 
 | File | Meta dashboard box |
 |---|---|
+| `universal_3840x2160.png` | Universal basic asset (Meta makes every cover size from it; the name is centred so every crop keeps it) |
 | `cover_landscape_2560x1440.png` | Cover art > Landscape |
 | `cover_square_1440x1440.png` | Cover art > Square |
 | `cover_portrait_1008x1440.png` | Cover art > Portrait |
