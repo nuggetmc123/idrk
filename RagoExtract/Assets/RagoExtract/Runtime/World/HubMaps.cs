@@ -113,6 +113,13 @@ namespace Rago
             B.AddLight(new Vector3(p.x, Ht - 0.4f, p.z), light, 9f, 1.4f, true);
         }
 
+        /// <summary>Where a 1.2 m painted band used to run: a glowing LED strip at the skirting and another at waist height.</summary>
+        void LedBand(Vector3 c, Vector3 size, Material led)
+        {
+            foreach (float y in new[] { 0.06f, 1.2f })
+                B.Box(new Vector3(c.x, y, c.z), new Vector3(size.x, 0.025f, size.z), led, Color.white, null, false);
+        }
+
         void BuildExpansions(Material floor, Material conc, Material paint, Material lampMat, Color tint, float Ht)
         {
             var b = B;
@@ -122,7 +129,7 @@ namespace Rago
             {
                 FloorCeiling(-13, -6, 6, 13, floor, conc, Ht);
                 Walls(conc, tint, Ht, (new Vector3(-13, 0, 6), new Vector3(-8, 0, 6)), (new Vector3(-6, 0, 13), new Vector3(-13, 0, 13)), (new Vector3(-13, 0, 13), new Vector3(-13, 0, 6)));
-                b.Box(new Vector3(-9.5f, 0.6f, 12.84f), new Vector3(7, 1.2f, 0.02f), paint, Color.white, null, false);
+                LedBand(new Vector3(-9.5f, 0.6f, 12.84f), new Vector3(7, 1.2f, 0.02f), paint);
                 Lamp(new Vector3(-9.5f, 0, 9.5f), lampMat, new Color(1f, 0.88f, 0.7f), Ht);
                 Stash.Add(StashSection.Create(transform, new Vector3(-12.6f, 0, 9.4f), -90, StashKind.Weapons));
                 Stash.Add(StashSection.Create(transform, new Vector3(-9.4f, 0, 12.75f), 0, StashKind.Weapons));
@@ -289,9 +296,10 @@ namespace Rago
             Lighting(new Color(1f, 0.9f, 0.75f), 0.05f, new Vector3(60, 30, 0), new Color(0.22f, 0.23f, 0.25f), new Color(0.2f, 0.19f, 0.17f), new Color(0.12f, 0.11f, 0.1f),
                 new Color(0.1f, 0.1f, 0.1f), 0f, new Color(0.1f, 0.1f, 0.12f), new Color(0.2f, 0.2f, 0.2f), 0f, 0.5f);
             var b = B;
-            var conc = Maps.Concrete;
-            var paint = Mats.Lit("bunker_paint", new Color(0.24f, 0.3f, 0.26f), 0f, 0.35f, Mats.Plaster, null, 0.5f, 0.3f, true, 0.4f);
-            var floor = Mats.Lit("bunker_floor", new Color(0.5f, 0.5f, 0.5f), 0.1f, 0.45f, Mats.Concrete, null, 0.4f, 0.15f, true, 0.4f);
+            // the new look (3.38): steel-clad walls, a dark epoxy floor, LED strips - the rooms themselves stay where they were
+            var conc = Mats.Lit("bunker_steel", new Color(0.66f, 0.7f, 0.75f), 0.35f, 0.5f, Mats.SteelPanel, Mats.SteelPanelN, 0.22f, 0.25f, true, 0.42f);
+            var paint = Mats.Lit("bunker_led", new Color(0.25f, 0.8f, 1f), 0f, 0.6f, null, null, 0f, 0f, false, 0.5f, new Color(0.3f, 1.3f, 1.8f));   // LED strips (the old paint bands)
+            var floor = Mats.Lit("bunker_epoxy", new Color(0.56f, 0.58f, 0.62f), 0.15f, 0.7f, Mats.Epoxy, Mats.EpoxyN, 0.18f, 0.12f, true, 0.42f);
             float W = 16, D = 12, Ht = 3.6f;
             // room
             b.Box(new Vector3(0, -0.1f, 0), new Vector3(W, 0.2f, D), floor, Color.white);
@@ -305,14 +313,14 @@ namespace Rago
             // two-tone paint band
             foreach (var w in new[] { (new Vector3(-4.6f, 0.6f, D / 2 - 0.16f), new Vector3(6.8f, 1.2f, 0.02f)), (new Vector3(4.6f, 0.6f, D / 2 - 0.16f), new Vector3(6.8f, 1.2f, 0.02f)), (new Vector3(-3.2f, 0.6f, -D / 2 + 0.16f), new Vector3(9.6f, 1.2f, 0.02f)), (new Vector3(5.85f, 0.6f, -D / 2 + 0.16f), new Vector3(4.3f, 1.2f, 0.02f)),
                                       (new Vector3(W / 2 - 0.16f, 0.6f, 2.6f), new Vector3(0.02f, 1.2f, 6.8f)), (new Vector3(W / 2 - 0.16f, 0.6f, -4.6f), new Vector3(0.02f, 1.2f, 2.8f)) })
-                b.Box(w.Item1, w.Item2, paint, Color.white, null, false);
+                LedBand(w.Item1, w.Item2, paint);
             // pipes & cable trays
             for (int i = 0; i < 3; i++) b.Cyl(new Vector3(-W / 2, Ht - 0.25f - i * 0.12f, D / 2 - 0.4f), new Vector3(W / 2, Ht - 0.25f - i * 0.12f, D / 2 - 0.4f), 0.05f, 0.05f, 10, Maps.Metal, new Color(0.35f + i * 0.1f, 0.3f, 0.25f), false);
             b.Box(new Vector3(0, Ht - 0.3f, -D / 2 + 0.6f), new Vector3(W, 0.06f, 0.4f), Maps.Metal, new Color(0.4f, 0.4f, 0.4f), null, false);
             for (int i = -1; i <= 1; i++)
             {
                 b.Box(new Vector3(i * 5, Ht - 0.08f, 0), new Vector3(1.2f, 0.08f, 0.25f), Mats.Lit("lamp_on", new Color(1f, 0.95f, 0.8f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2f, 1.6f)), Color.white, null, false);
-                b.AddLight(new Vector3(i * 5, Ht - 0.4f, 0), new Color(1f, 0.88f, 0.7f), 9f, 1.4f, i == 0);
+                b.AddLight(new Vector3(i * 5, Ht - 0.4f, 0), new Color(0.92f, 0.95f, 1f), 10f, 1.5f, i == 0);
             }
             var lampMat = Mats.Lit("lamp_on", new Color(1f, 0.95f, 0.8f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2f, 1.6f));
             var wallTint = new Color(0.6f, 0.61f, 0.6f);
@@ -324,8 +332,8 @@ namespace Rago
             b.Wall(new Vector3(-ax, 0, az0), new Vector3(-ax, 0, az1), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(1.5f, 2.0f, 0, 2.4f) });   // Storage Room
             b.Wall(new Vector3(-ax, 0, az1), new Vector3(ax, 0, az1), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(ax + 4.5f, 2.0f, 0, 2.4f) }); // Trophy Vault
             b.Wall(new Vector3(ax, 0, az1), new Vector3(ax, 0, az0), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(2f, 2.0f, 0, 2.4f) });      // Generator Room
-            b.Box(new Vector3(-1.4f, 0.6f, az1 - 0.16f), new Vector3(9.2f, 1.2f, 0.02f), paint, Color.white, null, false);   // paint band, open at the Trophy Vault doorway (x 3.3-5.7)
-            b.Box(new Vector3(5.9f, 0.6f, az1 - 0.16f), new Vector3(0.2f, 1.2f, 0.02f), paint, Color.white, null, false);
+            LedBand(new Vector3(-1.4f, 0.6f, az1 - 0.16f), new Vector3(9.2f, 1.2f, 0.02f), paint);   // paint band, open at the Trophy Vault doorway (x 3.3-5.7)
+            LedBand(new Vector3(5.9f, 0.6f, az1 - 0.16f), new Vector3(0.2f, 1.2f, 0.02f), paint);
             b.Box(new Vector3(0, Ht - 0.08f, (az0 + az1) / 2), new Vector3(1.2f, 0.08f, 0.25f), lampMat, Color.white, null, false);
             b.AddLight(new Vector3(0, Ht - 0.4f, (az0 + az1) / 2), new Color(1f, 0.88f, 0.7f), 9f, 1.4f, true);
             Stash.Add(StashSection.Create(transform, new Vector3(0, 0, az1 - 0.25f), 0, StashKind.Weapons));
@@ -345,7 +353,7 @@ namespace Rago
             b.Wall(new Vector3(rx1, 0, rz1), new Vector3(rx1, 0, rz0), Ht, 0.3f, conc, wallTint);
             b.Wall(new Vector3(rx1, 0, rz0), new Vector3(rx0, 0, rz0), Ht, 0.3f, conc, wallTint, new List<Vector4> { new Vector4(3.5f, 2.0f, 0, 2.4f) });  // Med Bay
             b.Wall(new Vector3(rx0, 0, rz0), new Vector3(rx0, 0, -D / 2), Ht, 0.3f, conc, wallTint);
-            b.Box(new Vector3(rx1 - 0.16f, 0.6f, rzc), new Vector3(0.02f, 1.2f, rz1 - rz0), paint, Color.white, null, false);
+            LedBand(new Vector3(rx1 - 0.16f, 0.6f, rzc), new Vector3(0.02f, 1.2f, rz1 - rz0), paint);
             b.Box(new Vector3((rx0 + rx1) / 2, Ht - 0.08f, rzc), new Vector3(0.25f, 0.08f, 1.2f), lampMat, Color.white, null, false);
             b.AddLight(new Vector3((rx0 + rx1) / 2, Ht - 0.4f, rzc), new Color(1f, 0.9f, 0.78f), 9f, 1.4f, true);
             Stash.Add(StashSection.Create(transform, new Vector3(rx1 - 0.4f, 0, rzc), 90, StashKind.Armor));
@@ -417,29 +425,35 @@ namespace Rago
         void DressBunker(float W, float D, float Ht, float ax, float az0, float az1, float rx0, float rx1, float rz0, float rz1, float L)
         {
             var b = B;
-            var conc = Maps.Concrete;
-            Color beamCol = new Color(0.5f, 0.51f, 0.5f), colCol = new Color(0.56f, 0.57f, 0.56f);
+            var conc = Mats.Lit("bunker_beam", new Color(0.22f, 0.24f, 0.27f), 0.7f, 0.45f, Mats.Metal, null, 0.3f, 0.35f, true, 0.6f);   // dark steel structure
+            Color beamCol = new Color(1f, 1f, 1f), colCol = new Color(0.9f, 0.92f, 0.95f);
             var metal = Mats.Lit("bunker_metal", Color.white, 0.7f, 0.45f, Mats.Metal, null, 0.35f, 0.4f);
             var galv = Mats.Lit("bunker_galv", new Color(0.62f, 0.64f, 0.66f), 0.8f, 0.5f, Mats.Metal, null, 0.3f, 0.3f);
             var glow = Mats.Lit("bulkhead_glow", new Color(1f, 0.92f, 0.75f), 0, 0.6f, null, null, 0, 0, false, 0.5f, new Color(1.6f, 1.4f, 1.0f));
+            var glowPanel = Mats.Lit("bunker_ledpanel", new Color(0.92f, 0.96f, 1f), 0, 0.6f, null, null, 0, 0, false, 0.5f, new Color(1.9f, 2.0f, 2.2f));
             var yellow = Mats.Lit("hazard_y", new Color(0.85f, 0.68f, 0.08f), 0f, 0.3f, Mats.Noise, null, 0.5f, 0.3f);
             var black = Mats.Lit("hazard_k", new Color(0.08f, 0.08f, 0.08f), 0f, 0.3f, Mats.Noise, null, 0.5f, 0.3f);
             // ---- main hall: beams across the ceiling, columns where they meet the walls, a caged lamp on each column
             float[] beamsX = { -6.5f, -2.5f, 2.5f, 6.5f };
             foreach (float x in beamsX)
             {
-                b.Box(new Vector3(x, Ht - 0.18f, 0), new Vector3(0.36f, 0.36f, D), conc, beamCol, null, false);
+                IBeam(new Vector3(x, Ht - 0.18f, 0), new Vector3(0.36f, 0.36f, D), conc);
                 foreach (float side in new[] { -1f, 1f })
                 {
                     if (side < 0 && Mathf.Abs(x - 2.5f) < 1.5f) continue;   // the lift
                     if (side < 0 && x < 0f) continue;                         // the south-west wall is the Gear wall: no columns in front of it
                     float wz = side * (D / 2 - 0.15f) - side * 0.15f;
                     b.Box(new Vector3(x, Ht / 2, wz), new Vector3(0.36f, Ht, 0.3f), conc, colCol, null, true);
+                    for (int k = 0; k < 4; k++) b.Box(new Vector3(x, 0.08f + k * 0.12f, wz - side * 0.152f), new Vector3(0.37f, 0.06f, 0.01f), k % 2 == 0 ? yellow : black, Color.white, null, false);   // hazard foot
                     BulkheadLamp(new Vector3(x, 2.35f, wz - side * 0.2f), side < 0 ? 180f : 0f, metal, glow);   // facing into the room
                 }
             }
             // strip lights get metal housings
-            for (int i = -1; i <= 1; i++) b.Box(new Vector3(i * 5, Ht - 0.025f, 0), new Vector3(1.4f, 0.05f, 0.36f), metal, new Color(0.35f, 0.36f, 0.37f), null, false);
+            for (int i = -1; i <= 1; i++)
+            {
+                b.Box(new Vector3(i * 5, Ht - 0.03f, 0), new Vector3(2.6f, 0.06f, 0.8f), metal, new Color(0.3f, 0.31f, 0.33f), null, false);   // LED panel frame
+                b.Box(new Vector3(i * 5, Ht - 0.065f, 0), new Vector3(2.4f, 0.02f, 0.62f), glowPanel, Color.white, null, false);              // the panel
+            }
             // ventilation duct with flanges, under the beams
             float dz = -2.6f, dy = Ht - 0.62f;
             b.Box(new Vector3(0, dy, dz), new Vector3(W - 0.4f, 0.4f, 0.6f), galv, Color.white, null, false);
@@ -469,7 +483,7 @@ namespace Rago
             // ---- armory: two beams, columns, lamp housing
             foreach (float z in new[] { az0 + 2f, az1 - 2f })
             {
-                b.Box(new Vector3(0, Ht - 0.18f, z), new Vector3(ax * 2, 0.36f, 0.36f), conc, beamCol, null, false);
+                IBeam(new Vector3(0, Ht - 0.18f, z), new Vector3(ax * 2, 0.36f, 0.36f), conc);
                 if (Mathf.Abs(z - 11f) > 1.6f) b.Box(new Vector3(ax - 0.3f, Ht / 2, z), new Vector3(0.3f, Ht, 0.36f), conc, colCol, null, true);
                 else b.Box(new Vector3(ax - 0.3f, Ht - 0.5f, z), new Vector3(0.3f, 1f, 0.36f), conc, colCol, null, false);   // over the Generator Room doorway: just a haunch
                 b.Box(new Vector3(-ax + 0.3f, Ht - 0.5f, z), new Vector3(0.3f, 1f, 0.36f), conc, colCol, null, false);   // short haunch over the workbench
@@ -477,11 +491,25 @@ namespace Rago
             b.Box(new Vector3(0, Ht - 0.025f, (az0 + az1) / 2), new Vector3(1.4f, 0.05f, 0.36f), metal, new Color(0.35f, 0.36f, 0.37f), null, false);
             // ---- armor room: beams and a lamp housing
             foreach (float z in new[] { rz0 + 2.5f, rz1 - 2.5f })
-                b.Box(new Vector3((rx0 + rx1) / 2, Ht - 0.18f, z), new Vector3(rx1 - rx0, 0.36f, 0.36f), conc, beamCol, null, false);
+                IBeam(new Vector3((rx0 + rx1) / 2, Ht - 0.18f, z), new Vector3(rx1 - rx0, 0.36f, 0.36f), conc);
             b.Box(new Vector3((rx0 + rx1) / 2, Ht - 0.025f, (rz0 + rz1) / 2), new Vector3(0.36f, 0.05f, 1.4f), metal, new Color(0.35f, 0.36f, 0.37f), null, false);
             // ---- range tunnel: beams every few metres
             for (float x = -W / 2 - 3f; x > -W / 2 - L + 1f; x -= 4f)
-                b.Box(new Vector3(x, 2.52f, 0), new Vector3(0.3f, 0.16f, 3.4f), conc, beamCol, null, false);
+                IBeam(new Vector3(x, 2.52f, 0), new Vector3(0.3f, 0.16f, 3.4f), conc);
+        }
+
+        /// <summary>A steel I-beam filling the given box: top and bottom flanges and a thin web, with bolt plates every 2 m.</summary>
+        void IBeam(Vector3 c, Vector3 size, Material steel)
+        {
+            var b = B; bool alongZ = size.z > size.x;
+            float len = alongZ ? size.z : size.x, w = alongZ ? size.x : size.z, h = size.y, fl = h * 0.14f;
+            Vector3 L(float along, float y, float across) => c + (alongZ ? new Vector3(across, y, along) : new Vector3(along, y, across));
+            Vector3 S(float along, float y, float across) => alongZ ? new Vector3(across, y, along) : new Vector3(along, y, across);
+            b.Box(L(0, h / 2 - fl / 2, 0), S(len, fl, w), steel, Color.white, null, false);
+            b.Box(L(0, -h / 2 + fl / 2, 0), S(len, fl, w), steel, Color.white, null, false);
+            b.Box(L(0, 0, 0), S(len, h - fl * 2, w * 0.18f), steel, new Color(0.85f, 0.87f, 0.9f), null, false);
+            for (float a = -len / 2 + 1f; a < len / 2 - 0.5f; a += 2f)
+                foreach (float side in new[] { -1f, 1f }) b.Box(L(a, 0, side * w * 0.1f), S(0.12f, h - fl * 2.2f, 0.012f), steel, new Color(0.7f, 0.72f, 0.75f), null, false);   // stiffener plates
         }
 
         void BulkheadLamp(Vector3 at, float yaw, Material metal, Material glow)

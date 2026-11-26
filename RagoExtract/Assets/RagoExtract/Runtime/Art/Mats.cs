@@ -13,7 +13,7 @@ namespace Rago
         static Material _lit, _unlit, _holo, _sky, _foliage, _scope;
         static readonly Dictionary<string, Material> _cache = new Dictionary<string, Material>();
         public static Texture2D Grime, Noise, Concrete, ConcreteN, Metal, MetalN, Wood, WoodN, Planks, Ground, Grass, Dirt, Asphalt, AsphaltN,
-            Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster;
+            Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster, SteelPanel, SteelPanelN, Epoxy, EpoxyN;
         public static Texture2D Soft, Flash, Smoke, BloodSplat, BloodDrop, BulletHole, Spark, Vignette, Glow, Panel;
         static bool _init;
 
@@ -397,6 +397,33 @@ namespace Rago
                 return grout ? new Color(0.4f, 0.4f, 0.38f, 0.1f) : new Color(0.78f + n, 0.78f + n, 0.75f + n, 0.7f);
             });
             TilesN = NormalFrom(Tiles, 1.5f);
+            // bunker wall cladding: brushed steel panels (2 x 2 per tile) with dark seams, a bevel catching the light and corner rivets
+            SteelPanel = Tex(256, true, (x, y, u, v) =>
+            {
+                float fx = MathX.Frac(u * 2), fy = MathX.Frac(v * 2);
+                float e = Mathf.Min(Mathf.Min(fx, 1 - fx), Mathf.Min(fy, 1 - fy));
+                int px = Mathf.FloorToInt(u * 2), py = Mathf.FloorToInt(v * 2);
+                float id = MathX.Hash(px, py, 21);
+                float brush = MathX.TFbm(u, v, 64, 2, 2, 160) * 0.08f;                      // horizontal brushing
+                float c = 0.62f + id * 0.08f + brush + MathX.TFbm(u, v, 6, 6, 3, 161) * 0.06f;
+                if (e < 0.012f) return new Color(0.16f, 0.16f, 0.17f, 0.2f);               // seam
+                if (e < 0.03f) c += 0.12f;                                                  // bevel highlight
+                foreach (var rx in new[] { 0.06f, 0.94f }) foreach (var ry in new[] { 0.06f, 0.94f })
+                    { float d = Mathf.Sqrt((fx - rx) * (fx - rx) + (fy - ry) * (fy - ry)); if (d < 0.018f) return Gray(0.85f); if (d < 0.026f) return Gray(0.3f); }   // rivets
+                return new Color(c, c, c * 1.02f, 0.55f);
+            });
+            SteelPanelN = NormalFrom(SteelPanel, 2f);
+            // bunker floor: dark epoxy-coated tiles, 4 x 4, with thin grout and faint scuffs
+            Epoxy = Tex(256, true, (x, y, u, v) =>
+            {
+                float fx = MathX.Frac(u * 4), fy = MathX.Frac(v * 4);
+                if (fx < 0.015f || fy < 0.015f) return new Color(0.18f, 0.18f, 0.19f, 0.2f);
+                float id = MathX.Hash(Mathf.FloorToInt(u * 4), Mathf.FloorToInt(v * 4), 33);
+                float scuff = Mathf.Max(0f, MathX.TFbm(u, v, 12, 12, 3, 170) - 0.62f) * 0.6f;
+                float c = 0.5f + id * 0.06f + MathX.TFbm(u, v, 20, 20, 2, 171) * 0.05f - scuff;
+                return new Color(c, c, c, 0.75f);
+            });
+            EpoxyN = NormalFrom(Epoxy, 1.2f);
             Plaster = Tex(256, true, (x, y, u, v) =>
             {
                 float n = MathX.TFbm(u, v, 10, 10, 5, 120);

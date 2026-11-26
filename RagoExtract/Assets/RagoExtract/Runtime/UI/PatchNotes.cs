@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.38", "A new bunker", new[] {
+                "Your BUNKER has a whole new look: brushed-steel wall panels with rivets, a dark tiled epoxy floor, glowing cyan LED strips along every wall, steel I-beams overhead, big LED ceiling panels and hazard-striped pillars.",
+                "Every room, rack, shelf and station is where it was - nothing in your stash moves.",
+            }),
             ("3.37", "New DLC packs, better night vision", new[] {
                 "DLC STORE: three brand-new premium packs - NEON OPS (Cyber Circuit, Plasma Core, Hologram), INFERNO (Molten Core, Hellfire, Obsidian Ember) and PRESTIGE (Royal Filigree, Pearl & Gold, Diamond Cut). The Neon Ops and Inferno skins really GLOW in the dark.",
                 "The old packs are no longer sold. If you bought one, you keep its skins.",
