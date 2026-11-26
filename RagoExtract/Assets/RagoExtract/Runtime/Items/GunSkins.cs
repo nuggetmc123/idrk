@@ -61,6 +61,16 @@ namespace Rago
             new Skin { id = "ranger", name = "Ranger Green", pack = "operator", spray = new Color(0.25f, 0.3f, 0.2f), mat = () => Coat("ranger", new Color(0.24f, 0.29f, 0.19f), 0.28f) },
             new Skin { id = "shards", name = "Mountain Shards", pack = "operator", spray = new Color(0.45f, 0.45f, 0.43f), mat = () => Paint("shards", MountainShards, 3f, false, 0.05f, 0.25f, 0.3f, 0.45f) },
             new Skin { id = "digidesert", name = "Desert Digital", pack = "operator", spray = new Color(0.7f, 0.6f, 0.42f), mat = () => Paint("digidesert", DesertDigital, 3.5f, true, 0f, 0.22f, 0.3f, 0.45f) },
+            // ---- the three DLC packs on sale (3.37+): premium skins, the bright parts glow in the dark
+            new Skin { id = "cybercircuit", name = "Cyber Circuit", pack = "neonops", spray = new Color(0.2f, 0.95f, 1f), mat = () => Paint("cybercircuit", CyberCircuit, 2.4f, false, 0.35f, 0.75f, 0.04f, 0.12f, 2.2f, 0.62f, 512) },
+            new Skin { id = "plasmacore", name = "Plasma Core", pack = "neonops", spray = new Color(0.85f, 0.25f, 1f), mat = () => Paint("plasmacore", PlasmaCore, 2.2f, false, 0.2f, 0.8f, 0.03f, 0.1f, 2.6f, 0.6f, 512) },
+            new Skin { id = "hologram", name = "Hologram", pack = "neonops", spray = new Color(0.6f, 0.9f, 1f), mat = () => Paint("hologram", Hologram, 2.6f, false, 0.6f, 0.92f, 0.02f, 0.06f, 0.9f, 0.82f, 512) },
+            new Skin { id = "moltencore", name = "Molten Core", pack = "inferno", spray = new Color(1f, 0.45f, 0.05f), mat = () => Paint("moltencore", MoltenCore, 2.2f, false, 0.1f, 0.45f, 0.08f, 0.15f, 3f, 0.55f, 512) },
+            new Skin { id = "hellfire", name = "Hellfire", pack = "inferno", spray = new Color(1f, 0.25f, 0.05f), mat = () => Paint("hellfire", Hellfire, 2f, false, 0.15f, 0.6f, 0.05f, 0.12f, 2.2f, 0.6f, 512) },
+            new Skin { id = "obsidian", name = "Obsidian Ember", pack = "inferno", spray = new Color(0.25f, 0.1f, 0.3f), mat = () => Paint("obsidian", ObsidianEmber, 2.6f, false, 0.55f, 0.95f, 0.02f, 0.08f, 3f, 0.6f, 512) },
+            new Skin { id = "filigree", name = "Royal Filigree", pack = "prestige", spray = new Color(0.95f, 0.75f, 0.3f), mat = () => Paint("filigree", RoyalFiligree, 3.2f, false, 0.85f, 0.88f, 0.03f, 0.08f, 0f, 0.9f, 512) },
+            new Skin { id = "pearlgold", name = "Pearl & Gold", pack = "prestige", spray = new Color(0.95f, 0.93f, 0.9f), mat = () => Paint("pearlgold", PearlGold, 2.8f, false, 0.45f, 0.9f, 0.02f, 0.05f, 0f, 0.9f, 512) },
+            new Skin { id = "diamondcut", name = "Diamond Cut", pack = "prestige", spray = new Color(0.75f, 0.9f, 1f), mat = () => Paint("diamondcut", DiamondCut, 3.4f, false, 0.7f, 0.95f, 0.02f, 0.05f, 0.6f, 0.86f, 512) },
             // a gift from the owner to beta testers (owner panel > Give Beta skin)
             new Skin { id = "beta", name = "Beta Tester", pack = "beta", spray = new Color(1f, 0.45f, 0.05f), mat = () => Paint("beta", BetaTester, 3f, false, 0.3f, 0.7f, 0.05f, 0.15f) },
             new Skin { id = "aurora", name = "Aurora", pack = "northpole", spray = new Color(0.3f, 0.95f, 0.7f), mat = () => Paint("aurora", Aurora, 2f, false, 0.3f, 0.85f, 0.03f, 0.08f) },
@@ -140,12 +150,14 @@ namespace Rago
             return Obj(Mats.Lit("skin_" + key, Color.white, 0.05f, smooth, tex, null, 0.25f, 0.5f, true, 4f));
         }
 
-        static Material Paint(string key, System.Func<float, float, Color> px, float scale, bool point = false, float metal = 0f, float smooth = 0.24f, float grime = 0.3f, float scratch = 0.45f)
+        static Material Paint(string key, System.Func<float, float, Color> px, float scale, bool point = false, float metal = 0f, float smooth = 0.24f, float grime = 0.3f, float scratch = 0.45f, float glow = 0f, float glowAt = 0.75f, int size = 256)
         {
-            const int n = 256;
+            int n = size;
             var tex = Make(key, n, (x, y) => px(x / (float)n, y / (float)n));
             if (point) tex.filterMode = FilterMode.Point;
-            return Obj(Mats.Lit("skin_" + key, Color.white, metal, smooth, tex, null, grime, scratch, true, scale));
+            var m = Obj(Mats.Lit("skin_" + key, Color.white, metal, smooth, tex, null, grime, scratch, true, scale));
+            if (glow > 0f) { m.SetFloat("_GlowGain", glow); m.SetFloat("_GlowThresh", glowAt); }   // its brightest lines glow
+            return m;
         }
 
         /// <summary>M81 woodland: light green ground, field-drab and brown shapes, thin black branches.</summary>
@@ -474,6 +486,147 @@ namespace Rago
             if (a > 0.57f) return d;
             if (b > 0.52f) return m;
             return l;
+        }
+
+        // ---------------------------------------------------------------- premium packs (3.37)
+        static float H2(int x, int y, int s) => MathX.Hash(x, y, s);
+        /// <summary>Distance to the nearest and second-nearest point of a tiling Voronoi grid (n cells across), plus the nearest cell's id.</summary>
+        static void Voronoi(float u, float v, int n, int seed, out float d1, out float d2, out float id)
+        {
+            d1 = d2 = 9f; id = 0f;
+            float x = u * n, y = v * n; int cx = Mathf.FloorToInt(x), cy = Mathf.FloorToInt(y);
+            for (int j = -1; j <= 1; j++)
+                for (int i = -1; i <= 1; i++)
+                {
+                    int gx = cx + i, gy = cy + j, wx = ((gx % n) + n) % n, wy = ((gy % n) + n) % n;
+                    float px = gx + H2(wx, wy, seed), py = gy + H2(wx, wy, seed + 7);
+                    float d = Mathf.Sqrt((x - px) * (x - px) + (y - py) * (y - py));
+                    if (d < d1) { d2 = d1; d1 = d; id = H2(wx, wy, seed + 13); } else if (d < d2) d2 = d;
+                }
+        }
+        static Color Hue(float h, float s, float v) => Color.HSVToRGB(MathX.Frac(h), s, v);
+
+        /// <summary>Cyber Circuit: matte carbon-black with a printed circuit board of glowing cyan traces, pads and vias.</summary>
+        static Color CyberCircuit(float u, float v)
+        {
+            const int N = 24;
+            float x = u * N, y = v * N; int cx = Mathf.FloorToInt(x), cy = Mathf.FloorToInt(y); float fx = x - cx, fy = y - cy;
+            int wx = cx % N, wy = cy % N;
+            float weave = (Mathf.Sin(u * 400f) * Mathf.Sin(v * 400f)) * 0.02f;
+            Color c = new Color(0.05f + weave, 0.055f + weave, 0.065f + weave);
+            Color trace = new Color(0.25f, 0.95f, 1f), dim = new Color(0.08f, 0.32f, 0.36f);
+            float h = H2(wx, wy, 31), h2 = H2(wx, wy, 47);
+            bool right = H2(wx, wy, 5) < 0.55f, up = H2(wx, wy, 9) < 0.45f;
+            bool rightIn = H2((wx + N - 1) % N, wy, 5) < 0.55f, upIn = H2(wx, (wy + N - 1) % N, 9) < 0.45f;
+            float w = 0.09f;
+            bool line = (right && fy > 0.5f - w && fy < 0.5f + w && fx >= 0.5f) || (rightIn && fy > 0.5f - w && fy < 0.5f + w && fx <= 0.5f)
+                     || (up && fx > 0.5f - w && fx < 0.5f + w && fy >= 0.5f) || (upIn && fx > 0.5f - w && fx < 0.5f + w && fy <= 0.5f);
+            float pd = Mathf.Sqrt((fx - 0.5f) * (fx - 0.5f) + (fy - 0.5f) * (fy - 0.5f));
+            int links = (right ? 1 : 0) + (rightIn ? 1 : 0) + (up ? 1 : 0) + (upIn ? 1 : 0);
+            bool pad = links == 1 && pd < 0.2f, via = links >= 3 && pd < 0.16f && pd > 0.08f;
+            bool bright = h < 0.6f;   // some traces are lit, the rest are dim copper
+            if (line || via) c = bright ? trace : dim;
+            if (pad) c = pd < 0.1f ? new Color(0.9f, 1f, 1f) : trace;
+            if (!line && !pad && h2 > 0.93f && pd < 0.32f && pd > 0.24f) c = new Color(0.12f, 0.14f, 0.16f);   // chip outlines
+            return c;
+        }
+
+        /// <summary>Plasma Core: deep space-black with branching violet-to-white energy veins.</summary>
+        static Color PlasmaCore(float u, float v)
+        {
+            float wu = u + (Fbm(u, v, 3f, 2.2f) - 0.5f) * 0.25f, wv = v + (Fbm(u, v, 3f, 6.1f) - 0.5f) * 0.25f;
+            float a = Mathf.Abs(Fbm(wu, wv, 4f, 1.7f) - 0.5f), b = Mathf.Abs(Fbm(wu, wv, 8f, 3.9f) - 0.5f);
+            float vein = Mathf.Max(1f - MathX.Step(0f, 0.035f, a), (1f - MathX.Step(0f, 0.02f, b)) * 0.7f);
+            Color bg = Color.Lerp(new Color(0.02f, 0.01f, 0.05f), new Color(0.12f, 0.03f, 0.2f), Fbm(u, v, 2f, 8.8f));
+            Color hot = Color.Lerp(new Color(0.75f, 0.2f, 1f), new Color(1f, 0.92f, 1f), MathX.Step(0.6f, 1f, vein));
+            float halo = (1f - MathX.Step(0f, 0.09f, a)) * 0.35f;
+            return Color.Lerp(bg + new Color(0.35f, 0.08f, 0.5f) * halo, hot, vein);
+        }
+
+        /// <summary>Hologram: a shifting rainbow film over chrome with a faint glowing hex lattice.</summary>
+        static Color Hologram(float u, float v)
+        {
+            float h = u * 1f + v * 2f + Fbm(u, v, 3f, 4.4f) * 0.8f;
+            Color film = Hue(h, 0.45f, 0.95f);
+            Voronoi(u, v, 14, 77, out float d1, out float d2, out float id);
+            float edge = 1f - MathX.Step(0.02f, 0.06f, d2 - d1);
+            return Color.Lerp(film * (0.75f + id * 0.2f), new Color(0.9f, 1f, 1f), edge * 0.8f);
+        }
+
+        /// <summary>Molten Core: cooled black basalt crust split by white-hot, orange and red lava cracks.</summary>
+        static Color MoltenCore(float u, float v)
+        {
+            Voronoi(u, v, 10, 21, out float d1, out float d2, out float id);
+            float crack = d2 - d1 + (Fbm(u, v, 8f, 1.1f) - 0.5f) * 0.08f;
+            Color crust = Color.Lerp(new Color(0.04f, 0.035f, 0.035f), new Color(0.16f, 0.11f, 0.09f), Fbm(u, v, 12f, 3.3f) * 0.7f + id * 0.3f);
+            float heat = 1f - MathX.Step(0.0f, 0.14f, crack);
+            Color lava = heat > 0.75f ? Color.Lerp(new Color(1f, 0.6f, 0.1f), new Color(1f, 0.97f, 0.7f), (heat - 0.75f) * 4f) : Color.Lerp(new Color(0.55f, 0.06f, 0.02f), new Color(1f, 0.6f, 0.1f), heat / 0.75f);
+            return Color.Lerp(crust, lava, MathX.Step(0.15f, 0.5f, heat));
+        }
+
+        /// <summary>Hellfire: licking flames - black at the base through blood red and orange to yellow tips.</summary>
+        static Color Hellfire(float u, float v)
+        {
+            float n = Fbm(u * 1f, v - 0f, 4f, 9.4f), m = Fbm(u, v, 8f, 2.7f);
+            float f = MathX.Frac(v * 2f) + (n - 0.5f) * 0.9f + (m - 0.5f) * 0.3f;   // two rows of flames per tile
+            f = Mathf.Clamp01(f);
+            Color c = f < 0.35f ? Color.Lerp(new Color(0.03f, 0.01f, 0.01f), new Color(0.45f, 0.02f, 0.02f), f / 0.35f)
+                    : f < 0.65f ? Color.Lerp(new Color(0.45f, 0.02f, 0.02f), new Color(1f, 0.35f, 0.03f), (f - 0.35f) / 0.3f)
+                    : Color.Lerp(new Color(1f, 0.35f, 0.03f), new Color(1f, 0.92f, 0.45f), (f - 0.65f) / 0.35f);
+            return c;
+        }
+
+        /// <summary>Obsidian Ember: glossy volcanic glass with a violet sheen and a scatter of glowing embers.</summary>
+        static Color ObsidianEmber(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.02f, 0.02f, 0.03f), new Color(0.16f, 0.05f, 0.2f), MathX.Step(0.45f, 0.8f, Fbm(u, v, 3f, 5.5f)));
+            Voronoi(u, v, 6, 17, out float e1, out float e2, out float _);
+            float vein = 1f - MathX.Step(0.0f, 0.035f, e2 - e1);
+            c = Color.Lerp(c, new Color(0.55f, 0.18f, 0.75f), vein * 0.85f);   // glowing violet seams in the glass
+            Voronoi(u, v, 22, 63, out float d1, out float d2, out float id);
+            if (id > 0.72f && d1 < 0.13f) c = Color.Lerp(new Color(1f, 0.88f, 0.5f), new Color(1f, 0.38f, 0.05f), d1 / 0.13f);   // embers
+            else if (id > 0.72f && d1 < 0.22f) c = Color.Lerp(c, new Color(0.55f, 0.12f, 0.02f), 1f - (d1 - 0.13f) / 0.09f);
+            return c;
+        }
+
+        /// <summary>Royal Filigree: black chrome engraved with curling gold scrollwork and a fine border grid.</summary>
+        static Color RoyalFiligree(float u, float v)
+        {
+            Color black = new Color(0.06f, 0.06f, 0.07f), gold = new Color(1f, 0.78f, 0.32f);
+            const int N = 4;
+            float x = u * N, y = v * N; int cx = Mathf.FloorToInt(x), cy = Mathf.FloorToInt(y); float fx = x - cx - 0.5f, fy = y - cy - 0.5f;
+            float r = Mathf.Sqrt(fx * fx + fy * fy), a = Mathf.Atan2(fy, fx);
+            bool flip = ((cx + cy) & 1) == 1;
+            float spiral = MathX.Frac((r * 9f + (flip ? -a : a) / (Mathf.PI * 2f) * 1f) );
+            bool scroll = r < 0.44f && Mathf.Abs(spiral - 0.5f) < 0.09f;
+            bool ring = Mathf.Abs(r - 0.47f) < 0.012f;
+            bool leaf = Mathf.Abs(Mathf.Abs(fx) - Mathf.Abs(fy)) < 0.02f && r > 0.46f;   // the diagonal flourish between scrolls
+            bool border = Mathf.Abs(fx) > 0.49f || Mathf.Abs(fy) > 0.49f;
+            Color c = black * (0.9f + Fbm(u, v, 16f, 1.4f) * 0.2f);
+            if (scroll || ring || leaf || border) c = gold * (0.85f + Fbm(u, v, 32f, 2.2f) * 0.3f);
+            return c;
+        }
+
+        /// <summary>Pearl &amp; Gold: lustrous white pearl with a soft rainbow sheen, split by fine gold pinstripes.</summary>
+        static Color PearlGold(float u, float v)
+        {
+            float n = Fbm(u, v, 3f, 7.7f), sheen = MathX.Step(0.3f, 0.7f, Fbm(u, v, 2f, 1.9f));
+            Color pearl = Color.Lerp(new Color(0.86f, 0.84f, 0.82f), Hue(0.5f + n * 0.6f, 0.16f, 0.98f), 0.35f + sheen * 0.4f);
+            float stripe = MathX.Frac((u + v) * 4f);
+            Color gold = new Color(0.95f, 0.7f, 0.25f) * (0.85f + Fbm(u, v, 32f, 2.4f) * 0.3f);
+            if (stripe < 0.035f) return gold;                                  // the main pinstripe
+            if (Mathf.Abs(stripe - 0.5f) < 0.01f) return gold * 0.9f;          // and a fine one between
+            return pearl * (0.95f + Fbm(u, v, 24f, 3.1f) * 0.08f);
+        }
+
+        /// <summary>Diamond Cut: faceted crystal - each facet a different ice-blue shade, bright sparkling edges.</summary>
+        static Color DiamondCut(float u, float v)
+        {
+            Voronoi(u, v, 12, 91, out float d1, out float d2, out float id);
+            Color facet = Color.Lerp(new Color(0.45f, 0.62f, 0.8f), new Color(0.92f, 0.97f, 1f), id);
+            float edge = 1f - MathX.Step(0.01f, 0.05f, d2 - d1);
+            if (H2(Mathf.FloorToInt(u * 64), Mathf.FloorToInt(v * 64), 3) > 0.985f) return Color.white;   // sparkles
+            return Color.Lerp(facet, Color.white, edge);
         }
 
         /// <summary>Tileable fractal noise in 0..1: periodic gradient noise (wraps exactly at u/v = 0..1, no stretching).</summary>

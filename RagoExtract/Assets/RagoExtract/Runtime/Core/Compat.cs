@@ -213,6 +213,8 @@ namespace Rago
         public static float Hash(float x) { return Frac(Mathf.Sin(x * 127.1f) * 43758.5453f); }
         public static float Hash(int x, int y, int s) { return Frac(Mathf.Sin(x * 127.1f + y * 311.7f + s * 74.7f) * 43758.5453f); }
         public static float Frac(float x) => x - Mathf.Floor(x);
+        /// <summary>0 below e0, 1 above e1, a smooth S-curve between (GLSL smoothstep - NOT Unity's Mathf.SmoothStep, which blends between its first two arguments).</summary>
+        public static float Step(float e0, float e1, float x) { float t = Mathf.Clamp01((x - e0) / (e1 - e0)); return t * t * (3f - 2f * t); }
 
         /// <summary>Two-bone IK. Returns the mid joint position given root, target and bone lengths.</summary>
         public static Vector3 SolveKnee(Vector3 root, Vector3 target, float l1, float l2, Vector3 hint)

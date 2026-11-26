@@ -483,11 +483,33 @@ namespace Rago
                 return mr;
             }
             // 1. phosphor: every colour goes through green (reds and blues die away), a little bloom-like lift
-            Layer("nvg_tint", 0.094f, Mats.Unlit("nvg_tint", new Color(0.28f, 1f, 0.38f, 1f), null, Mats.BlendKind.Multiply, false, 984, true));
-            Layer("nvg_lift", 0.0935f, Mats.Unlit("nvg_lift", new Color(0.05f, 0.18f, 0.06f, 1f), null, Mats.BlendKind.Additive, false, 985, true));
+            Layer("nvg_tint", 0.094f, Mats.Unlit("nvg_tint", new Color(0.34f, 1f, 0.46f, 1f), null, Mats.BlendKind.Multiply, false, 984, true));
+            Layer("nvg_lift", 0.0935f, Mats.Unlit("nvg_lift", new Color(0.04f, 0.15f, 0.06f, 1f), null, Mats.BlendKind.Additive, false, 985, true));
+            // the image tube's honeycomb: a very faint hexagonal fibre pattern fixed in front of your eye
+            var hex = new Texture2D(64, 64, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear };
+            var hp = new Color32[64 * 64];
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
+                {
+                    // distance to the nearest hex-cell centre on a 2-row lattice (cells 16 px wide)
+                    float u = x / 16f, v = y / (16f * 0.866f), best = 9f, second = 9f;
+                    for (int cy = -1; cy <= 5; cy++)
+                        for (int cx = -1; cx <= 5; cx++)
+                        {
+                            float px2 = cx + ((cy & 1) == 1 ? 0.5f : 0f), py2 = cy;
+                            float d = (u - px2) * (u - px2) + (v - py2) * (v - py2) * 0.75f;
+                            if (d < best) { second = best; best = d; } else if (d < second) second = d;
+                        }
+                    float edge = 1f - MathX.Step(0f, 0.12f, Mathf.Sqrt(second) - Mathf.Sqrt(best));
+                    hp[y * 64 + x] = new Color32(0, 0, 0, (byte)(edge * 255));
+                }
+            hex.SetPixels32(hp); hex.Apply(true, true);
+            var hexM = new Material(Mats.Unlit("nvg_hex", new Color(0f, 0.02f, 0f, 0.07f), hex, Mats.BlendKind.Alpha, false, 985, true));
+            hexM.mainTextureScale = new Vector2(46f, 46f);
+            Layer("nvg_hex", 0.0933f, hexM);
             // 2. grain: fine noise, re-rolled every frame (the "fizz" of an image intensifier)
-            _grainM = new Material(Mats.Unlit("nvg_grain", new Color(0.45f, 1f, 0.5f, 0.16f), Mats.Noise, Mats.BlendKind.Additive, false, 986, true));
-            _grainM.mainTextureScale = new Vector2(9f, 9f);
+            _grainM = new Material(Mats.Unlit("nvg_grain", new Color(0.5f, 1f, 0.55f, 0.12f), Mats.Noise, Mats.BlendKind.Additive, false, 986, true));
+            _grainM.mainTextureScale = new Vector2(15f, 15f);   // finer fizz
             Layer("nvg_grain", 0.093f, _grainM);
             // 3. the tube: a round window (about 70 degrees across) with a soft edge, black outside
             var tube = new Texture2D(256, 256, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
@@ -497,8 +519,8 @@ namespace Rago
                 {
                     float dx = (x + 0.5f) / 256f - 0.5f, dy = (y + 0.5f) / 256f - 0.5f;
                     float d = Mathf.Sqrt(dx * dx + dy * dy);
-                    float a = Mathf.SmoothStep(0.2f, 0.245f, d);                  // the tube's edge
-                    a = Mathf.Max(a, Mathf.SmoothStep(0.05f, 0.24f, d) * 0.35f);   // darker towards the rim, like a real tube
+                    float a = MathX.Step(0.215f, 0.25f, d);                       // the tube's edge: black outside the round view
+                    a = Mathf.Max(a, MathX.Step(0.1f, 0.245f, d) * 0.28f);        // gently darker towards the rim, like a real tube
                     px[y * 256 + x] = new Color32(0, 0, 0, (byte)(a * 255));
                 }
             tube.SetPixels32(px); tube.Apply(false, true);
@@ -511,7 +533,7 @@ namespace Rago
             _grainM.mainTextureOffset = new Vector2(Random.value, Random.value);
             // scintillation: the grain breathes a little
             _grainT += Time.deltaTime;
-            var c = _grainM.color; c.a = 0.13f + Mathf.PerlinNoise(_grainT * 9f, 0.3f) * 0.08f; _grainM.color = c;
+            var c = _grainM.color; c.a = 0.09f + Mathf.PerlinNoise(_grainT * 9f, 0.3f) * 0.07f; _grainM.color = c;
         }
         /// <summary>Flashbanged: white-out that fades over a few seconds, with a ringing in your ears.</summary>
         public void Flashbang(float strength)

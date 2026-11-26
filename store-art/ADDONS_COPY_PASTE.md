@@ -1,9 +1,37 @@
 # Meta add-ons: copy and paste sheet
 
-For every add-on: **Type = Durable**. The images and trailer are in the folder with the same name as the SKU.
+For every add-on: **Type = Durable**. The images are in the folder with the same name as the SKU.
 Prices lock for 30 days after Meta approves them.
 
----
+## ON SALE NOW (3.37): the three packs
+
+Create these three add-ons in the Meta Developer Dashboard (your app > Monetization > Add-ons). The SKU must match exactly.
+
+### A. Neon Ops Pack
+- **SKU:** rago_pack_neonops
+- **Name:** Neon Ops Pack
+- **Price:** $3.99
+- **Short description:** 3 glowing gun skins: Cyber Circuit, Plasma Core and Hologram.
+- **Description:** Light up the raid. The Neon Ops Pack adds 3 premium gun skins whose bright parts actually glow in the dark: Cyber Circuit (a black circuit board with glowing cyan traces), Plasma Core (violet energy veins) and Hologram (a shifting rainbow film with a glowing hex lattice). Paint them onto any gun at the paint booth in your bunker. Bought once, yours forever.
+
+### B. Inferno Pack
+- **SKU:** rago_pack_inferno
+- **Name:** Inferno Pack
+- **Price:** $3.99
+- **Short description:** 3 glowing gun skins: Molten Core, Hellfire and Obsidian Ember.
+- **Description:** Bring the heat. The Inferno Pack adds 3 premium gun skins that glow like fire: Molten Core (black basalt split by white-hot lava cracks), Hellfire (licking flames) and Obsidian Ember (volcanic glass with glowing violet seams and embers). Paint them onto any gun at the paint booth in your bunker. Bought once, yours forever.
+
+### C. Prestige Pack
+- **SKU:** rago_pack_prestige
+- **Name:** Prestige Pack
+- **Price:** $4.99
+- **Short description:** 3 luxury gun skins: Royal Filigree, Pearl & Gold and Diamond Cut.
+- **Description:** For the operator who has everything. The Prestige Pack adds 3 luxury gun skins: Royal Filigree (black chrome engraved with gold scrollwork), Pearl & Gold (lustrous pearl with gold pinstripes) and Diamond Cut (faceted crystal that sparkles). Paint them onto any gun at the paint booth in your bunker. Bought once, yours forever.
+
+## RETIRED (no longer sold)
+
+The nine packs below are no longer sold in the game. **Don't delete them**: players who bought one keep its skins, and the game checks these SKUs to give them back after a reinstall.
+In the dashboard, turn each one off so nobody new can buy it (untick "Show in Store" / make it unavailable).
 
 ## 1. Holiday Pack
 - **SKU:** rago_pack_holiday

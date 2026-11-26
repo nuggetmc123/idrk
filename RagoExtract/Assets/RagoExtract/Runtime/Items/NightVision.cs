@@ -12,18 +12,10 @@ namespace Rago
             var it = go.AddComponent<NvgItem>();
             it.def = d;
             var mb = new MB(2);
-            Color body = new Color(0.16f, 0.18f, 0.15f), dark = new Color(0.05f, 0.05f, 0.05f), lens = new Color(0.2f, 0.45f, 0.25f);
-            mb.Sub(0).Box(new Vector3(0, 0.03f, -0.03f), new Vector3(0.09f, 0.03f, 0.05f), body, 0.008f);          // bridge / mount
-            foreach (var sx in new[] { -0.032f, 0.032f })
-            {
-                mb.Sub(0).Cyl(new Vector3(sx, 0, -0.03f), new Vector3(sx, 0, 0.06f), 0.019f, 0.021f, 14, body);   // tubes
-                mb.Sub(0).Cyl(new Vector3(sx, 0, 0.06f), new Vector3(sx, 0, 0.075f), 0.023f, 0.023f, 14, dark);
-                mb.Sub(1).Cyl(new Vector3(sx, 0, 0.075f), new Vector3(sx, 0, 0.077f), 0.018f, 0.018f, 14, lens);
-            }
-            mb.Sub(0).Box(new Vector3(0, 0.055f, -0.05f), new Vector3(0.03f, 0.02f, 0.04f), dark, 0.005f);         // the arm that clips to a helmet
+            GearModels.NvgDevice(mb, 0, 1, new Vector3(0, 0, 0.0f));   // the same goggles you see on a helmet
             var model = mb.Build("Model", go.transform, Mats.Lit("nvg_body", Color.white, 0.3f, 0.45f, Mats.Noise, null, 0.3f, 0.2f),
                                  Mats.Lit("nvg_lens", Color.white, 0.6f, 0.9f, null, null, 0, 0, false, 0.5f, new Color(0.05f, 0.25f, 0.08f)));
-            var col = go.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.02f, 0.02f); col.size = new Vector3(0.11f, 0.08f, 0.12f);
+            var col = go.AddComponent<BoxCollider>(); col.center = new Vector3(0, 0.03f, 0.005f); col.size = new Vector3(0.105f, 0.11f, 0.11f);
             it.localBounds = new Bounds(col.center, col.size);
             go.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
             it.SetupPhysics(0.6f);
@@ -56,9 +48,9 @@ namespace Rago
                 _sky = RenderSettings.ambientSkyColor; _eq = RenderSettings.ambientEquatorColor; _gr = RenderSettings.ambientGroundColor;
                 _fog = RenderSettings.fogColor; _fogD = RenderSettings.fogDensity; _saved = true;
                 // amplified starlight: the darkness lifts evenly (the goggles' picture turns it all phosphor green)
-                RenderSettings.ambientSkyColor = new Color(0.55f, 0.6f, 0.55f);
-                RenderSettings.ambientEquatorColor = new Color(0.45f, 0.5f, 0.45f);
-                RenderSettings.ambientGroundColor = new Color(0.28f, 0.32f, 0.28f);
+                RenderSettings.ambientSkyColor = new Color(0.66f, 0.7f, 0.66f);
+                RenderSettings.ambientEquatorColor = new Color(0.54f, 0.58f, 0.54f);
+                RenderSettings.ambientGroundColor = new Color(0.34f, 0.38f, 0.34f);
                 RenderSettings.fogColor = new Color(0.06f, 0.2f, 0.08f);
                 RenderSettings.fogDensity = _fogD * 0.6f;
                 Sfx.UI(Synth.Beep(), 0.25f);

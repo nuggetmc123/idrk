@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.37", "New DLC packs, better night vision", new[] {
+                "DLC STORE: three brand-new premium packs - NEON OPS (Cyber Circuit, Plasma Core, Hologram), INFERNO (Molten Core, Hellfire, Obsidian Ember) and PRESTIGE (Royal Filigree, Pearl & Gold, Diamond Cut). The Neon Ops and Inferno skins really GLOW in the dark.",
+                "The old packs are no longer sold. If you bought one, you keep its skins.",
+                "NIGHT VISION: new goggles - a proper binocular set with ribbed focus rings, rubber eyecups, green lenses and an IR light, on helmets and as an item.",
+                "The view through them is better too: a clear round tube (its edge was only half-dark before), a brighter picture, finer grain and the faint honeycomb of a real image tube.",
+            }),
             ("3.36", "Better T2 Patrol Helmet", new[] {
                 "The T2 Patrol Helmet looks much better: the camo is now printed flat on the cloth cover (it stuck out in lumps), and the goggles are a real pair resting on the brow - a curved rubber frame with two amber lenses and a strap round the cover (they looked like two bug eyes).",
             }),

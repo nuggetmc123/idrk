@@ -25,26 +25,32 @@ namespace Rago
         public class Pack
         {
             public string id, name, tagline, usd, sku; public uint steamDlc; public Color col; public string[] items = new string[0]; public bool seasonal;
+            public bool retired;   // no longer sold: hidden from the store, but anyone who bought it keeps it (and gets it back on a reinstall)
             public int cash;   // > 0: bought with in-game cash in the DLC tab / store, not real money
         }
 
         public static readonly Pack[] Packs =
         {
-            new Pack { id = "holiday", name = "HOLIDAY PACK", usd = "$1.99", cash = 25000, sku = "rago_pack_holiday", col = new Color(0.75f, 0.1f, 0.1f), seasonal = true,
+            // ---- on sale: the three packs (each needs a durable Add-on with this SKU in the Meta dashboard)
+            new Pack { id = "neonops", name = "NEON OPS PACK", usd = "$3.99", sku = "rago_pack_neonops", col = new Color(0.2f, 0.9f, 1f), tagline = "glowing circuits, plasma and hologram film" },
+            new Pack { id = "inferno", name = "INFERNO PACK", usd = "$3.99", sku = "rago_pack_inferno", col = new Color(1f, 0.38f, 0.05f), tagline = "molten lava, hellfire and glowing embers" },
+            new Pack { id = "prestige", name = "PRESTIGE PACK", usd = "$4.99", sku = "rago_pack_prestige", col = new Color(0.95f, 0.75f, 0.3f), tagline = "gold filigree, pearl and diamond" },
+            // ---- retired (3.37): no longer sold, kept so the people who bought them keep their skins
+            new Pack { retired = true, id = "holiday", name = "HOLIDAY PACK", usd = "$1.99", cash = 25000, sku = "rago_pack_holiday", col = new Color(0.75f, 0.1f, 0.1f), seasonal = true,
                 tagline = "festive skins + a candy cane club", items = new[] { "candycane", "impact", "impact", "impact" } },
-            new Pack { id = "street", name = "STREET PACK", usd = "$2.99", sku = "rago_pack_street", col = new Color(0.15f, 0.6f, 0.35f), tagline = "loud city paint jobs" },
-            new Pack { id = "survivor", name = "SURVIVOR PACK", usd = "$2.99", sku = "rago_pack_survivor", col = new Color(0.2f, 0.4f, 0.65f), tagline = "weathered and wild" },
-            new Pack { id = "collector", name = "COLLECTOR'S PACK", usd = "$4.99", sku = "rago_pack_collector", col = new Color(0.55f, 0.3f, 0.75f), tagline = "the rarest finishes" },
-            new Pack { id = "gold", name = "GOLD PACK", usd = "$4.99", sku = "rago_pack_gold", col = new Color(0.85f, 0.65f, 0.15f),
+            new Pack { retired = true, id = "street", name = "STREET PACK", usd = "$2.99", sku = "rago_pack_street", col = new Color(0.15f, 0.6f, 0.35f), tagline = "loud city paint jobs" },
+            new Pack { retired = true, id = "survivor", name = "SURVIVOR PACK", usd = "$2.99", sku = "rago_pack_survivor", col = new Color(0.2f, 0.4f, 0.65f), tagline = "weathered and wild" },
+            new Pack { retired = true, id = "collector", name = "COLLECTOR'S PACK", usd = "$4.99", sku = "rago_pack_collector", col = new Color(0.55f, 0.3f, 0.75f), tagline = "the rarest finishes" },
+            new Pack { retired = true, id = "gold", name = "GOLD PACK", usd = "$4.99", sku = "rago_pack_gold", col = new Color(0.85f, 0.65f, 0.15f),
                 tagline = "solid gold, black gold and mirror chrome", items = new[] { "val_chain" } },
-            new Pack { id = "synthwave", name = "SYNTHWAVE PACK", usd = "$2.99", sku = "rago_pack_synthwave", col = new Color(0.9f, 0.2f, 0.7f), tagline = "neon sunsets and laser grids" },
-            new Pack { id = "predator", name = "PREDATOR PACK", usd = "$2.99", sku = "rago_pack_predator", col = new Color(0.65f, 0.45f, 0.15f), tagline = "zebra, leopard and python skin" },
-            new Pack { id = "elements", name = "ELEMENTS PACK", usd = "$3.99", sku = "rago_pack_elements", col = new Color(0.95f, 0.35f, 0.1f), tagline = "lava, ice, lightning and toxic slime" },
-            new Pack { id = "operator", name = "OPERATOR PACK", usd = "$3.99", sku = "rago_pack_operator", col = new Color(0.3f, 0.4f, 0.25f),
+            new Pack { retired = true, id = "synthwave", name = "SYNTHWAVE PACK", usd = "$2.99", sku = "rago_pack_synthwave", col = new Color(0.9f, 0.2f, 0.7f), tagline = "neon sunsets and laser grids" },
+            new Pack { retired = true, id = "predator", name = "PREDATOR PACK", usd = "$2.99", sku = "rago_pack_predator", col = new Color(0.65f, 0.45f, 0.15f), tagline = "zebra, leopard and python skin" },
+            new Pack { retired = true, id = "elements", name = "ELEMENTS PACK", usd = "$3.99", sku = "rago_pack_elements", col = new Color(0.95f, 0.35f, 0.1f), tagline = "lava, ice, lightning and toxic slime" },
+            new Pack { retired = true, id = "operator", name = "OPERATOR PACK", usd = "$3.99", sku = "rago_pack_operator", col = new Color(0.3f, 0.4f, 0.25f),
                 tagline = "pro camo + a field med kit", items = new[] { "ifak", "ifak", "stim" } },
         };
 
-        public static IEnumerable<Pack> Shown() { foreach (var p in Packs) if (!p.seasonal || Festive.On || Owns(p.id)) yield return p; }
+        public static IEnumerable<Pack> Shown() { foreach (var p in Packs) if (!p.retired && (!p.seasonal || Festive.On || Owns(p.id))) yield return p; }   // the store: only the packs on sale
         public static Pack Get(string id) { foreach (var p in Packs) if (p.id == id) return p; return null; }
         public static bool Owns(string id) => Profile.Current != null && Profile.Current.dlc != null && Profile.Current.dlc.Contains(id);
         public static string PriceText(Pack p) => Owns(p.id) ? "OWNED" : Price(p);

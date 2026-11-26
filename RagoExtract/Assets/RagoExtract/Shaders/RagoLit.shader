@@ -18,6 +18,8 @@ Shader "Rago/Lit"
         _Triplanar ("Triplanar Mapping (0 off, 1 world, 2 object)", Float) = 0
         _TriScale ("Triplanar Scale (tiles per metre)", Float) = 0.5
         _VColor ("Use Vertex Color", Float) = 1
+        _GlowGain ("Pattern Glow (0 off)", Float) = 0
+        _GlowThresh ("Pattern Glow Threshold", Float) = 0.75
     }
     SubShader
     {
@@ -29,7 +31,7 @@ Shader "Rago/Lit"
 
         sampler2D _MainTex, _BumpMap, _DetailTex;
         fixed4 _Color;
-        half _BumpScale, _Grime, _Scratch, _Metallic, _Glossiness, _Triplanar, _TriScale, _VColor;
+        half _BumpScale, _Grime, _Scratch, _Metallic, _Glossiness, _Triplanar, _TriScale, _VColor, _GlowGain, _GlowThresh;
         half4 _EmissionColor;
 
         struct Input
@@ -87,7 +89,9 @@ Shader "Rago/Lit"
             }
             o.Metallic = saturate(_Metallic + scratch * 0.4);
             o.Smoothness = saturate(_Glossiness * (1 - grime * 0.8) + scratch * 0.2) * albedo.a;
-            o.Emission = _EmissionColor.rgb;
+            // gun skins: the brightest parts of the pattern (neon traces, molten cracks, embers) light up
+            half lum = max(albedo.r, max(albedo.g, albedo.b));
+            o.Emission = _EmissionColor.rgb + albedo.rgb * saturate((lum - _GlowThresh) * 6.0) * _GlowGain;
             o.Occlusion = ao * lerp(1, IN.color.a, _VColor);
         }
         ENDCG

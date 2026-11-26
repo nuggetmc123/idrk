@@ -538,6 +538,39 @@ namespace Rago
             return mb;
         }
 
+        // ================================================================================================ NIGHT VISION
+        /// <summary>Binocular night vision goggles, tubes along +z, centred between the eyepieces at 'c'. body/lens are the
+        /// submesh indices for the housing and the glass. A bridge with articulating pods, ribbed focus rings, rubber eyecups,
+        /// green-tinted objective lenses, an IR illuminator and the J-arm up to the mount.</summary>
+        public static void NvgDevice(MB mb, int body, int lens, Vector3 c, bool arm = true)
+        {
+            Color hous = new Color(0.14f, 0.15f, 0.13f), dark = new Color(0.05f, 0.05f, 0.05f), ring = new Color(0.09f, 0.09f, 0.09f), glass = new Color(0.12f, 0.5f, 0.22f);
+            mb.Sub(body).Box(c + new Vector3(0, 0.012f, 0.004f), new Vector3(0.052f, 0.026f, 0.044f), hous, 0.008f, 2);   // bridge
+            mb.Sub(body).Box(c + new Vector3(0, 0.027f, -0.006f), new Vector3(0.03f, 0.012f, 0.03f), dark, 0.004f, 2);    // power / gain knob housing
+            mb.Sub(body).Cyl(c + new Vector3(0.016f, 0.033f, 0.004f), c + new Vector3(0.016f, 0.039f, 0.004f), 0.006f, 0.006f, 12, dark);   // gain knob
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                Vector3 t = c + new Vector3(sx * 0.031f, 0, 0);
+                mb.Sub(body).Box(c + new Vector3(sx * 0.018f, 0.006f, 0.004f), new Vector3(0.02f, 0.016f, 0.03f), hous, 0.005f, 2);   // articulating arm
+                mb.Sub(body).Cyl(t + new Vector3(0, 0, -0.03f), t + new Vector3(0, 0, 0.038f), 0.0185f, 0.0195f, 18, hous);          // pod
+                mb.Sub(body).Cyl(t + new Vector3(0, 0, -0.044f), t + new Vector3(0, 0, -0.03f), 0.0215f, 0.019f, 18, dark);         // rubber eyecup
+                mb.Sub(body).Tube(t + new Vector3(0, 0, -0.0445f), t + new Vector3(0, 0, -0.043f), 0.0215f, 0.014f, 18, dark);
+                mb.Sub(body).Cyl(t + new Vector3(0, 0, 0.036f), t + new Vector3(0, 0, 0.056f), 0.0215f, 0.0215f, 18, ring);          // focus ring
+                for (int i = 0; i < 14; i++) { float a = i / 14f * Mathf.PI * 2f; mb.Sub(body).Box(t + new Vector3(Mathf.Cos(a) * 0.0218f, Mathf.Sin(a) * 0.0218f, 0.046f), new Vector3(0.002f, 0.002f, 0.018f), dark, 0f, 1, Quaternion.Euler(0, 0, a * Mathf.Rad2Deg)); }
+                mb.Sub(body).Tube(t + new Vector3(0, 0, 0.055f), t + new Vector3(0, 0, 0.059f), 0.0212f, 0.0165f, 18, dark);        // bezel
+                mb.Sub(lens).Cyl(t + new Vector3(0, 0, 0.054f), t + new Vector3(0, 0, 0.0565f), 0.0166f, 0.0166f, 18, glass);       // objective glass
+                mb.Sub(lens).Cyl(t + new Vector3(0, 0, -0.04f), t + new Vector3(0, 0, -0.038f), 0.0135f, 0.0135f, 14, glass * 0.6f); // eyepiece glass
+            }
+            mb.Sub(body).Cyl(c + new Vector3(0, -0.006f, 0.02f), c + new Vector3(0, -0.006f, 0.04f), 0.006f, 0.0065f, 12, dark);   // IR illuminator
+            mb.Sub(lens).Cyl(c + new Vector3(0, -0.006f, 0.04f), c + new Vector3(0, -0.006f, 0.0415f), 0.005f, 0.005f, 12, new Color(0.45f, 0.08f, 0.08f));
+            if (arm)
+            {
+                mb.Sub(body).Box(c + new Vector3(0, 0.05f, -0.004f), new Vector3(0.022f, 0.05f, 0.016f), dark, 0.004f, 2);       // J-arm
+                mb.Sub(body).Box(c + new Vector3(0, 0.08f, -0.014f), new Vector3(0.032f, 0.014f, 0.03f), hous, 0.004f, 2);       // mount shoe
+                mb.Sub(body).Cyl(c + new Vector3(-0.018f, 0.08f, -0.014f), c + new Vector3(0.018f, 0.08f, -0.014f), 0.005f, 0.005f, 10, dark);   // pivot pin
+            }
+        }
+
         // ================================================================================================ GRENADES
         /// <summary>0 frag, 1 flashbang, 2 impact. Fuse up (+y), the spoon down the +x side, the pin ring at (-0.016, 0.045, 0).</summary>
         public static MB Grenade(int shape)
