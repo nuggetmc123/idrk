@@ -469,7 +469,7 @@ namespace Rago
     /// (a railed opening in the floor above, a stair inside a walled shaft below). B1 is where you start, the vaults
     /// are on B2 and B3, and there are only two ways out: the Freight Elevator on B1 and the Drainage Tunnel on B3.
     /// </summary>
-    public class UndergroundMap : MapBase
+    public partial class UndergroundMap : MapBase   // (its atrium, halls and corridor cover: UndergroundSpaces.cs)
     {
         const int NX = 5, NZ = 4, Levels = 3;
         const float Pitch = 16f, Room = 12f, Ht = 3.4f, Slab = 0.5f, LevelH = Ht + Slab;
@@ -515,6 +515,7 @@ namespace Rago
             {
                 var holes = new List<Rect>();
                 foreach (var w in Wells) if (w.l == l) { var c = Cell(w.i, w.j, l); holes.Add(Rect.MinMaxRect(c.x - Room / 2f, c.z - 0.6f, c.x - Room / 2f + 2.45f, c.z + 3.6f)); }
+                if (l < Levels - 1) holes.Add(AtriumHole);   // (3.49) the atrium opens through B1 and B2 down to B3
                 float th = l == Levels - 1 ? 0.3f : Slab;
                 SlabWithHoles(LevelY(l), th, -ex, ex, -ez, ez, holes, floor);
             }
@@ -561,7 +562,11 @@ namespace Rago
                 for (int j = 0; j <= NZ; j++)
                 {
                     float z = (j - NZ / 2f) * Pitch;
-                    for (float x = -ex + 4f; x < ex - 2f; x += 8f) b.Box(new Vector3(x, y + Ht - 0.04f, z), new Vector3(1.4f, 0.06f, 0.25f), lamp, Color.white, null, false);
+                    for (float x = -ex + 4f; x < ex - 2f; x += 8f)
+                    {
+                        if (l > 0 && AtriumHole.Contains(new Vector2(x, z))) continue;   // no ceiling over the atrium's open middle
+                        b.Box(new Vector3(x, y + Ht - 0.04f, z), new Vector3(1.4f, 0.06f, 0.25f), lamp, Color.white, null, false);
+                    }
                 }
                 for (int i = 0; i <= NX; i += 2)
                     for (int j = 0; j <= NZ; j += 2)
@@ -583,7 +588,7 @@ namespace Rago
                 else if (l == 1) types.AddRange(new[] { "vault", "armory", "server", "lab" });
                 else types.AddRange(new[] { "vault", "armory", "server", "server", "generator" });
                 var cells = new List<(int, int)>();
-                for (int i = 0; i < NX; i++) for (int j = 0; j < NZ; j++) if (WellAt(i, j, l) == null) cells.Add((i, j));
+                for (int i = 0; i < NX; i++) for (int j = 0; j < NZ; j++) if (WellAt(i, j, l) == null && !InHall(i, j, l)) cells.Add((i, j));
                 string[] fill = l == 0 ? new[] { "office", "office", "storage", "storage", "barracks", "lab" } : new[] { "office", "storage", "storage", "lab", "barracks", "server" };
                 while (types.Count < cells.Count) types.Add(b.Rng.Pick(fill));
                 for (int k = types.Count - 1; k > 0; k--) { int r = b.Rng.Range(0, k + 1); var t = types[k]; types[k] = types[r]; types[r] = t; }
@@ -593,6 +598,7 @@ namespace Rago
                     {
                         var c = Cell(i, j, l);
                         string well = WellAt(i, j, l);
+                        if (well == null && InHall(i, j, l)) continue;   // part of the atrium or a hall (built below)
                         string type = well ?? types[n++];
                         BuildRoom(c, type, i, j, l, conc, wallCol, paint, metal, lamp, pts);
                         if (type == "vault" || well != null) continue;
@@ -601,8 +607,11 @@ namespace Rago
                         // every room on every level has raiders: bigger groups in the guarded rooms, a pair or three elsewhere
                         Squad(c + new Vector3(b.Rng.Range(-1f, 1f), 0, -4.2f), nest ? b.Rng.Range(4, 6) : b.Rng.Range(2, 4), type == "armory" || type == "generator");
                     }
+                foreach (var hall in Halls[l]) BuildHall(hall.i0, hall.j0, hall.i1, hall.j1, hall.type, l, conc, wallCol, paint, metal, lamp, yellow, pts);
             }
             foreach (var w in Wells) BuildStairwell(Cell(w.i, w.j, w.l), metal, conc, wallCol, yellow);
+            BuildAtriumCore(metal, conc, wallCol, lamp);
+            CorridorCovers(metal);
             // and patrols out in the corridors of every level
             for (int l = 0; l < Levels; l++)
                 for (int i = 0; i <= NX; i += 2)
@@ -712,6 +721,7 @@ namespace Rago
             var corners = new[] { c + new Vector3(-h, 0, -h), c + new Vector3(h, 0, -h), c + new Vector3(h, 0, h), c + new Vector3(-h, 0, h) };
             for (int s = 0; s < 4; s++)
             {
+                if (doors[s]) _gaps.Add((corners[s] + corners[(s + 1) % 4]) * 0.5f);   // corridor cover keeps clear of it
                 var ops = doors[s] ? new List<Vector4> { new Vector4(Room * 0.5f, 1.6f, 0, 2.3f) } : null;
                 b.Wall(corners[s], corners[(s + 1) % 4], Ht, 0.3f, conc, wallCol, ops);
                 // one door in this doorway (not the vault room's: its round vault door goes there)

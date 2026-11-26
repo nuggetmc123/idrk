@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.49", "The Underground opens up", new[] {
+                "The UNDERGROUND SECTOR isn't just hallways any more. A three-storey ATRIUM opens up the middle of every level: balconies with railings, a bridge across on B1 and B2, and a glowing coolant column rising from the B3 floor to the roof - you can look down from B1 all the way to B3.",
+                "Every level has two big HALLS, each two rooms and the corridor between them made into one: B1 a WAREHOUSE (tall pallet racking, a forklift) and a MESS HALL (long tables, a serving counter, vending machines); B2 a SERVER FARM (aisles of blinking racks) and HYDROPONICS (grow beds under pink grow lights); B3 a TURBINE HALL and a flooded PUMP ROOM.",
+                "The corridors have cover in them now: sandbag walls, barricades and slabs of fallen ceiling.",
+                "The stairs and both extracts are where they were; the rooms around them (vaults included) have been reshuffled.",
+            }),
             ("3.48", "Real clothes", new[] {
                 "YOUR OPERATOR WEARS CLOTHES: without any wardrobe picks you're in a combat uniform - a combat shirt (a lighter body with coloured sleeves and shoulders, a seam across the chest, a mock-neck collar with a zip, sleeve pockets with your patch on them), combat pants with cargo pockets and back pockets, fingerless gloves and boots.",
                 "Every WARDROBE piece is remade to fit the body: T-shirts with hemmed sleeves, long sleeves, hoodies (hood down on the back, drawstrings, front pocket), jackets (stand collar, full zip, chest pockets with flaps, hand pockets), tank tops, cargo pants, jeans and shorts. Shirts hang over your belt; the combat shirt tucks in.",
