@@ -207,6 +207,8 @@ namespace Rago
 
         public void AddRecoil(float strength, bool rifle)
         {
+            var vit = RagoGame.I != null && RagoGame.I.Player != null ? RagoGame.I.Player.Vitals : null;
+            if (vit != null && vit.Focus > 0f) strength *= 0.67f;   // DUBBY FOCUS: a third less kick
             // real kick: the gun drives back into your hand (cm) and the muzzle flips up (degrees), then the spring brings it
             // back. It used to be scaled down to a millimetre and a fraction of a degree - you couldn't feel any recoil.
             // Full auto stacks the kicks, so the muzzle climbs unless you hold it with both hands on the shoulder.

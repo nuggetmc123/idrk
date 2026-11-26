@@ -691,6 +691,24 @@ namespace Rago
             return Clip("heal", d, true, 0.5f);
         });
 
+        /// <summary>Drinking a can: the tab cracking, a fizz, then three gulps.</summary>
+        public static AudioClip CanDrink() => One("can_drink", () =>
+        {
+            var d = Buf(1.45f); var hp = new HP(2500);
+            MetalClick(d, 0f, 0.9f, 3200, 0.008f); MetalClick(d, 0.012f, 0.5f, 1900, 0.01f);
+            for (int i = (int)(0.02f * SR); i < (int)(0.5f * SR) && i < d.Length; i++) { float t = i / (float)SR - 0.02f; d[i] += hp.P(N()) * 0.45f * Mathf.Exp(-t / 0.12f); }
+            foreach (float at in new[] { 0.55f, 0.88f, 1.2f })
+            {
+                int s0 = (int)(at * SR), n = (int)(0.16f * SR); float ph = 0f;
+                for (int i = 0; i < n && s0 + i < d.Length; i++)
+                {
+                    float t = i / (float)SR, f = Mathf.Lerp(230f, 120f, t / 0.16f); ph += f / SR * Mathf.PI * 2f;
+                    d[s0 + i] += (Mathf.Sin(ph) * 0.8f + N() * 0.08f) * Mathf.Sin(Mathf.PI * t / 0.16f) * 0.7f;
+                }
+            }
+            return Clip("can_drink", d, true, 0.6f);
+        });
+
         public static AudioClip Inject() => One("inject", () =>
         {
             var d = Buf(0.5f);

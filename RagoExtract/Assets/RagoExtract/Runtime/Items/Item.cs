@@ -401,6 +401,12 @@ namespace Rago
     public class MedItem : Item
     {
         float _healLeft; bool _using;
+        static bool _drinkHint;
+        public override void OnGrab(Hand h)
+        {
+            base.OnGrab(h);
+            if (!_drinkHint && def is SimpleDef sd && sd.energy > 0f) { _drinkHint = true; RagoGame.I.Player.Toast("Drink it: lift the can to your mouth and pull the trigger"); }
+        }
         public override void HeldUpdate(Hand h, HandInput input)
         {
             var sd = def as SimpleDef;
@@ -422,8 +428,13 @@ namespace Rago
                 if (sd.energy > 0f)
                 {
                     pl.Vitals.Heal(sd.heal); pl.Vitals.Stamina = pl.Vitals.MaxStamina; pl.Vitals.StimBoost = Mathf.Max(pl.Vitals.StimBoost, sd.energy);
-                    Sfx.Play(Synth.Heal(), transform.position, 0.5f, 1.6f, 0.5f, 6f);
-                    pl.Toast(def.name + ": stamina boosted for " + Mathf.RoundToInt(sd.energy) + " s");
+                    Sfx.Play(Synth.CanDrink(), transform.position, 0.7f, 1f, 0.5f, 6f);   // tab crack, fizz, gulps
+                    if (sd.focus > 0f)
+                    {
+                        pl.Vitals.Focus = Mathf.Max(pl.Vitals.Focus, sd.focus);
+                        pl.Toast("DUBBY FOCUS " + Mathf.RoundToInt(sd.focus) + " s: faster sprint, fast stamina, steadier aim");
+                    }
+                    else pl.Toast(def.name + ": stamina boosted for " + Mathf.RoundToInt(sd.energy) + " s");
                 }
                 else if (def.id == "stim") { pl.Vitals.Heal(sd.heal); pl.Vitals.Stamina = pl.Vitals.MaxStamina; pl.Vitals.StimBoost = 20f; Sfx.Play(Synth.Inject(), transform.position, 0.6f, 1f, 0.5f, 6f); }
                 else

@@ -5,6 +5,14 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.34", "Streamer items remade, DUBBY FOCUS boost", new[] {
+                "DUBBY drinks give a FOCUS boost: lift the can to your mouth and pull the trigger (you hear the tab crack and the gulps). For 60 s you sprint faster, stamina refills twice as fast and your guns kick a third less. Plus full stamina and +10 HP. You get a message when FOCUS wears off.",
+                "PEANUT8 figurine remade: a smooth glossy peanut with the real shell pattern, big shiny eyes, a grin with teeth, a padded gaming headset with glowing purple ear cups and a mic, cartoon gloves (one waving), and sneakers.",
+                "SHUSHED figurine remade as a chunky vinyl toy: a big glossy red helmet with a black visor, glowing eyes and a gold crest, the mask with a finger raised over it (shhh), and dark Juggernaut armour with gold-rimmed shoulder plates.",
+                "OWAYS CEREAL box remade: a sunburst behind a bowl of rainbow rings and milk with a spoon and splashes, a blue banner with a scalloped edge, the LIVE sticker, a nutrition panel on the side and a maze on the back.",
+                "Both figurines stand on a new display base with a glowing purple ring.",
+                "Nuke Cola has a new can: glossy black with green ooze dripping down and a yellow radiation badge.",
+            }),
             ("3.33", "DUBBY cans look like the real ones", new[] {
                 "The DUBBY cans now match the real design: white rim and white bottom (\"DRINK ME AND GO CONQUER A TASK\", 12 FL OZ), the flavour name over a yellow SPONSOR box, a big white DUBBY with a black outline down the can with BE BETTER beside it, the drips, and the FOCUS ENERGY DRINK band.",
             }),

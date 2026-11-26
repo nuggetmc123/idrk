@@ -163,6 +163,7 @@ namespace Rago
         public float healTime = 0.5f;   // seconds the heal is spread over
         public bool stopsBleed;
         public float energy;            // energy drinks: seconds of boosted stamina / sprint
+        public float focus;             // DUBBY: seconds of FOCUS (steadier aim: less recoil and hand sway)
         public Caliber ammoCal;
         public int ammoCount;
         public AmmoType ammoType;   // AP / incendiary boxes: found in raids only
@@ -410,10 +411,10 @@ namespace Rago
             var rush = M("energy_rush", "Red Rush", ItemKind.Med, U, 420, 5, new Color(0.85f, 0.12f, 0.12f), "Strong energy drink. Full stamina and faster sprinting for 60 s, +10 HP.");
             rush.heal = 10; rush.energy = 60f;
             // DUBBY (a sponsor): slim 355 ml cans, the label's "ZERO SUGAR" box reads SPONSOR
-            var dsb = M("energy_dubby_sb", "Dubby Strawberry Banana", ItemKind.Med, U, 480, 6, new Color(0.95f, 0.22f, 0.6f), "DUBBY Focus Energy Drink - Strawberry Banana. Full stamina and faster sprinting for 45 s, +8 HP.");
-            dsb.heal = 8; dsb.energy = 45f;
-            var dmo = M("energy_dubby_mo", "Dubby Mango Orange Cream", ItemKind.Med, U, 480, 7, new Color(0.98f, 0.8f, 0.15f), "DUBBY Focus Energy Drink - Mango Orange Cream. Full stamina and faster sprinting for 45 s, +8 HP.");
-            dmo.heal = 8; dmo.energy = 45f;
+            var dsb = M("energy_dubby_sb", "Dubby Strawberry Banana", ItemKind.Med, U, 480, 6, new Color(0.95f, 0.22f, 0.6f), "DUBBY Focus Energy Drink - Strawberry Banana. Crack it open at your mouth: FOCUS for 60 s - faster sprinting, stamina refills twice as fast, a third less recoil - plus full stamina and +10 HP.");
+            dsb.heal = 10; dsb.energy = 60f; dsb.focus = 60f;
+            var dmo = M("energy_dubby_mo", "Dubby Mango Orange Cream", ItemKind.Med, U, 480, 7, new Color(0.98f, 0.8f, 0.15f), "DUBBY Focus Energy Drink - Mango Orange Cream. Crack it open at your mouth: FOCUS for 60 s - faster sprinting, stamina refills twice as fast, a third less recoil - plus full stamina and +10 HP.");
+            dmo.heal = 10; dmo.energy = 60f; dmo.focus = 60f;
             var cola = M("energy_nuke", "Nuke Cola", ItemKind.Med, C, 160, 5, new Color(0.15f, 0.15f, 0.18f), "Fizzy, sugary, mildly radioactive. Full stamina and 15 s of faster sprinting."); 
             cola.heal = 3; cola.energy = 15f;
             // throwables + knives

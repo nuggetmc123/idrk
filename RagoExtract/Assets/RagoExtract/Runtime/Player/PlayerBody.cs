@@ -148,6 +148,7 @@ namespace Rago
         public float Health = 100, MaxHealth = 100;
         public float Stamina = 100, MaxStamina = 100;
         public float StimBoost;
+        public float Focus;      // DUBBY energy drink: seconds of steadier aim (less recoil)
         public float Bleed;      // hp per second
         public float LegPenalty = 1f;   // leg wounds: < 1 slows you (and below 0.7 you can't sprint) - only a syringe on the leg fixes it
         public float ArmInjury;         // 0..1: your hands shake (aim wobbles) - a broken arm shakes until a syringe sets it
@@ -240,7 +241,7 @@ namespace Rago
         public static HitInfo LastKillHit;      // the hit that killed you (who, with what, where)
         public static string LastDeathReason;   // no killer: "Bled out", "Drowned", raid time ran out...
 
-        public void ResetFull() { System.Array.Clear(Broken, 0, Broken.Length); System.Array.Clear(LegShot, 0, LegShot.Length); System.Array.Clear(PartDmg, 0, PartDmg.Length); Hits.Clear(); Health = MaxHealth; Stamina = MaxStamina; Bleed = 0; LegPenalty = 1; ArmInjury = 0; GutInjury = 0; _hot = 0; StimBoost = 0; }
+        public void ResetFull() { System.Array.Clear(Broken, 0, Broken.Length); System.Array.Clear(LegShot, 0, LegShot.Length); System.Array.Clear(PartDmg, 0, PartDmg.Length); Hits.Clear(); Health = MaxHealth; Stamina = MaxStamina; Bleed = 0; LegPenalty = 1; ArmInjury = 0; GutInjury = 0; _hot = 0; StimBoost = 0; Focus = 0; }
 
         public void Heal(float hp) { Health = Mathf.Min(MaxHealth, Health + hp); float k = Mathf.Clamp01(hp / MaxHealth); for (int i = 0; i < PartDmg.Length; i++) PartDmg[i] = Mathf.Max(0f, PartDmg[i] - PartMax[i] * k); }
         public void HealOverTime(float hp, float secs) { _hot += hp; _hotRate = hp / Mathf.Max(0.1f, secs); }
@@ -373,6 +374,7 @@ namespace Rago
             }
             if (!rig.Sprinting) Stamina = Mathf.Min(MaxStamina, Stamina + dt * (StimBoost > 0 ? 30f : 15f));
             StimBoost = Mathf.Max(0, StimBoost - dt);
+            if (Focus > 0f) { Focus -= dt; if (Focus <= 0f) { Focus = 0f; rig.Toast("FOCUS wore off"); } }
             Sfx.Heartbeat(Health < 35 ? 1f - Health / 35f : 0f);
         }
     }
