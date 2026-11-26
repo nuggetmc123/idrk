@@ -704,6 +704,9 @@ namespace Rago
         }
 
         public override Gun MountedOn => inGun;
+        /// <summary>Held in the same frame as a gun (your pointing direction), not the controller's raw angle - which on Quest
+        /// is tilted ~30 degrees, so a grabbed mag leaned over / faced the wrong way.</summary>
+        public override bool AimedHold => true;
 
         public override void OnGrab(Hand h)
         {

@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.31", "Better holds and throws", new[] {
+                "Fixed: a mag you grab sat tilted / facing the wrong way - it's held in the same frame as your gun now: top up out of your fist, rounds facing where you point.",
+                "Your trigger finger rests on the trigger of the gun you're holding (it hovered straight in front of it) and squeezes as you pull.",
+                "Two-handed guns: your support hand holds the handguard from UNDERNEATH (palm up, fingers round the far side) instead of from the side. With a foregrip fitted, your hand wraps round the foregrip.",
+                "THROWING is easier: how hard you throw is read from your real hand movement (it often read as \"not moving\" and things dropped at your feet), and a real throw gets a boost so it carries.",
+            }),
             ("3.30", "Readable cereal box", new[] {
                 "OWAYS CEREAL: the writing on the box is about twice as big - OWAYS fills the blue band, CEREAL, \"crunchy rings\" and the LIVE sticker are easy to read.",
             }),

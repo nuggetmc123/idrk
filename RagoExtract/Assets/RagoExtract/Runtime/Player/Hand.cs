@@ -220,6 +220,7 @@ namespace Rago
         {
             Input = input;
             TrackedPosition = targetPos;
+            _trk[_trkN % _trk.Length] = (Time.time, targetPos); _trkN++;   // for throwing: the controller's own movement
             TrackedRotation = Compat.SafeRot(targetRot);
             Anchor.localRotation = Quaternion.Euler(GripPitch, 0, 0);
 
@@ -462,8 +463,12 @@ namespace Rago
                 }
                 else if (HeldAsSecondary && Held.secondGrip != null)
                 {
-                    _visual.position = Held.secondGrip.position;
-                    _visual.rotation = Quaternion.LookRotation(Held.transform.forward, Held.transform.up) * Quaternion.Euler(0, 0, left ? 70 : -70);
+                    // no foregrip: hold the handguard from UNDERNEATH - palm up against it, the back of your hand facing the
+                    // ground, fingers wrapping up the far side and thumb up the near side (it used to be rolled 70 degrees
+                    // onto the side of the handguard). With a foregrip fitted, the branch above wraps your fist round it.
+                    var t = Held.transform;
+                    _visual.rotation = Quaternion.LookRotation(t.forward, -t.up) * Quaternion.Euler(0, 0, left ? -18f : 18f);
+                    _visual.position = Held.secondGrip.position - t.up * 0.028f - t.forward * 0.01f;
                 }
                 else RestPose();
             }
@@ -610,6 +615,23 @@ namespace Rago
 
         public void BecomePrimary(Item it) { Held = it; HeldAsSecondary = false; }
 
+        readonly (float t, Vector3 p)[] _trk = new (float, Vector3)[12]; int _trkN;
+        /// <summary>How fast your real hand was moving as you let go: over the last ~70 ms of the controller's track. (The
+        /// physics hand only moves on physics steps and can be held back mid-swing, so a throw often read as "not moving"
+        /// and the thing dropped at your feet.)</summary>
+        Vector3 ThrowVelocity()
+        {
+            if (_trkN < 2) return Velocity;
+            var now = _trk[(_trkN - 1) % _trk.Length];
+            for (int k = 2; k <= Mathf.Min(_trkN, _trk.Length); k++)
+            {
+                var e = _trk[(_trkN - k) % _trk.Length];
+                float dt = now.t - e.t;
+                if (dt >= 0.07f || k == Mathf.Min(_trkN, _trk.Length)) return dt > 0.005f ? (now.p - e.p) / dt : Velocity;
+            }
+            return Velocity;
+        }
+
         void Release()
         {
             if (_interact != null) { _interact.OnRelease(this); _interact = null; }
@@ -617,8 +639,11 @@ namespace Rago
             var it = Held;
             Held = null;
             if (HeldAsSecondary) { HeldAsSecondary = false; it.secondaryHand = null; return; }
-            Vector3 v = Velocity, w = rb.angularVelocity;
-            it.OnRelease(this, v * 1.1f, w);
+            Vector3 v = ThrowVelocity(), w = rb.angularVelocity;
+            if (v.sqrMagnitude < Velocity.sqrMagnitude) v = Velocity;
+            // a real throw gets a boost (VR throws feel weak without one); just letting go stays a gentle drop
+            float sp = v.magnitude;
+            it.OnRelease(this, v * (sp > 1.2f ? 1.45f : 1f), w);
         }
 
         /// <summary>Let go without throwing (used by code). keepItem: the item is being transferred somewhere.</summary>
@@ -675,7 +700,9 @@ namespace Rago
         void UpdateFingers(HandInput input)
         {
             float targetCurl = Held != null || Racking != null || OnWheel ? 1f : input.Grip;
-            float targetTrig = Held is Gun && !HeldAsSecondary ? 0.4f + input.Trigger * 0.4f : input.Trigger;
+            // on a gun: the index finger rests curled on the trigger (it hovered nearly straight in front of it) and
+            // squeezes it as you pull
+            float targetTrig = Held is Gun && !HeldAsSecondary ? 0.58f + input.Trigger * 0.32f : input.Trigger;
             _curl = Mathf.MoveTowards(_curl, targetCurl, Time.deltaTime * 10f);
             _trig = Mathf.MoveTowards(_trig, targetTrig, Time.deltaTime * 12f);
             for (int f = 0; f < _fingers.Count; f++)
