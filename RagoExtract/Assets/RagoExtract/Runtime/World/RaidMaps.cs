@@ -493,15 +493,16 @@ namespace Rago
                 new Color(0.02f, 0.022f, 0.025f), 0.055f, new Color(0.03f, 0.03f, 0.035f), new Color(0.06f, 0.06f, 0.065f), 0f, 0.6f);
             var b = B;
             b.NoSwingDoors = true;   // doors here come only from the rooms' own doorways (CustomDoors), one per doorway
-            var conc = Maps.Concrete;
-            var floor = Mats.Lit("ug_floor", new Color(0.46f, 0.47f, 0.47f), 0.1f, 0.45f, Mats.Concrete, null, 0.5f, 0.2f, true, 0.4f);
-            var ceiling = Mats.Lit("ug_ceiling", Color.white, 0f, 0.2f, Mats.Concrete, null, 0.5f, 0.1f, true, 0.4f);
-            var paint = Mats.Lit("ug_paint", new Color(0.26f, 0.32f, 0.3f), 0f, 0.35f, Mats.Plaster, null, 0.5f, 0.3f, true, 0.4f);
-            var metal = Mats.Lit("ug_metal", Color.white, 0.7f, 0.45f, Mats.Metal, null, 0.35f, 0.4f);
+            // the abandoned research sector (3.43): grimy cracked lab tiles, a stained floor, faded teal bands, corroded fittings
+            var conc = Mats.Lit("ug_labtile", Color.white, 0.05f, 0.45f, Mats.LabTile, Mats.LabTileN, 0.7f, 0.3f, true, 0.5f);
+            var floor = Mats.Lit("ug_floor2", new Color(0.78f, 0.78f, 0.76f), 0.05f, 0.4f, Mats.WornConcrete, Mats.ConcreteN, 0.7f, 0.25f, true, 0.35f);
+            var ceiling = Mats.Lit("ug_ceiling2", new Color(0.6f, 0.6f, 0.6f), 0f, 0.2f, Mats.Concrete, null, 0.7f, 0.1f, true, 0.4f);
+            var paint = Mats.Lit("ug_paint2", new Color(0.3f, 0.52f, 0.5f), 0f, 0.3f, Mats.Plaster, null, 0.55f, 0.5f, true, 0.45f);
+            var metal = Mats.Lit("ug_metal2", Color.white, 0.4f, 0.35f, Mats.Grunge, null, 0.6f, 0.45f, true, 1.2f);
             var lamp = Mats.Lit("ug_lamp", new Color(0.9f, 0.95f, 1f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2.3f, 2.4f));
             var grid = gameObject.AddComponent<PowerGrid>(); grid.Lamp = lamp; grid.Map = this;
             var yellow = Mats.Lit("hazard_y", new Color(0.85f, 0.68f, 0.08f), 0f, 0.3f, Mats.Noise, null, 0.5f, 0.3f);
-            Color wallCol = new Color(0.58f, 0.59f, 0.58f);
+            Color wallCol = new Color(0.92f, 0.93f, 0.9f);
 
             // ---- shell: roof, outer walls (all three levels), and each level's floor slab with the stair openings cut out
             b.Box(new Vector3(0, yTop + 0.15f, 0), new Vector3(ex * 2, 0.3f, ez * 2), ceiling, new Color(0.45f, 0.45f, 0.46f), null, true);
@@ -516,6 +517,34 @@ namespace Rago
                 foreach (var w in Wells) if (w.l == l) { var c = Cell(w.i, w.j, l); holes.Add(Rect.MinMaxRect(c.x - Room / 2f, c.z - 0.6f, c.x - Room / 2f + 2.45f, c.z + 3.6f)); }
                 float th = l == Levels - 1 ? 0.3f : Slab;
                 SlabWithHoles(LevelY(l), th, -ex, ex, -ez, ez, holes, floor);
+            }
+
+            // ---- decay (3.43): dead lamps (dark housings), puddles, rubble, papers and toppled barrels down the corridors
+            {
+                var dead = Mats.Lit("ug_lamp_dead", new Color(0.12f, 0.12f, 0.12f), 0.3f, 0.4f);
+                var water = Mats.Lit("ug_puddle", new Color(0.22f, 0.22f, 0.2f), 0.1f, 0.95f);
+                var rubble = Mats.Lit("ug_rubble", new Color(0.55f, 0.53f, 0.5f), 0f, 0.2f, Mats.Concrete, null, 0.6f, 0.2f, true, 2f);
+                var paper = Mats.Lit("ug_paper", new Color(0.8f, 0.78f, 0.7f), 0f, 0.2f);
+                var drum = Mats.Lit("ug_drum", new Color(0.55f, 0.48f, 0.2f), 0.3f, 0.35f, Mats.Grunge, null, 0.7f, 0.4f, true, 1.5f);
+                var drng = new Rng(4343);
+                for (int l = 0; l < Levels; l++)
+                {
+                    float y = LevelY(l);
+                    for (int i = 0; i <= NX; i++)
+                    {
+                        float x = (i - NX / 2f) * Pitch;
+                        for (float z = -ez + 6f; z < ez - 4f; z += 3.2f)
+                        {
+                            float r = drng.Value; var at = new Vector3(x + drng.Range(-1.3f, 1.3f), y, z + drng.Range(-1f, 1f));
+                            if (r < 0.18f) for (int k = 0; k < 3; k++) { var q2 = at + new Vector3(drng.Range(-0.3f, 0.3f), 0.003f + k * 0.0004f, drng.Range(-0.3f, 0.3f)); float rr = drng.Range(0.15f, 0.4f); b.Cyl(q2, q2 + Vector3.up * 0.002f, rr, rr, 14, water, Color.white, false); }
+                            else if (r < 0.3f) for (int k = 0; k < 5; k++) { float sz = drng.Range(0.05f, 0.14f); b.Box(at + new Vector3(drng.Range(-0.3f, 0.3f), sz * 0.4f, drng.Range(-0.3f, 0.3f)), new Vector3(sz, sz * 0.7f, sz), rubble, Color.white, Quaternion.Euler(drng.Range(0f, 40f), drng.Range(0f, 180f), drng.Range(0f, 40f)), false); }
+                            else if (r < 0.42f) for (int k = 0; k < 3; k++) b.Box(at + new Vector3(drng.Range(-0.4f, 0.4f), 0.004f + k * 0.0003f, drng.Range(-0.4f, 0.4f)), new Vector3(0.21f, 0.001f, 0.29f), paper, Color.white, Quaternion.Euler(0, drng.Range(0f, 180f), 0), false);
+                            else if (r < 0.46f) b.Cyl(at + new Vector3(0, 0.29f, 0), at + new Vector3(0, 0.29f, 0.86f), 0.29f, 0.29f, 14, drum, Color.white, true);   // a toppled drum
+                        }
+                        // a few dead lamps along this corridor (dark housings over the old ones)
+                        for (float z = -ez + 4f; z < ez - 2f; z += 8f) if (drng.Value < 0.22f) b.Box(new Vector3(x, y + Ht - 0.045f, z), new Vector3(0.27f, 0.07f, 1.42f), dead, Color.white, null, false);
+                    }
+                }
             }
 
             // ---- per level: corridor lights, pipe runs, junction stripes

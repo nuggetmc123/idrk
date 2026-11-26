@@ -5,6 +5,20 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.45", "New player and NPC models", new[] {
+                "PLAYERS and NPCs are PEOPLE now, not crash-test dummies: human faces (skin, eyes with coloured irises, eyebrows, nose, lips, ears, hair), human necks and proper hands with fingers and a thumb.",
+                "Your operator wears a fabric suit in your own colour (sculpted shoulders and chest, no metal ball joints or target stickers). Your wardrobe clothes, armour and colour all still apply.",
+                "RAIDERS are dressed like soldiers: a jacket with collar, zip and chest pockets, sleeves with cuffs, cargo trousers, gloves, and boots with toe caps and laces.",
+            }),
+            ("3.44", "Run-down buildings", new[] {
+                "Every BUILDING on Dockyard, Pinewood and Old Town has been remodelled outside: concrete sills and lintels on every window, grime streaks running down, some windows boarded up, a drainpipe down a corner, air-con units, vents and antennas on the roofs, and rubble at the foot of the walls.",
+                "The maps' layouts and loot spots are exactly the same.",
+            }),
+            ("3.43", "The Underground Sector remodelled", new[] {
+                "The UNDERGROUND SECTOR looks like an abandoned research facility now: grimy off-white lab tiles - cracked, stained with rust drips, some fallen off to bare concrete - a stained concrete floor, faded teal bands and corroded pipes.",
+                "It has fallen apart down there: dead strip lights along the corridors, puddles, rubble, scattered papers and toppled drums.",
+                "The layout is the same: your stairs, extracts and vaults are where you know them.",
+            }),
             ("3.42", "Reworked vaults", new[] {
                 "Every VAULT has been reworked: the door is a classic bank-vault face - a thick round door with a polished brass rim, 12 radial locking bolts, a big five-spoke brass handwheel and a time lock with three dials - with hazard-striped posts either side and a red beacon on top.",
                 "Inside: walls of safe-deposit boxes with brass number plates, a steel deck floor, a proper gun rack at the back, cold strip lighting and a red emergency lamp.",

@@ -13,7 +13,7 @@ namespace Rago
         static Material _lit, _unlit, _holo, _sky, _foliage, _scope;
         static readonly Dictionary<string, Material> _cache = new Dictionary<string, Material>();
         public static Texture2D Grime, Noise, Concrete, ConcreteN, Metal, MetalN, Wood, WoodN, Planks, Ground, Grass, Dirt, Asphalt, AsphaltN,
-            Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster, SteelPanel, SteelPanelN, Epoxy, EpoxyN, WornPanel, WornPanelN, WornConcrete;
+            Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster, SteelPanel, SteelPanelN, Epoxy, EpoxyN, WornPanel, WornPanelN, WornConcrete, LabTile, LabTileN, Grunge;
         public static Texture2D Soft, Flash, Smoke, BloodSplat, BloodDrop, BulletHole, Spark, Vignette, Glow, Panel;
         static bool _init;
 
@@ -454,6 +454,30 @@ namespace Rago
                 return c;
             });
             WornPanelN = NormalFrom(WornPanel, 2.2f);
+            // the abandoned research sector (3.43): off-white lab tiles - dirty grout, cracked and missing tiles, drip stains
+            LabTile = Tex(256, true, (x, y, u, v) =>
+            {
+                int tx = Mathf.FloorToInt(u * 8), ty = Mathf.FloorToInt(v * 8);
+                float fx = MathX.Frac(u * 8), fy = MathX.Frac(v * 8), id = MathX.Hash(tx, ty, 51);
+                if (id > 0.978f) { float n0 = MathX.TFbm(u, v, 16, 16, 3, 52); return new Color(0.48f + n0 * 0.1f, 0.47f + n0 * 0.1f, 0.45f + n0 * 0.08f, 0.1f); }   // a tile fallen off: bare concrete
+                if (fx < 0.035f || fy < 0.035f) return new Color(0.42f, 0.41f, 0.37f, 0.1f);                                         // dirty grout
+                float n = MathX.TFbm(u, v, 12, 12, 3, 53);
+                Color c = new Color(0.8f + id * 0.06f, 0.82f + id * 0.05f, 0.78f + id * 0.04f, 0.6f) * (0.94f + n * 0.1f);
+                float crack = Mathf.Abs(MathX.TFbm(u, v, 6, 6, 4, 54) - 0.5f);
+                if (crack < 0.004f && MathX.Hash(tx, ty, 55) > 0.6f) c *= 0.45f;                                                   // cracked tiles
+                float drip = MathX.Step(0.5f, 0.85f, MathX.TFbm(u * 1f, v, 24, 2, 3, 56)) * MathX.Step(0.4f, 0.75f, MathX.TFbm(u, v, 3, 3, 3, 57));
+                c = Color.Lerp(c, new Color(0.42f, 0.33f, 0.22f, 0.3f), drip * 0.55f);                                               // rust / water drips
+                c = Color.Lerp(c, new Color(0.25f, 0.24f, 0.2f, 0.2f), MathX.Step(0.58f, 0.85f, MathX.TFbm(u, v, 4, 4, 3, 58)) * 0.45f);   // grime
+                return c;
+            });
+            LabTileN = NormalFrom(LabTile, 1.8f);
+            // general grunge: dirty, corroded steel for pipes and fittings
+            Grunge = Tex(128, true, (x, y, u, v) =>
+            {
+                float n = MathX.TFbm(u, v, 8, 8, 4, 60), r = MathX.Step(0.55f, 0.75f, MathX.TFbm(u, v, 6, 6, 3, 61));
+                Color c = new Color(0.55f + n * 0.15f, 0.55f + n * 0.14f, 0.54f + n * 0.12f, 0.4f);
+                return Color.Lerp(c, new Color(0.42f, 0.26f, 0.14f, 0.15f), r * 0.7f);
+            });
             // stained concrete floor: the plain concrete with oil and water stains, cracks and dust
             WornConcrete = Tex(256, true, (x, y, u, v) =>
             {

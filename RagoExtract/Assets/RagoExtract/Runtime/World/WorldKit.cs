@@ -250,6 +250,7 @@ namespace Rago
         public List<Vector3> Building(Vector3 pos, float yaw, Vector2 size, int floors, Material wall, Color tint, Material floorMat, Material trim, int doorSide = 0, bool windows = true, bool roofAccess = false, float floorH = 3.2f, int vaultSide = -1, bool desk = true)
         {
             var interior = new List<Vector3>();
+            var wins = new List<(Vector3 at, Vector3 outward, Vector3 along)>();   // window centres (sill height) for the outside details
             Quaternion q = Quaternion.Euler(0, yaw, 0);
             float hx = size.x * 0.5f, hz = size.y * 0.5f, t = 0.25f;
             Vector3 P(float x, float y, float z) => pos + q * new Vector3(x, y, z);
@@ -272,6 +273,8 @@ namespace Rago
                             float c = (w + 0.5f) * len / nw;
                             if (ops.Count > 0 && Mathf.Abs(c - ops[0].x) < 1.8f && f == 0) continue;
                             ops.Add(new Vector4(c, 1.2f, 1.0f, 2.1f));   // (the old windows: a 30 cm sill made them look like doorways and swing doors were put in them)
+                            var dl = (b - a) / len;
+                            wins.Add((P(a.x + dl.x * c, y + 1.0f, a.z + dl.z * c), q * Vector3.Cross(Vector3.up, dl), q * dl));
                         }
                     }
                     bool keep = NoSwingDoors;
@@ -354,7 +357,69 @@ namespace Rago
             Wall(P(-hx, top, hz), P(-hx, top, -hz), 0.9f, 0.2f, wall, tint * 0.9f);
             // base trim
             Box(P(0, 0.15f, 0), new Vector3(size.x + 0.08f, 0.3f, size.y + 0.08f), trim, Color.white * 0.8f, q, false);
+            Weather(pos, q, size, floors, floorH, top, roofAccess, wins, doorSide);
             return interior;
+        }
+
+        /// <summary>The lived-in, run-down outside of a building (3.44): sills and lintels on every window, a grime streak
+        /// under each, some windows boarded up, a drainpipe down a corner, air-con units, vents and an antenna on the roof,
+        /// and rubble at the foot of the walls. Visual only except the roof units (you can stand on a roof).</summary>
+        void Weather(Vector3 pos, Quaternion q, Vector2 size, int floors, float floorH, float top, bool roofAccess, List<(Vector3 at, Vector3 outward, Vector3 along)> wins, int doorSide)
+        {
+            float hx = size.x * 0.5f, hz = size.y * 0.5f;
+            var R = new Rng(Mathf.RoundToInt(pos.x * 131f + pos.z * 71f + pos.y * 17f) + floors * 7 + 99);   // its own dice: the map's layout (crate spots and all) stays exactly as it was
+            Vector3 P(float x, float y, float z) => pos + q * new Vector3(x, y, z);
+            var sill = Mats.Lit("bld_sill", new Color(0.7f, 0.69f, 0.66f), 0f, 0.25f, Mats.Concrete, null, 0.6f, 0.2f, true, 1f);
+            var grime = Mats.Lit("bld_grime2", new Color(0.32f, 0.3f, 0.27f), 0f, 0.2f);
+            var plank = Mats.Lit("bld_plank", new Color(0.48f, 0.38f, 0.26f), 0f, 0.25f, Mats.Wood, Mats.WoodN, 0.6f, 0.3f, true, 1.5f);
+            var metal = Mats.Lit("bld_metal", new Color(0.62f, 0.63f, 0.64f), 0.5f, 0.4f, Mats.Grunge, null, 0.6f, 0.4f, true, 1.5f);
+            var dark = Mats.Lit("bld_dark", new Color(0.08f, 0.08f, 0.08f), 0.3f, 0.3f);
+            foreach (var (at, o, al) in wins)
+            {
+                var r = Quaternion.LookRotation(o, Vector3.up);
+                Box(at + o * 0.2f + Vector3.down * 0.03f, new Vector3(1.4f, 0.06f, 0.16f), sill, Color.white, r, false);                       // sill
+                Box(at + o * 0.15f + Vector3.up * 1.16f, new Vector3(1.4f, 0.12f, 0.06f), sill, Color.white, r, false);                        // lintel
+                if (R.Value < 0.6f) { float gh = R.Range(0.5f, 1.0f); Box(at + o * 0.128f + Vector3.down * (0.06f + gh * 0.5f), new Vector3(R.Range(0.2f, 0.45f), gh, 0.004f), grime, Color.white, r, false); }   // a streak running down from the sill
+                if (R.Value < 0.2f)   // boarded up
+                    for (int k = 0; k < 3; k++)
+                        Box(at + o * 0.15f + Vector3.up * (0.2f + k * 0.35f), new Vector3(1.35f, 0.15f, 0.03f), plank, new Color(0.9f + R.Range(0f, 0.15f), 0.9f, 0.85f), r * Quaternion.Euler(0, 0, R.Range(-8f, 8f)), false);
+            }
+            // a drainpipe down a back corner, with brackets
+            var dp = P(hx + 0.12f, 0, hz + 0.12f);
+            Cyl(dp + Vector3.up * 0.15f, dp + Vector3.up * (top + 0.05f), 0.055f, 0.055f, 8, metal, Color.white, false);
+            for (float yy = 1f; yy < top; yy += 1.6f) Box(dp + Vector3.up * yy, new Vector3(0.16f, 0.04f, 0.16f), metal, new Color(0.7f, 0.7f, 0.7f), q, false);
+            // roof: air-con units, vent pipes, sometimes an antenna mast (kept clear of the stair hole at +x)
+            float roofY = top + 0.125f;
+            int units = 1 + Mathf.FloorToInt(size.x * size.y / 70f);
+            for (int u = 0; u < units; u++)
+            {
+                float x = R.Range(-hx + 1.2f, hx - 3.2f), z = R.Range(-hz + 1.2f, hz - 1.2f);
+                var c = P(x, roofY, z);
+                Box(c + Vector3.up * 0.35f, new Vector3(1.0f, 0.7f, 0.8f), metal, new Color(0.85f, 0.86f, 0.84f), q, true, Synth.Surface.Metal);
+                Cyl(c + Vector3.up * 0.7f, c + Vector3.up * 0.72f, 0.3f, 0.3f, 14, dark, Color.white, false);                                // fan grille
+                for (int k = -2; k <= 2; k++) Box(c + Vector3.up * 0.725f + q * new Vector3(k * 0.1f, 0, 0), new Vector3(0.015f, 0.01f, 0.58f), metal, Color.white, q, false);
+            }
+            for (int v = 0; v < 2; v++)
+            {
+                var c = P(R.Range(-hx + 0.8f, hx - 3f), roofY, R.Range(-hz + 0.8f, hz - 0.8f));
+                Cyl(c, c + Vector3.up * 0.6f, 0.08f, 0.08f, 8, metal, Color.white, false);
+                Cyl(c + Vector3.up * 0.6f, c + Vector3.up * 0.68f, 0.12f, 0.1f, 8, metal, new Color(0.6f, 0.6f, 0.6f), false);   // rain cap
+            }
+            if (R.Value < 0.4f)
+            {
+                var c = P(-hx + 0.8f, roofY, -hz + 0.8f);
+                Cyl(c, c + Vector3.up * 3.2f, 0.03f, 0.02f, 6, metal, Color.white, false);
+                for (int k = 0; k < 3; k++) Box(c + Vector3.up * (2.2f + k * 0.35f), new Vector3(0.8f - k * 0.2f, 0.02f, 0.02f), metal, Color.white, q, false);
+            }
+            // rubble along the walls (not in front of the door)
+            var rubble = Mats.Lit("bld_rubble", new Color(0.55f, 0.53f, 0.5f), 0f, 0.2f, Mats.Concrete, null, 0.6f, 0.2f, true, 2f);
+            for (int k = 0; k < 4; k++)
+            {
+                int side = R.Range(0, 4); if (side == doorSide) continue;
+                float tt = R.Range(-0.4f, 0.4f);
+                Vector3 l = side == 0 ? new Vector3(tt * size.x, 0, -hz - 0.4f) : side == 2 ? new Vector3(tt * size.x, 0, hz + 0.4f) : side == 1 ? new Vector3(hx + 0.4f, 0, tt * size.y) : new Vector3(-hx - 0.4f, 0, tt * size.y);
+                for (int j = 0; j < 4; j++) { float sz = R.Range(0.06f, 0.18f); Box(P(l.x + R.Range(-0.3f, 0.3f), sz * 0.4f, l.z + R.Range(-0.3f, 0.3f)), new Vector3(sz, sz * 0.7f, sz), rubble, Color.white, Quaternion.Euler(R.Range(0f, 40f), R.Range(0f, 180f), R.Range(0f, 40f)), false); }
+            }
         }
 
         // =========================================================================== free-spot checks for scattered props
