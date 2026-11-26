@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.41", "Streamer and sponsor items, round 2", new[] {
+                "PEANUT8 now holds a game controller (sticks, coloured buttons and a light bar). SHUSHED carries a chunky mini machine gun with gold rings round the barrel.",
+                "Both figurines' display bases have a glowing LED ring.",
+                "OWAYS CEREAL: the top is torn open - flaps folded back and the box heaped with rainbow rings.",
+                "DUBBY cans are ice-cold: condensation drops all over them, a proper ring-pull with its rivet and the scored opening.",
+            }),
             ("3.40", "New menu look", new[] {
                 "MENUS look much better: the menu and the terminals are now rugged field tablets - a chunky case with rubber corner bumpers and grip ridges around a dark glass screen, amber corner brackets and an accent line.",
                 "BUTTONS are proper keys now: each sits in a dark bezel with a coloured notch down its edge, and presses in when you click it.",
