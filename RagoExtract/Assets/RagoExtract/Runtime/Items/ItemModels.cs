@@ -41,7 +41,7 @@ namespace Rago
         public static (string text, Vector3 at, float size, Color col)[] Labels(SimpleDef d)
         {
             if (d == null || d.kind != ItemKind.Valuable) return null;
-            if (d.shape == 35) return new[] { ("OWAYS", new Vector3(0, 0.072f, 0.0272f), 0.011f, Color.white), ("CEREAL", new Vector3(0, 0.05f, 0.0272f), 0.0055f, new Color(1f, 0.85f, 0.3f)), ("crunchy  rings", new Vector3(-0.012f, 0.022f, 0.0262f), 0.0035f, Color.white), ("LIVE", new Vector3(0.046f, 0.008f, 0.0275f), 0.0045f, Color.white) };
+            if (d.shape == 35) return new[] { ("OWAYS", new Vector3(0, 0.076f, 0.0272f), 0.024f, Color.white), ("CEREAL", new Vector3(0, 0.051f, 0.0272f), 0.012f, new Color(1f, 0.85f, 0.3f)), ("crunchy rings", new Vector3(-0.012f, 0.026f, 0.0262f), 0.0075f, Color.white), ("LIVE", new Vector3(0.046f, 0.008f, 0.0275f), 0.008f, Color.white) };   // big enough to read from arm's length
             return null;
         }
 

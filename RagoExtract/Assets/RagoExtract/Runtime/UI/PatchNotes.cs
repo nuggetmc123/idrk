@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.30", "Readable cereal box", new[] {
+                "OWAYS CEREAL: the writing on the box is about twice as big - OWAYS fills the blue band, CEREAL, \"crunchy rings\" and the LIVE sticker are easy to read.",
+            }),
             ("3.29", "Recording keeps going, fixed knives", new[] {
                 "RECORDING keeps going when the camera leaves you: take it off or hand it to someone and it carries on filming from the camera itself - in their hand, on their helmet, vest or gun - until YOU die (or the raid ends). Put it back on and it films from you again; the record button on it stops it.",
                 "Fixed the knife models: the handle was built on the wrong side of the guard (over the blade) with the grip rings / rivets and the pommel floating on their own - now it's one proper knife.",
