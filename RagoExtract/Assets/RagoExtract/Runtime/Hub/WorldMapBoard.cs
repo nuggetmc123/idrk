@@ -81,7 +81,7 @@ namespace Rago
         WorldButton _deploy; bool _deployQueued;
 
         /// <summary>The map's boss (each turns up in about 1 raid in 4 with heavy guards - every raid during BOSS HUNT).</summary>
-        static string BossOf(string id) => id == "dockyard" ? "THE HARBORMASTER" : id == "pinewood" ? "THE WARDEN" : id == "oldtown" ? "THE BANKER" : id == "underground" ? "DOCTOR KESSLER" : id == "northpole" ? "EVIL SANTA" : "-";
+        static string BossOf(string id) => id == "dockyard" ? "THE HARBORMASTER" : id == "underground" ? "DOCTOR KESSLER" : id == "northpole" ? "-" : "THE COURIER (air drops)";   // only three bosses now
 
         static string Facts(string id)
         {
@@ -91,7 +91,7 @@ namespace Rago
                 case "pinewood": return "Thick pine forest round a military outpost\nCabins and camps in the woods\nVAULT: the outpost bunker\nFog rolls in some raids";
                 case "oldtown": return "An abandoned town at dawn\nStreets, apartments and shops to search\nVAULT: the old bank\nVillages and farms on the outskirts";
                 case "underground": return "A sealed research sector, 3 floors down\nTight corridors and dark rooms\nTWO VAULTS - and the power cuts out\nSounds barely carry between floors";
-                case "northpole": return "Santa's village, overrun by evil elves\nEvil Santa drops the Christmas keycard\nVAULT: the Giant Present\nPresents everywhere";
+                case "northpole": return "Santa's village, overrun by evil elves\nChristmas keycards hide in the presents\nVAULT: the Giant Present\nPresents everywhere";
                 default: return Maps.Blurb(id);
             }
         }

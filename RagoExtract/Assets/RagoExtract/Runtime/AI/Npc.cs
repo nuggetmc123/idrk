@@ -107,8 +107,13 @@ namespace Rago
             // real, droppable armour: heavies always wear a helmet + vest, regular raiders sometimes
             var ar = new Rng(seed * 31 + 5);
             if (boss != null) { BossKit(boss, out var bg, out var bh, out var bv); n.Helmet = Db.Get<ArmorDef>(bh); n.Vest = Db.Get<ArmorDef>(bv); }
-            else if (heavy) { n.Helmet = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "helm_fast" : "helm_ballistic"); n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_heavy" : "vest_carrier"); }
-            else { if (ar.Chance(0.2f)) n.Helmet = Db.Get<ArmorDef>("helm_bump"); if (ar.Chance(0.3f)) n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_carrier" : "vest_soft"); }
+            else if (heavy)   // heavies: T2-T4 (a T4 now and then)
+            {
+                float h = ar.Value, v = ar.Value;
+                n.Helmet = Db.Get<ArmorDef>(h < 0.15f ? "helm_ronin" : h < 0.5f ? "helm_fast" : "helm_ballistic");
+                n.Vest = Db.Get<ArmorDef>(v < 0.15f ? "vest_heavy" : v < 0.5f ? "vest_ranger" : "vest_carrier");
+            }
+            else { if (ar.Chance(0.25f)) n.Helmet = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "helm_ballistic" : "helm_bump"); if (ar.Chance(0.35f)) n.Vest = Db.Get<ArmorDef>(ar.Chance(0.3f) ? "vest_carrier" : "vest_soft"); }   // raiders: T1-T2
             ArmorBuilder.Dress(n.Rig, n.Helmet, n.Vest, null, false);
             n.Rig.root.SetLayerRecursive(Layers.Npc);
             string[] common = { "vostok74", "vostokm", "vanguard", "kestrel", "breacher", "wasp", "comrade", "bandit", "p9", "nomad", "falcon10", "harvester", "vostoksu" };
@@ -196,7 +201,7 @@ namespace Rago
             else if (b.Contains("banker")) { gun = "boss_parachute"; helmet = "boss_helm_banker"; vest = "boss_vest_banker"; }
             else if (b.Contains("courier")) { gun = "boss_tommy"; helmet = "boss_helm_courier"; vest = "boss_vest_courier"; }
             else if (b.Contains("santa")) { gun = "hailstorm"; helmet = null; vest = "vest_heavy"; }   // his hat stays on
-            else { gun = "grizzly"; helmet = "helm_fast"; vest = "vest_heavy"; }
+            else { gun = "grizzly"; helmet = "helm_ronin"; vest = "vest_heavy"; }
         }
 
         bool AgentOk => Agent != null && Agent.enabled && Agent.isOnNavMesh;

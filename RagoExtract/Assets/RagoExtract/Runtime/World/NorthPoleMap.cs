@@ -86,7 +86,6 @@ namespace Rago
             pts.AddRange(b.Building(house, 180, new Vector2(18, 14), 2, Maps.WoodPlank, new Color(0.55f, 0.1f, 0.08f), Maps.WoodPlank, Maps.WoodPlank, 0, true, false));
             b.Sign(house + new Vector3(0, 7.2f, 7.4f), Quaternion.Euler(0, 180, 0), "SANTA'S HOUSE", new Color(1f, 0.9f, 0.6f), 0.45f);
             b.Cyl(house + new Vector3(5, 6.4f, 2), house + new Vector3(5, 9.5f, 2), 0.6f, 0.6f, 10, Maps.Brick, new Color(0.6f, 0.35f, 0.3f));
-            Boss(house + new Vector3(0, 0.2f, 0), "Evil Santa", 0.05f);   // rare: 1 raid in 20
             Sleigh(house + new Vector3(-12, 0, -4), 20f);
 
             // ---- igloos, snowmen, ice blocks and more presents scattered about

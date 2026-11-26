@@ -100,6 +100,7 @@ namespace Rago
         public ArmorSlot slot;
         public float protection;  // fraction of damage stopped (0..1)
         public int style;         // visual variant
+        public int tier;          // T1..T6 (0 = boss armour, which keeps its own look)
         public Color color, trim;
 
         /// <summary>Armour class 1..6 (from how protective it is): soft vest ~1.5, plate carrier 3, heavy 4, assault 5, juggernaut 6.5.</summary>
@@ -345,12 +346,12 @@ namespace Rago
             lancet.suppressed = true;
             var anchor = G("boss_anchor", "Harbormaster's Anchor", GunClass.Shotgun, GunStyle.BoxShotgun, FireAction.Auto, Caliber.C12g, 16, 360, 20, 1.4f, 3.6f, Rarity.Boss, 20000, true, Finish.Gray, Finish.Wood, 0.46f, "Boss-only (The Harbormaster, Dockyard). Full-auto drum shotgun with a wooden deck stock.");
             anchor.drum = true;
-            G("boss_longbow", "Warden's Longbow", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C338, 135, 55, 5, 1.8f, 0.05f, Rarity.Boss, 24000, true, Finish.Od, Finish.Wood, 0.78f, "Boss-only (The Warden, Pinewood). Hand-built .338 that never misses.");
+            G("boss_longbow", "Warden's Longbow", GunClass.Sniper, GunStyle.Bolt, FireAction.Bolt, Caliber.C338, 135, 55, 5, 1.8f, 0.05f, Rarity.Vault, 24000, true, Finish.Od, Finish.Wood, 0.78f, "Vault find (The Warden is gone). Hand-built .338 that never misses.");
             // the Thompson: the air-drop boss's gun - one of the best guns in the game. Hits like a rifle at SMG speed,
             // 100-round drum, very accurate for a sub-gun
             var tommy = G("boss_tommy", "Chicago Typewriter", GunClass.SMG, GunStyle.Tommy, FireAction.Auto, Caliber.C45, 44, 800, 100, 0.42f, 0.55f, Rarity.Boss, 30000, true, Finish.Black, Finish.Wood, 0.3f, "Boss-only (The Courier, from the air drop). A .45 Thompson with a finned barrel, Cutts compensator and a 100-round drum. One of the best guns there is.");
             tommy.drum = true;
-            G("boss_parachute", "Golden Parachute", GunClass.Rifle, GunStyle.Bullpup, FireAction.Auto, Caliber.C762, 46, 750, 30, 0.55f, 0.6f, Rarity.Boss, 26000, true, Finish.Gold, Finish.Black, 0.48f, "Boss-only (The Banker, Old Town). Gold-plated 7.62 bullpup.");
+            G("boss_parachute", "Golden Parachute", GunClass.Rifle, GunStyle.Bullpup, FireAction.Auto, Caliber.C762, 46, 750, 30, 0.55f, 0.6f, Rarity.Vault, 26000, true, Finish.Gold, Finish.Black, 0.48f, "Vault find (The Banker is gone). Gold-plated 7.62 bullpup.");
 
             // ---------------- LMGs (4)
             var lan = G("lancer", "Lancer RPK", GunClass.LMG, GunStyle.AK, FireAction.Auto, Caliber.C545, 31, 600, 75, 0.6f, 1.4f, U, 6200, true, Finish.Black, Finish.Wood, 0.59f, "Squad support AK with a 75-round drum.");
@@ -494,15 +495,18 @@ namespace Rago
             // ---------------- KEYS
             // ---------------- ARMOR (nobody starts with it: find it in raids)
             var olive = new Color(0.33f, 0.36f, 0.26f); var tan = new Color(0.62f, 0.54f, 0.4f); var blk = new Color(0.13f, 0.13f, 0.14f); var gray = new Color(0.36f, 0.38f, 0.38f); var gold = new Color(0.85f, 0.65f, 0.2f);
-            A("helm_bump", "Bump Helmet", ArmorSlot.Helmet, 0.15f, 0, C, 400, tan, blk, "Light shell. Stops fragments and a little more.");
-            A("helm_ballistic", "Ballistic Helmet", ArmorSlot.Helmet, 0.28f, 1, U, 1300, olive, blk, "Standard combat helmet with ear protection.");
-            A("helm_fast", "FAST Rail Helmet", ArmorSlot.Helmet, 0.38f, 2, R, 3200, blk, gray, "High-cut helmet with rails and an NVG mount.");
-            A("helm_visor", "Assault Visor Helmet", ArmorSlot.Helmet, 0.5f, 3, E, 6500, gray, blk, "Heavy helmet with a ballistic face visor.");
-            A("helm_jugg", "Juggernaut Helmet", ArmorSlot.Helmet, 0.62f, 4, V, 15000, blk, gold, "Vault-only. Full-face heavy armor.");
-            A("vest_soft", "Soft Armor Vest", ArmorSlot.Vest, 0.15f, 0, C, 500, olive, blk, "Concealable soft armor.");
-            A("vest_carrier", "Plate Carrier", ArmorSlot.Vest, 0.3f, 1, U, 1800, tan, olive, "Front and back plates with mag pouches.");
-            A("vest_heavy", "Heavy Plate Carrier", ArmorSlot.Vest, 0.42f, 2, R, 4200, olive, blk, "Thicker plates and shoulder protection.");
-            A("vest_assault", "Assault Armor Rig", ArmorSlot.Vest, 0.52f, 3, E, 8000, blk, gray, "Full torso coverage with a groin flap.");
+            // six tiers each: T1 stops fragments and pistol rounds sometimes ... T6 shrugs off most rifle fire (vault-only)
+            T(1, "helm_bump", "T1 Scout Bump Helmet", ArmorSlot.Helmet, C, 450, tan, blk, "Tier 1. A light vented shell. Stops fragments and the odd pistol round.");
+            T(2, "helm_ballistic", "T2 Patrol Helmet", ArmorSlot.Helmet, U, 1400, olive, blk, "Tier 2. A full-cut covered helmet with goggles and ear protection. Stops most pistol rounds.");
+            T(3, "helm_fast", "T3 Raptor High-Cut", ArmorSlot.Helmet, R, 3400, blk, gray, "Tier 3. High-cut with rails, comms, a helmet light and an NVG mount. Stops pistols and buckshot.");
+            T(4, "helm_ronin", "T4 Ronin Mandible Helmet", ArmorSlot.Helmet, R, 5800, gray, blk, "Tier 4. High-cut with armoured ear plates and a bolted jaw guard. Stops most rifle rounds some of the time.");
+            T(5, "helm_visor", "T5 Vanguard Visor Helmet", ArmorSlot.Helmet, E, 9000, new Color(0.24f, 0.27f, 0.22f), blk, "Tier 5. A heavy full-cut helmet with a wide ballistic face visor.");
+            T(6, "helm_jugg", "T6 Titan Juggernaut Helm", ArmorSlot.Helmet, V, 16000, blk, gold, "Tier 6 - vault-only. A full-face helm with a glowing eye slit. Only the heaviest rounds get through.");
+            T(1, "vest_soft", "T1 Soft Shell Vest", ArmorSlot.Vest, C, 550, olive, blk, "Tier 1. Concealable quilted soft armour.");
+            T(2, "vest_carrier", "T2 Light Plate Carrier", ArmorSlot.Vest, U, 1900, tan, olive, "Tier 2. A slick plate carrier with three low-profile mag pouches.");
+            T(3, "vest_ranger", "T3 Ranger Chest Rig", ArmorSlot.Vest, R, 3600, new Color(0.42f, 0.4f, 0.3f), olive, "Tier 3. Plates under a full chest rig: four rifle mags, pistol mags, a radio and a tourniquet.");
+            T(4, "vest_heavy", "T4 Heavy Plate Carrier", ArmorSlot.Vest, R, 6000, olive, blk, "Tier 4. Thick plates, side plates, shoulder armour and a collar.");
+            T(5, "vest_assault", "T5 Assault Armor", ArmorSlot.Vest, E, 9800, blk, gray, "Tier 5. Full torso coverage: groin flap, layered shoulder armour and a throat guard.");
             // boss-only armour (worn by the map bosses, dropped when they die)
             A("boss_helm_courier", "Courier's Steel Pot", ArmorSlot.Helmet, 0.55f, 1, Rarity.Boss, 14000, new Color(0.16f, 0.16f, 0.18f), new Color(0.45f, 0.08f, 0.08f), "Boss-only (The Courier, air drops). Charcoal steel helmet with a red band.");
             A("boss_vest_courier", "Courier's Drop Rig", ArmorSlot.Vest, 0.6f, 3, Rarity.Boss, 17000, new Color(0.16f, 0.16f, 0.18f), new Color(0.45f, 0.08f, 0.08f), "Boss-only (The Courier, air drops). Heavy charcoal plate carrier.");
@@ -510,11 +514,11 @@ namespace Rago
             A("boss_vest_kessler", "Kessler's Lab Plate", ArmorSlot.Vest, 0.58f, 3, Rarity.Boss, 16000, new Color(0.85f, 0.86f, 0.84f), new Color(0.75f, 0.12f, 0.1f), "Boss-only. White full-torso plates.");
             A("boss_helm_harbor", "Harbormaster's Dive Helm", ArmorSlot.Helmet, 0.6f, 4, Rarity.Boss, 15000, new Color(0.62f, 0.3f, 0.12f), new Color(0.8f, 0.62f, 0.3f), "Boss-only. A rust-orange full-face helm with brass trim.");
             A("boss_vest_harbor", "Harbormaster's Deck Armor", ArmorSlot.Vest, 0.55f, 2, Rarity.Boss, 15000, new Color(0.7f, 0.32f, 0.1f), new Color(0.15f, 0.15f, 0.16f), "Boss-only. Heavy orange plates and shoulder guards.");
-            A("boss_helm_warden", "Warden's Ranger Helmet", ArmorSlot.Helmet, 0.5f, 1, Rarity.Boss, 12000, new Color(0.2f, 0.3f, 0.16f), new Color(0.38f, 0.28f, 0.16f), "Boss-only. Forest-green helmet with ear protection.");
-            A("boss_vest_warden", "Warden's Field Rig", ArmorSlot.Vest, 0.55f, 1, Rarity.Boss, 13000, new Color(0.2f, 0.3f, 0.16f), new Color(0.38f, 0.28f, 0.16f), "Boss-only. Green plate carrier, light and quiet.");
-            A("boss_helm_banker", "Banker's Gilded Helmet", ArmorSlot.Helmet, 0.55f, 2, Rarity.Boss, 16000, new Color(0.1f, 0.1f, 0.11f), new Color(0.9f, 0.7f, 0.2f), "Boss-only. Black high-cut helmet with gold rails.");
-            A("boss_vest_banker", "Banker's Gold Plate", ArmorSlot.Vest, 0.6f, 3, Rarity.Boss, 20000, new Color(0.88f, 0.68f, 0.22f), new Color(0.1f, 0.1f, 0.11f), "Boss-only. Gold-plated assault armour. Very subtle.");
-            A("vest_jugg", "Juggernaut Armor", ArmorSlot.Vest, 0.65f, 4, V, 18000, blk, gold, "Vault-only. Walk through gunfire.");
+            A("boss_helm_warden", "Warden's Ranger Helmet", ArmorSlot.Helmet, 0.5f, 1, V, 12000, new Color(0.2f, 0.3f, 0.16f), new Color(0.38f, 0.28f, 0.16f), "Vault find (The Warden is gone). Forest-green helmet with ear protection.");
+            A("boss_vest_warden", "Warden's Field Rig", ArmorSlot.Vest, 0.55f, 1, V, 13000, new Color(0.2f, 0.3f, 0.16f), new Color(0.38f, 0.28f, 0.16f), "Vault find (The Warden is gone). Green plate carrier, light and quiet.");
+            A("boss_helm_banker", "Banker's Gilded Helmet", ArmorSlot.Helmet, 0.55f, 2, V, 16000, new Color(0.1f, 0.1f, 0.11f), new Color(0.9f, 0.7f, 0.2f), "Vault find (The Banker is gone). Black high-cut helmet with gold rails.");
+            A("boss_vest_banker", "Banker's Gold Plate", ArmorSlot.Vest, 0.6f, 3, V, 20000, new Color(0.88f, 0.68f, 0.22f), new Color(0.1f, 0.1f, 0.11f), "Vault find (The Banker is gone). Gold-plated assault armour. Very subtle.");
+            T(6, "vest_jugg", "T6 Titan Juggernaut Armor", ArmorSlot.Vest, V, 18000, blk, gold, "Tier 6 - vault-only. A massive layered shell with huge pauldrons. Walk through gunfire.");
 
             // ---------------- BACKPACKS (bigger = more loot out of the raid)
             P("pack_day", "Daypack", new Vector3(0.26f, 0.32f, 0.17f), 1, 0, C, 400, new Color(0.3f, 0.32f, 0.3f), "Small pack. Meds, junk and a pistol. One rifle strap.");
@@ -528,6 +532,13 @@ namespace Rago
             M("gift_santa", "Santa's Present", ItemKind.Valuable, V, 5000, 0, new Color(0.72f, 0.05f, 0.05f), "A big present. Hold the trigger to open it: a North Pole Keycard is inside, with vault-grade loot.");
             M("key_xmas", "North Pole Keycard", ItemKind.Key, V, 30000, 1, new Color(0.75f, 0.06f, 0.06f), "A big festive keycard. Opens the giant present vault on the North Pole - inside: the best loot in the game and four skins you can't get anywhere else. Only ever found inside Christmas presents - most often on the North Pole.");
             M("key_vault", "Vault Keycard", ItemKind.Key, E, 14000, 0, new Color(0.85f, 0.15f, 0.12f), "Opens any raid vault: hold it to the card reader by the vault door. Found in safes and lying around on desks.");
+        }
+
+        /// <summary>Tier armour: protection 0.15 (T1) up to 0.65 (T6) - armour class 1.5 .. 6.5 against the round's penetration.</summary>
+        static ArmorDef T(int tier, string id, string name, ArmorSlot slot, Rarity r, int price, Color col, Color trim, string desc)
+        {
+            var a = A(id, name, slot, 0.05f + tier * 0.1f, tier - 1, r, price, col, trim, desc);
+            a.tier = tier; return a;
         }
 
         static ArmorDef A(string id, string name, ArmorSlot slot, float prot, int style, Rarity r, int price, Color col, Color trim, string desc)

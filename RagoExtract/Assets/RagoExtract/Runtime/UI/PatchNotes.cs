@@ -5,6 +5,14 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.35", "Armour tiers T1-T6, three bosses", new[] {
+                "ARMOUR is now tiered T1 to T6, helmets and vests, and every tier has a brand-new model:",
+                "  T1 Scout Bump Helmet / Soft Shell Vest - T2 Patrol Helmet (camo cover, goggles) / Light Plate Carrier - T3 Raptor High-Cut (rails, comms, light, strobe) / Ranger Chest Rig - T4 Ronin Mandible Helmet (jaw guard, ear plates) / Heavy Plate Carrier - T5 Vanguard Visor Helmet / Assault Armor - T6 Titan Juggernaut Helm (glowing eye slit) / Titan Juggernaut Armor (vault-only).",
+                "Each tier stops more: T1 stops fragments and some pistol rounds, T3 stops pistols and buckshot, T5 stops most rifle rounds, T6 only lets the heaviest rounds through. AP ammo still punches a tier or two higher.",
+                "The armour you already own is kept and moved into its tier. Raiders wear T1-T2, heavies T2-T4.",
+                "Boss armour is unchanged.",
+                "Only THREE BOSSES now: THE COURIER (comes down with air drops), THE HARBORMASTER (Dockyard) and DOCTOR KESSLER (Underground). The Warden, The Banker and Evil Santa are gone - their armour and guns can now be found in vaults.",
+            }),
             ("3.34", "Streamer items remade, DUBBY FOCUS boost", new[] {
                 "DUBBY drinks give a FOCUS boost: lift the can to your mouth and pull the trigger (you hear the tab crack and the gulps). For 60 s you sprint faster, stamina refills twice as fast and your guns kick a third less. Plus full stamina and +10 HP. You get a message when FOCUS wears off.",
                 "PEANUT8 figurine remade: a smooth glossy peanut with the real shell pattern, big shiny eyes, a grin with teeth, a padded gaming headset with glowing purple ear cups and a mic, cartoon gloves (one waving), and sneakers.",

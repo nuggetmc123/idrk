@@ -19,7 +19,10 @@ namespace Rago
 
         // ================================================================================================ HELMETS
         /// <summary>Head-bone space: the shell is centred at (0, 0.105, 0), the face towards +z.</summary>
-        public static MB Helmet(ArmorDef d)
+        public static MB Helmet(ArmorDef d) => d.tier > 0 ? HelmetTier(d) : HelmetClassic(d);
+
+        /// <summary>The original helmet models - the boss helmets keep these.</summary>
+        static MB HelmetClassic(ArmorDef d)
         {
             var mb = new MB(4);
             Color c = Lin(d.color), t = Lin(d.trim), shade = Mul(c, 0.8f);
@@ -152,7 +155,10 @@ namespace Rago
 
         // ================================================================================================ VESTS
         /// <summary>Chest-bone space, the front towards +z. Panels front and back at z = ±0.12.</summary>
-        public static MB Vest(ArmorDef d)
+        public static MB Vest(ArmorDef d) => d.tier > 0 ? VestTier(d) : VestClassic(d);
+
+        /// <summary>The original vest models - the boss vests keep these.</summary>
+        static MB VestClassic(ArmorDef d)
         {
             var mb = new MB(4);
             Color c = Lin(d.color), c2 = Mul(c, 0.8f), t = Lin(d.trim), seam = Mul(c, 0.6f);
@@ -241,6 +247,283 @@ namespace Rago
                 for (int i = 0; i < 8; i++) { float x = -0.14f + i * 0.04f; mb.Sub(1).Sphere(new Vector3(x, 0.2f, 0.186f), Vector3.one * 0.005f, 6, t); mb.Sub(1).Sphere(new Vector3(x, -0.12f, 0.186f), Vector3.one * 0.005f, 6, t); }
             }
             mb.Sub(1).Box(new Vector3(0.1f, 0.15f, fz + 0.002f), new Vector3(0.04f, 0.035f, 0.004f), t, 0.002f);   // patch
+            return mb;
+        }
+
+        // ================================================================================================ TIER ARMOUR (T1-T6)
+        /// <summary>A curved band round the head (yaw th0..th1 degrees from the front, heights y0..y1, radius R(y)), both faces - mandibles, face plates, visors.</summary>
+        static void Band(MB mb, int sub, float th0, float th1, float y0, float y1, System.Func<float, float> R, float zOff, int nu, int nv, Color col)
+        {
+            for (int side = 0; side < 2; side++)
+            {
+                float inset = side == 0 ? 0f : -0.004f;
+                mb.Sub(sub).Patch(nu, nv, (u, v) =>
+                {
+                    float th = Mathf.Lerp(th0, th1, u / (float)nu) * Mathf.Deg2Rad, y = Mathf.Lerp(y0, y1, v / (float)nv), r = R(y) + inset;
+                    return new Vector3(Mathf.Sin(th) * r, y, Mathf.Cos(th) * r * 1.06f + zOff);
+                }, col, false, side == 0);
+            }
+        }
+
+        static void TierShell(MB mb, Vector3 o, Vector3 r, float cut, Color c, bool edge)
+        {
+            mb.Sub(0).Sphere(o, r, 26, c, 0f, cut);
+            if (edge)
+            {
+                // rubber edge trim following the rim
+                float rimY = Mathf.Cos(cut * Mathf.PI) * r.y, rimR = Mathf.Sin(cut * Mathf.PI);
+                mb.Sub(2).Push(o + new Vector3(0, rimY, 0), Quaternion.identity, new Vector3(1f, 1f, r.z / r.x));
+                mb.Sub(2).Tube(new Vector3(0, -0.005f, 0), new Vector3(0, 0.004f, 0), r.x * rimR + 0.003f, r.x * rimR - 0.006f, 28, Rubber);
+                mb.Pop();
+            }
+            mb.Sub(2).Sphere(o + Vector3.down * 0.004f, r * 0.9f, 16, Webbing, 0f, 0.5f);   // liner
+            foreach (var p in new[] { new Vector3(0, 0.07f, 0), new Vector3(0.06f, 0.04f, 0.05f), new Vector3(-0.06f, 0.04f, 0.05f), new Vector3(0.07f, 0.03f, -0.05f), new Vector3(-0.07f, 0.03f, -0.05f) })
+                mb.Sub(2).Sphere(o + p, new Vector3(0.028f, 0.012f, 0.028f), 8, Mul(Webbing, 0.8f));   // pads
+        }
+
+        static void ChinStrap(MB mb, float s)
+        {
+            foreach (float x in new[] { -1f, 1f })
+            {
+                mb.Sub(2).Box(new Vector3(x * 0.112f * s, 0.06f, 0.035f), new Vector3(0.004f, 0.06f, 0.014f), Webbing, 0.001f, 1, Quaternion.Euler(14f, 0, 0));
+                mb.Sub(2).Box(new Vector3(x * 0.112f * s, 0.06f, -0.03f), new Vector3(0.004f, 0.06f, 0.014f), Webbing, 0.001f, 1, Quaternion.Euler(-14f, 0, 0));
+            }
+            mb.Sub(1).Box(new Vector3(0.112f * s, 0.022f, 0.002f), new Vector3(0.008f, 0.018f, 0.024f), Black, 0.003f);
+        }
+
+        /// <summary>Tier helmets: 0 T1 scout bump, 1 T2 patrol (covered, goggles), 2 T3 raptor high-cut, 3 T4 ronin with mandible, 4 T5 vanguard visor, 5 T6 titan full-face.</summary>
+        static MB HelmetTier(ArmorDef d)
+        {
+            var mb = new MB(4);
+            Color c = Lin(d.color), t = Lin(d.trim), shade = Mul(c, 0.78f);
+            int st = Mathf.Clamp(d.style, 0, 5);
+            float s = st == 5 ? 1.1f : st == 4 ? 1.03f : st == 0 ? 0.96f : 1f;
+            Vector3 o = new Vector3(0, 0.105f, -0.002f), r = new Vector3(0.122f, 0.118f, 0.132f) * s;
+            switch (st)
+            {
+                case 0: // T1 SCOUT BUMP: a light vented shell, a two-tone ridge, a rear dial, a small shroud
+                    TierShell(mb, o, r, 0.5f, c, true);
+                    ChinStrap(mb, s);
+                    for (int row = 0; row < 2; row++)
+                        for (int i = -2; i <= 2; i++)
+                        {
+                            float a = i * 0.3f, el = 0.95f - row * 0.32f;
+                            Vector3 n = new Vector3(Mathf.Sin(a) * Mathf.Cos(el), Mathf.Sin(el), Mathf.Cos(a) * Mathf.Cos(el) * (row == 0 ? 0.25f : -0.6f)).normalized;
+                            mb.Sub(1).Sphere(o + Vector3.Scale(n, r) * 0.99f, new Vector3(0.011f, 0.004f, 0.02f), 8, Black);
+                        }
+                    for (int i = 0; i < 10; i++) { float a = Mathf.Lerp(0.25f, 2.6f, i / 9f); mb.Sub(1).Sphere(o + new Vector3(0, Mathf.Sin(a) * r.y, Mathf.Cos(a) * r.z) * 1.005f, new Vector3(0.012f, 0.006f, 0.014f), 8, t); }   // ridge
+                    Rails(mb, o, s, 0.05f, Dark);
+                    mb.Sub(1).Cyl(new Vector3(0, 0.07f, -0.126f * s), new Vector3(0, 0.07f, -0.14f * s), 0.016f, 0.015f, 14, Black);
+                    Shroud(mb, s, Dark);
+                    mb.Sub(2).Box(new Vector3(0.05f, 0.2f, -0.02f), new Vector3(0.04f, 0.004f, 0.03f), t, 0.001f, 1, Quaternion.Euler(-10f, 0, -20f));   // patch
+                    break;
+                case 1: // T2 PATROL: full cut with a flared brim, a cloth cover with camo blotches, a band holding goggles on the brow
+                {
+                    mb.Sub(0).Sphere(o, r, 26, c, 0f, 0.56f);
+                    mb.Sub(0).Push(o + Vector3.down * 0.004f, Quaternion.identity, new Vector3(1f, 1f, r.z / r.x));
+                    mb.Sub(0).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(r.x * 0.985f, 0.012f), new Vector2(r.x * 1.03f, -0.006f), new Vector2(r.x * 1.07f, -0.016f), new Vector2(r.x * 1.065f, -0.021f), new Vector2(r.x * 0.97f, -0.012f) }, 28, shade);
+                    mb.Pop();
+                    mb.Sub(2).Sphere(o + Vector3.down * 0.004f, r * 0.9f, 16, Webbing, 0f, 0.5f);
+                    ChinStrap(mb, s);
+                    var rnd = new System.Random(7);
+                    for (int i = 0; i < 22; i++)   // camo blotches on the cover
+                    {
+                        float a = (float)rnd.NextDouble() * Mathf.PI * 2f, el = 0.25f + (float)rnd.NextDouble() * 1.2f;
+                        Vector3 n = new Vector3(Mathf.Sin(a) * Mathf.Cos(el), Mathf.Sin(el), Mathf.Cos(a) * Mathf.Cos(el));
+                        mb.Sub(2).Sphere(o + Vector3.Scale(n, r) * 1.004f, new Vector3(0.022f, 0.022f, 0.022f) * (0.7f + (float)rnd.NextDouble() * 0.6f), 8, i % 2 == 0 ? Mul(c, 0.62f) : Lin(new Color(0.45f, 0.4f, 0.3f)));
+                    }
+                    mb.Sub(2).Push(o + Vector3.up * 0.032f, Quaternion.identity, new Vector3(1f, 1f, r.z / r.x));
+                    mb.Sub(2).Tube(new Vector3(0, -0.01f, 0), new Vector3(0, 0.01f, 0), r.x * 0.985f + 0.005f, r.x * 0.97f, 28, Black);   // band
+                    mb.Pop();
+                    foreach (float x in new[] { -1f, 1f })   // goggles resting on the brow
+                    {
+                        mb.Sub(1).Sphere(new Vector3(x * 0.034f, 0.152f, 0.118f), new Vector3(0.03f, 0.022f, 0.016f), 14, Rubber);
+                        mb.Sub(3).Sphere(new Vector3(x * 0.034f, 0.152f, 0.13f), new Vector3(0.025f, 0.018f, 0.008f), 14, Lin(new Color(0.55f, 0.45f, 0.2f)));
+                    }
+                    mb.Sub(1).Box(new Vector3(0, 0.15f, 0.132f), new Vector3(0.016f, 0.01f, 0.01f), Rubber, 0.003f);
+                    Ears(mb, s, false);
+                    break;
+                }
+                case 2: // T3 RAPTOR high-cut: ARC rails, NVG shroud, comms headset, velcro, counterweight battery, a helmet light and an IR strobe
+                    TierShell(mb, o, r, 0.47f, c, true);
+                    ChinStrap(mb, s);
+                    Ears(mb, s, true);
+                    Rails(mb, o, s, 0.03f, Dark);
+                    Shroud(mb, s, Dark);
+                    mb.Sub(2).Box(new Vector3(0, 0.218f, -0.03f), new Vector3(0.075f, 0.006f, 0.06f), t, 0.002f, 1, Quaternion.Euler(-12f, 0, 0));
+                    mb.Sub(2).Box(new Vector3(0, 0.15f, -0.125f), new Vector3(0.07f, 0.045f, 0.006f), t, 0.002f, 1, Quaternion.Euler(28f, 0, 0));
+                    mb.Sub(2).Box(new Vector3(0, 0.09f, -0.13f), new Vector3(0.1f, 0.05f, 0.03f), Mul(t, 0.8f), 0.01f, 2);   // counterweight
+                    mb.Sub(1).Box(new Vector3(0, 0.09f, -0.147f), new Vector3(0.05f, 0.012f, 0.002f), Black, 0f);
+                    foreach (float x in new[] { -1f, 1f }) mb.Sub(2).Capsule(new Vector3(x * 0.1f, 0.13f, 0.07f), new Vector3(x * 0.1f, 0.15f, -0.08f), 0.0025f, 5, Black);
+                    mb.Sub(1).Cyl(new Vector3(0.132f, 0.09f, 0.03f), new Vector3(0.132f, 0.09f, 0.085f), 0.011f, 0.012f, 14, Black);   // light
+                    mb.Sub(3).Cyl(new Vector3(0.132f, 0.09f, 0.085f), new Vector3(0.132f, 0.09f, 0.087f), 0.009f, 0.009f, 14, Color.white);
+                    mb.Sub(1).Box(new Vector3(0, 0.226f, -0.07f), new Vector3(0.02f, 0.012f, 0.028f), Black, 0.003f);   // strobe
+                    mb.Sub(3).Box(new Vector3(0, 0.234f, -0.07f), new Vector3(0.012f, 0.005f, 0.018f), new Color(0.3f, 1f, 0.5f), 0.002f);
+                    break;
+                case 3: // T4 RONIN: high-cut shell, armoured ear plates, a bolted mandible guarding the jaw, rails and comms
+                    TierShell(mb, o, r, 0.47f, c, true);
+                    ChinStrap(mb, s);
+                    Ears(mb, s, true);
+                    Rails(mb, o, s, 0.03f, Dark);
+                    Shroud(mb, s, Dark);
+                    foreach (float x in new[] { -1f, 1f })
+                    {
+                        mb.Sub(0).Box(new Vector3(x * 0.132f, 0.07f, 0.0f), new Vector3(0.02f, 0.085f, 0.1f), shade, 0.012f, 2);   // ear plates
+                        mb.Sub(1).Cyl(new Vector3(x * 0.142f, 0.05f, 0.04f), new Vector3(x * 0.146f, 0.05f, 0.04f), 0.008f, 0.008f, 10, t);   // mandible hinge bolts
+                    }
+                    Band(mb, 0, -72f, 72f, -0.02f, 0.045f, y => 0.12f - (0.045f - y) * 0.25f, 0.0f, 20, 4, c);   // the mandible
+                    for (int i = -2; i <= 2; i++) mb.Sub(1).Box(new Vector3(i * 0.016f, 0.012f, 0.128f - Mathf.Abs(i) * 0.004f), new Vector3(0.006f, 0.026f, 0.004f), Black, 0.001f);   // breathing slots
+                    mb.Sub(1).Box(new Vector3(0, 0.044f, 0.127f), new Vector3(0.18f, 0.006f, 0.006f), t, 0.002f);   // trim along its top edge
+                    break;
+                case 4: // T5 VANGUARD: a full-cut shell, a wide framed ballistic visor, brow guard, nape protector, strobe
+                    TierShell(mb, o, r, 0.55f, c, true);
+                    ChinStrap(mb, s);
+                    Ears(mb, s, true);
+                    Rails(mb, o, s, 0.03f, Dark);
+                    Band(mb, 3, -68f, 68f, 0.012f, 0.15f, y => Mathf.Sqrt(Mathf.Max(0f, 0.152f * 0.152f - (y - 0.085f) * (y - 0.085f))) - 0.002f, -0.012f, 22, 8, Lin(new Color(0.12f, 0.16f, 0.2f)));   // the visor, domed like the shell
+                    Band(mb, 1, -72f, 72f, 0.146f, 0.162f, y => 0.136f, -0.012f, 22, 1, t);   // its frame / brow guard
+                    Band(mb, 1, -68f, 68f, 0.006f, 0.013f, y => 0.133f, -0.012f, 22, 1, Rubber);   // bottom edge
+                    foreach (float x in new[] { -1f, 1f })
+                    {
+                        mb.Sub(1).Cyl(new Vector3(x * 0.125f, 0.13f, 0.06f), new Vector3(x * 0.14f, 0.13f, 0.06f), 0.015f, 0.014f, 14, t);
+                        mb.Sub(1).Cyl(new Vector3(x * 0.139f, 0.13f, 0.06f), new Vector3(x * 0.143f, 0.13f, 0.06f), 0.006f, 0.006f, 8, Steel);
+                    }
+                    Band(mb, 0, 120f, 240f, 0.005f, 0.05f, y => 0.125f + (0.05f - y) * 0.3f, 0.0f, 16, 3, shade);   // nape protector
+                    mb.Sub(1).Box(new Vector3(0, 0.236f, -0.06f), new Vector3(0.022f, 0.012f, 0.03f), Black, 0.003f);
+                    mb.Sub(3).Box(new Vector3(0, 0.244f, -0.06f), new Vector3(0.014f, 0.005f, 0.02f), new Color(0.3f, 0.9f, 1f), 0.002f);
+                    break;
+                default: // T6 TITAN: a huge full-face helm - face plate, glowing eye slit, breathing grille, crest, gold trim, rivets, a segmented neck guard
+                {
+                    TierShell(mb, o, r, 0.56f, c, false);
+                    Ears(mb, s, false);
+                    Band(mb, 0, -82f, 82f, -0.04f, 0.16f, y => Mathf.Sqrt(Mathf.Max(0f, 0.17f * 0.17f - (y - 0.065f) * (y - 0.065f))) - 0.012f, -0.008f, 24, 10, c);   // face plate, rounded
+                    Band(mb, 0, -55f, 55f, 0.075f, 0.094f, y => 0.162f, -0.008f, 18, 2, Lin(new Color(0.45f, 0.95f, 1f)));   // eye slit glow
+                    Band(mb, 1, -60f, 60f, 0.07f, 0.075f, y => 0.163f, -0.008f, 18, 1, t);
+                    Band(mb, 1, -60f, 60f, 0.094f, 0.099f, y => 0.163f, -0.008f, 18, 1, t);
+                    for (int row = 0; row < 3; row++) for (int i = -3; i <= 3; i++) mb.Sub(1).Box(new Vector3(i * 0.014f, -0.005f + row * 0.016f, 0.15f - Mathf.Abs(i) * 0.0035f), new Vector3(0.008f, 0.008f, 0.006f), Black, 0.002f);   // grille
+                    for (int i = 0; i < 12; i++)   // crest
+                    {
+                        float a0 = Mathf.Lerp(0.3f, 2.75f, i / 12f), a1 = Mathf.Lerp(0.3f, 2.75f, (i + 1) / 12f);
+                        mb.Sub(1).Capsule(o + new Vector3(0, Mathf.Sin(a0) * r.y, Mathf.Cos(a0) * r.z) * 1.02f, o + new Vector3(0, Mathf.Sin(a1) * r.y, Mathf.Cos(a1) * r.z) * 1.02f, 0.011f, 8, t);
+                    }
+                    for (int i = 0; i < 9; i++) { float th = Mathf.Lerp(-70f, 70f, i / 8f) * Mathf.Deg2Rad; mb.Sub(1).Sphere(new Vector3(Mathf.Sin(th) * 0.155f, 0.132f, Mathf.Cos(th) * 0.157f), Vector3.one * 0.0055f, 6, t); }   // rivets
+                    for (int k = 0; k < 3; k++) Band(mb, 0, 100f, 260f, -0.01f - k * 0.022f, 0.012f - k * 0.022f, y => 0.13f + k * 0.008f, 0.0f, 16, 2, k % 2 == 0 ? shade : c);   // neck guard
+                    break;
+                }
+            }
+            return mb;
+        }
+
+        /// <summary>Tier vests: 0 T1 soft shell, 1 T2 light carrier, 2 T3 ranger (chest rig), 3 T4 heavy, 4 T5 assault, 5 T6 titan.</summary>
+        static MB VestTier(ArmorDef d)
+        {
+            var mb = new MB(4);
+            Color c = Lin(d.color), c2 = Mul(c, 0.8f), t = Lin(d.trim), seam = Mul(c, 0.6f);
+            int st = Mathf.Clamp(d.style, 0, 5);
+            float thick = st == 0 ? 0.035f : st == 1 ? 0.05f : st <= 3 ? 0.062f : 0.072f;
+            float fz = 0.12f + thick * 0.5f;
+            // carrier panels, front and back; plates show as a raised shape (T2+)
+            mb.Sub(2).Box(new Vector3(0, 0.04f, 0.12f), new Vector3(0.3f, 0.32f, thick), c, 0.02f, 2);
+            mb.Sub(2).Box(new Vector3(0, 0.04f, -0.12f), new Vector3(0.3f, 0.32f, thick * 0.9f), c, 0.02f, 2);
+            foreach (float x in new[] { -1f, 1f })
+            {
+                // cummerbund + shoulder straps
+                mb.Sub(2).Box(new Vector3(x * 0.165f, 0.0f, 0), new Vector3(0.04f, st == 0 ? 0.1f : 0.15f, 0.2f), c2, 0.012f, 2);
+                mb.Sub(2).Box(new Vector3(x * 0.155f, 0.0f, 0.1f), new Vector3(0.03f, st == 0 ? 0.1f : 0.15f, 0.04f), c2, 0.01f, 1, Quaternion.Euler(0, x * 40f, 0));
+                mb.Sub(2).Box(new Vector3(x * 0.155f, 0.0f, -0.1f), new Vector3(0.03f, st == 0 ? 0.1f : 0.15f, 0.04f), c2, 0.01f, 1, Quaternion.Euler(0, x * -40f, 0));
+                mb.Sub(2).Box(new Vector3(x * 0.1f, 0.19f, 0), new Vector3(0.06f, 0.03f, 0.25f), c2, 0.012f, 2);
+                mb.Sub(1).Box(new Vector3(x * 0.1f, 0.16f, fz - 0.006f), new Vector3(0.036f, 0.022f, 0.01f), Black, 0.003f);
+            }
+            if (st == 0)
+            {
+                // T1 soft shell: quilting, elastic side straps, a zipped chest pocket, a name tape
+                for (int i = 0; i < 6; i++) mb.Sub(2).Box(new Vector3(0, -0.09f + i * 0.048f, fz + 0.0005f), new Vector3(0.27f, 0.002f, 0.002f), seam, 0f);
+                for (int i = 0; i < 4; i++) mb.Sub(2).Box(new Vector3(-0.1f + i * 0.067f, 0.04f, fz + 0.0005f), new Vector3(0.002f, 0.28f, 0.002f), seam, 0f);
+                foreach (float x in new[] { -1f, 1f }) for (int k = 0; k < 2; k++) mb.Sub(2).Box(new Vector3(x * 0.186f, -0.03f + k * 0.05f, 0), new Vector3(0.004f, 0.014f, 0.18f), Black, 0.001f);
+                mb.Sub(2).Box(new Vector3(-0.07f, 0.1f, fz + 0.008f), new Vector3(0.08f, 0.07f, 0.014f), c2, 0.008f, 2);
+                mb.Sub(1).Box(new Vector3(-0.07f, 0.133f, fz + 0.016f), new Vector3(0.07f, 0.003f, 0.002f), Black, 0f);
+                mb.Sub(2).Box(new Vector3(0.07f, 0.12f, fz + 0.002f), new Vector3(0.08f, 0.02f, 0.002f), t, 0.001f);
+                return mb;
+            }
+            // raised plate shapes front and back (T2+), with a trim-coloured edge on T5/T6
+            mb.Sub(0).Box(new Vector3(0, 0.05f, fz + 0.003f), new Vector3(0.25f, 0.28f, 0.008f), c2, 0.012f, 2);
+            mb.Sub(0).Box(new Vector3(0, 0.05f, -fz + 0.005f), new Vector3(0.25f, 0.28f, 0.008f), c2, 0.012f, 2);
+            // laser-cut MOLLE slots across the front
+            for (int row = 0; row < 3; row++) for (int k = 0; k < 6; k++) mb.Sub(1).Box(new Vector3(-0.088f + k * 0.035f, 0.0f + row * 0.03f, fz + 0.0075f), new Vector3(0.022f, 0.005f, 0.002f), Black, 0f);
+            mb.Sub(2).Capsule(new Vector3(-0.04f, 0.2f, -fz - 0.004f), new Vector3(0.04f, 0.2f, -fz - 0.004f), 0.01f, 8, Webbing);   // drag handle
+            if (st == 1)
+            {
+                // T2 light carrier: three low-profile elastic mag pouches, mag tops peeking out, a small placard patch
+                for (int i = 0; i < 3; i++)
+                {
+                    float x = -0.07f + i * 0.07f;
+                    mb.Sub(2).Box(new Vector3(x, -0.07f, fz + 0.014f), new Vector3(0.055f, 0.1f, 0.026f), Mul(c2, 0.9f), 0.008f, 2);
+                    for (int k = 0; k < 2; k++) mb.Sub(2).Box(new Vector3(x, -0.08f + k * 0.04f, fz + 0.0275f), new Vector3(0.056f, 0.008f, 0.002f), Black, 0f);
+                    mb.Sub(1).Box(new Vector3(x, -0.012f, fz + 0.012f), new Vector3(0.03f, 0.02f, 0.018f), Black, 0.002f);
+                }
+                mb.Sub(1).Box(new Vector3(0.08f, 0.14f, fz + 0.009f), new Vector3(0.05f, 0.032f, 0.004f), t, 0.002f);
+                return mb;
+            }
+            // T3+: a chest-rig placard: 4 rifle mag pouches with flaps, 2 pistol pouches, an admin pouch with a map light
+            for (int i = 0; i < 4; i++)
+            {
+                float x = -0.0975f + i * 0.065f;
+                mb.Sub(2).Box(new Vector3(x, -0.065f, fz + 0.02f), new Vector3(0.056f, 0.12f, 0.038f), c2, 0.012f, 2);
+                mb.Sub(2).Box(new Vector3(x, -0.008f, fz + 0.022f), new Vector3(0.06f, 0.02f, 0.042f), Mul(c2, 0.92f), 0.008f, 1, Quaternion.Euler(-8f, 0, 0));
+                mb.Sub(1).Box(new Vector3(x, -0.024f, fz + 0.044f), new Vector3(0.014f, 0.022f, 0.004f), Black, 0.002f);
+            }
+            foreach (float x in new[] { -0.035f, 0.035f }) { mb.Sub(2).Box(new Vector3(x, 0.05f, fz + 0.016f), new Vector3(0.03f, 0.06f, 0.026f), c2, 0.008f, 2); mb.Sub(1).Box(new Vector3(x, 0.083f, fz + 0.014f), new Vector3(0.022f, 0.012f, 0.016f), Black, 0.002f); }
+            mb.Sub(2).Box(new Vector3(0, 0.13f, fz + 0.012f), new Vector3(0.16f, 0.05f, 0.024f), c2, 0.01f, 2);
+            mb.Sub(1).Box(new Vector3(0, 0.148f, fz + 0.025f), new Vector3(0.15f, 0.004f, 0.003f), Black, 0f);
+            mb.Sub(2).Box(new Vector3(0, 0.125f, fz + 0.0245f), new Vector3(0.1f, 0.02f, 0.002f), t, 0.001f);
+            mb.Sub(1).Cyl(new Vector3(0.1f, 0.15f, fz + 0.006f), new Vector3(0.1f, 0.15f, fz + 0.026f), 0.009f, 0.01f, 10, Black);   // map light
+            mb.Sub(3).Cyl(new Vector3(0.1f, 0.15f, fz + 0.026f), new Vector3(0.1f, 0.15f, fz + 0.028f), 0.007f, 0.007f, 10, new Color(1f, 0.3f, 0.2f));
+            // radio pouch + antenna on the left, a tourniquet on the right, a hydration hose over the shoulder
+            mb.Sub(2).Box(new Vector3(-0.2f, -0.02f, -0.02f), new Vector3(0.035f, 0.11f, 0.06f), c2, 0.01f, 2);
+            mb.Sub(1).Box(new Vector3(-0.2f, 0.05f, -0.03f), new Vector3(0.02f, 0.03f, 0.03f), Black, 0.004f);
+            mb.Sub(1).Capsule(new Vector3(-0.2f, 0.06f, -0.03f), new Vector3(-0.21f, 0.2f, -0.06f), 0.003f, 6, Black);
+            mb.Sub(2).Box(new Vector3(0.2f, -0.02f, 0.02f), new Vector3(0.03f, 0.1f, 0.04f), c2, 0.01f, 2);
+            mb.Sub(1).Box(new Vector3(0.2f, 0.035f, 0.02f), new Vector3(0.02f, 0.02f, 0.03f), new Color(0.75f, 0.1f, 0.08f), 0.004f);
+            mb.Sub(1).Capsule(new Vector3(0.1f, 0.21f, -0.05f), new Vector3(0.11f, 0.2f, 0.08f), 0.005f, 6, Black);
+            mb.Sub(1).Capsule(new Vector3(0.11f, 0.2f, 0.08f), new Vector3(0.1f, 0.15f, fz + 0.004f), 0.005f, 6, Black);
+            if (st == 2) return mb;
+            // T4+: side plates, shoulder armour, a collar, grenade pouches, a dump pouch
+            foreach (float x in new[] { -1f, 1f })
+            {
+                mb.Sub(0).Box(new Vector3(x * 0.19f, 0.0f, 0), new Vector3(0.016f, 0.13f, 0.14f), c2, 0.008f, 2);
+                mb.Sub(0).Box(new Vector3(x * 0.2f, 0.17f, 0), new Vector3(0.1f, 0.04f, 0.16f), c, 0.015f, 2, Quaternion.Euler(0, 0, x * 25f));
+                for (int i = 0; i < 3; i++) mb.Sub(2).Box(new Vector3(x * (0.18f + i * 0.015f), 0.192f - i * 0.007f, 0), new Vector3(0.003f, 0.003f, 0.15f), seam, 0f, 1, Quaternion.Euler(0, 0, x * 25f));
+                mb.Sub(2).Sphere(new Vector3(x * 0.135f, -0.06f, fz + 0.012f), new Vector3(0.022f, 0.03f, 0.022f), 10, c2);   // grenade pouches
+            }
+            mb.Sub(0).Box(new Vector3(0, 0.22f, -0.04f), new Vector3(0.22f, 0.05f, 0.14f), c2, 0.02f, 2);   // collar
+            mb.Sub(2).Box(new Vector3(-0.12f, -0.14f, 0.1f), new Vector3(0.08f, 0.05f, 0.05f), c2, 0.015f, 2);   // dump pouch
+            if (st == 3) return mb;
+            // T5+: groin flap, layered deltoid armour, a throat guard, trim-edged plates, a hydration bladder on the back
+            mb.Sub(2).Box(new Vector3(0, -0.2f, 0.125f), new Vector3(0.16f, 0.14f, 0.03f), c, 0.012f, 2);
+            mb.Sub(1).Box(new Vector3(0, -0.13f, 0.142f), new Vector3(0.16f, 0.006f, 0.004f), t, 0.001f);
+            foreach (float x in new[] { -1f, 1f })
+                for (int k = 0; k < 2; k++) mb.Sub(0).Box(new Vector3(x * (0.235f + k * 0.012f), 0.13f - k * 0.04f, 0), new Vector3(0.08f, 0.04f, 0.15f - k * 0.02f), k == 0 ? c : c2, 0.014f, 2, Quaternion.Euler(0, 0, x * (40f + k * 15f)));
+            mb.Sub(0).Box(new Vector3(0, 0.215f, 0.11f), new Vector3(0.12f, 0.04f, 0.03f), c, 0.012f, 2, Quaternion.Euler(20f, 0, 0));   // throat guard
+            mb.Sub(1).Box(new Vector3(0, 0.195f, fz + 0.008f), new Vector3(0.25f, 0.006f, 0.004f), t, 0.001f);
+            mb.Sub(2).Box(new Vector3(0, 0.03f, -fz - 0.02f), new Vector3(0.18f, 0.26f, 0.035f), c2, 0.02f, 2);   // hydration bladder
+            if (st == 4) return mb;
+            // T6 TITAN: a massive layered shell over everything - chest plate, segmented belly, big pauldrons, a gorget, gold trim and rivets
+            mb.Sub(0).Box(new Vector3(0, 0.1f, 0.175f), new Vector3(0.33f, 0.22f, 0.035f), c, 0.03f, 3);
+            for (int k = 0; k < 3; k++) mb.Sub(0).Box(new Vector3(0, -0.04f - k * 0.045f, 0.17f - k * 0.006f), new Vector3(0.28f - k * 0.02f, 0.042f, 0.03f), k % 2 == 0 ? c2 : c, 0.014f, 2);
+            foreach (float x in new[] { -1f, 1f })
+            {
+                mb.Sub(0).Sphere(new Vector3(x * 0.205f, 0.16f, 0), new Vector3(0.1f, 0.075f, 0.12f), 18, c, 0f, 0.56f);
+                mb.Sub(0).Sphere(new Vector3(x * 0.222f, 0.118f, 0), new Vector3(0.092f, 0.055f, 0.11f), 16, c2, 0f, 0.56f);
+                mb.Sub(1).Push(new Vector3(x * 0.222f, 0.115f, 0), Quaternion.Euler(0, 0, x * -10f));
+                mb.Sub(1).Tube(new Vector3(0, -0.003f, 0), new Vector3(0, 0.003f, 0), 0.094f, 0.086f, 22, t);
+                mb.Pop();
+            }
+            mb.Sub(0).Tube(new Vector3(0, 0.2f, -0.01f), new Vector3(0, 0.245f, -0.01f), 0.13f, 0.085f, 24, c2);   // gorget
+            mb.Sub(1).Tube(new Vector3(0, 0.243f, -0.01f), new Vector3(0, 0.25f, -0.01f), 0.132f, 0.11f, 24, t);
+            foreach (float y in new[] { 0.205f, -0.005f }) mb.Sub(1).Box(new Vector3(0, y, 0.194f), new Vector3(0.31f, 0.012f, 0.008f), t, 0.003f);
+            for (int i = 0; i < 8; i++) { float x = -0.14f + i * 0.04f; mb.Sub(1).Sphere(new Vector3(x, 0.19f, 0.195f), Vector3.one * 0.005f, 6, t); mb.Sub(1).Sphere(new Vector3(x, 0.008f, 0.195f), Vector3.one * 0.005f, 6, t); }
+            mb.Sub(0).Box(new Vector3(0, 0.05f, -fz - 0.045f), new Vector3(0.3f, 0.3f, 0.025f), c, 0.025f, 3);   // back shell
+            mb.Sub(1).Box(new Vector3(0, 0.05f, -fz - 0.06f), new Vector3(0.02f, 0.26f, 0.012f), t, 0.004f);   // spine ridge
             return mb;
         }
 

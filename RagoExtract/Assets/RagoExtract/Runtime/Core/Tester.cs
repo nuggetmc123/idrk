@@ -50,7 +50,7 @@ namespace Rago
             RagoGame.I.Player.Toast("Spawned " + d.name);
         }
 
-        public static readonly string[] Bosses = { "Doctor Kessler", "The Harbormaster", "The Warden", "The Banker", "The Courier", "Evil Santa" };
+        public static readonly string[] Bosses = { "Doctor Kessler", "The Harbormaster", "The Courier" };   // the three bosses left
         public static string BossFor(int kind) => kind >= 2 && kind - 2 < Bosses.Length ? Bosses[kind - 2] : null;
 
         public static void SpawnNpcAt(int kind, Vector3 pos, float yaw)

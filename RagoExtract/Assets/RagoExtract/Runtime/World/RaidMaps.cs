@@ -16,7 +16,7 @@ namespace Rago
         public static string NameWithDifficulty(string id) => Name(id).ToUpper() + " - " + Difficulty(id);
         public static string Blurb(string id) => id == "dockyard" ? "Container yard at dusk. Warehouses, cranes and the Harbor Office vault."
             : id == "pinewood" ? "Foggy forest and a military outpost with a bunker vault."
-            : id == "northpole" ? "Santa's village, overrun by evil elves and Evil Santa. Presents everywhere - and the Giant Present vault."
+            : id == "northpole" ? "Santa's village, overrun by evil elves. Presents everywhere - and the Giant Present vault."
             : id == "underground" ? "A sealed underground research sector. Tight corridors, 6 operators max, squads of 2."
             : "Abandoned town at dawn. Streets, apartments and the old bank vault.";
 
@@ -294,7 +294,6 @@ namespace Rago
             var cb = b.Building(o + new Vector3(0, 0, 9), 0, new Vector2(12.5f, 8), 1, Maps.ConcreteDark, new Color(0.62f, 0.64f, 0.6f), Maps.Concrete, Maps.ConcreteDark, 0, false, false, 3.2f, 2);
             pts.AddRange(cb);
             AddVault(o + new Vector3(0, 0, 13f), 0, true, Maps.ConcreteDark, new Color(0.62f, 0.64f, 0.6f), 3.2f, true, 6f, 0.25f);   // same concrete as the bunker; its door is the doorway in the bunker's back wall
-            Boss(o + new Vector3(0, 0.1f, 8.5f), "The Warden");
             // supply crates around the yard, only where they fit (not in the bunker, the vault, the tents or the towers)
             for (int i = 0; i < 8; i++) { float yw = b.Rng.Range(0, 90f); if (b.Spot(() => o + new Vector3(b.Rng.Range(-20f, 20f), 0, b.Rng.Range(-18f, 18f)), new Vector3(1.25f, 0.9f, 1.25f), yw, out var sp)) b.Crate(sp, yw, new Vector3(1.2f, 0.9f, 1.2f)); }
             // cabins
@@ -437,7 +436,6 @@ namespace Rago
             // brick like the bank, up to the floor above (3.1 m), which is its ceiling
             AddVault(c + new Vector3(0, 0.16f, 4.875f - 5.2f - 0.02f), 0, false, Maps.Brick, new Color(0.85f, 0.8f, 0.75f), 3.1f, false);
             pts.RemoveAll(p => Mathf.Abs(p.x - c.x) < 4.4f && p.z > c.z - 2.2f && p.y < c.y + 2.5f);   // not inside / in front of the vault
-            Boss(c + new Vector3(0, 0.2f, -5.5f), "The Banker");
             ScatterLoot(pts, 0.9f);
         }
 
