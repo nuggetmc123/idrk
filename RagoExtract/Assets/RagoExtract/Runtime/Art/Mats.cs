@@ -14,7 +14,7 @@ namespace Rago
         static readonly Dictionary<string, Material> _cache = new Dictionary<string, Material>();
         public static Texture2D Grime, Noise, Concrete, ConcreteN, Metal, MetalN, Wood, WoodN, Planks, Ground, Grass, Dirt, Asphalt, AsphaltN,
             Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster, SteelPanel, SteelPanelN, Epoxy, EpoxyN, WornPanel, WornPanelN, WornConcrete, LabTile, LabTileN, Grunge, Cerakote, Stipple;
-        public static Texture2D Soft, Flash, Smoke, BloodSplat, BloodDrop, BulletHole, Spark, Vignette, Glow, Panel;
+        public static Texture2D Soft, Flash, Smoke, OilSplat, OilDrop, Drop, BulletHole, Spark, Vignette, Glow, Panel;
         static bool _init;
 
         public static void Init()
@@ -559,24 +559,48 @@ namespace Rago
                 float a = Mathf.Clamp01((1 - d) * 1.3f) * Mathf.Clamp01(n * 1.6f - 0.25f);
                 return new Color(1, 1, 1, a);
             });
-            BloodSplat = Tex(128, false, (x, y, u, v) =>
+            // 3.47: the people leak OIL, not blood. A splat of used motor oil: black where it's thick, amber-brown at the thin
+            // edges (where you can see through it), a faint rainbow film swirling on top and a glossy lip just inside the
+            // edge. (The old blood splat used Mathf.SmoothStep - a lerp in Unity - so every splat was a soft square.)
+            OilSplat = Tex(128, false, (x, y, u, v) =>
             {
                 Vector2 p = new Vector2(u - 0.5f, v - 0.5f) * 2;
                 float r = p.magnitude, ang = Mathf.Atan2(p.y, p.x);
-                float edge = 0.45f + MathX.Fbm(Mathf.Cos(ang) * 2 + 4, Mathf.Sin(ang) * 2 + 4, 4, 170) * 0.5f;
-                float body = Mathf.SmoothStep(edge, edge - 0.08f, r);
-                float drops = 0;
+                float edge = 0.42f + MathX.Fbm(Mathf.Cos(ang) * 2 + 4, Mathf.Sin(ang) * 2 + 4, 4, 170) * 0.46f;
+                float inside = edge - r;                                   // > 0 inside the blob
+                float body = MathX.Step(-0.012f, 0.02f, inside);
+                float drops = 0f;
                 for (int i = 0; i < 9; i++)
                 {
-                    float a2 = MathX.Hash(i * 3.1f) * 6.283f, dr = 0.55f + MathX.Hash(i * 7.7f) * 0.35f;
+                    float a2 = MathX.Hash(i * 3.1f) * 6.283f, dr = 0.55f + MathX.Hash(i * 7.7f) * 0.3f;
                     Vector2 c = new Vector2(Mathf.Cos(a2), Mathf.Sin(a2)) * dr;
-                    drops = Mathf.Max(drops, Mathf.SmoothStep(0.07f, 0.04f, Vector2.Distance(p, c) / (0.6f + MathX.Hash(i * 1.3f))));
+                    float rad = 0.022f + MathX.Hash(i * 1.3f) * 0.05f;
+                    drops = Mathf.Max(drops, MathX.Step(rad, rad * 0.5f, Vector2.Distance(p, c)));
                 }
                 float a = Mathf.Max(body, drops);
-                float dark = 0.75f + MathX.TFbm(u, v, 8, 8, 3, 171) * 0.35f;
-                return new Color(0.38f * dark, 0.02f, 0.02f, a * 0.95f);
+                float th = Mathf.Max(MathX.Step(0f, 0.16f, inside), drops * 0.7f);   // how thick the oil is
+                Color col = Color.Lerp(new Color(0.3f, 0.17f, 0.055f), new Color(0.028f, 0.024f, 0.018f), MathX.Step(0f, 0.5f, th));
+                // the rainbow film: thin-film colours drifting over the thick part
+                float hue = Mathf.Repeat(MathX.TFbm(u, v, 3, 3, 4, 172) * 2.6f + r * 0.8f, 1f);
+                var rain = new Color(0.5f + 0.5f * Mathf.Cos(6.283f * hue), 0.5f + 0.5f * Mathf.Cos(6.283f * (hue - 0.33f)), 0.5f + 0.5f * Mathf.Cos(6.283f * (hue - 0.67f)));
+                float film = MathX.Step(0.45f, 0.75f, MathX.TFbm(u, v, 2, 2, 3, 173)) * th;
+                col += rain * film * 0.13f;
+                // glossy lip just inside the edge
+                float lip = MathX.Step(0f, 0.025f, inside) * (1f - MathX.Step(0.03f, 0.09f, inside));
+                col += new Color(0.11f, 0.1f, 0.095f) * lip;
+                return new Color(col.r, col.g, col.b, a * Mathf.Lerp(0.72f, 0.97f, th));
             });
-            BloodDrop = Tex(32, false, (x, y, u, v) => { float d = Vector2.Distance(new Vector2(u, v), new Vector2(0.5f, 0.5f)) * 2; return new Color(0.55f, 0.03f, 0.03f, Mathf.SmoothStep(1f, 0.7f, d)); });
+            // a flying drop of oil: dark (tinted by the particle) with a glint on one side
+            OilDrop = Tex(32, false, (x, y, u, v) =>
+            {
+                Vector2 p = new Vector2(u - 0.5f, v - 0.5f) * 2;
+                float hl = MathX.Step(0.42f, 0.08f, Vector2.Distance(p, new Vector2(-0.28f, 0.3f)));
+                float c = Mathf.Lerp(0.35f, 1f, hl);
+                return new Color(c, c, c, MathX.Step(1f, 0.62f, p.magnitude));
+            });
+            // a plain soft round drop, tinted by whoever uses it (impact debris, oil running down a wall) - the old drop was
+            // red, so chips knocked off concrete flew off dark red
+            Drop = Tex(32, false, (x, y, u, v) => { float d = Vector2.Distance(new Vector2(u, v), new Vector2(0.5f, 0.5f)) * 2; return new Color(1, 1, 1, MathX.Step(1f, 0.62f, d)); });
             BulletHole = Tex(64, false, (x, y, u, v) =>
             {
                 Vector2 p = new Vector2(u - 0.5f, v - 0.5f) * 2;

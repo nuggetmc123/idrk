@@ -74,14 +74,27 @@ namespace Rago
         public MB Patch(int nu, int nv, System.Func<int, int, Vector3> p, Color col, bool wrapU = false, bool flip = false, float uvU = 2f, float uvV = 2f)
         {
             int cols = nu + 1, start = _v.Count;
+            Vector3 RawN(int uu, int v)
+            {
+                Vector3 du = p(wrapU ? (uu + 1) % nu : Mathf.Min(uu + 1, nu), v) - p(wrapU ? (uu - 1 + nu) % nu : Mathf.Max(uu - 1, 0), v);
+                Vector3 dv = p(uu, Mathf.Min(v + 1, nv)) - p(uu, Mathf.Max(v - 1, 0));
+                return Vector3.Cross(dv, du);
+            }
             for (int v = 0; v <= nv; v++)
                 for (int u = 0; u <= nu; u++)
                 {
                     int uu = wrapU ? u % nu : u;
                     Vector3 P = p(uu, v);
-                    Vector3 du = p(wrapU ? (u + 1) % nu : Mathf.Min(u + 1, nu), v) - p(wrapU ? (uu - 1 + nu) % nu : Mathf.Max(u - 1, 0), v);
-                    Vector3 dv = p(uu, Mathf.Min(v + 1, nv)) - p(uu, Mathf.Max(v - 1, 0));
-                    Vector3 n = Vector3.Cross(dv, du);
+                    Vector3 n = RawN(uu, v);
+                    if (n.sqrMagnitude < 1e-14f && (v == 0 || v == nv))
+                    {
+                        // a pole (every u lands on the same point, so there's no direction round it): use the average of
+                        // the next row's normals - it used to fall back to straight up, which shaded the bottom of a closed
+                        // shape (a chin, a heel) as if it faced the sky
+                        int vn = v == 0 ? 1 : nv - 1;
+                        n = Vector3.zero;
+                        for (int k = 0; k < nu; k++) { var nk = RawN(k, vn); if (nk.sqrMagnitude > 1e-20f) n += nk.normalized; }
+                    }
                     if (n.sqrMagnitude < 1e-14f) n = Vector3.up;
                     if (flip) n = -n;
                     V(P, n.normalized, new Vector2(u / (float)nu * uvU, v / (float)nv * uvV), col);

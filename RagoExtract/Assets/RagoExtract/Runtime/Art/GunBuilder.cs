@@ -87,12 +87,68 @@ namespace Rago
                 case GunStyle.AntiMat: AntiMat(d, rig, mb, mats); break;
                 case GunStyle.Tommy: Tommy(d, rig, mb, mats); break;
             }
+            Signature(d, rig, mb);
             var body = mb.Build("Body", root.transform, mats);
             var dev = _device; _device = null;
             if (dev != null && dev.VertexCount > 0) rig.muzzleDevice = dev.Build("MuzzleDevice", root.transform, mats);
             rig.bounds = body.GetComponent<MeshFilter>().sharedMesh.bounds;
             return rig;
         }
+
+        /// <summary>This gun's place among the guns of its style (0, 1, 2 ...): each one gets its own combination of stock,
+        /// handguard, barrel and muzzle device, so no two guns share a model (3.47).</summary>
+        static int Variant(GunDef d)
+        {
+            int k = 0;
+            foreach (var g in Db.Guns) { if (g == d || g.id == d.id) return k; if (g.style == d.style) k++; }
+            return 0;
+        }
+        /// <summary>For the styles without their own variants: each gun of the style gets a different signature piece (the
+        /// first keeps the plain look) - a polished collar on the barrel, a sling down its side, a folded bipod, or a
+        /// vented top rib on a revolver - so no two of them look the same.</summary>
+        static void Signature(GunDef d, GunRig rig, MB mb)
+        {
+            if (d.style == GunStyle.AR || d.style == GunStyle.AK || d.style == GunStyle.Bolt || d.style == GunStyle.Pistol || rig.muzzle == null) return;
+            int v = Variant(d) % 4;
+            if (v == 0) return;
+            Vector3 m = rig.muzzle.localPosition;
+            bool longGun = rig.butt != null && rig.foregrip != null;
+            if (d.style == GunStyle.Revolver)
+            {
+                if (v == 1) mb.Sub(ACC).Cyl(new Vector3(0, m.y, m.z - 0.05f), new Vector3(0, m.y, m.z - 0.035f), 0.012f, 0.012f, 12, W);   // polished muzzle collar
+                else for (int i = 0; i < 7; i++) mb.Sub(DARK).Box(new Vector3(0, m.y + 0.011f, m.z - 0.03f - i * 0.016f), new Vector3(0.006f, 0.005f, 0.01f), W, 0.001f);   // vented top rib
+                return;
+            }
+            if (v == 1 || !longGun)
+            {
+                // a polished collar round the barrel behind the muzzle device
+                float z = m.z - 0.1f;
+                mb.Sub(ACC).Cyl(new Vector3(0, m.y, z), new Vector3(0, m.y, z + 0.016f), 0.017f, 0.017f, 14, W);
+                mb.Sub(DARK).Cyl(new Vector3(0, m.y, z + 0.016f), new Vector3(0, m.y, z + 0.02f), 0.0145f, 0.0145f, 14, W);
+                return;
+            }
+            Vector3 b = rig.butt.localPosition, f = rig.foregrip.localPosition;
+            if (v == 2)
+            {
+                // a sling down the left side, from the stock to the front of the handguard, hanging slack
+                Vector3 a = new Vector3(-0.026f, b.y - 0.01f, b.z + 0.04f), c = new Vector3(-0.026f, f.y + 0.012f, f.z + 0.04f);
+                const int n = 10;
+                for (int i = 0; i < n; i++)
+                {
+                    float t0 = i / (float)n, t1 = (i + 1) / (float)n;
+                    var p0 = Vector3.Lerp(a, c, t0) + Vector3.down * Mathf.Sin(t0 * Mathf.PI) * 0.07f;
+                    var p1 = Vector3.Lerp(a, c, t1) + Vector3.down * Mathf.Sin(t1 * Mathf.PI) * 0.07f;
+                    mb.Sub(BLK).Box((p0 + p1) * 0.5f, new Vector3(0.004f, 0.018f, (p1 - p0).magnitude + 0.002f), W, 0.001f, 1, Quaternion.LookRotation(p1 - p0, Vector3.up));
+                }
+                foreach (var q in new[] { a, c }) mb.Sub(ACC).Box(q + new Vector3(0.006f, 0, 0), new Vector3(0.008f, 0.022f, 0.012f), W, 0.002f);   // swivels
+                return;
+            }
+            // v == 3: a bipod folded under the front of the handguard
+            mb.Sub(DARK).Box(new Vector3(0, f.y - 0.008f, f.z + 0.04f), new Vector3(0.03f, 0.014f, 0.03f), W, 0.004f);
+            foreach (float x in new[] { -0.011f, 0.011f }) mb.Sub(DARK).Capsule(new Vector3(x, f.y - 0.012f, f.z + 0.04f), new Vector3(x, f.y - 0.012f, f.z + 0.2f), 0.0055f, 8, W);
+        }
+
+        static float DeviceLen(int kind) => kind == 2 ? 0.1f : kind == 1 ? 0.045f : kind == 3 ? 0.17f : kind == 0 ? 0.05f : 0.02f;
 
         static Transform Anchor(GameObject root, string name, Vector3 pos, Quaternion? rot = null)
         {
@@ -333,6 +389,13 @@ namespace Rago
             sb.Sub(1).Box(new Vector3(0.004f, sy + slideH * 0.42f, zB + slideLen * 0.57f), new Vector3(0.02f, 0.004f, slideLen * 0.25f), W, 0.0008f);   // ejection port
             sb.Sub(0).Box(new Vector3(0.002f, sy + slideH * 0.38f, zB + slideLen * 0.57f), new Vector3(0.012f, 0.003f, slideLen * 0.22f), W, 0.0008f);   // barrel hood in the port
             sb.Sub(1).Cyl(new Vector3(0, rig.boreY, zF - 0.0005f), new Vector3(0, rig.boreY, zF + 0.0015f), 0.0045f, 0.0045f, 10, W);                         // bore
+            {
+                int v = Variant(d), pv = v % 3, pw = (v / 3) % 3;   // slide top: plain / ported / compensator; sides: plain / lightening cuts / optic plate
+                if (pv == 1) for (int i = 0; i < 3; i++) sb.Sub(1).Box(new Vector3(0, sy + slideH * 0.5f + 0.0005f, zF - 0.02f - i * 0.012f), new Vector3(0.008f, 0.002f, 0.007f), W, 0.001f);   // ported top
+                if (pv == 2) { sb.Sub(0).Box(new Vector3(0, sy, zF + 0.018f), new Vector3(0.027f, slideH * 0.95f, 0.036f), W, 0.004f, 2); sb.Sub(1).Box(new Vector3(0, sy + slideH * 0.48f, zF + 0.018f), new Vector3(0.01f, 0.003f, 0.02f), W, 0.001f); }   // compensator
+                if (pw == 1) foreach (float sx in new[] { -1f, 1f }) for (int i = 0; i < 2; i++) sb.Sub(1).Box(new Vector3(sx * 0.0137f, sy + slideH * 0.12f, zF - 0.035f - i * 0.022f), new Vector3(0.001f, slideH * 0.35f, 0.014f), W, 0.0005f);   // lightening cuts
+                if (pw == 2) sb.Sub(1).Box(new Vector3(0, sy + slideH * 0.5f + 0.002f, zB + slideLen * 0.3f), new Vector3(0.02f, 0.004f, 0.03f), W, 0.001f);   // optic plate
+            }
             var slide = sb.Build("Slide", rig.root.transform, mats[FIN], mats[DARK], SightDot);
             rig.slide = slide.transform;
             rig.slideTravel = new Vector3(0, 0, -slideLen * 0.28f);
@@ -410,6 +473,7 @@ namespace Rago
             rig.boreY = 0.085f;
             float hg = Mathf.Clamp(d.barrel * 0.62f, 0.18f, 0.33f);
             bool dmr = d.cls == GunClass.DMR;
+            int v = Variant(d), sv = v % 3, hv = (v / 3) % 3;   // stock: collapsible / fixed A2 / precision; handguard: quad rail / slim M-LOK / classic ribbed
             PistolGrip(mb, BLK, 20f, 0.095f, 0.032f, 0.03f, 0.0f);
             LowerAR(mb, 0.095f);
             // upper receiver
@@ -442,6 +506,25 @@ namespace Rago
             mb.Sub(FIN).Box(new Vector3(0, 0.068f, -0.096f), new Vector3(0.03f, 0.03f, 0.006f), W, 0.002f);         // end plate / sling point
             for (int i = 0; i < 5; i++) mb.Sub(BLK).Box(new Vector3(0, 0.066f, -0.2f - i * 0.016f), new Vector3(0.006f, 0.004f, 0.006f), W, 0.001f);   // adjustment holes
             if (d.furniture == Finish.Wood) Stock(mb, FUR, -0.16f, -0.36f, 0.1f, 0.02f, 0.01f, 0.042f);
+            else if (sv == 1)
+            {
+                // fixed A2 stock: a long solid triangle down to a ribbed butt plate, with the trapdoor
+                var sp = new List<Vector2> { new Vector2(-0.1f, 0.102f), new Vector2(-0.1f, 0.058f), new Vector2(-0.365f, 0.006f), new Vector2(-0.372f, 0.012f), new Vector2(-0.372f, 0.11f), new Vector2(-0.33f, 0.112f) };
+                mb.Sub(FUR).Extrude(sp, 0.042f, W, 0.007f);
+                mb.Sub(BLK).Box(new Vector3(0, 0.06f, -0.378f), new Vector3(0.044f, 0.106f, 0.012f), W, 0.004f);
+                for (int i = 0; i < 6; i++) mb.Sub(DARK).Box(new Vector3(0, 0.02f + i * 0.015f, -0.385f), new Vector3(0.04f, 0.003f, 0.003f), W, 0f);
+                mb.Sub(DARK).Box(new Vector3(0, 0.07f, -0.379f), new Vector3(0.02f, 0.035f, 0.004f), W, 0.001f);   // trapdoor
+            }
+            else if (sv == 2)
+            {
+                // precision (PRS) stock: a squared body, an adjustable cheek riser, a stepped butt pad and a monopod knob
+                mb.Sub(FUR).Box(new Vector3(0, 0.075f, -0.255f), new Vector3(0.042f, 0.052f, 0.17f), W, 0.007f, 2);
+                mb.Sub(FUR).Box(new Vector3(0, 0.116f, -0.26f), new Vector3(0.034f, 0.022f, 0.12f), W, 0.006f, 2);
+                mb.Sub(DARK).Box(new Vector3(0, 0.102f, -0.23f), new Vector3(0.012f, 0.012f, 0.012f), W, 0.002f);
+                mb.Sub(BLK).Box(new Vector3(0, 0.068f, -0.348f), new Vector3(0.048f, 0.13f, 0.02f), W, 0.005f, 2);
+                mb.Sub(DARK).Cyl(new Vector3(0, 0.048f, -0.3f), new Vector3(0, 0.01f, -0.3f), 0.008f, 0.008f, 10, W);
+                mb.Sub(DARK).Cyl(new Vector3(0, 0.01f, -0.3f), new Vector3(0, 0.004f, -0.3f), 0.016f, 0.016f, 12, W);
+            }
             else
             {
                 var sp = new List<Vector2> { new Vector2(-0.17f, 0.1f), new Vector2(-0.17f, 0.065f), new Vector2(-0.26f, 0.025f), new Vector2(-0.315f, 0.015f), new Vector2(-0.33f, 0.025f), new Vector2(-0.33f, 0.115f), new Vector2(-0.29f, 0.118f) };
@@ -451,24 +534,47 @@ namespace Rago
             }
             // handguard
             float hz = 0.185f;
-            mb.Sub(d.finish == Finish.Black ? DARK : FIN).Box(new Vector3(0, 0.08f, hz + hg * 0.5f), new Vector3(0.046f, 0.05f, hg), W, 0.012f, 2);
-            for (int i = 0; i < Mathf.FloorToInt(hg / 0.05f); i++)
+            if (hv == 1)
             {
-                float z = hz + 0.03f + i * 0.05f;
-                mb.Sub(BLK).Box(new Vector3(0.023f, 0.075f, z), new Vector3(0.003f, 0.012f, 0.03f), W, 0.002f);
-                mb.Sub(BLK).Box(new Vector3(-0.023f, 0.075f, z), new Vector3(0.003f, 0.012f, 0.03f), W, 0.002f);
-                mb.Sub(BLK).Box(new Vector3(0, 0.054f, z), new Vector3(0.012f, 0.003f, 0.03f), W, 0.002f);
+                // slim round M-LOK handguard: a tube with slot cut-outs down its sides and a top rail
+                mb.Sub(d.finish == Finish.Black ? DARK : FIN).Cyl(new Vector3(0, 0.08f, hz), new Vector3(0, 0.08f, hz + hg), 0.025f, 0.025f, 16, W);
+                for (int i = 0; i < Mathf.FloorToInt(hg / 0.045f); i++)
+                    foreach (float a in new[] { 45f, 135f, 225f, 315f })
+                    {
+                        var q = Quaternion.Euler(0, 0, a);
+                        mb.Sub(BLK).Box(new Vector3(0, 0.08f, hz + 0.03f + i * 0.045f) + q * new Vector3(0.0245f, 0, 0), new Vector3(0.003f, 0.007f, 0.028f), W, 0.002f, 1, q);
+                    }
+                Rail(mb, new Vector3(0, 0.103f, hz), hg - 0.01f, 0.018f);
             }
-            Rail(mb, new Vector3(0, 0.105f, hz), hg - 0.01f, 0.02f);
+            else if (hv == 2)
+            {
+                // classic ribbed two-piece handguard with a delta ring at the back - no rail on it
+                mb.Sub(BLK).Cyl(new Vector3(0, 0.08f, hz), new Vector3(0, 0.08f, hz + hg), 0.028f, 0.024f, 16, W);
+                for (int i = 0; i < Mathf.FloorToInt(hg / 0.022f); i++) mb.Sub(BLK).Tube(new Vector3(0, 0.08f, hz + 0.02f + i * 0.022f), new Vector3(0, 0.08f, hz + 0.027f + i * 0.022f), 0.0295f - i * 0.0003f, 0.02f, 16, W);
+                mb.Sub(FIN).Tube(new Vector3(0, 0.08f, hz - 0.004f), new Vector3(0, 0.08f, hz + 0.014f), 0.031f, 0.02f, 16, W);   // delta ring
+            }
+            else
+            {
+                mb.Sub(d.finish == Finish.Black ? DARK : FIN).Box(new Vector3(0, 0.08f, hz + hg * 0.5f), new Vector3(0.046f, 0.05f, hg), W, 0.012f, 2);
+                for (int i = 0; i < Mathf.FloorToInt(hg / 0.05f); i++)
+                {
+                    float z = hz + 0.03f + i * 0.05f;
+                    mb.Sub(BLK).Box(new Vector3(0.023f, 0.075f, z), new Vector3(0.003f, 0.012f, 0.03f), W, 0.002f);
+                    mb.Sub(BLK).Box(new Vector3(-0.023f, 0.075f, z), new Vector3(0.003f, 0.012f, 0.03f), W, 0.002f);
+                    mb.Sub(BLK).Box(new Vector3(0, 0.054f, z), new Vector3(0.012f, 0.003f, 0.03f), W, 0.002f);
+                }
+                Rail(mb, new Vector3(0, 0.105f, hz), hg - 0.01f, 0.02f);
+            }
             mb.Sub(DARK).Box(new Vector3(0, 0.08f, hz + 0.004f), new Vector3(0.05f, 0.054f, 0.008f), W, 0.004f);   // barrel nut / handguard end
             mb.Sub(DARK).Cyl(new Vector3(0.024f, 0.068f, hz + 0.03f), new Vector3(0.027f, 0.068f, hz + 0.03f), 0.005f, 0.005f, 10, W);   // QD sling cup
             float bz = hz + hg;
             float bl = Mathf.Max(0.04f, d.barrel - hg + 0.05f);
             Barrel(mb, new Vector3(0, rig.boreY, bz), bl, 0.0085f, DARK);
             mb.Sub(DARK).Cyl(new Vector3(0, rig.boreY, bz - 0.01f), new Vector3(0, rig.boreY, bz + 0.03f), 0.014f, 0.012f, 12, W); // gas block
-            Muzzle(mb, new Vector3(0, rig.boreY, bz + bl), 0.0085f, d.suppressed ? 3 : 0);
+            int mk = d.suppressed ? 3 : new[] { 0, 2, 1, 4 }[v % 4];   // birdcage / two-port brake / slant brake / bare crown
+            Muzzle(mb, new Vector3(0, rig.boreY, bz + bl), 0.0085f, mk);
             float arLine = IronSights(mb, -0.07f, hz + hg - 0.02f, 0.11f, true);
-            rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, bz + bl + (d.suppressed ? 0.17f : 0.05f)));
+            rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, bz + bl + DeviceLen(mk)));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.02f, 0.082f, 0.06f));
             rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.0f, 0.095f), Quaternion.Euler(6, 0, 0));
             rig.magStyle = d.cal == Caliber.C308 ? MagStyle.Straight : MagStyle.Stanag;
@@ -503,14 +609,36 @@ namespace Rago
             rig.slide = ch.Build("Bolt", rig.root.transform, mats[FIN]).transform;
             rig.slideTravel = new Vector3(0, 0, -0.11f);
             // stock
+            int v = Variant(d), sv = v % 3, hv = (v / 3) % 2;   // stock: fixed / side-folding tube / underfolder; handguard: classic / railed
             if (d.furniture == Finish.Wood) Stock(mb, FUR, -0.095f, -0.4f, 0.075f, 0.03f, 0.05f, 0.04f);
             else if (d.furniture == Finish.Gold) { Stock(mb, BLK, -0.095f, -0.38f, 0.08f, 0.035f, 0.04f, 0.04f, true); }
+            else if (sv == 1)
+            {
+                // side-folding triangle tube stock
+                mb.Sub(DARK).Capsule(new Vector3(0, 0.075f, -0.095f), new Vector3(0, 0.07f, -0.37f), 0.009f, 8, W);
+                mb.Sub(DARK).Capsule(new Vector3(0, 0.045f, -0.1f), new Vector3(0, 0.008f, -0.36f), 0.008f, 8, W);
+                mb.Sub(FUR).Box(new Vector3(0, 0.04f, -0.376f), new Vector3(0.032f, 0.1f, 0.016f), W, 0.006f, 2);
+                mb.Sub(DARK).Cyl(new Vector3(0.012f, 0.072f, -0.1f), new Vector3(0.022f, 0.072f, -0.1f), 0.01f, 0.01f, 10, W);   // folding hinge
+            }
+            else if (sv == 2)
+            {
+                // underfolder: two thin struts and a curved butt plate
+                foreach (float x in new[] { -0.013f, 0.013f }) mb.Sub(DARK).Box(new Vector3(x, 0.045f, -0.235f), new Vector3(0.004f, 0.012f, 0.27f), W, 0.002f, 1, Quaternion.Euler(-6f, 0, 0));
+                mb.Sub(DARK).Box(new Vector3(0, 0.026f, -0.372f), new Vector3(0.034f, 0.07f, 0.01f), W, 0.004f, 1, Quaternion.Euler(-12f, 0, 0));
+            }
             else Stock(mb, FUR, -0.095f, -0.38f, 0.08f, 0.035f, 0.04f, 0.04f, true);
             // handguard lower + gas tube upper
             float hz = 0.195f;
             mb.Sub(FUR).Box(new Vector3(0, 0.06f, hz + 0.08f), new Vector3(0.046f, 0.04f, 0.17f), W, 0.012f, 2);
             mb.Sub(FUR).Box(new Vector3(0, 0.094f, hz + 0.07f), new Vector3(0.032f, 0.022f, 0.15f), W, 0.01f, 2);
             mb.Sub(FIN).Cyl(new Vector3(0, 0.094f, hz + 0.15f), new Vector3(0, 0.094f, hz + 0.2f), 0.009f, 0.009f, 10, W);
+            if (hv == 1)
+            {
+                // a railed quad handguard over the old one, rails top and sides
+                mb.Sub(DARK).Box(new Vector3(0, 0.077f, hz + 0.075f), new Vector3(0.054f, 0.06f, 0.16f), W, 0.01f, 2);
+                Rail(mb, new Vector3(0, 0.11f, hz), 0.15f, 0.02f);
+                foreach (float sx in new[] { -1f, 1f }) for (int i = 0; i < 6; i++) mb.Sub(BLK).Box(new Vector3(sx * 0.0275f, 0.077f, hz + 0.01f + i * 0.026f), new Vector3(0.003f, 0.016f, 0.018f), W, 0.001f);
+            }
             float bl = Mathf.Max(0.12f, d.barrel - 0.05f);
             Barrel(mb, new Vector3(0, rig.boreY, hz + 0.16f), bl, 0.0095f, FIN);
             mb.Sub(FIN).Box(new Vector3(0, 0.083f, hz + 0.2f), new Vector3(0.018f, 0.04f, 0.022f), W, 0.004f); // gas block
@@ -523,7 +651,8 @@ namespace Rago
             Swivel(mb, new Vector3(0, 0.044f, hz + 0.165f));
             mb.Sub(FIN).Box(new Vector3(0, 0.094f, 0.17f), new Vector3(0.024f, 0.008f, 0.04f), W, 0.003f); // rear sight leaf base
             Irons(mb, 0.165f, fz, 0.116f, 0.098f, 0.105f);
-            Muzzle(mb, new Vector3(0, rig.boreY, hz + 0.16f + bl), 0.0095f, d.suppressed ? 3 : 1);
+            int mk = d.suppressed ? 3 : v >= 6 ? 0 : (v % 2 == 0 ? 1 : 2);   // slant brake / big two-port brake (a 7th AK gets a birdcage so it can't match the 1st)
+            Muzzle(mb, new Vector3(0, rig.boreY, hz + 0.16f + bl), 0.0095f, mk);
             if (d.optics) Rail(mb, new Vector3(0, 0.095f, -0.07f), 0.19f);
             if (lmg)
             {
@@ -531,7 +660,7 @@ namespace Rago
                 mb.Sub(DARK).Box(new Vector3(0.012f, 0.055f, fz - 0.12f), new Vector3(0.006f, 0.006f, 0.22f), W, 0.002f);
                 mb.Sub(DARK).Box(new Vector3(-0.012f, 0.055f, fz - 0.12f), new Vector3(0.006f, 0.006f, 0.22f), W, 0.002f);
             }
-            rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, hz + 0.16f + bl + (d.suppressed ? 0.17f : 0.045f)));
+            rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY, hz + 0.16f + bl + DeviceLen(mk)));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.02f, 0.075f, 0.07f));
             rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.05f, 0.1f), Quaternion.Euler(d.drum ? 0f : 10f, 0, 0));   // a drum hangs straight down (only the curved mag rakes forward)   // the mag's lip goes 2 cm up inside the receiver (it stopped at its underside)
             rig.magStyle = d.drum ? MagStyle.Drum : MagStyle.Banana;
@@ -748,6 +877,7 @@ namespace Rago
         {
             rig.boreY = 0.065f;
             bool semi = d.action == FireAction.Semi;
+            int v = Variant(d), bv = v % 3, sv = (v / 3) % 4;   // barrel: sporter / fluted heavy / braked; stock extra: none / cheek riser / scope rail / bipod
             // one-piece stock with grip
             var stock = new List<Vector2>
             {
@@ -787,13 +917,28 @@ namespace Rago
             rig.slideTravel = new Vector3(0, 0, -0.08f);
             float bl = d.barrel;
             Barrel(mb, new Vector3(0, rig.boreY + 0.003f, 0.17f), bl, 0.011f, FIN);
+            if (bv == 1)
+            {
+                // heavy fluted barrel: a thicker sleeve with six flutes down it
+                mb.Sub(FIN).Cyl(new Vector3(0, rig.boreY + 0.003f, 0.17f), new Vector3(0, rig.boreY + 0.003f, 0.17f + bl * 0.62f), 0.0145f, 0.0125f, 18, W);
+                for (int k = 0; k < 6; k++) { var q = Quaternion.Euler(0, 0, k * 60f); mb.Sub(DARK).Box(new Vector3(0, rig.boreY + 0.003f, 0.17f + bl * 0.31f) + q * new Vector3(0, 0.0138f, 0), new Vector3(0.0035f, 0.0016f, bl * 0.5f), W, 0.0006f, 1, q); }
+            }
+            if (sv == 1) { mb.Sub(FUR).Box(new Vector3(0, 0.085f, -0.24f), new Vector3(0.034f, 0.03f, 0.15f), W, 0.008f, 2); mb.Sub(DARK).Cyl(new Vector3(0.019f, 0.075f, -0.2f), new Vector3(0.024f, 0.075f, -0.2f), 0.007f, 0.007f, 10, W); }   // adjustable cheek riser
+            if (sv == 2) Rail(mb, new Vector3(0, 0.087f, -0.08f), 0.24f, 0.02f);                                                                                // picatinny scope rail
+            if (sv == 3)
+            {
+                // a folded bipod under the forend
+                mb.Sub(DARK).Box(new Vector3(0, 0.022f, 0.3f), new Vector3(0.03f, 0.016f, 0.03f), W, 0.004f);
+                foreach (float x in new[] { -0.012f, 0.012f }) mb.Sub(DARK).Capsule(new Vector3(x, 0.018f, 0.3f), new Vector3(x, 0.018f, 0.48f), 0.0055f, 8, W);
+            }
             mb.Sub(FIN).Cyl(new Vector3(0, rig.boreY + 0.003f, 0.17f), new Vector3(0, rig.boreY + 0.003f, 0.17f + bl * 0.5f), 0.0125f, 0.011f, 14, W);
-            Muzzle(mb, new Vector3(0, rig.boreY + 0.003f, 0.17f + bl), 0.011f, d.cal == Caliber.C338 || d.cal == Caliber.C308 && d.rarity >= Rarity.Rare ? 2 : 4);
+            int mk = bv == 2 ? 2 : bv == 1 ? 4 : (d.cal == Caliber.C338 || d.cal == Caliber.C308 && d.rarity >= Rarity.Rare ? 2 : 4);
+            Muzzle(mb, new Vector3(0, rig.boreY + 0.003f, 0.17f + bl), 0.011f, mk);
             if (d.optics) Rail(mb, new Vector3(0, 0.085f, -0.06f), 0.2f, 0.02f);
             float boltLine = d.optics ? 0.1f : IronSights(mb, 0.12f, 0.15f + bl, 0.08f, false);
             // magazine well
             mb.Sub(DARK).Box(new Vector3(0, 0.03f, 0.08f), new Vector3(0.03f, 0.02f, 0.07f), W, 0.004f);
-            rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY + 0.003f, 0.19f + bl + 0.03f));
+            rig.muzzle = Anchor(rig.root, "Muzzle", new Vector3(0, rig.boreY + 0.003f, 0.17f + bl + Mathf.Max(0.05f, DeviceLen(mk))));
             rig.ejectPort = Anchor(rig.root, "Eject", new Vector3(0.02f, 0.075f, 0.04f));
             rig.magwell = Anchor(rig.root, "Magwell", new Vector3(0, 0.02f, 0.08f));
             rig.magStyle = d.magSize >= 10 && !semi ? MagStyle.Straight : d.id == "comrade" ? MagStyle.Clip : MagStyle.Clip;

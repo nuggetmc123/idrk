@@ -211,6 +211,14 @@ namespace Rago
             }
         }
 
+        /// <summary>Registers an item by id. Two items with the same id used to silently replace each other (the Reaper 45
+        /// was really a Reaper 416, the Tundra AK-12 an AN-9) - now it's an error you see straight away.</summary>
+        static void Reg(string id, ItemDef d)
+        {
+            if (All.ContainsKey(id)) Debug.LogError("[Rago] DUPLICATE item id '" + id + "': " + All[id].name + " and " + d.name);
+            All[id] = d;
+        }
+
         static GunDef G(string id, string name, GunClass cls, GunStyle style, FireAction act, Caliber cal, float dmg, int rpm, int mag,
             float recoil, float spread, Rarity r, int price, bool optics, Finish fin, Finish furn, float barrel, string desc)
         {
@@ -233,26 +241,26 @@ namespace Rago
                 g.recoil = recoil * 1.3f;
             }
             else if (cls == GunClass.Revolver) { g.damage = Mathf.Round(dmg * 0.84f); g.spread = spread * 1.4f; }
-            Guns.Add(g); All[id] = g;
+            Guns.Add(g); Reg(id, g);
             return g;
         }
 
         static SightDef S(string id, string name, int model, Color ret, int style, float size, Rarity r, int price, Finish fin, string desc)
         {
             var s = new SightDef { id = id, name = name, model = model, reticle = ret, style = style, size = size, rarity = r, price = price, finish = fin, kind = ItemKind.Sight, desc = desc };
-            Sights.Add(s); All[id] = s; return s;
+            Sights.Add(s); Reg(id, s); return s;
         }
 
         static AttachDef X(string id, string name, AttachSlot slot, int model, Rarity r, int price, float recoil, float spread, Finish fin, string desc)
         {
             var a = new AttachDef { id = id, name = name, slot = slot, model = model, rarity = r, price = price, recoilMul = recoil, spreadMul = spread, finish = fin, kind = ItemKind.Attachment, desc = desc };
-            Attachments.Add(a); All[id] = a; return a;
+            Attachments.Add(a); Reg(id, a); return a;
         }
 
         static SimpleDef M(string id, string name, ItemKind kind, Rarity r, int price, int shape, Color col, string desc)
         {
             var m = new SimpleDef { id = id, name = name, kind = kind, rarity = r, price = price, shape = shape, color = col, desc = desc };
-            Misc.Add(m); All[id] = m; return m;
+            Misc.Add(m); Reg(id, m); return m;
         }
 
         public static void Init()
@@ -285,7 +293,7 @@ namespace Rago
             G("stinger", "Stinger PDW", GunClass.SMG, GunStyle.Bullpup, FireAction.Auto, Caliber.C57, 25, 900, 50, 0.35f, 1.2f, E, 6200, true, Finish.Tan, Finish.Black, 0.26f, "Bullpup PDW with a 50-round top magazine.");
             var ph = G("phantom", "Phantom SD", GunClass.SMG, GunStyle.SmgBox, FireAction.Auto, Caliber.C9mm, 28, 850, 30, 0.35f, 1.0f, V, 11000, true, Finish.Black, Finish.Black, 0.3f, "Vault-only. Integrally suppressed. Quiet death.");
             G("vespa", "Vespa 9", GunClass.SMG, GunStyle.SmgVector, FireAction.Auto, Caliber.C9mm, 25, 1000, 33, 0.4f, 1.4f, U, 2800, true, Finish.Gray, Finish.Black, 0.18f, "Recoil-redirecting 9mm. Hoses a room flat.");
-            G("reaper", "Reaper 45", GunClass.SMG, GunStyle.SmgBox, FireAction.Auto, Caliber.C45, 31, 700, 30, 0.55f, 1.5f, R, 3800, true, Finish.Black, Finish.Black, 0.22f, "Heavy-hitting .45 sub-gun with a long handguard.");
+            G("reaper45", "Reaper 45", GunClass.SMG, GunStyle.SmgBox, FireAction.Auto, Caliber.C45, 31, 700, 30, 0.55f, 1.5f, R, 3800, true, Finish.Black, Finish.Black, 0.22f, "Heavy-hitting .45 sub-gun with a long handguard.");
             ph.suppressed = true;
 
             // ---------------- SHOTGUNS (6)
@@ -309,7 +317,7 @@ namespace Rago
             G("hailstorm", "Hailstorm A2", GunClass.Rifle, GunStyle.AR, FireAction.Burst, Caliber.C556, 33, 850, 30, 0.6f, 0.8f, U, 3800, true, Finish.Black, Finish.Black, 0.5f, "Three-round-burst rifleman's rifle.");
             G("corsair", "Corsair CQB", GunClass.Rifle, GunStyle.AR, FireAction.Auto, Caliber.C556, 30, 850, 30, 0.62f, 1.15f, U, 3600, true, Finish.Fde, Finish.Fde, 0.26f, "Short-barrel 5.56 carbine for room clearing.");
             G("vostoksu", "Vostok SU", GunClass.Rifle, GunStyle.AK, FireAction.Auto, Caliber.C545, 29, 700, 30, 0.6f, 1.4f, U, 2900, true, Finish.Black, Finish.Black, 0.22f, "Stubby folding-stock 5.45. Loud and handy.");
-            G("tundra", "Tundra AK-12", GunClass.Rifle, GunStyle.AK, FireAction.Auto, Caliber.C545, 31, 700, 30, 0.5f, 1.1f, R, 5400, true, Finish.Gray, Finish.Black, 0.41f, "Modern railed AK. Soft-shooting and accurate.");
+            G("tundra12", "Tundra AK-12", GunClass.Rifle, GunStyle.AK, FireAction.Auto, Caliber.C545, 31, 700, 30, 0.5f, 1.1f, R, 5400, true, Finish.Gray, Finish.Black, 0.41f, "Modern railed AK. Soft-shooting and accurate.");
             G("tundra", "Tundra AN-9", GunClass.Rifle, GunStyle.AK, FireAction.Burst, Caliber.C545, 33, 1000, 30, 0.45f, 0.9f, R, 5200, true, Finish.Black, Finish.Black, 0.42f, "Hyper-burst rifle. Two rounds before the recoil arrives.");
             G("spectre", "Spectre ACR", GunClass.Rifle, GunStyle.AR, FireAction.Auto, Caliber.C556, 33, 750, 30, 0.5f, 0.9f, R, 5800, true, Finish.Fde, Finish.Black, 0.4f, "Adaptive combat rifle with an ambi chassis.");
             G("reaper", "Reaper 416", GunClass.Rifle, GunStyle.AR, FireAction.Auto, Caliber.C556, 34, 850, 30, 0.5f, 0.85f, R, 6400, true, Finish.Tan, Finish.Black, 0.36f, "Piston-driven premium carbine.");
@@ -544,13 +552,13 @@ namespace Rago
         static ArmorDef A(string id, string name, ArmorSlot slot, float prot, int style, Rarity r, int price, Color col, Color trim, string desc)
         {
             var a = new ArmorDef { id = id, name = name, slot = slot, protection = prot, style = style, rarity = r, price = price, color = col, trim = trim, kind = ItemKind.Armor, desc = desc };
-            Armor.Add(a); All[id] = a; return a;
+            Armor.Add(a); Reg(id, a); return a;
         }
 
         static BackpackDef P(string id, string name, Vector3 inner, int sides, int style, Rarity r, int price, Color col, string desc)
         {
             var b = new BackpackDef { id = id, name = name, inner = inner, sides = sides, style = style, rarity = r, price = price, color = col, kind = ItemKind.Backpack, desc = desc };
-            Packs.Add(b); All[id] = b; return b;
+            Packs.Add(b); Reg(id, b); return b;
         }
 
         static void Ammo(string id, Caliber cal, int count, int price)

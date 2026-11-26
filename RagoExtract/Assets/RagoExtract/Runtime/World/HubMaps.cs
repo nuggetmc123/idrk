@@ -446,7 +446,7 @@ namespace Rago
                     if (side < 0 && x < 0f) continue;                         // the south-west wall is the Gear wall: no columns in front of it
                     float wz = side * (D / 2 - 0.15f) - side * 0.15f;
                     b.Box(new Vector3(x, Ht / 2, wz), new Vector3(0.36f, Ht, 0.3f), conc, colCol, null, true);
-                    for (int k = 0; k < 4; k++) b.Box(new Vector3(x, 0.08f + k * 0.12f, wz - side * 0.152f), new Vector3(0.37f, 0.06f, 0.01f), k % 2 == 0 ? yellow : black, Color.white, null, false);   // hazard foot
+                    for (int k = 0; k < 4; k++) b.Box(new Vector3(x, 0.08f + k * 0.12f, wz - side * 0.159f), new Vector3(0.37f, 0.06f, 0.01f), k % 2 == 0 ? yellow : black, Color.white, null, false);   // hazard foot (clear of the column's face)
                     BulkheadLamp(new Vector3(x, 2.35f, wz - side * 0.2f), side < 0 ? 180f : 0f, metal, glow);   // facing into the room
                 }
             }
@@ -528,12 +528,13 @@ namespace Rago
                 }
             }
             // puddles under the leaks and a damp patch
-            foreach (var p in new[] { new Vector3(-1.8f, 0.003f, D / 2 - 0.8f), new Vector3(-3.2f, 0.003f, -1.4f), new Vector3(1.6f, 0.003f, 1.8f), new Vector3(-2f, 0.003f, az1 - 0.9f) })
-                for (int k = 0; k < 4; k++)   // a few overlapping round pools make an uneven puddle
-                {
-                    var q = p + new Vector3(rng.Range(-0.35f, 0.35f), k * 0.0004f, rng.Range(-0.25f, 0.25f)); float r = rng.Range(0.12f, 0.32f);
-                    b.Cyl(q, q + Vector3.up * 0.002f, r, r, 16, water, Color.white, true);
-                }
+            // one flat pool each (overlapping pools a fraction of a millimetre apart flickered on the floor), no collider, and
+            // clear of the hazard stripes and the drain
+            foreach (var p in new[] { new Vector3(-2.7f, 0.004f, 4.5f), new Vector3(-4.2f, 0.004f, -1.2f), new Vector3(1.4f, 0.004f, 1.6f), new Vector3(-2.2f, 0.004f, az1 - 1.1f) })
+            {
+                float r = rng.Range(0.3f, 0.5f);
+                b.Cyl(p, p + Vector3.up * 0.003f, r, r, 20, water, Color.white, false);
+            }
             // rubble and chunks of concrete in the corners
             foreach (var p in new[] { new Vector3(-7.3f, 0, 5.3f), new Vector3(7.3f, 0, 0.9f), new Vector3(-ax + 0.5f, 0, az1 - 0.5f) })
                 for (int k = 0; k < 7; k++)
@@ -542,8 +543,8 @@ namespace Rago
                     b.Box(p + new Vector3(rng.Range(-0.35f, 0.35f), sz * 0.4f, rng.Range(-0.35f, 0.35f)), new Vector3(sz, sz * 0.7f, sz * rng.Range(0.7f, 1.3f)), rubble, Color.white, Quaternion.Euler(rng.Range(0f, 40f), rng.Range(0f, 180f), rng.Range(0f, 40f)), false);
                 }
             // old papers on the floor
-            for (int k = 0; k < 6; k++)
-                b.Box(new Vector3(rng.Range(-5f, 5f), 0.004f + k * 0.0003f, rng.Range(-3f, 4f)), new Vector3(0.21f, 0.001f, 0.29f), paper, new Color(0.9f + rng.Range(0f, 0.1f), 0.88f, 0.8f), Quaternion.Euler(0, rng.Range(0f, 180f), 0), false);
+            for (int k = 0; k < 6; k++)   // each sheet 2 mm above the one before, so overlapping sheets never flicker
+                b.Box(new Vector3(rng.Range(-5f, 5f), 0.009f + k * 0.002f, rng.Range(-3f, 4f)), new Vector3(0.21f, 0.0015f, 0.29f), paper, new Color(0.9f + rng.Range(0f, 0.1f), 0.88f, 0.8f), Quaternion.Euler(0, rng.Range(0f, 180f), 0), false);
             // cables sagging between brackets along the north wall
             for (int c = 0; c < 2; c++)
             {
@@ -574,7 +575,7 @@ namespace Rago
             b.Box(L(0, -h / 2 + fl / 2, 0), S(len, fl, w), steel, Color.white, null, false);
             b.Box(L(0, 0, 0), S(len, h - fl * 2, w * 0.18f), steel, new Color(0.85f, 0.87f, 0.9f), null, false);
             for (float a = -len / 2 + 1f; a < len / 2 - 0.5f; a += 2f)
-                foreach (float side in new[] { -1f, 1f }) b.Box(L(a, 0, side * w * 0.1f), S(0.12f, h - fl * 2.2f, 0.012f), steel, new Color(0.7f, 0.72f, 0.75f), null, false);   // stiffener plates
+                foreach (float side in new[] { -1f, 1f }) b.Box(L(a, 0, side * (w * 0.09f + 0.0075f)), S(0.12f, h - fl * 2.2f, 0.012f), steel, new Color(0.7f, 0.72f, 0.75f), null, false);   // stiffener plates (on the web's faces, not inside them)
         }
 
         void BulkheadLamp(Vector3 at, float yaw, Material metal, Material glow)

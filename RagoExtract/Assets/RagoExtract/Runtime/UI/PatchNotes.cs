@@ -5,6 +5,16 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.47", "Ragdoll figures, oil and fixes", new[] {
+                "PLAYERS and NPCs are faceless RAGDOLL FIGURES now: a smooth moulded head, a sculpted chest and hips, calves and forearms, and mitten hands with a thumb. Raiders still wear their jackets, trousers, gloves and boots, and your wardrobe clothes and armour still apply.",
+                "OIL, NOT BLOOD: hits spray dark motor oil - black splats with a brown edge and a faint rainbow film, oil running down walls, drips, and oil pooling under the bodies. A headshot knocks chips off the shell.",
+                "EVERY GUN HAS ITS OWN MODEL: guns that used to share a body now differ - stocks, handguards, barrels, muzzle devices, slides and small signature details.",
+                "NO MORE DUPES: when two players grabbed the same item at the same moment they could both keep it - now only one does. Two guns (Reaper 45 and Tundra AK-12) were secretly the same item as another gun - they're their own guns now.",
+                "The stone slab sticking out round the bottom of every house is gone - just a thin plinth along the walls now, with gaps at the doors.",
+                "Fixed the flickering patches on the bunker and Underground floors.",
+                "Knee pads sit on the front of the knee (they were behind it), chips knocked off concrete aren't red any more, and splats are round instead of soft squares.",
+                "The new skins use smaller textures, so opening the store or the paint booth no longer stalls the game.",
+            }),
             ("3.46", "Better gun finishes", new[] {
                 "GUNS look better: metal parts have a real cerakote finish (a fine speckle and soft mottling, worn bright on the edges) and polymer grips and furniture are stippled. FDE, olive, tan and gray guns use the same new finishes.",
                 "They read properly in any light now - the old very-metallic dark steel looked almost black away from bright light. Magazines, sights and attachments get the new finishes too.",

@@ -536,9 +536,9 @@ namespace Rago
                         for (float z = -ez + 6f; z < ez - 4f; z += 3.2f)
                         {
                             float r = drng.Value; var at = new Vector3(x + drng.Range(-1.3f, 1.3f), y, z + drng.Range(-1f, 1f));
-                            if (r < 0.18f) for (int k = 0; k < 3; k++) { var q2 = at + new Vector3(drng.Range(-0.3f, 0.3f), 0.003f + k * 0.0004f, drng.Range(-0.3f, 0.3f)); float rr = drng.Range(0.15f, 0.4f); b.Cyl(q2, q2 + Vector3.up * 0.002f, rr, rr, 14, water, Color.white, false); }
+                            if (r < 0.18f) { var q2 = at + Vector3.up * 0.004f; float rr = drng.Range(0.3f, 0.55f); drng.Range(0f, 1f); drng.Range(0f, 1f); b.Cyl(q2, q2 + Vector3.up * 0.003f, rr, rr, 18, water, Color.white, false); }   // one pool (stacked ones flickered)
                             else if (r < 0.3f) for (int k = 0; k < 5; k++) { float sz = drng.Range(0.05f, 0.14f); b.Box(at + new Vector3(drng.Range(-0.3f, 0.3f), sz * 0.4f, drng.Range(-0.3f, 0.3f)), new Vector3(sz, sz * 0.7f, sz), rubble, Color.white, Quaternion.Euler(drng.Range(0f, 40f), drng.Range(0f, 180f), drng.Range(0f, 40f)), false); }
-                            else if (r < 0.42f) for (int k = 0; k < 3; k++) b.Box(at + new Vector3(drng.Range(-0.4f, 0.4f), 0.004f + k * 0.0003f, drng.Range(-0.4f, 0.4f)), new Vector3(0.21f, 0.001f, 0.29f), paper, Color.white, Quaternion.Euler(0, drng.Range(0f, 180f), 0), false);
+                            else if (r < 0.42f) for (int k = 0; k < 3; k++) b.Box(at + new Vector3(drng.Range(-0.4f, 0.4f), 0.009f + k * 0.002f, drng.Range(-0.4f, 0.4f)), new Vector3(0.21f, 0.0015f, 0.29f), paper, Color.white, Quaternion.Euler(0, drng.Range(0f, 180f), 0), false);
                             else if (r < 0.46f) b.Cyl(at + new Vector3(0, 0.29f, 0), at + new Vector3(0, 0.29f, 0.86f), 0.29f, 0.29f, 14, drum, Color.white, true);   // a toppled drum
                         }
                         // a few dead lamps along this corridor (dark housings over the old ones)

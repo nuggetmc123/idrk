@@ -355,8 +355,23 @@ namespace Rago
             Wall(P(hx, top, -hz), P(hx, top, hz), 0.9f, 0.2f, wall, tint * 0.9f);
             Wall(P(hx, top, hz), P(-hx, top, hz), 0.9f, 0.2f, wall, tint * 0.9f);
             Wall(P(-hx, top, hz), P(-hx, top, -hz), 0.9f, 0.2f, wall, tint * 0.9f);
-            // base trim
-            Box(P(0, 0.15f, 0), new Vector3(size.x + 0.08f, 0.3f, size.y + 0.08f), trim, Color.white * 0.8f, q, false);
+            // base trim: a low stone plinth round the OUTSIDE of the walls only, open at the doorways (3.47 - it used to be one
+            // solid block filling the whole footprint, so its top was a stone slab 20 cm above the floor inside every house)
+            var cs = new[] { new Vector3(-hx, 0, -hz), new Vector3(hx, 0, -hz), new Vector3(hx, 0, hz), new Vector3(-hx, 0, hz) };
+            for (int side = 0; side < 4; side++)
+            {
+                Vector3 a = cs[side], e = cs[(side + 1) % 4];
+                float len = (e - a).magnitude; Vector3 dir = (e - a) / len, outw = Vector3.Cross(Vector3.up, dir);
+                bool doorway = side == vaultSide || side == doorSide || (size.x > 12 && side == (doorSide + 2) % 4);
+                float gap = side == vaultSide ? 1.9f : 1.8f;
+                var segs = doorway ? new[] { (-t, len * 0.5f - gap * 0.5f), (len * 0.5f + gap * 0.5f, len + t) } : new[] { (-t, len + t) };
+                foreach (var (t0, t1) in segs)
+                {
+                    if (t1 - t0 < 0.05f) continue;
+                    var mid = a + dir * ((t0 + t1) * 0.5f) + outw * (t * 0.5f + 0.03f);
+                    Box(P(mid.x, 0.15f, mid.z), new Vector3(0.06f, 0.3f, t1 - t0), trim, Color.white * 0.8f, q * Quaternion.LookRotation(dir, Vector3.up), false);
+                }
+            }
             Weather(pos, q, size, floors, floorH, top, roofAccess, wins, doorSide);
             return interior;
         }

@@ -476,7 +476,43 @@ namespace Rago
             _mine.Remove(it.netId);
             var w = W(Msg.ItemTaken); w.Write(it.netId); Send(true);
             Items.Remove(it.netId);
+            RememberTake(it.netId, it);
             it.netId = 0;
+        }
+
+        // ---- no dupes (3.47): two players grabbing the same item in the same moment each took it before hearing about the
+        // other, and both kept it. Now each remembers what it took for a few seconds; if the other player's "taken" for the
+        // same item arrives in that time, the player with the lower id keeps it and the other copy is removed - both
+        // machines make the same call, so exactly one item survives.
+        readonly Dictionary<int, (Item it, float t)> _myTakes = new Dictionary<int, (Item it, float t)>();
+        void RememberTake(int id, Item it)
+        {
+            if (_myTakes.Count > 64)
+            {
+                var old = new List<int>();
+                foreach (var kv in _myTakes) if (Time.time - kv.Value.t > 6f) old.Add(kv.Key);
+                foreach (var k in old) _myTakes.Remove(k);
+            }
+            _myTakes[id] = (it, Time.time);
+        }
+        void ResolveDoubleTake(int id, ulong from)
+        {
+            if (!_myTakes.TryGetValue(id, out var mine)) return;
+            _myTakes.Remove(id);
+            var it = mine.it;
+            if (it == null || Time.time - mine.t > 6f || NetHub.Backend == null || from > NetHub.Backend.LocalId) return;   // I keep it
+            try
+            {
+                it.Consumed = true;   // gone: don't drop it or announce it again
+                it.primaryHand?.ForceRelease();
+                it.secondaryHand?.ForceRelease();
+                if (it.slot != null) it.slot.Release(it);
+                it.netId = 0;
+                Destroy(it.gameObject);
+                var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+                if (pl != null) pl.Toast("Someone else grabbed that first");
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Rago] double take: " + e.Message); }
         }
 
         public void OnItemDropped(Item it)
@@ -776,6 +812,7 @@ namespace Rago
                         case Msg.ItemTaken:
                             {
                                 int id = r.ReadInt32();
+                                ResolveDoubleTake(id, from);   // we both grabbed it at once: only one of us keeps it
                                 _taken.Add(id);   // someone has it: if this crate / body hasn't been opened here yet, it won't appear when it is
                                 if (Items.TryGetValue(id, out var it) && it != null && !it.Held)
                                 {
