@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.40", "New menu look", new[] {
+                "MENUS look much better: the menu and the terminals are now rugged field tablets - a chunky case with rubber corner bumpers and grip ridges around a dark glass screen, amber corner brackets and an accent line.",
+                "BUTTONS are proper keys now: each sits in a dark bezel with a coloured notch down its edge, and presses in when you click it.",
+            }),
             ("3.39", "A worn-down bunker", new[] {
                 "The BUNKER is properly worn down now: old olive-drab steel plating with chipped paint and rust showing through, rust streaks under the rivets, a stained and cracked concrete floor, faded two-tone paint bands, rusty steel beams.",
                 "Old twin-tube fluorescent lights (warm and dim, one of them flickering), sagging cables along the walls, water stains, puddles under the leaks, rubble in the corners and old papers on the floor.",

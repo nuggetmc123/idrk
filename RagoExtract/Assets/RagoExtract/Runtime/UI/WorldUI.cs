@@ -102,7 +102,37 @@ namespace Rago
                 }
                 default:
                 {
-                    // matte steel plate, bolted on
+                    if (col == null)
+                    {
+                        // the standard panel (3.40): a rugged field terminal - a chunky chamfered case with rubber corner
+                        // bumpers round a dark glossy screen, amber corner brackets and a thin accent line along the top
+                        Color scr = Lin(new Color(0.075f, 0.085f, 0.095f)), caseCol = Lin(new Color(0.12f, 0.125f, 0.13f)), rubber = Lin(new Color(0.045f, 0.045f, 0.045f));
+                        Color amber = Lin(new Color(1f, 0.62f, 0.18f));
+                        if (frame)
+                        {
+                            float bw = 0.03f;
+                            mb.Sub(0).Box(new Vector3(0, 0, 0.026f), new Vector3(w + bw * 2, h + bw * 2, 0.034f), caseCol, 0.012f, 2);
+                            mb.Sub(0).Box(new Vector3(0, 0, 0.004f), new Vector3(w + 0.012f, h + 0.012f, 0.012f), Lin(new Color(0.03f, 0.03f, 0.035f)), 0.003f, 1);   // the screen's recess
+                            foreach (var sx in new[] { -1, 1 }) foreach (var sy in new[] { -1, 1 })
+                                    mb.Sub(0).Box(new Vector3(sx * (w / 2 + bw - 0.022f), sy * (h / 2 + bw - 0.022f), 0.014f), new Vector3(0.075f, 0.075f, 0.052f), rubber, 0.016f, 2);   // bumpers
+                            foreach (var sx in new[] { -1, 1 }) for (int k = 0; k < 3; k++)
+                                    mb.Sub(0).Box(new Vector3(sx * (w / 2 + bw * 0.55f), -0.06f + k * 0.06f, 0.006f), new Vector3(0.006f, 0.035f, 0.004f), rubber, 0.002f);   // grip ridges
+                        }
+                        mb.Sub(1).Box(new Vector3(0, 0, 0.01f), new Vector3(w, h, 0.02f), scr, 0.002f);
+                        // HUD corner brackets and an accent line, flat on the glass (behind the text and buttons)
+                        float m = 0.018f, L = Mathf.Min(0.07f, Mathf.Min(w, h) * 0.18f), t = 0.005f;
+                        foreach (var sx in new[] { -1, 1 }) foreach (var sy in new[] { -1, 1 })
+                            {
+                                mb.Sub(2).Box(new Vector3(sx * (w / 2 - m - L / 2), sy * (h / 2 - m), -0.0012f), new Vector3(L, t, 0.0016f), amber, 0f);
+                                mb.Sub(2).Box(new Vector3(sx * (w / 2 - m), sy * (h / 2 - m - L / 2), -0.0012f), new Vector3(t, L, 0.0016f), amber, 0f);
+                            }
+                        mb.Sub(2).Box(new Vector3(0, h / 2 - m * 0.5f, -0.0012f), new Vector3(w * 0.4f, 0.003f, 0.0016f), amber * 0.7f, 0f);
+                        mb.Build("bg", root, Mats.Lit("ui_case", Color.white, 0.15f, 0.35f, Mats.Noise, null, 0.3f, 0.15f),
+                            Mats.Lit("ui_screen", Color.white, 0.1f, 0.88f, null, null, 0f, 0f, false, 0.5f, new Color(0.006f, 0.01f, 0.014f)),
+                            Mats.Lit("ui_accent", Color.white, 0f, 0.5f, null, null, 0f, 0f, false, 0.5f, new Color(0.35f, 0.18f, 0.03f)));
+                        break;
+                    }
+                    // a painted steel plate in the colour asked for, bolted on
                     Color c = Lin(col ?? PanelCol);
                     if (frame) mb.Sub(0).Box(new Vector3(0, 0, 0.022f), new Vector3(w + 0.03f, h + 0.03f, 0.01f), Lin(new Color(0.09f, 0.09f, 0.095f)), 0.006f);
                     mb.Sub(0).Box(new Vector3(0, 0, 0.01f), new Vector3(w, h, 0.02f), c, 0.008f, 1);
@@ -195,7 +225,11 @@ namespace Rago
                     hasFixed = true; _travel = 0f;
                     break;
                 default:
-                    cap.Box(Vector3.zero, new Vector3(w, h, 0.016f), Color.white, 0.005f, 1);
+                    // a tactical plate key: a dark bezel, a chamfered cap and a lighter notch down its left edge
+                    fixedMb.Box(new Vector3(0, 0, 0.006f), new Vector3(w + 0.012f, h + 0.012f, 0.014f), UI.Lin(new Color(0.05f, 0.05f, 0.055f)), 0.004f, 1);
+                    fixedMb.Box(new Vector3(-w / 2 - 0.0005f, 0, -0.0085f), new Vector3(0.006f, h * 0.7f, 0.003f), UI.Lin(Color.Lerp(col, Color.white, 0.45f)), 0f);
+                    hasFixed = true;
+                    cap.Box(Vector3.zero, new Vector3(w - 0.004f, h - 0.004f, 0.016f), Color.white, Mathf.Min(0.006f, h * 0.15f), 1);
                     _travel = 0.005f;
                     break;
             }
