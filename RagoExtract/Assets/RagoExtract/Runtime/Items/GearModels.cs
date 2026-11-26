@@ -317,30 +317,41 @@ namespace Rago
                     Shroud(mb, s, Dark);
                     mb.Sub(2).Box(new Vector3(0.05f, 0.2f, -0.02f), new Vector3(0.04f, 0.004f, 0.03f), t, 0.001f, 1, Quaternion.Euler(-10f, 0, -20f));   // patch
                     break;
-                case 1: // T2 PATROL: full cut with a flared brim, a cloth cover with camo blotches, a band holding goggles on the brow
+                case 1: // T2 PATROL: full cut with a flared brim, a fitted camo cover (flat printed patches), a band with a pair of goggles on the brow
                 {
-                    mb.Sub(0).Sphere(o, r, 26, c, 0f, 0.56f);
+                    mb.Sub(2).Sphere(o, r, 28, c, 0f, 0.56f);   // the cloth cover over the shell
                     mb.Sub(0).Push(o + Vector3.down * 0.004f, Quaternion.identity, new Vector3(1f, 1f, r.z / r.x));
-                    mb.Sub(0).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(r.x * 0.985f, 0.012f), new Vector2(r.x * 1.03f, -0.006f), new Vector2(r.x * 1.07f, -0.016f), new Vector2(r.x * 1.065f, -0.021f), new Vector2(r.x * 0.97f, -0.012f) }, 28, shade);
+                    mb.Sub(2).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(r.x * 0.985f, 0.012f), new Vector2(r.x * 1.03f, -0.006f), new Vector2(r.x * 1.065f, -0.015f), new Vector2(r.x * 1.06f, -0.02f), new Vector2(r.x * 0.97f, -0.012f) }, 28, shade);   // brim (cover tucked under)
                     mb.Pop();
                     mb.Sub(2).Sphere(o + Vector3.down * 0.004f, r * 0.9f, 16, Webbing, 0f, 0.5f);
                     ChinStrap(mb, s);
+                    // camo: flat patches lying on the cover (printed, not lumps), three colours
                     var rnd = new System.Random(7);
-                    for (int i = 0; i < 22; i++)   // camo blotches on the cover
+                    Color[] camo = { Mul(c, 0.6f), Lin(new Color(0.42f, 0.36f, 0.25f)), Lin(new Color(0.16f, 0.17f, 0.12f)) };
+                    for (int i = 0; i < 34; i++)
                     {
-                        float a = (float)rnd.NextDouble() * Mathf.PI * 2f, el = 0.25f + (float)rnd.NextDouble() * 1.2f;
+                        float a = (float)rnd.NextDouble() * Mathf.PI * 2f, el = 0.12f + (float)rnd.NextDouble() * 1.35f;
                         Vector3 n = new Vector3(Mathf.Sin(a) * Mathf.Cos(el), Mathf.Sin(el), Mathf.Cos(a) * Mathf.Cos(el));
-                        mb.Sub(2).Sphere(o + Vector3.Scale(n, r) * 1.004f, new Vector3(0.022f, 0.022f, 0.022f) * (0.7f + (float)rnd.NextDouble() * 0.6f), 8, i % 2 == 0 ? Mul(c, 0.62f) : Lin(new Color(0.45f, 0.4f, 0.3f)));
+                        if (n.z > 0.55f && n.y < 0.62f && n.y > 0.2f) continue;   // keep the brow under the goggles clear
+                        Vector3 p0 = o + Vector3.Scale(n, r) * 1.002f;
+                        float w = 0.016f + (float)rnd.NextDouble() * 0.016f;
+                        mb.Sub(2).Push(p0, Quaternion.LookRotation(Vector3.Scale(n, new Vector3(1f / r.x, 1f / r.y, 1f / r.z)).normalized) * Quaternion.Euler(0, 0, (float)rnd.NextDouble() * 180f));
+                        mb.Sub(2).Sphere(Vector3.zero, new Vector3(w, w * (0.45f + (float)rnd.NextDouble() * 0.4f), 0.0012f), 10, camo[i % 3]);
+                        mb.Pop();
                     }
-                    mb.Sub(2).Push(o + Vector3.up * 0.032f, Quaternion.identity, new Vector3(1f, 1f, r.z / r.x));
-                    mb.Sub(2).Tube(new Vector3(0, -0.01f, 0), new Vector3(0, 0.01f, 0), r.x * 0.985f + 0.005f, r.x * 0.97f, 28, Black);   // band
+                    // seams of the cover and an elastic band round it with two reflective cat-eye tabs at the back
+                    mb.Sub(2).Push(o + Vector3.up * 0.035f, Quaternion.identity, new Vector3(1f, 1f, r.z / r.x));
+                    mb.Sub(2).Tube(new Vector3(0, -0.009f, 0), new Vector3(0, 0.009f, 0), r.x * 0.98f + 0.004f, r.x * 0.965f, 32, Black);
                     mb.Pop();
-                    foreach (float x in new[] { -1f, 1f })   // goggles resting on the brow
-                    {
-                        mb.Sub(1).Sphere(new Vector3(x * 0.034f, 0.152f, 0.118f), new Vector3(0.03f, 0.022f, 0.016f), 14, Rubber);
-                        mb.Sub(3).Sphere(new Vector3(x * 0.034f, 0.152f, 0.13f), new Vector3(0.025f, 0.018f, 0.008f), 14, Lin(new Color(0.55f, 0.45f, 0.2f)));
-                    }
-                    mb.Sub(1).Box(new Vector3(0, 0.15f, 0.132f), new Vector3(0.016f, 0.01f, 0.01f), Rubber, 0.003f);
+                    foreach (float x in new[] { -0.035f, 0.035f }) mb.Sub(3).Box(new Vector3(x, 0.14f, -0.132f), new Vector3(0.022f, 0.008f, 0.003f), new Color(0.95f, 0.85f, 0.4f), 0.001f);
+                    // goggles on the brow: a strap round the band, one wide rubber frame following the helmet's curve, two-part amber lens, a vent strip
+                    System.Func<float, float> shellR = y => r.x * Mathf.Sqrt(Mathf.Max(0f, 1f - Mathf.Pow((y - o.y) / r.y, 2f)));   // the cover's radius at height y
+                    Band(mb, 2, -160f, 160f, 0.146f, 0.158f, y => shellR(y) + 0.0035f, 0.0f, 36, 1, Rubber);   // strap hugging the cover
+                    Band(mb, 1, -40f, 40f, 0.133f, 0.173f, y => shellR(y) + 0.009f, 0.0f, 18, 4, Rubber);       // goggle frame, curved round the brow
+                    foreach (float sx in new[] { -1f, 1f })
+                        Band(mb, 1, sx < 0 ? -36f : 4f, sx < 0 ? -4f : 36f, 0.138f, 0.168f, y => shellR(y) + 0.0125f, 0.0f, 10, 3, Lin(new Color(0.8f, 0.5f, 0.12f)));   // amber lenses
+                    mb.Sub(1).Box(new Vector3(0, 0.15f, 0.133f), new Vector3(0.01f, 0.028f, 0.01f), Rubber, 0.003f);   // nose bridge
+                    mb.Sub(1).Box(new Vector3(0, 0.172f, 0.128f), new Vector3(0.06f, 0.003f, 0.008f), Black, 0.001f, 1, Quaternion.Euler(-30f, 0, 0));   // vent strip
                     Ears(mb, s, false);
                     break;
                 }

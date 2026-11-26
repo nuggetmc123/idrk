@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.36", "Better T2 Patrol Helmet", new[] {
+                "The T2 Patrol Helmet looks much better: the camo is now printed flat on the cloth cover (it stuck out in lumps), and the goggles are a real pair resting on the brow - a curved rubber frame with two amber lenses and a strap round the cover (they looked like two bug eyes).",
+            }),
             ("3.35", "Armour tiers T1-T6, three bosses", new[] {
                 "ARMOUR is now tiered T1 to T6, helmets and vests, and every tier has a brand-new model:",
                 "  T1 Scout Bump Helmet / Soft Shell Vest - T2 Patrol Helmet (camo cover, goggles) / Light Plate Carrier - T3 Raptor High-Cut (rails, comms, light, strobe) / Ranger Chest Rig - T4 Ronin Mandible Helmet (jaw guard, ear plates) / Heavy Plate Carrier - T5 Vanguard Visor Helmet / Assault Armor - T6 Titan Juggernaut Helm (glowing eye slit) / Titan Juggernaut Armor (vault-only).",
