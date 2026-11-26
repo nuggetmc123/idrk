@@ -76,12 +76,13 @@ namespace Rago
         {
             var l = Cosmetics.Decode(Cosmetics.Mine);
             string C(int i) => Cosmetics.Colors[i].name;
-            _values[0].text = Cosmetics.Shirts[l.shirt]; _values[1].text = l.shirt == 0 ? "-" : C(l.shirtCol);
-            _values[2].text = Cosmetics.Pants[l.pants]; _values[3].text = l.pants == 0 ? "-" : C(l.pantsCol);
+            bool noShirt = l.shirt == Cosmetics.ShirtNone, noPants = l.pants == Cosmetics.PantsNone;
+            _values[0].text = Cosmetics.Shirts[l.shirt]; _values[1].text = noShirt ? "-" : C(l.shirtCol);
+            _values[2].text = Cosmetics.Pants[l.pants]; _values[3].text = noPants ? "-" : C(l.pantsCol);
             _values[4].text = Cosmetics.Hats[l.hat]; _values[5].text = l.hat == 0 ? "-" : C(l.hatCol);
             _values[6].text = Cosmetics.Faces[l.face];
-            _values[1].color = l.shirt == 0 ? UI.Dim : Color.Lerp(Cosmetics.Col(l.shirtCol), Color.white, 0.25f);
-            _values[3].color = l.pants == 0 ? UI.Dim : Color.Lerp(Cosmetics.Col(l.pantsCol), Color.white, 0.25f);
+            _values[1].color = noShirt ? UI.Dim : Color.Lerp(Cosmetics.Col(l.shirtCol), Color.white, 0.25f);
+            _values[3].color = noPants ? UI.Dim : Color.Lerp(Cosmetics.Col(l.pantsCol), Color.white, 0.25f);
             _values[5].color = l.hat == 0 ? UI.Dim : Color.Lerp(Cosmetics.Col(l.hatCol), Color.white, 0.25f);
         }
 

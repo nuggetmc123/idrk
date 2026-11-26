@@ -4,13 +4,16 @@ namespace Rago
 {
     /// <summary>
     /// Clothes for your operator (picked at the WARDROBE in your bunker): a shirt, trousers, a hat and something on your
-    /// face, each in a colour. Worn under any armour you put on. Saved in your profile as a short text ("look") and sent
+    /// face, each in a colour. Without picks you wear the combat uniform. Worn under any armour you put on. Saved in your profile as a short text ("look") and sent
     /// to other players so they see you dressed the same.
     /// </summary>
     public static class Cosmetics
     {
-        public static readonly string[] Shirts = { "NONE", "T-SHIRT", "LONG SLEEVE", "HOODIE", "JACKET", "TANK TOP" };
-        public static readonly string[] Pants = { "NONE", "CARGO PANTS", "JEANS", "SHORTS" };
+        // (3.48) everyone is dressed now: the first choice is the combat uniform (it used to be NONE, which left you a bare
+        // figure) and NONE moved to the end, so saved picks keep their meaning
+        public static readonly string[] Shirts = { "COMBAT SHIRT", "T-SHIRT", "LONG SLEEVE", "HOODIE", "JACKET", "TANK TOP", "NONE" };
+        public static readonly string[] Pants = { "COMBAT PANTS", "CARGO PANTS", "JEANS", "SHORTS", "NONE" };
+        public const int ShirtNone = 6, PantsNone = 4;
         public static readonly string[] Hats = { "NONE", "CAP", "BEANIE", "BANDANA" };
         public static readonly string[] Faces = { "NONE", "SUNGLASSES", "NECK GAITER", "GAS MASK" };
         public static readonly (string name, Color col)[] Colors =
@@ -24,7 +27,7 @@ namespace Rago
 
         public struct Look { public int shirt, shirtCol, pants, pantsCol, hat, hatCol, face; }
 
-        public static Look Default => new Look { shirt = 0, shirtCol = 3, pants = 0, pantsCol = 6, hat = 0, hatCol = 0, face = 0 };
+        public static Look Default => new Look { shirt = 0, shirtCol = 3, pants = 0, pantsCol = 2, hat = 0, hatCol = 0, face = 0 };   // olive combat shirt, grey combat pants
 
         public static string Encode(Look l) => l.shirt + "," + l.shirtCol + "," + l.pants + "," + l.pantsCol + "," + l.hat + "," + l.hatCol + "," + l.face;
 
@@ -35,7 +38,7 @@ namespace Rago
             var p = s.Split(',');
             int I(int i, int max, int def) => p.Length > i && int.TryParse(p[i], out var v) ? Mathf.Clamp(v, 0, max - 1) : def;
             l.shirt = I(0, Shirts.Length, 0); l.shirtCol = I(1, Colors.Length, 3);
-            l.pants = I(2, Pants.Length, 0); l.pantsCol = I(3, Colors.Length, 6);
+            l.pants = I(2, Pants.Length, 0); l.pantsCol = I(3, Colors.Length, 2);
             l.hat = I(4, Hats.Length, 0); l.hatCol = I(5, Colors.Length, 0);
             l.face = I(6, Faces.Length, 0);
             return l;

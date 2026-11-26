@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.48", "Real clothes", new[] {
+                "YOUR OPERATOR WEARS CLOTHES: without any wardrobe picks you're in a combat uniform - a combat shirt (a lighter body with coloured sleeves and shoulders, a seam across the chest, a mock-neck collar with a zip, sleeve pockets with your patch on them), combat pants with cargo pockets and back pockets, fingerless gloves and boots.",
+                "Every WARDROBE piece is remade to fit the body: T-shirts with hemmed sleeves, long sleeves, hoodies (hood down on the back, drawstrings, front pocket), jackets (stand collar, full zip, chest pockets with flaps, hand pockets), tank tops, cargo pants, jeans and shorts. Shirts hang over your belt; the combat shirt tucks in.",
+                "Clothes show their real colours now - they used to look pale and washed out.",
+                "Want the bare ragdoll look? NONE is now at the end of the shirt and trouser lists.",
+                "Raiders' jackets and trousers are rebuilt the same way, and their red armband shows again (it was hidden inside the sleeve).",
+            }),
             ("3.47", "Ragdoll figures, oil and fixes", new[] {
                 "PLAYERS and NPCs are faceless RAGDOLL FIGURES now: a smooth moulded head, a sculpted chest and hips, calves and forearms, and mitten hands with a thumb. Raiders still wear their jackets, trousers, gloves and boots, and your wardrobe clothes and armour still apply.",
                 "OIL, NOT BLOOD: hits spray dark motor oil - black splats with a brown edge and a faint rainbow film, oil running down walls, drips, and oil pooling under the bodies. A headshot knocks chips off the shell.",
