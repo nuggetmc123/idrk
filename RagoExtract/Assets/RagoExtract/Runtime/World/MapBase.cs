@@ -1784,9 +1784,37 @@ namespace Rago
             B.Box(P(-0.96f, 1.21f, face - 0.03f), new Vector3(0.12f, 2.42f, 0.06f), steel, frameCol, q, false);
             B.Box(P(0.96f, 1.21f, face - 0.03f), new Vector3(0.12f, 2.42f, 0.06f), steel, frameCol, q, false);
             B.Box(P(0, 2.36f, face - 0.03f), new Vector3(2.04f, 0.12f, 0.06f), steel, frameCol, q, false);
+            {
+                var haz = Mats.Lit("vault_hazard", Color.white, 0.1f, 0.4f, Mats.Noise, null, 0.35f, 0.3f);
+                foreach (float sx in new[] { -1f, 1f })   // hazard-striped posts on the wall either side of the frame (the door covers the frame itself)
+                    for (int k = 0; k < 8; k++)
+                        B.Box(P(sx * 1.14f, 0.15f + k * 0.29f, face - 0.012f), new Vector3(0.16f, 0.145f, 0.02f), haz, k % 2 == 0 ? new Color(0.9f, 0.7f, 0.1f) : new Color(0.08f, 0.08f, 0.08f), q, false);
+                B.Cyl(P(0, 2.46f, face - 0.08f), P(0, 2.62f, face - 0.08f), 0.075f, 0.065f, 12, Mats.Lit("vault_beacon", new Color(0.9f, 0.1f, 0.06f), 0f, 0.8f, null, null, 0f, 0f, false, 0.5f, new Color(0.8f, 0.05f, 0.02f)), Color.white, false);
+                B.Cyl(P(0, 2.42f, face - 0.08f), P(0, 2.46f, face - 0.08f), 0.09f, 0.09f, 12, steel, new Color(0.25f, 0.25f, 0.26f), false);
+            }
             if (ceiling) B.Box(P(0, height + 0.07f, 2.5f + z0 * 0.5f), new Vector3(width + 0.4f, 0.14f, 5.4f - z0), conc, new Color(0.6f, 0.6f, 0.62f), q);
-            B.Box(P(0, 0.06f, 2.5f + z0 * 0.5f), new Vector3(width - 0.4f, 0.12f, 4.6f - z0), Mats.Lit("vault_floor", Color.white, 0.3f, 0.5f, Mats.Tiles, Mats.TilesN, 0.3f, 0.2f, true, 0.5f), new Color(0.5f, 0.52f, 0.55f), q);
-            B.AddLight(P(0, 2.6f, 2.5f), new Color(1f, 0.95f, 0.85f), 7f, 1.3f);
+            B.Box(P(0, 0.06f, 2.5f + z0 * 0.5f), new Vector3(width - 0.4f, 0.12f, 4.6f - z0), Mats.Lit("vault_floor2", Color.white, 0.75f, 0.55f, Mats.Metal, Mats.MetalN, 0.3f, 0.35f, true, 1.5f), new Color(0.4f, 0.42f, 0.45f), q);   // steel deck
+            B.AddLight(P(0, 2.6f, 2.5f), new Color(0.85f, 0.92f, 1f), 7f, 1.35f);   // cold strip light
+            B.Box(P(0, height - 0.04f, 2.5f), new Vector3(0.25f, 0.05f, 2.2f), Mats.Lit("vault_strip", new Color(0.9f, 0.95f, 1f), 0f, 0.6f, null, null, 0f, 0f, false, 0.5f, new Color(1.6f, 1.75f, 1.9f)), Color.white, q, false);
+            B.Box(P(hw - 0.35f, height - 0.3f, 4.6f), new Vector3(0.14f, 0.1f, 0.08f), Mats.Lit("vault_redlamp", new Color(0.9f, 0.12f, 0.08f), 0f, 0.7f, null, null, 0f, 0f, false, 0.5f, new Color(0.9f, 0.08f, 0.04f)), Color.white, q, false);
+            // safe-deposit boxes lining both side walls, above the tables: rows of little steel doors with keyholes and number plates
+            {
+                var dep = Mats.Lit("vault_deposit", Color.white, 0.45f, 0.55f, Mats.Metal, null, 0.2f, 0.3f, true, 2f);
+                float yTop = Mathf.Min(height - 0.25f, 2.55f), bw = 0.3f, bh = 0.26f;
+                foreach (float sx in new[] { -1f, 1f })
+                {
+                    float xf = sx * (hw - thick * 0.5f - 0.06f);
+                    B.Box(P(sx * (hw - thick * 0.5f - 0.03f), (1.05f + yTop) * 0.5f, 2.3f + z0 * 0.5f), new Vector3(0.06f, yTop - 1.05f, 3.6f - z0), dep, new Color(0.28f, 0.29f, 0.31f), q, false);   // the bank's back plate
+                    int k = 0;
+                    for (float y = 1.05f + bh * 0.5f; y < yTop - bh * 0.45f; y += bh)
+                        for (float z = 0.55f + z0 + bw * 0.5f; z < 4.1f; z += bw, k++)
+                        {
+                            B.Box(P(xf, y, z), new Vector3(0.02f, bh - 0.018f, bw - 0.018f), dep, k % 3 == 0 ? new Color(0.55f, 0.56f, 0.58f) : new Color(0.62f, 0.63f, 0.65f), q, false);   // a box door
+                            B.Box(P(xf - sx * 0.012f, y + 0.05f, z), new Vector3(0.004f, 0.03f, 0.08f), dep, new Color(0.8f, 0.68f, 0.35f), q, false);   // brass number plate
+                            B.Cyl(P(xf - sx * 0.01f, y - 0.04f, z), P(xf - sx * 0.02f, y - 0.04f, z), 0.012f, 0.012f, 8, dep, new Color(0.2f, 0.2f, 0.2f), false);   // keyhole
+                        }
+                }
+            }
             // door: a thick square steel slab that fills the frame exactly, with a locking wheel; swings open on the left
             v._door = new GameObject("DoorHinge").transform;
             v._door.SetParent(go.transform, false);
@@ -1797,9 +1825,33 @@ namespace Rago
             foreach (float bx in new[] { 0.16f, 1.74f }) for (int k = 0; k < 4; k++)                                                          // bolt heads round the edge
                 dm.Sub(1).Cyl(new Vector3(bx, -0.9f + k * 0.6f, -0.35f), new Vector3(bx, -0.9f + k * 0.6f, -0.375f), 0.03f, 0.03f, 10, Color.white);
             for (int h = 0; h < 3; h++) dm.Sub(1).Box(new Vector3(1.86f, -0.7f + h * 0.7f, -0.17f), new Vector3(0.06f, 0.18f, 0.3f), Color.white, 0.01f);   // locking bars on the opening edge
-            dm.Sub(1).Cyl(new Vector3(0.95f, 0, -0.36f), new Vector3(0.95f, 0, -0.42f), 0.35f, 0.3f, 18, Color.white);
-            for (int i = 0; i < 3; i++) dm.Sub(1).Box(new Vector3(0.95f, 0, -0.43f), new Vector3(0.9f, 0.06f, 0.05f), Color.white, 0.01f, 1, Quaternion.Euler(0, 0, i * 60f));
-            var door = dm.Build("Door", v._door, Mats.Lit("vault_door", new Color(0.55f, 0.57f, 0.6f), 0.9f, 0.6f, Mats.Metal, Mats.MetalN, 0.15f, 0.35f), Mats.Chrome);
+            // the classic bank-vault face (3.42): a thick round door embossed on the slab, ringed with radial locking bolts,
+            // a five-spoke handwheel with grips on a big hub, and a time-lock box with three dials
+            dm.Sub(0).Cyl(new Vector3(0.95f, 0.02f, -0.355f), new Vector3(0.95f, 0.02f, -0.4f), 0.86f, 0.84f, 40, new Color(0.92f, 0.92f, 0.92f));   // the round door
+            dm.Sub(1).Tube(new Vector3(0.95f, 0.02f, -0.4f), new Vector3(0.95f, 0.02f, -0.415f), 0.86f, 0.78f, 40, Color.white);                     // its polished rim
+            dm.Sub(0).Cyl(new Vector3(0.95f, 0.02f, -0.4f), new Vector3(0.95f, 0.02f, -0.41f), 0.62f, 0.62f, 32, new Color(0.8f, 0.8f, 0.8f));       // inner step
+            for (int i = 0; i < 12; i++)
+            {
+                float a = i / 12f * Mathf.PI * 2f; var dir = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0);
+                var c0 = new Vector3(0.95f, 0.02f, -0.385f) + dir * 0.7f;
+                dm.Sub(1).Cyl(c0, c0 + dir * 0.13f, 0.035f, 0.035f, 10, Color.white);                                                           // locking bolt
+            }
+            dm.Sub(1).Cyl(new Vector3(0.95f, 0.02f, -0.41f), new Vector3(0.95f, 0.02f, -0.5f), 0.12f, 0.1f, 20, Color.white);                       // hub
+            for (int i = 0; i < 5; i++)
+            {
+                float a = i / 5f * Mathf.PI * 2f + 0.3f; var dir = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0);
+                var h0 = new Vector3(0.95f, 0.02f, -0.47f);
+                dm.Sub(1).Cyl(h0 + dir * 0.08f, h0 + dir * 0.42f, 0.022f, 0.02f, 8, Color.white);                                               // spoke
+                dm.Sub(0).Capsule(h0 + dir * 0.42f, h0 + dir * 0.42f + new Vector3(0, 0, -0.1f), 0.03f, 8, new Color(0.12f, 0.12f, 0.12f));       // grip
+            }
+            dm.Sub(1).Tube(new Vector3(0.95f, 0.02f, -0.46f), new Vector3(0.95f, 0.02f, -0.48f), 0.44f, 0.4f, 32, Color.white);                     // wheel rim
+            dm.Sub(0).Box(new Vector3(0.95f, 0.88f, -0.4f), new Vector3(0.5f, 0.2f, 0.08f), new Color(0.2f, 0.2f, 0.22f), 0.015f, 1);              // time lock
+            for (int i = -1; i <= 1; i++)
+            {
+                dm.Sub(1).Cyl(new Vector3(0.95f + i * 0.14f, 0.88f, -0.44f), new Vector3(0.95f + i * 0.14f, 0.88f, -0.45f), 0.05f, 0.05f, 14, Color.white);
+                dm.Sub(0).Box(new Vector3(0.95f + i * 0.14f, 0.9f, -0.452f), new Vector3(0.006f, 0.04f, 0.002f), new Color(0.1f, 0.1f, 0.1f), 0f);   // dial needle
+            }
+            var door = dm.Build("Door", v._door, Mats.Lit("vault_door2", new Color(0.66f, 0.68f, 0.72f), 0.55f, 0.55f, Mats.Metal, Mats.MetalN, 0.2f, 0.4f), Mats.Lit("vault_brass", new Color(0.85f, 0.8f, 0.7f), 0.7f, 0.7f, Mats.Metal, null, 0.1f, 0.25f));
             var dc = door.AddComponent<BoxCollider>(); dc.center = new Vector3(0.95f, 0, -0.175f); dc.size = new Vector3(1.86f, 2.3f, 0.36f);
             door.AddComponent<SurfaceTag>().surface = Synth.Surface.Metal;
             // card reader outside, right of the door (keycard only - no hacking)
@@ -1810,7 +1862,10 @@ namespace Rago
             v._status = UI.Text(go.transform, "VAULT LOCKED", new Vector3(0, 2.6f, face - 0.1f), 0.07f, new Color(1f, 0.3f, 0.25f), TextAnchor.MiddleCenter, FontStyle.Bold);
             v._status.transform.localRotation = Quaternion.Euler(0, 0, 0);
             // racks inside
-            B.Box(P(0, 1.0f, 4.6f), new Vector3(4.5f, 2f, 0.3f), steel, new Color(0.3f, 0.32f, 0.34f), q, true, Synth.Surface.Metal);
+            var rackMat = Mats.Lit("vault_rack", Color.white, 0.4f, 0.45f, Mats.Metal, null, 0.3f, 0.35f, true, 1f);
+            B.Box(P(0, 1.0f, 4.6f), new Vector3(4.5f, 2f, 0.3f), rackMat, new Color(0.42f, 0.44f, 0.47f), q, true, Synth.Surface.Metal);
+            for (int k = 0; k < 4; k++) B.Box(P(0, 0.35f + k * 0.45f, 4.43f), new Vector3(4.4f, 0.05f, 0.05f), rackMat, new Color(0.7f, 0.72f, 0.75f), q, false);   // rack bars
+            for (int k = 0; k < 6; k++) B.Box(P(-1.9f + k * 0.76f, 1.0f, 4.43f), new Vector3(0.05f, 1.9f, 0.05f), rackMat, new Color(0.62f, 0.64f, 0.67f), q, false);
             v._rack = ItemContainer.Grid(go.transform, new Vector3(0, 1.0f, 4.35f), Quaternion.Euler(-90, 0, 0), 3, 1, new Vector2(1.3f, 0.5f), 1.15f, null, Quaternion.Euler(0, 0, 90));
             B.Table(P(-2.2f, 0, 2.5f), 90, new Vector2(1.6f, 0.8f), 0.9f);
             B.Table(P(2.2f, 0, 2.5f), 90, new Vector2(1.6f, 0.8f), 0.9f);

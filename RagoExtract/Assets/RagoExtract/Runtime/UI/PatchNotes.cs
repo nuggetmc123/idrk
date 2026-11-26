@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.42", "Reworked vaults", new[] {
+                "Every VAULT has been reworked: the door is a classic bank-vault face - a thick round door with a polished brass rim, 12 radial locking bolts, a big five-spoke brass handwheel and a time lock with three dials - with hazard-striped posts either side and a red beacon on top.",
+                "Inside: walls of safe-deposit boxes with brass number plates, a steel deck floor, a proper gun rack at the back, cold strip lighting and a red emergency lamp.",
+                "The keycard reader, the guards and where the loot sits are unchanged.",
+            }),
             ("3.41", "Streamer and sponsor items, round 2", new[] {
                 "PEANUT8 now holds a game controller (sticks, coloured buttons and a light bar). SHUSHED carries a chunky mini machine gun with gold rings round the barrel.",
                 "Both figurines' display bases have a glowing LED ring.",
