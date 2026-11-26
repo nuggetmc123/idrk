@@ -113,11 +113,11 @@ namespace Rago
             B.AddLight(new Vector3(p.x, Ht - 0.4f, p.z), light, 9f, 1.4f, true);
         }
 
-        /// <summary>Where a 1.2 m painted band used to run: a glowing LED strip at the skirting and another at waist height.</summary>
-        void LedBand(Vector3 c, Vector3 size, Material led)
+        /// <summary>The faded lower paint band (1.2 m) with a dark stripe along its top edge.</summary>
+        void LedBand(Vector3 c, Vector3 size, Material band)
         {
-            foreach (float y in new[] { 0.06f, 1.2f })
-                B.Box(new Vector3(c.x, y, c.z), new Vector3(size.x, 0.025f, size.z), led, Color.white, null, false);
+            B.Box(c, size, band, Color.white, null, false);
+            B.Box(new Vector3(c.x, 1.21f, c.z), new Vector3(size.x, 0.035f, size.z) + (size.x < size.z ? new Vector3(0.004f, 0, 0) : new Vector3(0, 0, 0.004f)), band, new Color(0.35f, 0.33f, 0.3f), null, false);
         }
 
         void BuildExpansions(Material floor, Material conc, Material paint, Material lampMat, Color tint, float Ht)
@@ -297,9 +297,10 @@ namespace Rago
                 new Color(0.1f, 0.1f, 0.1f), 0f, new Color(0.1f, 0.1f, 0.12f), new Color(0.2f, 0.2f, 0.2f), 0f, 0.5f);
             var b = B;
             // the new look (3.38): steel-clad walls, a dark epoxy floor, LED strips - the rooms themselves stay where they were
-            var conc = Mats.Lit("bunker_steel", new Color(0.66f, 0.7f, 0.75f), 0.35f, 0.5f, Mats.SteelPanel, Mats.SteelPanelN, 0.22f, 0.25f, true, 0.42f);
-            var paint = Mats.Lit("bunker_led", new Color(0.25f, 0.8f, 1f), 0f, 0.6f, null, null, 0f, 0f, false, 0.5f, new Color(0.3f, 1.3f, 1.8f));   // LED strips (the old paint bands)
-            var floor = Mats.Lit("bunker_epoxy", new Color(0.56f, 0.58f, 0.62f), 0.15f, 0.7f, Mats.Epoxy, Mats.EpoxyN, 0.18f, 0.12f, true, 0.42f);
+            // worn down (3.39): old olive-drab steel plating, chipped and rusting, a stained concrete floor, faded paint bands
+            var conc = Mats.Lit("bunker_worn", new Color(0.95f, 0.95f, 0.92f), 0.15f, 0.3f, Mats.WornPanel, Mats.WornPanelN, 0.6f, 0.35f, true, 0.42f);
+            var paint = Mats.Lit("bunker_band_worn", new Color(0.24f, 0.28f, 0.22f), 0f, 0.25f, Mats.Plaster, null, 0.75f, 0.55f, true, 0.5f);
+            var floor = Mats.Lit("bunker_floor_worn", new Color(0.86f, 0.85f, 0.81f), 0.05f, 0.35f, Mats.WornConcrete, Mats.ConcreteN, 0.65f, 0.25f, true, 0.35f);
             float W = 16, D = 12, Ht = 3.6f;
             // room
             b.Box(new Vector3(0, -0.1f, 0), new Vector3(W, 0.2f, D), floor, Color.white);
@@ -320,7 +321,8 @@ namespace Rago
             for (int i = -1; i <= 1; i++)
             {
                 b.Box(new Vector3(i * 5, Ht - 0.08f, 0), new Vector3(1.2f, 0.08f, 0.25f), Mats.Lit("lamp_on", new Color(1f, 0.95f, 0.8f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2f, 1.6f)), Color.white, null, false);
-                b.AddLight(new Vector3(i * 5, Ht - 0.4f, 0), new Color(0.92f, 0.95f, 1f), 10f, 1.5f, i == 0);
+                var lt = b.AddLight(new Vector3(i * 5, Ht - 0.4f, 0), new Color(1f, 0.85f, 0.64f), 10f, 1.35f, i == 0);
+                if (i == 1 && lt != null && Application.isPlaying) lt.gameObject.AddComponent<Flicker>();   // one old tube on its way out
             }
             var lampMat = Mats.Lit("lamp_on", new Color(1f, 0.95f, 0.8f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2f, 1.6f));
             var wallTint = new Color(0.6f, 0.61f, 0.6f);
@@ -425,12 +427,12 @@ namespace Rago
         void DressBunker(float W, float D, float Ht, float ax, float az0, float az1, float rx0, float rx1, float rz0, float rz1, float L)
         {
             var b = B;
-            var conc = Mats.Lit("bunker_beam", new Color(0.22f, 0.24f, 0.27f), 0.7f, 0.45f, Mats.Metal, null, 0.3f, 0.35f, true, 0.6f);   // dark steel structure
+            var conc = Mats.Lit("bunker_beam_rust", new Color(0.4f, 0.35f, 0.29f), 0.35f, 0.28f, Mats.Metal, null, 0.8f, 0.5f, true, 0.6f);   // old rusty steel
             Color beamCol = new Color(1f, 1f, 1f), colCol = new Color(0.9f, 0.92f, 0.95f);
             var metal = Mats.Lit("bunker_metal", Color.white, 0.7f, 0.45f, Mats.Metal, null, 0.35f, 0.4f);
             var galv = Mats.Lit("bunker_galv", new Color(0.62f, 0.64f, 0.66f), 0.8f, 0.5f, Mats.Metal, null, 0.3f, 0.3f);
             var glow = Mats.Lit("bulkhead_glow", new Color(1f, 0.92f, 0.75f), 0, 0.6f, null, null, 0, 0, false, 0.5f, new Color(1.6f, 1.4f, 1.0f));
-            var glowPanel = Mats.Lit("bunker_ledpanel", new Color(0.92f, 0.96f, 1f), 0, 0.6f, null, null, 0, 0, false, 0.5f, new Color(1.9f, 2.0f, 2.2f));
+            var glowPanel = Mats.Lit("bunker_tube", new Color(1f, 0.95f, 0.85f), 0, 0.6f, null, null, 0, 0, false, 0.5f, new Color(1.6f, 1.4f, 1.05f));
             var yellow = Mats.Lit("hazard_y", new Color(0.85f, 0.68f, 0.08f), 0f, 0.3f, Mats.Noise, null, 0.5f, 0.3f);
             var black = Mats.Lit("hazard_k", new Color(0.08f, 0.08f, 0.08f), 0f, 0.3f, Mats.Noise, null, 0.5f, 0.3f);
             // ---- main hall: beams across the ceiling, columns where they meet the walls, a caged lamp on each column
@@ -451,8 +453,10 @@ namespace Rago
             // strip lights get metal housings
             for (int i = -1; i <= 1; i++)
             {
-                b.Box(new Vector3(i * 5, Ht - 0.03f, 0), new Vector3(2.6f, 0.06f, 0.8f), metal, new Color(0.3f, 0.31f, 0.33f), null, false);   // LED panel frame
-                b.Box(new Vector3(i * 5, Ht - 0.065f, 0), new Vector3(2.4f, 0.02f, 0.62f), glowPanel, Color.white, null, false);              // the panel
+                // old twin-tube fluorescent fittings in dented housings (the east one flickers)
+                b.Box(new Vector3(i * 5, Ht - 0.05f, 0), new Vector3(1.4f, 0.08f, 0.34f), metal, new Color(0.42f, 0.4f, 0.36f), null, false);
+                foreach (float z in new[] { -0.08f, 0.08f }) b.Cyl(new Vector3(i * 5 - 0.62f, Ht - 0.12f, z), new Vector3(i * 5 + 0.62f, Ht - 0.12f, z), 0.025f, 0.025f, 8, glowPanel, Color.white, false);
+                foreach (float x in new[] { -0.66f, 0.66f }) b.Box(new Vector3(i * 5 + x, Ht - 0.11f, 0), new Vector3(0.04f, 0.06f, 0.28f), metal, new Color(0.25f, 0.24f, 0.22f), null, false);
             }
             // ventilation duct with flanges, under the beams
             float dz = -2.6f, dy = Ht - 0.62f;
@@ -493,9 +497,70 @@ namespace Rago
             foreach (float z in new[] { rz0 + 2.5f, rz1 - 2.5f })
                 IBeam(new Vector3((rx0 + rx1) / 2, Ht - 0.18f, z), new Vector3(rx1 - rx0, 0.36f, 0.36f), conc);
             b.Box(new Vector3((rx0 + rx1) / 2, Ht - 0.025f, (rz0 + rz1) / 2), new Vector3(0.36f, 0.05f, 1.4f), metal, new Color(0.35f, 0.36f, 0.37f), null, false);
+            Grunge(W, D, Ht, ax, az0, az1, metal);
             // ---- range tunnel: beams every few metres
             for (float x = -W / 2 - 3f; x > -W / 2 - L + 1f; x -= 4f)
                 IBeam(new Vector3(x, 2.52f, 0), new Vector3(0.3f, 0.16f, 3.4f), conc);
+        }
+
+        /// <summary>Wear and tear: water and rust stains down the walls, puddles, rubble, litter and sagging cables. Visual
+        /// only (no colliders), kept off the stations, racks, lift and doorways.</summary>
+        void Grunge(float W, float D, float Ht, float ax, float az0, float az1, Material metal)
+        {
+            var b = B;
+            var stain = Mats.Lit("bunker_stain", new Color(0.24f, 0.25f, 0.2f), 0f, 0.45f, null, null, 0.4f, 0f, true, 1.5f);
+            var rustStain = Mats.Lit("bunker_rust_stain", new Color(0.36f, 0.26f, 0.17f), 0f, 0.3f, null, null, 0.4f, 0f, true, 1.5f);
+            var water = Mats.Lit("bunker_puddle", new Color(0.3f, 0.29f, 0.27f), 0.1f, 0.95f);
+            var rubble = Mats.Lit("bunker_rubble", new Color(0.5f, 0.48f, 0.45f), 0f, 0.2f, Mats.Concrete, null, 0.6f, 0.2f, true, 2f);
+            var paper = Mats.Lit("bunker_paper", new Color(0.78f, 0.75f, 0.66f), 0f, 0.2f);
+            var cable = Mats.Lit("bunker_cable", new Color(0.06f, 0.06f, 0.06f), 0f, 0.4f);
+            var rng = new Rng(77);
+            // streaks down the walls from the ceiling: (wall point, normal into the room)
+            foreach (var (p, n) in new[] { (new Vector3(-1.8f, 0, D / 2 - 0.15f), Vector3.back), (new Vector3(1.2f, 0, D / 2 - 0.15f), Vector3.back), (new Vector3(W / 2 - 0.15f, 0, -4.7f), Vector3.left),
+                                          (new Vector3(-2f, 0, az1 - 0.15f), Vector3.back), (new Vector3(-W / 2 + 0.15f, 0, 5.3f), Vector3.right) })
+            {
+                for (int k = 0; k < 3; k++)
+                {
+                    float len = 0.8f + rng.Range(0f, 1.4f), off = rng.Range(-0.35f, 0.35f);
+                    var side = Vector3.Cross(Vector3.up, n);
+                    var at = p + side * off + n * 0.004f + Vector3.up * (Ht - len / 2f);
+                    b.Box(at, n.x != 0 ? new Vector3(0.004f, len, 0.025f + rng.Range(0f, 0.04f)) : new Vector3(0.025f + rng.Range(0f, 0.04f), len, 0.004f), k == 0 ? rustStain : stain, Color.white, null, false);
+                }
+            }
+            // puddles under the leaks and a damp patch
+            foreach (var p in new[] { new Vector3(-1.8f, 0.003f, D / 2 - 0.8f), new Vector3(-3.2f, 0.003f, -1.4f), new Vector3(1.6f, 0.003f, 1.8f), new Vector3(-2f, 0.003f, az1 - 0.9f) })
+                for (int k = 0; k < 4; k++)   // a few overlapping round pools make an uneven puddle
+                {
+                    var q = p + new Vector3(rng.Range(-0.35f, 0.35f), k * 0.0004f, rng.Range(-0.25f, 0.25f)); float r = rng.Range(0.12f, 0.32f);
+                    b.Cyl(q, q + Vector3.up * 0.002f, r, r, 16, water, Color.white, true);
+                }
+            // rubble and chunks of concrete in the corners
+            foreach (var p in new[] { new Vector3(-7.3f, 0, 5.3f), new Vector3(7.3f, 0, 0.9f), new Vector3(-ax + 0.5f, 0, az1 - 0.5f) })
+                for (int k = 0; k < 7; k++)
+                {
+                    float sz = rng.Range(0.05f, 0.16f);
+                    b.Box(p + new Vector3(rng.Range(-0.35f, 0.35f), sz * 0.4f, rng.Range(-0.35f, 0.35f)), new Vector3(sz, sz * 0.7f, sz * rng.Range(0.7f, 1.3f)), rubble, Color.white, Quaternion.Euler(rng.Range(0f, 40f), rng.Range(0f, 180f), rng.Range(0f, 40f)), false);
+                }
+            // old papers on the floor
+            for (int k = 0; k < 6; k++)
+                b.Box(new Vector3(rng.Range(-5f, 5f), 0.004f + k * 0.0003f, rng.Range(-3f, 4f)), new Vector3(0.21f, 0.001f, 0.29f), paper, new Color(0.9f + rng.Range(0f, 0.1f), 0.88f, 0.8f), Quaternion.Euler(0, rng.Range(0f, 180f), 0), false);
+            // cables sagging between brackets along the north wall
+            for (int c = 0; c < 2; c++)
+            {
+                float y0 = Ht - 0.55f - c * 0.1f, z = D / 2 - 0.25f - c * 0.05f;
+                for (float x0 = -W / 2 + 0.5f; x0 < W / 2 - 1.5f; x0 += 2.5f)
+                {
+                    const int seg = 8;
+                    for (int i = 0; i < seg; i++)
+                    {
+                        float t0 = i / (float)seg, t1 = (i + 1) / (float)seg, sag = 0.22f + c * 0.08f;
+                        var a = new Vector3(x0 + t0 * 2.5f, y0 - Mathf.Sin(t0 * Mathf.PI) * sag, z);
+                        var bb = new Vector3(x0 + t1 * 2.5f, y0 - Mathf.Sin(t1 * Mathf.PI) * sag, z);
+                        b.Cyl(a, bb, 0.012f, 0.012f, 6, cable, Color.white, false);
+                    }
+                    b.Box(new Vector3(x0, y0 + 0.03f, D / 2 - 0.2f), new Vector3(0.05f, 0.08f, 0.1f), metal, new Color(0.35f, 0.3f, 0.25f), null, false);   // bracket
+                }
+            }
         }
 
         /// <summary>A steel I-beam filling the given box: top and bottom flanges and a thin web, with bolt plates every 2 m.</summary>

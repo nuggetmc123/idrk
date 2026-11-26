@@ -13,7 +13,7 @@ namespace Rago
         static Material _lit, _unlit, _holo, _sky, _foliage, _scope;
         static readonly Dictionary<string, Material> _cache = new Dictionary<string, Material>();
         public static Texture2D Grime, Noise, Concrete, ConcreteN, Metal, MetalN, Wood, WoodN, Planks, Ground, Grass, Dirt, Asphalt, AsphaltN,
-            Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster, SteelPanel, SteelPanelN, Epoxy, EpoxyN;
+            Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster, SteelPanel, SteelPanelN, Epoxy, EpoxyN, WornPanel, WornPanelN, WornConcrete;
         public static Texture2D Soft, Flash, Smoke, BloodSplat, BloodDrop, BulletHole, Spark, Vignette, Glow, Panel;
         static bool _init;
 
@@ -424,6 +424,48 @@ namespace Rago
                 return new Color(c, c, c, 0.75f);
             });
             EpoxyN = NormalFrom(Epoxy, 1.2f);
+            // the worn bunker (3.39): old olive-drab painted steel plates - chipped paint with rust showing through, rust and
+            // water streaks running down from the seams and rivets, grime in the corners
+            WornPanel = Tex(256, true, (x, y, u, v) =>
+            {
+                float fx = MathX.Frac(u * 2), fy = MathX.Frac(v * 2);
+                float e = Mathf.Min(Mathf.Min(fx, 1 - fx), Mathf.Min(fy, 1 - fy));
+                int px = Mathf.FloorToInt(u * 2), py = Mathf.FloorToInt(v * 2);
+                float id = MathX.Hash(px, py, 41);
+                Color paint = new Color(0.36f + id * 0.05f, 0.4f + id * 0.04f, 0.3f, 0.3f);                 // faded olive drab
+                Color rust = Color.Lerp(new Color(0.36f, 0.18f, 0.09f, 0.15f), new Color(0.55f, 0.3f, 0.13f, 0.15f), MathX.TFbm(u, v, 24, 24, 3, 181));
+                Color bare = new Color(0.45f, 0.44f, 0.42f, 0.4f);
+                float n = MathX.TFbm(u, v, 8, 8, 4, 182), chip = MathX.TFbm(u, v, 16, 16, 3, 183);
+                Color c = paint * (0.9f + n * 0.2f);
+                float edgeWear = 1f - MathX.Step(0.02f, 0.09f, e);                                           // paint wears off at the plate edges
+                if (chip > 0.62f - edgeWear * 0.25f) c = chip > 0.68f - edgeWear * 0.2f ? rust : bare;        // chips: bare steel, then rust
+                // rust streaks running down (the texture's -v) under each rivet and along the bottom seam
+                float streak = 0f;
+                foreach (var rx in new[] { 0.06f, 0.5f, 0.94f })
+                {
+                    float dx = Mathf.Abs(fx - rx); float len = 0.35f + MathX.Hash(px * 3 + (int)(rx * 10), py, 7) * 0.4f;
+                    if (dx < 0.035f && fy < 0.94f && fy > 0.94f - len) streak = Mathf.Max(streak, (1f - dx / 0.035f) * (1f - (0.94f - fy) / len));
+                }
+                c = Color.Lerp(c, new Color(0.38f, 0.2f, 0.1f, 0.15f), streak * 0.75f);
+                c = Color.Lerp(c, new Color(0.12f, 0.11f, 0.09f, 0.1f), MathX.Step(0.55f, 0.85f, MathX.TFbm(u, v, 4, 4, 3, 184)) * 0.35f);   // grime blotches
+                if (e < 0.012f) return new Color(0.08f, 0.07f, 0.06f, 0.1f);                                 // seam
+                foreach (var rx in new[] { 0.06f, 0.5f, 0.94f }) foreach (var ry in new[] { 0.06f, 0.94f })
+                    { float d = Mathf.Sqrt((fx - rx) * (fx - rx) + (fy - ry) * (fy - ry)); if (d < 0.016f) return new Color(0.42f, 0.25f, 0.13f, 0.2f); if (d < 0.024f) return new Color(0.1f, 0.08f, 0.06f, 0.1f); }   // rusty rivets
+                return c;
+            });
+            WornPanelN = NormalFrom(WornPanel, 2.2f);
+            // stained concrete floor: the plain concrete with oil and water stains, cracks and dust
+            WornConcrete = Tex(256, true, (x, y, u, v) =>
+            {
+                float n = MathX.TFbm(u, v, 10, 10, 5, 190);
+                Color c = new Color(0.5f + n * 0.12f, 0.49f + n * 0.12f, 0.46f + n * 0.1f, 0.25f);
+                float stain = MathX.Step(0.58f, 0.72f, MathX.TFbm(u, v, 3, 3, 4, 191));
+                c = Color.Lerp(c, new Color(0.16f, 0.15f, 0.13f, 0.6f), stain * 0.7f);                    // oil / water stains (a bit glossy)
+                float crack = Mathf.Abs(MathX.TFbm(u, v, 5, 5, 4, 192) - 0.5f);
+                if (crack < 0.0035f && MathX.TFbm(u, v, 3, 3, 3, 194) > 0.58f) c *= 0.55f;                   // a few hairline cracks
+                if (MathX.Hash(x, y, 193) > 0.985f) c *= 0.75f;                                              // grit
+                return c;
+            });
             Plaster = Tex(256, true, (x, y, u, v) =>
             {
                 float n = MathX.TFbm(u, v, 10, 10, 5, 120);

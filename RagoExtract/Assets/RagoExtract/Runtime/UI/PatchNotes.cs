@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.39", "A worn-down bunker", new[] {
+                "The BUNKER is properly worn down now: old olive-drab steel plating with chipped paint and rust showing through, rust streaks under the rivets, a stained and cracked concrete floor, faded two-tone paint bands, rusty steel beams.",
+                "Old twin-tube fluorescent lights (warm and dim, one of them flickering), sagging cables along the walls, water stains, puddles under the leaks, rubble in the corners and old papers on the floor.",
+                "Everything you keep in it is still where you left it.",
+            }),
             ("3.38", "A new bunker", new[] {
                 "Your BUNKER has a whole new look: brushed-steel wall panels with rivets, a dark tiled epoxy floor, glowing cyan LED strips along every wall, steel I-beams overhead, big LED ceiling panels and hazard-striped pillars.",
                 "Every room, rack, shelf and station is where it was - nothing in your stash moves.",
