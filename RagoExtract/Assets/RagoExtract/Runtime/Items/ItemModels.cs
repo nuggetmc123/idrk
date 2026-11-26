@@ -43,13 +43,21 @@ namespace Rago
             if (d != null && d.kind == ItemKind.Med && (d.shape == 6 || d.shape == 7))
             {
                 const float z = 0.0292f;
-                string flavour = d.shape == 6 ? "STRAWBERRY BANANA" : "MANGO ORANGE CREAM";
-                return new[] {
-                    (flavour, new Vector3(0, 0.057f, z + 0.0004f), 0.0042f, d.shape == 6 ? Color.white : new Color(0.35f, 0.18f, 0.05f)),
-                    ("SPONSOR", new Vector3(0, 0.046f, z + 0.0012f), 0.0072f, new Color(0.85f, 0.1f, 0.1f)),
-                    ("|DUBBY", new Vector3(-0.002f, 0.004f, z + 0.0004f), 0.03f, new Color(0.08f, 0.08f, 0.08f)),
-                    ("|BE BETTER", new Vector3(0.0135f, 0.01f, z - 0.0012f), 0.0055f, new Color(0.08f, 0.08f, 0.08f)),
-                    ("FOCUS ENERGY DRINK", new Vector3(0, -0.04f, z + 0.0002f), 0.0042f, new Color(0.1f, 0.1f, 0.1f)) };
+                bool sb = d.shape == 6;
+                Color ink = new Color(0.06f, 0.06f, 0.06f);
+                var l = new List<(string, Vector3, float, Color)> {
+                    ("ENERGY DRINK    YOUR TASTE", new Vector3(0, 0.058f, z + 0.0004f), 0.0028f, new Color(0.3f, 0.3f, 0.3f)),
+                    (sb ? "STRAWBERRY BANANA" : "MANGO ORANGE CREAM", new Vector3(0, 0.0492f, z + 0.0004f), 0.0042f, sb ? new Color(1f, 0.9f, 0.2f) : new Color(0.92f, 0.3f, 0.04f)),
+                    ("SPONSOR", new Vector3(0, 0.039f, z + 0.0012f), 0.0068f, new Color(0.85f, 0.08f, 0.08f)),
+                    ("|BE BETTER", new Vector3(-0.0145f, 0.008f, z - 0.0012f), 0.0055f, ink),
+                    ("FOCUS ENERGY DRINK", new Vector3(0, -0.037f, z + 0.0004f), 0.0042f, new Color(0.85f, 0.97f, 0.2f)),
+                    ("DRINK ME AND\nGO CONQUER A TASK", new Vector3(0, -0.0495f, z + 0.0004f), 0.0034f, ink),
+                    ("12 FL OZ (355mL)", new Vector3(0, -0.059f, z + 0.0004f), 0.0026f, ink) };
+                // DUBBY: big white letters with a thick black outline (black copies behind, nudged all round)
+                var c0 = new Vector3(0.002f, -0.0008f, z + 0.001f);
+                for (int k = 0; k < 8; k++) { float a = k * Mathf.PI / 4f; l.Add(("|DUBBY", c0 + new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0) * 0.0009f, 0.029f, ink)); }
+                l.Add(("|DUBBY", c0 + new Vector3(0, 0, 0.0004f), 0.029f, Color.white));
+                return l.ToArray();
             }
             if (d == null || d.kind != ItemKind.Valuable) return null;
             if (d.shape == 35) return new[] { ("OWAYS", new Vector3(0, 0.076f, 0.0272f), 0.024f, Color.white), ("CEREAL", new Vector3(0, 0.051f, 0.0272f), 0.012f, new Color(1f, 0.85f, 0.3f)), ("crunchy rings", new Vector3(-0.012f, 0.026f, 0.0262f), 0.0075f, Color.white), ("LIVE", new Vector3(0.046f, 0.008f, 0.0275f), 0.008f, Color.white) };   // big enough to read from arm's length
@@ -141,23 +149,28 @@ namespace Rago
                 case 7:   // DUBBY Mango Orange Cream: yellow dripping into orange
                 {
                     bool sb = d.shape == 6;
-                    Color top = sb ? new Color(0.95f, 0.22f, 0.6f) : new Color(0.99f, 0.82f, 0.16f), bot = sb ? new Color(0.99f, 0.86f, 0.18f) : new Color(0.98f, 0.45f, 0.1f);
+                    Color top = sb ? new Color(0.94f, 0.2f, 0.6f) : new Color(0.99f, 0.82f, 0.16f), bot = sb ? new Color(0.99f, 0.88f, 0.2f) : new Color(0.98f, 0.45f, 0.1f);
+                    Color band = sb ? new Color(0.84f, 0.12f, 0.55f) : new Color(0.93f, 0.36f, 0.06f), white = new Color(0.97f, 0.97f, 0.97f);
                     Color al = new Color(0.82f, 0.82f, 0.84f);
-                    const float R = 0.0285f, y0 = -0.066f, y1 = 0.062f, seam = -0.004f;
+                    const float R = 0.0285f, y0 = -0.066f, y1 = 0.062f, seam = -0.012f;
                     mb.Sub(1).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(0f, y0 - 0.004f), new Vector2(R - 0.004f, y0 - 0.004f), new Vector2(R, y0) }, 20, al);   // base
-                    mb.Sub(3).Cyl(new Vector3(0, y0, 0), new Vector3(0, seam, 0), R, R, 22, bot);
-                    mb.Sub(3).Cyl(new Vector3(0, seam, 0), new Vector3(0, y1, 0), R, R, 22, top);
+                    // bands bottom to top: white foot, FOCUS band, the bottom colour, the top colour, white rim
+                    mb.Sub(3).Cyl(new Vector3(0, y0, 0), new Vector3(0, -0.042f, 0), R, R, 22, white);
+                    mb.Sub(3).Cyl(new Vector3(0, -0.042f, 0), new Vector3(0, -0.032f, 0), R, R, 22, band);
+                    mb.Sub(3).Cyl(new Vector3(0, -0.032f, 0), new Vector3(0, seam, 0), R, R, 22, bot);
+                    mb.Sub(3).Cyl(new Vector3(0, seam, 0), new Vector3(0, 0.054f, 0), R, R, 22, top);
+                    mb.Sub(3).Cyl(new Vector3(0, 0.054f, 0), new Vector3(0, y1, 0), R, R, 22, white);
                     // drips of the top colour running down into the bottom one, all the way round
                     for (int i = 0; i < 14; i++)
                     {
-                        float a = i / 14f * Mathf.PI * 2f, len = 0.008f + (i * 37 % 11) * 0.0022f;
+                        float a = i / 14f * Mathf.PI * 2f, len = 0.006f + (i * 37 % 11) * 0.0013f;
                         var p = new Vector3(Mathf.Sin(a) * (R + 0.0004f), seam - len * 0.5f, Mathf.Cos(a) * (R + 0.0004f));
-                        mb.Sub(3).Box(p, new Vector3(0.007f, len, 0.0012f), top, 0.0006f, 1, Quaternion.Euler(0, a * Mathf.Rad2Deg, 0));
-                        mb.Sub(3).Sphere(p + Vector3.down * len * 0.5f, new Vector3(0.0038f, 0.0038f, 0.0012f), 8, top);
+                        mb.Sub(3).Box(p, new Vector3(0.006f, len, 0.0012f), top, 0.0006f, 1, Quaternion.Euler(0, a * Mathf.Rad2Deg, 0));
+                        mb.Sub(3).Sphere(p + Vector3.down * len * 0.5f, new Vector3(0.0034f, 0.0034f, 0.0012f), 8, top);
                     }
-                    // the white SPONSOR box near the top (front), outlined dark
-                    mb.Sub(0).Box(new Vector3(0, 0.046f, R - 0.0035f), new Vector3(0.034f, 0.0115f, 0.008f), Color.white, 0.002f);
-                    mb.Sub(0).Box(new Vector3(0, 0.046f, R - 0.0038f), new Vector3(0.036f, 0.0135f, 0.0075f), new Color(0.1f, 0.1f, 0.1f), 0.002f);
+                    // the yellow SPONSOR box under the flavour name (front), outlined black
+                    mb.Sub(0).Box(new Vector3(0, 0.039f, R - 0.0035f), new Vector3(0.032f, 0.0105f, 0.008f), new Color(1f, 0.9f, 0.15f), 0.002f);
+                    mb.Sub(0).Box(new Vector3(0, 0.039f, R - 0.0038f), new Vector3(0.0345f, 0.013f, 0.0075f), new Color(0.06f, 0.06f, 0.06f), 0.002f);
                     // top: neck, rim, tab
                     mb.Sub(1).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(R, y1), new Vector2(0.025f, y1 + 0.006f), new Vector2(0.0245f, y1 + 0.009f), new Vector2(0.022f, y1 + 0.0085f), new Vector2(0f, y1 + 0.008f) }, 20, al);
                     mb.Sub(1).Tube(new Vector3(0, y1 + 0.0085f, 0.005f), new Vector3(0, y1 + 0.0095f, 0.005f), 0.0065f, 0.0035f, 12, al * 0.85f);

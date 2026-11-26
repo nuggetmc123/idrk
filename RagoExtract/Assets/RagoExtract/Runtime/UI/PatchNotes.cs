@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.33", "DUBBY cans look like the real ones", new[] {
+                "The DUBBY cans now match the real design: white rim and white bottom (\"DRINK ME AND GO CONQUER A TASK\", 12 FL OZ), the flavour name over a yellow SPONSOR box, a big white DUBBY with a black outline down the can with BE BETTER beside it, the drips, and the FOCUS ENERGY DRINK band.",
+            }),
             ("3.32", "DUBBY energy drinks", new[] {
                 "NEW: DUBBY Focus Energy Drink cans in two flavours - Strawberry Banana (pink with yellow drips) and Mango Orange Cream (yellow with orange). The front says SPONSOR, with DUBBY and BE BETTER down the side.",
                 "Drink one for full stamina and 45 s of faster sprinting, plus +8 HP. Find them in raids or buy them in the Market.",
