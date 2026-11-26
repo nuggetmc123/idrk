@@ -673,9 +673,12 @@ namespace Rago
         void DrawComfort(Profile p)
         {
             if (p == null) return;
-            float y = 0.2f;
+            float y = 0.25f;
             Line("Auto sprint:  " + (p.autoSprint ? "ON - push the stick right forward to run" : "OFF - click the left stick to run"), y, 0.026f);
-            Btn(p.autoSprint ? "ON" : "OFF", 0.42f, y, 0.16f, () => { p.autoSprint = !p.autoSprint; p.Save(); }, p.autoSprint ? Go : (Color?)null); y -= 0.1f;
+            Btn(p.autoSprint ? "ON" : "OFF", 0.42f, y, 0.16f, () => { p.autoSprint = !p.autoSprint; p.Save(); }, p.autoSprint ? Go : (Color?)null); y -= 0.09f;
+            // (3.51) easy reloads (Quest 2 controllers make lining a mag up with the magwell fiddly)
+            Line("Auto mag:  " + (p.autoMag ? "ON - hold a mag near the magwell and it goes in" : "OFF - line the mag up and push it in"), y, 0.026f);
+            Btn(p.autoMag ? "ON" : "OFF", 0.42f, y, 0.16f, () => { p.autoMag = !p.autoMag; p.Save(); }, p.autoMag ? Go : (Color?)null); y -= 0.09f;
             Line("Play mode:  " + (p.seated ? "SEATED - you sit, your operator stands" : "STANDING"), y, 0.026f);
             Btn(p.seated ? "SEATED" : "STANDING", 0.4f, y, 0.2f, () => { p.seated = !p.seated; p.Save(); }); y -= 0.1f;
             Line("Height:  " + (p.seated ? (p.seatCal >= 0f ? "calibrated (+" + p.seatCal.ToString("0.00") + " m)" : "default lift (+0.50 m)") : (Mathf.Abs(p.heightCal) > 0.005f ? "calibrated (" + (p.heightCal >= 0 ? "+" : "") + p.heightCal.ToString("0.00") + " m)" : "not calibrated")), y, 0.026f);

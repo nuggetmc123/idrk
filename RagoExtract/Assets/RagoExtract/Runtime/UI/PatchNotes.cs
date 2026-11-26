@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.51", "See the ground, crouch, auto mag, dupe fixes", new[] {
+                "YOUR BODY no longer blocks your view: it sits 10 cm further back under your eyes, so looking down you see the ground and your boots in front of you instead of your chest.",
+                "CROUCH: hold the right stick DOWN to crouch while you hold it - or click the right stick to toggle (you'll see CROUCHING / STANDING). Physically crouching still works too.",
+                "AUTO MAG (SETTINGS > MORE): turn it on and a mag you hold near the gun's magwell loads itself, at any angle - no lining it up. Great on Quest 2.",
+                "DUPE FIXED: an item knocked loose without being picked up (a distance grab cut short, or something that got stuck in the air) was announced as a brand-new drop, so other players got a second copy of it.",
+                "DUPE FIXED: holding a magazine while your gear was saved or valued (the bunker saves every 20 s) added its rounds to your ammo reserve each time. A mag in your hand when a raid ends still brings its rounds home.",
+            }),
             ("3.50", "Better player model", new[] {
                 "FACES: the figures still have no eyes or mouth, but their heads are sculpted now - a brow, the hollows under it, a nose, cheekbones, a chin and ears - like an artist's mannequin instead of a plain egg.",
                 "HANDS have real fingers: four fingers in a relaxed curl and a thumb. Soldiers wear fingerless gloves with a knuckle guard and a cuff, raiders full gloves.",

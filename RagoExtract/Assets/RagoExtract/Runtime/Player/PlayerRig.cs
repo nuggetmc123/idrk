@@ -5,7 +5,7 @@ namespace Rago
     /// <summary>
     /// The VR player: tracked head + physics hands, smooth locomotion with sprint (stamina) and crouch,
     /// snap/smooth turn, room-scale collision, full ragdoll body, vitals and HUD.
-    /// Controls: Left stick = move (click = sprint), Right stick = turn (click = crouch toggle, down = crouch while held).
+    /// Controls: Left stick = move (click = sprint), Right stick = turn (click = crouch toggle, hold down = crouch while held).
     /// </summary>
     public class PlayerRig : MonoBehaviour
     {
@@ -50,6 +50,7 @@ namespace Rago
         public static bool SmoothTurn = false;
         /// <summary>Comfort: auto sprint; seated mode; height calibration. All from the profile.</summary>
         public static bool AutoSprint => Profile.Current != null && Profile.Current.autoSprint;
+        public static bool AutoMag => Profile.Current != null && Profile.Current.autoMag;
         public static bool Seated => Profile.Current != null && Profile.Current.seated;
         /// <summary>How far your view (and hands) are lifted: your calibrated height, or in seated mode up to standing height.</summary>
         public static float Lift
@@ -78,7 +79,7 @@ namespace Rago
         float _fallSpeed, _lastPlanar;
         bool _wasGrounded = true, _leftFoot;
         Vector3 _lastHead;
-        float _crouchOffset, _autoSprintT;
+        float _crouchOffset, _autoSprintT; bool _stickCrouch;
         public bool Frozen;
         float _smoothY;
 
@@ -746,8 +747,15 @@ namespace Rago
             if (AutoSprint) { _autoSprintT = move.y > 0.85f ? _autoSprintT + dt : 0f; if (_autoSprintT > 0.35f) _sprintLatch = true; }
             else if (!XRInputs.VR) _sprintLatch = Desktop.Sprint;   // (in VR the stick click above is the sprint button)
             Sprinting = _sprintLatch && move.y > 0.3f && Vitals.Stamina > 1f && !Crouched && Vitals.CanSprint;
-            // crouch toggle: right stick click (and physically crouching always works)
-            if (XRInputs.VR && XRInputs.Right.StickClickDown) Crouched = !Crouched;
+            // crouch: click the right stick to toggle it, or (3.51) hold the right stick down - and physically crouching
+            // always works
+            if (XRInputs.VR && XRInputs.Right.StickClickDown) { Crouched = !Crouched; _stickCrouch = false; Toast(Crouched ? "Crouching" : "Standing"); }
+            if (XRInputs.VR && !Frozen && Driving == null)
+            {
+                bool hold = XRInputs.Right.Stick.y < -0.75f && Mathf.Abs(XRInputs.Right.Stick.x) < 0.55f;
+                if (hold && !Crouched) { Crouched = true; _stickCrouch = true; }
+                else if (!hold && _stickCrouch) { Crouched = false; _stickCrouch = false; }
+            }
             if (!XRInputs.VR) Crouched = Desktop.Crouch;
             _crouchOffset = Mathf.MoveTowards(_crouchOffset, Crouched && XRInputs.VR ? 0.55f : 0f, dt * 2.5f);
 

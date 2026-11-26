@@ -21,6 +21,8 @@ namespace Rago
         public readonly List<GameObject> gearVisuals = new List<GameObject>(); // worn helmet / vest / backpack (ArmorBuilder.Dress)
         public float upperArm = 0.29f, foreArm = 0.27f, thigh = 0.45f, shin = 0.45f, spineLen = 0.36f, neckLen = 0.16f;
         public bool ragdoll;
+        /// <summary>Your own body (3.51): posed a little further back under your view, so your chest doesn't hide the ground.</summary>
+        public bool local;
         public Transform weaponR; // where an NPC rifle sits
         float _phase;
 
@@ -31,7 +33,7 @@ namespace Rago
         // --------------------------------------------------------------------------------------------- build
         public static HumanRig Build(Outfit outfit, int seed, Transform parent, bool localPlayer = false, string look = null)
         {
-            var r = new HumanRig();
+            var r = new HumanRig { local = localPlayer };
             var rng = new Rng(seed);
             _seed = seed;
             r.root = new GameObject("Human_" + outfit);
@@ -1057,6 +1059,11 @@ namespace Rago
             spineUp = Vector3.Slerp(Vector3.up, spineUp, 0.85f).normalized;
             Vector3 hipsPos = neckBase - spineUp * 0.42f;
             hipsPos.y = Mathf.Clamp(hipsPos.y, rootPos.y + 0.35f, rootPos.y + 1.02f);
+            // your own body sits 10 cm further back than your eyes would put it: with clothes and gear on, your chest and
+            // belt filled the bottom of your view and you couldn't see the ground in front of you (others see no difference
+            // that matters - the hidden head just rides 10 cm back)
+            float back = local && !seated ? 0.1f : 0f;
+            hipsPos -= fwd * back;
             if (seated)
             {
                 // sitting (cart seat): rootPos is the top of the cushion - hips on it, back upright, no lean from crouching
@@ -1114,7 +1121,7 @@ namespace Rago
                 Vector3 hipJ = (s == 0 ? thL : thR).position;
                 // crouching kneels: the feet go back under / behind you (they used to come forward, so your knees and thighs
                 // rose up in front of you and blocked the view down)
-                Vector3 foot = rootPos + right * side * (0.11f + crouch * 0.08f) + moveDir * Mathf.Sin(ph) * stride * 0.5f - fwd * crouch * 0.3f;
+                Vector3 foot = rootPos + right * side * (0.11f + crouch * 0.08f) + moveDir * Mathf.Sin(ph) * stride * 0.5f - fwd * crouch * 0.3f - fwd * back * 0.8f;
                 foot.y = rootPos.y + 0.085f + Mathf.Max(0, Mathf.Cos(ph)) * stride * 0.25f;
                 LegIK(s == 0 ? thL : thR, s == 0 ? shL : shR, s == 0 ? footL : footR, foot, fwd, right * side);
             }

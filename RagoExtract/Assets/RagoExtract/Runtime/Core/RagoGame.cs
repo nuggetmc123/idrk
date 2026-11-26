@@ -620,7 +620,8 @@ namespace Rago
             var gear = _g.Player.Gear;
             prof.loadout = gear.SaveLoadout();
             // ammo you carried comes back to the stash
-            for (int i = 0; i < prof.stashAmmo.Length; i++) { prof.stashAmmo[i] += gear.Ammo[i]; prof.stashAp[i] += gear.ApAmmo[i]; prof.stashInc[i] += gear.IncAmmo[i]; }
+            var heldRounds = gear.HeldMagRounds();   // a mag in your hand (its rounds used to sneak into your reserve on every save - a dupe)
+            for (int i = 0; i < prof.stashAmmo.Length; i++) { prof.stashAmmo[i] += gear.Ammo[i] + (i < heldRounds.Length ? heldRounds[i] : 0); prof.stashAp[i] += gear.ApAmmo[i]; prof.stashInc[i] += gear.IncAmmo[i]; }
             prof.loadout.ammo = null;
             int lootXp = Mathf.Clamp((Value(gear) - _startValue) / 100, 0, 500);   // $100 of loot brought out = 1 XP, up to 500
             Levels.Award(Levels.ExtractXp + lootXp, "extracted");   // kills already paid out as they happened
@@ -642,7 +643,8 @@ namespace Rago
             RaidReconnect.Info = new RaidReconnect { rs = _rs, pos = p, yaw = _g.Player.Cam != null ? _g.Player.Cam.transform.eulerAngles.y : 0f, timeLeft = TimeLeft, elapsed = Elapsed, at = Time.realtimeSinceStartup };
             prof.inRaid = false;
             prof.loadout = gear.SaveLoadout();
-            for (int i = 0; i < prof.stashAmmo.Length; i++) { prof.stashAmmo[i] += gear.Ammo[i]; prof.stashAp[i] += gear.ApAmmo[i]; prof.stashInc[i] += gear.IncAmmo[i]; }
+            var heldRounds = gear.HeldMagRounds();   // a mag in your hand (its rounds used to sneak into your reserve on every save - a dupe)
+            for (int i = 0; i < prof.stashAmmo.Length; i++) { prof.stashAmmo[i] += gear.Ammo[i] + (i < heldRounds.Length ? heldRounds[i] : 0); prof.stashAp[i] += gear.ApAmmo[i]; prof.stashInc[i] += gear.IncAmmo[i]; }
             prof.loadout.ammo = null;
             prof.Save();
             _g.LastResult = new RaidResult { lost = true, exit = NetHub.Backend != null ? NetHub.Backend.Status : null, map = _map.DisplayName, kills = NpcDirector.I != null ? NpcDirector.I.Kills : 0, killNames = NpcDirector.I != null ? new List<string>(NpcDirector.I.KillNames) : new List<string>(), time = Time.time - _start };

@@ -760,6 +760,21 @@ namespace Rago
                 return;
             }
             if (gun.mag != null && gun.mag != this) { _rail = null; return; }   // full: drop the old one first
+            if (PlayerRig.AutoMag && gun.mag == null)
+            {
+                // (3.51) AUTO MAG setting: bring the mag near the magwell, any angle, and it loads itself
+                var keep = _rail; _rail = null;
+                base.GetHeldPose(out var ap, out _);
+                _rail = keep;
+                WellFrame(gun, out var awp, out _);
+                if (Vector3.Distance(ap, awp) < 0.14f && gun.Accepts(this))
+                {
+                    _rail = null;
+                    gun.InsertMag(this);
+                    other.Haptic(0.7f, 0.07f); h.Haptic(0.5f, 0.05f);
+                    return;
+                }
+            }
             // where the hand is putting the mag, in the magwell's frame
             var saved = _rail; _rail = null;
             base.GetHeldPose(out var wantPos, out var wantRot);

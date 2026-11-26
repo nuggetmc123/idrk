@@ -518,8 +518,12 @@ namespace Rago
         public void OnItemDropped(Item it)
         {
             if (!ShareItems || it is Magazine || it is Backpack || it.Consumed) return;
+            // (3.51 dupe fix) still carrying its shared id = it was never picked up here: something knocked it loose (a
+            // distance-grab pull cut short, the safety net dropping a thing stuck in mid-air). Everyone already has it -
+            // announcing it as a new drop gave every other player a second copy. Just tell them where it ends up.
+            if (it.netId != 0) { if (!_flying.Exists(f => f.it == it)) _flying.Add((it, Time.time)); return; }
             it.netId = NewDropId();
-            _mine.Add(it.netId);
+            _mine.Add(it.netId); _everMine.Add(it.netId);
             Items[it.netId] = it;
             var w = W(Msg.ItemSpawned);
             w.Write(it.netId); w.Write(JsonUtility.ToJson(it.Save())); V3(w, it.transform.position); Q(w, it.transform.rotation);
@@ -530,6 +534,9 @@ namespace Rago
         }
 
         readonly HashSet<int> _taken = new HashSet<int>();
+        /// <summary>Every drop id this machine ever handed out: a "spawned" message for one of them is our own drop coming
+        /// back (never make a copy of it).</summary>
+        readonly HashSet<int> _everMine = new HashSet<int>();
         /// <summary>Has another player already picked up the loot with this id? (Crates and bodies roll the same loot on every
         /// machine; without this, a crate you opened after someone emptied it was full again.)</summary>
         public static bool Taken(int id) => I != null && Live && id != 0 && I._taken.Contains(id);
@@ -829,6 +836,7 @@ namespace Rago
                                 Vector3 vel = Vector3.zero, ang = Vector3.zero;
                                 if (r.BaseStream.Position < r.BaseStream.Length) { vel = V3(r); ang = V3(r); }
                                 if (Items.ContainsKey(id)) break;
+                                if (_everMine.Contains(id) || (NetHub.Backend != null && from == NetHub.Backend.LocalId)) break;   // our own drop echoed back: picked up again since, or it'd be a copy
                                 var it = ItemFactory.Spawn(d, pos, rot);
                                 if (it != null)
                                 {

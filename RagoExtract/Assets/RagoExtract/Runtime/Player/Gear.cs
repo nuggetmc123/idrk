@@ -389,6 +389,15 @@ namespace Rago
         public void AddAmmo(Caliber c, int n, AmmoType t = AmmoType.Standard) { Reserve(t)[(int)c] += n; _p.Toast("+" + n + " " + Db.CalName(c) + (t == AmmoType.AP ? " AP" : t == AmmoType.Incendiary ? " INCENDIARY" : "")); }
 
         // ---------------------------------------------------------------------- persistence
+        /// <summary>(3.51) Rounds in the mags in your hands, by calibre - they come home with you when a raid ends.</summary>
+        public int[] HeldMagRounds()
+        {
+            var a = new int[Ammo.Length];
+            foreach (var hand in new[] { _p.HandL, _p.HandR })
+                if (hand != null && !hand.HeldAsSecondary && hand.Held is Magazine m && (int)m.cal < a.Length) a[(int)m.cal] += m.rounds;
+            return a;
+        }
+
         public Loadout SaveLoadout()
         {
             var l = new Loadout();
@@ -406,6 +415,8 @@ namespace Rago
             l.cam = CamWorn; l.camVest = CamWorn && CamOnVest;
             l.vest = Vest != null ? Vest.id : "";
             // items held in hands go to the best matching slot
+            var ammo = (int[])Ammo.Clone();   // (3.51) a held mag's rounds go into the SAVED ammo - this used to add them to your
+                                              // live reserve, so every bunker autosave (20 s) with a mag in your hand duped its rounds
             foreach (var hand in new[] { _p.HandL, _p.HandR })
             {
                 if (hand.Held == null || hand.HeldAsSecondary || hand.Held is Backpack) continue;
@@ -423,10 +434,10 @@ namespace Rago
                     if (g.g.TwoHanded) { if (l.primary == null) l.primary = d; else if (l.secondary == null) l.secondary = d; else l.pack.Add(d); }
                     else if (l.pistol == null) l.pistol = d; else l.pack.Add(d);
                 }
-                else if (hand.Held is Magazine mag) Ammo[(int)mag.cal] += mag.rounds;
+                else if (hand.Held is Magazine mag) ammo[(int)mag.cal] += mag.rounds;
                 else if (l.util1 == null) l.util1 = d; else if (l.util2 == null) l.util2 = d; else l.pack.Add(d);
             }
-            l.ammo = (int[])Ammo.Clone();
+            l.ammo = ammo;
             return l;
         }
 
