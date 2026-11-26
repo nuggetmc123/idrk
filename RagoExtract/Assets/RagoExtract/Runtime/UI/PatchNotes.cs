@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.46", "Better gun finishes", new[] {
+                "GUNS look better: metal parts have a real cerakote finish (a fine speckle and soft mottling, worn bright on the edges) and polymer grips and furniture are stippled. FDE, olive, tan and gray guns use the same new finishes.",
+                "They read properly in any light now - the old very-metallic dark steel looked almost black away from bright light. Magazines, sights and attachments get the new finishes too.",
+            }),
             ("3.45", "New player and NPC models", new[] {
                 "PLAYERS and NPCs are PEOPLE now, not crash-test dummies: human faces (skin, eyes with coloured irises, eyebrows, nose, lips, ears, hair), human necks and proper hands with fingers and a thumb.",
                 "Your operator wears a fabric suit in your own colour (sculpted shoulders and chest, no metal ball joints or target stickers). Your wardrobe clothes, armour and colour all still apply.",

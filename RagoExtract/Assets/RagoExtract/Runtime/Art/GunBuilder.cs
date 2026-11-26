@@ -26,12 +26,12 @@ namespace Rago
         {
             switch (f)
             {
-                case Finish.Gray: return Mats.Lit("fin_gray", new Color(0.24f, 0.25f, 0.25f), 0.7f, 0.35f, Mats.Metal, Mats.MetalN, 0.35f, 0.5f);
+                case Finish.Gray: return Mats.GunObj(Mats.Lit("fin_gray2", new Color(0.36f, 0.37f, 0.38f), 0.55f, 0.4f, Mats.Cerakote, null, 0.35f, 0.55f, true, 6f), 6f);
                 case Finish.Chrome: return Mats.Chrome;
                 case Finish.Gold: return Mats.Gold;
-                case Finish.Fde: return Mats.Lit("fin_fde", new Color(0.6f, 0.5f, 0.36f), 0.25f, 0.3f, Mats.Metal, Mats.MetalN, 0.4f, 0.55f);
-                case Finish.Od: return Mats.Lit("fin_od", new Color(0.3f, 0.33f, 0.24f), 0.2f, 0.3f, Mats.Metal, Mats.MetalN, 0.4f, 0.5f);
-                case Finish.Tan: return Mats.Lit("fin_tan", new Color(0.7f, 0.62f, 0.48f), 0.2f, 0.3f, Mats.Metal, Mats.MetalN, 0.35f, 0.5f);
+                case Finish.Fde: return Mats.GunObj(Mats.Lit("fin_fde2", new Color(0.66f, 0.55f, 0.4f), 0.2f, 0.32f, Mats.Cerakote, null, 0.4f, 0.55f, true, 6f), 6f);
+                case Finish.Od: return Mats.GunObj(Mats.Lit("fin_od2", new Color(0.34f, 0.37f, 0.27f), 0.2f, 0.32f, Mats.Cerakote, null, 0.4f, 0.5f, true, 6f), 6f);
+                case Finish.Tan: return Mats.GunObj(Mats.Lit("fin_tan2", new Color(0.74f, 0.66f, 0.52f), 0.2f, 0.32f, Mats.Cerakote, null, 0.35f, 0.5f, true, 6f), 6f);
                 case Finish.Plum: return Mats.Lit("fin_plum", new Color(0.32f, 0.14f, 0.12f), 0f, 0.3f, Mats.Noise, null, 0.3f, 0.2f);
                 case Finish.Wood: return Mats.GunWood;
                 default: return Mats.GunMetal;

@@ -13,7 +13,7 @@ namespace Rago
         static Material _lit, _unlit, _holo, _sky, _foliage, _scope;
         static readonly Dictionary<string, Material> _cache = new Dictionary<string, Material>();
         public static Texture2D Grime, Noise, Concrete, ConcreteN, Metal, MetalN, Wood, WoodN, Planks, Ground, Grass, Dirt, Asphalt, AsphaltN,
-            Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster, SteelPanel, SteelPanelN, Epoxy, EpoxyN, WornPanel, WornPanelN, WornConcrete, LabTile, LabTileN, Grunge;
+            Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster, SteelPanel, SteelPanelN, Epoxy, EpoxyN, WornPanel, WornPanelN, WornConcrete, LabTile, LabTileN, Grunge, Cerakote, Stipple;
         public static Texture2D Soft, Flash, Smoke, BloodSplat, BloodDrop, BulletHole, Spark, Vignette, Glow, Panel;
         static bool _init;
 
@@ -255,11 +255,14 @@ namespace Rago
         }
 
         // Shared palette ------------------------------------------------------------
-        public static Material GunMetal => Lit("gunmetal", new Color(0.13f, 0.135f, 0.14f), 0.85f, 0.55f, Metal, MetalN, 0.25f, 0.55f);
-        public static Material GunBlued => Lit("gunblued", new Color(0.09f, 0.1f, 0.12f), 0.9f, 0.7f, Metal, MetalN, 0.15f, 0.35f);
-        public static Material Polymer => Lit("polymer", new Color(0.075f, 0.075f, 0.08f), 0.0f, 0.28f, Noise, null, 0.3f, 0.12f);
-        public static Material PolymerFde => Lit("polyfde", new Color(0.55f, 0.46f, 0.33f), 0.0f, 0.25f, Noise, null, 0.45f, 0.2f);
-        public static Material PolymerOd => Lit("polyod", new Color(0.26f, 0.29f, 0.2f), 0.0f, 0.25f, Noise, null, 0.45f, 0.2f);
+        // gun finishes (3.46): cerakote and stippled polymer mapped in the gun's own space, a little less mirror-metal so
+        // they read in any light (very metallic dark steel just looked black away from bright reflections)
+        public static Material GunObj(Material m, float scale) { m.SetFloat("_Triplanar", 2f); m.SetFloat("_TriScale", scale); return m; }   // mapped in the object's own space (moves with it)
+        public static Material GunMetal => GunObj(Lit("gunmetal2", new Color(0.2f, 0.205f, 0.215f), 0.6f, 0.5f, Cerakote, null, 0.25f, 0.6f, true, 6f), 6f);
+        public static Material GunBlued => GunObj(Lit("gunblued2", new Color(0.13f, 0.14f, 0.17f), 0.75f, 0.68f, Cerakote, null, 0.15f, 0.45f, true, 8f), 8f);
+        public static Material Polymer => GunObj(Lit("polymer2", new Color(0.11f, 0.11f, 0.115f), 0.0f, 0.3f, Stipple, null, 0.3f, 0.15f, true, 9f), 9f);
+        public static Material PolymerFde => GunObj(Lit("polyfde2", new Color(0.62f, 0.52f, 0.38f), 0.0f, 0.28f, Stipple, null, 0.45f, 0.2f, true, 9f), 9f);
+        public static Material PolymerOd => GunObj(Lit("polyod2", new Color(0.3f, 0.33f, 0.23f), 0.0f, 0.28f, Stipple, null, 0.45f, 0.2f, true, 9f), 9f);
         public static Material GunWood => Lit("gunwood", new Color(0.55f, 0.3f, 0.15f), 0.0f, 0.5f, Wood, WoodN, 0.3f, 0.15f);
         public static Material Brass => Lit("brass", new Color(0.85f, 0.65f, 0.3f), 1f, 0.75f, null, null, 0.1f, 0.1f);
         public static Material Chrome => Lit("chrome", new Color(0.8f, 0.8f, 0.82f), 1f, 0.9f, Metal, null, 0.05f, 0.1f);
@@ -471,6 +474,27 @@ namespace Rago
                 return c;
             });
             LabTileN = NormalFrom(LabTile, 1.8f);
+            // guns (3.46): a fine speckled cerakote coating with soft mottling, and stippled polymer grip texture
+            Cerakote = Tex(256, true, (x, y, u, v) =>
+            {
+                float speck = MathX.Hash(x, y, 70) * 0.08f, mott = MathX.TFbm(u, v, 6, 6, 4, 71) * 0.12f, fine = MathX.TFbm(u, v, 48, 48, 2, 72) * 0.06f;
+                float c = 0.62f + speck + mott + fine;
+                return new Color(c, c, c * 1.01f, 0.55f);
+            });
+            Stipple = Tex(256, true, (x, y, u, v) =>
+            {
+                const int N = 48; float gx = u * N, gy = v * N; int cx = Mathf.FloorToInt(gx), cy = Mathf.FloorToInt(gy);
+                float best = 9f;
+                for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++)
+                {
+                    int wx = ((cx + i) % N + N) % N, wy = ((cy + j) % N + N) % N;
+                    float px = cx + i + 0.5f + (MathX.Hash(wx, wy, 73) - 0.5f) * 0.6f, py = cy + j + 0.5f + (MathX.Hash(wx, wy, 74) - 0.5f) * 0.6f;
+                    best = Mathf.Min(best, (gx - px) * (gx - px) + (gy - py) * (gy - py));
+                }
+                float bump = 1f - MathX.Step(0.02f, 0.16f, best);                                   // little raised dots
+                float c = 0.6f + bump * 0.22f + MathX.TFbm(u, v, 8, 8, 3, 75) * 0.06f;
+                return new Color(c, c, c, 0.35f + bump * 0.2f);
+            });
             // general grunge: dirty, corroded steel for pipes and fittings
             Grunge = Tex(128, true, (x, y, u, v) =>
             {
