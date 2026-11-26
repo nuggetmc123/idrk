@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.50", "Better player model", new[] {
+                "FACES: the figures still have no eyes or mouth, but their heads are sculpted now - a brow, the hollows under it, a nose, cheekbones, a chin and ears - like an artist's mannequin instead of a plain egg.",
+                "HANDS have real fingers: four fingers in a relaxed curl and a thumb. Soldiers wear fingerless gloves with a knuckle guard and a cuff, raiders full gloves.",
+                "The BELT wraps round the waist with its buckle (it was a flat-sided box), and trousers run into the legs instead of bulging at the crotch.",
+            }),
             ("3.49", "The Underground opens up", new[] {
                 "The UNDERGROUND SECTOR isn't just hallways any more. A three-storey ATRIUM opens up the middle of every level: balconies with railings, a bridge across on B1 and B2, and a glowing coolant column rising from the B3 floor to the roof - you can look down from B1 all the way to B3.",
                 "Every level has two big HALLS, each two rooms and the corridor between them made into one: B1 a WAREHOUSE (tall pallet racking, a forklift) and a MESS HALL (long tables, a serving counter, vending machines); B2 a SERVER FARM (aisles of blinking racks) and HYDROPONICS (grow beds under pink grow lights); B3 a TURBINE HALL and a flooded PUMP ROOM.",

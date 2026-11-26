@@ -242,9 +242,10 @@ namespace Rago
         static float ChestW(float t) => Mathf.Lerp(0.132f, 0.171f, MathX.Step(0f, 0.78f, t));
         static float ChestDf(float t) => 0.09f + 0.017f * Mathf.Sin(Mathf.Clamp01((t - 0.15f) / 0.8f) * Mathf.PI);
         static float ChestDb(float t) => 0.094f + 0.006f * t;
-        static float PelvisW(float t) => Mathf.Lerp(0.118f, 0.144f, MathX.Step(0f, 0.8f, t));
-        static float PelvisDf(float t) => 0.086f + 0.004f * t;
-        static float PelvisDb(float t) => 0.088f + 0.008f * Mathf.Sin(Mathf.Clamp01(t * 1.3f) * Mathf.PI);
+        // (3.50) narrower and shallower right at the bottom, so trousers run into the legs instead of bulging like a nappy
+        static float PelvisW(float t) => Mathf.Lerp(0.1f, 0.144f, MathX.Step(0f, 0.8f, t));
+        static float PelvisDf(float t) => 0.074f + 0.012f * MathX.Step(0f, 0.55f, t) + 0.004f * t;
+        static float PelvisDb(float t) => (0.088f + 0.008f * Mathf.Sin(Mathf.Clamp01(t * 1.3f) * Mathf.PI)) * Mathf.Lerp(0.86f, 1f, MathX.Step(0f, 0.4f, t));
 
         // ------------------------------------------------------------------------------------------------ clothes (3.48)
         /// <summary>What someone wears. top: 0 combat shirt, 1 t-shirt, 2 long sleeve, 3 hoodie, 4 jacket, 5 tank top,
@@ -406,18 +407,61 @@ namespace Rago
         /// skull - still faceless.</summary>
         static void RagdollHead(MB mb, Vector3 c, Color col)
         {
-            const int NU = 28, NV = 18;
+            // (3.50) a mannequin's head: still no eyes or mouth, but the planes of a face - a brow, the hollows under it,
+            // the bridge and tip of a nose, cheekbones, the curve over the teeth, a chin - and ears. The columns and rows
+            // bunch up over the face so the small shapes come out smooth.
+            const int NU = 48, NV = 32;
+            float G(float x, float y, float cx, float cy, float sx, float sy) { float a = (x - cx) / sx, b = (y - cy) / sy; return Mathf.Exp(-(a * a + b * b)); }
             mb.Patch(NU, NV, (iu, iv) =>
             {
-                float th = iu / (float)NU * Mathf.PI * 2f, ph = iv / (float)NV * Mathf.PI;
+                float su = iu / (float)NU * 2f - 1f, tv = iv / (float)NV * 2f - 1f;
+                float th = Mathf.PI * 0.5f + Mathf.PI * (0.45f * su + 0.55f * su * su * su);          // the face (+z) in the middle of the strip
+                float ph = Mathf.PI * 0.5f + Mathf.PI * 0.5f * (0.55f * tv + 0.45f * tv * tv * tv);   // 0 top .. PI bottom
                 float ny = Mathf.Cos(ph), sr = Mathf.Sin(ph);
                 float nx = Mathf.Cos(th) * sr, nz = Mathf.Sin(th) * sr;
                 float low = MathX.Step(0.1f, -0.95f, ny);                                   // 0 above the middle, 1 at the chin
                 float rx = 0.084f * (1f - 0.15f * low), rz = 0.1f * (1f - 0.1f * low);
                 if (nz > 0f) rz *= 1f - 0.1f * nz * nz * nz * (1f - 0.5f * low);             // a flatter face
                 else rz *= 1f - 0.06f * nz * MathX.Step(-0.3f, 0.45f, ny);                  // the rounded back of the skull
-                return c + new Vector3(nx * rx, ny * 0.112f, nz * rz + low * 0.008f);
+                var pt = new Vector3(nx * rx, ny * 0.112f, nz * rz + low * 0.008f);
+                float f = MathX.Step(0.25f, 0.75f, nz);                                     // features fade out round the sides
+                float d = f * (0.0055f * G(nx, ny, 0f, 0.17f, 0.42f, 0.07f)                                                        // brow
+                             - 0.0065f * (G(nx, ny, -0.33f, 0.03f, 0.15f, 0.09f) + G(nx, ny, 0.33f, 0.03f, 0.15f, 0.09f))          // hollows under it
+                             + 0.014f * G(nx, ny, 0f, -0.16f, 0.085f, 0.16f) + 0.006f * G(nx, ny, 0f, -0.27f, 0.075f, 0.06f)        // nose: bridge and tip
+                             + 0.004f * (G(nx, ny, -0.46f, -0.1f, 0.17f, 0.11f) + G(nx, ny, 0.46f, -0.1f, 0.17f, 0.11f))            // cheekbones
+                             + 0.0035f * G(nx, ny, 0f, -0.44f, 0.28f, 0.1f)                                                        // over the teeth
+                             + 0.0065f * G(nx, ny, 0f, -0.69f, 0.2f, 0.09f));                                                      // chin
+                d -= 0.003f * (G(nx, ny, -0.78f, 0.25f, 0.16f, 0.16f) + G(nx, ny, 0.78f, 0.25f, 0.16f, 0.16f)) * MathX.Step(-0.2f, 0.3f, nz);   // temples
+                return c + pt + new Vector3(nx / rx, ny / 0.112f, nz / rz).normalized * d;
             }, col, true, true);
+            foreach (float sx in new[] { -1f, 1f })   // ears
+                mb.Sphere(c + new Vector3(sx * 0.0845f, -0.004f, -0.008f), new Vector3(0.011f, 0.03f, 0.019f), 10, col);
+        }
+
+        /// <summary>(3.50) A hand with fingers: palm, four two-part fingers in a relaxed curl and a thumb. glove: 0 none,
+        /// 1 fingerless (the palm and the first joints), 2 a full glove. +y is the back of the hand, +z along the fingers.</summary>
+        static void RagdollHand(MB mb, float side, Color skin, Color gloveCol, int glove)
+        {
+            int Sub(bool g) => g ? CLOTH : SKIN;
+            Color Col(bool g) => g ? gloveCol : skin;
+            bool g1 = glove >= 1, g2 = glove >= 2;
+            mb.Sub(Sub(g1)).Box(new Vector3(0, -0.003f, 0.038f), new Vector3(0.078f, 0.03f, 0.076f), Col(g1), 0.012f, 3);   // palm
+            float[] l1 = { 0.03f, 0.033f, 0.031f, 0.025f }, l2 = { 0.026f, 0.029f, 0.027f, 0.022f }, rad = { 0.0086f, 0.009f, 0.0086f, 0.0076f };
+            float[] c1 = { 14f, 18f, 22f, 26f }, c2 = { 24f, 28f, 31f, 34f }, spread = { -6f, -2f, 2f, 6f };
+            for (int k = 0; k < 4; k++)   // index (next to the thumb) to little finger
+            {
+                var b0 = new Vector3(side * (-0.026f + k * 0.0175f), -0.003f, 0.072f);
+                var d1 = Quaternion.Euler(c1[k], side * spread[k], 0) * Vector3.forward;
+                var d2 = Quaternion.Euler(c1[k] + c2[k], side * spread[k], 0) * Vector3.forward;
+                var e1 = b0 + d1 * l1[k]; var e2 = e1 + d2 * l2[k];
+                mb.Sub(Sub(g1)).Capsule(b0, e1, rad[k], rad[k] * 0.95f, 8, Col(g1));
+                mb.Sub(Sub(g2)).Capsule(e1, e2, rad[k] * 0.93f, rad[k] * 0.82f, 8, Col(g2));
+            }
+            var t0 = new Vector3(side * -0.033f, -0.011f, 0.022f);
+            var t1 = t0 + new Vector3(side * -0.55f, -0.45f, 0.7f).normalized * 0.03f;
+            var t2 = t1 + new Vector3(side * -0.2f, -0.5f, 0.84f).normalized * 0.026f;
+            mb.Sub(Sub(g1)).Capsule(t0, t1, 0.0115f, 0.0105f, 8, Col(g1));
+            mb.Sub(Sub(g2)).Capsule(t1, t2, 0.0098f, 0.0088f, 8, Col(g2));
         }
 
         static void Ball(MB mb, Vector3 c, float r) { if (_human) mb.Sub(PLASTIC).Sphere(c, Vector3.one * r * 0.95f, 14, _ballCol); else mb.Sub(JOINT).Sphere(c, Vector3.one * r, 12, JointCol); }
@@ -458,8 +502,11 @@ namespace Rago
             Marker(mb, new Vector3(0.147f, -0.03f, 0), Vector3.right, 0.028f); Marker(mb, new Vector3(-0.147f, -0.03f, 0), Vector3.left, 0.028f);
             if (soldier || p.apron)
             {
-                mb.Sub(HARD).Box(new Vector3(0, 0.06f, 0), new Vector3(0.31f, 0.045f, 0.21f), p.gear2, 0.015f);
-                mb.Sub(HARD).Box(new Vector3(0, 0.06f, 0.107f), new Vector3(0.05f, 0.035f, 0.01f), new Color(0.55f, 0.55f, 0.55f), 0.004f);
+                // (3.50) a webbing belt that wraps round the waist (it was a flat-sided box) and its buckle
+                mb.Sub(HARD);
+                Loft(mb, new Vector3(0, 0.06f, 0), 0.023f, t => 0.153f, t => 0.104f, t => 0.104f, 0.72f, 0.08f, 28, 3, p.gear2);
+                mb.Sub(HARD).Box(new Vector3(0, 0.06f, 0.1065f), new Vector3(0.056f, 0.036f, 0.012f), new Color(0.5f, 0.5f, 0.5f), 0.004f);
+                mb.Sub(HARD).Box(new Vector3(0, 0.06f, 0.1125f), new Vector3(0.036f, 0.018f, 0.003f), new Color(0.2f, 0.2f, 0.2f), 0.001f);
             }
             if (soldier)
             {
@@ -637,29 +684,21 @@ namespace Rago
                 Ball(mb, Vector3.zero, 0.044f); // elbow
                 mb.Sub(SKIN).Capsule(new Vector3(0, 0, 0.05f), new Vector3(0, 0, r.foreArm - 0.04f), 0.041f, 0.034f, 16, body);
                 mb.Sub(SKIN).Sphere(new Vector3(0, 0, 0.085f), new Vector3(0.045f, 0.043f, 0.075f), 14, body);   // the forearm's fuller top
-                Ball(mb, new Vector3(0, 0, r.foreArm), 0.03f); // wrist
+                if (!soldier) Ball(mb, new Vector3(0, 0, r.foreArm), 0.03f); // wrist (gloved hands cover it with the glove's cuff)
                 if (p.coat || p.suit) mb.Sub(CLOTH).Capsule(new Vector3(0, 0, 0.02f), new Vector3(0, 0, r.foreArm - 0.05f), 0.048f, 0.042f, 12, p.coat ? p.top : p.top);
                 GarbForeArm(mb, g, r.foreArm);
                 mb.Build("Mesh", fa, mats);
                 if (!local)
                 {
-                    // a ragdoll mitten (3.47): one rounded palm-and-fingers piece and a thumb - gloved for raiders
+                    // (3.50) a hand with fingers - fingerless gloves on soldiers, full gloves on raiders
                     mb = new MB(4);
-                    int hs = kit ? CLOTH : SKIN; Color hc = kit ? glove : body;
-                    // palm, then the fingers as one block bent a little at the knuckles, with shallow grooves between them
-                    mb.Sub(hs).Box(new Vector3(0, -0.004f, 0.036f), new Vector3(0.074f, 0.034f, 0.066f), hc, 0.015f, 3);
-                    mb.Push(new Vector3(0, -0.004f, 0.064f), Quaternion.Euler(16f, 0, 0));
-                    mb.Sub(hs).Box(new Vector3(0, -0.002f, 0.028f), new Vector3(0.07f, 0.027f, 0.058f), hc, 0.012f, 3);
-                    Color groove = hc * 0.55f; groove.a = 1f;
-                    for (int fg = -1; fg <= 1; fg++) mb.Sub(hs).Box(new Vector3(fg * 0.0175f, 0.0116f, 0.03f), new Vector3(0.0022f, 0.0012f, 0.034f), groove, 0f);
-                    mb.Pop();
-                    mb.Sub(hs).Capsule(new Vector3(side * -0.036f, -0.008f, 0.024f), new Vector3(side * -0.046f, -0.016f, 0.066f), 0.0125f, 0.0105f, 10, hc);
-                    if (soldier && !kit)   // fingerless gloves with a knuckle guard
+                    RagdollHand(mb, side, body, glove, kit ? 2 : (soldier ? 1 : 0));
+                    if (soldier && !kit)
                     {
-                        mb.Sub(CLOTH).Box(new Vector3(0, -0.002f, 0.03f), new Vector3(0.078f, 0.036f, 0.05f), glove, 0.012f, 2);
-                        mb.Sub(HARD).Box(new Vector3(0, 0.018f, 0.046f), new Vector3(0.058f, 0.006f, 0.02f), Sh(glove, 1.6f), 0.0025f);
+                        mb.Sub(HARD).Box(new Vector3(0, 0.0145f, 0.062f), new Vector3(0.06f, 0.007f, 0.02f), Sh(glove, 1.6f), 0.0025f);   // knuckle guard
+                        mb.Sub(CLOTH).Cyl(new Vector3(0, -0.003f, -0.03f), new Vector3(0, -0.003f, 0.012f), 0.036f, 0.035f, 12, Sh(glove, 1.25f), false);   // the glove's cuff, over the wrist joint
                     }
-                    if (kit) mb.Sub(CLOTH).Cyl(new Vector3(0, -0.004f, -0.005f), new Vector3(0, -0.004f, 0.02f), 0.04f, 0.038f, 12, glove * 1.3f, false);   // glove cuff
+                    if (kit) mb.Sub(CLOTH).Cyl(new Vector3(0, -0.004f, -0.03f), new Vector3(0, -0.004f, 0.02f), 0.04f, 0.038f, 12, glove * 1.3f, false);   // glove cuff, over the wrist joint
                     mb.Build("Mesh", hand, mats);
                 }
             }
