@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.32", "DUBBY energy drinks", new[] {
+                "NEW: DUBBY Focus Energy Drink cans in two flavours - Strawberry Banana (pink with yellow drips) and Mango Orange Cream (yellow with orange). The front says SPONSOR, with DUBBY and BE BETTER down the side.",
+                "Drink one for full stamina and 45 s of faster sprinting, plus +8 HP. Find them in raids or buy them in the Market.",
+            }),
             ("3.31", "Better holds and throws", new[] {
                 "Fixed: a mag you grab sat tilted / facing the wrong way - it's held in the same frame as your gun now: top up out of your fist, rounds facing where you point.",
                 "Your trigger finger rests on the trigger of the gun you're holding (it hovered straight in front of it) and squeezes as you pull.",
