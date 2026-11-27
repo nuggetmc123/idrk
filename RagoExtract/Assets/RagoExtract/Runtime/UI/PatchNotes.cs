@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.71", "A better Swamp", new[] {
+                "YOU CAN GET ONTO THE ISLANDS NOW: each island had an invisible ball-shaped hitbox as wide as the island, so nobody could walk onto it. They have proper ground now, with gentle muddy banks you walk straight up out of the water.",
+                "Steps up from the water onto every boardwalk.",
+                "THE SWAMP IS BIGGER: the swamp itself is 40% wider (more islands of water between them, more trees, reeds, logs and boats) and the land round it is much smaller.",
+            }),
             ("3.70", "The Swamp Keycard", new[] {
                 "THE SWAMP IS LOCKED until you find a SWAMP KEYCARD (green). Put it on the TURN-IN board in your bunker (job: THE WAY IN) and the Swamp is unlocked for good.",
                 "Where to find one: bosses carry one 40% of the time, and safes (8%) and air drop crates (20%) sometimes have one.",
