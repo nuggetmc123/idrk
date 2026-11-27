@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.57", "No more wall shots", new[] {
+                "SCAVS CAN'T SHOOT YOU THROUGH WALLS: their rounds never go through walls any more, and they only fire with a clear shot at you - duck behind cover and you're safe (they used to keep firing for a moment after you hid, and a scav pressed against a wall shot through it).",
+                "SHOW SOMEONE YOUR BACKPACK: a backpack you drop or hand over is now there for everyone, with what's inside it - no more invisible bags. Put things in or take them out and everyone sees it.",
+                "THE AIR DROP BOSS IS BACK: a boss air drop brings The Courier down by parachute again (it had been dropping a plain heavy).",
+                "JOINING A RAID THAT'S ALREADY GOING: crates other players already opened are open for you too, with the same loot - minus whatever they took.",
+            }),
             ("3.56", "Market drops stay put", new[] {
                 "Drop something on the MARKET floor and it stays there when you leave - anyone can pick it up - instead of being sent back to your stash. Things on your stall, the trade table and the sell bins still come home.",
             }),

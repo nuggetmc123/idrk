@@ -240,6 +240,7 @@ namespace Rago
             float bestScore = 0;
             Vector3 eye = Rig.head.position + Vector3.up * 0.08f;
             Vector3 fwd = Quaternion.Euler(0, Yaw, 0) * Vector3.forward;
+            bool eyeBuried = Physics.CheckSphere(eye, 0.05f, Ballistics.WallMask, QueryTriggerInteraction.Ignore);
             foreach (var cand in Candidates())
             {
                 Vector3 to = cand.aim.position - eye;
@@ -250,6 +251,7 @@ namespace Rago
                 if (dist > 70f * Weather.SightMul && !shooter) continue;
                 bool inCone = ang < 65f || dist < 4f || shooter;
                 if (!inCone) continue;
+                if (eyeBuried) continue;   // (3.57) head pushed into a wall: a raycast from inside it doesn't see the wall - no vision at all
                 if (!ClearLine(eye, cand.aim.position, cand.d)) continue; // blocked
                 float score = shooter ? 2f : (1f - dist / (70f * Weather.SightMul)) * (ang < 30f ? 1.4f : 0.8f);
                 if (score > bestScore) { bestScore = score; best = cand; best.valid = true; }
@@ -609,10 +611,23 @@ namespace Rago
             // aligned enough?
             Vector3 toAim = (AimPoint - GunModel.muzzle.position).normalized;
             if (Vector3.Angle(GunModel.muzzle.forward, toAim) > 12f) return;
+            // (3.57) only with a clear shot at them right now: they used to keep firing for a moment after you ducked behind
+            // a wall, and a gun poking into a wall fired straight through it
+            if (!HasShot()) { _burstT = 0.12f; return; }
             if (_burst <= 0) _burst = Weapon.action == FireAction.Auto ? _rng.Range(2, dist < 12 ? 7 : 4) : 1;
             FireOnce(toAim);
             _burst--;
             _burstT = _burst > 0 ? 60f / Weapon.rpm * 1.15f : _rng.Range(0.45f, 1.3f) + (Weapon.action == FireAction.Pump || Weapon.action == FireAction.Bolt ? 0.8f : 0f);
+        }
+
+        bool HasShot()
+        {
+            if (!_target.valid || _target.aim == null) return false;
+            Vector3 head = Rig.head.position;
+            if (Physics.CheckSphere(head, 0.05f, Ballistics.WallMask, QueryTriggerInteraction.Ignore)) return false;   // its head is in a wall
+            Vector3 o = Ballistics.SafeOrigin(head, GunModel.muzzle.position);
+            Vector3 t = _target.aim.position;
+            return ClearLine(o, t, _target.d) || ClearLine(o, t + Vector3.up * 0.4f, _target.d);   // their body, or their head over cover
         }
 
         void FireOnce(Vector3 dir)

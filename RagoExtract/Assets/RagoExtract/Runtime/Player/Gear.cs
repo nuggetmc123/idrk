@@ -789,12 +789,33 @@ namespace Rago
             sl.Store(it, false);
             sl.onChanged = s => { if (s.item == null) OnTakenOut(st); };
             if (sound) Sfx.Play(Synth.Grab(2), transform.position, 0.4f, 0.8f, 0.5f, 6f);
+            ContentsChanged();
             return true;
+        }
+
+        // (3.57) a bag dropped in a raid / the Market is shared with the other players (it used to be invisible to them):
+        // when what's in it changes here, everyone else's copy of it gets the new contents - so nothing can be taken twice
+        bool _netApplying;
+        void ContentsChanged() { if (!_netApplying && !_filling && netId != 0 && !Held) NetGame.I?.BagChanged(this); }
+
+        /// <summary>Another player took something out of (or put something into) this bag: show what's in it now.</summary>
+        public void ReplaceContentsFromNet(List<ItemData> items)
+        {
+            _netApplying = true;
+            try
+            {
+                foreach (var s in Sides) if (s.item != null) { var it = s.item; it.Consumed = true; s.Release(it); Destroy(it.gameObject); }
+                foreach (var st in _stored) { if (st.it != null) { st.it.Consumed = true; Destroy(st.it.gameObject); } if (st.slot != null) Destroy(st.slot.gameObject); }
+                _stored.Clear();
+                Fill(items);
+            }
+            finally { _netApplying = false; }
         }
 
         void OnTakenOut(Stored st)
         {
             _stored.Remove(st);
+            ContentsChanged();
             if (st.slot != null) Compat.Kill(st.slot.gameObject);
             // everything that was resting on it settles down
             _stored.Sort((a, b) => a.bottom.CompareTo(b.bottom));
@@ -875,7 +896,7 @@ namespace Rago
             spawned.Sort((a, b) => (b.localBounds.size.x * b.localBounds.size.y * b.localBounds.size.z).CompareTo(a.localBounds.size.x * a.localBounds.size.y * a.localBounds.size.z));
             _filling = true;
             foreach (var it in spawned)
-                if (!AddAt(it, null, false)) it.Drop(Vector3.zero, Vector3.zero); // doesn't fit: falls out
+                if (!AddAt(it, null, false)) { if (_netApplying) Destroy(it.gameObject); else it.Drop(Vector3.zero, Vector3.zero); } // doesn't fit: falls out (a copy from the network just goes)
             _filling = false;
         }
 

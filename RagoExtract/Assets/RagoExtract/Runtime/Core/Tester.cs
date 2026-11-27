@@ -52,6 +52,8 @@ namespace Rago
 
         public static readonly string[] Bosses = { "Doctor Kessler", "The Harbormaster", "The Courier" };   // the three bosses left
         public static string BossFor(int kind) => kind >= 2 && kind - 2 < Bosses.Length ? Bosses[kind - 2] : null;
+        /// <summary>The spawn kind for a boss by name (3.57: the air drop asked for kind 6 - from when there were more bosses - and got a plain heavy).</summary>
+        public static int KindOf(string boss) { int i = System.Array.IndexOf(Bosses, boss); return i >= 0 ? i + 2 : 1; }
 
         public static void SpawnNpcAt(int kind, Vector3 pos, float yaw)
         {

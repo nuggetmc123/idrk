@@ -240,6 +240,9 @@ namespace Rago
         static bool TryPierce(Bullet b, RaycastHit hit, Vector3 dir)
         {
             if (b.walls >= 1) return false;
+            // (3.57) raiders' rounds never go through walls: behind cover you're safe from them (on another player's machine a
+            // raider fires at where it saw you a moment ago - those shots wall-banged you after you'd ducked behind a wall)
+            if (b.ignoreOwner is Npc) return false;
             float r = Resist(hit.collider);
             if (b.punch <= r) return false;
             var surf = SurfaceTag.Of(hit.collider);

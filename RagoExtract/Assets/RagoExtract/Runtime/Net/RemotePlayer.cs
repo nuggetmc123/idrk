@@ -167,6 +167,7 @@ namespace Rago
                     if (it.rb != null) { it.rb.isKinematic = true; it.rb.detectCollisions = false; }
                 }
                 foreach (var c in disp.GetComponentsInChildren<Collider>(true)) Destroy(c);
+                foreach (var bag in disp.GetComponentsInChildren<Backpack>(true)) Backpack.AllBags.Remove(bag);   // (3.57) their bag, as you see it: nothing of yours can be dropped into it
                 disp.transform.SetParent(transform, true);
                 if (disp is Gun dg) { dg.RemoteOn = true; _gunR = left ? _gunR : dg.rig; }
                 slot = disp.gameObject;

@@ -79,7 +79,7 @@ namespace Rago
                     Send(false, kv.Key);
         }
 
-        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed, LockBroken, Market, Door, Cart, CartSpawn }
+        enum Msg : byte { Hello = 1, Pose, Fire, HitPlayer, Died, ItemTaken, ItemSpawned, NpcStates, NpcHit, NpcFire, NpcDied, Vault, Extracted, Bye, Voice, Blast, NpcVoice, Hidden, NpcSpawnAsk, NpcSpawned, LightState, AirDrop, CrateOpen, ItemRest, WindowBroken, Feed, LockBroken, Market, Door, Cart, CartSpawn, BagContents, Catchup }
 
         public static void Ensure()
         {
@@ -475,6 +475,7 @@ namespace Rago
             if (it.netId == 0 || !ShareItems) return;
             _mine.Remove(it.netId);
             var w = W(Msg.ItemTaken); w.Write(it.netId); Send(true);
+            _taken.Add(it.netId);   // (3.57) so a player who joins later hears it's gone (see SendCatchup)
             Items.Remove(it.netId);
             RememberTake(it.netId, it);
             it.netId = 0;
@@ -517,7 +518,7 @@ namespace Rago
 
         public void OnItemDropped(Item it)
         {
-            if (!ShareItems || it is Magazine || it is Backpack || it.Consumed) return;
+            if (!ShareItems || it is Magazine || it.Consumed) return;   // (3.57) backpacks too, with what's in them (BagChanged keeps them in step)
             // (3.51 dupe fix) still carrying its shared id = it was never picked up here: something knocked it loose (a
             // distance-grab pull cut short, the safety net dropping a thing stuck in mid-air). Everyone already has it -
             // announcing it as a new drop gave every other player a second copy. Just tell them where it ends up.
@@ -531,6 +532,13 @@ namespace Rago
             V3(w, it.rb != null ? it.rb.Vel() : Vector3.zero); V3(w, it.rb != null ? it.rb.angularVelocity : Vector3.zero);
             Send(true);
             _flying.Add((it, Time.time));
+        }
+
+        /// <summary>(3.57) A shared bag's contents changed here: everyone else gets what's in it now.</summary>
+        public void BagChanged(Backpack b)
+        {
+            if (!Live || !ShareItems || b == null || b.netId == 0) return;
+            var w = W(Msg.BagContents); w.Write(b.netId); w.Write(Backpack.Pack(b.SaveContents())); Send(true);
         }
 
         readonly HashSet<int> _taken = new HashSet<int>();
@@ -556,6 +564,22 @@ namespace Rago
         }
 
         public void WindowBroken(int id) { if (!Live) return; var w = W(Msg.WindowBroken); w.Write(id); Send(true); }
+
+        /// <summary>(3.57) A player who joins a raid that's already going: the crates already opened and the loot already taken,
+        /// so for them the crates are open with the same things missing (they used to find every box shut and full).</summary>
+        void SendCatchup(ulong to)
+        {
+            if (!InRaid) return;
+            var open = new List<int>();
+            foreach (var kv in LootCrate.ByIndex) if (kv.Value != null && kv.Value.opened && !kv.Value.local) open.Add(kv.Key);
+            if (open.Count == 0 && _taken.Count == 0) return;
+            var w = W(Msg.Catchup);
+            int nt = Mathf.Min(_taken.Count, 2000);
+            w.Write(nt); int k = 0;
+            foreach (var id in _taken) { if (k++ >= nt) break; w.Write(id); }
+            w.Write(open.Count); foreach (var ix in open) w.Write(ix);
+            Send(true, to);
+        }
 
         public void CrateOpened(int index) { if (!Live || !InRaid) return; var w = W(Msg.CrateOpen); w.Write(index); Send(true); }
 
@@ -738,7 +762,7 @@ namespace Rago
                                 if (rp.DisplayName != name && !string.IsNullOrEmpty(name)) RagoGame.I?.Player?.Toast(name + " is here");
                                 rp.DisplayName = name;
                                 rp.SetLook(seed, look);
-                                if (_helloSent.Add(from)) SendHello(from); // introduce ourselves back
+                                if (_helloSent.Add(from)) { SendHello(from); SendCatchup(from); } // introduce ourselves back (and what's already happened)
                                 break;
                             }
                         case Msg.Pose:
@@ -913,6 +937,34 @@ namespace Rago
                             {
                                 int ix = r.ReadInt32();
                                 if (LootCrate.ByIndex.TryGetValue(ix, out var cr) && cr != null) cr.Open(false);
+                                break;
+                            }
+                        case Msg.Catchup:
+                            {
+                                int nt = r.ReadInt32();
+                                for (int i = 0; i < nt; i++)
+                                {
+                                    int id = r.ReadInt32();
+                                    if (!_taken.Add(id)) continue;
+                                    if (Items.TryGetValue(id, out var it) && it != null && !it.Held)
+                                    {
+                                        if (it.slot != null) it.slot.Release(it);
+                                        it.netId = 0; Destroy(it.gameObject);
+                                    }
+                                    Items.Remove(id);
+                                }
+                                int no = r.ReadInt32();
+                                for (int i = 0; i < no; i++)
+                                {
+                                    int ix = r.ReadInt32();
+                                    if (LootCrate.ByIndex.TryGetValue(ix, out var cr) && cr != null) cr.Open(false);   // the same loot, minus what's gone
+                                }
+                                break;
+                            }
+                        case Msg.BagContents:
+                            {
+                                int id = r.ReadInt32(); string c = r.ReadString();
+                                if (Items.TryGetValue(id, out var it) && it is Backpack bp && !bp.Held) bp.ReplaceContentsFromNet(Backpack.Unpack(c));
                                 break;
                             }
                         case Msg.ItemRest:

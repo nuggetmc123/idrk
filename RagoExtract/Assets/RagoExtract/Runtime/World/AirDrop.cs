@@ -308,8 +308,9 @@ namespace Rago
             if (NpcDirector.I != null && NetGame.FirstPlayer)
             {
                 if (UnityEngine.AI.NavMesh.SamplePosition(at, out var nh, 4f, UnityEngine.AI.NavMesh.AllAreas)) at = nh.position;
-                if (NetGame.Live) NetGame.I.RequestNpc(6, at, _index * 37f + 180f);
-                else NpcDirector.I.SpawnNow(at, _index * 37f + 180f, true, Tester.BossFor(6));
+                int ck = Tester.KindOf("The Courier");   // (3.57) the Courier himself (kind 6 no longer existed: a plain heavy landed)
+                if (NetGame.Live) NetGame.I.RequestNpc(ck, at, _index * 37f + 180f);
+                else NpcDirector.I.SpawnNow(at, _index * 37f + 180f, true, Tester.BossFor(ck));
             }
             Destroy(gameObject);
         }
