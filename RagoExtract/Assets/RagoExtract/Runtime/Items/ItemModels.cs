@@ -39,6 +39,29 @@ namespace Rago
             return new[] { m0, m1, m2, m3 };
         }
 
+        // (3.69) S1KDM0R3 holds a miniature Leviathan across his chest: where his hands grip it, and the way it points
+        static readonly Vector3 SkidGripR = new Vector3(0.015f, 0.0f, 0.042f), SkidGripL = new Vector3(-0.013f, 0.03f, 0.042f);
+        static Vector3 SkidGunDir => (SkidGripL - SkidGripR).normalized;
+
+        /// <summary>(3.69) Extra models on an item that aren't part of its own mesh: S1KDM0R3's miniature Leviathan (the real
+        /// gun model, scaled down into his hands).</summary>
+        public static void Extras(SimpleDef d, Transform model)
+        {
+            if (d == null || model == null || d.kind != ItemKind.Valuable || d.shape != 37) return;
+            var g = Db.Get<GunDef>("leviathan");
+            if (g == null) return;
+            var rig = GunBuilder.Build(g, model);
+            var t = rig.root.transform;
+            Vector3 grip = Vector3.zero, fore = rig.foregrip != null ? rig.foregrip.localPosition : new Vector3(0, 0, rig.bounds.size.z * 0.4f);
+            float span = Mathf.Max(0.05f, Vector3.Distance(grip, fore));
+            float s = Vector3.Distance(SkidGripR, SkidGripL) / span;
+            var fwd = SkidGunDir; var up = Vector3.Cross(fwd, Vector3.forward).normalized;   // its top faces up and out, its side to the front
+            t.localRotation = Quaternion.LookRotation(fwd, up);
+            t.localScale = Vector3.one * s;
+            t.localPosition = SkidGripR - t.localRotation * (grip * s) + Vector3.forward * 0.006f;
+            foreach (var c in t.GetComponentsInChildren<Collider>()) Object.Destroy(c);
+        }
+
         /// <summary>The name on a streamer figurine's base plate (null = no plate), where the plate is, and its tilt.</summary>
         public static string Nameplate(SimpleDef d, out Vector3 at)
         {
@@ -1012,54 +1035,26 @@ namespace Rago
                         mb.Sub(0).Sphere(new Vector3(sx * 0.0058f, 0.0695f, 0.0235f), new Vector3(0.0045f, 0.0042f, 0.003f), 10, robeIn);   // eye sockets
                         mb.Sub(5).Sphere(new Vector3(sx * 0.0058f, 0.0695f, 0.0262f), Vector3.one * 0.0026f, 8, Color.white);           // glowing eyes
                     }
-                    // wide bell sleeves and bony hands: the right hand up on the scythe, the left lower down it
-                    Vector3 staffX = new Vector3(0.042f, 0, 0.026f);
-                    // the left arm hangs at its side, a bony hand reaching out of the sleeve
+                    // wide bell sleeves and bony hands
+                    // (3.69) both arms forward, bony hands gripping a miniature LEVIATHAN held across the chest (port arms) -
+                    // the gun itself is the real Leviathan model, added by Extras()
+                    foreach (var (sh, hand, low) in new[] { (new Vector3(0.028f, 0.032f, 0.0f), SkidGripR, true), (new Vector3(-0.028f, 0.032f, 0.0f), SkidGripL, false) })
                     {
-                        Vector3 sh = new Vector3(-0.028f, 0.032f, 0.0f), cuff = new Vector3(-0.037f, 0.0f, 0.008f);
-                        mb.Sub(2).Cyl(sh, cuff, 0.009f, 0.013f, 14, robe);
-                        mb.Sub(0).Cyl(cuff - (cuff - sh).normalized * 0.001f, cuff + (cuff - sh).normalized * 0.0005f, 0.0115f, 0.0115f, 14, robeIn);
-                        mb.Sub(5).Tube(cuff - (cuff - sh).normalized * 0.002f, cuff, 0.0137f, 0.012f, 14, Color.white);   // glowing cuff
-                        Vector3 h = cuff + new Vector3(-0.001f, -0.006f, 0.002f);
-                        mb.Sub(3).Sphere(h, new Vector3(0.0045f, 0.0055f, 0.004f), 8, bone);
-                        for (int f = 0; f < 4; f++) mb.Sub(3).Capsule(h + new Vector3(-0.003f + f * 0.002f, -0.003f, 0.002f), h + new Vector3(-0.004f + f * 0.0024f, -0.012f, 0.005f), 0.001f, 5, bone);   // long finger bones
-                    }
-                    foreach (var (sh, hand) in new[] { (new Vector3(0.028f, 0.032f, 0.0f), new Vector3(0.038f, 0.014f, 0.024f)) })
-                    {
-                        Vector3 cuff = Vector3.Lerp(sh, hand, 0.8f);
-                        mb.Sub(2).Cyl(sh, cuff, 0.009f, 0.013f, 14, robe);
-                        mb.Sub(0).Cyl(cuff - (cuff - sh).normalized * 0.001f, cuff + (cuff - sh).normalized * 0.0005f, 0.0115f, 0.0115f, 14, robeIn);   // the dark inside of the sleeve
-                        mb.Sub(5).Tube(cuff - (cuff - sh).normalized * 0.002f, cuff, 0.0137f, 0.012f, 14, Color.white);   // glowing cuff
-                        Vector3 h = new Vector3(staffX.x, hand.y, staffX.z);
-                        mb.Sub(3).Sphere(h + new Vector3(-0.004f, 0, -0.001f), new Vector3(0.005f, 0.006f, 0.005f), 8, bone);   // knuckles
+                        Vector3 cuff = Vector3.Lerp(sh, hand, 0.72f);
+                        mb.Sub(2).Cyl(sh, cuff, 0.009f, 0.0125f, 14, robe);
+                        mb.Sub(0).Cyl(cuff - (cuff - sh).normalized * 0.001f, cuff + (cuff - sh).normalized * 0.0005f, 0.011f, 0.011f, 14, robeIn);   // the dark inside of the sleeve
+                        mb.Sub(5).Tube(cuff - (cuff - sh).normalized * 0.002f, cuff, 0.0132f, 0.0115f, 14, Color.white);   // glowing cuff
+                        Vector3 dh = (hand - cuff).normalized;
+                        mb.Sub(3).Capsule(cuff, hand - dh * 0.003f, 0.0022f, 6, bone);   // wrist bones
+                        mb.Sub(3).Sphere(hand, new Vector3(0.0048f, 0.0055f, 0.0048f), 8, bone);   // the hand round the gun
                         for (int f = 0; f < 4; f++)
                         {
-                            float fy = h.y + 0.0035f - f * 0.0025f;
-                            mb.Sub(3).Capsule(new Vector3(h.x - 0.004f, fy, h.z + 0.003f), new Vector3(h.x + 0.001f, fy, h.z + 0.005f), 0.0011f, 5, bone);
-                            mb.Sub(3).Capsule(new Vector3(h.x + 0.001f, fy, h.z + 0.005f), new Vector3(h.x + 0.004f, fy, h.z + 0.001f), 0.001f, 5, bone);   // wrapped round the staff
+                            Vector3 o = Vector3.Cross(SkidGunDir, Vector3.forward).normalized * ((f - 1.5f) * 0.0024f);
+                            mb.Sub(3).Capsule(hand + o + Vector3.forward * 0.004f, hand + o + Vector3.forward * 0.006f - dh * 0.004f, 0.0011f, 5, bone);   // finger bones over the gun
                         }
                     }
-                    // the scythe: a long, slightly bent wooden staff, a steel collar and a big curved blade
-                    Vector3 S(float t) => new Vector3(staffX.x + Mathf.Sin(t * 3f) * 0.002f, Mathf.Lerp(-0.082f, 0.128f, t), staffX.z);
-                    for (int k = 0; k < 6; k++) mb.Sub(0).Cyl(S(k / 6f), S((k + 1) / 6f), 0.0024f, 0.0023f, 8, wood, k == 0);
-                    mb.Sub(1).Cyl(S(0.97f) - Vector3.up * 0.004f, S(0.97f) + Vector3.up * 0.004f, 0.0034f, 0.0034f, 10, steel);
-                    Vector3 root = S(0.985f);
-                    Vector3 C(float t) => root + new Vector3(-0.1f * t, 0.016f * Mathf.Sin(t * Mathf.PI * 0.8f) - 0.026f * t * t, 0);
-                    mb.Sub(6).Patch(12, 24, (i, j) =>
-                    {
-                        float t = j / 24f, ph = i / 12f * Mathf.PI * 2f;
-                        Vector3 tan = (C(Mathf.Min(1f, t + 0.01f)) - C(Mathf.Max(0f, t - 0.01f))).normalized;
-                        Vector3 nIn = new Vector3(-tan.y, tan.x, 0);   // in the blade's plane, towards the inside of the curve
-                        if (nIn.y > 0) nIn = -nIn;
-                        float w = 0.017f * Mathf.Pow(1f - t, 0.75f) + 0.0006f;
-                        return C(t) + nIn * (w * (1f - Mathf.Cos(ph)) * 0.5f) + Vector3.forward * (0.0016f * Mathf.Sin(ph) * (1f - t * 0.6f));
-                    }, steel, true);
-                    for (int k = 0; k < 20; k++)   // the blade's edge glows violet
-                    {
-                        float t0 = k / 20f, t1 = (k + 1) / 20f;
-                        Vector3 E0(float t) { Vector3 tan = (C(Mathf.Min(1f, t + 0.01f)) - C(Mathf.Max(0f, t - 0.01f))).normalized; Vector3 n = new Vector3(-tan.y, tan.x, 0); if (n.y > 0) n = -n; return C(t) + n * (0.017f * Mathf.Pow(1f - t, 0.75f) + 0.0006f); }
-                        mb.Sub(5).Capsule(E0(t0), E0(t1), 0.0009f, 5, Color.white);
-                    }
+                    mb.Sub(6).Sphere(Robe(0.5f, 0.62f, 0.0016f) + new Vector3(0, -0.002f, 0.001f), new Vector3(0.0035f, 0.0035f, 0.002f), 8, Color.white);   // a chrome skull buckle on the sash
+                    mb.Sub(1).Sphere(new Vector3(0, 0.05f, 0.026f), Vector3.one * 0.0001f, 4, steel);   // (keeps the metal slot in use)
                     break;
                 }
                 case 38: // (3.65) the Swamp King's crown: a gold band, seven spikes with balls on top, green stones and a croc tooth at the front

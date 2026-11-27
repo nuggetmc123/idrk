@@ -201,6 +201,7 @@ namespace Rago
             var mb = ItemModels.Build(d);
             var mats = ItemModels.Materials(d);
             var model = mb.Build("Model", go.transform, mats);
+            ItemModels.Extras(d, model.transform);   // (3.69) e.g. the gun S1KDM0R3 holds
             var mesh = model.GetComponent<MeshFilter>().sharedMesh;
             // streamer figurines: their name in white on the plate at the front of the base
             var plate = ItemModels.Nameplate(d, out var at);

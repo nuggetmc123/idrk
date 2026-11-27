@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.69", "S1KDM0R3 is armed", new[] {
+                "The S1KDM0R3 grim reaper now holds a miniature LEVIATHAN .50 across his chest (the real Leviathan model) - bony hands on the grip and the handguard - instead of the scythe.",
+            }),
             ("3.68", "Streamer items that pop", new[] {
                 "OLIVER KICKS: glossy patent-leather upper in deep purple-black, bright violet panels with glowing violet piping, a GLOWING gold lightning bolt and gold eyelets, a glowing violet band round the ankle, a brighter mint sole stripe and a hot red tongue tab and heel pull.",
                 "S1KDM0R3: glowing violet eyes, a glowing violet hem and sleeve cuffs, a bright purple sash, and a mirror-chrome scythe blade with a glowing violet edge.",
