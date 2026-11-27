@@ -21,10 +21,12 @@ namespace Rago
             var m1 = Mats.Lit("item_metal", w, 0.9f, 0.7f, Mats.Metal, null, 0.1f, 0.2f);
             var m2 = Mats.Lit("item_cloth", w, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.2f, 0f);
             var m3 = Mats.Lit("item_gloss", w, 0.1f, 0.92f, null, null, 0.02f, 0.02f);
-            bool gold = d.kind == ItemKind.Valuable && (d.shape == 6 || d.shape == 0 || d.shape == 18 || d.shape == 19 || d.shape == 33);   // 33: the operator figurine's gold armour trim
+            bool gold = d.kind == ItemKind.Valuable && (d.shape == 6 || d.shape == 0 || d.shape == 18 || d.shape == 19 || d.shape == 33 || d.shape == 36);   // 33: the operator figurine's gold armour trim
             if (gold) m1 = Mats.Gold;
             if (d.kind == ItemKind.Valuable && d.shape == 7) m1 = Mats.Unlit("diamond", new Color(0.5f, 0.85f, 1f, 0.85f));
-            if (d.kind == ItemKind.Valuable && (d.shape == 32 || d.shape == 33))   // the streamer figurines: their display base's LED ring glows
+            if (d.kind == ItemKind.Valuable && d.shape == 36)   // the OLIVER kicks: a glowing mint stripe
+                return new[] { m0, m1, m2, m3, Mats.Lit("item_glow_mint", new Color(0.4f, 1f, 0.8f), 0f, 0.6f, null, null, 0f, 0f, false, 0.5f, new Color(0.3f, 1.4f, 0.9f)) };
+            if (d.kind == ItemKind.Valuable && (d.shape == 32 || d.shape == 33 || d.shape == 37))   // the streamer figurines: their display base's LED ring glows
                 return new[] { m0, m1, m2, m3, Mats.Lit("item_glow_purple", new Color(0.75f, 0.45f, 1f), 0f, 0.6f, null, null, 0f, 0f, false, 0.5f, new Color(0.9f, 0.4f, 1.6f)) };
             return new[] { m0, m1, m2, m3 };
         }
@@ -36,12 +38,15 @@ namespace Rago
             if (d == null || d.kind != ItemKind.Valuable) return null;
             if (d.shape == 32) { at = new Vector3(0, -0.0655f, 0.0464f); return "PEANUT8"; }
             if (d.shape == 33) { at = new Vector3(0, -0.0935f, 0.0524f); return "SHUSHED"; }
+            if (d.shape == 37) { at = new Vector3(0, -0.0935f, 0.0524f); return "S1KDM0R3"; }
             return null;
         }
 
         /// <summary>Printed words on an item (text, local position, size, colour), drawn facing out of the front (+Z).</summary>
         public static (string text, Vector3 at, float size, Color col)[] Labels(SimpleDef d)
         {
+            if (d != null && d.kind == ItemKind.Valuable && d.shape == 36)   // OLIVER in gold on the side of the kicks
+                return new[] { ("OLIVER", new Vector3(-0.03f, 0.084f, 0.0535f), 0.0105f, new Color(1f, 0.82f, 0.3f)) };
             if (d != null && d.kind == ItemKind.Med && d.shape == 5)
                 return new[] { ("NUKE", new Vector3(0, 0.0115f, 0.0338f), 0.016f, new Color(0.45f, 1f, 0.15f)), ("COLA", new Vector3(0, 0.0005f, 0.0338f), 0.008f, Color.white), ("mildly radioactive", new Vector3(0, -0.037f, 0.0338f), 0.0033f, new Color(0.75f, 0.75f, 0.75f)) };
             if (d != null && d.kind == ItemKind.Med && (d.shape == 6 || d.shape == 7))
@@ -872,6 +877,65 @@ namespace Rago
                                 if (rnd.NextDouble() < 0.5) Wall(x, y, x + cell, y); else Wall(x, y, x, y + cell);
                             }
                         Torus(mb, new Vector3(-(o.x + G * cell + 0.006f), o.y + G * cell - cell * 0.5f, -z - 0.0016f), Quaternion.identity, 0.004f, 0.0016f, 12, 6, ring[0], 0.3f);   // the prize ring at the exit
+                    }
+                    break;
+                }
+                case 36: // (3.64) OLIVER KICKS (a streamer item): a chunky high-top - white sole with a glowing mint stripe, black upper,
+                         // purple side panels, a gold lightning bolt on each side, white laces, a red tongue tab and heel pull. Toe at +x.
+                {
+                    Color sole = new Color(0.95f, 0.95f, 0.93f), mint = new Color(0.25f, 1f, 0.75f), upper = new Color(0.07f, 0.07f, 0.08f),
+                          panel = new Color(0.45f, 0.18f, 0.85f), gold = new Color(1f, 0.78f, 0.25f), red = new Color(0.9f, 0.1f, 0.12f);
+                    mb.Sub(0).Box(new Vector3(0, 0.014f, 0), new Vector3(0.29f, 0.028f, 0.105f), sole, 0.012f, 3);                  // sole
+                    mb.Sub(4).Box(new Vector3(0, 0.031f, 0), new Vector3(0.284f, 0.007f, 0.107f), mint, 0.003f);                     // glowing midsole stripe
+                    for (int i = 0; i < 7; i++) mb.Sub(0).Box(new Vector3(-0.12f + i * 0.04f, 0.002f, 0), new Vector3(0.012f, 0.004f, 0.1f), sole * 0.8f, 0.001f);   // tread
+                    mb.Sub(3).Sphere(new Vector3(0.095f, 0.045f, 0), new Vector3(0.055f, 0.032f, 0.05f), 16, sole, 0f, 0.5f);         // rubber toe cap
+                    mb.Sub(2).Box(new Vector3(-0.005f, 0.066f, 0), new Vector3(0.2f, 0.07f, 0.096f), upper, 0.028f, 3);               // the upper
+                    mb.Sub(2).Cyl(new Vector3(-0.075f, 0.07f, 0), new Vector3(-0.072f, 0.14f, 0), 0.05f, 0.046f, 18, upper);          // high-top ankle
+                    mb.Sub(3).Tube(new Vector3(-0.072f, 0.135f, 0), new Vector3(-0.071f, 0.148f, 0), 0.05f, 0.036f, 18, panel);        // padded collar
+                    foreach (float sz in new[] { 1f, -1f })
+                    {
+                        mb.Sub(3).Box(new Vector3(-0.025f, 0.062f, sz * 0.049f), new Vector3(0.17f, 0.046f, 0.004f), panel, 0.002f);   // side panel
+                        // the lightning bolt
+                        mb.Sub(1).Box(new Vector3(0.005f, 0.072f, sz * 0.0515f), new Vector3(0.05f, 0.01f, 0.002f), gold, 0.001f, 1, Quaternion.Euler(0, 0, 28f));
+                        mb.Sub(1).Box(new Vector3(-0.02f, 0.06f, sz * 0.0515f), new Vector3(0.03f, 0.009f, 0.002f), gold, 0.001f);
+                        mb.Sub(1).Box(new Vector3(-0.045f, 0.05f, sz * 0.0515f), new Vector3(0.05f, 0.01f, 0.002f), gold, 0.001f, 1, Quaternion.Euler(0, 0, 28f));
+                        for (int i = 0; i < 5; i++) mb.Sub(1).Sphere(new Vector3(0.045f - i * 0.022f, 0.101f - i * 0.004f, sz * 0.03f), Vector3.one * 0.0035f, 6, gold);   // eyelets
+                    }
+                    for (int i = 0; i < 5; i++) mb.Sub(2).Box(new Vector3(0.045f - i * 0.022f, 0.104f - i * 0.004f, 0), new Vector3(0.007f, 0.006f, 0.064f), sole, 0.002f);   // laces
+                    mb.Sub(2).Box(new Vector3(-0.035f, 0.135f, 0), new Vector3(0.03f, 0.06f, 0.05f), red, 0.01f, 2, Quaternion.Euler(0, 0, -20f));   // tongue
+                    mb.Sub(2).Box(new Vector3(-0.124f, 0.13f, 0), new Vector3(0.012f, 0.05f, 0.026f), red, 0.004f);                                  // heel pull tab
+                    mb.Sub(4).Box(new Vector3(-0.142f, 0.03f, 0), new Vector3(0.006f, 0.02f, 0.05f), mint, 0.002f);                                  // glowing heel window
+                    break;
+                }
+                case 37: // (3.64) S1KDM0R3 (a streamer item): a grim reaper statue - hooded black robe, a skull with glowing purple
+                         // eyes in the hood, bony hands on a long scythe - on the LIVE display base
+                {
+                    DisplayBase(mb, -0.083f, 0.046f);
+                    Color robe = new Color(0.05f, 0.05f, 0.06f), robe2 = new Color(0.1f, 0.09f, 0.12f), bone = new Color(0.9f, 0.87f, 0.78f), wood = new Color(0.25f, 0.16f, 0.1f), blade = new Color(0.75f, 0.77f, 0.8f);
+                    mb.Sub(2).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(0f, -0.083f), new Vector2(0.04f, -0.083f), new Vector2(0.041f, -0.078f), new Vector2(0.034f, -0.045f), new Vector2(0.027f, -0.01f), new Vector2(0.025f, 0.02f), new Vector2(0.028f, 0.035f), new Vector2(0.022f, 0.045f), new Vector2(0f, 0.047f) }, 28, robe);   // the robe
+                    for (int i = 0; i < 6; i++) { float a = i * 60f * Mathf.Deg2Rad; mb.Sub(2).Capsule(new Vector3(Mathf.Cos(a) * 0.036f, -0.078f, Mathf.Sin(a) * 0.036f), new Vector3(Mathf.Cos(a) * 0.026f, -0.02f, Mathf.Sin(a) * 0.026f), 0.004f, 0.003f, 6, robe2); }   // folds
+                    mb.Sub(2).Sphere(new Vector3(0, 0.06f, -0.002f), new Vector3(0.027f, 0.032f, 0.029f), 16, robe);       // the hood
+                    mb.Sub(0).Sphere(new Vector3(0, 0.056f, 0.012f), new Vector3(0.019f, 0.023f, 0.018f), 14, Black);      // the dark inside of the hood
+                    mb.Sub(3).Sphere(new Vector3(0, 0.054f, 0.016f), new Vector3(0.012f, 0.014f, 0.011f), 14, bone);       // skull
+                    mb.Sub(3).Box(new Vector3(0, 0.043f, 0.02f), new Vector3(0.012f, 0.006f, 0.006f), bone, 0.002f);      // jaw
+                    foreach (float sx in new[] { -1f, 1f })
+                    {
+                        mb.Sub(0).Sphere(new Vector3(sx * 0.0045f, 0.056f, 0.0255f), Vector3.one * 0.0035f, 8, Black);    // eye sockets
+                        mb.Sub(4).Sphere(new Vector3(sx * 0.0045f, 0.056f, 0.0272f), Vector3.one * 0.0018f, 8, Color.white);   // glowing eyes
+                    }
+                    // arms in wide sleeves, bony hands gripping the scythe on the right
+                    mb.Sub(2).Capsule(new Vector3(-0.024f, 0.03f, 0.004f), new Vector3(-0.03f, 0.0f, 0.022f), 0.009f, 0.012f, 10, robe2);
+                    mb.Sub(2).Capsule(new Vector3(0.024f, 0.03f, 0.004f), new Vector3(0.03f, 0.012f, 0.024f), 0.009f, 0.012f, 10, robe2);
+                    mb.Sub(3).Sphere(new Vector3(-0.03f, -0.006f, 0.026f), new Vector3(0.006f, 0.007f, 0.006f), 8, bone);
+                    mb.Sub(3).Sphere(new Vector3(0.032f, 0.006f, 0.028f), new Vector3(0.006f, 0.007f, 0.006f), 8, bone);
+                    for (int f = 0; f < 3; f++) mb.Sub(3).Capsule(new Vector3(0.034f, 0.003f + f * 0.004f, 0.031f), new Vector3(0.038f, 0.002f + f * 0.004f, 0.026f), 0.0012f, 5, bone);   // finger bones
+                    // the scythe: a long staff and a curved blade at the top
+                    mb.Sub(1).Cyl(new Vector3(0.037f, -0.082f, 0.028f), new Vector3(0.037f, 0.115f, 0.028f), 0.0024f, 0.0022f, 8, wood);
+                    for (int i = 0; i < 8; i++)
+                    {
+                        float a0 = i / 8f, a1 = (i + 1) / 8f;
+                        Vector3 B(float t) => new Vector3(0.037f - t * 0.07f, 0.112f - t * t * 0.03f, 0.028f);
+                        mb.Sub(1).Capsule(B(a0), B(a1), 0.0045f * (1f - a0 * 0.8f), 0.0045f * (1f - a1 * 0.8f), 6, blade);
                     }
                     break;
                 }

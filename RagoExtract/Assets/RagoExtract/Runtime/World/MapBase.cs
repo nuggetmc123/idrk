@@ -254,6 +254,20 @@ namespace Rago
                 else if (CrateFits(s.pos, yaw, LootCrate.Kind.Optics)) AddCrate(s.pos, yaw, LootCrate.Kind.Optics);
                 else free.Add(s);
             }
+            // (3.64) one STREAMER BOX per raid on every map, at a free floor spot picked by the raid seed (the same for everyone)
+            {
+                var srng = new Rng(LootSeed * 7919 + 3);
+                var pool = free.FindAll(f => !f.desk);
+                for (int guard = 0; guard < 60 && pool.Count > 0; guard++)
+                {
+                    int k = srng.Range(0, pool.Count); var sp = pool[k]; pool.RemoveAt(k);
+                    float syaw = FaceRoom(sp.pos, sp.yaw, false);
+                    if (!CrateFits(sp.pos, syaw, LootCrate.Kind.Streamer)) continue;
+                    AddCrate(sp.pos, syaw, LootCrate.Kind.Streamer);
+                    free.Remove(sp);
+                    break;
+                }
+            }
             // this raid: each card spot has a card half the time (at least one somewhere), each radio spot likewise
             var at = new List<Vector3>(); var ids = new List<string>();
             void Fill(List<Vector3> spots, string id)
@@ -1212,10 +1226,11 @@ namespace Rago
                 case Kind.Duffel: return new Vector3(0.6f, 0.28f, 0.36f);
                 case Kind.AirDrop: return new Vector3(1.8f, 0.95f, 1.2f);
                 case Kind.Present: return new Vector3(0.42f, 0.3f, 0.42f);
+                case Kind.Streamer: return new Vector3(0.56f, 0.3f, 0.4f);
                 default: return new Vector3(0.9f, 0.5f, 0.55f);
             }
         }
-        public enum Kind { Crate, WeaponCase, Optics, Medical, Safe, Duffel, ArmorCase, AirDrop, Present }
+        public enum Kind { Crate, WeaponCase, Optics, Medical, Safe, Duffel, ArmorCase, AirDrop, Present, Streamer }
         public Kind kind;
         public int index;
         public bool opened;
@@ -1245,6 +1260,7 @@ namespace Rago
                 case Kind.Duffel: mat = Mats.Lit("duffel", new Color(0.15f, 0.15f, 0.14f), 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.4f, 0f); col = Color.white; break;
                 case Kind.AirDrop: mat = Mats.Lit("crate_airdrop", new Color(0.3f, 0.34f, 0.24f), 0.1f, 0.35f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
                 case Kind.Present: mat = Mats.Lit("present_wrap", Color.white, 0.1f, 0.5f, Mats.Noise, null, 0.08f, 0f); col = PresentWrap[index % PresentWrap.Length]; break;
+                case Kind.Streamer: mat = Mats.Lit("streamer_box", Color.white, 0.2f, 0.85f, null, null, 0.05f, 0.05f); col = new Color(0.28f, 0.08f, 0.5f); break;
                 default: mat = Mats.Lit("crate_mil", new Color(0.33f, 0.36f, 0.26f), 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.5f, 0.3f); col = Color.white; break;
             }
             c.Size = size;
@@ -1269,6 +1285,15 @@ namespace Rago
                 mb.Sub(1).Box(new Vector3(0, size.y * 0.62f, size.z * 0.5f + 0.003f), new Vector3(size.x * 0.9f, 0.05f, 0.004f), new Color(0.85f, 0.65f, 0.12f), 0);
                 mb.Sub(1).Box(new Vector3(0, size.y * 0.32f, size.z * 0.5f + 0.003f), new Vector3(0.09f, 0.1f, 0.004f), new Color(0.85f, 0.65f, 0.12f), 0.02f);
                 foreach (var sx in new[] { -1, 1 }) mb.Sub(0).Box(new Vector3(sx * (size.x * 0.5f + 0.012f), size.y * 0.6f, 0), new Vector3(0.025f, 0.04f, 0.16f), col * 0.5f, 0.005f);
+            }
+            if (kind == Kind.Streamer)
+            {
+                // (3.64) the STREAMER BOX: glossy purple, a red LIVE band round it and glowing edges - one per raid
+                Color live = new Color(0.9f, 0.08f, 0.1f), edge = new Color(0.75f, 0.45f, 1f);
+                foreach (float sz in new[] { 1f, -1f }) mb.Sub(0).Box(new Vector3(0, size.y * 0.55f, sz * (size.z * 0.5f + 0.003f)), new Vector3(size.x * 0.92f, 0.07f, 0.004f), live, 0f);
+                foreach (float sx in new[] { 1f, -1f }) mb.Sub(0).Box(new Vector3(sx * (size.x * 0.5f + 0.003f), size.y * 0.55f, 0), new Vector3(0.004f, 0.07f, size.z * 0.92f), live, 0f);
+                foreach (float sx in new[] { 1f, -1f }) foreach (float sz in new[] { 1f, -1f })
+                    mb.Sub(0).Box(new Vector3(sx * (size.x * 0.5f + 0.002f), size.y * 0.5f, sz * (size.z * 0.5f + 0.002f)), new Vector3(0.012f, size.y, 0.012f), edge, 0f);
             }
             Color ribbon = kind == Kind.Present ? PresentRibbon[index % PresentRibbon.Length] : Color.white;
             if (kind == Kind.Present)
@@ -1303,12 +1328,24 @@ namespace Rago
                 lid.Sphere(new Vector3(0, 0.055f, size.z * 0.5f), Vector3.one * 0.022f, 8, ribbon * 0.85f);
             }
             if (kind == Kind.WeaponCase || kind == Kind.Optics) for (int i = 0; i < 2; i++) lid.Box(new Vector3(-size.x * 0.3f + i * size.x * 0.6f, 0.0f, size.z + 0.008f), new Vector3(0.05f, 0.03f, 0.02f), new Color(0.4f, 0.4f, 0.4f), 0.003f);
+            if (kind == Kind.Streamer)
+            {
+                lid.Box(new Vector3(0, 0.033f, size.z * 0.5f), new Vector3(0.16f, 0.006f, 0.07f), new Color(0.9f, 0.08f, 0.1f), 0.002f);   // LIVE badge
+                lid.Sphere(new Vector3(-0.058f, 0.037f, size.z * 0.5f), Vector3.one * 0.011f, 8, Color.white);                          // its dot
+            }
             lid.Build("Lid", c._lid, mat);
+            if (kind == Kind.Streamer)
+            {
+                var t1 = UI.Text(c._lid, "LIVE", Vector3.zero, 0.03f, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+                t1.transform.localPosition = new Vector3(0.012f, 0.0368f, size.z * 0.5f); t1.transform.localRotation = Quaternion.Euler(90f, 0, 0);
+                var t2 = UI.Text(go.transform, "STREAMER DROP", Vector3.zero, 0.035f, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+                t2.transform.localPosition = new Vector3(0, size.y * 0.55f, size.z * 0.5f + 0.006f); t2.transform.localRotation = Quaternion.Euler(0, 180f, 0);
+            }
             var lc = c._lid.gameObject.AddComponent<BoxCollider>();
             lc.center = new Vector3(0, 0.015f, size.z * 0.5f); lc.size = new Vector3(size.x, 0.03f, size.z);
             // item cells
-            int cols = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase || kind == Kind.Present ? 2 : kind == Kind.AirDrop ? 4 : 3;
-            int rows = kind == Kind.WeaponCase || kind == Kind.ArmorCase ? 1 : kind == Kind.AirDrop ? 3 : 2;
+            int cols = kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase || kind == Kind.Present || kind == Kind.Streamer ? 2 : kind == Kind.AirDrop ? 4 : 3;
+            int rows = kind == Kind.WeaponCase || kind == Kind.ArmorCase || kind == Kind.Streamer ? 1 : kind == Kind.AirDrop ? 3 : 2;
             float fit = kind == Kind.WeaponCase ? 1.1f : Mathf.Min(size.x / cols, size.z / rows) * 0.95f;
             c._box = ItemContainer.Grid(go.transform, new Vector3(0, 0.06f, 0), Quaternion.identity, cols, rows, new Vector2(size.x / cols, size.z / rows), fit,
                 null, kind == Kind.WeaponCase ? Quaternion.Euler(0, 90, 0) * Quaternion.Euler(0, 0, 90) : Quaternion.identity);   // the gun lies along the case
@@ -1373,6 +1410,21 @@ namespace Rago
             foreach (var s in _box.slots) s.enabled = true;
             var rng = new Rng(_map.Seed * 7349 + index * 131);
             if (kind == Kind.Present) { OpenPresent(rng, tell); return; }
+            if (kind == Kind.Streamer)
+            {
+                // (3.64) streamer loot: sometimes a pair of OLIVER kicks, otherwise one of the streamer collectibles
+                string[] ids = rng.Chance(0.4f) ? new[] { "sb_oliver", "sb_oliver" } : new[] { new[] { "sb_skid", "val_oways", "val_shush" }[rng.Range(0, 3)] };
+                for (int i = 0; i < ids.Length && i < _box.slots.Count; i++)
+                {
+                    if (NetGame.Taken(10000 + index * 16 + i)) continue;
+                    var it = ItemFactory.Spawn(new ItemData(ids[i]), _box.slots[i].transform.position, transform.rotation);
+                    if (it == null) continue;
+                    _box.slots[i].Store(it, false);
+                    it.netId = 10000 + index * 16 + i;
+                    NetGame.I?.Register(it);
+                }
+                return;
+            }
             var table = vaultGrade ? Db.LootTable.Vault : kind == Kind.WeaponCase ? Db.LootTable.WeaponCase : kind == Kind.Optics ? Db.LootTable.OpticsBox : kind == Kind.Medical ? Db.LootTable.Medical : kind == Kind.Safe ? Db.LootTable.Safe : kind == Kind.ArmorCase ? Db.LootTable.Armor : Db.LootTable.Crate;
             int n = presentGrade ? _box.slots.Count : kind == Kind.AirDrop ? Mathf.Min(_box.slots.Count, rng.Range(5, 9)) : vaultGrade ? Mathf.Min(_box.slots.Count, rng.Range(2, 5)) : kind == Kind.WeaponCase ? 1 : kind == Kind.Optics || kind == Kind.ArmorCase ? rng.Range(1, 3) : rng.Range(1, 5);
             for (int i = 0; i < n && i < _box.slots.Count; i++)

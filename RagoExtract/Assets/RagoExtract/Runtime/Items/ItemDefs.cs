@@ -483,7 +483,9 @@ namespace Rago
             M("junk_coffee", "Instant Coffee", ItemKind.Valuable, C, 140, 29, new Color(0.35f, 0.2f, 0.12f), "Half a jar. Smells like heaven.");
             M("junk_tags", "Dog Tags", ItemKind.Valuable, U, 450, 30, new Color(0.75f, 0.75f, 0.78f), "Somebody's name. Somebody's story.");
             M("junk_wrench", "Rusty Wrench", ItemKind.Valuable, C, 95, 31, new Color(0.5f, 0.35f, 0.25f), "Seized up, but it's good steel.");
-            M("val_peanut", "Peanut8 Figurine", ItemKind.Valuable, E, 8500, 32, new Color(0.78f, 0.6f, 0.36f), "A streamer collectible: PEANUT8, everyone's favourite streaming peanut - headset on, mic up, waving to chat. Collectors pay a fortune.");
+            // (3.64) streamer drops: only ever in the once-a-raid STREAMER BOX (sb_ ids are kept out of every other loot pool)
+            M("sb_oliver", "Oliver Kicks", ItemKind.Valuable, E, 7500, 36, new Color(0.07f, 0.07f, 0.08f), "A streamer drop: OLIVER's signature high-tops - black and purple with a gold lightning bolt, OLIVER on the side and a glowing mint sole. Find the pair.");
+            M("sb_skid", "S1KDM0R3 Statue", ItemKind.Valuable, E, 9500, 37, new Color(0.05f, 0.05f, 0.06f), "A streamer drop: S1KDM0R3 - the grim reaper, hooded, scythe in hand, eyes glowing purple, on the LIVE display base. Collectors pay a fortune.");
             M("val_oways", "Oways Cereal", ItemKind.Valuable, E, 8000, 35, new Color(0.95f, 0.55f, 0.1f), "A streamer collectible: OWAYS CEREAL, the streamer's own cereal - a sealed box of crunchy rings with the LIVE sticker on the front. Collectors pay a fortune.");
             M("val_shush", "Shushed Figurine", ItemKind.Valuable, E, 9000, 33, new Color(0.08f, 0.08f, 0.09f), "A streamer collectible: SHUSHED, the operator in full Juggernaut armour, red helmet on, one finger to his lips - shhh. Collectors pay a fortune.");
             M("dog_ball", "Tennis Ball", ItemKind.Valuable, C, 15, 34, new Color(0.8f, 0.92f, 0.2f), "Manda's favourite. Throw it and she'll fetch it.");
@@ -634,6 +636,7 @@ namespace Rago
                     break;
             }
             // vault keycards and military radios only lie at their own spots on each map - never in crates, safes or on bodies
+            pool.RemoveAll(d => d.id.StartsWith("sb_"));   // (3.64) streamer drops: the streamer box only
             pool.RemoveAll(d => d.kind == ItemKind.Key || d.id == "val_radio" || d.id == "candycane" || d.id == "key_xmas" || d.id == "gift" || d.id == "gift_santa" || d.id == "cc_trophy");   // the CC trophy: only from the owner
             float total = 0;
             foreach (var d in pool) total += Weight(d.rarity, t) * (d.kind == ItemKind.Key ? 0.08f : 1f);

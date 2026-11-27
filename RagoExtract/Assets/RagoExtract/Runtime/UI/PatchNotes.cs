@@ -5,6 +5,13 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.64", "Streamer drops", new[] {
+                "STREAMER BOX: one glossy purple box with a red LIVE band turns up somewhere on every map, once per raid (the same spot for everyone in the raid). Find it first.",
+                "OLIVER KICKS (new streamer item): sometimes the box holds a PAIR - chunky black and purple high-tops with a gold lightning bolt, OLIVER on the side in gold and a glowing mint sole.",
+                "S1KDM0R3 (new streamer item): a grim reaper statue - hooded black robe, a skull with glowing purple eyes and a long scythe - on the LIVE display base with S1KDM0R3 on the plate.",
+                "Otherwise the streamer box holds an Oways Cereal or a Shushed figurine.",
+                "The Peanut8 figurine is gone.",
+            }),
             ("3.63", "Everyone sees the same world", new[] {
                 "SAME HILLS, TREES AND BUSHES FOR EVERYONE: the Graphics setting used to decide how far trees, bushes and hills were drawn (on Low they vanished in the distance, with a haze) - so players saw different things, and you could hide in a bush another player didn't even have. Now everyone sees the same; Graphics only changes how sharp the picture is and the shadows (Low is still the fastest).",
             }),
