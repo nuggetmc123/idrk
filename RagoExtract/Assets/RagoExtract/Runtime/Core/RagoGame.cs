@@ -510,6 +510,16 @@ namespace Rago
             if (loose.Count > 0 && bunker == null) Player.Toast(loose.Count + " item(s) sent to your stash");
             prof.loadout = Player.Gear.SaveLoadout();
             prof.loadout.ammo = null;
+            // (3.60) a mag in your hand as you leave (for a raid): its rounds go back to your ammo - they used to vanish (the
+            // saved loadout keeps guns, not loose mags), so you went into the raid short of the rounds you'd just loaded
+            if (leaving)
+                foreach (var hand in new[] { Player.HandL, Player.HandR })
+                    if (hand != null && !hand.HeldAsSecondary && hand.Held is Magazine hm)
+                    {
+                        var arr = hm.ammoType == AmmoType.AP ? prof.stashAp : hm.ammoType == AmmoType.Incendiary ? prof.stashInc : prof.stashAmmo;
+                        if ((int)hm.cal < arr.Length) arr[(int)hm.cal] += hm.rounds;
+                        hand.ForceRelease(); Item.Discard(hm);
+                    }
             prof.Save();
         }
 

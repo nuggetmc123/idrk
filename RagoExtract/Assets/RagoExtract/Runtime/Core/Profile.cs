@@ -309,7 +309,10 @@ namespace Rago
         public void PackAmmoForLoadout()
         {
             if (loadout.ammo == null || loadout.ammo.Length != stashAmmo.Length) loadout.ammo = new int[stashAmmo.Length];
-            foreach (var d in new[] { loadout.primary, loadout.secondary, loadout.pistol })
+            // (3.60) every gun you take: in your slots AND in your backpack (a gun in the pack used to go in with no rounds)
+            var guns = new List<ItemData> { loadout.primary, loadout.secondary, loadout.pistol };
+            if (loadout.pack != null) guns.AddRange(loadout.pack);
+            foreach (var d in guns)
             {
                 var g = d != null ? Db.Get<GunDef>(d.id) : null;
                 if (g == null) continue;

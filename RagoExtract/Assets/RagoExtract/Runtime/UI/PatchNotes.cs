@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.60", "Your ammo comes with you", new[] {
+                "GOING INTO A RAID WITH THE SAME AMMO: a mag in your hand when you left the bunker lost its rounds on the way - they come with you now. And a gun carried in your BACKPACK gets its ammo too (it used to go in with none).",
+            }),
             ("3.59", "Attachments come off, camera stays on", new[] {
                 "TAKING ATTACHMENTS OFF works again: with the gun in one hand, grab a sight, light, laser, foregrip or suppressor with the other (hand right on it) and it comes off. Grabbing near the handguard always took the support grip instead.",
                 "THE CAMERA STAYS PUT WHILE IT RECORDS: on your helmet, your chest or a gun it's locked in place and keeps filming - reaching for the RECORD button kept pulling it off. Trigger on it to stop, then grab it to take it off.",
