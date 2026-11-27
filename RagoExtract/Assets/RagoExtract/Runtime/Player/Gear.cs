@@ -168,8 +168,20 @@ namespace Rago
         Vector3 ChestPouch => Root.TransformPoint(new Vector3(0.0f, -0.42f, 0.2f));
         Vector3 LeftShoulder => Root.TransformPoint(new Vector3(-0.18f, -0.15f, -0.08f));
         /// <summary>(3.52) Where a bag goes on: over either shoulder, or behind you on either side.</summary>
-        public bool NearPackSpot(Vector3 p) => Vector3.Distance(p, PackSlot.transform.position) < 0.35f || Vector3.Distance(p, Root.TransformPoint(new Vector3(0.16f, -0.32f, -0.2f))) < 0.35f
-                                              || Vector3.Distance(p, LeftShoulder) < 0.25f || Vector3.Distance(p, RightShoulder) < 0.25f;
+        public bool NearPackSpot(Vector3 p) => NearPackSpot(p, false);
+        /// <param name="behindOnly">only the area behind you (for where the bag itself is)</param>
+        public bool NearPackSpot(Vector3 p, bool behindOnly)
+        {
+            if (behindOnly) { Vector3 bl = Root.InverseTransformPoint(p); return Mathf.Abs(bl.x) < 0.45f && bl.y < 0.3f && bl.y > -0.8f && bl.z < -0.08f && bl.z > -0.6f; }
+            if (Vector3.Distance(p, PackSlot.transform.position) < 0.35f || Vector3.Distance(p, Root.TransformPoint(new Vector3(0.16f, -0.32f, -0.2f))) < 0.35f
+                || Vector3.Distance(p, LeftShoulder) < 0.25f || Vector3.Distance(p, RightShoulder) < 0.25f) return true;
+            // (3.58) a much bigger area: let go anywhere over a shoulder or behind your head / back and it goes on. The small
+            // spots above missed the natural swing (the hand ends up up by your ear or behind your head) and the bag fell.
+            Vector3 lp = Root.InverseTransformPoint(p);   // from your eyes: x right, y up, z forward
+            if (Mathf.Abs(lp.x) > 0.5f || lp.y > 0.3f || lp.y < -0.8f) return false;
+            if (lp.z < -0.04f && lp.z > -0.55f) return true;   // behind your head or back
+            return Mathf.Abs(lp.x) > 0.1f && lp.y < 0.15f && lp.y > -0.4f && lp.z < 0.14f;   // on top of a shoulder
+        }
         Vector3 RightShoulder => Root.TransformPoint(new Vector3(0.18f, -0.15f, -0.08f));
         Vector3 BackSlingGrab => Root.TransformPoint(new Vector3(0.17f, -0.2f, -0.13f));   // behind your right shoulder
 
@@ -958,7 +970,8 @@ namespace Rago
         protected override bool TrySlot(Hand h)
         {
             var g = RagoGame.I.Player.Gear;
-            if (g.PackSlot.item == null && g.NearPackSpot(h.Anchor.position))   // (3.52) over either shoulder
+            // (3.58) where your hand is, or where the bag itself is (swung over your shoulder it hangs down behind you)
+            if (g.PackSlot.item == null && (g.NearPackSpot(h.Anchor.position) || g.NearPackSpot(transform.TransformPoint(localBounds.center), true)))   // (3.52) over either shoulder
             {
                 g.PackSlot.Store(this);
                 if (g.Pack != this) { g.Pack = this; g.Changed(); }

@@ -126,8 +126,8 @@ namespace Rago
                     catch (System.Exception e) { Debug.LogError("[Rago] season wipe: " + e); }
                     try
                     {
-                        if (p.skins != null) p.skins.RemoveAll(sk => sk != "beta");
-                        if (p.dlc != null) p.dlc.RemoveAll(d => d != "beta");
+                        if (p.skins != null) p.skins.RemoveAll(sk => sk != "beta" && sk != "creator");
+                        if (p.dlc != null) p.dlc.RemoveAll(d => d != "beta" && d != "cc");
                     }
                     catch (System.Exception e) { Debug.LogError("[Rago] season wipe: " + e); }
                     p.season = Season;
@@ -186,6 +186,7 @@ namespace Rago
             if (loadout.hasPack && Db.Get<BackpackDef>(loadout.packId) == null) loadout.packId = "pack_assault";
             if (!string.IsNullOrEmpty(loadout.helmet) && Db.Get<ArmorDef>(loadout.helmet) == null) loadout.helmet = "";
             if (!string.IsNullOrEmpty(loadout.vest) && Db.Get<ArmorDef>(loadout.vest) == null) loadout.vest = "";
+            if (nameSet && Rago.Relay.NameFilter.Bad(name)) name = "OPERATOR";   // (3.58) a callsign that isn't allowed (your #tag stays)
             if (!colorLocked && nameSet) LockColor();   // players from before: their colour is fixed now, from their callsign
             if (version < 3)
             {

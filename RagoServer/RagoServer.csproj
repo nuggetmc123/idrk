@@ -9,5 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../RagoExtract/Assets/RagoExtract/Runtime/Net/RelayProto.cs" Link="RelayProto.cs" />
+    <Compile Include="../RagoExtract/Assets/RagoExtract/Runtime/Net/NameFilter.cs" Link="NameFilter.cs" />
   </ItemGroup>
 </Project>

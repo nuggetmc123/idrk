@@ -153,8 +153,46 @@ namespace Rago
         // ------------------------------------------------------------------------------------------ travel
         /// <summary>Leave the hub WITHOUT saving what's lying in it (after a moderation wipe).</summary>
         public static bool SkipHubSave;
-        public void GoTo(Area a) { if (!_travelling) StartCoroutine(Safe(Travel(a, null))); }
-        public void StartRaid(RaidStart rs) { if (!_travelling) StartCoroutine(Safe(Travel(Area.Raid, rs))); else StartCoroutine(RaidAfterTravel(rs)); }
+        /// <summary>(3.58) The raid's spawn points in farthest-apart order: the first picked by the seed, each next one as far
+        /// as possible from all the ones before it. The same on every machine, so group 0, 1, 2... never share a spot.</summary>
+        static List<int> SpreadSpawns(List<Pose> spots, int seed)
+        {
+            var order = new List<int> { (int)((uint)seed % (uint)spots.Count) };
+            while (order.Count < spots.Count)
+            {
+                int best = -1; float bd = -1f;
+                for (int i = 0; i < spots.Count; i++)
+                {
+                    if (order.Contains(i)) continue;
+                    float d = float.MaxValue;
+                    foreach (int j in order) d = Mathf.Min(d, (spots[i].position - spots[j].position).sqrMagnitude);
+                    if (d > bd) { bd = d; best = i; }
+                }
+                order.Add(best);
+            }
+            return order;
+        }
+
+        public void GoTo(Area a) { if (a != Area.Bunker && Locked()) return; if (!_travelling) StartCoroutine(Safe(Travel(a, null))); }
+        public void StartRaid(RaidStart rs) { if (Locked()) return; if (!_travelling) StartCoroutine(Safe(Travel(Area.Raid, rs))); else StartCoroutine(RaidAfterTravel(rs)); }
+
+        // (3.58) an old version the server no longer takes: only your bunker works, with a message to update
+        static string OutdatedText => "UPDATE REQUIRED\n<size=34>This version (" + PatchNotes.All[0].version + ") no longer works.\nInstall the latest Rago Extract" + (Rago.RelayBackend.NeedVersion.Length > 0 ? " (" + Rago.RelayBackend.NeedVersion + ")" : "") + " to keep playing.</size>";
+        bool Locked()
+        {
+            if (!Rago.RelayBackend.Outdated) return false;
+            Player?.Hud?.Center(OutdatedText, 8f);
+            Player?.Toast("UPDATE REQUIRED - install the latest version");
+            Sfx.UI(Synth.UiError(), 0.4f);
+            return true;
+        }
+        float _lockNagT;
+        /// <summary>The server just said this version is too old.</summary>
+        public void OutdatedLock()
+        {
+            Player?.Hud?.Center(OutdatedText, 10f);
+            if (Area == Area.Market && !_travelling) StartCoroutine(Safe(Travel(Area.Bunker, null)));
+        }
         // a raid start that comes in during another loading screen (the lift, a party member's queue) used to be dropped:
         // you stayed put with "JOINING RAID" stuck in the corner. Now it waits for that load and then goes.
         IEnumerator RaidAfterTravel(RaidStart rs)
@@ -231,6 +269,7 @@ namespace Rago
 
         void Update()
         {
+            if (Rago.RelayBackend.Outdated && Area != Area.Raid && Time.unscaledTime > _lockNagT) { _lockNagT = Time.unscaledTime + 25f; Player?.Hud?.Center(OutdatedText, 10f); }
             // watchdog: dead for 15 seconds and nothing has taken you home - go home now
             if (Player != null && Player.Dead && !_travelling)
             {
@@ -370,6 +409,8 @@ namespace Rago
             // as far as possible from the 1st, the 3rd as far as possible from both, ...
             var spots = Map.PlayerSpawns;
             var spawn = spots.Count > 0 ? spots[(int)(((long)(rs != null ? rs.spawnIndex : Random.Range(0, 99999)) + Mathf.Abs(rs != null ? rs.seed : 0)) % spots.Count)] : new Pose(Vector3.up * 0.1f, Quaternion.identity);
+            if (rs != null && rs.spawnIndex >= RaidStart.GroupSpawn && spots.Count > 0)
+                spawn = spots[SpreadSpawns(spots, rs.seed)[(rs.spawnIndex - RaidStart.GroupSpawn) % spots.Count]];   // (3.58) every group its own spot
             // party members share a spawn spot: stand them side by side
             if (rs != null && rs.partySlot > 0)
             {

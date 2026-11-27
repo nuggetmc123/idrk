@@ -16,6 +16,8 @@ namespace Rago
         public string map;
         public int seed;
         public int spawnIndex;
+        /// <summary>(3.58) spawnIndex at or above this: the group's number in the raid (each gets a different spawn point).</summary>
+        public const int GroupSpawn = 1000000;
         public int players;
         public bool online;
         public int partySlot;   // 0 = first of your party at that spawn spot, 1 = next to them, ...

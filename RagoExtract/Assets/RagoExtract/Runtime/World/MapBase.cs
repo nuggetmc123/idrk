@@ -409,7 +409,8 @@ namespace Rago
             {
                 var c = Crates[ci];
                 if (c == null) continue;
-                if (!Blocked(c, c.transform.position, cols, mask)) continue;
+                bool stacked = OnCrate(c, c.transform.position, mask);
+                if (!stacked && !Blocked(c, c.transform.position, cols, mask)) continue;
                 Vector3 start = c.transform.position;
                 bool placed = false;
                 for (float r = 0.4f; r <= 1.6f && !placed; r += 0.4f)
@@ -418,9 +419,9 @@ namespace Rago
                         float ang = a * 45f * Mathf.Deg2Rad;
                         Vector3 cand = start + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * r;
                         if (!Physics.Raycast(cand + Vector3.up * 1.5f, Vector3.down, out var gh, 3f, mask, QueryTriggerInteraction.Ignore) || gh.normal.y < 0.7f) continue;
-                        if (Mathf.Abs(gh.point.y - start.y) > 0.8f) continue;   // stay on the same floor
+                        if (Mathf.Abs(gh.point.y - start.y) > (stacked ? 1.3f : 0.8f)) continue;   // stay on the same floor (one that was on top of another crate: down beside it)
                         cand.y = gh.point.y + 0.004f;
-                        if (Blocked(c, cand, cols, mask)) continue;
+                        if (Blocked(c, cand, cols, mask) || OnCrate(c, cand, mask)) continue;
                         c.transform.position = cand;
                         Physics.SyncTransforms();
                         placed = true;
@@ -438,6 +439,23 @@ namespace Rago
                 if (Physics.Raycast(up.point + Vector3.up * 0.8f, Vector3.down, out var top, 1.0f, mask, QueryTriggerInteraction.Ignore) && top.normal.y > 0.7f && top.point.y - c.transform.position.y < 0.7f)
                 { c.transform.position = new Vector3(c.transform.position.x, top.point.y + 0.004f, c.transform.position.z); Physics.SyncTransforms(); }
             }
+        }
+
+        static readonly RaycastHit[] _stackHits = new RaycastHit[12];
+        /// <summary>(3.58) Would crate c at p be sitting on top of another crate? (A raised spot - on a table that isn't there,
+        /// or a stack written into a room - kept its height and the crate ended up stacked on the one below.)</summary>
+        bool OnCrate(LootCrate c, Vector3 p, int mask)
+        {
+            Vector3 hs = (c.Size.sqrMagnitude > 0 ? c.Size : new Vector3(0.6f, 0.4f, 0.5f)) * 0.4f;
+            var r = c.transform.rotation;
+            foreach (var o in new[] { Vector3.zero, new Vector3(hs.x, 0, hs.z), new Vector3(-hs.x, 0, hs.z), new Vector3(hs.x, 0, -hs.z), new Vector3(-hs.x, 0, -hs.z) })
+            {
+                int n = Physics.RaycastNonAlloc(p + r * o + Vector3.up * 0.15f, Vector3.down, _stackHits, 0.45f, mask, QueryTriggerInteraction.Ignore);
+                float nd = float.MaxValue; Collider near = null;
+                for (int i = 0; i < n; i++) if (!_stackHits[i].collider.transform.IsChildOf(c.transform) && _stackHits[i].distance < nd) { nd = _stackHits[i].distance; near = _stackHits[i].collider; }
+                if (near != null) { var other = near.GetComponentInParent<LootCrate>(); if (other != null && other != c) return true; }
+            }
+            return false;
         }
 
         /// <summary>Would crate c overlap anything solid (except the floor it stands on) at position p?</summary>

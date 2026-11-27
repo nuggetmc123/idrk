@@ -58,6 +58,7 @@ namespace RagoServer
                     _nextReq = Math.Max(_nextReq, id + 1);
                 }
             LoadEvent();
+            LoadMinVer();
             Log("data folder " + _dataDir + ": " + Bans.Count + " bans, " + Mods.Count + " mods, " + Players.Count + " known players, " + Pending.Count + " requests waiting");
         }
 
@@ -99,6 +100,19 @@ namespace RagoServer
         /// <summary>A player just said hello (under the lock): banned? a moderator? owed a wipe? Returns false if dropped.</summary>
         static bool OnHello(Client c)
         {
+            // (3.58) too old a game version: refused, with a message to update. 3.58+ lock themselves (Outdated); older
+            // games only understand "banned", so they get that, worded as an update message
+            int v = VerNum(c.Ver);
+            if (v < MinVer && c.Ver != "check")
+            {
+                string need = VerText(MinVer);
+                if (v >= 3058) Send(c, new W(P.Outdated).Str(need).Frame());
+                else Send(c, new W(P.Banned).Str("this version (" + (v > 0 ? VerText(v) : "old") + ") no longer works - install the latest Rago Extract (" + need + " or newer)").Frame());
+                c.Refused = true;
+                c.Out.Writer.TryComplete();
+                Log(c + " on old version " + c.Ver + " - refused (needs " + need + ")");
+                return false;
+            }
             var ban = BanFor(c.Key, c.Device);
             if (ban != null)
             {
@@ -117,10 +131,59 @@ namespace RagoServer
                 DeliverSales(c);   // black market sales made while they were away
                 DeliverGifts(c);   // things the owner gave them while they were away
                 DeliverRename(c);  // a new callsign the owner gave them while they were away
+                CheckName(c);      // (3.58) a callsign that isn't allowed: renamed OPERATOR (their #tag stays)
             }
             return true;
         }
         static bool _playersDirty;
+
+        // ---- (3.58) the oldest game version the server takes (owner panel; kept in minversion.txt)
+        public const int DefaultMinVer = 3058;
+        static int MinVer = DefaultMinVer;
+        /// <summary>"_v3_58" / "3.58" -> 3058 (0 if it can't be read: a very old game).</summary>
+        static int VerNum(string v)
+        {
+            v = (v ?? "").Trim().Replace("_v", "").Replace('_', '.').TrimStart('v', 'V');
+            var p = v.Split('.');
+            if (p.Length < 2 || !int.TryParse(p[0], out int a) || !int.TryParse(p[1], out int b)) return 0;
+            return a * 1000 + b;
+        }
+        static string VerText(int n) => n / 1000 + "." + (n % 1000).ToString("00");
+        static void LoadMinVer()
+        {
+            foreach (var f in Lines("minversion.txt")) { int n = VerNum(f[0]); if (n > 0) MinVer = n; }   // the owner's choice (may be lower, to let an older version back in)
+            Log("oldest game version allowed: " + VerText(MinVer));
+        }
+        static string SetMinVer(string text)
+        {
+            int n = VerNum(text);
+            if (n <= 0) return "Type a version like 3.58";
+            MinVer = n; Save("minversion.txt", new[] { VerText(n) });
+            int kicked = 0;
+            foreach (var c in Clients.Values.Where(x => !x.Refused && x.Name != "?" && x.Ver != "check" && VerNum(x.Ver) < n).ToList())
+            {
+                string need = VerText(n);
+                if (VerNum(c.Ver) >= 3058) Send(c, new W(P.Outdated).Str(need).Frame());
+                else Send(c, new W(P.Banned).Str("this version no longer works - install the latest Rago Extract (" + need + " or newer)").Frame());
+                LeaveRoom(c); c.Refused = true; c.Out.Writer.TryComplete(); kicked++;
+            }
+            Note("oldest game version allowed is now " + VerText(n) + (kicked > 0 ? " (" + kicked + " on older versions disconnected)" : ""));
+            return "Only " + VerText(n) + " and newer can play now" + (kicked > 0 ? " - " + kicked + " player(s) on older versions were disconnected" : "");
+        }
+
+        /// <summary>(3.58) Slurs, swearing and sexual callsigns (Rago.Relay.NameFilter): the player is renamed OPERATOR - or
+        /// OPERATOR2, 3... if their #tag is already taken with it - here and in their game.</summary>
+        static void CheckName(Client c)
+        {
+            if (!NameFilter.Bad(c.Name) || !Players.ContainsKey(c.Key)) return;
+            string was = c.Name;
+            for (int i = 1; i < 100; i++)
+            {
+                RenamePlayer(c.Key, i == 1 ? "OPERATOR" : "OPERATOR" + i);
+                if (!NameFilter.Bad(Players[c.Key].Name)) break;
+            }
+            Log("callsign not allowed - renamed: " + was + " -> " + Players[c.Key].Name);
+        }
 
         /// <summary>Callsigns matching what's typed so far: online players first, then everyone the server has seen.</summary>
         static List<string> SearchNames(string q, int max)
@@ -398,6 +461,14 @@ namespace RagoServer
                 case "kick": { var k = K(); if (k == null) return "Unknown player"; return DoKick(k.Key, k.Name, reason, "owner"); }
                 case "betaskin": { var k = K(); if (k == null) return "Unknown player"; return GiveItem(k.Key, k.Name, "skin_beta", "Beta Tester skin", "from the owner - thanks for testing!"); }
                 case "rename": return RenamePlayer(key, G("name"));
+                case "cc":
+                {
+                    var k = K(); if (k == null) return "Unknown player";
+                    string what = G("what");
+                    string a = what == "skin" ? "" : GiveItem(k.Key, k.Name, "cc_trophy", "CC Trophy", "from the owner - thanks for the videos!");
+                    string b = what == "trophy" ? "" : GiveItem(k.Key, k.Name, "skin_cc", "CC skin", "from the owner - thanks for the videos!");
+                    return a.Length > 0 && b.Length > 0 ? a + " and the CC skin" : a + b;
+                }
                 case "trophy": { var k = K(); if (k == null) return "Unknown player"; return GiveItem(k.Key, k.Name, "cc_trophy", "CC Trophy", "from the owner - thanks for the videos!"); }
                 case "event":
                 {
@@ -405,6 +476,7 @@ namespace RagoServer
                     return StartEvent(kind, mins, "owner");
                 }
                 case "stopevent": return StartEvent(0, 0, "owner");
+                case "minver": return SetMinVer(G("ver"));
                 case "mod":
                 {
                     var k = K(); if (k == null) return "Unknown player";
@@ -443,6 +515,8 @@ namespace RagoServer
             var sb = new StringBuilder();
             sb.Append("<h1>Rago Extract - owner panel</h1><p class=dim>").Append(Clients.Count).Append(" online &middot; ").Append(Rooms.Count).Append(" rooms &middot; <a href='logout'>log out</a></p>");
             if (!string.IsNullOrEmpty(msg)) sb.Append("<p class=ok>").Append(H(msg)).Append("</p>");
+            // (3.58) moderators up top
+            sb.Append("<h2>Moderators (").Append(Mods.Count).Append(")</h2><p>").Append(Mods.Count == 0 ? "<span class=dim>None yet - press Make mod next to a player.</span>" : string.Join(", ", Mods.Values.Select(H))).Append("</p>");
             // requests
             sb.Append("<h2>Waiting for your approval (").Append(Pending.Count).Append(")</h2>");
             if (Pending.Count == 0) sb.Append("<p class=dim>Nothing waiting.</p>");
@@ -456,6 +530,15 @@ namespace RagoServer
                       .Append(Btn(sess, "approve", "", "Approve", "<input type=hidden name=id value=" + r.Id + ">", "green")).Append(Btn(sess, "deny", "", "Deny", "<input type=hidden name=id value=" + r.Id + ">")).Append("</td></tr>");
                 sb.Append("</table>");
             }
+            // (3.58) game versions: the oldest one allowed, and who's on what
+            sb.Append("<h2>Game version</h2><p>Oldest version allowed: <b>").Append(VerText(MinVer)).Append("</b> - older games can't connect and are told to update. Online now: ");
+            var vers = Clients.Values.Where(c => c.Name != "?" && c.Ver != "check" && !c.Refused).GroupBy(c => VerNum(c.Ver)).OrderByDescending(g => g.Key).ToList();
+            sb.Append(vers.Count == 0 ? "<span class=dim>nobody</span>" : string.Join(", ", vers.Select(g => (g.Key > 0 ? VerText(g.Key) : "old") + " (" + g.Count() + ")"))).Append("</p>");
+            sb.Append("<form method=post action='act' class=inl><input type=hidden name=t value='").Append(sess).Append("'><input type=hidden name=op value='minver'><input name=ver size=6 placeholder='3.58' value='").Append(VerText(MinVer))
+              .Append("'> <button class=orange>Set oldest version</button></form>");
+            if (vers.Count > 0 && vers[0].Key > MinVer)
+                sb.Append(Btn(sess, "minver", "", "Only allow " + VerText(vers[0].Key) + " (the newest online)", "<input type=hidden name=ver value='" + VerText(vers[0].Key) + "'>", "orange"));
+            sb.Append("<p class=dim>After each update, once you've installed it yourself, press \"Only allow\" so everyone has to update.</p>");
             // players: online, or search everyone seen
             sb.Append("<h2>Players (").Append(Players.Count).Append(" with an account, ").Append(Clients.Values.Count(c => !string.IsNullOrEmpty(c.Key))).Append(" online)</h2><form method=get class=inl><input name=q value='").Append(H(q)).Append("' placeholder='search a callsign (e.g. nug)' size=26> <button>Search</button></form>");
             IEnumerable<Known> list;
@@ -480,7 +563,7 @@ namespace RagoServer
                 sb.Append(Btn(sess, "wipe", k.Key, "Wipe", "", "orange"));
                 if (on != null && InMarket(on)) sb.Append(Btn(sess, "kick", k.Key, "Kick from Market"));
                 sb.Append(mod ? Btn(sess, "unmod", k.Key, "Remove mod") : Btn(sess, "mod", k.Key, "Make mod"));
-                sb.Append(Btn(sess, "trophy", k.Key, "Give CC trophy", "", "green"));
+                sb.Append(Btn(sess, "cc", k.Key, "Give CC", "<select name=what><option value=trophy>CC trophy</option><option value=skin>CC skin</option><option value=both>Trophy + skin</option></select> ", "green"));
                 sb.Append(Btn(sess, "betaskin", k.Key, "Give Beta skin", "", "green"));
                 sb.Append(Btn(sess, "rename", k.Key, "Rename", "<input name=name placeholder='new callsign' size=10 maxlength=14> "));
                 sb.Append("</td></tr>");
@@ -515,8 +598,7 @@ namespace RagoServer
             sb.Append("</select> <select name=minutes><option value=30>30 min</option><option value=60 selected>1 hour</option><option value=120>2 hours</option><option value=360>6 hours</option><option value=1440>24 hours</option></select> <button class=green>Start event</button></form>");
             sb.Append("<p class=dim>Nuke: always a 1-minute countdown, then everyone still in a raid dies (the length you pick is ignored).</p>");
             sb.Append("<p class=dim>Moderators can start and stop events from the MOD tab in the game too.</p>");
-            // mods + history
-            sb.Append("<h2>Moderators (").Append(Mods.Count).Append(")</h2><p>").Append(Mods.Count == 0 ? "<span class=dim>None yet - press Make mod next to a player.</span>" : string.Join(", ", Mods.Values.Select(H))).Append("</p>");
+            // history
             sb.Append("<h2>Recent actions</h2><pre>").Append(H(string.Join("\n", Enumerable.Reverse(History)))).Append("</pre>");
             return Page("Owner panel", sb.ToString());
         }

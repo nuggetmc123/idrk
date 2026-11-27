@@ -82,6 +82,17 @@ namespace Rago
         // ---- moderation (MOD tab)
         public static bool IsMod { get; private set; }
         public static bool Banned { get; private set; }
+        /// <summary>(3.58) The server said this version is too old: everything but your bunker is locked until you update.
+        /// Remembered, so the game stays locked offline too (until the server takes this version again).</summary>
+        public static bool Outdated
+        {
+            get { if (_outdated == null) { try { _outdated = PlayerPrefs.GetString("rago_outdated", "") == CurVer; } catch { _outdated = false; } } return _outdated.Value; }
+            private set { _outdated = value; try { PlayerPrefs.SetString("rago_outdated", value ? CurVer : ""); PlayerPrefs.Save(); } catch { } }
+        }
+        static bool? _outdated;
+        static bool _toldOutdated;
+        public static string NeedVersion = "";
+        static string CurVer { get { try { return PatchNotes.All[0].version; } catch { return ""; } } }
         public static string LastModReply = "";
         Action<List<string>> _searchCb; int _searchId;
         /// <summary>Callsigns matching what's typed (online players first, then anyone who's played here).</summary>
@@ -246,7 +257,7 @@ namespace Rago
             // lost the server (or never reached it): try again every 5 s
             if (!_link.Connected)
             {
-                if (_link.Failed && _wantOnline && !Banned && now > _retryT)
+                if (_link.Failed && _wantOnline && !Banned && !_toldOutdated && now > _retryT)
                 {
                     if (_retryT > 0f) Log("server: " + _link.Error, true);
                     _status = "Can't reach the game server (" + _link.Error + ") - retrying";
@@ -278,6 +289,7 @@ namespace Rago
                     _status = "Online (Rago server)";
                     _retryT = 0f;
                     _welcomed = true;
+                    if (Outdated) Outdated = false;   // the server takes this version (again)
                     Shops.PushToServer();   // our black market shop, as it is now
                     Log("connected to the game server as #" + _link.Id + " (" + _online + " online)");
                     if (_partyCode != null && _room == null) RejoinParty();
@@ -319,6 +331,15 @@ namespace Rago
                     Log(IsMod ? "you're a moderator (MOD tab in the menu)" : "moderator role removed");
                     if (IsMod) RagoGame.I?.Player?.Toast("You're a moderator - the MOD tab is in your menu");
                     break;
+                case P.Outdated:
+                {
+                    NeedVersion = r.More ? r.Str() : "";
+                    Outdated = true; _toldOutdated = true;
+                    _status = "UPDATE REQUIRED: this version (" + CurVer + ") no longer works - install " + (NeedVersion.Length > 0 ? NeedVersion + " or newer" : "the latest version");
+                    Log(_status, true);
+                    RagoGame.I?.OutdatedLock();
+                    break;
+                }
                 case P.Banned:
                 {
                     string why = r.Str();
@@ -356,6 +377,15 @@ namespace Rago
                         if (pf != null) { pf.dlc ??= new System.Collections.Generic.List<string>(); if (!pf.dlc.Contains("beta")) pf.dlc.Add("beta"); pf.Save(); }
                         Sfx.UI(Synth.Ding(), 0.6f);
                         RagoGame.I?.Player?.Hud.Center("BETA TESTER SKIN\n<size=40>" + note + "\nPaint it on any gun at the booth in your bunker.</size>", 6f);
+                        break;
+                    }
+                    if (id == "skin_cc")
+                    {
+                        // (3.58) the CREATOR skin for content creators: unlocked at the paint booth, kept through season resets
+                        var pf = Profile.Current;
+                        if (pf != null) { pf.dlc ??= new System.Collections.Generic.List<string>(); if (!pf.dlc.Contains("cc")) pf.dlc.Add("cc"); pf.creator = true; pf.Save(); }
+                        Sfx.UI(Synth.Ding(), 0.6f);
+                        RagoGame.I?.Player?.Hud.Center("CREATOR SKIN\n<size=40>" + note + "\nPaint it on any gun at the booth in your bunker.</size>", 6f);
                         break;
                     }
                     if (id != "cc_trophy" || Db.Get(id) == null) break;   // only what the owner hands out
@@ -758,11 +788,16 @@ namespace Rago
             Add(myName, _partyCode);
             foreach (var p in _peers) if (_names.TryGetValue(p, out var n)) Add(n, _peerParty.TryGetValue(p, out var pc) ? pc : null);
             spot = 0; slot = 0;
+            // (3.58) each group (a party, or a player on their own) gets its OWN number in the same sorted order on every
+            // machine: 0, 1, 2... -> its own spawn point (RagoGame spreads them farthest-apart). It used to be a hash of
+            // the group's name, and two teams' hashes could land on the same spawn point - right on top of each other.
+            int gi = 0;
             foreach (var kv in groups)
             {
                 kv.Value.Sort(StringComparer.Ordinal);
                 int k = kv.Value.IndexOf(Key(myName));
-                if (k >= 0) { spot = Fnv(kv.Key); slot = k; }
+                if (k >= 0) { spot = RaidStart.GroupSpawn + gi; slot = k; }
+                gi++;
             }
         }
 

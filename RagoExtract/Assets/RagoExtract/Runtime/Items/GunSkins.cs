@@ -73,6 +73,8 @@ namespace Rago
             new Skin { id = "diamondcut", name = "Diamond Cut", pack = "prestige", spray = new Color(0.75f, 0.9f, 1f), mat = () => Paint("diamondcut", DiamondCut, 3.4f, false, 0.7f, 0.95f, 0.02f, 0.05f, 0.6f, 0.86f, 256) },
             // a gift from the owner to beta testers (owner panel > Give Beta skin)
             new Skin { id = "beta", name = "Beta Tester", pack = "beta", spray = new Color(1f, 0.45f, 0.05f), mat = () => Paint("beta", BetaTester, 3f, false, 0.3f, 0.7f, 0.05f, 0.15f) },
+            // (3.58) a gift from the owner to content creators (owner panel > CC > CC skin)
+            new Skin { id = "creator", name = "Creator", pack = "cc", spray = new Color(0.9f, 0.08f, 0.12f), mat = () => Paint("creator", Creator, 2.6f, false, 0.35f, 0.75f, 0.03f, 0.1f, 1.6f, 0.8f, 256) },
             new Skin { id = "aurora", name = "Aurora", pack = "northpole", spray = new Color(0.3f, 0.95f, 0.7f), mat = () => Paint("aurora", Aurora, 2f, false, 0.3f, 0.85f, 0.03f, 0.08f) },
             new Skin { id = "giftwrap", name = "Gift Wrap", pack = "northpole", spray = new Color(0.8f, 0.1f, 0.1f), mat = () => Paint("giftwrap", GiftWrap, 3f, false, 0.2f, 0.6f, 0.05f, 0.1f) },
             new Skin { id = "gingerbread", name = "Gingerbread", pack = "northpole", spray = new Color(0.6f, 0.38f, 0.2f), mat = () => Paint("gingerbread", Gingerbread, 3f, false, 0f, 0.3f, 0.15f, 0.2f) },
@@ -99,6 +101,7 @@ namespace Rago
         {
             if (pack == "northpole") return "the South Pole vault";
             if (pack == "beta") return "a gift for beta testers";
+            if (pack == "cc") return "a gift for content creators";
             var p = Dlc.Get(pack);
             if (p == null) return pack;
             var n = p.name.ToLowerInvariant(); return char.ToUpper(n[0]) + n.Substring(1).Replace(" pack", " Pack").Replace("'s", "'s");
@@ -257,6 +260,31 @@ namespace Rago
             float chev = Fr(u * 6f + Mathf.Abs(v - 0.5f) * 3f);
             if (band < 0.18f && chev < 0.45f) c = new Color(1f, 0.45f, 0.05f);   // >>> chevrons
             if (Mathf.Abs(band - 0.24f) < 0.012f) c = new Color(0.1f, 0.85f, 0.8f);   // pinstripes
+            return c;
+        }
+
+        /// <summary>CREATOR (3.58): glossy black and deep red, a film strip with glowing white sprocket holes along the gun,
+        /// and little red play buttons all over.</summary>
+        static Color Creator(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.05f, 0.04f, 0.045f), new Color(0.32f, 0.02f, 0.05f), Mathf.Clamp01(0.5f + 0.5f * Mathf.Sin((u + v * 0.6f) * 12.566f)) * 0.55f);
+            float band = Mathf.Abs(v - 0.5f);
+            if (band < 0.13f)
+            {
+                c = new Color(0.03f, 0.03f, 0.035f);   // the film
+                float fu = Fr(u * 16f);
+                if (band > 0.085f && band < 0.115f && fu > 0.3f && fu < 0.7f) c = Color.white;   // sprocket holes (glow)
+                else if (band < 0.065f && fu > 0.08f && fu < 0.92f) c = new Color(0.75f, 0.05f, 0.09f);   // the frames
+                return c;
+            }
+            // play buttons: a small right-pointing triangle in every other cell
+            float gu = u * 10f, gv = v * 10f; int iu = Mathf.FloorToInt(gu), iv = Mathf.FloorToInt(gv);
+            if ((iu + iv) % 2 == 0)
+            {
+                float x = gu - iu - 0.5f, y = gv - iv - 0.5f;
+                if (x > -0.2f && x < 0.22f && Mathf.Abs(y) < (0.22f - x) * 0.55f) c = new Color(0.95f, 0.1f, 0.14f);
+            }
+            if (Mathf.Abs(band - 0.17f) < 0.008f) c = new Color(0.95f, 0.95f, 0.95f);   // pinstripes
             return c;
         }
 

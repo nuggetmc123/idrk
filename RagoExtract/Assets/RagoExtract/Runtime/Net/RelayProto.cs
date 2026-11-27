@@ -31,7 +31,8 @@ namespace Rago.Relay
         public const byte Welcome = 101, Joined = 102, JoinFail = 103, DataIn = 104, Props = 105, Rooms = 106, WhisperIn = 107, NoSuch = 108,
                           Host = 109, Pong = 110, PeerJoin = 111, PeerLeft = 112, Online = 113, FastIn = 114, Bye = 115,
                           Role = 116, Banned = 117, Wipe = 118, Kicked = 119, ModReply = 120, Found = 121,
-                          ShopsIn = 122, BuyResult = 123, ShopSold = 124, UnlistResult = 125, EventIn = 126, Gift = 127, Rename = 128, WatchOn = 129, WatchOff = 130;
+                          ShopsIn = 122, BuyResult = 123, ShopSold = 124, UnlistResult = 125, EventIn = 126, Gift = 127, Rename = 128, WatchOn = 129, WatchOff = 130, Outdated = 131;
+        // Outdated (3.58): this game version is too old for the server (the version needed, like "3.58"): the game locks itself until updated
         // WatchOn / WatchOff (129, 130): no longer used (Watch was removed); reserved so old clients and servers don't clash
         // Rename: the owner changed this player's callsign (the new name, without the #tag)
         // Gift: the owner gives a player an item (e.g. the CC trophy) - it lands on their Deliveries screen

@@ -5,6 +5,14 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.58", "Backpacks, spawns and names", new[] {
+                "PUTTING A BACKPACK ON is much easier: swing it over either shoulder or behind your head / back and let go - it goes on. It used to fall to the floor unless you let go in one small spot.",
+                "NO MORE TEAMS ON TOP OF EACH OTHER: every team (or solo player) in a raid gets its own spawn point, as far from the others as possible. Two teams could get the same one before.",
+                "No more crates stacked on top of each other.",
+                "CALLSIGNS: slurs, swear words and anything sexual aren't allowed any more (also spelled with numbers). Anyone who already has one is renamed OPERATOR - your #tag stays.",
+                "NEW CREATOR SKIN: black and red with a glowing film strip and play buttons - a gift for content creators.",
+                "OLD VERSIONS STOP WORKING: the game server only lets in the latest version. An old version tells you to update.",
+            }),
             ("3.57", "No more wall shots", new[] {
                 "SCAVS CAN'T SHOOT YOU THROUGH WALLS: their rounds never go through walls any more, and they only fire with a clear shot at you - duck behind cover and you're safe (they used to keep firing for a moment after you hid, and a scav pressed against a wall shot through it).",
                 "SHOW SOMEONE YOUR BACKPACK: a backpack you drop or hand over is now there for everyone, with what's inside it - no more invisible bags. Put things in or take them out and everyone sees it.",

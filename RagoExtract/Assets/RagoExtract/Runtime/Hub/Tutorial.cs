@@ -90,6 +90,7 @@ namespace Rago
             foreach (var ch in n) if (!(ch >= 'A' && ch <= 'Z') && !(ch >= '0' && ch <= '9') && ch != '_') return "LETTERS, NUMBERS AND _ ONLY.";
             if (n.Trim('_').Length == 0) return "NEEDS AT LEAST ONE LETTER OR NUMBER.";
             foreach (var r in Reserved) if (n == r || n.StartsWith("OPERATOR")) return "THAT CALLSIGN IS RESERVED.";
+            if (Rago.Relay.NameFilter.Bad(n)) return "THAT CALLSIGN ISN'T ALLOWED.";   // (3.58)
             return null;
         }
 
