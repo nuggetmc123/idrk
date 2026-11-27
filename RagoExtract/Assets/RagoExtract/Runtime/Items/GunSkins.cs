@@ -75,6 +75,10 @@ namespace Rago
             new Skin { id = "beta", name = "Beta Tester", pack = "beta", spray = new Color(1f, 0.45f, 0.05f), mat = () => Paint("beta", BetaTester, 3f, false, 0.3f, 0.7f, 0.05f, 0.15f) },
             // (3.58) a gift from the owner to content creators (owner panel > CC > CC skin)
             new Skin { id = "creator", name = "Creator", pack = "cc", spray = new Color(0.9f, 0.08f, 0.12f), mat = () => Paint("creator", Creator, 2.6f, false, 0.35f, 0.75f, 0.03f, 0.1f, 1.6f, 0.8f, 256) },
+            // (3.65) TURN-IN board quest rewards
+            new Skin { id = "crochide", name = "Croc Hide", pack = "quest", spray = new Color(0.25f, 0.35f, 0.15f), mat = () => Paint("crochide", CrocHide, 2.6f, false, 0.05f, 0.55f, 0.15f, 0.2f) },
+            new Skin { id = "bayou", name = "Bayou", pack = "quest", spray = new Color(0.3f, 0.32f, 0.2f), mat = () => Paint("bayou", Bayou, 3f, false, 0f, 0.25f, 0.3f, 0.4f) },
+            new Skin { id = "goldtooth", name = "Gold Tooth", pack = "quest", spray = new Color(1f, 0.78f, 0.25f), mat = () => Paint("goldtooth", GoldTooth, 2.6f, false, 0.85f, 0.85f, 0.04f, 0.1f) },
             new Skin { id = "aurora", name = "Aurora", pack = "northpole", spray = new Color(0.3f, 0.95f, 0.7f), mat = () => Paint("aurora", Aurora, 2f, false, 0.3f, 0.85f, 0.03f, 0.08f) },
             new Skin { id = "giftwrap", name = "Gift Wrap", pack = "northpole", spray = new Color(0.8f, 0.1f, 0.1f), mat = () => Paint("giftwrap", GiftWrap, 3f, false, 0.2f, 0.6f, 0.05f, 0.1f) },
             new Skin { id = "gingerbread", name = "Gingerbread", pack = "northpole", spray = new Color(0.6f, 0.38f, 0.2f), mat = () => Paint("gingerbread", Gingerbread, 3f, false, 0f, 0.3f, 0.15f, 0.2f) },
@@ -102,6 +106,7 @@ namespace Rago
             if (pack == "northpole") return "the South Pole vault";
             if (pack == "beta") return "a gift for beta testers";
             if (pack == "cc") return "a gift for content creators";
+            if (pack == "quest") return "a TURN-IN board reward";
             var p = Dlc.Get(pack);
             if (p == null) return pack;
             var n = p.name.ToLowerInvariant(); return char.ToUpper(n[0]) + n.Substring(1).Replace(" pack", " Pack").Replace("'s", "'s");
@@ -285,6 +290,40 @@ namespace Rago
                 if (x > -0.2f && x < 0.22f && Mathf.Abs(y) < (0.22f - x) * 0.55f) c = new Color(0.95f, 0.1f, 0.14f);
             }
             if (Mathf.Abs(band - 0.17f) < 0.008f) c = new Color(0.95f, 0.95f, 0.95f);   // pinstripes
+            return c;
+        }
+
+        // ---- (3.65) quest skins
+        /// <summary>CROC HIDE: rows of green scales with dark edges and a lighter centre each.</summary>
+        static Color CrocHide(float u, float v)
+        {
+            float gu = u * 14f, gv = v * 10f; int row = Mathf.FloorToInt(gv); gu += (row % 2) * 0.5f;
+            float fu = Fr(gu) - 0.5f, fv = Fr(gv) - 0.5f;
+            float d = Mathf.Max(Mathf.Abs(fu) * 1.2f, Mathf.Abs(fv));
+            Color mid = Color.Lerp(new Color(0.3f, 0.42f, 0.18f), new Color(0.2f, 0.3f, 0.12f), Fbm(Mathf.Floor(gu) / 14f, row / 10f, 9f, 4.2f));
+            return d > 0.42f ? new Color(0.08f, 0.11f, 0.05f) : Color.Lerp(mid * 1.2f, mid, d * 2f);
+        }
+        /// <summary>BAYOU: murky brown-green-olive camo blobs.</summary>
+        static Color Bayou(float u, float v)
+        {
+            float a = Fbm(u, v, 4f, 1.7f), b2 = Fbm(u, v, 6f, 8.3f);
+            Color c = new Color(0.33f, 0.3f, 0.2f);
+            if (a > 0.55f) c = new Color(0.22f, 0.28f, 0.15f);
+            if (b2 > 0.6f) c = new Color(0.13f, 0.15f, 0.09f);
+            if (a < 0.35f && b2 < 0.4f) c = new Color(0.45f, 0.42f, 0.3f);
+            return c;
+        }
+        /// <summary>GOLD TOOTH: polished gold with rows of ivory fangs along the gun.</summary>
+        static Color GoldTooth(float u, float v)
+        {
+            Color c = Color.Lerp(new Color(0.85f, 0.62f, 0.2f), new Color(1f, 0.85f, 0.4f), 0.5f + 0.5f * Mathf.Sin(u * 20f + v * 6f));
+            float band = Mathf.Abs(v - 0.5f);
+            if (band < 0.12f)
+            {
+                float fu = Fr(u * 12f), tip = (v < 0.5f ? 0.5f - v : v - 0.5f) / 0.12f;   // 0 at the middle, 1 at the band's edge
+                if (Mathf.Abs(fu - 0.5f) < 0.45f * (1f - tip)) c = new Color(0.95f, 0.93f, 0.85f);
+                else c = new Color(0.25f, 0.05f, 0.05f);
+            }
             return c;
         }
 

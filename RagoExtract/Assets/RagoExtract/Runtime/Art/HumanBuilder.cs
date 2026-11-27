@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Rago
 {
-    public enum Outfit { Operator, Raider, RaiderHeavy, Gunsmith, Medic, Fence, Quartermaster, Kiosk, Foreman, BossKessler, BossHarbor, BossWarden, BossBanker, BossCourier, BossSanta }
+    public enum Outfit { Operator, Raider, RaiderHeavy, Gunsmith, Medic, Fence, Quartermaster, Kiosk, Foreman, BossKessler, BossHarbor, BossWarden, BossBanker, BossCourier, BossSanta, BossCroc }
 
     /// <summary>
     /// A procedurally built humanoid made of rigid segments on a bone hierarchy. Used for the player's own
@@ -68,6 +68,8 @@ namespace Rago
 
             int shape = 0;   // 1 snowman, 2 Evil Santa: their hitboxes are resized to the body you see
             if (outfit == Outfit.BossSanta) { BuildSanta(r); shape = 2; }                    // Evil Santa (North Pole boss)
+            else if (outfit == Outfit.BossCroc) BuildCroc(r, true, true, rng);              // (3.65) the Swamp King
+            else if (SwampMap && (outfit == Outfit.Raider || outfit == Outfit.RaiderHeavy) && !localPlayer) BuildCroc(r, outfit == Outfit.RaiderHeavy, false, rng);   // the Swamp: crocodiles
             else if (PoleMap && (outfit == Outfit.Raider || outfit == Outfit.RaiderHeavy) && !localPlayer) BuildElf(r, outfit == Outfit.RaiderHeavy, rng);   // North Pole: evil elves
             else if (Snowman(outfit) && !localPlayer) { BuildSnowman(r, outfit, rng); shape = 1; }   // Christmas: the raiders are snowmen
             else BuildMeshes(r, outfit, pal, rng, localPlayer);
@@ -807,6 +809,117 @@ namespace Rago
 
         /// <summary>A raid on the North Pole is running (its raiders are evil elves).</summary>
         public static bool PoleMap => RagoGame.I != null && RagoGame.I.Map != null && RagoGame.I.Map.Id == "northpole";
+
+        /// <summary>(3.65) A raid in the Swamp is running (its raiders are crocodiles).</summary>
+        public static bool SwampMap => RagoGame.I != null && RagoGame.I.Map != null && RagoGame.I.Map.Id == "swamp";
+
+        /// <summary>(3.65) A crocodile on the raider skeleton: scaly green hide with a pale ribbed belly and bony ridges down
+        /// the back, a long toothy snout with bulging yellow eyes, a heavy tail dragging behind, clawed hands and feet - in a
+        /// ragged vest and a bandolier. Heavies wear an armour plate; the Swamp King is darker and huge-jawed, with glowing
+        /// red eyes, a gold crown and a gold chain.</summary>
+        static void BuildCroc(HumanRig r, bool heavy, bool king, Rng rng)
+        {
+            var mats = new[] { ClothMat, HardMat, PlasticMat, JointMat };
+            float shade = rng.Range(0.85f, 1.1f);
+            Color hide = king ? new Color(0.14f, 0.2f, 0.1f) : new Color(0.24f * shade, 0.34f * shade, 0.16f * shade), hide2 = hide * 0.72f, belly = new Color(0.78f, 0.74f, 0.5f), belly2 = new Color(0.62f, 0.58f, 0.38f);
+            hide2.a = 1f;
+            Color vest = new Color(0.32f, 0.26f, 0.18f), strap = new Color(0.22f, 0.16f, 0.1f), brass = new Color(0.8f, 0.62f, 0.25f), plate = new Color(0.16f, 0.17f, 0.16f);
+            Color tooth = new Color(0.95f, 0.93f, 0.85f), eye = king ? new Color(1f, 0.15f, 0.05f) : new Color(0.95f, 0.8f, 0.15f), gold = new Color(1f, 0.78f, 0.25f), black = new Color(0.04f, 0.04f, 0.03f);
+            // hips: ragged shorts, and the tail sweeping back and down to the ground
+            var mb = new MB(4);
+            mb.Sub(PLASTIC).Sphere(new Vector3(0, -0.04f, 0), new Vector3(0.18f, 0.13f, 0.14f), 14, hide);
+            mb.Sub(CLOTH).Cyl(new Vector3(0, -0.14f, 0), new Vector3(0, 0.06f, 0), 0.19f, 0.175f, 14, vest * 0.8f);
+            for (int i = 0; i < 6; i++) { float a = i / 6f * Mathf.PI * 2f; mb.Sub(CLOTH).Box(new Vector3(Mathf.Cos(a) * 0.18f, -0.16f, Mathf.Sin(a) * 0.17f), new Vector3(0.06f, 0.05f, 0.02f), vest * 0.7f, 0.005f, 1, Quaternion.Euler(0, -a * Mathf.Rad2Deg, 20f)); }   // torn hem
+            mb.Sub(HARD).Cyl(new Vector3(0, 0.03f, 0), new Vector3(0, 0.08f, 0), 0.18f, 0.18f, 14, strap);
+            Vector3 prev = new Vector3(0, -0.05f, -0.12f); float tr = king ? 0.13f : 0.11f;
+            for (int i = 1; i <= 7; i++)
+            {
+                float t = i / 7f;
+                var nxt = new Vector3(Mathf.Sin(t * 2.2f) * 0.06f, -0.05f - t * 0.72f, -0.12f - t * (king ? 1.15f : 0.95f));
+                float r0 = tr * (1f - (t - 1f / 7f) * 0.85f), r1 = tr * (1f - t * 0.85f);
+                mb.Sub(PLASTIC).Capsule(prev, nxt, r0, r1, 10, hide);
+                mb.Sub(JOINT).Sphere(Vector3.Lerp(prev, nxt, 0.5f) + Vector3.up * r0 * 0.85f, new Vector3(0.02f, 0.025f, 0.03f) * (1f - t * 0.6f), 6, hide2);   // ridges along the top
+                prev = nxt;
+            }
+            mb.Build("Mesh", r.hips, mats);
+            // body: scaly back, pale ribbed belly, a ragged vest and a bandolier (heavies: an armour plate)
+            mb = new MB(4);
+            mb.Sub(PLASTIC).Cyl(new Vector3(0, -0.02f, 0), new Vector3(0, 0.22f, 0), 0.165f, 0.17f, 16, hide);
+            mb.Sub(PLASTIC).Box(new Vector3(0, 0.1f, 0.12f), new Vector3(0.2f, 0.26f, 0.06f), belly, 0.03f, 2);
+            for (int i = 0; i < 4; i++) mb.Sub(HARD).Box(new Vector3(0, 0.0f + i * 0.06f, 0.152f), new Vector3(0.18f, 0.008f, 0.006f), belly2, 0.002f);
+            mb.Build("Mesh", r.spine, mats);
+            mb = new MB(4);
+            mb.Sub(PLASTIC).Box(new Vector3(0, 0.08f, 0), new Vector3(0.4f, 0.27f, 0.25f), hide, 0.1f, 2);
+            mb.Sub(PLASTIC).Box(new Vector3(0, 0.05f, 0.11f), new Vector3(0.24f, 0.2f, 0.06f), belly, 0.03f, 2);
+            for (int i = 0; i < 5; i++) foreach (float sx in new[] { -0.05f, 0.05f }) mb.Sub(JOINT).Sphere(new Vector3(sx, 0.0f + i * 0.05f, -0.125f), new Vector3(0.025f, 0.02f, 0.025f), 6, hide2);   // back ridges
+            if (!king)
+            {
+                foreach (float sx in new[] { -1f, 1f }) mb.Sub(CLOTH).Box(new Vector3(sx * 0.13f, 0.08f, 0.0f), new Vector3(0.1f, 0.26f, 0.27f), vest, 0.03f, 2);   // vest sides (open front)
+                mb.Sub(HARD).Box(new Vector3(0, 0.07f, 0.02f), new Vector3(0.05f, 0.42f, 0.27f), strap, 0.01f, 1, Quaternion.Euler(0, 0, 38f));   // bandolier
+                for (int i = 0; i < 5; i++) mb.Sub(HARD).Box(new Vector3(-0.1f + i * 0.05f, -0.03f + i * 0.04f, 0.15f), new Vector3(0.016f, 0.04f, 0.016f), brass, 0.003f, 1, Quaternion.Euler(0, 0, 38f));
+                if (heavy) mb.Sub(HARD).Box(new Vector3(0, 0.07f, 0.15f), new Vector3(0.28f, 0.26f, 0.05f), plate, 0.02f, 2);   // armour plate
+            }
+            else
+            {
+                for (int i = 0; i < 14; i++) { float a = Mathf.Lerp(-1.1f, 1.1f, i / 13f); mb.Sub(HARD).Sphere(new Vector3(Mathf.Sin(a) * 0.15f, 0.2f - Mathf.Cos(a) * 0.12f, 0.13f + Mathf.Cos(a) * 0.02f), Vector3.one * 0.018f, 6, gold); }   // a heavy gold chain
+                mb.Sub(HARD).Box(new Vector3(0, 0.06f, 0.155f), new Vector3(0.07f, 0.07f, 0.02f), gold, 0.01f);   // ...and its medallion
+            }
+            mb.Build("Mesh", r.chest, mats);
+            mb = new MB(4);
+            mb.Sub(PLASTIC).Cyl(new Vector3(0, -0.02f, 0), new Vector3(0, 0.1f, 0.01f), 0.075f, 0.07f, 10, hide);
+            mb.Build("Mesh", r.neck, mats);
+            // the head: a flat skull, a long snout, rows of teeth, bulging eyes on top, nostrils at the tip
+            mb = new MB(4);
+            float sl = king ? 0.32f : 0.26f;   // snout length
+            mb.Sub(PLASTIC).Sphere(new Vector3(0, 0.07f, -0.01f), new Vector3(0.1f, 0.075f, 0.11f), 14, hide);
+            mb.Sub(PLASTIC).Box(new Vector3(0, 0.07f, 0.06f + sl * 0.5f), new Vector3(0.12f, 0.05f, sl), hide, 0.022f, 2);                 // upper jaw
+            mb.Sub(PLASTIC).Box(new Vector3(0, 0.025f, 0.05f + sl * 0.46f), new Vector3(0.105f, 0.032f, sl * 0.92f), belly2, 0.014f, 2);     // lower jaw
+            mb.Sub(HARD).Box(new Vector3(0, 0.046f, 0.06f + sl * 0.5f), new Vector3(0.1f, 0.012f, sl * 0.95f), new Color(0.45f, 0.12f, 0.1f), 0.004f);   // the inside of the mouth
+            for (int i = 0; i < 9; i++)
+                foreach (float sx in new[] { -1f, 1f })
+                {
+                    float z = 0.08f + i * sl / 9.5f;
+                    mb.Sub(HARD).Cyl(new Vector3(sx * 0.054f, 0.05f, z), new Vector3(sx * 0.056f, 0.032f + (i % 2) * 0.006f, z), 0.008f, 0.001f, 5, tooth);   // top teeth
+                    if (i % 2 == 1) mb.Sub(HARD).Cyl(new Vector3(sx * 0.047f, 0.038f, z + 0.01f), new Vector3(sx * 0.049f, 0.056f, z + 0.01f), 0.007f, 0.001f, 5, tooth);   // bottom teeth poking up
+                }
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                mb.Sub(PLASTIC).Sphere(new Vector3(sx * 0.024f, 0.098f, 0.06f + sl * 0.98f), new Vector3(0.016f, 0.012f, 0.016f), 8, hide2);   // nostril bumps
+                mb.Sub(PLASTIC).Sphere(new Vector3(sx * 0.05f, 0.125f, 0.04f), new Vector3(0.032f, 0.03f, 0.034f), 10, hide);                 // eye bumps
+                mb.Sub(HARD).Sphere(new Vector3(sx * 0.055f, 0.13f, 0.065f), new Vector3(0.017f, 0.017f, 0.012f), 10, eye);                  // the eyes
+                mb.Sub(HARD).Box(new Vector3(sx * 0.055f, 0.13f, 0.0765f), new Vector3(0.0035f, 0.024f, 0.002f), black, 0.001f);             // slit pupils
+            }
+            for (int i = 0; i < 4; i++) mb.Sub(JOINT).Sphere(new Vector3(0, 0.12f, -0.02f - i * 0.04f), new Vector3(0.022f, 0.018f, 0.02f), 6, hide2);   // ridges over the skull
+            if (king)
+            {
+                // the crown: a gold band with spikes and green gems
+                mb.Sub(HARD).Cyl(new Vector3(0, 0.13f, -0.01f), new Vector3(0, 0.17f, -0.01f), 0.085f, 0.09f, 18, gold);
+                for (int i = 0; i < 7; i++) { float a = i / 7f * Mathf.PI * 2f; var c = new Vector3(Mathf.Cos(a) * 0.085f, 0.17f, -0.01f + Mathf.Sin(a) * 0.085f); mb.Sub(HARD).Cyl(c, c + Vector3.up * 0.06f, 0.016f, 0.002f, 5, gold); mb.Sub(PLASTIC).Sphere(new Vector3(Mathf.Cos(a) * 0.09f, 0.15f, -0.01f + Mathf.Sin(a) * 0.09f), Vector3.one * 0.011f, 6, new Color(0.1f, 0.8f, 0.35f)); }
+            }
+            mb.Build("Mesh", r.head, mats);
+            // arms and clawed hands
+            for (int s = 0; s < 2; s++)
+            {
+                var ua = s == 0 ? r.uaL : r.uaR; var fa = s == 0 ? r.faL : r.faR; var hand = s == 0 ? r.handL : r.handR;
+                mb = new MB(4); mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.03f), new Vector3(0, 0, r.upperArm - 0.02f), 0.06f, 0.05f, 12, hide); mb.Build("Mesh", ua, mats);
+                mb = new MB(4); mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.foreArm - 0.02f), 0.05f, 0.042f, 12, hide); mb.Build("Mesh", fa, mats);
+                mb = new MB(4); mb.Sub(PLASTIC).Box(new Vector3(0, -0.004f, 0.045f), new Vector3(0.075f, 0.032f, 0.08f), hide, 0.014f, 2);
+                for (int k = 0; k < 4; k++) mb.Sub(HARD).Cyl(new Vector3(-0.027f + k * 0.018f, -0.004f, 0.085f), new Vector3(-0.027f + k * 0.018f, -0.02f, 0.11f), 0.008f, 0.001f, 5, tooth * 0.85f);   // claws
+                mb.Build("Mesh", hand, mats);
+            }
+            // thick legs and clawed feet
+            for (int s = 0; s < 2; s++)
+            {
+                var th = s == 0 ? r.thL : r.thR; var sh = s == 0 ? r.shL : r.shR; var ft = s == 0 ? r.footL : r.footR;
+                mb = new MB(4); mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.04f), new Vector3(0, 0, r.thigh - 0.03f), 0.085f, 0.07f, 12, hide);
+                mb.Sub(CLOTH).Cyl(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.thigh * 0.45f), 0.092f, 0.088f, 12, vest * 0.8f, false); mb.Build("Mesh", th, mats);   // shorts legs
+                mb = new MB(4); mb.Sub(PLASTIC).Capsule(new Vector3(0, 0, 0.0f), new Vector3(0, 0, r.shin - 0.03f), 0.065f, 0.055f, 12, hide); mb.Build("Mesh", sh, mats);
+                mb = new MB(4);
+                mb.Sub(PLASTIC).Box(new Vector3(0, -0.05f, 0.04f), new Vector3(0.1f, 0.16f, 0.07f), hide, 0.03f, 2);
+                for (int k = 0; k < 3; k++) mb.Sub(HARD).Cyl(new Vector3(-0.03f + k * 0.03f, -0.13f, 0.06f), new Vector3(-0.03f + k * 0.03f, -0.17f, 0.075f), 0.01f, 0.001f, 5, tooth * 0.85f);
+                mb.Build("Mesh", ft, mats);
+            }
+        }
 
         static Material SnowmanMat => Mats.Lit("snowman", Color.white, 0f, 0.3f, Mats.Noise, null, 0.04f, 0f);
 

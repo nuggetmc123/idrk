@@ -378,6 +378,7 @@ namespace Rago
             Posters.Discord(transform, new Vector3(7.15f, 1.7f, -D / 2 + 0.16f), 180f, new Vector2(0.72f, 0.95f));   // right of the VIBE CODED screen
             // the secret one: low on the wall behind the raid kiosk - you have to look behind it
             Posters.Put(transform, new Vector3(W / 2 - 0.55f, 0.5f, D / 2 - 0.16f), 0f, "#CHUDLIFE", new Color(0.1f, 0.1f, 0.12f), new Color(0.3f, 1f, 0.4f), new Vector2(0.44f, 0.26f), 0.13f);   // tucked low in the corner behind the kiosk
+            if (Application.isPlaying) QuestBoard.Create(transform, new Vector3(5.3f, 1.6f, D / 2 - 0.17f), 0f);   // (3.65) the TURN-IN board on the north wall, by the raid kiosk
             if (Application.isPlaying) Pug.Create(transform, new Vector3(6.4f, 0, -4.4f), new Vector3(4.9f, 0, -5.1f), new Rect(-6.5f, -4.5f, 13f, 9f));   // the bunker pug: bed and bowl in the south-east corner   // west wall of the main hall, by the range tunnel
             // GEAR wall on the south side: more room for meds, mags, sights, attachments, loot and pistols
             Stash.Add(StashSection.Create(transform, new Vector3(-4.95f, 0, -D / 2 + 0.25f), 180, StashKind.Gear));

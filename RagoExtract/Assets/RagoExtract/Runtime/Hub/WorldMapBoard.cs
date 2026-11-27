@@ -55,6 +55,13 @@ namespace Rago
                 new MB().Box(np + new Vector3(0.02f, 0.05f, -0.009f), new Vector3(0.05f, 0.05f, 0.002f), Color.white, 0f).Build("Gift", p, Mats.Unlit("board_gift", new Color(0.8f, 0.1f, 0.1f, 1f)));
                 Location(p, "northpole", np, -0.03f);
             }
+            // (3.65) the Swamp: a murky green marsh in the bottom-right corner
+            {
+                var sw = new Vector3(0.84f, -0.36f, 0);
+                Blob(p, sw, 0.2f, 71, new Color(0.28f, 0.36f, 0.2f), -0.007f);
+                Blob(p, sw + new Vector3(0.02f, 0.01f, 0), 0.13f, 72, new Color(0.18f, 0.28f, 0.22f), -0.008f);
+                Location(p, "swamp", sw, -0.03f);
+            }
             // the hatch down to the Underground Sector, on a rock between them
             var u = new Vector3(0.12f, 0.36f, 0);
             Blob(p, u, 0.11f, 51, new Color(0.35f, 0.34f, 0.32f), -0.007f);
@@ -81,7 +88,7 @@ namespace Rago
         WorldButton _deploy; bool _deployQueued;
 
         /// <summary>The map's boss (each turns up in about 1 raid in 4 with heavy guards - every raid during BOSS HUNT).</summary>
-        static string BossOf(string id) => id == "dockyard" ? "THE HARBORMASTER" : id == "underground" ? "DOCTOR KESSLER" : id == "northpole" ? "-" : "THE COURIER (air drops)";   // only three bosses now
+        static string BossOf(string id) => id == "dockyard" ? "THE HARBORMASTER" : id == "underground" ? "DOCTOR KESSLER" : id == "northpole" ? "-" : id == "swamp" ? "THE SWAMP KING (every raid)" : "THE COURIER (air drops)";   // only three bosses now
 
         static string Facts(string id)
         {
@@ -91,6 +98,7 @@ namespace Rago
                 case "pinewood": return "Thick pine forest round a military outpost\nCabins and camps in the woods\nVAULT: the outpost bunker\nFog rolls in some raids";
                 case "oldtown": return "An abandoned town at dawn\nStreets, apartments and shops to search\nVAULT: the old bank\nVillages and farms on the outskirts";
                 case "underground": return "A sealed research sector, 3 floors down\nTight corridors and dark rooms\nTWO VAULTS - and the power cuts out\nSounds barely carry between floors";
+                case "swamp": return "A flooded bayou - wade through the murk\nEvery raider here is a crocodile\nTHE SWAMP KING holds the Bait & Tackle\nTake his crown to the TURN-IN board";
                 case "northpole": return "Santa's village, overrun by evil elves\nChristmas keycards hide in the presents\nVAULT: the Giant Present\nPresents everywhere";
                 default: return Maps.Blurb(id);
             }

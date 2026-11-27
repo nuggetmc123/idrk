@@ -5,6 +5,14 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.65", "The Swamp", new[] {
+                "NEW MAP - THE SWAMP: a flooded bayou. Wade knee-deep through murky water between grassy islands, rickety boardwalks, moss-hung cypress trees, reeds and half-sunk boats. Stilt shacks to loot, and the old BAIT & TACKLE on the north island.",
+                "EVERY RAIDER IN THE SWAMP IS A CROCODILE: scaly green hide, long toothy snouts, yellow eyes and a tail dragging behind. Heavies wear armour plates.",
+                "THE SWAMP KING: a giant crocodile boss with a gold crown, a gold chain and glowing red eyes. He's home at the Bait & Tackle EVERY raid. Kill him and take his CROWN.",
+                "NEW: the TURN-IN board in your bunker (north wall, by the raid kiosk). Put things on its tray to finish jobs - when a job's done a REWARD screen shows what you got:",
+                "  THE SWAMP KING - his crown: MANDA BECOMES A CAPYBARA (orange on her head included) + the CROC HIDE gun skin.",
+                "  CROC HUNTER - 5 Croc Teeth (crocodiles drop them): the BAYOU gun skin.   NAMES OF THE FALLEN - 5 Dog Tags: $15,000.   SNEAKERHEAD - a pair of Oliver Kicks: the GOLD TOOTH gun skin.",
+            }),
             ("3.64", "Streamer drops", new[] {
                 "STREAMER BOX: one glossy purple box with a red LIVE band turns up somewhere on every map, once per raid (the same spot for everyone in the raid). Find it first.",
                 "OLIVER KICKS (new streamer item): sometimes the box holds a PAIR - chunky black and purple high-tops with a gold lightning bolt, OLIVER on the side in gold and a glowing mint sole.",

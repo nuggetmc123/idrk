@@ -77,8 +77,14 @@ namespace Rago
             ItemFactory.Spawn(new ItemData("dog_ball"), transform.parent.TransformPoint(_bed + new Vector3(0.3f, 0.25f, 0.3f)), Quaternion.identity);
         }
 
+        Material _mat; bool _remodel;
+        /// <summary>(3.65) Swap the model (she just turned into a capybara) - once she isn't carrying anything.</summary>
+        public void Remodel() { _remodel = true; }
+
         void BuildModel(Material mat)
         {
+            _mat = mat;
+            if (Profile.Current != null && Profile.Current.capybara) { BuildCapybara(mat); return; }
             _body = new GameObject("Body").transform; _body.SetParent(transform, false);
             var mb = new MB();
             mb.Sphere(new Vector3(0, 0, 0), new Vector3(0.14f, 0.13f, 0.21f), 14, Fawn);                      // round little body
@@ -108,6 +114,44 @@ namespace Rago
             new MB().Sphere(new Vector3(0, 0.03f, 0), new Vector3(0.035f, 0.035f, 0.035f), 8, Fawn).Sphere(new Vector3(0, 0.05f, 0.02f), new Vector3(0.022f, 0.022f, 0.022f), 8, Fawn * 0.9f).Build("Curl", _tail, mat);
         }
 
+        /// <summary>(3.65) Manda as a CAPYBARA (the Swamp King's crown was turned in): a big barrel-shaped brown body, a blunt
+        /// square head with little round ears and eyes high up, a wide nose, short legs - and, being a capybara, a small
+        /// orange sitting on her head. Same bones as the pug, so she still walks, sits, sleeps and plays fetch.</summary>
+        void BuildCapybara(Material mat)
+        {
+            Color fur = new Color(0.55f, 0.36f, 0.2f), furD = new Color(0.42f, 0.27f, 0.15f), nose = new Color(0.18f, 0.12f, 0.08f), orange = new Color(1f, 0.55f, 0.1f);
+            _body = new GameObject("Body").transform; _body.SetParent(transform, false);
+            var mb = new MB();
+            mb.Sphere(new Vector3(0, 0.03f, -0.02f), new Vector3(0.17f, 0.16f, 0.27f), 16, fur);           // the barrel body
+            mb.Sphere(new Vector3(0, 0.05f, 0.14f), new Vector3(0.15f, 0.15f, 0.12f), 14, fur);             // chest
+            mb.Sphere(new Vector3(0, 0.11f, -0.04f), new Vector3(0.13f, 0.08f, 0.22f), 12, furD);           // darker back
+            mb.Build("Torso", _body, mat);
+            _head = new GameObject("Head").transform; _head.SetParent(_body, false); _head.localPosition = new Vector3(0, 0.1f, 0.25f);
+            var hb = new MB();
+            hb.Box(new Vector3(0, 0.0f, 0.04f), new Vector3(0.13f, 0.12f, 0.17f), fur, 0.05f, 2);               // blunt square head
+            hb.Box(new Vector3(0, -0.01f, 0.115f), new Vector3(0.12f, 0.1f, 0.06f), furD, 0.04f, 2);            // the big snout
+            hb.Box(new Vector3(0, 0.012f, 0.146f), new Vector3(0.06f, 0.02f, 0.01f), nose, 0.005f);             // nose
+            foreach (int s in new[] { -1, 1 })
+            {
+                hb.Sphere(new Vector3(s * 0.016f, 0.012f, 0.148f), new Vector3(0.008f, 0.006f, 0.004f), 6, new Color(0.04f, 0.03f, 0.02f));   // nostrils
+                hb.Sphere(new Vector3(s * 0.058f, 0.04f, 0.04f), Vector3.one * 0.011f, 8, new Color(0.03f, 0.02f, 0.02f));                    // small calm eyes, high up
+                hb.Sphere(new Vector3(s * 0.062f, 0.044f, 0.048f), Vector3.one * 0.003f, 5, Color.white);
+                hb.Sphere(new Vector3(s * 0.055f, 0.07f, -0.02f), new Vector3(0.018f, 0.02f, 0.01f), 8, furD);                                // round little ears
+            }
+            hb.Sphere(new Vector3(0, 0.085f, 0.02f), Vector3.one * 0.032f, 12, orange);                         // the orange on her head
+            hb.Box(new Vector3(0.006f, 0.118f, 0.02f), new Vector3(0.012f, 0.008f, 0.02f), new Color(0.2f, 0.5f, 0.15f), 0.003f);   // its leaf
+            hb.Build("Face", _head, mat);
+            for (int i = 0; i < 4; i++)
+            {
+                bool front = i < 2; int side = i % 2 == 0 ? -1 : 1;
+                _legs[i] = new GameObject("Leg" + i).transform; _legs[i].SetParent(_body, false);
+                _legs[i].localPosition = new Vector3(side * 0.1f, -0.07f, front ? 0.15f : -0.17f);
+                new MB().Cyl(Vector3.zero, new Vector3(0, -0.11f, 0), 0.04f, 0.034f, 8, furD).Sphere(new Vector3(0, -0.11f, 0.012f), new Vector3(0.036f, 0.016f, 0.045f), 8, nose).Build("L", _legs[i], mat);
+            }
+            _tail = new GameObject("Tail").transform; _tail.SetParent(_body, false); _tail.localPosition = new Vector3(0, 0.07f, -0.28f);
+            new MB().Sphere(Vector3.zero, Vector3.one * 0.012f, 6, furD).Build("Stub", _tail, mat);   // no real tail
+        }
+
         float Bowl { get => Profile.Current != null ? Profile.Current.pugBowl : 0f; set { if (Profile.Current != null) Profile.Current.pugBowl = Mathf.Clamp01(value); ShowBowl(); } }
         void ShowBowl()
         {
@@ -122,6 +166,13 @@ namespace Rago
 
         void Update()
         {
+            if (_remodel && _carry == null && _body != null)
+            {
+                _remodel = false;
+                Destroy(_body.gameObject); _mouth = null;
+                BuildModel(_mat);
+                Sfx.Play(Synth.PugSnort(1), transform.position, 0.5f, 0.7f, 0.4f, 8f);
+            }
             float dt = Time.deltaTime;
             var pl = RagoGame.I != null ? RagoGame.I.Player : null;
             Vector3 me = pl != null ? transform.parent.InverseTransformPoint(pl.transform.position) : Pos + Vector3.forward * 10f;

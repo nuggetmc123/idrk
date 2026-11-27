@@ -5,10 +5,10 @@ namespace Rago
 {
     public static class Maps
     {
-        static readonly string[] _all = { "dockyard", "pinewood", "oldtown", "underground", "northpole" }, _normal = { "dockyard", "pinewood", "oldtown", "underground" };
+        static readonly string[] _all = { "dockyard", "pinewood", "oldtown", "underground", "swamp", "northpole" }, _normal = { "dockyard", "pinewood", "oldtown", "underground", "swamp" };
         /// <summary>The raid maps (the North Pole only while the Christmas update is on: Festive.Enabled).</summary>
         public static string[] RaidIds => Festive.Enabled ? _all : _normal;
-        public static string Name(string id) => id == "welcome" ? "Rago Extract" : id == "dockyard" ? "Dockyard" : id == "pinewood" ? "Pinewood Outpost" : id == "oldtown" ? "Old Town" : id == "underground" ? "Underground Sector" : id == "northpole" ? "North Pole" : id;
+        public static string Name(string id) => id == "welcome" ? "Rago Extract" : id == "dockyard" ? "Dockyard" : id == "pinewood" ? "Pinewood Outpost" : id == "oldtown" ? "Old Town" : id == "underground" ? "Underground Sector" : id == "northpole" ? "North Pole" : id == "swamp" ? "The Swamp" : id;
         /// <summary>How hard the map is: the Underground and the North Pole are EXTREME, the islands NORMAL.</summary>
         public static bool Extreme(string id) => id == "underground" || id == "northpole";
         public static string Difficulty(string id) => Extreme(id) ? "EXTREME" : "NORMAL";
@@ -17,6 +17,7 @@ namespace Rago
         public static string Blurb(string id) => id == "dockyard" ? "Container yard at dusk. Warehouses, cranes and the Harbor Office vault."
             : id == "pinewood" ? "Foggy forest and a military outpost with a bunker vault."
             : id == "northpole" ? "Santa's village, overrun by evil elves. Presents everywhere - and the Giant Present vault."
+            : id == "swamp" ? "A flooded bayou overrun by crocodiles. The Swamp King is home every raid."
             : id == "underground" ? "A sealed underground research sector. Tight corridors, 6 operators max, squads of 2."
             : "Abandoned town at dawn. Streets, apartments and the old bank vault.";
 
@@ -40,6 +41,7 @@ namespace Rago
                 case "underground": m = go.AddComponent<UndergroundMap>(); break;
                 case "oldtown": m = go.AddComponent<OldTownMap>(); break;
                 case "northpole": m = go.AddComponent<NorthPoleMap>(); break;
+                case "swamp": m = go.AddComponent<SwampMap>(); break;
                 default: m = go.AddComponent<DockyardMap>(); break;
             }
             m.Id = id;

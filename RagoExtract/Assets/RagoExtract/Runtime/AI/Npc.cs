@@ -172,7 +172,7 @@ namespace Rago
         public static Outfit BossOutfit(string boss)
         {
             string b = boss.ToLowerInvariant();
-            return b.Contains("kessler") ? Outfit.BossKessler : b.Contains("harbor") ? Outfit.BossHarbor : b.Contains("warden") ? Outfit.BossWarden : b.Contains("banker") ? Outfit.BossBanker : b.Contains("courier") ? Outfit.BossCourier : b.Contains("santa") ? Outfit.BossSanta : Outfit.RaiderHeavy;
+            return b.Contains("kessler") ? Outfit.BossKessler : b.Contains("harbor") ? Outfit.BossHarbor : b.Contains("warden") ? Outfit.BossWarden : b.Contains("banker") ? Outfit.BossBanker : b.Contains("courier") ? Outfit.BossCourier : b.Contains("santa") ? Outfit.BossSanta : b.Contains("swamp") ? Outfit.BossCroc : Outfit.RaiderHeavy;
         }
 
         ItemData _gunData;
@@ -201,6 +201,7 @@ namespace Rago
             else if (b.Contains("banker")) { gun = "boss_parachute"; helmet = "boss_helm_banker"; vest = "boss_vest_banker"; }
             else if (b.Contains("courier")) { gun = "boss_tommy"; helmet = "boss_helm_courier"; vest = "boss_vest_courier"; }
             else if (b.Contains("santa")) { gun = "hailstorm"; helmet = null; vest = "vest_heavy"; }   // his hat stays on
+            else if (b.Contains("swamp")) { gun = "hailstorm"; helmet = null; vest = "vest_heavy"; }   // (3.65) the Swamp King: his crown stays on
             else { gun = "grizzly"; helmet = "helm_ronin"; vest = "vest_heavy"; }
         }
 
@@ -991,6 +992,12 @@ namespace Rago
                 var it = ItemFactory.Spawn(def.id, Rig.chest.position + Vector3.up * 0.25f + Random.insideUnitSphere * 0.2f, Random.rotation);
                 if (it != null) { it.netId = 60000 + Id * 8 + 1 + i; NetGame.I?.Register(it); }
             }
+            // (3.65) crocodiles in the Swamp sometimes drop a croc tooth (the TURN-IN board wants them)
+            if (!IsBoss && HumanRig.SwampMap && rng.Chance(0.55f))
+            {
+                var tooth = ItemFactory.Spawn(new ItemData("croc_tooth"), Rig.head.position + Vector3.up * 0.25f, Random.rotation);
+                if (tooth != null) { tooth.netId = 60000 + Id * 8 + 5; NetGame.I?.Register(tooth); }
+            }
             // a boss carries a vault keycard and a couple of valuables (their own gun and armour drop below - no pile of random guns)
             if (IsBoss)
             {
@@ -1009,6 +1016,12 @@ namespace Rago
                 {
                     var card = ItemFactory.Spawn(new ItemData("key_xmas"), Rig.chest.position + Vector3.up * 0.4f, Random.rotation);   // Evil Santa always carries a North Pole Keycard
                     if (card != null) { card.netId = 90000 + Id * 4 + 3; NetGame.I?.Register(card); }
+                }
+                // (3.65) the Swamp King always drops his crown - take it to the TURN-IN board in your bunker
+                if (BossName.ToLowerInvariant().Contains("swamp"))
+                {
+                    var crown = ItemFactory.Spawn(new ItemData("croc_crown"), Rig.head.position + Vector3.up * 0.3f, Random.rotation);
+                    if (crown != null) { crown.netId = 90000 + Id * 4 + 3; NetGame.I?.Register(crown); }
                 }
                 var pl = RagoGame.I != null ? RagoGame.I.Player : null;
                 if (pl != null && Vector3.Distance(pl.transform.position, transform.position) < 90f) pl.Toast("BOSS DOWN: " + BossName.ToUpper());

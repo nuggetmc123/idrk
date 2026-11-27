@@ -485,6 +485,9 @@ namespace Rago
             M("junk_wrench", "Rusty Wrench", ItemKind.Valuable, C, 95, 31, new Color(0.5f, 0.35f, 0.25f), "Seized up, but it's good steel.");
             // (3.64) streamer drops: only ever in the once-a-raid STREAMER BOX (sb_ ids are kept out of every other loot pool)
             M("sb_oliver", "Oliver Kicks", ItemKind.Valuable, E, 7500, 36, new Color(0.07f, 0.07f, 0.08f), "A streamer drop: OLIVER's signature high-tops - black and purple with a gold lightning bolt, OLIVER on the side and a glowing mint sole. Find the pair.");
+            // (3.65) the Swamp: the King's crown (boss drop) and croc teeth (from the crocodiles) - for the TURN-IN board in your bunker
+            M("croc_crown", "Swamp King's Crown", ItemKind.Valuable, Rarity.Boss, 12000, 38, new Color(1f, 0.78f, 0.25f), "Pulled off the Swamp King's head. Gold, spiked, set with green stones. Take it to the TURN-IN board in your bunker...");
+            M("croc_tooth", "Croc Tooth", ItemKind.Valuable, U, 260, 39, new Color(0.95f, 0.92f, 0.82f), "A crocodile's tooth, as long as your finger. The TURN-IN board in your bunker wants five.");
             M("sb_skid", "S1KDM0R3 Statue", ItemKind.Valuable, E, 9500, 37, new Color(0.05f, 0.05f, 0.06f), "A streamer drop: S1KDM0R3 - the grim reaper, hooded, scythe in hand, eyes glowing purple, on the LIVE display base. Collectors pay a fortune.");
             M("val_oways", "Oways Cereal", ItemKind.Valuable, E, 8000, 35, new Color(0.95f, 0.55f, 0.1f), "A streamer collectible: OWAYS CEREAL, the streamer's own cereal - a sealed box of crunchy rings with the LIVE sticker on the front. Collectors pay a fortune.");
             M("val_shush", "Shushed Figurine", ItemKind.Valuable, E, 9000, 33, new Color(0.08f, 0.08f, 0.09f), "A streamer collectible: SHUSHED, the operator in full Juggernaut armour, red helmet on, one finger to his lips - shhh. Collectors pay a fortune.");
@@ -636,7 +639,7 @@ namespace Rago
                     break;
             }
             // vault keycards and military radios only lie at their own spots on each map - never in crates, safes or on bodies
-            pool.RemoveAll(d => d.id.StartsWith("sb_"));   // (3.64) streamer drops: the streamer box only
+            pool.RemoveAll(d => d.id.StartsWith("sb_") || d.id.StartsWith("croc_"));   // croc_: only from the Swamp's crocodiles and their King   // (3.64) streamer drops: the streamer box only
             pool.RemoveAll(d => d.kind == ItemKind.Key || d.id == "val_radio" || d.id == "candycane" || d.id == "key_xmas" || d.id == "gift" || d.id == "gift_santa" || d.id == "cc_trophy");   // the CC trophy: only from the owner
             float total = 0;
             foreach (var d in pool) total += Weight(d.rarity, t) * (d.kind == ItemKind.Key ? 0.08f : 1f);

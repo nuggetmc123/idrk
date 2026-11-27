@@ -44,6 +44,9 @@ namespace Rago
         public int version = 1;
         public bool freeArmor;
         public float pugBowl = 0.5f;
+        public bool capybara;   // (3.65) the Swamp King's crown was turned in: Manda is a capybara now
+        public List<string> questProg = new List<string>();   // (3.65) TURN-IN board: "questId=count" for quests under way
+        public List<string> questDone = new List<string>();   // ...and the ids of the ones finished
         public List<ShopEntry> shop = new List<ShopEntry>(); public int shopNextId; public bool shopOpen;   // your black market shop (items listed, with a price or what you want)   // how full the bunker pug's bowl is (0..1)
         // callsign: name + a 4-digit tag, so no two operators ever show the same name (Discord-style)
         public int tag;

@@ -21,7 +21,7 @@ namespace Rago
             var m1 = Mats.Lit("item_metal", w, 0.9f, 0.7f, Mats.Metal, null, 0.1f, 0.2f);
             var m2 = Mats.Lit("item_cloth", w, 0f, 0.2f, Mats.Fabric, Mats.FabricN, 0.2f, 0f);
             var m3 = Mats.Lit("item_gloss", w, 0.1f, 0.92f, null, null, 0.02f, 0.02f);
-            bool gold = d.kind == ItemKind.Valuable && (d.shape == 6 || d.shape == 0 || d.shape == 18 || d.shape == 19 || d.shape == 33 || d.shape == 36);   // 33: the operator figurine's gold armour trim
+            bool gold = d.kind == ItemKind.Valuable && (d.shape == 6 || d.shape == 0 || d.shape == 18 || d.shape == 19 || d.shape == 33 || d.shape == 36 || d.shape == 38);   // 33: the operator figurine's gold armour trim
             if (gold) m1 = Mats.Gold;
             if (d.kind == ItemKind.Valuable && d.shape == 7) m1 = Mats.Unlit("diamond", new Color(0.5f, 0.85f, 1f, 0.85f));
             if (d.kind == ItemKind.Valuable && d.shape == 36)   // the OLIVER kicks: a glowing mint stripe
@@ -937,6 +937,29 @@ namespace Rago
                         Vector3 B(float t) => new Vector3(0.037f - t * 0.07f, 0.112f - t * t * 0.03f, 0.028f);
                         mb.Sub(1).Capsule(B(a0), B(a1), 0.0045f * (1f - a0 * 0.8f), 0.0045f * (1f - a1 * 0.8f), 6, blade);
                     }
+                    break;
+                }
+                case 38: // (3.65) the Swamp King's crown: a gold band, seven spikes with balls on top, green stones and a croc tooth at the front
+                {
+                    Color gold = new Color(1f, 0.78f, 0.25f), gem = new Color(0.1f, 0.8f, 0.35f);
+                    mb.Sub(1).Tube(new Vector3(0, 0f, 0), new Vector3(0, 0.045f, 0), 0.07f, 0.062f, 28, gold);
+                    mb.Sub(1).Tube(new Vector3(0, 0.0f, 0), new Vector3(0, 0.008f, 0), 0.074f, 0.06f, 28, gold * 0.85f);
+                    for (int i = 0; i < 7; i++)
+                    {
+                        float a = i / 7f * Mathf.PI * 2f; Vector3 dir = new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a));
+                        mb.Sub(1).Cyl(dir * 0.066f + Vector3.up * 0.04f, dir * 0.07f + Vector3.up * 0.085f, 0.014f, 0.002f, 6, gold);
+                        mb.Sub(1).Sphere(dir * 0.07f + Vector3.up * 0.088f, Vector3.one * 0.006f, 6, gold);
+                        mb.Sub(3).Sphere(dir * 0.072f + Vector3.up * 0.022f, new Vector3(0.009f, 0.011f, 0.009f), 8, gem);
+                    }
+                    mb.Sub(3).Cyl(new Vector3(0, 0.03f, 0.073f), new Vector3(0, -0.02f, 0.076f), 0.008f, 0.001f, 6, new Color(0.95f, 0.92f, 0.82f));   // a croc tooth hanging off the front
+                    break;
+                }
+                case 39: // (3.65) a croc tooth: a curved ivory fang with a darker root
+                {
+                    Color ivory = new Color(0.95f, 0.92f, 0.82f);
+                    mb.Sub(3).Cyl(new Vector3(0, -0.02f, 0), new Vector3(0, 0.0f, 0.002f), 0.008f, 0.009f, 8, new Color(0.6f, 0.5f, 0.38f));
+                    mb.Sub(3).Cyl(new Vector3(0, 0.0f, 0.002f), new Vector3(0, 0.02f, 0.006f), 0.009f, 0.006f, 8, ivory);
+                    mb.Sub(3).Cyl(new Vector3(0, 0.02f, 0.006f), new Vector3(0, 0.036f, 0.012f), 0.006f, 0.0008f, 8, ivory);
                     break;
                 }
                 case 34: // tennis ball: fuzzy yellow-green with the curving white seam
