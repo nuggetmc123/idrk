@@ -46,7 +46,7 @@ namespace Rago
         public static (string text, Vector3 at, float size, Color col)[] Labels(SimpleDef d)
         {
             if (d != null && d.kind == ItemKind.Valuable && d.shape == 36)   // OLIVER in gold on the side of the kicks
-                return new[] { ("OLIVER", new Vector3(-0.03f, 0.084f, 0.0535f), 0.0105f, new Color(1f, 0.82f, 0.3f)) };
+                return new[] { ("OLIVER", new Vector3(-0.012f, 0.038f, 0.0485f), 0.0095f, new Color(1f, 0.84f, 0.35f)) };
             if (d != null && d.kind == ItemKind.Med && d.shape == 5)
                 return new[] { ("NUKE", new Vector3(0, 0.0115f, 0.0338f), 0.016f, new Color(0.45f, 1f, 0.15f)), ("COLA", new Vector3(0, 0.0005f, 0.0338f), 0.008f, Color.white), ("mildly radioactive", new Vector3(0, -0.037f, 0.0338f), 0.0033f, new Color(0.75f, 0.75f, 0.75f)) };
             if (d != null && d.kind == ItemKind.Med && (d.shape == 6 || d.shape == 7))
@@ -880,63 +880,159 @@ namespace Rago
                     }
                     break;
                 }
-                case 36: // (3.64) OLIVER KICKS (a streamer item): a chunky high-top - white sole with a glowing mint stripe, black upper,
-                         // purple side panels, a gold lightning bolt on each side, white laces, a red tongue tab and heel pull. Toe at +x.
+                case 36: // (3.67) OLIVER KICKS (a streamer item): a proper high-top sneaker built from smooth surfaces - a rounded
+                         // white cupsole with a glowing mint stripe, a black upper with purple side panels that follow its curve,
+                         // a gold lightning bolt, crossed white laces, a padded purple collar, red tongue tab and heel pull. Toe at +x.
                 {
-                    Color sole = new Color(0.95f, 0.95f, 0.93f), mint = new Color(0.25f, 1f, 0.75f), upper = new Color(0.07f, 0.07f, 0.08f),
-                          panel = new Color(0.45f, 0.18f, 0.85f), gold = new Color(1f, 0.78f, 0.25f), red = new Color(0.9f, 0.1f, 0.12f);
-                    mb.Sub(0).Box(new Vector3(0, 0.014f, 0), new Vector3(0.29f, 0.028f, 0.105f), sole, 0.012f, 3);                  // sole
-                    mb.Sub(4).Box(new Vector3(0, 0.031f, 0), new Vector3(0.284f, 0.007f, 0.107f), mint, 0.003f);                     // glowing midsole stripe
-                    for (int i = 0; i < 7; i++) mb.Sub(0).Box(new Vector3(-0.12f + i * 0.04f, 0.002f, 0), new Vector3(0.012f, 0.004f, 0.1f), sole * 0.8f, 0.001f);   // tread
-                    mb.Sub(3).Sphere(new Vector3(0.095f, 0.045f, 0), new Vector3(0.055f, 0.032f, 0.05f), 16, sole, 0f, 0.5f);         // rubber toe cap
-                    mb.Sub(2).Box(new Vector3(-0.005f, 0.066f, 0), new Vector3(0.2f, 0.07f, 0.096f), upper, 0.028f, 3);               // the upper
-                    mb.Sub(2).Cyl(new Vector3(-0.075f, 0.07f, 0), new Vector3(-0.072f, 0.14f, 0), 0.05f, 0.046f, 18, upper);          // high-top ankle
-                    mb.Sub(3).Tube(new Vector3(-0.072f, 0.135f, 0), new Vector3(-0.071f, 0.148f, 0), 0.05f, 0.036f, 18, panel);        // padded collar
+                    Color sole = new Color(0.95f, 0.95f, 0.93f), mint = new Color(0.25f, 1f, 0.75f), upper = new Color(0.06f, 0.06f, 0.07f),
+                          panel = new Color(0.46f, 0.2f, 0.88f), gold = new Color(1f, 0.78f, 0.25f), red = new Color(0.88f, 0.1f, 0.13f), lining = new Color(0.03f, 0.025f, 0.035f);
+                    const float L = 0.29f;
+                    float X(float t) => -L / 2 + t * L;                     // t: 0 heel .. 1 toe
+                    float W(float t)                                         // half-width of the footprint
+                    {
+                        float w = Mathf.Lerp(0.038f, 0.049f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.1f, 0.72f, t)));
+                        if (t > 0.72f) w *= Mathf.Sqrt(Mathf.Max(0f, 1f - Mathf.Pow((t - 0.72f) / 0.28f, 2f)));
+                        if (t < 0.16f) w *= Mathf.Sqrt(Mathf.Max(0f, 1f - Mathf.Pow((0.16f - t) / 0.16f, 2f)));
+                        return Mathf.Max(w, 0.0005f);
+                    }
+                    float H(float t) => t > 0.55f ? Mathf.Lerp(0.082f, 0.05f, (t - 0.55f) / 0.45f) : Mathf.Lerp(0.075f, 0.082f, t / 0.55f);   // top of the upper
+                    float E(float x, float e) => Mathf.Sign(x) * Mathf.Pow(Mathf.Abs(x), e);
+                    // the cupsole: a rounded slab round the whole footprint
+                    Vector3 Sole(int i, int j, float y0, float y1, float grow, int nu, int nv)
+                    {
+                        float t = j / (float)nv, a = i / (float)nu * Mathf.PI * 2f;
+                        float w = W(t) + grow;
+                        return new Vector3(X(t) + (t == 0f ? -grow : t == 1f ? grow : 0f), Mathf.Lerp(y0, y1, 0.5f + 0.5f * E(Mathf.Sin(a), 0.25f)), w * E(Mathf.Cos(a), 0.35f));
+                    }
+                    mb.Sub(0).Patch(24, 40, (i, j) => Sole(i, j, 0f, 0.032f, 0.006f, 24, 40), sole, true);
+                    mb.Sub(4).Patch(24, 40, (i, j) => Sole(i, j, 0.021f, 0.027f, 0.0072f, 24, 40), Color.white, true);   // glowing mint stripe
+                    // the upper: a half-superellipse over the foot
+                    Vector3 Up(float t, float a, float grow)
+                    {
+                        float w = W(t) * 0.96f + grow, h = H(t) - 0.03f + grow;
+                        return new Vector3(X(t), 0.03f + h * E(Mathf.Sin(a), 0.7f), w * E(Mathf.Cos(a), 0.55f));
+                    }
+                    mb.Sub(2).Patch(24, 40, (i, j) => Up(j / 40f, i / 24f * Mathf.PI, 0f), upper);
+                    // purple side panels and heel counter, laid over the upper
+                    foreach (float side in new[] { 0f, 1f })
+                        mb.Sub(3).Patch(8, 22, (i, j) => { float a = side == 0f ? i / 8f * 0.75f : Mathf.PI - i / 8f * 0.75f; return Up(Mathf.Lerp(0.2f, 0.74f, j / 22f), a, 0.0012f); }, panel, false, side == 1f);
+                    mb.Sub(3).Patch(24, 6, (i, j) => { var v = Up(j / 6f * 0.14f, i / 24f * Mathf.PI, 0.0015f); v.y = 0.03f + (v.y - 0.03f) * 0.55f; return v; }, panel);   // heel counter (low, under the shaft)
+                    mb.Sub(0).Patch(24, 8, (i, j) => Up(0.86f + j / 8f * 0.14f, i / 24f * Mathf.PI, 0.0015f), sole);   // white rubber toe cap
+                    // the gold lightning bolt on each side (two convex pieces)
                     foreach (float sz in new[] { 1f, -1f })
                     {
-                        mb.Sub(3).Box(new Vector3(-0.025f, 0.062f, sz * 0.049f), new Vector3(0.17f, 0.046f, 0.004f), panel, 0.002f);   // side panel
-                        // the lightning bolt
-                        mb.Sub(1).Box(new Vector3(0.005f, 0.072f, sz * 0.0515f), new Vector3(0.05f, 0.01f, 0.002f), gold, 0.001f, 1, Quaternion.Euler(0, 0, 28f));
-                        mb.Sub(1).Box(new Vector3(-0.02f, 0.06f, sz * 0.0515f), new Vector3(0.03f, 0.009f, 0.002f), gold, 0.001f);
-                        mb.Sub(1).Box(new Vector3(-0.045f, 0.05f, sz * 0.0515f), new Vector3(0.05f, 0.01f, 0.002f), gold, 0.001f, 1, Quaternion.Euler(0, 0, 28f));
-                        for (int i = 0; i < 5; i++) mb.Sub(1).Sphere(new Vector3(0.045f - i * 0.022f, 0.101f - i * 0.004f, sz * 0.03f), Vector3.one * 0.0035f, 6, gold);   // eyelets
+                        float zz = sz * (W(0.45f) * 0.96f + 0.0035f);
+                        mb.Push(new Vector3(0, 0, zz), Quaternion.Euler(0, sz > 0 ? 90f : -90f, 0));
+                        float f = sz > 0 ? 1f : -1f;   // keep it pointing the same way (toe-ward) on both sides
+                        mb.Sub(1).Extrude(new[] { new Vector2(f * -0.062f, 0.056f), new Vector2(f * 0.004f, 0.066f), new Vector2(f * 0.006f, 0.046f) }, 0.002f, gold, 0.0005f);
+                        mb.Sub(1).Extrude(new[] { new Vector2(f * -0.004f, 0.062f), new Vector2(f * 0.064f, 0.05f), new Vector2(f * 0.002f, 0.041f) }, 0.002f, gold, 0.0005f);
+                        mb.Pop();
                     }
-                    for (int i = 0; i < 5; i++) mb.Sub(2).Box(new Vector3(0.045f - i * 0.022f, 0.104f - i * 0.004f, 0), new Vector3(0.007f, 0.006f, 0.064f), sole, 0.002f);   // laces
-                    mb.Sub(2).Box(new Vector3(-0.035f, 0.135f, 0), new Vector3(0.03f, 0.06f, 0.05f), red, 0.01f, 2, Quaternion.Euler(0, 0, -20f));   // tongue
-                    mb.Sub(2).Box(new Vector3(-0.124f, 0.13f, 0), new Vector3(0.012f, 0.05f, 0.026f), red, 0.004f);                                  // heel pull tab
-                    mb.Sub(4).Box(new Vector3(-0.142f, 0.03f, 0), new Vector3(0.006f, 0.02f, 0.05f), mint, 0.002f);                                  // glowing heel window
+                    // the high-top: a padded ankle collar with a dark lining and a red pull tab at the back
+                    // an oval shaft rising out of the heel of the upper, leaning back a touch, rolled over into a padded collar
+                    float ax = X(0.2f);
+                    Vector3 Shaft(float a, float h, float grow)
+                    {
+                        float rx = Mathf.Lerp(0.05f, 0.043f, h) + grow, rz = Mathf.Lerp(W(0.2f) * 0.96f, 0.036f, h) + grow;
+                        return new Vector3(ax - h * 0.01f + rx * E(Mathf.Cos(a), 0.8f), Mathf.Lerp(0.04f, 0.128f, h), rz * E(Mathf.Sin(a), 0.8f));
+                    }
+                    mb.Sub(2).Patch(28, 10, (i, j) => Shaft(i / 28f * Mathf.PI * 2f, j / 10f, 0f), upper, true);
+                    mb.Sub(3).Patch(28, 6, (i, j) => { float a = i / 28f * Mathf.PI * 2f, b = j / 6f * Mathf.PI; var c = Shaft(a, 1f, -0.003f); var o = Shaft(a, 1f, 0f) - new Vector3(ax - 0.01f, 0.128f, 0); o.y = 0; o = o.normalized;
+                        return c + o * (0.009f * (1f - Mathf.Cos(b)) * 0.5f) + Vector3.up * (0.0085f * Mathf.Sin(b)); }, panel, true);   // padded collar roll
+                    mb.Sub(0).Patch(28, 1, (i, j) => { var q = Shaft(i / 28f * Mathf.PI * 2f, 1f, -0.006f); return j == 0 ? q + Vector3.down * 0.004f : new Vector3(ax - 0.01f, 0.124f, 0); }, lining, true, false);   // the dark opening
+                    mb.Sub(2).Box(new Vector3(ax - 0.054f, 0.118f, 0), new Vector3(0.01f, 0.036f, 0.02f), red, 0.004f, 2, Quaternion.Euler(0, 0, -8f));   // heel pull tab
+                    // the tongue, rising out of the laces at the front of the collar, with a red tab
+                    mb.Sub(2).Box(new Vector3(ax + 0.05f, 0.104f, 0), new Vector3(0.01f, 0.045f, 0.052f), upper, 0.005f, 2, Quaternion.Euler(0, 0, 30f));
+                    mb.Sub(3).Box(new Vector3(ax + 0.04f, 0.124f, 0), new Vector3(0.008f, 0.014f, 0.026f), red, 0.003f, 2, Quaternion.Euler(0, 0, 30f));
+                    // crossed laces and gold eyelets down the instep
+                    for (int k = 0; k < 5; k++)
+                    {
+                        float t0 = 0.42f + k * 0.06f, t1 = t0 + 0.06f;
+                        float y0 = H(t0) + 0.003f, y1 = H(t1) + 0.003f, w0 = W(t0) * 0.42f, w1 = W(t1) * 0.42f;
+                        mb.Sub(0).Capsule(new Vector3(X(t0), y0, -w0), new Vector3(X(t1), y1, w1), 0.0028f, 6, sole);
+                        mb.Sub(0).Capsule(new Vector3(X(t0), y0, w0), new Vector3(X(t1), y1, -w1), 0.0028f, 6, sole);
+                        foreach (float sz in new[] { -1f, 1f }) mb.Sub(1).Sphere(new Vector3(X(t0), y0 - 0.002f, sz * w0 * 1.15f), Vector3.one * 0.0038f, 6, gold);
+                    }
                     break;
                 }
-                case 37: // (3.64) S1KDM0R3 (a streamer item): a grim reaper statue - hooded black robe, a skull with glowing purple
-                         // eyes in the hood, bony hands on a long scythe - on the LIVE display base
+                case 37: // (3.67) S1KDM0R3 (a streamer item): the grim reaper - a flowing black robe with deep folds and a purple
+                         // sash, a deep open hood with a bone skull inside and glowing purple eyes, bony hands gripping a long
+                         // scythe with a curved steel blade - on the LIVE display base
                 {
                     DisplayBase(mb, -0.083f, 0.046f);
-                    Color robe = new Color(0.05f, 0.05f, 0.06f), robe2 = new Color(0.1f, 0.09f, 0.12f), bone = new Color(0.9f, 0.87f, 0.78f), wood = new Color(0.25f, 0.16f, 0.1f), blade = new Color(0.75f, 0.77f, 0.8f);
-                    mb.Sub(2).Lathe(Vector3.zero, Quaternion.identity, new List<Vector2> { new Vector2(0f, -0.083f), new Vector2(0.04f, -0.083f), new Vector2(0.041f, -0.078f), new Vector2(0.034f, -0.045f), new Vector2(0.027f, -0.01f), new Vector2(0.025f, 0.02f), new Vector2(0.028f, 0.035f), new Vector2(0.022f, 0.045f), new Vector2(0f, 0.047f) }, 28, robe);   // the robe
-                    for (int i = 0; i < 6; i++) { float a = i * 60f * Mathf.Deg2Rad; mb.Sub(2).Capsule(new Vector3(Mathf.Cos(a) * 0.036f, -0.078f, Mathf.Sin(a) * 0.036f), new Vector3(Mathf.Cos(a) * 0.026f, -0.02f, Mathf.Sin(a) * 0.026f), 0.004f, 0.003f, 6, robe2); }   // folds
-                    mb.Sub(2).Sphere(new Vector3(0, 0.06f, -0.002f), new Vector3(0.027f, 0.032f, 0.029f), 16, robe);       // the hood
-                    mb.Sub(0).Sphere(new Vector3(0, 0.056f, 0.012f), new Vector3(0.019f, 0.023f, 0.018f), 14, Black);      // the dark inside of the hood
-                    mb.Sub(3).Sphere(new Vector3(0, 0.054f, 0.016f), new Vector3(0.012f, 0.014f, 0.011f), 14, bone);       // skull
-                    mb.Sub(3).Box(new Vector3(0, 0.043f, 0.02f), new Vector3(0.012f, 0.006f, 0.006f), bone, 0.002f);      // jaw
+                    Color robe = new Color(0.03f, 0.03f, 0.035f), robeIn = new Color(0.01f, 0.01f, 0.012f), sash = new Color(0.32f, 0.08f, 0.5f), bone = new Color(0.9f, 0.86f, 0.74f), wood = new Color(0.22f, 0.14f, 0.09f), steel = new Color(0.78f, 0.8f, 0.84f);
+                    // the robe: a flared body with folds, wider at the hem
+                    Vector3 Robe(float a, float t, float grow)   // t: 0 hem .. 1 shoulders
+                    {
+                        float y = Mathf.Lerp(-0.082f, 0.036f, t);
+                        float r = Mathf.Lerp(0.04f, 0.024f, Mathf.Pow(t, 0.8f)) * (1f + (0.09f - t * 0.07f) * Mathf.Sin(a * 9f)) * (t > 0.85f ? Mathf.Lerp(1f, 0.85f, (t - 0.85f) / 0.15f) : 1f) + grow;
+                        return new Vector3(Mathf.Sin(a) * r * 1.05f, y + (t < 0.05f ? 0.002f * Mathf.Sin(a * 5f) : 0f), Mathf.Cos(a) * r * 0.9f);
+                    }
+                    mb.Sub(2).Patch(40, 20, (i, j) => Robe(i / 40f * Mathf.PI * 2f, j / 20f, 0f), robe, true);
+                    mb.Sub(0).Patch(40, 2, (i, j) => Robe(i / 40f * Mathf.PI * 2f, 0.58f + j * 0.04f, 0.0035f), sash, true, true);   // purple sash, hugging the robe
+                    var knot = Robe(0.5f, 0.62f, 0.0016f);
+                    mb.Sub(3).Sphere(knot, new Vector3(0.004f, 0.004f, 0.003f), 8, sash);
+                    mb.Sub(3).Box(knot + new Vector3(0.001f, -0.011f, 0.001f), new Vector3(0.005f, 0.02f, 0.0025f), sash, 0.001f, 1, Quaternion.Euler(0, 30f, -6f));   // its hanging end
+                    // shoulders / cape over them
+                    mb.Sub(2).Sphere(new Vector3(0, 0.036f, -0.002f), new Vector3(0.034f, 0.016f, 0.025f), 18, robe);
+                    // the hood: a deep cowl, open at the front, with a black inside and the skull looking out of it
+                    mb.Sub(2).Patch(30, 16, (i, j) =>
+                    {
+                        float a = Mathf.Lerp(0.42f, Mathf.PI * 2f - 0.42f, i / 30f), b = j / 16f * Mathf.PI;   // a round (skipping the front), b up from the chin
+                        float r = 0.028f + 0.004f * Mathf.Sin(b);
+                        return new Vector3(Mathf.Sin(a) * Mathf.Sin(b) * r, 0.044f + (1f - Mathf.Cos(b)) * 0.022f + (b > 2.6f ? (b - 2.6f) * 0.012f : 0f), Mathf.Cos(a) * Mathf.Sin(b) * r * 1.1f - (b > 2.6f ? (b - 2.6f) * 0.01f : 0f));
+                    }, robe);
+                    mb.Sub(0).Sphere(new Vector3(0, 0.066f, -0.004f), new Vector3(0.022f, 0.024f, 0.022f), 14, robeIn);   // the dark inside
+                    // the skull
+                    mb.Sub(3).Sphere(new Vector3(0, 0.068f, 0.012f), new Vector3(0.0145f, 0.016f, 0.0145f), 16, bone);
+                    mb.Sub(3).Box(new Vector3(0, 0.054f, 0.017f), new Vector3(0.016f, 0.008f, 0.011f), bone, 0.003f, 2);   // jaw
+                    for (int k = 0; k < 4; k++) mb.Sub(0).Box(new Vector3(-0.0045f + k * 0.003f, 0.0565f, 0.0226f), new Vector3(0.0012f, 0.0035f, 0.001f), robeIn, 0f);   // teeth gaps
+                    mb.Sub(0).Box(new Vector3(0, 0.063f, 0.0262f), new Vector3(0.003f, 0.004f, 0.002f), robeIn, 0.001f);   // nose hole
                     foreach (float sx in new[] { -1f, 1f })
                     {
-                        mb.Sub(0).Sphere(new Vector3(sx * 0.0045f, 0.056f, 0.0255f), Vector3.one * 0.0035f, 8, Black);    // eye sockets
-                        mb.Sub(4).Sphere(new Vector3(sx * 0.0045f, 0.056f, 0.0272f), Vector3.one * 0.0018f, 8, Color.white);   // glowing eyes
+                        mb.Sub(0).Sphere(new Vector3(sx * 0.0058f, 0.0695f, 0.0235f), new Vector3(0.0045f, 0.0042f, 0.003f), 10, robeIn);   // eye sockets
+                        mb.Sub(4).Sphere(new Vector3(sx * 0.0058f, 0.0695f, 0.0262f), Vector3.one * 0.0018f, 8, Color.white);           // glowing eyes
                     }
-                    // arms in wide sleeves, bony hands gripping the scythe on the right
-                    mb.Sub(2).Capsule(new Vector3(-0.024f, 0.03f, 0.004f), new Vector3(-0.03f, 0.0f, 0.022f), 0.009f, 0.012f, 10, robe2);
-                    mb.Sub(2).Capsule(new Vector3(0.024f, 0.03f, 0.004f), new Vector3(0.03f, 0.012f, 0.024f), 0.009f, 0.012f, 10, robe2);
-                    mb.Sub(3).Sphere(new Vector3(-0.03f, -0.006f, 0.026f), new Vector3(0.006f, 0.007f, 0.006f), 8, bone);
-                    mb.Sub(3).Sphere(new Vector3(0.032f, 0.006f, 0.028f), new Vector3(0.006f, 0.007f, 0.006f), 8, bone);
-                    for (int f = 0; f < 3; f++) mb.Sub(3).Capsule(new Vector3(0.034f, 0.003f + f * 0.004f, 0.031f), new Vector3(0.038f, 0.002f + f * 0.004f, 0.026f), 0.0012f, 5, bone);   // finger bones
-                    // the scythe: a long staff and a curved blade at the top
-                    mb.Sub(1).Cyl(new Vector3(0.037f, -0.082f, 0.028f), new Vector3(0.037f, 0.115f, 0.028f), 0.0024f, 0.0022f, 8, wood);
-                    for (int i = 0; i < 8; i++)
+                    // wide bell sleeves and bony hands: the right hand up on the scythe, the left lower down it
+                    Vector3 staffX = new Vector3(0.042f, 0, 0.026f);
+                    // the left arm hangs at its side, a bony hand reaching out of the sleeve
                     {
-                        float a0 = i / 8f, a1 = (i + 1) / 8f;
-                        Vector3 B(float t) => new Vector3(0.037f - t * 0.07f, 0.112f - t * t * 0.03f, 0.028f);
-                        mb.Sub(1).Capsule(B(a0), B(a1), 0.0045f * (1f - a0 * 0.8f), 0.0045f * (1f - a1 * 0.8f), 6, blade);
+                        Vector3 sh = new Vector3(-0.028f, 0.032f, 0.0f), cuff = new Vector3(-0.037f, 0.0f, 0.008f);
+                        mb.Sub(2).Cyl(sh, cuff, 0.009f, 0.013f, 14, robe);
+                        mb.Sub(0).Cyl(cuff - (cuff - sh).normalized * 0.001f, cuff + (cuff - sh).normalized * 0.0005f, 0.0115f, 0.0115f, 14, robeIn);
+                        Vector3 h = cuff + new Vector3(-0.001f, -0.006f, 0.002f);
+                        mb.Sub(3).Sphere(h, new Vector3(0.0045f, 0.0055f, 0.004f), 8, bone);
+                        for (int f = 0; f < 4; f++) mb.Sub(3).Capsule(h + new Vector3(-0.003f + f * 0.002f, -0.003f, 0.002f), h + new Vector3(-0.004f + f * 0.0024f, -0.012f, 0.005f), 0.001f, 5, bone);   // long finger bones
                     }
+                    foreach (var (sh, hand) in new[] { (new Vector3(0.028f, 0.032f, 0.0f), new Vector3(0.038f, 0.014f, 0.024f)) })
+                    {
+                        Vector3 cuff = Vector3.Lerp(sh, hand, 0.8f);
+                        mb.Sub(2).Cyl(sh, cuff, 0.009f, 0.013f, 14, robe);
+                        mb.Sub(0).Cyl(cuff - (cuff - sh).normalized * 0.001f, cuff + (cuff - sh).normalized * 0.0005f, 0.0115f, 0.0115f, 14, robeIn);   // the dark inside of the sleeve
+                        Vector3 h = new Vector3(staffX.x, hand.y, staffX.z);
+                        mb.Sub(3).Sphere(h + new Vector3(-0.004f, 0, -0.001f), new Vector3(0.005f, 0.006f, 0.005f), 8, bone);   // knuckles
+                        for (int f = 0; f < 4; f++)
+                        {
+                            float fy = h.y + 0.0035f - f * 0.0025f;
+                            mb.Sub(3).Capsule(new Vector3(h.x - 0.004f, fy, h.z + 0.003f), new Vector3(h.x + 0.001f, fy, h.z + 0.005f), 0.0011f, 5, bone);
+                            mb.Sub(3).Capsule(new Vector3(h.x + 0.001f, fy, h.z + 0.005f), new Vector3(h.x + 0.004f, fy, h.z + 0.001f), 0.001f, 5, bone);   // wrapped round the staff
+                        }
+                    }
+                    // the scythe: a long, slightly bent wooden staff, a steel collar and a big curved blade
+                    Vector3 S(float t) => new Vector3(staffX.x + Mathf.Sin(t * 3f) * 0.002f, Mathf.Lerp(-0.082f, 0.128f, t), staffX.z);
+                    for (int k = 0; k < 6; k++) mb.Sub(0).Cyl(S(k / 6f), S((k + 1) / 6f), 0.0024f, 0.0023f, 8, wood, k == 0);
+                    mb.Sub(1).Cyl(S(0.97f) - Vector3.up * 0.004f, S(0.97f) + Vector3.up * 0.004f, 0.0034f, 0.0034f, 10, steel);
+                    Vector3 root = S(0.985f);
+                    Vector3 C(float t) => root + new Vector3(-0.1f * t, 0.016f * Mathf.Sin(t * Mathf.PI * 0.8f) - 0.026f * t * t, 0);
+                    mb.Sub(1).Patch(12, 24, (i, j) =>
+                    {
+                        float t = j / 24f, ph = i / 12f * Mathf.PI * 2f;
+                        Vector3 tan = (C(Mathf.Min(1f, t + 0.01f)) - C(Mathf.Max(0f, t - 0.01f))).normalized;
+                        Vector3 nIn = new Vector3(-tan.y, tan.x, 0);   // in the blade's plane, towards the inside of the curve
+                        if (nIn.y > 0) nIn = -nIn;
+                        float w = 0.017f * Mathf.Pow(1f - t, 0.75f) + 0.0006f;
+                        return C(t) + nIn * (w * (1f - Mathf.Cos(ph)) * 0.5f) + Vector3.forward * (0.0016f * Mathf.Sin(ph) * (1f - t * 0.6f));
+                    }, steel, true);
                     break;
                 }
                 case 38: // (3.65) the Swamp King's crown: a gold band, seven spikes with balls on top, green stones and a croc tooth at the front

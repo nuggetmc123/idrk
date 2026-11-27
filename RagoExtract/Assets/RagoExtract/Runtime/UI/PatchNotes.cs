@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.67", "Better streamer models", new[] {
+                "OLIVER KICKS REMADE: a real sneaker shape now - a rounded white cupsole with the glowing mint stripe, a curved black upper with purple panels following it, a gold lightning bolt, crossed white laces with gold eyelets, a padded purple high-top collar, a red tongue tab and heel pull.",
+                "S1KDM0R3 STATUE REMADE: a flowing black robe with deep folds and a purple sash, a deep open hood with a bone-white skull and glowing purple eyes, bony hands - one gripping the scythe, one hanging at its side - and a big curved steel blade.",
+            }),
             ("3.66", "Wear the Oliver Kicks", new[] {
                 "OLIVER KICKS ARE WEARABLE: hold one and pull the trigger to put them on. Your operator wears them from then on - black high-tops with purple panels, a gold bolt, white laces and a white sole with a mint stripe - and other players see them on you.",
                 "New SHOES row at the WARDROBE: switch between your combat boots and the Oliver Kicks any time (once you've put a pair on).",
