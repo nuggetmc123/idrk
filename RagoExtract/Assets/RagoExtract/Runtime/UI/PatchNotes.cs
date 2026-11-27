@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.53", "No more broken legs", new[] {
+                "Your LEGS DON'T BREAK any more, and getting shot in the leg no longer makes you limp or stops you sprinting - leg hits just do damage. (Arms can still break; a syringe still fixes them.)",
+            }),
             ("3.52", "Shared loot boxes, mags out of guns, easier pickups", new[] {
                 "LOOT BOXES WORK TOGETHER: when one player opened a box, the game told everyone else all of its loot had been taken - so the box was empty for them. Now everybody sees the same loot, and only what someone actually takes disappears.",
                 "YOUR BODY HIDES WHEN YOU LOOK DOWN: look at the ground and your own torso and legs get out of the way (they still cast a shadow, others still see you; your arms and hands stay). SETTINGS > MORE can keep it shown.",

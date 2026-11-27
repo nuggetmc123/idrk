@@ -240,7 +240,8 @@ namespace Rago
         {
             int z = ZoneOf(h);
             PartDmg[z] += dmg;
-            if (IsLimb(z) && !Broken[z] && PartDmg[z] >= PartMax[z] * 0.75f && Health - 0f > 0f)
+            bool leg = z == (int)Zone.LegL || z == (int)Zone.LegR;   // (3.53) legs never break any more (arms still can)
+            if (IsLimb(z) && !leg && !Broken[z] && PartDmg[z] >= PartMax[z] * 0.75f && Health - 0f > 0f)
             {
                 Broken[z] = true; RecomputeLimbs();
                 rig.Toast(LimbName(z) + " BROKEN - hold a syringe (stim) to it and pull the trigger");
@@ -301,12 +302,7 @@ namespace Rago
                 switch (h.part)
                 {
                     case BodyPart.Leg:
-                    {
-                        int lz = ZoneOf(h);
-                        if (!LegShot[lz] && !Broken[lz]) rig.Toast(LimbName(lz) + " SHOT - you're limping and can't sprint (a syringe on that leg fixes it)");
-                        LegShot[lz] = true; RecomputeLimbs();
-                        break;
-                    }
+                        break;   // (3.53) a leg hit just hurts: no more broken legs, limping or losing your sprint
                     case BodyPart.Arm:
                         if (ArmInjury <= 0f) rig.Toast("ARM HIT - your aim shakes (medkit; hit it more and it breaks)");
                         ArmInjury = Mathf.Min(1f, ArmInjury + 0.4f);
