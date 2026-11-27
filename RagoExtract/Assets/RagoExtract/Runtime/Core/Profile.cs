@@ -44,6 +44,7 @@ namespace Rago
         public int version = 1;
         public bool freeArmor;
         public float pugBowl = 0.5f;
+        public bool oliverKicks;   // (3.66) put on a pair of Oliver Kicks: the wardrobe has them as SHOES
         public bool capybara;   // (3.65) the Swamp King's crown was turned in: Manda is a capybara now
         public List<string> questProg = new List<string>();   // (3.65) TURN-IN board: "questId=count" for quests under way
         public List<string> questDone = new List<string>();   // ...and the ids of the ones finished

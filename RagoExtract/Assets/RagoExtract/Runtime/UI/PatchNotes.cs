@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.66", "Wear the Oliver Kicks", new[] {
+                "OLIVER KICKS ARE WEARABLE: hold one and pull the trigger to put them on. Your operator wears them from then on - black high-tops with purple panels, a gold bolt, white laces and a white sole with a mint stripe - and other players see them on you.",
+                "New SHOES row at the WARDROBE: switch between your combat boots and the Oliver Kicks any time (once you've put a pair on).",
+            }),
             ("3.65", "The Swamp", new[] {
                 "NEW MAP - THE SWAMP: a flooded bayou. Wade knee-deep through murky water between grassy islands, rickety boardwalks, moss-hung cypress trees, reeds and half-sunk boats. Stilt shacks to loot, and the old BAIT & TACKLE on the north island.",
                 "EVERY RAIDER IN THE SWAMP IS A CROCODILE: scaly green hide, long toothy snouts, yellow eyes and a tail dragging behind. Heavies wear armour plates.",

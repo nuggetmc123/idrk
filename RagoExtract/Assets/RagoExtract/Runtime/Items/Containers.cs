@@ -178,6 +178,7 @@ namespace Rago
                 case ItemKind.Valuable when def.id == "cc_trophy": it = TrophyItem.Create((SimpleDef)def, pos, rot); break;
                 case ItemKind.Valuable when def.id == "cc_cam": it = CamItem.Create((SimpleDef)def, pos, rot); break;
                 case ItemKind.Valuable when def.id == "nvg": it = NvgItem.Create((SimpleDef)def, pos, rot); break;
+                case ItemKind.Valuable when def.id == "sb_oliver": it = Simple<KicksItem>((SimpleDef)def, pos, rot); break;
                 case ItemKind.Throwable: it = Grenade.Create((SimpleDef)def, pos, rot); break;
                 case ItemKind.Melee: it = Knife.Create((SimpleDef)def, pos, rot); break;
                 case ItemKind.Armor: it = ArmorItem.Create((ArmorDef)def, pos, rot); break;

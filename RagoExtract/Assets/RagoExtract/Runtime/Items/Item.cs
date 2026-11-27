@@ -493,4 +493,29 @@ namespace Rago
             return base.TrySlot(h);
         }
     }
+
+    /// <summary>(3.66) OLIVER KICKS: hold one and pull the trigger to PUT THEM ON - your operator wears them from now on
+    /// (other players see them), and the wardrobe's SHOES row switches between them and your boots.</summary>
+    public class KicksItem : LootItem
+    {
+        float _t;
+        public override void HeldUpdate(Hand h, HandInput input)
+        {
+            if (!input.TriggerDown || Time.time < _t) return;
+            _t = Time.time + 1f;
+            var p = Profile.Current; var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (p == null || pl == null) return;
+            p.oliverKicks = true;
+            var l = Cosmetics.Decode(p.look); l.shoes = 1; p.look = Cosmetics.Encode(l);
+            p.Save();
+            Sfx.Play(Synth.Zipper(), transform.position, 0.5f, 1.2f, 0.5f, 6f);
+            h.Haptic(0.5f, 0.12f);
+            pl.Toast("OLIVER KICKS on - switch shoes any time at the WARDROBE");
+            if (pl.Body != null && !pl.Dead) pl.Body.Revive();   // you, in your new kicks
+            if (NetGame.Live) NetGame.I.Announce();               // and everyone else sees them
+            Consumed = true;
+            h.ForceRelease();
+            Destroy(gameObject);
+        }
+    }
 }

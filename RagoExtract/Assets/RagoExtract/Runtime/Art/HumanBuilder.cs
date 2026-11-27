@@ -788,9 +788,33 @@ namespace Rago
                 Ball(mb, new Vector3(0, 0, r.shin), 0.04f); // ankle
                 if (o == Outfit.Operator || o == Outfit.RaiderHeavy) mb.Sub(HARD).Box(new Vector3(0, 0.06f, 0.03f), new Vector3(0.09f, 0.04f, 0.09f), p.gear2, 0.015f, 2); // knee pad - on the front of the knee (it used to sit behind it)
                 GarbShin(mb, g, r.shin);
-                if (soldier) mb.Sub(HARD).Cyl(new Vector3(0, 0, r.shin - 0.12f), new Vector3(0, 0, r.shin - 0.02f), 0.056f, 0.052f, 12, p.boots, false); // boot shaft
+                bool kicks = p.dressed && p.look.shoes == 1;   // (3.66) OLIVER KICKS
+                if (kicks)
+                {
+                    mb.Sub(CLOTH).Cyl(new Vector3(0, 0, r.shin - 0.09f), new Vector3(0, 0, r.shin - 0.0f), 0.057f, 0.055f, 12, new Color(0.03f, 0.03f, 0.035f), false);   // black high-top
+                    mb.Sub(HARD).Cyl(new Vector3(0, 0, r.shin - 0.1f), new Vector3(0, 0, r.shin - 0.085f), 0.059f, 0.059f, 12, new Color(0.25f, 0.06f, 0.62f), false);   // purple padded collar
+                }
+                else if (soldier) mb.Sub(HARD).Cyl(new Vector3(0, 0, r.shin - 0.12f), new Vector3(0, 0, r.shin - 0.02f), 0.056f, 0.052f, 12, p.boots, false); // boot shaft
                 mb.Build("Mesh", sh, mats);
                 mb = new MB(4);
+                if (kicks)
+                {
+                    // (3.66) OLIVER KICKS: white sole with a mint stripe, black upper, purple side panels, a gold bolt, white laces
+                    Color w = new Color(0.92f, 0.92f, 0.9f), mint = new Color(0.12f, 0.85f, 0.5f), up = new Color(0.03f, 0.03f, 0.035f), pur = new Color(0.25f, 0.06f, 0.62f), gld = new Color(0.95f, 0.6f, 0.12f);
+                    mb.Sub(HARD).Box(new Vector3(0, -0.06f, 0.064f), new Vector3(0.104f, 0.225f, 0.026f), w, 0.01f, 2);       // sole
+                    mb.Sub(HARD).Box(new Vector3(0, -0.06f, 0.049f), new Vector3(0.107f, 0.228f, 0.008f), mint, 0.003f);       // stripe
+                    mb.Sub(CLOTH).Box(new Vector3(0, -0.05f, 0.02f), new Vector3(0.097f, 0.2f, 0.06f), up, 0.026f, 3);           // upper
+                    mb.Sub(HARD).Sphere(new Vector3(0, -0.15f, 0.04f), new Vector3(0.05f, 0.035f, 0.03f), 10, w, 0f, 0.5f);      // toe cap
+                    foreach (float sx in new[] { -1f, 1f })
+                    {
+                        mb.Sub(CLOTH).Box(new Vector3(sx * 0.049f, -0.04f, 0.025f), new Vector3(0.004f, 0.14f, 0.04f), pur, 0.002f);
+                        mb.Sub(HARD).Box(new Vector3(sx * 0.0515f, -0.04f, 0.022f), new Vector3(0.002f, 0.07f, 0.008f), gld, 0.001f, 1, Quaternion.Euler(28f, 0, 0));   // the bolt
+                    }
+                    for (int k = 0; k < 4; k++) mb.Sub(CLOTH).Box(new Vector3(0, -0.02f - k * 0.025f, -0.011f), new Vector3(0.06f, 0.006f, 0.006f), w, 0.001f);   // laces
+                    mb.Sub(CLOTH).Box(new Vector3(0, 0.045f, 0.03f), new Vector3(0.026f, 0.02f, 0.05f), new Color(0.75f, 0.06f, 0.08f), 0.005f);   // red heel tab
+                    mb.Build("Mesh", ft, mats);
+                    continue;
+                }
                 Color footCol = soldier ? p.boots : body;
                 mb.Sub(soldier ? HARD : SKIN).Box(new Vector3(0, -0.055f, 0.035f), new Vector3(0.095f, 0.2f, 0.07f), footCol, 0.032f, 3);
                 mb.Sub(JOINT).Box(new Vector3(0, -0.055f, 0.071f), new Vector3(0.1f, 0.205f, 0.01f), JointCol, 0.004f);
