@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.68", "Streamer items that pop", new[] {
+                "OLIVER KICKS: glossy patent-leather upper in deep purple-black, bright violet panels with glowing violet piping, a GLOWING gold lightning bolt and gold eyelets, a glowing violet band round the ankle, a brighter mint sole stripe and a hot red tongue tab and heel pull.",
+                "S1KDM0R3: glowing violet eyes, a glowing violet hem and sleeve cuffs, a bright purple sash, and a mirror-chrome scythe blade with a glowing violet edge.",
+            }),
             ("3.67", "Better streamer models", new[] {
                 "OLIVER KICKS REMADE: a real sneaker shape now - a rounded white cupsole with the glowing mint stripe, a curved black upper with purple panels following it, a gold lightning bolt, crossed white laces with gold eyelets, a padded purple high-top collar, a red tongue tab and heel pull.",
                 "S1KDM0R3 STATUE REMADE: a flowing black robe with deep folds and a purple sash, a deep open hood with a bone-white skull and glowing purple eyes, bony hands - one gripping the scythe, one hanging at its side - and a big curved steel blade.",
