@@ -677,9 +677,17 @@ namespace Rago
 
         public override bool CanGrab(Hand h)
         {
-            // a mag in a gun someone is holding stays in: drop it with the mag release (B / Y). Otherwise your support hand
-            // would pull it out every time it came near the magwell. Mags in guns lying around can be pulled out by hand.
-            if (inGun != null && inGun.Held) return false;
+            // (3.52) pull the mag out of a gun you're holding with your free hand - grab it LOW, toward its base plate (up by
+            // the magwell is where your support hand goes to hold the gun, and that mustn't yank it out). On a pistol your
+            // support hand cups right under the mag, so there it takes grip AND trigger together. The mag release (B / Y)
+            // still drops it too, and mags in guns lying around come out by hand as before.
+            if (inGun != null && inGun.Held)
+            {
+                if (h == null || inGun.primaryHand == h || inGun.secondaryHand == h) return false;
+                if (!inGun.g.TwoHanded && XRInputs.VR && h.Input.Trigger < 0.5f) return false;
+                Vector3 lp = transform.InverseTransformPoint(h.Anchor.position);
+                if (lp.y > Mathf.Lerp(localBounds.min.y, localBounds.max.y, 0.6f)) return false;
+            }
             return true;
         }
 

@@ -1366,9 +1366,9 @@ namespace Rago
                 if (NetGame.Taken(10000 + index * 16 + i)) continue;   // another player already took it
                 var it = ItemFactory.Spawn(d, _box.slots[i].transform.position, transform.rotation);
                 if (it == null) continue;
+                _box.slots[i].Store(it, false);   // (3.52) into its slot BEFORE it gets its shared id: storing an item with an id tells everyone it was taken, so the first player to open a box emptied it for everybody else
                 it.netId = 10000 + index * 16 + i;
                 NetGame.I?.Register(it);
-                _box.slots[i].Store(it, false);
             }
             // Christmas (and always on the North Pole): crates often hold a small present - shake it open
             if (_map != null && (Festive.On || _map.Id == "northpole" || LiveEvent.Is(LiveEvent.Presents)) && kind != Kind.Present && rng.Chance(LiveEvent.Is(LiveEvent.Presents) ? 0.75f : _map.Id == "northpole" ? 0.6f : 0.35f))
@@ -1379,7 +1379,7 @@ namespace Rago
                 if (fs != null && !NetGame.Taken(gid))
                 {
                     var gi = ItemFactory.Spawn(new ItemData("gift"), fs.transform.position, transform.rotation);
-                    if (gi != null) { gi.netId = gid; NetGame.I?.Register(gi); fs.Store(gi, false); }
+                    if (gi != null) { fs.Store(gi, false); gi.netId = gid; NetGame.I?.Register(gi); }
                 }
             }
             // vaults open with a keycard only: safes often have one
@@ -1397,7 +1397,7 @@ namespace Rago
                     if (fs == null) break;
                     var ri = ItemFactory.Spawn(new ItemData(rare[r]), fs.transform.position, transform.rotation);
                     if (ri == null) continue;
-                    ri.netId = rid; NetGame.I?.Register(ri); fs.Store(ri, false);
+                    fs.Store(ri, false); ri.netId = rid; NetGame.I?.Register(ri);
                 }
             }
         }
@@ -1425,8 +1425,8 @@ namespace Rago
                 if (!local && NetGame.Taken(nid)) continue;
                 var it = ItemFactory.Spawn(items[i], _box.slots[i].transform.position, transform.rotation);
                 if (it == null) continue;
+                _box.slots[i].Store(it, false);   // (3.52) into its slot BEFORE it gets its shared id: storing an item with an id tells everyone it was taken, so the first player to open a box emptied it for everybody else
                 if (!local) { it.netId = nid; NetGame.I?.Register(it); }
-                _box.slots[i].Store(it, false);
             }
         }
     }
@@ -1921,9 +1921,9 @@ namespace Rago
                 if (slot == null) continue;
                 var it = ItemFactory.Spawn(new ItemData(d.id), slot.transform.position, slot.transform.rotation);
                 if (it == null) continue;
+                if (slot.Accepts(it)) slot.Store(it, false);   // (3.52) into its slot BEFORE it gets its shared id: storing an item with an id tells everyone it was taken, so the first player to open a box emptied it for everybody else
                 it.netId = 40000 + Id * 32 + r * 8 + sh;
                 NetGame.I?.Register(it);
-                if (slot.Accepts(it)) slot.Store(it, false);
             }
             if (Present)
             {
@@ -1934,7 +1934,7 @@ namespace Rago
                     var g2 = rng.Pick(vaultGuns);
                     var slot = _rack.slots[r++];
                     var it = ItemFactory.Spawn(new ItemData(g2.id) { rounds = g2.magSize }, slot.transform.position, slot.transform.rotation);
-                    if (it != null) { it.netId = 47000 + Id * 16 + extra; NetGame.I?.Register(it); if (slot.Accepts(it)) slot.Store(it, false); }   // own id range: never clashes with the normal vault ids
+                    if (it != null) { if (slot.Accepts(it)) slot.Store(it, false); it.netId = 47000 + Id * 16 + extra; NetGame.I?.Register(it); }   // own id range: never clashes with the normal vault ids
                     extra++;
                 }
                 gameObject.AddComponent<PresentVaultUnlock>().vault = this;
@@ -1946,9 +1946,9 @@ namespace Rago
                 var slot = _shelf.slots[sh++];
                 var it = ItemFactory.Spawn(new ItemData(d.id), slot.transform.position, slot.transform.rotation);
                 if (it == null) continue;
+                slot.Store(it, false);
                 it.netId = Present ? 48000 + Id * 16 + i : 40000 + Id * 32 + 20 + i;
                 NetGame.I?.Register(it);
-                slot.Store(it, false);
             }
         }
 

@@ -494,7 +494,10 @@ namespace Rago
             if (otherGun != null && !Other.HeldAsSecondary)
             {
                 if (otherGun.TryStartRack(this)) { BeginRack(otherGun); return; }
-                if (otherGun.secondGrip != null && (Vector3.Distance(p, otherGun.secondGrip.position) < 0.16f || (otherGun.rig.foregrip != null && Vector3.Distance(p, otherGun.rig.foregrip.position) < 0.16f)))
+                // (3.52) a grab low on its mag pulls the mag out (step 2) instead of taking the support grip
+                var gm = otherGun.mag;
+                bool atMag = gm != null && gm.CanGrab(this) && Vector3.Distance(gm.transform.TransformPoint(gm.localBounds.center), p) < 0.09f;
+                if (!atMag && otherGun.secondGrip != null && (Vector3.Distance(p, otherGun.secondGrip.position) < 0.16f || (otherGun.rig.foregrip != null && Vector3.Distance(p, otherGun.rig.foregrip.position) < 0.16f)))
                 {
                     Held = otherGun; HeldAsSecondary = true;
                     otherGun.secondaryHand = this;
@@ -509,7 +512,9 @@ namespace Rago
             bool low = p.y < Mathf.Min(rig.transform.position.y + 0.5f, rig.Head.position.y - 0.88f);
             // reaching for the floor: a bigger reach, a little up from the hand (with the play area's floor a few cm off,
             // your hand ends up just under things lying on the floor and missed them)
-            int n = low ? Physics.OverlapSphereNonAlloc(p + Vector3.up * 0.06f, 0.15f, _overlap, ~0, QueryTriggerInteraction.Collide)
+            // (3.52) easier off the ground: a wider reach that also goes 30 cm on down below your hand, so you don't have to
+            // get your hand right down to the floor
+            int n = low ? Physics.OverlapCapsuleNonAlloc(p + Vector3.up * 0.06f, p - Vector3.up * 0.3f, 0.2f, _overlap, ~0, QueryTriggerInteraction.Collide)
                         : Physics.OverlapSphereNonAlloc(p, 0.09f, _overlap, ~0, QueryTriggerInteraction.Collide);
             Item best = null, bestBody = null; Interactable bestI = null; float bd = 1e9f, bdb = 1e9f, bdi = 1e9f;
             for (int i = 0; i < n; i++)
@@ -531,7 +536,7 @@ namespace Rago
                     if (mg != null)
                     {
                         if (!mg.Held && OnMyBody(mg)) continue;
-                        float reach = it is CamItem ? 0.09f : it is Magazine && mg.Held ? 0.06f : 0.035f;   // a camera clipped on: easy to take back off; the mag from the gun in your other hand: a bit more
+                        float reach = it is CamItem ? 0.09f : it is Magazine && mg.Held ? 0.085f : it is Magazine ? 0.06f : 0.035f;   // a camera clipped on: easy to take back off; a mag (3.52: easier) from the gun in your other hand or one lying around
                         if (d > reach * reach) continue;
                         d += 0.01f;   // and anything else just as close wins
                     }
@@ -745,7 +750,7 @@ namespace Rago
                 }
                 Vector3 dir = transform.rotation * AimLocal * Vector3.forward;   // same natural pointing angle as the laser
                 Vector3 origin = Anchor.position + dir * 0.05f;
-                int n = Physics.SphereCastNonAlloc(origin, 0.09f, dir, _rhits, RemoteRange, _remoteMask, QueryTriggerInteraction.Collide);
+                int n = Physics.SphereCastNonAlloc(origin, 0.13f, dir, _rhits, RemoteRange, _remoteMask, QueryTriggerInteraction.Collide);   // (3.52) a fatter sweep: easier to point at
                 System.Array.Sort(_rhits, 0, n, RemoteCmp.Inst);
                 for (int i = 0; i < n; i++)
                 {
@@ -768,6 +773,19 @@ namespace Rago
                     if (c.isTrigger || c.GetComponentInParent<HitZone>() != null) continue;
                     if (_rhits[i].normal.y > 0.6f) continue;   // a floor or tabletop the sweep grazes on the way to a crate sitting on it doesn't block
                     break;   // a wall blocks the view
+                }
+                // (3.52) pointing at the floor next to something: take the nearest loose thing within 35 cm of where you point
+                if (best == null && crate == null && Physics.Raycast(origin, dir, out var fh, RemoteRange, Ballistics.WallMask, QueryTriggerInteraction.Ignore) && fh.normal.y > 0.6f)
+                {
+                    int m = Physics.OverlapSphereNonAlloc(fh.point + Vector3.up * 0.12f, 0.35f, _overlap, _remoteMask, QueryTriggerInteraction.Collide);
+                    float bd2 = 1e9f;
+                    for (int i = 0; i < m; i++)
+                    {
+                        var it = _overlap[i].GetComponentInParent<Item>();
+                        if (it == null || it.Held || it.primaryHand != null || it.slot != null || it.MountedOn != null || !it.CanGrab(this)) continue;
+                        float d2 = (it.transform.position - fh.point).sqrMagnitude;
+                        if (d2 < bd2 && rig.CanReach(it.transform.position)) { bd2 = d2; best = it; }
+                    }
                 }
             }
             if ((best != null && best != _remote) || (crate != null && crate != _remoteCrate)) Haptic(0.12f, 0.015f);

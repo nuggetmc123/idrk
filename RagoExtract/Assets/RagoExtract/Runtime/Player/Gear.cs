@@ -167,6 +167,9 @@ namespace Rago
 
         Vector3 ChestPouch => Root.TransformPoint(new Vector3(0.0f, -0.42f, 0.2f));
         Vector3 LeftShoulder => Root.TransformPoint(new Vector3(-0.18f, -0.15f, -0.08f));
+        /// <summary>(3.52) Where a bag goes on: over either shoulder, or behind you on either side.</summary>
+        public bool NearPackSpot(Vector3 p) => Vector3.Distance(p, PackSlot.transform.position) < 0.35f || Vector3.Distance(p, Root.TransformPoint(new Vector3(0.16f, -0.32f, -0.2f))) < 0.35f
+                                              || Vector3.Distance(p, LeftShoulder) < 0.25f || Vector3.Distance(p, RightShoulder) < 0.25f;
         Vector3 RightShoulder => Root.TransformPoint(new Vector3(0.18f, -0.15f, -0.08f));
         Vector3 BackSlingGrab => Root.TransformPoint(new Vector3(0.17f, -0.2f, -0.13f));   // behind your right shoulder
 
@@ -380,7 +383,7 @@ namespace Rago
                 return TakeOff(ArmorSlot.Helmet, p, h.Anchor.rotation);
             if (Vest != null && Vector3.Distance(p, VestGrab) < 0.17f) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);
             // the backpack comes off your shoulder with grip AND trigger together (grip alone kept snatching it by accident)
-            if (Vector3.Distance(p, LeftShoulder) < 0.2f && PackSlot.item != null && (!XRInputs.VR || h.Input.Trigger > 0.5f)) return PackSlot.item;
+            if ((Vector3.Distance(p, LeftShoulder) < 0.2f || Vector3.Distance(p, RightShoulder) < 0.2f) && PackSlot.item != null && (!XRInputs.VR || h.Input.Trigger > 0.5f)) return PackSlot.item;   // (3.52) either shoulder
             if (Vector3.Distance(p, Primary.transform.position) < 0.22f && Primary.item != null) return Primary.item;   // front sling
             if (Secondary.item != null && (NearGun(Secondary.item, p, 0.13f) || Vector3.Distance(p, BackSlingGrab) < 0.2f)) return Secondary.item;
             return null;
@@ -934,7 +937,7 @@ namespace Rago
         protected override bool TrySlot(Hand h)
         {
             var g = RagoGame.I.Player.Gear;
-            if (g.PackSlot.item == null && Vector3.Distance(h.Anchor.position, g.PackSlot.transform.position) < 0.35f)
+            if (g.PackSlot.item == null && g.NearPackSpot(h.Anchor.position))   // (3.52) over either shoulder
             {
                 g.PackSlot.Store(this);
                 if (g.Pack != this) { g.Pack = this; g.Changed(); }

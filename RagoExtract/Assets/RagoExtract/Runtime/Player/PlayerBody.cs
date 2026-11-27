@@ -68,22 +68,46 @@ namespace Rago
 
         Vector3 _vel;
 
-        Renderer[] _legs; bool _legsHidden;
-        /// <summary>Your own legs, hidden from your eyes while you're crouched (they still cast a shadow, and other players
-        /// see them): kneeling or squatting for real, your thighs and knees came up right in front of your face.</summary>
+        // (3.52) your own body hides from your eyes when it would be in the way: your legs while you're crouched (kneeling or
+        // squatting for real, your thighs and knees came up right in front of your face), and your torso and legs while you
+        // look down at the ground (it filled the bottom of your view). They still cast their
+        // shadow and other players see them as usual; your arms and hands always stay. SETTINGS > MORE can keep it shown.
+        Renderer[] _torsoR, _legR; float _scanT; HumanRig _scanned; bool _torsoHidden, _legsHidden, _lookingDown;
         void LegsInView()
         {
-            if (_legs == null)
+            if (Rig == null) return;
+            if (_torsoR == null || _scanned != Rig || Time.time > _scanT)
             {
-                var l = new System.Collections.Generic.List<Renderer>();
-                foreach (var t in new[] { Rig.thL, Rig.thR }) if (t != null) l.AddRange(t.GetComponentsInChildren<Renderer>(true));
-                _legs = l.ToArray();
+                _scanned = Rig; _scanT = Time.time + 0.5f;   // armour put on / taken off: pick it up again soon
+                var torso = new System.Collections.Generic.List<Renderer>(); var legs = new System.Collections.Generic.List<Renderer>();
+                if (Rig.hips != null)
+                    foreach (var r in Rig.hips.GetComponentsInChildren<Renderer>(true))
+                    {
+                        var t = r.transform;
+                        if (t.name != "Mesh") continue;   // only the body itself: your worn vest / cam are already hidden from your eyes (and must stay so)
+                        if ((Rig.uaL != null && t.IsChildOf(Rig.uaL)) || (Rig.uaR != null && t.IsChildOf(Rig.uaR)) || (Rig.neck != null && t.IsChildOf(Rig.neck))) continue;
+                        if ((Rig.thL != null && t.IsChildOf(Rig.thL)) || (Rig.thR != null && t.IsChildOf(Rig.thR))) legs.Add(r); else torso.Add(r);
+                    }
+                _torsoR = torso.ToArray(); _legR = legs.ToArray(); _torsoHidden = _legsHidden = false;
             }
             float headH = _p.Head.position.y - _p.transform.position.y;
-            bool hide = _p.Driving == null && (_p.Crouched || headH < 1.2f);
-            if (hide == _legsHidden) return;
-            _legsHidden = hide;
-            foreach (var r in _legs) if (r != null) r.shadowCastingMode = hide ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly : UnityEngine.Rendering.ShadowCastingMode.On;
+            // looking more than ~42 degrees below the horizon (a little hysteresis so it doesn't flicker at the edge)
+            float below = Vector3.Angle(_p.Head.forward, Vector3.down);
+            _lookingDown = _lookingDown ? below < 52f : below < 48f;
+            bool lookHide = _lookingDown && _p.Driving == null && !(Profile.Current != null && Profile.Current.bodyLookDown);
+            bool legsHide = lookHide || (_p.Driving == null && (_p.Crouched || headH < 1.2f));
+            Set(_torsoR, lookHide, ref _torsoHidden);
+            Set(_legR, legsHide, ref _legsHidden);
+        }
+
+        static void Set(Renderer[] rs, bool hide, ref bool state)
+        {
+            if (rs == null) return;
+            // (re-applied when the state changes, and every scan: armour put on while hidden picks up the state too)
+            if (hide == state && Time.frameCount % 15 != 0) return;
+            state = hide;
+            var mode = hide ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly : UnityEngine.Rendering.ShadowCastingMode.On;
+            foreach (var r in rs) if (r != null && r.shadowCastingMode != mode) r.shadowCastingMode = mode;
         }
 
         void PoseNow(float dt)

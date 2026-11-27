@@ -5,6 +5,14 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.52", "Shared loot boxes, mags out of guns, easier pickups", new[] {
+                "LOOT BOXES WORK TOGETHER: when one player opened a box, the game told everyone else all of its loot had been taken - so the box was empty for them. Now everybody sees the same loot, and only what someone actually takes disappears.",
+                "YOUR BODY HIDES WHEN YOU LOOK DOWN: look at the ground and your own torso and legs get out of the way (they still cast a shadow, others still see you; your arms and hands stay). SETTINGS > MORE can keep it shown.",
+                "PULL MAGS OUT OF GUNS: grab the mag low (toward its base) with your free hand and pull - on rifles and SMGs just grip, on pistols grip AND trigger (so a two-hand hold never yanks it). Mags in guns lying around come out easier too.",
+                "EASIER PICKUPS OFF THE GROUND: your reach goes 30 cm on down below your hand, the distance grab is easier to aim, and pointing at the floor next to something picks that up.",
+                "BACKPACK ON EITHER SHOULDER: put it on (and take it off) over your left or your right shoulder.",
+                "Reminder: hold the right stick DOWN to crouch (or click it).",
+            }),
             ("3.51", "See the ground, crouch, auto mag, dupe fixes", new[] {
                 "YOUR BODY no longer blocks your view: it sits 10 cm further back under your eyes, so looking down you see the ground and your boots in front of you instead of your chest.",
                 "CROUCH: hold the right stick DOWN to crouch while you hold it - or click the right stick to toggle (you'll see CROUCHING / STANDING). Physically crouching still works too.",
