@@ -544,6 +544,7 @@ namespace Rago
             M("gift", "Christmas Present", ItemKind.Valuable, U, 500, 0, new Color(0.75f, 0.08f, 0.08f), "A small wrapped present. Pick it up and HOLD THE TRIGGER to open it - it could be anything from bandages to a top gun... or a live grenade.");
             M("gift_santa", "Santa's Present", ItemKind.Valuable, V, 5000, 0, new Color(0.72f, 0.05f, 0.05f), "A big present. Hold the trigger to open it: a North Pole Keycard is inside, with vault-grade loot.");
             M("key_xmas", "North Pole Keycard", ItemKind.Key, V, 30000, 1, new Color(0.75f, 0.06f, 0.06f), "A big festive keycard. Opens the giant present vault on the North Pole - inside: the best loot in the game and four skins you can't get anywhere else. Only ever found inside Christmas presents - most often on the North Pole.");
+            M("key_swamp", "Swamp Keycard", ItemKind.Key, E, 9000, 0, new Color(0.25f, 0.6f, 0.2f), "Unlocks THE SWAMP for raids: put it on the TURN-IN board in your bunker. Bosses sometimes carry one; safes and air drops now and then.");
             M("key_vault", "Vault Keycard", ItemKind.Key, E, 14000, 0, new Color(0.85f, 0.15f, 0.12f), "Opens any raid vault: hold it to the card reader by the vault door. Found in safes and lying around on desks.");
         }
 

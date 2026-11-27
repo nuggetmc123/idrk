@@ -1017,6 +1017,13 @@ namespace Rago
                     var card = ItemFactory.Spawn(new ItemData("key_xmas"), Rig.chest.position + Vector3.up * 0.4f, Random.rotation);   // Evil Santa always carries a North Pole Keycard
                     if (card != null) { card.netId = 90000 + Id * 4 + 3; NetGame.I?.Register(card); }
                 }
+                // (3.70) other bosses sometimes carry a Swamp Keycard (it unlocks the Swamp)
+                string bn = BossName.ToLowerInvariant();
+                if (!bn.Contains("santa") && !bn.Contains("swamp") && rng.Chance(0.4f))
+                {
+                    var sk = ItemFactory.Spawn(new ItemData("key_swamp"), Rig.chest.position + Vector3.up * 0.45f, Random.rotation);
+                    if (sk != null) { sk.netId = 90000 + Id * 4 + 3; NetGame.I?.Register(sk); }
+                }
                 // (3.65) the Swamp King always drops his crown - take it to the TURN-IN board in your bunker
                 if (BossName.ToLowerInvariant().Contains("swamp"))
                 {

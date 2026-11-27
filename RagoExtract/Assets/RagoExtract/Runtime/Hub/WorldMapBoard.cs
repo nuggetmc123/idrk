@@ -98,7 +98,7 @@ namespace Rago
                 case "pinewood": return "Thick pine forest round a military outpost\nCabins and camps in the woods\nVAULT: the outpost bunker\nFog rolls in some raids";
                 case "oldtown": return "An abandoned town at dawn\nStreets, apartments and shops to search\nVAULT: the old bank\nVillages and farms on the outskirts";
                 case "underground": return "A sealed research sector, 3 floors down\nTight corridors and dark rooms\nTWO VAULTS - and the power cuts out\nSounds barely carry between floors";
-                case "swamp": return "A flooded bayou - wade through the murk\nEvery raider here is a crocodile\nTHE SWAMP KING holds the Bait & Tackle\nTake his crown to the TURN-IN board";
+                case "swamp": return (Profile.Current != null && Profile.Current.swampUnlocked ? "" : "LOCKED: turn in a SWAMP KEYCARD at the TURN-IN board\n") + "A flooded bayou - wade through the murk\nEvery raider here is a crocodile\nTHE SWAMP KING holds the Bait & Tackle\nTake his crown to the TURN-IN board";
                 case "northpole": return "Santa's village, overrun by evil elves\nChristmas keycards hide in the presents\nVAULT: the Giant Present\nPresents everywhere";
                 default: return Maps.Blurb(id);
             }

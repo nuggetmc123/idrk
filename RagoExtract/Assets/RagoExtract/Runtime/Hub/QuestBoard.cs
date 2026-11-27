@@ -15,6 +15,7 @@ namespace Rago
 
         public static readonly Quest[] All =
         {
+            new Quest { id = "swampkey", title = "THE WAY IN", wants = "key_swamp", wantName = "a Swamp Keycard", count = 1, reward = "THE SWAMP unlocked for raids" },
             new Quest { id = "swampking", title = "THE SWAMP KING", wants = "croc_crown", wantName = "the Swamp King's Crown", count = 1, reward = "Manda becomes a CAPYBARA + the CROC HIDE gun skin" },
             new Quest { id = "teeth", title = "CROC HUNTER", wants = "croc_tooth", wantName = "Croc Teeth", count = 5, reward = "the BAYOU gun skin" },
             new Quest { id = "tags", title = "NAMES OF THE FALLEN", wants = "junk_tags", wantName = "Dog Tags", count = 5, reward = "$15,000" },
@@ -131,6 +132,7 @@ namespace Rago
                     p.capybara = true; if (!p.skins.Contains("crochide")) p.skins.Add("crochide");
                     foreach (var pug in FindObjectsByType<Pug>(FindObjectsSortMode.None)) pug.Remodel();
                     break;
+                case "swampkey": p.swampUnlocked = true; break;
                 case "teeth": if (!p.skins.Contains("bayou")) p.skins.Add("bayou"); break;
                 case "tags": p.money += 15000; break;
                 case "kicks": if (!p.skins.Contains("goldtooth")) p.skins.Add("goldtooth"); break;

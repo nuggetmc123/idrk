@@ -232,6 +232,13 @@ namespace Rago
             if (_joining) return;   // raid already found: on the way in
             if (_queued) { Cancel(); return; }
             if (AnyQueued) return;
+            if (_map == "swamp" && (Profile.Current == null || !Profile.Current.swampUnlocked))
+            {
+                // (3.70) the Swamp is locked until you turn in a Swamp Keycard
+                RagoGame.I.Player.Toast("THE SWAMP is locked - find a SWAMP KEYCARD (bosses, safes, air drops) and put it on the TURN-IN board in your bunker");
+                Sfx.UI(Synth.UiError(), 0.3f);
+                return;
+            }
             if (NetHub.Online && NetHub.Backend.PartyCode != null && NetHub.Backend.PartyMembers.Count > QueueRules.PartyMaxFor(_map))
             {
                 RagoGame.I.Player.Toast(Maps.Name(_map) + " is for squads of up to " + QueueRules.PartyMaxFor(_map) + " - your party has " + NetHub.Backend.PartyMembers.Count);

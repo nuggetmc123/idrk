@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.70", "The Swamp Keycard", new[] {
+                "THE SWAMP IS LOCKED until you find a SWAMP KEYCARD (green). Put it on the TURN-IN board in your bunker (job: THE WAY IN) and the Swamp is unlocked for good.",
+                "Where to find one: bosses carry one 40% of the time, and safes (8%) and air drop crates (20%) sometimes have one.",
+                "In a party, the leader needs the Swamp unlocked to queue it - everyone else follows them in.",
+            }),
             ("3.69", "S1KDM0R3 is armed", new[] {
                 "The S1KDM0R3 grim reaper now holds a miniature LEVIATHAN .50 across his chest (the real Leviathan model) - bony hands on the grip and the handguard - instead of the scythe.",
             }),

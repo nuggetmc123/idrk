@@ -1440,6 +1440,12 @@ namespace Rago
                 it.netId = 10000 + index * 16 + i;
                 NetGame.I?.Register(it);
             }
+            // (3.70) safes and air drops now and then hold a Swamp Keycard
+            if ((kind == Kind.Safe || kind == Kind.AirDrop) && rng.Chance(kind == Kind.AirDrop ? 0.2f : 0.08f) && !NetGame.Taken(10000 + index * 16 + 15))
+            {
+                Slot ks = null; foreach (var sl in _box.slots) if (sl.item == null) { ks = sl; break; }
+                if (ks != null) { var ki = ItemFactory.Spawn(new ItemData("key_swamp"), ks.transform.position, transform.rotation); if (ki != null) { ks.Store(ki, false); ki.netId = 10000 + index * 16 + 15; NetGame.I?.Register(ki); } }
+            }
             // Christmas (and always on the North Pole): crates often hold a small present - shake it open
             if (_map != null && (Festive.On || _map.Id == "northpole" || LiveEvent.Is(LiveEvent.Presents)) && kind != Kind.Present && rng.Chance(LiveEvent.Is(LiveEvent.Presents) ? 0.75f : _map.Id == "northpole" ? 0.6f : 0.35f))
             {
