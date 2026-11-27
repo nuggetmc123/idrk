@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.63", "Everyone sees the same world", new[] {
+                "SAME HILLS, TREES AND BUSHES FOR EVERYONE: the Graphics setting used to decide how far trees, bushes and hills were drawn (on Low they vanished in the distance, with a haze) - so players saw different things, and you could hide in a bush another player didn't even have. Now everyone sees the same; Graphics only changes how sharp the picture is and the shadows (Low is still the fastest).",
+            }),
             ("3.62", "Smash the glass", new[] {
                 "BREAK WINDOWS WITH MELEE: a good swing with a knife, bat, crowbar, pan, machete, axe or sledgehammer shatters the glass.",
                 "...OR WITH YOUR GUN: swing it so the stock (or the back of a pistol) goes through the window - or jab the front end into it. (Breaking glass is loud: raiders nearby will hear it.)",

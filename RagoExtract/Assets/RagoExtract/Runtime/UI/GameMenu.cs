@@ -656,7 +656,7 @@ namespace Rago
             Vol("Weather", -0.52f, y, () => Sfx.Ambience, v => Sfx.Ambience = v);
             Vol("Voices", 0.02f, y, () => Sfx.Voices, v => Sfx.Voices = v); y -= 0.085f;
             int q = p != null ? Mathf.Clamp(p.quality, 0, 2) : 1;
-            Line("Graphics:  " + (q == 0 ? "Low (fastest)" : q == 1 ? "Medium" : "High") + "  - next map you load", y);
+            Line("Graphics:  " + (q == 0 ? "Low (fastest, softer)" : q == 1 ? "Medium" : "High (sharpest)") + "  - next map you load", y);
             Btn("CHANGE", 0.32f, y, 0.24f, () => { if (Profile.Current != null) { Profile.Current.quality = (Mathf.Clamp(Profile.Current.quality, 0, 2) + 1) % 3; SaveSettings(); } }); y -= 0.085f;
             Line("Microphone:  " + (NetHub.Voice == null ? "not installed" : NetHub.Voice.Muted ? "muted" : "on"), y);
             if (NetHub.Voice != null) Btn(NetHub.Voice.Muted ? "UNMUTE" : "MUTE", 0.32f, y, 0.24f, () => { NetHub.Voice.SetMuted(!NetHub.Voice.Muted); SaveSettings(); });

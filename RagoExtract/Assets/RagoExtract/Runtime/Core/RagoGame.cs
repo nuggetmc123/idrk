@@ -375,13 +375,15 @@ namespace Rago
                 Player.Cam.farClipPlane = far;
                 var cull = new float[32];
                 if (Layers.Items > 0) cull[Layers.Items] = 70f;   // small loose items vanish past 70 m
-                // graphics setting (Settings): how far grass, bushes and trees are drawn, and the overall view distance
+                // (3.63) EVERYONE SEES THE SAME WORLD: the graphics setting used to decide how far grass, bushes, trees and
+                // hills were drawn (Low: bushes gone past 70 m, trees past 320 m, hills past 800 m, plus a haze) - so players
+                // on different settings saw different things, and you could be hiding in a bush someone else couldn't see.
+                // Now those are the same for all; the setting changes only sharpness and shadows.
                 int ql = Profile.Current != null ? Mathf.Clamp(Profile.Current.quality, 0, 2) : 1;
-                cull[WorldBuilder.GroundCoverLayer] = ql == 0 ? 70f : ql == 1 ? 130f : 200f;
-                cull[WorldBuilder.TreeLayer] = ql == 0 ? 320f : ql == 1 ? 600f : 0f;   // 0 = no limit
-                if (to == Area.Raid && !Map.KeepFog) far = Mathf.Min(far, ql == 0 ? 800f : ql == 1 ? 1500f : 2600f);
+                cull[WorldBuilder.GroundCoverLayer] = 150f;
+                cull[WorldBuilder.TreeLayer] = 0f;   // 0 = as far as the camera sees
                 Player.Cam.farClipPlane = far;
-                if (ql == 0 && to == Area.Raid && !Map.KeepFog && !Weather.Fog) { RenderSettings.fog = true; RenderSettings.fogDensity = Mathf.Max(RenderSettings.fogDensity, 0.0018f); }   // low: a light haze hides where things stop
+                try { if (UnityEngine.XR.XRSettings.enabled) UnityEngine.XR.XRSettings.eyeTextureResolutionScale = ql == 0 ? 0.8f : ql == 1 ? 1f : 1.2f; } catch { }   // Low: a softer picture, faster
                 if (to == Area.Raid) QualitySettings.shadows = ql == 0 || Application.platform == RuntimePlatform.Android ? ShadowQuality.Disable : ShadowQuality.HardOnly;
                 Player.Cam.layerCullDistances = cull;
                 Player.Cam.layerCullSpherical = true;
