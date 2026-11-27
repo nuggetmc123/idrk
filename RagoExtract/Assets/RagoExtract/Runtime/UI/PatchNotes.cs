@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.56", "Market drops stay put", new[] {
+                "Drop something on the MARKET floor and it stays there when you leave - anyone can pick it up - instead of being sent back to your stash. Things on your stall, the trade table and the sell bins still come home.",
+            }),
             ("3.55", "Mirror, virtual stock, turning off", new[] {
                 "A MIRROR in your bunker: a full-length mirror on the wall by the WARDROBE. It's a real reflection with depth in your headset - see your face, your clothes and your gear (and wave at yourself).",
                 "VIRTUAL STOCK (SETTINGS > MORE): with a rifle in both hands and your grip hand up by your shoulder, the gun aims from your shoulder through your front hand - steady, as if it was shouldered.",

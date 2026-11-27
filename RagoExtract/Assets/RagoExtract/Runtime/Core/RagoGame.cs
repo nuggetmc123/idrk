@@ -440,11 +440,14 @@ namespace Rago
             {
                 if (market != null) { foreach (var s in market.Stalls) s.SweepToStash(loose); if (market.Foreman != null) market.Foreman.SweepToStash(loose); if (TradeTable.I != null) TradeTable.I.SweepToStash(loose); foreach (var sc in FindObjectsOfType<ShopScreen>()) sc.SweepToStash(loose); Shops.LeaveMarket(); }
                 foreach (var ss in new List<SellStation>(SellStation.All)) if (ss != null) ss.SweepToStash(loose);   // unsold loot left in an Exchange bin
-                // anything lying around the Market goes back to the stash (swept items are already Gone: never saved twice)
+                // anything else lying around (not the Market floor - see below) goes back to the stash (swept items are already Gone: never saved twice)
                 if (MapRoot != null)
                     foreach (var it in new List<Item>(Item.All))
                     {
                         if (it == null || it.Gone) continue;
+                        // (3.56) the Market floor: what you drop there stays there (for anyone to pick up) - it used to be swept
+                        // back into your stash when you left. Things on stalls, the trade table and the sell bins still come home.
+                        if (market != null && !it.Held && it.slot == null && it.MountedOn == null && (it.transform.parent == null || it.transform.IsChildOf(MapRoot))) continue;
                         if (it is Magazine lm && lm.inGun == null && !it.Held && it.slot == null && it.transform.parent == null) { (lm.ammoType == AmmoType.AP ? prof.stashAp : lm.ammoType == AmmoType.Incendiary ? prof.stashInc : prof.stashAmmo)[(int)lm.cal] += lm.rounds; Item.Discard(it); continue; }
                         if (it.Held || it.slot != null || it is Magazine) continue;
                         if (it is SightItem si && si.onGun != null) continue;
