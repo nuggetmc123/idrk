@@ -242,6 +242,8 @@ namespace Rago
 
         bool TryHit(Collider c, Vector3 point, Vector3 dir, float speed, Hand h)
         {
+            var win = c.GetComponentInParent<Window>();   // (3.62) knives, bats, axes... smash windows
+            if (win != null && speed > 2f) { win.Break(dir, true); h.Haptic(0.9f, 0.1f); return false; }   // (and carry on into whatever's behind it)
             var lk = c.GetComponentInParent<Padlock>();
             if (lk != null && speed > 2f) { if (Time.time < _lockCool) return false; _lockCool = Time.time + 0.4f; lk.Damage(_damage * (def.id == "sledge" || def.id == "crowbar" || def.id == "fireaxe" ? 1.2f : 0.4f), point); h.Haptic(0.8f, 0.08f); return true; }
             var zone = c.GetComponentInParent<HitZone>();

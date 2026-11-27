@@ -418,9 +418,30 @@ namespace Rago
             return tap;
         }
 
+        Vector3 _buttLast, _tipLast; bool _buttTrack; int _buttFrame;
+        /// <summary>(3.62) Swing the gun hard and its stock (or the back of a pistol's grip) smashes any window it goes
+        /// through - knock the glass out before you climb in.</summary>
+        void StockSmash()
+        {
+            if (!XRInputs.VR) { _buttTrack = false; return; }
+            Vector3 butt = transform.TransformPoint(new Vector3(localBounds.center.x, localBounds.center.y, localBounds.min.z + 0.04f));
+            Vector3 tip = transform.TransformPoint(new Vector3(localBounds.center.x, localBounds.center.y, localBounds.max.z - 0.03f));
+            if (Time.frameCount - _buttFrame > 1) _buttTrack = false;   // just picked up: no sweep from where it was before
+            _buttFrame = Time.frameCount;
+            if (_buttTrack)
+            {
+                float dt = Mathf.Max(Time.deltaTime, 0.001f);
+                bool hit = (butt - _buttLast).magnitude / dt > 2.2f && Window.TrySmash(_buttLast, butt, 0.05f);
+                if (!hit && (tip - _tipLast).magnitude / dt > 2.2f) hit = Window.TrySmash(_tipLast, tip, 0.04f);   // the front end too: a jab or a swing
+                if (hit && primaryHand != null) primaryHand.Haptic(0.9f, 0.1f);
+            }
+            _buttLast = butt; _tipLast = tip; _buttTrack = true;
+        }
+
         public override void HeldUpdate(Hand h, HandInput input)
         {
             if (h != primaryHand) return;
+            StockSmash();
             // trigger (the Market is a safe zone: weapons are cold)
             if (RagoGame.I != null && RagoGame.I.SafeZone)
             {

@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.62", "Smash the glass", new[] {
+                "BREAK WINDOWS WITH MELEE: a good swing with a knife, bat, crowbar, pan, machete, axe or sledgehammer shatters the glass.",
+                "...OR WITH YOUR GUN: swing it so the stock (or the back of a pistol) goes through the window - or jab the front end into it. (Breaking glass is loud: raiders nearby will hear it.)",
+            }),
             ("3.61", "New hands", new[] {
                 "YOUR HANDS ARE THE GOOD ONES NOW: the same detailed hands other players see on you - rounded fingers in a fingerless tactical glove with a knuckle guard and cuff - and they still curl when you grip and squeeze the trigger.",
             }),

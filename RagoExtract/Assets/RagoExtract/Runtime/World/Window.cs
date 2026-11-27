@@ -39,6 +39,23 @@ namespace Rago
 
         public void Damage(float d, Vector3 p) { Break(Vector3.zero, true); }
 
+        static readonly RaycastHit[] _smash = new RaycastHit[8];
+        /// <summary>(3.62) Something swung hard from a to b (a melee weapon, the stock of your gun): any window in its path
+        /// shatters (shared online). True if one broke.</summary>
+        public static bool TrySmash(Vector3 a, Vector3 b, float radius)
+        {
+            Vector3 d = b - a; float len = d.magnitude;
+            if (len < 0.001f || len > 1.5f) return false;
+            int n = Physics.SphereCastNonAlloc(a, radius, d / len, _smash, len, 1 << Layer, QueryTriggerInteraction.Collide);
+            bool any = false;
+            for (int i = 0; i < n; i++)
+            {
+                var w = _smash[i].collider != null ? _smash[i].collider.GetComponentInParent<Window>() : null;
+                if (w != null && !w._broken) { w.Break(d / len, true); any = true; }
+            }
+            return any;
+        }
+
         public void Break(Vector3 dir = default, bool tell = false)
         {
             if (_broken) return;
