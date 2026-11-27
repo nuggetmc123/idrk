@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.54", "A face to be scared of", new[] {
+                "PLAYERS HAVE A FACE now: big bulging bloodshot eyes - yellowed whites crawling with red veins, small pale irises and pinprick pupils - in dark, sunken, bruised sockets, and a creepy mouth held slightly open on crooked, rotten yellow teeth and red gums.",
+                "Sunglasses, a gas mask or a neck gaiter from the wardrobe still cover it.",
+            }),
             ("3.53", "No more broken legs", new[] {
                 "Your LEGS DON'T BREAK any more, and getting shot in the leg no longer makes you limp or stops you sprinting - leg hits just do damage. (Arms can still break; a syringe still fixes them.)",
             }),

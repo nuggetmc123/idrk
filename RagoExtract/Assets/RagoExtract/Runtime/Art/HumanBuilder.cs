@@ -413,7 +413,6 @@ namespace Rago
             // the bridge and tip of a nose, cheekbones, the curve over the teeth, a chin - and ears. The columns and rows
             // bunch up over the face so the small shapes come out smooth.
             const int NU = 48, NV = 32;
-            float G(float x, float y, float cx, float cy, float sx, float sy) { float a = (x - cx) / sx, b = (y - cy) / sy; return Mathf.Exp(-(a * a + b * b)); }
             mb.Patch(NU, NV, (iu, iv) =>
             {
                 float su = iu / (float)NU * 2f - 1f, tv = iv / (float)NV * 2f - 1f;
@@ -421,23 +420,83 @@ namespace Rago
                 float ph = Mathf.PI * 0.5f + Mathf.PI * 0.5f * (0.55f * tv + 0.45f * tv * tv * tv);   // 0 top .. PI bottom
                 float ny = Mathf.Cos(ph), sr = Mathf.Sin(ph);
                 float nx = Mathf.Cos(th) * sr, nz = Mathf.Sin(th) * sr;
-                float low = MathX.Step(0.1f, -0.95f, ny);                                   // 0 above the middle, 1 at the chin
-                float rx = 0.084f * (1f - 0.15f * low), rz = 0.1f * (1f - 0.1f * low);
-                if (nz > 0f) rz *= 1f - 0.1f * nz * nz * nz * (1f - 0.5f * low);             // a flatter face
-                else rz *= 1f - 0.06f * nz * MathX.Step(-0.3f, 0.45f, ny);                  // the rounded back of the skull
-                var pt = new Vector3(nx * rx, ny * 0.112f, nz * rz + low * 0.008f);
-                float f = MathX.Step(0.25f, 0.75f, nz);                                     // features fade out round the sides
-                float d = f * (0.0055f * G(nx, ny, 0f, 0.17f, 0.42f, 0.07f)                                                        // brow
-                             - 0.0065f * (G(nx, ny, -0.33f, 0.03f, 0.15f, 0.09f) + G(nx, ny, 0.33f, 0.03f, 0.15f, 0.09f))          // hollows under it
-                             + 0.014f * G(nx, ny, 0f, -0.16f, 0.085f, 0.16f) + 0.006f * G(nx, ny, 0f, -0.27f, 0.075f, 0.06f)        // nose: bridge and tip
-                             + 0.004f * (G(nx, ny, -0.46f, -0.1f, 0.17f, 0.11f) + G(nx, ny, 0.46f, -0.1f, 0.17f, 0.11f))            // cheekbones
-                             + 0.0035f * G(nx, ny, 0f, -0.44f, 0.28f, 0.1f)                                                        // over the teeth
-                             + 0.0065f * G(nx, ny, 0f, -0.69f, 0.2f, 0.09f));                                                      // chin
-                d -= 0.003f * (G(nx, ny, -0.78f, 0.25f, 0.16f, 0.16f) + G(nx, ny, 0.78f, 0.25f, 0.16f, 0.16f)) * MathX.Step(-0.2f, 0.3f, nz);   // temples
-                return c + pt + new Vector3(nx / rx, ny / 0.112f, nz / rz).normalized * d;
+                return c + HeadPoint(nx, ny, nz);
             }, col, true, true);
             foreach (float sx in new[] { -1f, 1f })   // ears
                 mb.Sphere(c + new Vector3(sx * 0.0845f, -0.004f, -0.008f), new Vector3(0.011f, 0.03f, 0.019f), 10, col);
+        }
+
+        static float G(float x, float y, float cx, float cy, float sx, float sy) { float a = (x - cx) / sx, b = (y - cy) / sy; return Mathf.Exp(-(a * a + b * b)); }
+
+        /// <summary>A point on the mannequin head's surface (relative to its centre) in the direction (nx, ny, nz).</summary>
+        static Vector3 HeadPoint(float nx, float ny, float nz)
+        {
+            float low = MathX.Step(0.1f, -0.95f, ny);                                   // 0 above the middle, 1 at the chin
+            float rx = 0.084f * (1f - 0.15f * low), rz = 0.1f * (1f - 0.1f * low);
+            if (nz > 0f) rz *= 1f - 0.1f * nz * nz * nz * (1f - 0.5f * low);             // a flatter face
+            else rz *= 1f - 0.06f * nz * MathX.Step(-0.3f, 0.45f, ny);                  // the rounded back of the skull
+            var pt = new Vector3(nx * rx, ny * 0.112f, nz * rz + low * 0.008f);
+            float f = MathX.Step(0.25f, 0.75f, nz);                                     // features fade out round the sides
+            float d = f * (0.0055f * G(nx, ny, 0f, 0.17f, 0.42f, 0.07f)                                                        // brow
+                         - 0.0065f * (G(nx, ny, -0.33f, 0.03f, 0.15f, 0.09f) + G(nx, ny, 0.33f, 0.03f, 0.15f, 0.09f))          // hollows under it
+                         + 0.014f * G(nx, ny, 0f, -0.16f, 0.085f, 0.16f) + 0.006f * G(nx, ny, 0f, -0.27f, 0.075f, 0.06f)        // nose: bridge and tip
+                         + 0.004f * (G(nx, ny, -0.46f, -0.1f, 0.17f, 0.11f) + G(nx, ny, 0.46f, -0.1f, 0.17f, 0.11f))            // cheekbones
+                         + 0.0035f * G(nx, ny, 0f, -0.44f, 0.28f, 0.1f)                                                        // over the teeth
+                         + 0.0065f * G(nx, ny, 0f, -0.69f, 0.2f, 0.09f));                                                      // chin
+            d -= 0.003f * (G(nx, ny, -0.78f, 0.25f, 0.16f, 0.16f) + G(nx, ny, 0.78f, 0.25f, 0.16f, 0.16f)) * MathX.Step(-0.2f, 0.3f, nz);   // temples
+            return pt + new Vector3(nx / rx, ny / 0.112f, nz / rz).normalized * d;
+        }
+
+        /// <summary>The face-side point of the head in the direction (nx, ny) (nz worked out, facing forward).</summary>
+        static Vector3 HeadFront(float nx, float ny) => HeadPoint(nx, ny, Mathf.Sqrt(Mathf.Max(0f, 1f - nx * nx - ny * ny)));
+
+        /// <summary>(3.54) The operators' face: bulging bloodshot eyes in dark sunken sockets, and a mouth held slightly open
+        /// on crooked yellow teeth - not smiling. A mesh of its own on the head (hidden from your own eyes like the rest of
+        /// your head).</summary>
+        static GameObject CreepyFace(Transform head, Vector3 c, Rng rng)
+        {
+            var mb = new MB(2);
+            var socket = new Color(0.16f, 0.04f, 0.04f);
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                Vector3 s = c + HeadFront(sx * 0.33f, 0.03f);   // the bottom of the eye hollow
+                mb.Sub(1).Sphere(s + new Vector3(0, 0.001f, -0.0035f), new Vector3(0.023f, 0.0195f, 0.006f), 16, socket);   // a dark, sunken, bruised ring
+                mb.Sub(0).Push(s + new Vector3(0, 0, -0.008f), Quaternion.Euler(90f, 0, 0)).Sphere(Vector3.zero, Vector3.one * 0.0145f, 20, Color.white).Pop();   // the eye, bulging 6.5 mm out
+            }
+            // the mouth: s along it (-1..1), t across (-1 bottom lip .. 1 top lip). Not a smile: a flat line whose corners
+            // sag a little, held slightly open on clenched teeth
+            System.Func<float, float, float, Vector3> M = (sv, tv, lift) =>
+            {
+                float nx = sv * 0.27f, ny = -0.44f - 0.05f * sv * sv + tv * (0.032f * Mathf.Sqrt(Mathf.Max(0f, 1f - sv * sv)) + 0.002f);
+                var p = HeadFront(nx, ny);
+                return c + p + p.normalized * lift;
+            };
+            const int MU = 24;
+            mb.Sub(1).Patch(MU, 2, (iu, iv) => M(iu / (float)MU * 2f - 1f, iv - 1f, 0.0012f), new Color(0.1f, 0.012f, 0.012f), false, true);
+            // crooked yellow teeth hanging from the top lip and standing up from the bottom one, interleaved
+            for (int row = 0; row < 2; row++)
+            {
+                float edge = row == 0 ? 1f : -1f;
+                int n = 9;
+                for (int k = 0; k < n; k++)
+                {
+                    float sv = -0.86f + (k + (row == 0 ? 0f : 0.5f)) * (1.72f / n);
+                    if (sv > 0.9f) continue;
+                    if (rng.Chance(0.15f)) continue;   // a few missing
+                    float len = rng.Range(0.35f, 0.75f);   // the jaws a little apart: the dark between them shows
+                    Vector3 root = M(sv, edge, 0.0016f), tip = M(sv, edge * (1f - 2f * len * 0.5f), 0.0016f);
+                    Vector3 up = root - tip; float hgt = up.magnitude; if (hgt < 0.0008f) continue;
+                    Vector3 nrm = (root - c).normalized;
+                    var q = Quaternion.LookRotation(nrm, up / hgt) * Quaternion.Euler(0, 0, rng.Range(-14f, 14f));
+                    var q2 = q * Quaternion.Euler(0, 0, rng.Range(-10f, 10f));   // crooked
+                    var tc = Color.Lerp(new Color(0.86f, 0.78f, 0.56f), new Color(0.55f, 0.42f, 0.22f), rng.Range(0f, 0.6f));   // yellow to rotten brown
+                    mb.Sub(1).Box((root + tip) * 0.5f, new Vector3(0.0034f + rng.Range(0f, 0.002f), hgt, 0.0026f), tc, 0.0008f, 1, q2);
+                    mb.Sub(1).Box(root + (root - c).normalized * 0.0003f, new Vector3(0.0048f, 0.0016f, 0.0028f), new Color(0.55f, 0.08f, 0.08f), 0.0005f, 1, q);   // red gum at its root
+                }
+            }
+            var eyeM = Mats.Lit("ragdoll_eye", Color.white, 0f, 0.88f, Mats.Eye, null, 0f, 0f);
+            var faceM = Mats.Lit("ragdoll_mouth", Color.white, 0f, 0.55f, null, null, 0f, 0f);
+            return mb.Build("Face", head, eyeM, faceM);
         }
 
         /// <summary>(3.50) A hand with fingers: palm, four two-part fingers in a relaxed curl and a thumb. glove: 0 none,
@@ -660,11 +719,13 @@ namespace Rago
                 mb.Sub(CLOTH).Sphere(new Vector3(0, 0.33f, -0.075f), Vector3.one * 0.025f, 10, new Color(0.95f, 0.95f, 0.93f));
             }
             var headGo = mb.Build("Mesh", r.head, mats);
+            GameObject faceGo = o == Outfit.Operator ? CreepyFace(r.head, new Vector3(0, 0.085f, 0.008f), new Rng(_seed * 31 + 7)) : null;   // (3.54) the players' creepy face
             if (local)
             {
                 // your own head would block the camera: render shadows only
-                foreach (var rr in new[] { headGo.GetComponent<Renderer>(), neckGo.GetComponent<Renderer>() })
+                foreach (var rr in new[] { headGo.GetComponent<Renderer>(), neckGo.GetComponent<Renderer>(), faceGo != null ? faceGo.GetComponent<Renderer>() : null })
                 {
+                    if (rr == null) continue;
                     rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
                     r.headRenderers.Add(rr);
                 }

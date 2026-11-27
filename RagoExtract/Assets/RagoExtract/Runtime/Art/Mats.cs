@@ -14,7 +14,7 @@ namespace Rago
         static readonly Dictionary<string, Material> _cache = new Dictionary<string, Material>();
         public static Texture2D Grime, Noise, Concrete, ConcreteN, Metal, MetalN, Wood, WoodN, Planks, Ground, Grass, Dirt, Asphalt, AsphaltN,
             Corrugated, CorrugatedN, Fabric, FabricN, Camo, Brick, BrickN, Tiles, TilesN, Bark, Leaves, Plaster, SteelPanel, SteelPanelN, Epoxy, EpoxyN, WornPanel, WornPanelN, WornConcrete, LabTile, LabTileN, Grunge, Cerakote, Stipple;
-        public static Texture2D Soft, Flash, Smoke, OilSplat, OilDrop, Drop, BulletHole, Spark, Vignette, Glow, Panel;
+        public static Texture2D Soft, Flash, Smoke, OilSplat, OilDrop, Drop, BulletHole, Spark, Vignette, Glow, Panel, Eye;
         static bool _init;
 
         public static void Init()
@@ -591,6 +591,24 @@ namespace Rago
                 return new Color(col.r, col.g, col.b, a * Mathf.Lerp(0.72f, 0.97f, th));
             });
             // a flying drop of oil: dark (tinted by the particle) with a glint on one side
+            // (3.54) a bloodshot eyeball, mapped round a sphere whose pole faces forward (v = 0 at the pupil, 1 at the back):
+            // yellowed whites going pink, red veins creeping in toward a pale washed-out iris, a dark ring and a black pupil
+            Eye = Tex(128, true, (x, y, u, v) =>
+            {
+                Color sclera = Color.Lerp(new Color(0.92f, 0.84f, 0.74f), new Color(0.88f, 0.5f, 0.46f), MathX.Step(0.12f, 0.45f, v) * 0.8f);   // yellowed, going raw pink
+                float w1 = MathX.TFbm(u, v, 6, 3, 3, 301), w2 = MathX.TFbm(u, v, 13, 5, 3, 302), w3 = MathX.TFbm(u, v, 24, 7, 2, 304);
+                float veins = Mathf.Max(1f - MathX.Step(0f, 0.05f, Mathf.Abs(w1 - 0.5f)), Mathf.Max(0.85f * (1f - MathX.Step(0f, 0.032f, Mathf.Abs(w2 - 0.5f))), 0.6f * (1f - MathX.Step(0f, 0.025f, Mathf.Abs(w3 - 0.5f)))))
+                              * MathX.Step(0.115f, 0.2f, v);   // thick and thin red veins right up to the iris
+                Color c = Color.Lerp(sclera, new Color(0.6f, 0.02f, 0.02f), veins * 0.95f);
+                if (v < 0.12f)
+                {
+                    float streak = MathX.TNoise(u, 0.5f, 48, 1, 303);
+                    Color iris = Color.Lerp(new Color(0.72f, 0.74f, 0.62f), new Color(0.4f, 0.42f, 0.3f), streak * 0.6f + MathX.Step(0.04f, 0.1f, v) * 0.4f);   // small, pale, washed out
+                    c = Color.Lerp(iris, new Color(0.07f, 0.05f, 0.04f), MathX.Step(0.1f, 0.12f, v));
+                }
+                if (v < 0.04f) c = Color.Lerp(new Color(0.01f, 0.01f, 0.01f), c, MathX.Step(0.026f, 0.04f, v));   // a pinprick pupil
+                return c;
+            });
             OilDrop = Tex(32, false, (x, y, u, v) =>
             {
                 Vector2 p = new Vector2(u - 0.5f, v - 0.5f) * 2;
