@@ -5,6 +5,9 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.61", "New hands", new[] {
+                "YOUR HANDS ARE THE GOOD ONES NOW: the same detailed hands other players see on you - rounded fingers in a fingerless tactical glove with a knuckle guard and cuff - and they still curl when you grip and squeeze the trigger.",
+            }),
             ("3.60", "Your ammo comes with you", new[] {
                 "GOING INTO A RAID WITH THE SAME AMMO: a mag in your hand when you left the bunker lost its rounds on the way - they come with you now. And a gun carried in your BACKPACK gets its ammo too (it used to go in with none).",
             }),

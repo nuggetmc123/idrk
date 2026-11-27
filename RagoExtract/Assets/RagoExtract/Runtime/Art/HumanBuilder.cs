@@ -257,6 +257,9 @@ namespace Rago
         static bool Sleeved(int top) => top != TopNone && top != 5;
         static bool LongSleeved(int top) => top == 0 || top == 2 || top == 3 || top == 4;
         static Color Sh(Color c, float k) { var r = c * k; r.a = 1f; return r; }
+        /// <summary>(3.60) The materials other players' hands are built with (cloth, hard gear, body, joints): your own
+        /// first-person hands use them too, so they look the same.</summary>
+        public static Material[] HandMats => new[] { ClothMat, HardMat, RagdollMat, JointMat };
         /// <summary>A combat shirt's body: a lighter, plainer fabric than its sleeves and shoulders.</summary>
         static Color CombatBody(Color c) => Color.Lerp(c, Lin3(new Color(0.6f, 0.56f, 0.46f)), 0.28f);
         static Color TorsoCol(Garb g) => g.top == 0 ? CombatBody(g.top1) : g.top1;

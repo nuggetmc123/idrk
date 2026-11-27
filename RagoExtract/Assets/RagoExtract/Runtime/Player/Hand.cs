@@ -75,34 +75,38 @@ namespace Rago
 
         void BuildVisual()
         {
-            // ragdoll test-dummy hand: plastic fingers on metal knuckle joints, fingerless tactical glove
+            // (3.60) the same hand other players see on you (HumanRig's ragdoll hand): a rounded palm and fingers in a
+            // fingerless tactical glove with a knuckle guard and a cuff - but with jointed fingers that curl as you grip
             _visual = new GameObject("Visual").transform;
             _visual.SetParent(transform, false);
             float s = left ? -1 : 1;
             Color body = HumanRig.BodyColor(Outfit.Operator, Profile.Current != null ? Profile.Current.outfitSeed : 7);
-            Color glove = new Color(0.13f, 0.12f, 0.11f);
-            var mats = new[] { HumanRig.PlasticMat, HumanRig.JointMat, Mats.Lit("glove", Color.white, 0.05f, 0.3f, Mats.Fabric, Mats.FabricN, 0.4f, 0.1f) };
-            var palm = new MB(3);
-            palm.Sub(0).Box(new Vector3(0, 0, -0.01f), new Vector3(0.082f, 0.03f, 0.092f), body, 0.012f, 2);
-            palm.Sub(2).Box(new Vector3(0, 0.004f, -0.018f), new Vector3(0.088f, 0.034f, 0.07f), glove, 0.012f, 2); // fingerless glove
-            palm.Sub(1).Sphere(new Vector3(0, 0, -0.07f), Vector3.one * 0.03f, 12, HumanRig.JointCol); // wrist ball
+            Color glove = new Color(0.09f, 0.085f, 0.08f);
+            Color Shd(Color c, float k) { var r = c * k; r.a = 1f; return r; }
+            var mats = HumanRig.HandMats;   // 0 cloth (glove), 1 hard (guard), 2 body, 3 joints
+            const float Z = -0.042f;        // the ragdoll hand's wrist-based layout, moved onto this hand's centre
+            var palm = new MB(4);
+            palm.Sub(0).Box(new Vector3(0, -0.003f, 0.038f + Z), new Vector3(0.078f, 0.03f, 0.076f), glove, 0.012f, 3);   // the gloved palm
+            palm.Sub(1).Box(new Vector3(0, 0.0145f, 0.062f + Z), new Vector3(0.06f, 0.007f, 0.02f), Shd(glove, 1.6f), 0.0025f);   // knuckle guard
+            palm.Sub(0).Cyl(new Vector3(0, -0.003f, -0.03f + Z), new Vector3(0, -0.003f, 0.012f + Z), 0.036f, 0.035f, 12, Shd(glove, 1.25f), false);   // the glove's cuff
             palm.Build("Palm", _visual, mats);
-            for (int f = 0; f < 4; f++)
+            float[] l1 = { 0.03f, 0.033f, 0.031f, 0.025f }, l2 = { 0.026f, 0.029f, 0.027f, 0.022f }, rad = { 0.0086f, 0.009f, 0.0086f, 0.0076f };
+            float[] spread = { -6f, -2f, 2f, 6f };
+            for (int f = 0; f < 4; f++)   // index (next to the thumb) to little finger
             {
                 var segs = new Transform[3];
                 Transform parent = _visual;
-                Vector3 basePos = new Vector3(s * (-0.03f + f * 0.02f), 0.0f, 0.037f);
-                float[] lens = { 0.035f, 0.025f, 0.02f };
+                float[] lens = { l1[f], l2[f] * 0.55f, l2[f] * 0.45f };
+                float[] r0 = { rad[f], rad[f] * 0.93f, rad[f] * 0.87f }, r1 = { rad[f] * 0.95f, rad[f] * 0.88f, rad[f] * 0.82f };
                 for (int k = 0; k < 3; k++)
                 {
                     var j = new GameObject("F" + f + k).transform;
                     j.SetParent(parent, false);
-                    j.localPosition = k == 0 ? basePos : new Vector3(0, 0, lens[k - 1]);
-                    var mb = new MB(2);
-                    float w = 0.0092f - k * 0.0008f - (f == 3 ? 0.0012f : 0);
-                    mb.Sub(1).Sphere(Vector3.zero, Vector3.one * w * 0.95f, 8, HumanRig.JointCol); // knuckle joint
-                    mb.Sub(0).Capsule(new Vector3(0, 0, w * 0.9f), new Vector3(0, 0, lens[k] - w * 0.6f), w * 0.92f, w * 0.85f, 8, body);
-                    mb.Build("seg", j, mats[0], mats[1]);
+                    if (k == 0) { j.localPosition = new Vector3(s * (-0.026f + f * 0.0175f), -0.003f, 0.072f + Z); j.localRotation = Quaternion.Euler(0, s * spread[f], 0); }
+                    else j.localPosition = new Vector3(0, 0, lens[k - 1]);
+                    var mb = new MB(4);
+                    mb.Sub(k == 0 ? 0 : 2).Capsule(Vector3.zero, new Vector3(0, 0, lens[k]), r0[k], r1[k], 8, k == 0 ? glove : body);   // the first joint is inside the glove
+                    mb.Build("seg", j, mats);
                     segs[k] = j;
                     parent = j;
                 }
@@ -110,12 +114,12 @@ namespace Rago
             }
             _thumb = new GameObject("Thumb").transform;
             _thumb.SetParent(_visual, false);
-            _thumb.localPosition = new Vector3(s * -0.04f, -0.008f, 0.0f);
+            _thumb.localPosition = new Vector3(s * -0.033f, -0.011f, 0.022f + Z);
             _thumb.localRotation = Quaternion.Euler(0, s * -45f, s * 30f);
-            var tb = new MB(2);
-            tb.Sub(1).Sphere(Vector3.zero, Vector3.one * 0.011f, 8, HumanRig.JointCol);
-            tb.Sub(0).Capsule(new Vector3(0, 0, 0.01f), new Vector3(0, 0, 0.045f), 0.0105f, 0.009f, 8, body);
-            tb.Build("thumb", _thumb, mats[0], mats[1]);
+            var tb = new MB(4);
+            tb.Sub(0).Capsule(Vector3.zero, new Vector3(0, 0, 0.03f), 0.0115f, 0.0105f, 8, glove);
+            tb.Sub(2).Capsule(new Vector3(0, 0, 0.03f), new Vector3(0, -0.004f, 0.055f), 0.0098f, 0.0088f, 8, body);
+            tb.Build("thumb", _thumb, mats);
             foreach (var r in _visual.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
@@ -732,7 +736,8 @@ namespace Rago
             {
                 float c = f == 0 ? _trig : _curl;
                 if (Held is Gun && !HeldAsSecondary && f == 0) c = _trig;
-                for (int k = 0; k < 3; k++) _fingers[f][k].localRotation = Quaternion.Euler(c * (k == 0 ? 70f : 80f), 0, 0);
+                // (3.60) a relaxed curl at rest (like other players see), each finger keeping its spread
+                for (int k = 0; k < 3; k++) _fingers[f][k].localRotation = Quaternion.Euler(Mathf.Lerp(k == 0 ? 12f : 16f, k == 0 ? 70f : 80f, c), k == 0 ? (left ? -1 : 1) * (-6f + f * 4f) * (1f - c * 0.6f) : 0f, 0);
             }
             _thumb.localRotation = Quaternion.Euler(_curl * 25f, (left ? 1 : -1) * (45f - _curl * 20f), (left ? -1 : 1) * 30f);
         }
