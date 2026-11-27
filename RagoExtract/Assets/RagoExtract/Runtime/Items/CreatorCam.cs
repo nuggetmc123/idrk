@@ -89,6 +89,19 @@ namespace Rago
             pl.Toast(Rec ? "REC - recording from your gun" : "Recording stopped");
         }
 
+        /// <summary>(3.58) While it records it stays put on the gun - stop recording first to take it off (reaching to
+        /// press RECORD kept pulling it off).</summary>
+        public override bool CanGrab(Hand h)
+        {
+            if (onGun != null && Rec && CreatorCamRecorder.Active)
+            {
+                if (Time.time - _lockToastT > 3f) { _lockToastT = Time.time; RagoGame.I?.Player?.Toast("Recording - trigger on the camera to stop, then take it off"); }
+                return false;
+            }
+            return true;
+        }
+        static float _lockToastT = -9f;
+
         public override void OnGrab(Hand h)
         {
             if (onGun != null)

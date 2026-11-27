@@ -482,6 +482,19 @@ namespace Rago
             else RestPose();
         }
 
+        static readonly Collider[] _attOverlap = new Collider[16];
+        /// <summary>(3.58) Something fitted to this gun (not its mag) within 6 cm of the hand.</summary>
+        Item AttachmentAt(Gun g, Vector3 p)
+        {
+            int n = Physics.OverlapSphereNonAlloc(p, 0.06f, _attOverlap, ~0, QueryTriggerInteraction.Collide);
+            for (int i = 0; i < n; i++)
+            {
+                var it = _attOverlap[i].GetComponentInParent<Item>();
+                if (it != null && it != g && !(it is Magazine) && it.MountedOn == g && it.CanGrab(this)) return it;
+            }
+            return null;
+        }
+
         // ---------------------------------------------------------------------------------- grabbing
         void TryGrab()
         {
@@ -497,6 +510,9 @@ namespace Rago
                 // (3.52) a grab low on its mag pulls the mag out (step 2) instead of taking the support grip
                 var gm = otherGun.mag;
                 bool atMag = gm != null && gm.CanGrab(this) && Vector3.Distance(gm.transform.TransformPoint(gm.localBounds.center), p) < 0.09f;
+                // (3.58) a sight / light / laser / grip / can right under your hand comes off instead (the support grip used
+                // to win anywhere near the handguard, so things fitted there could never be taken off)
+                if (!atMag && AttachmentAt(otherGun, p) != null) atMag = true;
                 if (!atMag && otherGun.secondGrip != null && (Vector3.Distance(p, otherGun.secondGrip.position) < 0.16f || (otherGun.rig.foregrip != null && Vector3.Distance(p, otherGun.rig.foregrip.position) < 0.16f)))
                 {
                     Held = otherGun; HeldAsSecondary = true;
@@ -536,7 +552,7 @@ namespace Rago
                     if (mg != null)
                     {
                         if (!mg.Held && OnMyBody(mg)) continue;
-                        float reach = it is CamItem ? 0.09f : it is Magazine && mg.Held ? 0.085f : it is Magazine ? 0.06f : 0.035f;   // a camera clipped on: easy to take back off; a mag (3.52: easier) from the gun in your other hand or one lying around
+                        float reach = it is CamItem ? 0.09f : it is Magazine && mg.Held ? 0.085f : it is Magazine ? 0.06f : mg.Held ? 0.06f : 0.045f;   // (3.58) sights / lights / cans: 6 cm on a gun you hold (was 3.5)   // a camera clipped on: easy to take back off; a mag (3.52: easier) from the gun in your other hand or one lying around
                         if (d > reach * reach) continue;
                         d += 0.01f;   // and anything else just as close wins
                     }

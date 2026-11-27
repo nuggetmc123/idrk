@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.59", "Attachments come off, camera stays on", new[] {
+                "TAKING ATTACHMENTS OFF works again: with the gun in one hand, grab a sight, light, laser, foregrip or suppressor with the other (hand right on it) and it comes off. Grabbing near the handguard always took the support grip instead.",
+                "THE CAMERA STAYS PUT WHILE IT RECORDS: on your helmet, your chest or a gun it's locked in place and keeps filming - reaching for the RECORD button kept pulling it off. Trigger on it to stop, then grab it to take it off.",
+            }),
             ("3.58", "Backpacks, spawns and names", new[] {
                 "PUTTING A BACKPACK ON is much easier: swing it over either shoulder or behind your head / back and let go - it goes on. It used to fall to the floor unless you let go in one small spot.",
                 "NO MORE TEAMS ON TOP OF EACH OTHER: every team (or solo player) in a raid gets its own spawn point, as far from the others as possible. Two teams could get the same one before.",

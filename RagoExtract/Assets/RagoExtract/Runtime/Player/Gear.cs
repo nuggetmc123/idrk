@@ -294,6 +294,7 @@ namespace Rago
             return item;
         }
 
+        float _camLockT = -9f;
         public void ToggleRec() { if (CamWorn) { if (!CamRec && CreatorCamRecorder.Active) { CreatorCamRecorder.Stop(_p); _p.Toast("Recording stopped"); Changed(); return; } SetRec(!CamRec); Sfx.Play(Synth.Beep(), _p.Head.position, 0.3f, CamRec ? 1.4f : 0.9f, 0.3f, 4f); Changed(); } }
         void SetRec(bool on)
         {
@@ -390,10 +391,17 @@ namespace Rago
             Vector3 hp = _p.Head.position;
             // night vision: grab it at your forehead
             if (NvgWorn && Vector3.Distance(p, NvgPoint) < 0.13f) return TakeOffNvg(p, h.Anchor.rotation);
-            if (CamWorn && (Vector3.Distance(p, CamPoint) < 0.16f || NearCam(p))) return TakeOffCam(p, h.Anchor.rotation);   // grip anywhere on it (the controller bumps your head / chest long before it's within a few cm)
-            if (Helmet != null && (Vector3.Distance(p, HeadTop) < 0.19f || (Vector3.Distance(p, hp) < 0.18f && p.y > hp.y + 0.02f)))
+            bool camLock = false;
+            if (CamWorn && (Vector3.Distance(p, CamPoint) < 0.16f || NearCam(p)))
+            {
+                // (3.58) recording: it stays on your helmet / chest (reaching to press RECORD kept pulling it off)
+                if (CamRec && CreatorCamRecorder.Active) { if (Time.time - _camLockT > 3f) { _camLockT = Time.time; _p.Toast("Recording - trigger on the camera to stop, then take it off"); } camLock = true; }
+                else
+                return TakeOffCam(p, h.Anchor.rotation);
+            }   // grip anywhere on it (the controller bumps your head / chest long before it's within a few cm)
+            if (!camLock && Helmet != null && (Vector3.Distance(p, HeadTop) < 0.19f || (Vector3.Distance(p, hp) < 0.18f && p.y > hp.y + 0.02f)))
                 return TakeOff(ArmorSlot.Helmet, p, h.Anchor.rotation);
-            if (Vest != null && Vector3.Distance(p, VestGrab) < 0.17f) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);
+            if (!camLock && Vest != null && Vector3.Distance(p, VestGrab) < 0.17f) return TakeOff(ArmorSlot.Vest, p, h.Anchor.rotation);
             // the backpack comes off your shoulder with grip AND trigger together (grip alone kept snatching it by accident)
             if ((Vector3.Distance(p, LeftShoulder) < 0.2f || Vector3.Distance(p, RightShoulder) < 0.2f) && PackSlot.item != null && (!XRInputs.VR || h.Input.Trigger > 0.5f)) return PackSlot.item;   // (3.52) either shoulder
             if (Vector3.Distance(p, Primary.transform.position) < 0.22f && Primary.item != null) return Primary.item;   // front sling
