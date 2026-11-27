@@ -369,6 +369,19 @@ namespace Rago
                     Vector3 local = secondGrip.localPosition - grip.localPosition;
                     Vector3 cur = rot * local;
                     Vector3 want = secondaryHand.Anchor.position - a.position;
+                    // (3.55) VIRTUAL STOCK setting: a rifle in both hands with your grip hand up by your shoulder aims from the
+                    // shoulder through your front hand (steady, as if shouldered) instead of along the line between your hands
+                    if (PlayerRig.VirtualStock && this is Gun vg && vg.g.TwoHanded)
+                    {
+                        var pl = RagoGame.I != null ? RagoGame.I.Player : null;
+                        if (pl != null && pl.Head != null)
+                        {
+                            var yawQ = Quaternion.Euler(0, pl.Head.eulerAngles.y, 0);
+                            float sd = primaryHand == pl.HandL ? -1f : 1f;
+                            Vector3 shoulder = pl.Head.position + yawQ * new Vector3(sd * 0.15f, -0.2f, -0.06f);
+                            if (Vector3.Distance(a.position, shoulder) < 0.32f) { var w2 = secondaryHand.Anchor.position - shoulder; if (w2.sqrMagnitude > 0.04f) want = w2; }
+                        }
+                    }
                     if (want.sqrMagnitude > 0.01f)
                     {
                         Quaternion adj = Quaternion.FromToRotation(cur, want);

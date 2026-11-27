@@ -112,6 +112,7 @@ namespace Rago
             Hand.GripPitch = prof.gripPitch;
             PlayerRig.SmoothTurn = prof.smoothTurn;
             PlayerRig.SnapAngle = prof.snapAngle;
+            PlayerRig.TurnOff = prof.turnOff;
             Sfx.MasterVolume = prof.volume; Sfx.Effects = prof.volEffects; Sfx.Ambience = prof.volAmbience; Sfx.Voices = prof.volVoice; Sfx.ApplyVolumes();
             Player = PlayerRig.Create();
             NetGame.Ensure();

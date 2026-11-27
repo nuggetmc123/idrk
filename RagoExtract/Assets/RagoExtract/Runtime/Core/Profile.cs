@@ -37,7 +37,7 @@ namespace Rago
         public float gripPitch = 0f;
         public int aimVersion;   // 1 = guns follow the controller's aim pose (old grip-angle tweaks reset)
         public bool smoothTurn;
-        public bool autoSprint, seated, autoMag, bodyLookDown;   // bodyLookDown (3.52): keep your own body shown when you look down   // autoMag (3.51): a mag held near the magwell loads itself          // comfort: sprint on its own when you push fully forward; play sitting down
+        public bool autoSprint, seated, autoMag, bodyLookDown, virtualStock, turnOff;   // virtualStock / turnOff: 3.55   // bodyLookDown (3.52): keep your own body shown when you look down   // autoMag (3.51): a mag held near the magwell loads itself          // comfort: sprint on its own when you push fully forward; play sitting down
         public float heightCal, seatCal = -1f;   // height calibration (metres added to your view): standing, and seated (-1 = not done: a default lift)
         public float snapAngle = 45f;
         public float volume = 1f, volEffects = 1f, volAmbience = 1f, volVoice = 1f;   // master, effects, weather & ambience, voice chat

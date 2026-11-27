@@ -5,6 +5,11 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.55", "Mirror, virtual stock, turning off", new[] {
+                "A MIRROR in your bunker: a full-length mirror on the wall by the WARDROBE. It's a real reflection with depth in your headset - see your face, your clothes and your gear (and wave at yourself).",
+                "VIRTUAL STOCK (SETTINGS > MORE): with a rifle in both hands and your grip hand up by your shoulder, the gun aims from your shoulder through your front hand - steady, as if it was shouldered.",
+                "TURNING can be switched OFF (SETTINGS > Turning > MODE: Snap, Smooth, Off) - turn by turning yourself.",
+            }),
             ("3.54", "A face to be scared of", new[] {
                 "PLAYERS HAVE A FACE now: big bulging bloodshot eyes - yellowed whites crawling with red veins, small pale irises and pinprick pupils - in dark, sunken, bruised sockets, and a creepy mouth held slightly open on crooked, rotten yellow teeth and red gums.",
                 "Sunglasses, a gas mask or a neck gaiter from the wardrobe still cover it.",

@@ -155,6 +155,16 @@ namespace Rago
             });
         }
 
+        static Material _mirrorBase;
+        /// <summary>(3.55) A material for a Mirror's glass (Rago/Mirror) - a plain silvery one if that shader isn't there.</summary>
+        public static Material Mirror()
+        {
+            Init();
+            if (_mirrorBase == null) _mirrorBase = Resources.Load<Material>("Rago/M_Mirror");
+            if (_mirrorBase != null && _mirrorBase.shader != null && _mirrorBase.shader.isSupported) return new Material(_mirrorBase);
+            return Lit("mirror_fallback", new Color(0.55f, 0.6f, 0.62f), 0.9f, 0.95f, null, null, 0f, 0f);
+        }
+
         static Shader FindShader(string a, string b)
         {
             var s = Shader.Find(a);

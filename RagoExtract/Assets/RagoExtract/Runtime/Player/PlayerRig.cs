@@ -51,6 +51,9 @@ namespace Rago
         /// <summary>Comfort: auto sprint; seated mode; height calibration. All from the profile.</summary>
         public static bool AutoSprint => Profile.Current != null && Profile.Current.autoSprint;
         public static bool AutoMag => Profile.Current != null && Profile.Current.autoMag;
+        public static bool VirtualStock => Profile.Current != null && Profile.Current.virtualStock;
+        /// <summary>(3.55) No stick turning at all: you turn by turning yourself.</summary>
+        public static bool TurnOff;
         public static bool Seated => Profile.Current != null && Profile.Current.seated;
         /// <summary>How far your view (and hands) are lifted: your calibrated height, or in seated mode up to standing height.</summary>
         public static float Lift
@@ -671,7 +674,8 @@ namespace Rago
             {
                 Vector2 turn = XRInputs.Right.Stick;
                 _snapCooldown -= dt;
-                if (SmoothTurn) { if (Mathf.Abs(turn.x) > 0.2f) Origin.RotateAround(Head.position, Vector3.up, turn.x * 120f * dt); }
+                if (TurnOff) { }
+                else if (SmoothTurn) { if (Mathf.Abs(turn.x) > 0.2f) Origin.RotateAround(Head.position, Vector3.up, turn.x * 120f * dt); }
                 else if (Mathf.Abs(turn.x) > 0.7f && _snapCooldown <= 0) { Origin.RotateAround(Head.position, Vector3.up, Mathf.Sign(turn.x) * SnapAngle); _snapCooldown = 0.3f; }
                 if (Mathf.Abs(turn.x) < 0.3f) _snapCooldown = 0;
             }
@@ -857,7 +861,8 @@ namespace Rago
             if (XRInputs.VR)
             {
                 _snapCooldown -= dt;
-                if (SmoothTurn) { if (Mathf.Abs(turn.x) > 0.2f) Origin.RotateAround(Head.position, Vector3.up, turn.x * 120f * dt); }
+                if (TurnOff) { }
+                else if (SmoothTurn) { if (Mathf.Abs(turn.x) > 0.2f) Origin.RotateAround(Head.position, Vector3.up, turn.x * 120f * dt); }
                 else if (Mathf.Abs(turn.x) > 0.7f && _snapCooldown <= 0)
                 {
                     Origin.RotateAround(Head.position, Vector3.up, Mathf.Sign(turn.x) * SnapAngle);

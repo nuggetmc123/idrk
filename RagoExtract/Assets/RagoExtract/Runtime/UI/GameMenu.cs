@@ -640,8 +640,9 @@ namespace Rago
             Btn(_page == 0 ? "MORE >" : "< BACK", 0.42f, -0.39f, 0.2f, () => { _page = _page == 0 ? 1 : 0; });
             if (_page == 1) { DrawComfort(p); return; }
             Line("Grip angle:  " + Hand.GripPitch + " deg", y); Btn("-", 0.25f, y, 0.1f, () => { Hand.GripPitch -= 5; SaveSettings(); }); Btn("+", 0.4f, y, 0.1f, () => { Hand.GripPitch += 5; SaveSettings(); }); y -= 0.085f;
-            Line("Turning:  " + (PlayerRig.SmoothTurn ? "Smooth" : "Snap " + PlayerRig.SnapAngle), y);
-            Btn("MODE", 0.25f, y, 0.14f, () => { PlayerRig.SmoothTurn = !PlayerRig.SmoothTurn; SaveSettings(); });
+            Line("Turning:  " + (PlayerRig.TurnOff ? "OFF - turn yourself" : PlayerRig.SmoothTurn ? "Smooth" : "Snap " + PlayerRig.SnapAngle), y);
+            // MODE: snap -> smooth -> off (3.55) -> snap
+            Btn("MODE", 0.25f, y, 0.14f, () => { if (PlayerRig.TurnOff) { PlayerRig.TurnOff = false; PlayerRig.SmoothTurn = false; } else if (PlayerRig.SmoothTurn) PlayerRig.TurnOff = true; else PlayerRig.SmoothTurn = true; SaveSettings(); });
             Btn("ANGLE", 0.42f, y, 0.14f, () => { PlayerRig.SnapAngle = PlayerRig.SnapAngle < 40 ? 45 : PlayerRig.SnapAngle < 60 ? 90 : 30; SaveSettings(); }); y -= 0.085f;
             // volumes: two to a row - master, effects / weather & ambience, voice chat (there's no music in the game)
             void Vol(string label, float x, float yy, System.Func<float> get, System.Action<float> set)
@@ -673,20 +674,24 @@ namespace Rago
         void DrawComfort(Profile p)
         {
             if (p == null) return;
-            float y = 0.3f;
+            float y = 0.34f;
             Line("Auto sprint:  " + (p.autoSprint ? "ON - push the stick right forward to run" : "OFF - click the left stick to run"), y, 0.026f);
-            Btn(p.autoSprint ? "ON" : "OFF", 0.42f, y, 0.16f, () => { p.autoSprint = !p.autoSprint; p.Save(); }, p.autoSprint ? Go : (Color?)null); y -= 0.09f;
+            Btn(p.autoSprint ? "ON" : "OFF", 0.42f, y, 0.16f, () => { p.autoSprint = !p.autoSprint; p.Save(); }, p.autoSprint ? Go : (Color?)null); y -= 0.075f;
             // (3.51) easy reloads (Quest 2 controllers make lining a mag up with the magwell fiddly)
             Line("Auto mag:  " + (p.autoMag ? "ON - hold a mag near the magwell and it goes in" : "OFF - line the mag up and push it in"), y, 0.026f);
-            Btn(p.autoMag ? "ON" : "OFF", 0.42f, y, 0.16f, () => { p.autoMag = !p.autoMag; p.Save(); }, p.autoMag ? Go : (Color?)null); y -= 0.09f;
+            Btn(p.autoMag ? "ON" : "OFF", 0.42f, y, 0.16f, () => { p.autoMag = !p.autoMag; p.Save(); }, p.autoMag ? Go : (Color?)null); y -= 0.075f;
             Line("Your body looking down:  " + (p.bodyLookDown ? "SHOWN" : "HIDDEN - so you can see the ground"), y, 0.026f);
-            Btn(p.bodyLookDown ? "SHOWN" : "HIDDEN", 0.4f, y, 0.2f, () => { p.bodyLookDown = !p.bodyLookDown; p.Save(); }); y -= 0.09f;
+            Btn(p.bodyLookDown ? "SHOWN" : "HIDDEN", 0.4f, y, 0.2f, () => { p.bodyLookDown = !p.bodyLookDown; p.Save(); }); y -= 0.075f;
+            // (3.55) a virtual stock: with a rifle in both hands and your grip hand up by your shoulder, the gun aims from your
+            // shoulder through your front hand - steady, like it's shouldered
+            Line("Virtual stock:  " + (p.virtualStock ? "ON - rifles aim from your shoulder" : "OFF"), y, 0.026f);
+            Btn(p.virtualStock ? "ON" : "OFF", 0.42f, y, 0.16f, () => { p.virtualStock = !p.virtualStock; p.Save(); }, p.virtualStock ? Go : (Color?)null); y -= 0.075f;
             Line("Play mode:  " + (p.seated ? "SEATED - you sit, your operator stands" : "STANDING"), y, 0.026f);
-            Btn(p.seated ? "SEATED" : "STANDING", 0.4f, y, 0.2f, () => { p.seated = !p.seated; p.Save(); }); y -= 0.1f;
+            Btn(p.seated ? "SEATED" : "STANDING", 0.4f, y, 0.2f, () => { p.seated = !p.seated; p.Save(); }); y -= 0.085f;
             Line("Height:  " + (p.seated ? (p.seatCal >= 0f ? "calibrated (+" + p.seatCal.ToString("0.00") + " m)" : "default lift (+0.50 m)") : (Mathf.Abs(p.heightCal) > 0.005f ? "calibrated (" + (p.heightCal >= 0 ? "+" : "") + p.heightCal.ToString("0.00") + " m)" : "not calibrated")), y, 0.026f);
             Btn(_calT >= 0f ? "..." + Mathf.CeilToInt(_calT) : "CALIBRATE", 0.38f, y, 0.24f, () => { if (_calT < 0f) _calT = 3f; }, Go); y -= 0.08f;
-            Line(p.seated ? "Sit up straight, look ahead, press CALIBRATE and keep still for 3 seconds." : "Stand up straight, look ahead, press CALIBRATE and keep still for 3 seconds.", y, 0.022f, UI.Dim); y -= 0.06f;
-            Btn("RESET HEIGHT", -0.3f, y, 0.3f, () => { if (p.seated) p.seatCal = -1f; else p.heightCal = 0f; p.Save(); }); y -= 0.1f;
+            Line(p.seated ? "Sit up straight, look ahead, press CALIBRATE and keep still for 3 seconds." : "Stand up straight, look ahead, press CALIBRATE and keep still for 3 seconds.", y, 0.022f, UI.Dim); y -= 0.055f;
+            Btn("RESET HEIGHT", -0.3f, y, 0.3f, () => { if (p.seated) p.seatCal = -1f; else p.heightCal = 0f; p.Save(); }); y -= 0.08f;
             Line("Calibrating lines your eyes up with your operator's, so your hands, body and gun all sit right.", y, 0.02f, UI.Dim);
         }
 
@@ -702,7 +707,7 @@ namespace Rago
         static void SaveSettings()
         {
             var p = Profile.Current; if (p == null) return;
-            p.gripPitch = Hand.GripPitch; p.smoothTurn = PlayerRig.SmoothTurn; p.snapAngle = PlayerRig.SnapAngle; p.volume = Sfx.MasterVolume; p.volEffects = Sfx.Effects; p.volAmbience = Sfx.Ambience; p.volVoice = Sfx.Voices;
+            p.gripPitch = Hand.GripPitch; p.smoothTurn = PlayerRig.SmoothTurn; p.turnOff = PlayerRig.TurnOff; p.snapAngle = PlayerRig.SnapAngle; p.volume = Sfx.MasterVolume; p.volEffects = Sfx.Effects; p.volAmbience = Sfx.Ambience; p.volVoice = Sfx.Voices;
             p.Save();
         }
     }
