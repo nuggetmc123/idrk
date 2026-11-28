@@ -269,6 +269,11 @@ namespace Rago
 
         void Update()
         {
+            if (Profile.SaveWasTampered && Player != null && !_travelling && Area == Area.Bunker && Time.unscaledTime > 6f)
+            {
+                Profile.SaveWasTampered = false;
+                Player.Hud?.Center("SAVE FILE CHECK\n<size=34>Your save had been edited by hand, so the edited parts were undone.\nSaves are protected now - edited saves don't load.</size>", 10f);
+            }
             if (Rago.RelayBackend.Outdated && Area != Area.Raid && Time.unscaledTime > _lockNagT) { _lockNagT = Time.unscaledTime + 25f; Player?.Hud?.Center(OutdatedText, 10f); }
             // watchdog: dead for 15 seconds and nothing has taken you home - go home now
             if (Player != null && Player.Dead && !_travelling)

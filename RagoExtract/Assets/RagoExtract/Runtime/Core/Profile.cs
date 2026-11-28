@@ -75,6 +75,91 @@ namespace Rago
         static string PathFile => Path.Combine(Application.persistentDataPath, "rago_profile.json");
 
         static string BackupFile => PathFile + ".bak";
+        // (3.72) the save is encrypted and signed: an edited or made-up file doesn't load
+        static string SavFile => Path.Combine(Application.persistentDataPath, "rago_profile.sav");
+        static string SavBackup => SavFile + ".bak";
+        static readonly byte[] Magic = { 0x52, 0x47, 0x58, 0x02 };
+        static byte[] _k1, _k2;
+        static void Keys()
+        {
+            if (_k1 != null) return;
+            // built at run time from scattered parts, not one string you can search the game for
+            string a = "r4g0", b = "-xtr4ct-", c = "s4v3", d = "|" + (Application.identifier ?? "rago") + "|";
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            {
+                _k1 = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(c + d + a + b + "enc#7741"));
+                _k2 = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(b + a + d + c + "mac#1309"));
+            }
+        }
+
+        static byte[] Seal(string json)
+        {
+            Keys();
+            using (var aes = System.Security.Cryptography.Aes.Create())
+            {
+                aes.Key = _k1; aes.GenerateIV();
+                byte[] plain = System.Text.Encoding.UTF8.GetBytes(json), cipher;
+                using (var enc = aes.CreateEncryptor()) cipher = enc.TransformFinalBlock(plain, 0, plain.Length);
+                var body = new byte[Magic.Length + 16 + cipher.Length];
+                System.Buffer.BlockCopy(Magic, 0, body, 0, Magic.Length);
+                System.Buffer.BlockCopy(aes.IV, 0, body, Magic.Length, 16);
+                System.Buffer.BlockCopy(cipher, 0, body, Magic.Length + 16, cipher.Length);
+                byte[] mac; using (var h = new System.Security.Cryptography.HMACSHA256(_k2)) mac = h.ComputeHash(body);
+                var all = new byte[body.Length + mac.Length];
+                System.Buffer.BlockCopy(body, 0, all, 0, body.Length); System.Buffer.BlockCopy(mac, 0, all, body.Length, mac.Length);
+                return all;
+            }
+        }
+
+        /// <summary>The json in a sealed save, or null if it's missing, damaged or was edited.</summary>
+        static string Open(byte[] all)
+        {
+            Keys();
+            if (all == null || all.Length < Magic.Length + 16 + 16 + 32) return null;
+            for (int i = 0; i < Magic.Length; i++) if (all[i] != Magic[i]) return null;
+            int bodyLen = all.Length - 32;
+            byte[] mac; using (var h = new System.Security.Cryptography.HMACSHA256(_k2)) mac = h.ComputeHash(all, 0, bodyLen);
+            int diff = 0; for (int i = 0; i < 32; i++) diff |= mac[i] ^ all[bodyLen + i];
+            if (diff != 0) return null;   // edited
+            using (var aes = System.Security.Cryptography.Aes.Create())
+            {
+                aes.Key = _k1;
+                var iv = new byte[16]; System.Buffer.BlockCopy(all, Magic.Length, iv, 0, 16); aes.IV = iv;
+                using (var dec = aes.CreateDecryptor())
+                {
+                    var plain = dec.TransformFinalBlock(all, Magic.Length + 16, bodyLen - Magic.Length - 16);
+                    return System.Text.Encoding.UTF8.GetString(plain);
+                }
+            }
+        }
+
+        static Profile TryReadSealed(string path)
+        {
+            try
+            {
+                if (!File.Exists(path)) return null;
+                var json = Open(File.ReadAllBytes(path));
+                if (string.IsNullOrWhiteSpace(json)) { Debug.LogWarning("[Rago] " + path + " failed its check (edited or damaged)"); return null; }
+                var p = JsonUtility.FromJson<Profile>(json);
+                return p != null && p.stash != null ? p : null;
+            }
+            catch (System.Exception e) { Debug.LogWarning("[Rago] couldn't read " + path + ": " + e.Message); return null; }
+        }
+
+        /// <summary>(3.72) Set when the save had been edited (and so couldn't be used): the bunker says so.</summary>
+        public static bool SaveWasTampered;
+
+        /// <summary>(3.72) An old plain-text save being converted: anything nobody could have earned with their raid record
+        /// (it was trivially editable) is brought back down.</summary>
+        void Sanity()
+        {
+            long moneyCap = 120000L + 120000L * System.Math.Max(0, extracts) + 30000L * System.Math.Max(0, raids);
+            if (money > moneyCap) { Debug.LogWarning("[Rago] save check: money " + money + " > " + moneyCap); money = (int)System.Math.Min(int.MaxValue, moneyCap); SaveWasTampered = true; }
+            if (money < 0) money = 0;
+            long xpCap = 2000L + 6000L * System.Math.Max(0, raids);   // a huge raid (boss, lots of kills, double XP) is ~5000
+            if (xp > xpCap) { Debug.LogWarning("[Rago] save check: xp " + xp + " too high for " + raids + " raids"); xp = (int)System.Math.Min(int.MaxValue, xpCap); SaveWasTampered = true; }
+            if (extracts > raids) { extracts = raids; SaveWasTampered = true; }
+        }
 
         static Profile TryRead(string path)
         {
@@ -117,7 +202,24 @@ namespace Rago
         public static Profile LoadOrCreate()
         {
             // the profile, or if that's damaged (the game was closed mid-save), the backup - never a silent reset
-            var p = TryRead(PathFile) ?? TryRead(BackupFile);
+            var p = TryReadSealed(SavFile) ?? TryReadSealed(SavBackup);
+            bool sealedExists = File.Exists(SavFile) || File.Exists(SavBackup);
+            if (p == null && sealedExists)
+            {
+                // there IS a sealed save, but it doesn't pass its check: it was edited (or swapped for something made up)
+                SaveWasTampered = true;
+                try { if (File.Exists(SavFile)) File.Copy(SavFile, SavFile + ".rejected", true); } catch { }
+            }
+            else if (p == null)
+            {
+                // an older version's plain-text save: converted once (with a sanity check), then the plain file goes
+                p = TryRead(PathFile) ?? TryRead(BackupFile);
+                if (p != null)
+                {
+                    try { p.Sanity(); } catch (System.Exception e) { Debug.LogWarning("[Rago] save check: " + e.Message); }
+                    try { p.Save(); if (File.Exists(SavFile)) { File.Delete(PathFile); if (File.Exists(BackupFile)) File.Delete(BackupFile); } } catch (System.Exception e) { Debug.LogWarning("[Rago] save convert: " + e.Message); }
+                }
+            }
             if (p != null)
             {
                 p.Fix(); Current = p;
@@ -150,6 +252,7 @@ namespace Rago
             }
             if (File.Exists(PathFile))
                 try { File.Copy(PathFile, PathFile + ".damaged", true); } catch { }   // keep the broken one, just in case
+            if (SaveWasTampered) Debug.LogWarning("[Rago] the save had been edited - starting a fresh profile");
             Current = NewProfile();
             Current.Save();
             return Current;
@@ -301,10 +404,11 @@ namespace Rago
             // closed, the headset slept) can never leave a broken profile that loads as a brand-new one
             try
             {
-                string tmp = PathFile + ".tmp";
-                File.WriteAllText(tmp, JsonUtility.ToJson(this, true));
-                if (File.Exists(PathFile)) { File.Copy(PathFile, BackupFile, true); File.Delete(PathFile); }
-                File.Move(tmp, PathFile);
+                // (3.72) encrypted + signed (rago_profile.sav): editing it by hand makes it unreadable
+                string tmp = SavFile + ".tmp";
+                File.WriteAllBytes(tmp, Seal(JsonUtility.ToJson(this, false)));
+                if (File.Exists(SavFile)) { File.Copy(SavFile, SavBackup, true); File.Delete(SavFile); }
+                File.Move(tmp, SavFile);
             }
             catch (System.Exception e) { Debug.LogWarning("[Rago] profile save failed: " + e.Message); }
         }

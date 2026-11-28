@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.72", "Protected saves", new[] {
+                "YOUR SAVE IS PROTECTED: it's encrypted and signed now (rago_profile.sav). A save edited by hand - or swapped for a made-up one - doesn't load.",
+                "Old saves are converted automatically. Anything nobody could have earned with their raid record (millions of cash after a few raids, max level after 3 raids) is brought back down.",
+            }),
             ("3.71", "A better Swamp", new[] {
                 "YOU CAN GET ONTO THE ISLANDS NOW: each island had an invisible ball-shaped hitbox as wide as the island, so nobody could walk onto it. They have proper ground now, with gentle muddy banks you walk straight up out of the water.",
                 "Steps up from the water onto every boardwalk.",
