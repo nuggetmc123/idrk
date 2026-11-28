@@ -653,6 +653,7 @@ namespace Rago
             Irons(mb, 0.165f, fz, 0.116f, 0.098f, 0.105f);
             int mk = d.suppressed ? 3 : v >= 6 ? 0 : (v % 2 == 0 ? 1 : 2);   // slant brake / big two-port brake (a 7th AK gets a birdcage so it can't match the 1st)
             Muzzle(mb, new Vector3(0, rig.boreY, hz + 0.16f + bl), 0.0095f, mk);
+            if (d.suppressed) { mb.Sub(DARK).Cyl(new Vector3(0, rig.boreY, hz + 0.02f), new Vector3(0, rig.boreY, hz + 0.16f + bl), 0.019f, 0.019f, 16, W); for (int i = 0; i < 10; i++) mb.Sub(FIN).Box(new Vector3(0.019f, rig.boreY, hz + 0.04f + i * 0.012f), new Vector3(0.002f, 0.004f, 0.004f), W, 0f); }   // integral suppressor shroud (AS VAL)
             if (d.optics) Rail(mb, new Vector3(0, 0.095f, -0.07f), 0.19f);
             if (lmg)
             {

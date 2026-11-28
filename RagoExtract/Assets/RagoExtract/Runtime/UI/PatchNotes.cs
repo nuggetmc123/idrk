@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.74", "New gun: VAL Spectre", new[] {
+                "NEW GUN - THE VAL SPECTRE: an integrally-suppressed 9x39mm rifle (the real AS VAL). Heavy subsonic rounds - it's quiet, has almost no muzzle flash, and hits hard up close with good armour penetration. 20-round mags, full-auto. Rare: look for it in weapon cases and on the black market.",
+                "New ammo type: 9x39mm.",
+            }),
             ("3.73", "Your save lives on the server", new[] {
                 "CLOUD SAVES: your whole profile (money, stash, skins, unlocks) is kept on the game server now, not in a file on your headset. Editing anything on the device does nothing - the server's copy is the real one, and it's loaded every time you connect.",
                 "Sign in on another headset, or reinstall, and your progress comes back from the server.",

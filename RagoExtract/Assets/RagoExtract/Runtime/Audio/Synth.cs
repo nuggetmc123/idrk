@@ -82,6 +82,7 @@ namespace Rago
                 case Caliber.C357: case Caliber.C50AE: p.crack = 0.9f; p.bodyHz = 85; p.bodyDecay = 0.11f; p.tail = 1.1f; p.power = 1.3f; break;
                 case Caliber.C556: case Caliber.C545: p.crack = 1f; p.bodyHz = 100; p.bodyDecay = 0.07f; p.tail = 1.2f; p.bright = 1.2f; break;
                 case Caliber.C762: p.crack = 1f; p.bodyHz = 80; p.bodyDecay = 0.1f; p.tail = 1.35f; p.bright = 0.95f; p.power = 1.2f; break;
+                case Caliber.C939: p.crack = 0.8f; p.bodyHz = 95; p.bodyDecay = 0.1f; p.tail = 1.1f; p.bright = 0.7f; p.power = 1.25f; break;   // heavy, subsonic: a deep thump, no sharp crack
                 case Caliber.C308: p.crack = 1.1f; p.bodyHz = 70; p.bodyDecay = 0.12f; p.tail = 1.6f; p.power = 1.35f; break;
                 case Caliber.C338: case Caliber.C50BMG: p.crack = 1.25f; p.bodyHz = 50; p.bodyDecay = 0.17f; p.tail = 2.1f; p.power = 1.6f; p.bright = 0.8f; break;
                 case Caliber.C12g: p.crack = 0.65f; p.bodyHz = 60; p.bodyDecay = 0.16f; p.tail = 1.4f; p.bright = 0.75f; p.power = 1.5f; p.shotgun = true; break;

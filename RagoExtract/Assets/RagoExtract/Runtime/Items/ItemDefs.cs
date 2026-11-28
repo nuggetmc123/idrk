@@ -8,7 +8,7 @@ namespace Rago
     public enum ArmorSlot { Helmet, Vest }
     public enum GunClass { Pistol, Revolver, SMG, Shotgun, Rifle, BattleRifle, DMR, Sniper, LMG }
     public enum FireAction { Semi, Auto, Burst, Bolt, Pump, Break, Revolver }
-    public enum Caliber { C9mm, C45, C57, C556, C545, C762, C308, C338, C50BMG, C12g, C50AE, C357, C20mm }
+    public enum Caliber { C9mm, C45, C57, C556, C545, C762, C308, C338, C50BMG, C12g, C50AE, C357, C20mm, C939 }
     /// <summary>What's loaded in a magazine: standard ball, armour-piercing, or incendiary (sets people on fire).</summary>
     public enum AmmoType : byte { Standard, AP, Incendiary }
     public enum GunStyle { Pistol, Revolver, SmgBox, SmgMac, SmgVector, Bullpup, AR, AK, Battle, Bolt, Pump, Double, BoxShotgun, Lmg, AntiMat, Tommy }
@@ -123,6 +123,7 @@ namespace Rago
                 case Caliber.C556: return 4.4f;
                 case Caliber.C545: return 4.4f;
                 case Caliber.C762: return 4.8f;
+                case Caliber.C939: return 5.2f;   // heavy subsonic AP round: punches armour well up close
                 case Caliber.C308: return 5.6f;
                 case Caliber.C338: return 6.6f;
                 case Caliber.C50BMG: return 8.5f;
@@ -201,6 +202,7 @@ namespace Rago
                 case Caliber.C556: return "5.56x45mm";
                 case Caliber.C545: return "5.45x39mm";
                 case Caliber.C762: return "7.62x39mm";
+                case Caliber.C939: return "9x39mm";
                 case Caliber.C308: return "7.62x51mm";
                 case Caliber.C338: return ".338 Lapua";
                 case Caliber.C50BMG: return ".50 BMG";
@@ -323,6 +325,8 @@ namespace Rago
             G("reaper", "Reaper 416", GunClass.Rifle, GunStyle.AR, FireAction.Auto, Caliber.C556, 34, 850, 30, 0.5f, 0.85f, R, 6400, true, Finish.Tan, Finish.Black, 0.36f, "Piston-driven premium carbine.");
             G("ironclad", "Ironclad X", GunClass.Rifle, GunStyle.AR, FireAction.Auto, Caliber.C556, 36, 900, 40, 0.4f, 0.7f, E, 8800, true, Finish.Gray, Finish.Tan, 0.38f, "Prototype rifle with a 40-round mag.");
             G("oblivion", "Oblivion X-9", GunClass.Rifle, GunStyle.AK, FireAction.Auto, Caliber.C762, 44, 800, 40, 0.55f, 0.6f, V, 16000, true, Finish.Black, Finish.Gold, 0.42f, "Vault-only. Black and gold 7.62 monster.");
+            var val = G("val", "VAL Spectre", GunClass.Rifle, GunStyle.AK, FireAction.Auto, Caliber.C939, 42, 900, 20, 0.5f, 1.0f, R, 7200, true, Finish.Black, Finish.Black, 0.2f, "Integrally suppressed 9x39 rifle. Heavy subsonic rounds - quiet, hard-hitting, murder up close. Takes 20-round mags.");
+            val.suppressed = true;
 
             // ---------------- BATTLE RIFLES / DMRs (6)
             G("grizzly", "Grizzly G3", GunClass.BattleRifle, GunStyle.Battle, FireAction.Auto, Caliber.C308, 52, 550, 20, 1.2f, 1.0f, U, 5200, true, Finish.Black, Finish.Od, 0.45f, "Heavy roller-delayed battle rifle.");
@@ -450,6 +454,7 @@ namespace Rago
             Ammo("ammo_556", Caliber.C556, 60, 200); Ammo("ammo_545", Caliber.C545, 60, 180); Ammo("ammo_762", Caliber.C762, 60, 220);
             Ammo("ammo_308", Caliber.C308, 40, 300); Ammo("ammo_338", Caliber.C338, 15, 450); Ammo("ammo_50", Caliber.C50BMG, 10, 600);
             Ammo("ammo_12g", Caliber.C12g, 24, 140); Ammo("ammo_50ae", Caliber.C50AE, 21, 260); Ammo("ammo_357", Caliber.C357, 24, 160);
+            Ammo("ammo_939", Caliber.C939, 40, 240);
             Ammo("ammo_20", Caliber.C20mm, 6, 900);
             // special rounds: never sold - you find them in raids. The box says exactly what's in it.
             foreach (Caliber c in System.Enum.GetValues(typeof(Caliber)))
