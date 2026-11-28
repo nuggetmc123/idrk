@@ -468,7 +468,7 @@ namespace Rago
         // ---- MOD tab: pick a player, then ask for a ban / unban / wipe / Market kick. The owner approves it on the web panel.
         string _modTarget = "";
         static int _evKind = 1, _evLen = 1;
-        int _modReason, _modLen = 1;
+        int _modReason, _modLen;   // (3.75) default 1 DAY: a mod can apply that (and a kick) on the spot
         static readonly string[] ModReasons = { "Cheating", "Exploiting a bug", "Harassment", "Hate speech", "Spamming", "Griefing", "Other" };
         static readonly string[] ModLens = { "1 DAY", "7 DAYS", "30 DAYS", "PERMANENT" };
         static readonly int[] ModHours = { 24, 168, 720, 0 };
@@ -482,7 +482,7 @@ namespace Rago
             if (_modTools) { DrawTester(); return; }
             float y = 0.2f;
             if (!string.IsNullOrEmpty(RelayBackend.LastModReply)) Line(UI.Wrap(RelayBackend.LastModReply, 70), y, 0.022f, new Color(0.6f, 1f, 0.65f));
-            else Line("MODERATOR TOOLS - bans, wipes and kicks go to the owner for approval first.", y, 0.024f, UI.Dim);
+            else Line("MODERATOR TOOLS - you can BAN for 1 day and KICK on the spot; longer bans, unban and wipe go to the owner.", y, 0.024f, UI.Dim);
             y -= 0.07f;
             Line("Player:", y);
             Line(string.IsNullOrEmpty(_modTarget) ? "(none picked)" : _modTarget, y, 0.032f, string.IsNullOrEmpty(_modTarget) ? UI.Dim : UI.Accent, -0.3f);
@@ -500,8 +500,8 @@ namespace Rago
             Btn("BAN", -0.39f, y, 0.22f, () => Ask(Rago.Relay.P.ActBan), Stop);
             Btn("UNBAN", -0.14f, y, 0.22f, () => Ask(Rago.Relay.P.ActUnban));
             Btn("WIPE", 0.11f, y, 0.22f, () => Ask(Rago.Relay.P.ActWipe), new Color(0.55f, 0.35f, 0.1f));
-            Btn("KICK (MARKET)", 0.39f, y, 0.26f, () => Ask(Rago.Relay.P.ActKick)); y -= 0.065f;
-            Line("Kick only works on someone in the Market right now. Wipe resets their money, stash, gear and level.", y, 0.02f, UI.Dim); y -= 0.075f;
+            Btn("KICK (MARKET)", 0.39f, y, 0.26f, () => Ask(Rago.Relay.P.ActKick), new Color(0.5f, 0.35f, 0.1f)); y -= 0.065f;
+            Line("BAN at 1 DAY and KICK happen right away. A longer ban, UNBAN or WIPE is sent to the owner to approve. Kick is for someone in the Market now.", y, 0.02f, UI.Dim); y -= 0.075f;
             // LIVE EVENT: starts straight away for everyone on the server (no approval needed)
             Line("LIVE EVENT:", y, 0.026f, new Color(1f, 0.8f, 0.25f));
             Btn("<", -0.27f, y, 0.07f, () => _evKind = _evKind <= 1 ? LiveEvent.Names.Length - 1 : _evKind - 1);

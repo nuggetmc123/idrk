@@ -5,6 +5,10 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.75", "Moderators: instant 1-day ban + kick", new[] {
+                "Moderators can now BAN someone for 1 day, and KICK someone from the Market, straight from the MOD tab - no waiting for the owner to approve it.",
+                "Longer bans (7 / 30 days / permanent), UNBAN and WIPE still go to the owner to approve.",
+            }),
             ("3.74", "New gun: VAL Spectre", new[] {
                 "NEW GUN - THE VAL SPECTRE: an integrally-suppressed 9x39mm rifle (the real AS VAL). Heavy subsonic rounds - it's quiet, has almost no muzzle flash, and hits hard up close with good armour penetration. 20-round mags, full-auto. Rare: look for it in weapon cases and on the black market.",
                 "New ammo type: 9x39mm.",

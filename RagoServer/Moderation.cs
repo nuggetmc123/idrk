@@ -219,6 +219,20 @@ namespace RagoServer
             if (key == c.Key) { Send(c, new W(P.ModReply).Str("You can't do that to yourself.").Frame()); return; }
             if (act == P.ActKick && (on == null || !InMarket(on))) { Send(c, new W(P.ModReply).Str(name + " isn't in the Market right now (kicks are for the Market only).").Frame()); return; }
             if (act < P.ActBan || act > P.ActKick) return;
+            // (3.75) moderators can do two things on the spot (no owner approval needed): KICK someone from the Market, and
+            // ban someone for ONE DAY. Longer bans, wipes and unbans still go to the owner.
+            if (act == P.ActKick)
+            {
+                string res = DoKick(key, name, Clean(reason), c.Name + " (mod)");
+                Send(c, new W(P.ModReply).Str(res).Frame());
+                return;
+            }
+            if (act == P.ActBan && hours == 24)
+            {
+                string res = DoBan(key, device, name, 24, Clean(reason), c.Name + " (mod, 1-day)");
+                Send(c, new W(P.ModReply).Str(res + " for 1 day").Frame());
+                return;
+            }
             var r = new Request { Id = _nextReq++, Act = act, Key = key, Device = device, Name = name, Reason = Clean(reason), Hours = Math.Max(0, hours), By = c.Name, At = Now };
             Pending.Add(r); SaveRequests();
             Note("request #" + r.Id + ": " + c.Name + " wants " + ActName(act) + " " + name + (act == P.ActBan ? " (" + (hours == 0 ? "permanent" : hours + " h") + ")" : "") + " - " + r.Reason);
