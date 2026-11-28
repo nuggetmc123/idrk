@@ -1,0 +1,3 @@
+namespace UnityEngine { public static class Time { public static float deltaTime = 0.016f, time = 0f, fixedDeltaTime = 0.02f, realtimeSinceStartup = 0f, unscaledDeltaTime = 0.016f, unscaledTime = 0f; } }
+namespace UnityEngine { public struct Rect { public float x, y, width, height; public Rect(float x, float y, float w, float h) { this.x = x; this.y = y; width = w; height = h; } public static Rect MinMaxRect(float a, float b, float c, float d) => new Rect(a, b, c - a, d - b); public bool Contains(Vector2 p) => p.x >= x && p.x < x + width && p.y >= y && p.y < y + height;
+ public float xMin => x; public float yMin => y; public float xMax => x + width; public float yMax => y + height; public Vector2 center => new Vector2(x + width / 2, y + height / 2); } }

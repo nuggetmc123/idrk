@@ -1,0 +1,907 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Rago
+{
+    /// <summary>
+    /// Batched level builder: every box/cylinder added is merged into one mesh per material (few draw calls on Quest)
+    /// and gets a matching collider tagged with an impact surface. Includes a library of props.
+    /// </summary>
+    public class WorldBuilder
+    {
+        public readonly Transform Root;
+        // batches are split per material AND per 100 m cell, so huge maps can be frustum-culled chunk by chunk
+        public const float Cell = 100f;
+        readonly Dictionary<(Material, int, int), MB> _batches = new Dictionary<(Material, int, int), MB>();
+        readonly Dictionary<Synth.Surface, Transform> _colRoots = new Dictionary<Synth.Surface, Transform>();
+        public Rng Rng;
+
+        public WorldBuilder(Transform root, int seed) { Root = root; Rng = new Rng(seed); }
+
+        MB Batch(Material m) => Batch(m, new Vector3(float.NaN, 0, 0));
+
+        MB Batch(Material m, Vector3 at)
+        {
+            int cx = float.IsNaN(at.x) ? int.MinValue : Mathf.FloorToInt(at.x / Cell), cz = float.IsNaN(at.x) ? int.MinValue : Mathf.FloorToInt(at.z / Cell);
+            var key = (m, cx, cz);
+            if (!_batches.TryGetValue(key, out var mb)) { mb = new MB(); _batches[key] = mb; }
+            if (mb.VertexCount > 55000)
+            {
+                Flush(m, mb);
+                mb = new MB();
+                _batches[key] = mb;
+            }
+            return mb;
+        }
+
+        Transform ColRoot(Synth.Surface s)
+        {
+            if (!_colRoots.TryGetValue(s, out var t))
+            {
+                t = new GameObject("Colliders_" + s).transform;
+                t.SetParent(Root, false);
+                t.gameObject.AddComponent<SurfaceTag>().surface = s;
+                t.gameObject.isStatic = true;
+                _colRoots[s] = t;
+            }
+            return t;
+        }
+
+        public void Collider(Vector3 c, Vector3 size, Quaternion rot, Synth.Surface s)
+        {
+            if (!(Mathf.Abs(c.x + c.y + c.z) < 1e6f) || !(size.x > 0f && size.y > 0f && size.z > 0f && size.sqrMagnitude < 1e12f)) return;   // never a broken collider ("Invalid AABB")
+            var go = new GameObject("c");
+            go.transform.SetParent(ColRoot(s), false);
+            go.transform.SetPositionAndRotation(c, rot);
+            go.AddComponent<BoxCollider>().size = size;
+            go.isStatic = true;
+        }
+
+        public void Box(Vector3 c, Vector3 size, Material m, Color tint, Quaternion? rot = null, bool col = true, Synth.Surface s = Synth.Surface.Concrete, float bevel = 0f)
+        {
+            var r = rot ?? Quaternion.identity;
+            Batch(m, c).Box(c, size, tint, bevel, bevel > 0 ? 1 : 0, r);
+            if (col) Collider(c, size, r, s);
+            else if (FloorLike(m, size, r)) Collider(c, size, r, s);   // a floor you can see is a floor things land on
+        }
+
+        static readonly string[] NotFloors = { "water", "sea", "ocean", "lake", "river", "pond", "glass", "beam", "light", "lamp", "bulb", "fog", "shadow", "decal", "laser", "glow", "led" };
+        /// <summary>A flat, level, wide, thin box drawn without a collider (a tiled floor, boards laid on the ground, a rug, a
+        /// slab): items fell through it to the real floor underneath and lay hidden inside it, "the floor higher than its
+        /// hitbox". Those get their own collider now - not water, glass, light beams and the like.</summary>
+        static bool FloorLike(Material m, Vector3 size, Quaternion r)
+        {
+            if (size.y > 0.3f || size.x < 1.2f || size.z < 1.2f) return false;
+            if (Vector3.Dot(r * Vector3.up, Vector3.up) < 0.98f) return false;
+            string n = m != null ? m.name.ToLowerInvariant() : "";
+            foreach (var w in NotFloors) if (n.Contains(w)) return false;
+            return true;
+        }
+
+        public void Cyl(Vector3 a, Vector3 b, float r1, float r2, int seg, Material m, Color tint, bool col = true, Synth.Surface s = Synth.Surface.Concrete)
+        {
+            Batch(m, (a + b) * 0.5f).Cyl(a, b, r1, r2, seg, tint, true);
+            if (col)
+            {
+                var go = new GameObject("c");
+                go.transform.SetParent(ColRoot(s), false);
+                go.transform.position = (a + b) * 0.5f;
+                go.transform.rotation = Quaternion.FromToRotation(Vector3.up, (b - a).normalized);
+                var cc = go.AddComponent<CapsuleCollider>();
+                cc.radius = Mathf.Max(r1, r2); cc.height = (b - a).magnitude + cc.radius * 2; cc.direction = 1;
+            }
+        }
+
+        static Mesh _unitEgg;
+        /// <summary>A low-poly unit sphere for rock colliders (scaled to each rock's radii).</summary>
+        static Mesh UnitEgg { get { if (_unitEgg == null) _unitEgg = new MB().Sphere(Vector3.zero, Vector3.one, 9, Color.white).ToMesh("rock_collider"); return _unitEgg; } }
+
+        public void Sphere(Vector3 c, Vector3 radii, int seg, Material m, Color tint, bool col = true, Synth.Surface s = Synth.Surface.Concrete)
+        {
+            Batch(m, c).Sphere(c, radii, seg, tint);
+            if (col)
+            {
+                var go = new GameObject("c");
+                go.transform.SetParent(ColRoot(s), false);
+                go.transform.position = c;
+                // a squashed / stretched one (rocks): collide with its real shape - the same egg, as a mesh. (It was a ball the
+                // size of its thinnest side plus a box: the box's corners stuck out as invisible walls round the rock and the
+                // middle of its sides was inside the rock, so you sank into it)
+                if (Mathf.Max(radii.x, Mathf.Max(radii.y, radii.z)) > Mathf.Min(radii.x, Mathf.Min(radii.y, radii.z)) * 1.15f)
+                {
+                    go.transform.localScale = radii;
+                    go.AddComponent<MeshCollider>().sharedMesh = UnitEgg;
+                }
+                else go.AddComponent<SphereCollider>().radius = Mathf.Min(radii.x, Mathf.Min(radii.y, radii.z)) * 0.95f;
+            }
+        }
+
+        public MB Raw(Material m) => Batch(m);
+        public MB Raw(Material m, Vector3 at) => Batch(m, at);
+
+        void Flush(Material m, MB mb)
+        {
+            if (mb.VertexCount == 0) return;
+            var go = mb.Build("Mesh_" + m.name, Root, m);
+            go.isStatic = true;
+            // ground cover (grass tufts, ferns): drawn only near you - on the giant maps thousands of tufts far away
+            // were costing frame rate for things you can't see from there anyway
+            if (m == GrassMat || m == FernMat) go.layer = GroundCoverLayer;
+            else if (m == NeedleMat || m == LeafMat || m == CanopyCore) go.layer = TreeLayer;   // leaves: drawn as far as the graphics setting allows
+        }
+
+        public void Finish()
+        {
+            foreach (var kv in _batches) Flush(kv.Key.Item1, kv.Value);
+            _batches.Clear();
+        }
+
+        // =========================================================================== props
+        public void Ground(Vector3 center, Vector2 size, Material m, Synth.Surface s, float y = 0)
+        {
+            Box(center + new Vector3(0, y - 0.5f, 0), new Vector3(size.x, 1f, size.y), m, Color.white, null, true, s);
+        }
+
+        public void Terrain(Vector3 origin, float size, int res, System.Func<float, float, float> h, Material m, System.Func<float, float, Color> col, Synth.Surface s)
+        {
+            var mb = new MB();
+            mb.Grid(origin, size, size, res, h, col);
+            var go = mb.Build("Terrain", Root, m);
+            go.isStatic = true;
+            var mc = go.AddComponent<MeshCollider>();
+            mc.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
+            go.AddComponent<SurfaceTag>().surface = s;
+            Terrains.Add(mc);
+        }
+
+        /// <summary>The map's terrain surfaces (thin, one-sided meshes: anything that ends up under one falls forever).</summary>
+        public readonly List<MeshCollider> Terrains = new List<MeshCollider>();
+
+        /// <summary>Top of the terrain at (x, z), or -infinity where there's no terrain.</summary>
+        public float TerrainTop(Vector3 p)
+        {
+            float best = float.NegativeInfinity;
+            var ray = new Ray(new Vector3(p.x, p.y + 400f, p.z), Vector3.down);
+            foreach (var t in Terrains)
+                if (t != null && t.enabled && t.Raycast(ray, out var h, 900f) && h.point.y > best) best = h.point.y;
+            return best;
+        }
+
+        public const int GroundCoverLayer = 1;
+        public const int TreeLayer = 3;          // (Unity's empty layer 3) tree leaves / bushes: the graphics setting limits how far they're drawn   // (Unity's spare "TransparentFX" layer): culled past ~160 m by the player camera
+
+        /// <summary>Tables and shelves (floor centre, rotation, half footprint, height): loot crates never go underneath them.</summary>
+        public readonly List<(Vector3 c, Quaternion q, Vector2 half, float h)> Furniture = new List<(Vector3, Quaternion, Vector2, float)>();
+
+        /// <summary>Would a crate standing at p (footprint half-size hx, hz) be under / inside a table or shelf?</summary>
+        public bool InFurniture(Vector3 p, float hx, float hz)
+        {
+            float r = Mathf.Max(hx, hz);
+            foreach (var f in Furniture)
+            {
+                if (p.y < f.c.y - 0.3f || p.y > f.c.y + f.h - 0.1f) continue;   // another floor, or on top of it (a desk spot)
+                var l = Quaternion.Inverse(f.q) * (p - f.c);
+                if (Mathf.Abs(l.x) < f.half.x + r + 0.05f && Mathf.Abs(l.z) < f.half.y + r + 0.05f) return true;   // whole crate clear of it, whichever way it faces
+            }
+            return false;
+        }
+
+        /// <summary>Would furniture with this footprint overlap a table / shelf already placed on the same floor?</summary>
+        public bool FurnitureOverlaps(Vector3 c, Quaternion q, Vector2 half)
+        {
+            foreach (var f in Furniture)
+            {
+                if (Mathf.Abs(f.c.y - c.y) > 1.2f) continue;
+                // separating-axis test on the two footprints (rectangles on the floor)
+                Vector3 ax1 = q * Vector3.right, az1 = q * Vector3.forward, ax2 = f.q * Vector3.right, az2 = f.q * Vector3.forward;
+                Vector3 d = f.c - c; d.y = 0;
+                bool sep = false;
+                foreach (var ax in new[] { ax1, az1, ax2, az2 })
+                {
+                    float r1 = half.x * Mathf.Abs(Vector3.Dot(ax1, ax)) + half.y * Mathf.Abs(Vector3.Dot(az1, ax));
+                    float r2 = f.half.x * Mathf.Abs(Vector3.Dot(ax2, ax)) + f.half.y * Mathf.Abs(Vector3.Dot(az2, ax));
+                    if (Mathf.Abs(Vector3.Dot(d, ax)) > r1 + r2 + 0.05f) { sep = true; break; }
+                }
+                if (!sep) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Set while building houses: their windows get breakable glass.</summary>
+        public bool GlassWindows;
+
+        /// <summary>Wall from a to b (on the ground plane) with rectangular openings (centre distance along the wall, width, bottom, top).</summary>
+        public void Wall(Vector3 a, Vector3 b, float height, float thick, Material m, Color tint, List<Vector4> openings = null, Synth.Surface s = Synth.Surface.Concrete)
+        {
+            Vector3 d = b - a; d.y = 0;
+            float len = d.magnitude;
+            if (len < 0.01f) return;
+            Vector3 dir = d / len;
+            Quaternion rot = Quaternion.LookRotation(Vector3.Cross(dir, Vector3.up), Vector3.up) * Quaternion.Euler(0, 90, 0);
+            rot = Quaternion.LookRotation(dir, Vector3.up);
+            var ops = openings ?? new List<Vector4>();
+            ops.Sort((x, y) => x.x.CompareTo(y.x));
+            float cursor = 0;
+            foreach (var o in ops)
+            {
+                if (o.z < 0.4f && o.w - o.z > 1.6f)   // a doorway you walk through: keep furniture out of it
+                    Doors.Add(new DoorGap { c = a + dir * o.x, along = dir, across = Vector3.Cross(dir, Vector3.up), halfW = o.y * 0.5f, top = o.w,
+                                            swing = !NoSwingDoors && o.y <= 1.85f && o.w <= 2.45f });
+                float o0 = Mathf.Clamp(o.x - o.y * 0.5f, 0, len), o1 = Mathf.Clamp(o.x + o.y * 0.5f, 0, len);
+                if (o0 > cursor) Seg(a, dir, rot, cursor, o0, 0, height, thick, m, tint, s);
+                if (o.z > 0.01f) Seg(a, dir, rot, o0, o1, 0, o.z, thick, m, tint, s);           // below window
+                if (o.w < height - 0.01f) Seg(a, dir, rot, o0, o1, o.w, height, thick, m, tint, s); // lintel
+                // a window (not a doorway): glass in it that shatters when shot
+                if (GlassWindows && o.z >= 0.5f && o1 - o0 > 0.3f && o.w - o.z > 0.3f)
+                    Window.Create(Root, a + dir * ((o0 + o1) * 0.5f) + Vector3.up * ((o.z + o.w) * 0.5f), new Vector3(0.02f, o.w - o.z, o1 - o0), rot);
+                cursor = Mathf.Max(cursor, o1);
+            }
+            if (cursor < len) Seg(a, dir, rot, cursor, len, 0, height, thick, m, tint, s);
+        }
+
+        void Seg(Vector3 a, Vector3 dir, Quaternion rot, float s0, float s1, float y0, float y1, float thick, Material m, Color tint, Synth.Surface s)
+        {
+            if (s1 - s0 < 0.01f || y1 - y0 < 0.01f) return;
+            Vector3 c = a + dir * ((s0 + s1) * 0.5f) + Vector3.up * ((y0 + y1) * 0.5f);
+            Box(c, new Vector3(thick, y1 - y0, s1 - s0), m, tint, rot, true, s);
+        }
+
+        /// <summary>Hollow building with doors, windows, floors, stairs and a flat roof. Returns interior floor points for props/loot.</summary>
+        public List<Vector3> Building(Vector3 pos, float yaw, Vector2 size, int floors, Material wall, Color tint, Material floorMat, Material trim, int doorSide = 0, bool windows = true, bool roofAccess = false, float floorH = 3.2f, int vaultSide = -1, bool desk = true)
+        {
+            var interior = new List<Vector3>();
+            var wins = new List<(Vector3 at, Vector3 outward, Vector3 along)>();   // window centres (sill height) for the outside details
+            Quaternion q = Quaternion.Euler(0, yaw, 0);
+            float hx = size.x * 0.5f, hz = size.y * 0.5f, t = 0.25f;
+            Vector3 P(float x, float y, float z) => pos + q * new Vector3(x, y, z);
+            for (int f = 0; f < floors; f++)
+            {
+                float y = f * floorH;
+                var corners = new[] { new Vector3(-hx, 0, -hz), new Vector3(hx, 0, -hz), new Vector3(hx, 0, hz), new Vector3(-hx, 0, hz) };
+                for (int side = 0; side < 4; side++)
+                {
+                    Vector3 a = corners[side], b = corners[(side + 1) % 4];
+                    float len = (b - a).magnitude;
+                    var ops = new List<Vector4>();
+                    if (f == 0 && side == vaultSide) ops.Add(new Vector4(len * 0.5f, 1.8f, 0, 2.3f));   // exactly the vault's doorway
+                    else if (f == 0 && (side == doorSide || (size.x > 12 && side == (doorSide + 2) % 4))) ops.Add(new Vector4(len * 0.5f, 1.7f, 0, 2.4f));
+                    if (windows)
+                    {
+                        int nw = Mathf.FloorToInt(len / 3.2f);
+                        for (int w = 0; w < nw; w++)
+                        {
+                            float c = (w + 0.5f) * len / nw;
+                            if (ops.Count > 0 && Mathf.Abs(c - ops[0].x) < 1.8f && f == 0) continue;
+                            ops.Add(new Vector4(c, 1.2f, 1.0f, 2.1f));   // (the old windows: a 30 cm sill made them look like doorways and swing doors were put in them)
+                            var dl = (b - a) / len;
+                            wins.Add((P(a.x + dl.x * c, y + 1.0f, a.z + dl.z * c), q * Vector3.Cross(Vector3.up, dl), q * dl));
+                        }
+                    }
+                    bool keep = NoSwingDoors;
+                    NoSwingDoors = keep || (f == 0 && side == vaultSide);   // the vault's own door goes there
+                    GlassWindows = windows;
+                    Wall(P(a.x, y, a.z), P(b.x, y, b.z), floorH, t, wall, tint, ops);
+                    GlassWindows = false;
+                    NoSwingDoors = keep;
+                }
+                // floor slab (with a stair hole on upper floors)
+                // ground floor: a thick solid block under the boards, so nothing dropped can sink through to the ground
+                if (f == 0) { Box(P(0, 0.05f, 0), new Vector3(size.x, 0.1f, size.y), floorMat, Color.white, q, false, Synth.Surface.Wood); Collider(P(0, -0.25f, 0), new Vector3(size.x, 0.7f, size.y), q, Synth.Surface.Wood); }
+                else
+                {
+                    // the stair hole is exactly where the stairs come up: from the top step to the back wall
+                    float holeX = hx - 1.3f, zTop = StairTopZ(size, hz);
+                    Box(P(-1.3f, y, 0), new Vector3(size.x - 2.6f, 0.2f, size.y), floorMat, Color.white, q, true, Synth.Surface.Wood);
+                    Box(P(holeX, y, (-hz + zTop) * 0.5f), new Vector3(2.6f, 0.2f, zTop + hz), floorMat, Color.white, q, true, Synth.Surface.Wood);
+                }
+                // stairs up to next floor (ramp collider + visual steps) along the +x wall
+                if (f < floors - 1 || roofAccess)
+                {
+                    float sx = hx - 1.3f;
+                    Vector3 s0 = new Vector3(sx, y, hz - 0.6f), s1 = new Vector3(sx, y + floorH, StairTopZ(size, hz));
+                    Stairs(P(s0.x, s0.y, s0.z), P(s1.x, s1.y, s1.z), 1.3f, trim);
+                }
+                // loot spots: on the floor against the walls (crate facing into the room) and on a desk - never on the stairs
+                // or the stair hole (+x side), in front of the doorway or the vault door
+                float inset = 0.6f;
+                for (int side = 0; side < 4; side++)
+                {
+                    if (side == 1) continue;   // the stairs run along the +x wall
+                    for (int k = 0; k < 2; k++)
+                    {
+                        float tt = (k + 0.5f) / 2f + Rng.Range(-0.12f, 0.12f);
+                        float lx, lz, ly;
+                        switch (side)
+                        {
+                            case 0: lx = Mathf.Lerp(-hx + 1f, hx - 3.4f, tt); lz = -hz + inset; ly = 0; break;
+                            case 2: lx = Mathf.Lerp(-hx + 1f, hx - 3.4f, tt); lz = hz - inset; ly = 180; break;
+                            default: lx = -hx + inset; lz = Mathf.Lerp(-hz + 1f, hz - 1f, tt); ly = 90; break;
+                        }
+                        if (f == 0 && DoorZone(doorSide, lx, lz, hx, hz)) continue;
+                        if (f == 0 && vaultSide >= 0 && DoorZone(vaultSide, lx, lz, hx, hz)) continue;
+                        var sp = P(lx, y + 0.12f, lz);
+                        interior.Add(sp); SpotYaw[sp] = yaw + ly;
+                    }
+                }
+                // a desk against the -x wall (opposite the stairs) with a spot on top
+                if (desk)
+                {
+                    float dz = Rng.Range(-hz + 1.6f, hz - 1.6f);
+                    if (!(f == 0 && (DoorZone(doorSide, -hx + 0.6f, dz, hx, hz) || (vaultSide >= 0 && DoorZone(vaultSide, -hx + 0.6f, dz, hx, hz)))))
+                    {
+                        if (Table(P(-hx + 0.62f, y + 0.1f, dz), yaw + 90, new Vector2(1.5f, 0.7f), 0.76f))
+                        {
+                        var dp = P(-hx + 0.62f, y + 0.1f + 0.8f, dz);
+                        interior.Add(dp); DeskSpots[dp] = true; SpotYaw[dp] = yaw + 90;
+                        }
+                    }
+                }
+                // ceiling light
+                var lamp = P(0, y + floorH - 0.15f, 0);
+                Box(lamp, new Vector3(0.9f, 0.06f, 0.2f), Mats.Lit("lamp_on", new Color(1f, 0.95f, 0.8f), 0, 0.5f, null, null, 0, 0, false, 0.5f, new Color(2.2f, 2f, 1.6f)), Color.white, q, false);
+            }
+            // roof (with a hole over the stairs when they go up to it)
+            float top = floors * floorH;
+            if (roofAccess)
+            {
+                float zTop = StairTopZ(size, hz);
+                // the two pieces meet exactly at x = hx - 2.6 (no overlap: overlapping faces flicker)
+                Box(P((-hx - 0.15f + hx - 2.6f) * 0.5f, top, 0), new Vector3(size.x - 2.45f, 0.25f, size.y + 0.3f), trim, Color.white, q, true);
+                Box(P(hx - 1.225f, top, (-hz - 0.15f + zTop) * 0.5f), new Vector3(2.75f, 0.25f, zTop + hz + 0.15f), trim, Color.white, q, true);
+            }
+            else Box(P(0, top, 0), new Vector3(size.x + 0.3f, 0.25f, size.y + 0.3f), trim, Color.white, q, true);
+            // parapet
+            Wall(P(-hx, top, -hz), P(hx, top, -hz), 0.9f, 0.2f, wall, tint * 0.9f);
+            Wall(P(hx, top, -hz), P(hx, top, hz), 0.9f, 0.2f, wall, tint * 0.9f);
+            Wall(P(hx, top, hz), P(-hx, top, hz), 0.9f, 0.2f, wall, tint * 0.9f);
+            Wall(P(-hx, top, hz), P(-hx, top, -hz), 0.9f, 0.2f, wall, tint * 0.9f);
+            // base trim: a low stone plinth round the OUTSIDE of the walls only, open at the doorways (3.47 - it used to be one
+            // solid block filling the whole footprint, so its top was a stone slab 20 cm above the floor inside every house)
+            var cs = new[] { new Vector3(-hx, 0, -hz), new Vector3(hx, 0, -hz), new Vector3(hx, 0, hz), new Vector3(-hx, 0, hz) };
+            for (int side = 0; side < 4; side++)
+            {
+                Vector3 a = cs[side], e = cs[(side + 1) % 4];
+                float len = (e - a).magnitude; Vector3 dir = (e - a) / len, outw = Vector3.Cross(Vector3.up, dir);
+                bool doorway = side == vaultSide || side == doorSide || (size.x > 12 && side == (doorSide + 2) % 4);
+                float gap = side == vaultSide ? 1.9f : 1.8f;
+                var segs = doorway ? new[] { (-t, len * 0.5f - gap * 0.5f), (len * 0.5f + gap * 0.5f, len + t) } : new[] { (-t, len + t) };
+                foreach (var (t0, t1) in segs)
+                {
+                    if (t1 - t0 < 0.05f) continue;
+                    var mid = a + dir * ((t0 + t1) * 0.5f) + outw * (t * 0.5f + 0.03f);
+                    Box(P(mid.x, 0.15f, mid.z), new Vector3(0.06f, 0.3f, t1 - t0), trim, Color.white * 0.8f, q * Quaternion.LookRotation(dir, Vector3.up), false);
+                }
+            }
+            Weather(pos, q, size, floors, floorH, top, roofAccess, wins, doorSide);
+            return interior;
+        }
+
+        /// <summary>The lived-in, run-down outside of a building (3.44): sills and lintels on every window, a grime streak
+        /// under each, some windows boarded up, a drainpipe down a corner, air-con units, vents and an antenna on the roof,
+        /// and rubble at the foot of the walls. Visual only except the roof units (you can stand on a roof).</summary>
+        void Weather(Vector3 pos, Quaternion q, Vector2 size, int floors, float floorH, float top, bool roofAccess, List<(Vector3 at, Vector3 outward, Vector3 along)> wins, int doorSide)
+        {
+            float hx = size.x * 0.5f, hz = size.y * 0.5f;
+            var R = new Rng(Mathf.RoundToInt(pos.x * 131f + pos.z * 71f + pos.y * 17f) + floors * 7 + 99);   // its own dice: the map's layout (crate spots and all) stays exactly as it was
+            Vector3 P(float x, float y, float z) => pos + q * new Vector3(x, y, z);
+            var sill = Mats.Lit("bld_sill", new Color(0.7f, 0.69f, 0.66f), 0f, 0.25f, Mats.Concrete, null, 0.6f, 0.2f, true, 1f);
+            var grime = Mats.Lit("bld_grime2", new Color(0.32f, 0.3f, 0.27f), 0f, 0.2f);
+            var plank = Mats.Lit("bld_plank", new Color(0.48f, 0.38f, 0.26f), 0f, 0.25f, Mats.Wood, Mats.WoodN, 0.6f, 0.3f, true, 1.5f);
+            var metal = Mats.Lit("bld_metal", new Color(0.62f, 0.63f, 0.64f), 0.5f, 0.4f, Mats.Grunge, null, 0.6f, 0.4f, true, 1.5f);
+            var dark = Mats.Lit("bld_dark", new Color(0.08f, 0.08f, 0.08f), 0.3f, 0.3f);
+            foreach (var (at, o, al) in wins)
+            {
+                var r = Quaternion.LookRotation(o, Vector3.up);
+                Box(at + o * 0.2f + Vector3.down * 0.03f, new Vector3(1.4f, 0.06f, 0.16f), sill, Color.white, r, false);                       // sill
+                Box(at + o * 0.15f + Vector3.up * 1.16f, new Vector3(1.4f, 0.12f, 0.06f), sill, Color.white, r, false);                        // lintel
+                if (R.Value < 0.6f) { float gh = R.Range(0.5f, 1.0f); Box(at + o * 0.128f + Vector3.down * (0.06f + gh * 0.5f), new Vector3(R.Range(0.2f, 0.45f), gh, 0.004f), grime, Color.white, r, false); }   // a streak running down from the sill
+                if (R.Value < 0.2f)   // boarded up
+                    for (int k = 0; k < 3; k++)
+                        Box(at + o * 0.15f + Vector3.up * (0.2f + k * 0.35f), new Vector3(1.35f, 0.15f, 0.03f), plank, new Color(0.9f + R.Range(0f, 0.15f), 0.9f, 0.85f), r * Quaternion.Euler(0, 0, R.Range(-8f, 8f)), false);
+            }
+            // a drainpipe down a back corner, with brackets
+            var dp = P(hx + 0.12f, 0, hz + 0.12f);
+            Cyl(dp + Vector3.up * 0.15f, dp + Vector3.up * (top + 0.05f), 0.055f, 0.055f, 8, metal, Color.white, false);
+            for (float yy = 1f; yy < top; yy += 1.6f) Box(dp + Vector3.up * yy, new Vector3(0.16f, 0.04f, 0.16f), metal, new Color(0.7f, 0.7f, 0.7f), q, false);
+            // roof: air-con units, vent pipes, sometimes an antenna mast (kept clear of the stair hole at +x)
+            float roofY = top + 0.125f;
+            int units = 1 + Mathf.FloorToInt(size.x * size.y / 70f);
+            for (int u = 0; u < units; u++)
+            {
+                float x = R.Range(-hx + 1.2f, hx - 3.2f), z = R.Range(-hz + 1.2f, hz - 1.2f);
+                var c = P(x, roofY, z);
+                Box(c + Vector3.up * 0.35f, new Vector3(1.0f, 0.7f, 0.8f), metal, new Color(0.85f, 0.86f, 0.84f), q, true, Synth.Surface.Metal);
+                Cyl(c + Vector3.up * 0.7f, c + Vector3.up * 0.72f, 0.3f, 0.3f, 14, dark, Color.white, false);                                // fan grille
+                for (int k = -2; k <= 2; k++) Box(c + Vector3.up * 0.725f + q * new Vector3(k * 0.1f, 0, 0), new Vector3(0.015f, 0.01f, 0.58f), metal, Color.white, q, false);
+            }
+            for (int v = 0; v < 2; v++)
+            {
+                var c = P(R.Range(-hx + 0.8f, hx - 3f), roofY, R.Range(-hz + 0.8f, hz - 0.8f));
+                Cyl(c, c + Vector3.up * 0.6f, 0.08f, 0.08f, 8, metal, Color.white, false);
+                Cyl(c + Vector3.up * 0.6f, c + Vector3.up * 0.68f, 0.12f, 0.1f, 8, metal, new Color(0.6f, 0.6f, 0.6f), false);   // rain cap
+            }
+            if (R.Value < 0.4f)
+            {
+                var c = P(-hx + 0.8f, roofY, -hz + 0.8f);
+                Cyl(c, c + Vector3.up * 3.2f, 0.03f, 0.02f, 6, metal, Color.white, false);
+                for (int k = 0; k < 3; k++) Box(c + Vector3.up * (2.2f + k * 0.35f), new Vector3(0.8f - k * 0.2f, 0.02f, 0.02f), metal, Color.white, q, false);
+            }
+            // rubble along the walls (not in front of the door)
+            var rubble = Mats.Lit("bld_rubble", new Color(0.55f, 0.53f, 0.5f), 0f, 0.2f, Mats.Concrete, null, 0.6f, 0.2f, true, 2f);
+            for (int k = 0; k < 4; k++)
+            {
+                int side = R.Range(0, 4); if (side == doorSide) continue;
+                float tt = R.Range(-0.4f, 0.4f);
+                Vector3 l = side == 0 ? new Vector3(tt * size.x, 0, -hz - 0.4f) : side == 2 ? new Vector3(tt * size.x, 0, hz + 0.4f) : side == 1 ? new Vector3(hx + 0.4f, 0, tt * size.y) : new Vector3(-hx - 0.4f, 0, tt * size.y);
+                for (int j = 0; j < 4; j++) { float sz = R.Range(0.06f, 0.18f); Box(P(l.x + R.Range(-0.3f, 0.3f), sz * 0.4f, l.z + R.Range(-0.3f, 0.3f)), new Vector3(sz, sz * 0.7f, sz), rubble, Color.white, Quaternion.Euler(R.Range(0f, 40f), R.Range(0f, 180f), R.Range(0f, 40f)), false); }
+            }
+        }
+
+        // =========================================================================== free-spot checks for scattered props
+        /// <summary>Ground height under p (the first walkable surface below p + 1.2 m), or p.y if there is none.</summary>
+        public float GroundAt(Vector3 p)
+        {
+            Physics.SyncTransforms();
+            return Physics.Raycast(p + Vector3.up * 1.2f, Vector3.down, out var h, 3f, ~0, QueryTriggerInteraction.Ignore) && h.normal.y > 0.6f ? h.point.y : p.y;
+        }
+
+        /// <summary>Is there room for a prop of this size here (nothing solid in the way, apart from the ground)?</summary>
+        public bool Clear(Vector3 p, Vector3 size, float yaw)
+        {
+            Physics.SyncTransforms();
+            var he = new Vector3(size.x * 0.5f, size.y * 0.5f, size.z * 0.5f);
+            return !Physics.CheckBox(p + Vector3.up * (he.y + 0.06f), he, Quaternion.Euler(0, yaw, 0), ~0, QueryTriggerInteraction.Ignore);
+        }
+
+        /// <summary>Pick a random spot (from pick) with room for a prop, standing on the ground; false after 10 tries.</summary>
+        public bool Spot(System.Func<Vector3> pick, Vector3 size, float yaw, out Vector3 spot)
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                var p = pick();
+                p.y = GroundAt(p);
+                if (Clear(p, size, yaw)) { spot = p; return true; }
+            }
+            spot = Vector3.zero;
+            return false;
+        }
+
+        /// <summary>Loot spots that are desk tops, and the yaw each loot spot faces (set by Building).</summary>
+        public struct DoorGap { public Vector3 c, along, across; public float halfW, top; public bool swing; }
+        /// <summary>Set while building walls whose doorways must stay open (vault entrances).</summary>
+        public bool NoSwingDoors;
+        /// <summary>Every doorway cut by Wall(): shelves, tables, crates and loot keep out of them.</summary>
+        public readonly List<DoorGap> Doors = new List<DoorGap>();
+
+        /// <summary>Would a footprint (half sizes hx, hz, rotated by q, standing at pos) sit in a doorway or the walking
+        /// space just in front of or behind one?</summary>
+        public bool InDoorway(Vector3 pos, Quaternion q, float hx, float hz, float clear = 0.9f)
+        {
+            Vector3 ax = q * Vector3.right, az = q * Vector3.forward;
+            foreach (var d in Doors)
+            {
+                if (pos.y < d.c.y - 0.5f || pos.y > d.c.y + 1.8f) continue;   // another floor
+                Vector3 rel = pos - d.c; rel.y = 0;
+                float ca = Vector3.Dot(rel, d.along), cn = Vector3.Dot(rel, d.across);
+                float ea = Mathf.Abs(Vector3.Dot(ax, d.along)) * hx + Mathf.Abs(Vector3.Dot(az, d.along)) * hz;
+                float en = Mathf.Abs(Vector3.Dot(ax, d.across)) * hx + Mathf.Abs(Vector3.Dot(az, d.across)) * hz;
+                if (Mathf.Abs(ca) < d.halfW + 0.15f + ea && Mathf.Abs(cn) < clear + en) return true;
+            }
+            return false;
+        }
+
+        public readonly Dictionary<Vector3, bool> DeskSpots = new Dictionary<Vector3, bool>();
+        public readonly Dictionary<Vector3, float> SpotYaw = new Dictionary<Vector3, float>();
+
+        /// <summary>Where a building's stairs reach the next floor (local z), so the stair hole can match them exactly.</summary>
+        static float StairTopZ(Vector2 size, float hz) => hz - 0.6f - Mathf.Min(size.y - 2f, 5.2f);
+
+        /// <summary>Is (x, z) in the 1.8 m in front of the doorway on that side (0 = -z, 1 = +x, 2 = +z, 3 = -x)?</summary>
+        static bool DoorZone(int side, float x, float z, float hx, float hz)
+        {
+            switch (side)
+            {
+                case 0: return Mathf.Abs(x) < 1.5f && z < -hz + 1.9f;
+                case 1: return Mathf.Abs(z) < 1.5f && x > hx - 1.9f;
+                case 2: return Mathf.Abs(x) < 1.5f && z > hz - 1.9f;
+                case 3: return Mathf.Abs(z) < 1.5f && x < -hx + 1.9f;
+                default: return false;
+            }
+        }
+
+        public void Stairs(Vector3 bottom, Vector3 top, float width, Material m)
+        {
+            Vector3 d = top - bottom;
+            Vector3 flat = new Vector3(d.x, 0, d.z);
+            float run = flat.magnitude, rise = d.y;
+            Quaternion yaw = Quaternion.LookRotation(flat.normalized, Vector3.up);
+            int steps = Mathf.Max(2, Mathf.RoundToInt(rise / 0.2f));
+            for (int i = 0; i < steps; i++)
+            {
+                float t0 = (float)i / steps;
+                Vector3 c = bottom + flat * (t0 + 0.5f / steps) + Vector3.up * (rise * (i + 0.5f) / steps);
+                Box(c, new Vector3(width, rise / steps, run / steps), m, Color.white, yaw, false);
+            }
+            // smooth ramp for walking + NavMesh
+            float ang = Mathf.Atan2(rise, run) * Mathf.Rad2Deg;
+            Collider(bottom + d * 0.5f + Vector3.up * 0.05f, new Vector3(width, 0.1f, Mathf.Sqrt(run * run + rise * rise)), yaw * Quaternion.Euler(-ang, 0, 0), Synth.Surface.Metal);
+        }
+
+        public void ShippingContainer(Vector3 pos, float yaw, Color col, bool open = false)
+        {
+            Quaternion q = Quaternion.Euler(0, yaw, 0);
+            var m = Mats.Lit("container", Color.white, 0.4f, 0.35f, Mats.Corrugated, null, 0.5f, 0.4f, true, 1.5f);
+            float L = 6.06f, W = 2.44f, H = 2.59f;
+            Vector3 P(float x, float y, float z) => pos + q * new Vector3(x, y, z);
+            if (!open) Box(P(0, H * 0.5f, 0), new Vector3(W, H, L), m, col, q, true, Synth.Surface.Metal);
+            else
+            {
+                Box(P(-W * 0.5f + 0.05f, H * 0.5f, 0), new Vector3(0.1f, H, L), m, col, q, true, Synth.Surface.Metal);
+                Box(P(W * 0.5f - 0.05f, H * 0.5f, 0), new Vector3(0.1f, H, L), m, col, q, true, Synth.Surface.Metal);
+                Box(P(0, H - 0.05f, 0), new Vector3(W, 0.1f, L), m, col, q, true, Synth.Surface.Metal);
+                Box(P(0, 0.05f, 0), new Vector3(W, 0.1f, L), m, col * 0.7f, q, true, Synth.Surface.Metal);
+                Box(P(0, H * 0.5f, -L * 0.5f + 0.05f), new Vector3(W, H, 0.1f), m, col, q, true, Synth.Surface.Metal);
+                // open doors swung out
+                Box(P(-W * 0.5f - 0.6f, H * 0.5f, L * 0.5f + 0.55f), new Vector3(0.06f, H, 1.2f), m, col, q * Quaternion.Euler(0, -70, 0), true, Synth.Surface.Metal);
+            }
+            // corner castings + frame
+            var frame = Mats.Lit("container_frame", Color.white, 0.6f, 0.3f, Mats.Metal, null, 0.5f, 0.5f, true, 1f);
+            foreach (var sx in new[] { -1, 1 })
+                foreach (var sz in new[] { -1, 1 })
+                    Box(P(sx * (W * 0.5f - 0.06f), H * 0.5f, sz * (L * 0.5f - 0.06f)), new Vector3(0.14f, H + 0.02f, 0.14f), frame, col * 0.8f, q, false);
+            if (!open) for (int i = 0; i < 4; i++) Box(P(-0.6f + i * 0.4f, H * 0.5f, L * 0.5f + 0.02f), new Vector3(0.04f, H * 0.85f, 0.04f), frame, Color.gray, q, false);
+        }
+
+        public void Crate(Vector3 pos, float yaw, Vector3 size, bool collider = true)
+        {
+            var m = Mats.Lit("crate_wood", Color.white, 0f, 0.25f, Mats.Wood, null, 0.4f, 0.1f, true, 1.2f);
+            Quaternion q = Quaternion.Euler(0, yaw, 0);
+            if (collider && InDoorway(pos, q, size.x / 2, size.z / 2, 0.7f)) return;   // never a crate in a doorway
+            Box(pos + Vector3.up * size.y * 0.5f, size, m, new Color(0.75f, 0.6f, 0.42f), q, collider, Synth.Surface.Wood, 0.01f);
+            Box(pos + Vector3.up * size.y * 0.5f, size + new Vector3(0.02f, -size.y * 0.7f, 0.02f), m, new Color(0.5f, 0.38f, 0.25f), q, false);
+        }
+
+        public void Barrel(Vector3 pos, Color col)
+        {
+            var m = Mats.Lit("barrel", Color.white, 0.5f, 0.35f, Mats.Metal, null, 0.6f, 0.5f);
+            Cyl(pos, pos + Vector3.up * 0.9f, 0.3f, 0.3f, 14, m, col, true, Synth.Surface.Metal);
+            Cyl(pos + Vector3.up * 0.3f, pos + Vector3.up * 0.33f, 0.31f, 0.31f, 14, m, col * 0.7f, false);
+            Cyl(pos + Vector3.up * 0.6f, pos + Vector3.up * 0.63f, 0.31f, 0.31f, 14, m, col * 0.7f, false);
+        }
+
+        public void Sandbags(Vector3 a, Vector3 b, int rows = 3)
+        {
+            var m = Mats.Lit("sandbag", Color.white, 0f, 0.1f, Mats.Fabric, Mats.FabricN, 0.5f, 0f, true, 2f);
+            Vector3 d = b - a; float len = d.magnitude; Vector3 dir = d / len;
+            Quaternion q = Quaternion.LookRotation(dir, Vector3.up);
+            int n = Mathf.Max(1, Mathf.RoundToInt(len / 0.55f));
+            for (int r = 0; r < rows; r++)
+                for (int i = 0; i < n; i++)
+                {
+                    float off = (r % 2) * 0.27f;
+                    float t = (i + 0.5f) / n * len + off;
+                    if (t > len) continue;
+                    Vector3 c = a + dir * t + Vector3.up * (0.12f + r * 0.2f);
+                    Box(c, new Vector3(0.45f, 0.2f, 0.56f), m, new Color(0.62f, 0.56f, 0.42f) * Rng.Range(0.85f, 1.05f), q * Quaternion.Euler(0, Rng.Range(-4f, 4f), 0), false, Synth.Surface.Dirt);   // plain boxes: thousands of bags, so no bevels
+                }
+            Collider(a + d * 0.5f + Vector3.up * rows * 0.1f, new Vector3(0.5f, rows * 0.2f + 0.05f, len), q, Synth.Surface.Dirt);
+        }
+
+        public void JerseyBarrier(Vector3 pos, float yaw)
+        {
+            var m = Mats.Lit("concrete_rough", Color.white, 0, 0.2f, Mats.Concrete, null, 0.5f, 0.2f, true, 0.6f);
+            Quaternion q = Quaternion.Euler(0, yaw, 0);
+            Box(pos + Vector3.up * 0.2f, new Vector3(0.6f, 0.4f, 3f), m, new Color(0.75f, 0.74f, 0.7f), q, true);
+            Box(pos + Vector3.up * 0.6f, new Vector3(0.25f, 0.45f, 3f), m, new Color(0.75f, 0.74f, 0.7f), q, true, Synth.Surface.Concrete, 0.05f);
+            Box(pos + Vector3.up * 0.82f + q * new Vector3(0, 0, 0), new Vector3(0.27f, 0.1f, 3.02f), Mats.Lit("paint_stripe", new Color(0.9f, 0.7f, 0.1f), 0, 0.3f), Color.white, q, false);
+        }
+
+        // =========================================================================== foliage
+        // Leaves, needles, grass and ferns are alpha-cutout cards (Rago/Foliage: two-sided, swaying in the wind).
+        // Trees keep a collider on the trunk only; bushes, grass and ferns have none, so you walk straight through them.
+        static Material NeedleMat => Mats.Foliage("fol_needle", Mats.NeedleCard, Color.white, 0.6f, 0.35f);
+        static Material LeafMat => Mats.Foliage("fol_leaf", Mats.LeafCard, Color.white, 1f);
+        static Material GrassMat => Mats.Foliage("fol_grass", Mats.GrassCard, Color.white, 1.5f, 0.4f);
+        static Material FernMat => Mats.Foliage("fol_fern", Mats.FernCard, Color.white, 1.1f);
+        static Material BarkMat => Mats.Lit("bark", Color.white, 0, 0.1f, Mats.Bark, null, 0.3f, 0f, true, 1.5f);
+        static Material CanopyCore => Mats.Lit("canopy_core", Color.white, 0, 0.05f, Mats.Leaves, null, 0.2f, 0f, true, 0.8f);
+
+        /// <summary>A clump of leaves: <paramref name="planes"/> crossed cards plus one lying flat, centred on c.</summary>
+        void LeafClump(MB mb, Vector3 c, float size, Color tint, int planes = 3, float sway = 1f)
+        {
+            float h = size * 0.5f;
+            float rot = Rng.Range(0f, 180f);
+            for (int k = 0; k < planes; k++)
+            {
+                var q = Quaternion.Euler(Rng.Range(-15f, 15f), rot + k * 180f / planes, Rng.Range(-15f, 15f));
+                Vector3 r = q * Vector3.right * h, u = q * Vector3.up * h;
+                mb.Card(c - r - u, c + r - u, c + r + u, c - r + u, tint * Rng.Range(0.85f, 1.1f), sway * 0.5f, sway);
+            }
+            var qf = Quaternion.Euler(Rng.Range(-20f, 20f), Rng.Range(0f, 360f), 0);
+            Vector3 a = qf * new Vector3(-h, 0, -h), b = qf * new Vector3(h, 0, -h), cc = qf * new Vector3(h, 0, h), d = qf * new Vector3(-h, 0, h);
+            mb.Card(c + a, c + b, c + cc, c + d, tint, sway * 0.5f, sway);
+        }
+
+        /// <summary>A pine: bark trunk, a dark inner cone for body, and tiers of drooping needle branches.</summary>
+        public void Pine(Vector3 pos, float h)
+        {
+            Cyl(pos - Vector3.up * 0.3f, pos + Vector3.up * h * 0.97f, h * 0.022f, h * 0.007f, 8, BarkMat, new Color(0.55f, 0.45f, 0.38f), true, Synth.Surface.Wood);
+            Color tint = Color.Lerp(new Color(0.85f, 0.95f, 0.8f), new Color(0.7f, 0.78f, 0.62f), Rng.Value);
+            // inner body: two slim dark cones, so the tree isn't see-through between branches
+            for (int i = 0; i < 2; i++)
+            {
+                float y0 = h * (0.3f + i * 0.33f), y1 = y0 + h * 0.4f, r = h * 0.09f * (1f - i * 0.45f);
+                Raw(CanopyCore, pos).Cyl(pos + Vector3.up * y0, pos + Vector3.up * y1, r, 0.02f, 7, tint * 0.55f, true, Rng.Value * 6f);
+            }
+            var mb = Raw(NeedleMat, pos);
+            int tiers = 8;
+            for (int i = 0; i < tiers; i++)
+            {
+                float t = (float)i / (tiers - 1);
+                float y = h * (0.26f + t * 0.68f);
+                float reach = h * 0.25f * (1f - t * 0.82f) + 0.35f;
+                int n = Mathf.RoundToInt(Mathf.Lerp(9, 5, t));
+                float off = Rng.Range(0f, 360f);
+                for (int j = 0; j < n; j++)
+                {
+                    float ang = (off + j * 360f / n + Rng.Range(-15f, 15f)) * Mathf.Deg2Rad;
+                    Vector3 dir = new Vector3(Mathf.Sin(ang), 0, Mathf.Cos(ang));
+                    Vector3 p0 = pos + Vector3.up * y;
+                    Vector3 tip = p0 + dir * reach + Vector3.down * reach * Rng.Range(0.25f, 0.45f);
+                    Vector3 side = Vector3.Cross(Vector3.up, dir).normalized * reach * 0.6f + Vector3.up * reach * 0.06f;
+                    mb.Card(p0 - side * 0.35f, p0 + side * 0.35f, tip + side, tip - side, tint * Rng.Range(0.85f, 1.05f), 0.05f, 0.8f);
+                }
+            }
+            // a spiky top
+            Vector3 top = pos + Vector3.up * h * 0.97f;
+            for (int k = 0; k < 2; k++)
+            {
+                Vector3 r = Quaternion.Euler(0, k * 90f + Rng.Range(0f, 90f), 0) * Vector3.right * h * 0.06f;
+                mb.Card(top - r - Vector3.up * h * 0.12f, top + r - Vector3.up * h * 0.12f, top + r + Vector3.up * h * 0.05f, top - r + Vector3.up * h * 0.05f, tint, 0.2f, 0.6f);
+            }
+        }
+
+        /// <summary>A broad-leaf tree (oak / birch look): trunk, a few limbs and a round crown of leaf clumps.</summary>
+        public void LeafyTree(Vector3 pos, float h, bool birch = false)
+        {
+            Color barkC = birch ? new Color(0.85f, 0.83f, 0.78f) : new Color(0.45f, 0.36f, 0.3f);
+            float tr = h * (birch ? 0.022f : 0.035f);
+            Cyl(pos - Vector3.up * 0.3f, pos + Vector3.up * h * 0.62f, tr, tr * 0.6f, 8, BarkMat, barkC, true, Synth.Surface.Wood);
+            Vector3 crown = pos + Vector3.up * h * 0.66f;
+            Vector3 rad = new Vector3(h * (birch ? 0.22f : 0.33f), h * (birch ? 0.3f : 0.25f), h * (birch ? 0.22f : 0.33f));
+            // limbs from the trunk up into the crown (visual only)
+            int limbs = 4;
+            for (int i = 0; i < limbs; i++)
+            {
+                float ang = (i * 90f + Rng.Range(-25f, 25f)) * Mathf.Deg2Rad;
+                Vector3 from = pos + Vector3.up * h * Rng.Range(0.42f, 0.58f);
+                Vector3 to = crown + new Vector3(Mathf.Sin(ang) * rad.x * 0.7f, rad.y * Rng.Range(0f, 0.4f), Mathf.Cos(ang) * rad.z * 0.7f);
+                Raw(BarkMat, pos).Cyl(from, to, tr * 0.45f, tr * 0.15f, 6, barkC, false);
+            }
+            Color tint = birch ? new Color(1.05f, 1.1f, 0.75f) : Color.Lerp(new Color(0.95f, 1f, 0.85f), new Color(0.8f, 0.85f, 0.6f), Rng.Value);
+            Raw(CanopyCore, pos).Sphere(crown, rad * 0.5f, 8, tint * 0.72f);
+            var mb = Raw(LeafMat, pos);
+            int clumps = Mathf.RoundToInt(Mathf.Lerp(20, 32, Mathf.InverseLerp(6f, 16f, h)));
+            for (int i = 0; i < clumps; i++)
+            {
+                Vector3 d = Rng.InSphere();
+                if (d.sqrMagnitude < 0.0001f) d = Vector3.up;
+                d = d.normalized * Mathf.Lerp(0.35f, 1f, Mathf.Sqrt(Rng.Value));
+                if (d.y < -0.5f) d.y = -0.5f;
+                Vector3 c = crown + Vector3.Scale(d, rad);
+                LeafClump(mb, c, h * Rng.Range(0.24f, 0.32f), tint);
+            }
+        }
+
+        /// <summary>A leafy bush you can walk (and hide) in: no collider.</summary>
+        public void Bush(Vector3 pos, float size)
+        {
+            var mb = Raw(LeafMat, pos);
+            Color tint = Color.Lerp(new Color(0.85f, 0.95f, 0.7f), new Color(0.7f, 0.8f, 0.55f), Rng.Value);
+            Raw(CanopyCore, pos).Sphere(pos + Vector3.up * size * 0.3f, new Vector3(size * 0.26f, size * 0.2f, size * 0.26f), 6, tint * 0.7f);
+            int n = 4 + Rng.Range(0, 3);
+            for (int i = 0; i < n; i++)
+            {
+                var o = Rng.InCircle() * size * 0.45f;
+                LeafClump(mb, pos + new Vector3(o.x, size * Rng.Range(0.3f, 0.6f), o.y), size * Rng.Range(0.55f, 0.75f), tint, 3, 0.7f);
+            }
+        }
+
+        /// <summary>A grass tuft: three crossed cards standing on the ground. No collider.</summary>
+        public void GrassTuft(Vector3 pos, float size)
+        {
+            var mb = Raw(GrassMat, pos);
+            Color tint = Color.Lerp(new Color(0.95f, 1f, 0.8f), new Color(0.85f, 0.8f, 0.55f), Rng.Value);
+            float rot = Rng.Range(0f, 180f);
+            for (int k = 0; k < 3; k++)
+            {
+                Vector3 r = Quaternion.Euler(0, rot + k * 60f, 0) * Vector3.right * size * 0.5f;
+                Vector3 up = Vector3.up * size + new Vector3(Rng.Range(-0.1f, 0.1f), 0, Rng.Range(-0.1f, 0.1f)) * size;
+                mb.Card(pos - r, pos + r, pos + r + up, pos - r + up, tint, 0f, 1f);
+            }
+        }
+
+        /// <summary>A fern: fronds arching out from one point. No collider.</summary>
+        public void Fern(Vector3 pos, float size)
+        {
+            var mb = Raw(FernMat, pos);
+            Color tint = Color.Lerp(Color.white, new Color(0.8f, 0.9f, 0.65f), Rng.Value);
+            int n = 5 + Rng.Range(0, 3);
+            float rot = Rng.Range(0f, 360f);
+            for (int k = 0; k < n; k++)
+            {
+                float ang = (rot + k * 360f / n) * Mathf.Deg2Rad;
+                Vector3 dir = new Vector3(Mathf.Sin(ang), 0, Mathf.Cos(ang));
+                Vector3 side = Vector3.Cross(Vector3.up, dir) * size * 0.22f;
+                Vector3 tip = pos + dir * size * 0.9f + Vector3.up * size * Rng.Range(0.35f, 0.6f);
+                mb.Card(pos - side * 0.3f, pos + side * 0.3f, tip + side, tip - side, tint, 0f, 1f);
+            }
+        }
+
+        public void Rock(Vector3 pos, float size)
+        {
+            var m = Mats.Lit("rock", Color.white, 0, 0.2f, Mats.Concrete, null, 0.6f, 0.1f, true, 0.7f);
+            Vector3 r = new Vector3(size * Rng.Range(0.8f, 1.4f), size * Rng.Range(0.5f, 0.9f), size * Rng.Range(0.8f, 1.3f));
+            Sphere(pos, r, 9, m, new Color(0.55f, 0.53f, 0.5f) * Rng.Range(0.8f, 1.1f), true, Synth.Surface.Concrete);
+        }
+
+        public void CarWreck(Vector3 pos, float yaw, Color col)
+        {
+            Quaternion q = Quaternion.Euler(0, yaw, 0);
+            var paint = Mats.Lit("carpaint", Color.white, 0.5f, 0.45f, Mats.Metal, null, 0.7f, 0.6f, true, 1f);
+            var dark = Mats.Lit("cardark", new Color(0.08f, 0.08f, 0.08f), 0.3f, 0.3f);
+            var glass = Mats.Lit("carglass", new Color(0.1f, 0.13f, 0.15f), 0.8f, 0.9f);
+            Vector3 P(float x, float y, float z) => pos + q * new Vector3(x, y, z);
+            Box(P(0, 0.7f, 0), new Vector3(1.8f, 0.7f, 4.3f), paint, col, q, true, Synth.Surface.Metal, 0.12f);
+            Box(P(0, 1.3f, -0.3f), new Vector3(1.6f, 0.55f, 2.2f), paint, col, q, true, Synth.Surface.Metal, 0.12f);
+            Box(P(0, 1.3f, -0.3f), new Vector3(1.62f, 0.4f, 2.0f), glass, Color.white, q, false);
+            foreach (var sx in new[] { -0.85f, 0.85f })
+                foreach (var sz in new[] { -1.35f, 1.35f })
+                    Raw(dark).Cyl(P(sx - 0.12f, 0.35f, sz), P(sx + 0.12f, 0.35f, sz), 0.35f, 0.35f, 12, Color.white, true);
+            Box(P(0, 0.55f, 2.17f), new Vector3(1.7f, 0.25f, 0.08f), dark, Color.white, q, false);
+        }
+
+        public void LightPole(Vector3 pos, float h, Color light, bool realLight, float range = 14f)
+        {
+            var m = Mats.Lit("pole", new Color(0.25f, 0.26f, 0.27f), 0.6f, 0.4f, Mats.Metal, null, 0.5f, 0.3f);
+            Cyl(pos, pos + Vector3.up * h, 0.08f, 0.06f, 8, m, Color.white, true, Synth.Surface.Metal);
+            Box(pos + new Vector3(0, h, 0.4f), new Vector3(0.12f, 0.08f, 0.9f), m, Color.white, null, false);
+            Box(pos + new Vector3(0, h - 0.06f, 0.75f), new Vector3(0.3f, 0.06f, 0.45f), Mats.Lit("lamp_" + light, light, 0, 0.5f, null, null, 0, 0, false, 0.5f, light * 2.5f), Color.white, null, false);
+            if (realLight) AddLight(pos + new Vector3(0, h - 0.3f, 0.75f), light, range, 1.6f);
+        }
+
+        public Light AddLight(Vector3 pos, Color c, float range, float intensity, bool shadows = false)
+        {
+            var go = new GameObject("Light");
+            go.transform.SetParent(Root, false);
+            go.transform.position = pos;
+            var l = go.AddComponent<Light>();
+            l.type = LightType.Point; l.color = c; l.range = range; l.intensity = intensity;
+            l.shadows = shadows && Application.platform != RuntimePlatform.Android ? LightShadows.Soft : LightShadows.None;   // Quest: point-light shadow maps flickered black
+            l.shadowBias = 0.05f; l.shadowNormalBias = 0.6f;
+            l.renderMode = LightRenderMode.Auto;
+            return l;
+        }
+
+        public void Fence(Vector3 a, Vector3 b, float h = 2.2f)
+        {
+            var m = Mats.Lit("fence", new Color(0.45f, 0.46f, 0.45f), 0.8f, 0.4f, Mats.Metal, null, 0.4f, 0.4f);
+            Vector3 d = b - a; float len = d.magnitude; Vector3 dir = d / len;
+            int posts = Mathf.Max(2, Mathf.RoundToInt(len / 2.5f) + 1);
+            for (int i = 0; i < posts; i++) { Vector3 p = a + dir * (len * i / (posts - 1)); Cyl(p, p + Vector3.up * h, 0.04f, 0.04f, 6, m, Color.white, false); }
+            Quaternion q = Quaternion.LookRotation(dir);
+            Box(a + d * 0.5f + Vector3.up * h, new Vector3(0.04f, 0.04f, len), m, Color.white, q, false);
+            Box(a + d * 0.5f + Vector3.up * 0.1f, new Vector3(0.04f, 0.04f, len), m, Color.white, q, false);
+            // see-through chain-link mesh panel
+            Raw(Mats.Unlit("chainlink", new Color(0.32f, 0.33f, 0.33f, 0.3f))).Box(a + d * 0.5f + Vector3.up * h * 0.5f, new Vector3(0.01f, h * 0.9f, len), new Color(1, 1, 1), 0, 0, q);
+            Collider(a + d * 0.5f + Vector3.up * h * 0.5f, new Vector3(0.1f, h, len), q, Synth.Surface.Metal);
+        }
+
+        /// <summary>Shelving unit. Slides along itself to stay out of doorways, or is left out; returns where it went (null if left out).</summary>
+        public Vector3? Shelf(Vector3 pos, float yaw, float w = 2f)
+        {
+            var m = Mats.Lit("shelf", new Color(0.3f, 0.32f, 0.35f), 0.7f, 0.4f, Mats.Metal, null, 0.4f, 0.5f);
+            Quaternion q = Quaternion.Euler(0, yaw, 0);
+            if (InDoorway(pos, q, w / 2, 0.3f))
+            {
+                bool ok = false;
+                foreach (float sl in new[] { 0.6f, -0.6f, 1.2f, -1.2f })
+                    if (!InDoorway(pos + q * new Vector3(sl, 0, 0), q, w / 2, 0.3f)) { pos += q * new Vector3(sl, 0, 0); ok = true; break; }
+                if (!ok) return null;
+            }
+            if (FurnitureOverlaps(pos, q, new Vector2(w / 2 + 0.05f, 0.32f))) return null;   // never inside another table / shelf
+            Furniture.Add((pos, q, new Vector2(w / 2 + 0.05f, 0.32f), 2.0f));
+            for (int i = 0; i < 4; i++) Box(pos + q * new Vector3(0, 0.1f + i * 0.6f, 0), new Vector3(w, 0.04f, 0.6f), m, Color.white, q, true, Synth.Surface.Metal);
+            foreach (var sx in new[] { -w / 2, w / 2 }) foreach (var sz in new[] { -0.28f, 0.28f }) Box(pos + q * new Vector3(sx, 1f, sz), new Vector3(0.05f, 2f, 0.05f), m, Color.white, q, false);
+            // cardboard boxes standing ON the bottom and top shelves, side by side (the middle ones are kept clear for loot)
+            var card = Mats.Lit("cardboard", Color.white, 0, 0.2f, Mats.Noise, null, 0.4f, 0f);
+            foreach (int lvl in new[] { 0, 3 })
+            {
+                float top = 0.1f + lvl * 0.6f + 0.02f, x = -w / 2 + 0.08f;
+                while (true)
+                {
+                    float bw = Rng.Range(0.22f, 0.45f), bh = Rng.Range(0.15f, lvl == 0 ? 0.42f : 0.32f), bd = Rng.Range(0.25f, 0.45f);
+                    if (x + bw > w / 2 - 0.08f) break;
+                    if (Rng.Range(0, 3) != 0) Box(pos + q * new Vector3(x + bw / 2, top + bh / 2, Rng.Range(-0.04f, 0.04f)), new Vector3(bw, bh, bd), card, new Color(0.65f, 0.5f, 0.33f), q, false);
+                    x += bw + Rng.Range(0.03f, 0.15f);
+                }
+            }
+            return pos;
+        }
+
+        /// <summary>Table; left out (returns false) if it would block a doorway.</summary>
+        public bool Table(Vector3 pos, float yaw, Vector2 size, float h = 0.78f)
+        {
+            var m = Mats.Lit("table", Color.white, 0f, 0.35f, Mats.Wood, Mats.WoodN, 0.4f, 0.2f, true, 1f);
+            Quaternion q = Quaternion.Euler(0, yaw, 0);
+            if (InDoorway(pos, q, size.x / 2, size.y / 2)) return false;
+            if (FurnitureOverlaps(pos, q, size * 0.5f)) return false;   // never inside another table / shelf
+            Furniture.Add((pos, q, size * 0.5f, h));
+            Box(pos + Vector3.up * h, new Vector3(size.x, 0.05f, size.y), m, new Color(0.55f, 0.42f, 0.3f), q, true, Synth.Surface.Wood, 0.01f);
+            foreach (var sx in new[] { -1, 1 }) foreach (var sz in new[] { -1, 1 })
+                    Box(pos + q * new Vector3(sx * (size.x / 2 - 0.06f), h / 2, sz * (size.y / 2 - 0.06f)), new Vector3(0.05f, h, 0.05f), m, new Color(0.4f, 0.3f, 0.22f), q, false);
+            return true;
+        }
+
+        public void Tent(Vector3 pos, float yaw, Vector3 size, Color col)
+        {
+            var m = Mats.Lit("tent", Color.white, 0, 0.1f, Mats.Fabric, Mats.FabricN, 0.4f, 0, true, 1.5f);
+            Quaternion q = Quaternion.Euler(0, yaw, 0);
+            float ang = Mathf.Atan2(size.y, size.x * 0.5f) * Mathf.Rad2Deg;
+            float slant = Mathf.Sqrt(size.y * size.y + size.x * size.x * 0.25f);
+            Box(pos + q * new Vector3(-size.x * 0.25f, size.y * 0.5f, 0), new Vector3(slant, 0.04f, size.z), m, col, q * Quaternion.Euler(0, 0, ang), true, Synth.Surface.Dirt);
+            Box(pos + q * new Vector3(size.x * 0.25f, size.y * 0.5f, 0), new Vector3(slant, 0.04f, size.z), m, col, q * Quaternion.Euler(0, 0, -ang), true, Synth.Surface.Dirt);
+        }
+
+        public void Watchtower(Vector3 pos, float h)
+        {
+            var wood = Mats.Lit("tower_wood", Color.white, 0, 0.2f, Mats.Wood, Mats.WoodN, 0.5f, 0.1f, true, 1f);
+            foreach (var sx in new[] { -1.2f, 1.2f }) foreach (var sz in new[] { -1.2f, 1.2f })
+                    Box(pos + new Vector3(sx, h / 2, sz), new Vector3(0.2f, h, 0.2f), wood, new Color(0.6f, 0.48f, 0.35f), null, true, Synth.Surface.Wood);
+            Box(pos + new Vector3(0, h, 0), new Vector3(3f, 0.15f, 3f), wood, new Color(0.6f, 0.48f, 0.35f), null, true, Synth.Surface.Wood);
+            Box(pos + new Vector3(0, h + 0.5f, 1.45f), new Vector3(3f, 1f, 0.08f), wood, new Color(0.55f, 0.43f, 0.3f), null, true, Synth.Surface.Wood);
+            Box(pos + new Vector3(0, h + 0.5f, -1.45f), new Vector3(3f, 1f, 0.08f), wood, new Color(0.55f, 0.43f, 0.3f), null, true, Synth.Surface.Wood);
+            Box(pos + new Vector3(1.45f, h + 0.5f, 0), new Vector3(0.08f, 1f, 3f), wood, new Color(0.55f, 0.43f, 0.3f), null, true, Synth.Surface.Wood);
+            Box(pos + new Vector3(0, h + 2.4f, 0), new Vector3(3.4f, 0.12f, 3.4f), wood, new Color(0.45f, 0.35f, 0.25f), null, true, Synth.Surface.Wood);
+            foreach (var sx in new[] { -1.4f, 1.4f }) foreach (var sz in new[] { -1.4f, 1.4f }) Box(pos + new Vector3(sx, h + 1.2f, sz), new Vector3(0.1f, 2.4f, 0.1f), wood, new Color(0.6f, 0.48f, 0.35f), null, false);
+            // ramp up (open side -x)
+            Stairs(pos + new Vector3(-1.5f - h * 1.1f, 0, 0), pos + new Vector3(-1.5f, h, 0), 1.0f, wood);
+        }
+
+        /// <summary>Water surface at center.y: you can fall in (and drown); bullets splash on it.</summary>
+        public void Water(Vector3 center, Vector2 size, float killDepth = 1.2f)
+        {
+            var m = Mats.Lit("water", new Color(0.06f, 0.14f, 0.18f), 0.3f, 0.96f, null, null, 0, 0, true, 0.2f);
+            Box(center + Vector3.down * 0.05f, new Vector3(size.x, 0.1f, size.y), m, Color.white, null, false);
+            var go = new GameObject("WaterVolume");
+            go.transform.SetParent(Root, false);
+            go.transform.position = center + Vector3.down * 1.5f;
+            var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(size.x, 3f, size.y); bc.isTrigger = true;
+            go.AddComponent<SurfaceTag>().surface = Synth.Surface.Water;
+            go.AddComponent<KillVolume>().killY = center.y - killDepth;
+            Box(center + Vector3.down * 4.5f, new Vector3(size.x, 1f, size.y), Mats.Lit("seabed", new Color(0.1f, 0.12f, 0.1f), 0, 0.1f), Color.white, null, true, Synth.Surface.Dirt);
+        }
+
+        public void Sign(Vector3 pos, Quaternion rot, string text, Color col, float size = 0.25f)
+        {
+            var go = new GameObject("Sign");
+            go.transform.SetParent(Root, false);
+            go.transform.SetPositionAndRotation(pos, rot);
+            UI.Text(go.transform, text, Vector3.zero, size, col, TextAnchor.MiddleCenter, FontStyle.Bold);
+        }
+    }
+
+    /// <summary>Deep water / void: kills whoever falls in.</summary>
+    public class KillVolume : MonoBehaviour
+    {
+        public float killY;
+        void Update()
+        {
+            var p = RagoGame.I != null ? RagoGame.I.Player : null;
+            if (p == null || !p.Vitals.Alive) return;
+            var b = GetComponent<BoxCollider>();
+            Vector3 pp = p.transform.position;
+            if (b != null && pp.y < killY && Mathf.Abs(pp.x - b.bounds.center.x) < b.bounds.extents.x && Mathf.Abs(pp.z - b.bounds.center.z) < b.bounds.extents.z) p.Vitals.Kill("Drowned");
+        }
+    }
+}

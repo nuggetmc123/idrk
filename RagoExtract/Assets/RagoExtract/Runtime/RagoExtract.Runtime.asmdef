@@ -1,0 +1,28 @@
+{
+    "name": "RagoExtract.Runtime",
+    "rootNamespace": "Rago",
+    "references": [
+        "Oculus.Platform",
+        "com.rlabrecque.steamworks.net"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.meta.xr.sdk.platform",
+            "expression": "1.0.0",
+            "define": "RAGO_META_IAP"
+        },
+        {
+            "name": "com.rlabrecque.steamworks.net",
+            "expression": "1.0.0",
+            "define": "RAGO_STEAM"
+        }
+    ],
+    "noEngineReferences": false
+}

@@ -1,0 +1,8 @@
+# Rago Extract anti-tamper: the SHA-256 fingerprint of YOUR APK signing key.
+#
+# Copies of the game signed with any other key (someone unpacked, modded and repacked the APK) can't play online.
+# Leave this empty until you've made a release build with your own keystore, then:
+#   - start the game on the headset and look at menu > RECENT (first lines: "build signature ..."), or run
+#     adb logcat -s Unity | findstr "build signature"   (Windows)   /   adb logcat -s Unity | grep "build signature"
+#   - paste the full 64-character fingerprint on its own line below (no # in front) and build again.
+# Always build with the SAME keystore after that (keep it safe - a new key means updating this line).

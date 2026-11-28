@@ -1,0 +1,687 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Rago
+{
+    /// <summary>What a world panel is physically made of.</summary>
+    public enum Skin { Steel, Crt, Chalk, Paper }
+    /// <summary>What a world button physically is.</summary>
+    public enum BtnStyle { Plate, Key, Tag, Stamp, Crt }
+
+    /// <summary>World-space UI toolkit: panels, crisp 3D text, and buttons you laser-point (VR) or click (desktop).
+    /// Panels are physical things - bolted steel plates, CRT terminals, chalkboards, clipboards - not floating glass.</summary>
+    public static class UI
+    {
+        public static readonly Color Accent = new Color(1f, 0.62f, 0.18f);
+        public static readonly Color PanelCol = new Color(0.17f, 0.175f, 0.18f, 1f);
+        public static readonly Color Dim = new Color(0.6f, 0.62f, 0.64f);
+        // inks
+        public static readonly Color CrtGreen = new Color(0.45f, 1f, 0.55f), CrtDim = new Color(0.22f, 0.6f, 0.3f);
+        public static readonly Color Chalk = new Color(0.93f, 0.93f, 0.88f), ChalkDim = new Color(0.66f, 0.68f, 0.64f), ChalkYellow = new Color(1f, 0.88f, 0.45f);
+        public static readonly Color PaperInk = new Color(0.1f, 0.1f, 0.13f), PaperDim = new Color(0.32f, 0.32f, 0.36f), StampRed = new Color(0.72f, 0.1f, 0.08f);
+        public static readonly Color Stencil = new Color(0.95f, 0.8f, 0.3f);
+
+        /// <summary>Vertex colours are linear; palette colours here are picked by eye (sRGB).</summary>
+        public static Color Lin(Color c) => new Color(Mathf.Pow(Mathf.Clamp01(c.r), 2.2f), Mathf.Pow(Mathf.Clamp01(c.g), 2.2f), Mathf.Pow(Mathf.Clamp01(c.b), 2.2f), 1f);
+
+        /// <summary>Simple word wrap for TextMesh (which can't wrap by itself).</summary>
+        public static string Wrap(string text, int maxChars)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            var sb = new System.Text.StringBuilder();
+            foreach (var para in text.Split('\n'))
+            {
+                int line = 0;
+                foreach (var word in para.Split(' '))
+                {
+                    if (line > 0 && line + 1 + word.Length > maxChars) { sb.Append('\n'); line = 0; }
+                    else if (line > 0) { sb.Append(' '); line++; }
+                    sb.Append(word); line += word.Length;
+                }
+                sb.Append('\n');
+            }
+            return sb.ToString().TrimEnd('\n');
+        }
+
+        public static Transform Panel(Transform parent, string name, Vector3 localPos, Quaternion localRot, Vector2 size, Color? col = null, bool frame = true, Skin skin = Skin.Steel)
+        {
+            var root = new GameObject(name).transform;
+            root.SetParent(parent, false);
+            root.localPosition = localPos; root.localRotation = localRot;
+            float w = size.x, h = size.y;
+            var rng = new Rng(Mathf.RoundToInt(w * 1000 + h * 37));
+            var mb = new MB(3);
+            switch (skin)
+            {
+                case Skin.Crt:
+                {
+                    // chunky plastic bezel around a dark phosphor screen with scanlines
+                    Color bez = Lin(new Color(0.16f, 0.16f, 0.15f));
+                    float b = 0.05f;
+                    mb.Sub(0).Box(new Vector3(0, h / 2 + b / 2, 0.02f), new Vector3(w + b * 2, b, 0.05f), bez, 0.012f, 2);
+                    mb.Sub(0).Box(new Vector3(0, -h / 2 - b / 2, 0.02f), new Vector3(w + b * 2, b, 0.05f), bez, 0.012f, 2);
+                    mb.Sub(0).Box(new Vector3(-w / 2 - b / 2, 0, 0.02f), new Vector3(b, h, 0.05f), bez, 0.012f, 2);
+                    mb.Sub(0).Box(new Vector3(w / 2 + b / 2, 0, 0.02f), new Vector3(b, h, 0.05f), bez, 0.012f, 2);
+                    mb.Sub(1).Box(new Vector3(0, 0, 0.012f), new Vector3(w, h, 0.02f), Color.white, 0f);
+                    for (float y = -h / 2 + 0.006f; y < h / 2; y += 0.011f) mb.Sub(2).Box(new Vector3(0, y, -0.0006f), new Vector3(w, 0.0035f, 0.0004f), Lin(new Color(0.02f, 0.05f, 0.03f)), 0f);
+                    mb.Build("bg", root, Mats.Lit("ui_bezel", Color.white, 0.1f, 0.3f, Mats.Noise, null, 0.3f, 0.1f),
+                        Mats.Lit("ui_crt", new Color(0.02f, 0.07f, 0.035f), 0f, 0.85f, null, null, 0, 0, false, 0.5f, new Color(0.01f, 0.06f, 0.02f)),
+                        Mats.Lit("ui_scan", Color.white, 0f, 0.8f, null, null, 0, 0));
+                    break;
+                }
+                case Skin.Chalk:
+                {
+                    // slate in a wooden frame with a chalk ledge and old smudges
+                    Color wood = Lin(new Color(0.5f, 0.34f, 0.2f));
+                    float b = 0.045f;
+                    mb.Sub(0).Box(new Vector3(0, h / 2 + b / 2, 0.012f), new Vector3(w + b * 2, b, 0.035f), wood, 0.008f, 1);
+                    mb.Sub(0).Box(new Vector3(0, -h / 2 - b / 2, 0.012f), new Vector3(w + b * 2, b, 0.035f), wood, 0.008f, 1);
+                    mb.Sub(0).Box(new Vector3(-w / 2 - b / 2, 0, 0.012f), new Vector3(b, h, 0.035f), wood, 0.008f, 1);
+                    mb.Sub(0).Box(new Vector3(w / 2 + b / 2, 0, 0.012f), new Vector3(b, h, 0.035f), wood, 0.008f, 1);
+                    mb.Sub(0).Box(new Vector3(0, -h / 2 - b, -0.02f), new Vector3(w * 0.9f, 0.012f, 0.05f), wood, 0.004f); // ledge
+                    mb.Sub(1).Box(new Vector3(0, 0, 0.01f), new Vector3(w, h, 0.02f), Lin(new Color(0.16f, 0.19f, 0.17f)), 0f);
+                    // faint wiped-off chalk: many soft, overlapping smears barely lighter than the slate
+                    for (int k = 0; k < 26; k++)
+                        mb.Sub(1).Box(new Vector3(rng.Range(-w * 0.45f, w * 0.45f), rng.Range(-h * 0.42f, h * 0.42f), -0.0003f - k * 0.00001f), new Vector3(rng.Range(0.05f, w * 0.22f), rng.Range(0.012f, 0.05f), 0.0002f),
+                            Lin(new Color(0.175f, 0.205f, 0.185f)), 0f, 0, Quaternion.Euler(0, 0, rng.Range(-25f, 25f)));
+                    mb.Sub(2).Box(new Vector3(w * 0.3f, -h / 2 - b + 0.012f, -0.03f), new Vector3(0.07f, 0.012f, 0.012f), Color.white, 0.004f); // a stick of chalk
+                    mb.Build("bg", root, Mats.Lit("ui_wood", Color.white, 0f, 0.3f, Mats.Wood, Mats.WoodN, 0.4f, 0.2f), Mats.Lit("ui_slate", Color.white, 0f, 0.12f, Mats.Noise, null, 0.5f, 0.1f), Mats.Lit("ui_chalk", Color.white, 0f, 0.1f));
+                    break;
+                }
+                case Skin.Paper:
+                {
+                    // clipboard: hardboard backing, a sheet of paper with ruled lines, a steel clip
+                    Color board = Lin(new Color(0.52f, 0.38f, 0.24f));
+                    mb.Sub(0).Box(new Vector3(0, 0, 0.012f), new Vector3(w + 0.06f, h + 0.1f, 0.01f), board, 0.012f, 1);
+                    mb.Sub(1).Box(new Vector3(0, -0.01f, 0.004f), new Vector3(w, h, 0.003f), Lin(new Color(0.84f, 0.82f, 0.76f)), 0f, 0, Quaternion.Euler(0, 0, rng.Range(-0.8f, 0.8f)));
+                    for (float y = h / 2 - 0.12f; y > -h / 2 + 0.03f; y -= 0.045f) mb.Sub(1).Box(new Vector3(0.01f, y, 0.0022f), new Vector3(w * 0.9f, 0.0018f, 0.0004f), Lin(new Color(0.72f, 0.8f, 0.9f)), 0f);
+                    mb.Sub(2).Box(new Vector3(0, h / 2 + 0.03f, 0.0f), new Vector3(0.22f, 0.06f, 0.02f), Color.white, 0.006f, 1);
+                    mb.Sub(2).Cyl(new Vector3(-0.08f, h / 2 + 0.03f, -0.012f), new Vector3(0.08f, h / 2 + 0.03f, -0.012f), 0.008f, 0.008f, 8, Color.white);
+                    mb.Build("bg", root, Mats.Lit("ui_board", Color.white, 0f, 0.3f, Mats.Wood, null, 0.3f, 0.1f), Mats.Lit("ui_paper", Color.white, 0f, 0.08f, Mats.Noise, null, 0.12f, 0f), Mats.Lit("ui_clip", new Color(0.7f, 0.7f, 0.72f), 0.9f, 0.6f, Mats.Metal, null, 0.1f, 0.2f));
+                    break;
+                }
+                default:
+                {
+                    if (col == null)
+                    {
+                        // the standard panel (3.40): a rugged field terminal - a chunky chamfered case with rubber corner
+                        // bumpers round a dark glossy screen, amber corner brackets and a thin accent line along the top
+                        Color scr = Lin(new Color(0.075f, 0.085f, 0.095f)), caseCol = Lin(new Color(0.12f, 0.125f, 0.13f)), rubber = Lin(new Color(0.045f, 0.045f, 0.045f));
+                        Color amber = Lin(new Color(1f, 0.62f, 0.18f));
+                        if (frame)
+                        {
+                            float bw = 0.03f;
+                            mb.Sub(0).Box(new Vector3(0, 0, 0.026f), new Vector3(w + bw * 2, h + bw * 2, 0.034f), caseCol, 0.012f, 2);
+                            mb.Sub(0).Box(new Vector3(0, 0, 0.004f), new Vector3(w + 0.012f, h + 0.012f, 0.012f), Lin(new Color(0.03f, 0.03f, 0.035f)), 0.003f, 1);   // the screen's recess
+                            foreach (var sx in new[] { -1, 1 }) foreach (var sy in new[] { -1, 1 })
+                                    mb.Sub(0).Box(new Vector3(sx * (w / 2 + bw - 0.022f), sy * (h / 2 + bw - 0.022f), 0.014f), new Vector3(0.075f, 0.075f, 0.052f), rubber, 0.016f, 2);   // bumpers
+                            foreach (var sx in new[] { -1, 1 }) for (int k = 0; k < 3; k++)
+                                    mb.Sub(0).Box(new Vector3(sx * (w / 2 + bw * 0.55f), -0.06f + k * 0.06f, 0.006f), new Vector3(0.006f, 0.035f, 0.004f), rubber, 0.002f);   // grip ridges
+                        }
+                        mb.Sub(1).Box(new Vector3(0, 0, 0.01f), new Vector3(w, h, 0.02f), scr, 0.002f);
+                        // HUD corner brackets and an accent line, flat on the glass (behind the text and buttons)
+                        float m = 0.018f, L = Mathf.Min(0.07f, Mathf.Min(w, h) * 0.18f), t = 0.005f;
+                        foreach (var sx in new[] { -1, 1 }) foreach (var sy in new[] { -1, 1 })
+                            {
+                                mb.Sub(2).Box(new Vector3(sx * (w / 2 - m - L / 2), sy * (h / 2 - m), -0.0012f), new Vector3(L, t, 0.0016f), amber, 0f);
+                                mb.Sub(2).Box(new Vector3(sx * (w / 2 - m), sy * (h / 2 - m - L / 2), -0.0012f), new Vector3(t, L, 0.0016f), amber, 0f);
+                            }
+                        mb.Sub(2).Box(new Vector3(0, h / 2 - m * 0.5f, -0.0012f), new Vector3(w * 0.4f, 0.003f, 0.0016f), amber * 0.7f, 0f);
+                        mb.Build("bg", root, Mats.Lit("ui_case", Color.white, 0.15f, 0.35f, Mats.Noise, null, 0.3f, 0.15f),
+                            Mats.Lit("ui_screen", Color.white, 0.1f, 0.88f, null, null, 0f, 0f, false, 0.5f, new Color(0.006f, 0.01f, 0.014f)),
+                            Mats.Lit("ui_accent", Color.white, 0f, 0.5f, null, null, 0f, 0f, false, 0.5f, new Color(0.35f, 0.18f, 0.03f)));
+                        break;
+                    }
+                    // a painted steel plate in the colour asked for, bolted on
+                    Color c = Lin(col ?? PanelCol);
+                    if (frame) mb.Sub(0).Box(new Vector3(0, 0, 0.022f), new Vector3(w + 0.03f, h + 0.03f, 0.01f), Lin(new Color(0.09f, 0.09f, 0.095f)), 0.006f);
+                    mb.Sub(0).Box(new Vector3(0, 0, 0.01f), new Vector3(w, h, 0.02f), c, 0.008f, 1);
+                    if (frame) foreach (var sx in new[] { -1, 1 }) foreach (var sy in new[] { -1, 1 })
+                                mb.Sub(1).Cyl(new Vector3(sx * (w / 2 - 0.025f), sy * (h / 2 - 0.025f), 0.0f), new Vector3(sx * (w / 2 - 0.025f), sy * (h / 2 - 0.025f), -0.005f), 0.009f, 0.0075f, 8, Color.white);
+                    mb.Build("bg", root, Mats.Lit("ui_steel", Color.white, 0.45f, 0.3f, Mats.Metal, null, 0.35f, 0.35f), Mats.Lit("ui_bolt", new Color(0.45f, 0.45f, 0.46f), 0.9f, 0.5f));
+                    break;
+                }
+            }
+            return root;
+        }
+
+        public static TextMesh Text(Transform parent, string text, Vector3 localPos, float size, Color col, TextAnchor anchor = TextAnchor.MiddleCenter, FontStyle style = FontStyle.Normal)
+        {
+            var go = new GameObject("Text");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos + new Vector3(0, 0, -0.002f);
+            var tm = go.AddComponent<TextMesh>();
+            var f = Compat.DefaultFont;
+            if (f != null) { tm.font = f; go.GetComponent<MeshRenderer>().sharedMaterial = Compat.TextMaterial; }
+            tm.text = text;
+            tm.fontSize = 64;
+            tm.characterSize = size * 0.1f;
+            tm.anchor = anchor;
+            tm.alignment = anchor == TextAnchor.MiddleLeft || anchor == TextAnchor.UpperLeft || anchor == TextAnchor.LowerLeft ? TextAlignment.Left : anchor == TextAnchor.MiddleRight || anchor == TextAnchor.UpperRight ? TextAlignment.Right : TextAlignment.Center;
+            tm.color = col;
+            tm.fontStyle = style;
+            go.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return tm;
+        }
+
+        public static WorldButton Button(Transform parent, string label, Vector3 localPos, Vector2 size, System.Action onClick, Color? col = null, BtnStyle style = BtnStyle.Plate, Color? text = null)
+        {
+            var go = new GameObject("Btn_" + label);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos + new Vector3(0, 0, -0.012f);
+            var b = go.AddComponent<WorldButton>();
+            Color def = style == BtnStyle.Tag ? new Color(0.9f, 0.86f, 0.74f) : style == BtnStyle.Stamp ? new Color(0.93f, 0.91f, 0.85f) : style == BtnStyle.Crt ? new Color(0.03f, 0.1f, 0.05f) : new Color(0.22f, 0.23f, 0.24f);
+            b.Init(label, size, onClick, col ?? def, style, text);
+            return b;
+        }
+    }
+
+    public class WorldButton : MonoBehaviour
+    {
+        public System.Action OnClick;
+        public TextMesh Label;
+        public bool Interactable = true;
+        public BtnStyle Style;
+        MeshRenderer _bg;
+        Transform _cap;
+        Color _base;
+        float _hover, _press, _travel;
+        Material _mat;
+
+        public void Init(string label, Vector2 size, System.Action onClick, Color col, BtnStyle style = BtnStyle.Plate, Color? text = null)
+        {
+            OnClick = onClick;
+            Style = style;
+            _base = col;
+            float w = size.x, h = size.y;
+            Color ink = text ?? (style == BtnStyle.Tag ? UI.PaperInk : style == BtnStyle.Stamp ? UI.StampRed : style == BtnStyle.Crt ? UI.CrtGreen : new Color(0.92f, 0.92f, 0.88f));
+            // fixed parts (not tinted): bezel for keys, string for tags, ink border for stamps, phosphor outline for CRT
+            var fixedMb = new MB();
+            bool hasFixed = false;
+            var cap = new MB();
+            switch (style)
+            {
+                case BtnStyle.Key:
+                    fixedMb.Box(new Vector3(0, 0, 0.012f), new Vector3(w + 0.03f, h + 0.03f, 0.02f), UI.Lin(new Color(0.08f, 0.08f, 0.085f)), 0.008f, 1); hasFixed = true;
+                    cap.Box(new Vector3(0, 0, -0.008f), new Vector3(w, h, 0.03f), Color.white, Mathf.Min(0.014f, h * 0.3f), 2);
+                    _travel = 0.012f;
+                    break;
+                case BtnStyle.Tag:
+                    cap.Box(Vector3.zero, new Vector3(w, h, 0.003f), Color.white, 0.006f, 1);
+                    fixedMb.Cyl(new Vector3(-w / 2 + 0.018f, 0, -0.003f), new Vector3(-w / 2 + 0.018f, 0, 0.003f), 0.007f, 0.007f, 10, UI.Lin(new Color(0.55f, 0.5f, 0.42f)));
+                    fixedMb.Box(new Vector3(-w / 2 + 0.01f, h * 0.35f, -0.002f), new Vector3(0.003f, h * 0.7f, 0.002f), UI.Lin(new Color(0.75f, 0.7f, 0.6f)), 0f, 0, Quaternion.Euler(0, 0, 30)); // string
+                    hasFixed = true; _travel = 0.006f;
+                    break;
+                case BtnStyle.Stamp:
+                    cap.Box(new Vector3(0, 0, 0.001f), new Vector3(w, h, 0.002f), Color.white, 0f);
+                    foreach (var y in new[] { -h / 2 + 0.006f, h / 2 - 0.006f }) fixedMb.Box(new Vector3(0, y, -0.0015f), new Vector3(w - 0.004f, 0.006f, 0.001f), UI.Lin(UI.StampRed), 0f);
+                    foreach (var x in new[] { -w / 2 + 0.006f, w / 2 - 0.006f }) fixedMb.Box(new Vector3(x, 0, -0.0015f), new Vector3(0.006f, h - 0.004f, 0.001f), UI.Lin(UI.StampRed), 0f);
+                    hasFixed = true; _travel = 0.002f;
+                    break;
+                case BtnStyle.Crt:
+                    cap.Box(new Vector3(0, 0, -0.0005f), new Vector3(w, h, 0.0008f), Color.white, 0f);
+                    foreach (var y in new[] { -h / 2, h / 2 }) fixedMb.Box(new Vector3(0, y, -0.0012f), new Vector3(w, 0.0035f, 0.0006f), UI.Lin(UI.CrtDim), 0f);
+                    foreach (var x in new[] { -w / 2, w / 2 }) fixedMb.Box(new Vector3(x, 0, -0.0012f), new Vector3(0.0035f, h, 0.0006f), UI.Lin(UI.CrtDim), 0f);
+                    hasFixed = true; _travel = 0f;
+                    break;
+                default:
+                    // a tactical plate key: a dark bezel, a chamfered cap and a lighter notch down its left edge
+                    fixedMb.Box(new Vector3(0, 0, 0.006f), new Vector3(w + 0.012f, h + 0.012f, 0.014f), UI.Lin(new Color(0.05f, 0.05f, 0.055f)), 0.004f, 1);
+                    fixedMb.Box(new Vector3(-w / 2 - 0.0005f, 0, -0.0085f), new Vector3(0.006f, h * 0.7f, 0.003f), UI.Lin(Color.Lerp(col, Color.white, 0.45f)), 0f);
+                    hasFixed = true;
+                    cap.Box(Vector3.zero, new Vector3(w - 0.004f, h - 0.004f, 0.016f), Color.white, Mathf.Min(0.006f, h * 0.15f), 1);
+                    _travel = 0.005f;
+                    break;
+            }
+            if (hasFixed) fixedMb.Build("frame", transform, Mats.Lit("btn_fixed", Color.white, 0.2f, 0.4f, Mats.Noise, null, 0.2f, 0.1f));
+            _cap = new GameObject("cap").transform; _cap.SetParent(transform, false);
+            var tex = style == BtnStyle.Tag || style == BtnStyle.Stamp ? Mats.Noise : null;
+            var bg = cap.Build("bg", _cap, Mats.Lit("btn_" + style, Color.white, style == BtnStyle.Key ? 0f : 0.2f, style == BtnStyle.Key ? 0.25f : 0.45f, tex, null, 0.15f, 0.05f));
+            _bg = bg.GetComponent<MeshRenderer>();
+            _mat = new Material(_bg.sharedMaterial);
+            _bg.sharedMaterial = _mat;
+            SetColor(col);
+            var bc = gameObject.AddComponent<BoxCollider>();
+            bc.size = new Vector3(w, h, 0.04f);
+            bc.isTrigger = true;
+            float front = style == BtnStyle.Key ? -0.024f : style == BtnStyle.Plate ? -0.009f : -0.007f;   // clear of the rounded edge of a thin tag / stamp
+            Label = UI.Text(_cap, label, new Vector3(0, 0, front + 0.002f), Mathf.Min(h * 0.42f, 0.05f), ink, TextAnchor.MiddleCenter, style == BtnStyle.Key || style == BtnStyle.Stamp ? FontStyle.Bold : FontStyle.Normal);
+        }
+
+        public void SetColor(Color c) { _base = c; if (_mat != null) _mat.SetColor("_Color", c); }
+        public void SetText(string t) { if (Label != null) Label.text = t; }
+        public void SetTextColor(Color c) { if (Label != null) Label.color = c; }
+        public void Hover() { _hover = 0.15f; Sfx.UI(Synth.UiHover(), 0.15f); }
+
+        float _lastClick = -1f;
+        static float _anyClick = -1f;
+        public void Click()
+        {
+            // one press = one click: ignore a repeat on the same key within 0.2 s, and any second click in the same instant
+            // (the global gap also covers a panel that rebuilds its buttons on click - the new button isn't a repeat of the old)
+            if (Time.unscaledTime - _lastClick < 0.2f || Time.unscaledTime - _anyClick < 0.25f) return;
+            _lastClick = _anyClick = Time.unscaledTime;
+            if (!Interactable) { Sfx.UI(Synth.UiError(), 0.3f); return; }
+            _press = 0.15f;
+            Sfx.UI(Synth.UiClick(), 0.5f);
+            OnClick?.Invoke();
+        }
+
+        void Update()
+        {
+            _hover -= Time.deltaTime; _press -= Time.deltaTime;
+            Color c = Interactable ? _base : Color.Lerp(_base, new Color(0.3f, 0.3f, 0.3f), 0.6f);
+            if (_hover > 0) c = Style == BtnStyle.Crt ? Color.Lerp(c, UI.CrtDim, 0.5f) : Color.Lerp(c, Color.white, 0.18f);
+            if (_press > 0) c = Style == BtnStyle.Crt ? UI.CrtGreen : Color.Lerp(c, Color.black, 0.2f);
+            if (_mat != null) _mat.SetColor("_Color", c);
+            if (_cap != null) _cap.localPosition = new Vector3(0, 0, _press > 0 ? _travel : 0);
+        }
+    }
+
+    /// <summary>Head-locked overlays (fade, damage, suppression), toasts and the wrist display.</summary>
+    public class Hud : MonoBehaviour
+    {
+        PlayerRig _p;
+        MeshRenderer _fade, _damage, _supp, _flashR;
+        Material _fadeM, _damageM, _suppM, _flashM;
+        float _flash;
+        float _fadeTarget = 0, _fadeCur = 1, _dmg, _sup;
+        bool _blocked;
+        TextMesh _toast, _center, _objective, _queue;
+        float _toastT, _centerT;
+        float _netTextT;
+        TextMesh _wristTimer, _wristHp, _wristInfo, _wristAmmo, _wristMsg, _wristQueue, _wristRec;
+        float _msgT;
+        Transform _wrist;
+        public string RaidTimer = "";
+        GameObject _crosshair;
+
+        public static Hud Create(PlayerRig p)
+        {
+            var h = p.gameObject.AddComponent<Hud>();
+            h._p = p;
+            h.Build();
+            return h;
+        }
+
+        void Build()
+        {
+            var cam = _p.Head;
+            var quad = new MB().Quad(new Vector3(-1, -1, 0), new Vector3(1, -1, 0), new Vector3(1, 1, 0), new Vector3(-1, 1, 0), Color.white, Vector2.one).ToMesh("hudquad");
+            _fade = Overlay(cam, quad, 0.08f, "hud_fade", new Color(0, 0, 0, 1), null, out _fadeM, 100);
+            _fade.transform.localScale = Vector3.one * 0.08f * 8f;   // the black covers far past the edge of any headset's view (about +-84 degrees)
+            _damage = Overlay(cam, quad, 0.09f, "hud_dmg", new Color(0.6f, 0, 0, 0), Mats.Vignette, out _damageM, 90);
+            _supp = Overlay(cam, quad, 0.095f, "hud_sup", new Color(0, 0, 0, 0), Mats.Vignette, out _suppM, 80);
+            _flashR = Overlay(cam, quad, 0.085f, "hud_flash", new Color(1, 1, 1, 0), null, out _flashM, 95);
+            _flashR.transform.localScale = Vector3.one * 0.085f * 8f;
+            _flashR.enabled = false;
+            _nvg = Overlay(cam, quad, 0.092f, "hud_nvg", new Color(0.02f, 0.12f, 0.03f, 0.9f), Mats.Vignette, out _nvgM, 85);
+            _nvg.enabled = false;
+            BuildNvg(cam, quad);
+            _toast = UI.Text(cam, "", new Vector3(0, -0.12f, 0.6f), 0.02f, Color.white);
+            _toast.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_toast);
+            _center = UI.Text(cam, "", new Vector3(0, 0.06f, 0.8f), 0.04f, UI.Accent, TextAnchor.MiddleCenter, FontStyle.Bold);
+            _center.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_center);
+            // matchmaking status, top-left of your view
+            _queue = UI.Text(cam, "", new Vector3(-0.2f, 0.13f, 0.6f), 0.02f, new Color(0.55f, 1f, 0.6f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            _queue.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_queue);
+            // training objective, low in your view
+            _objective = UI.Text(cam, "", new Vector3(0, -0.2f, 0.75f), 0.022f, new Color(1f, 0.86f, 0.5f), TextAnchor.MiddleCenter);
+            _objective.GetComponent<MeshRenderer>().sharedMaterial = TextOverlay(_objective);
+            // wrist watch on the left hand
+            _wrist = new GameObject("Wrist").transform;
+            // on the hand model you see (not the controller), on the back of the wrist (+Y of the hand model is the back
+            // of the hand), screen facing out, reading along the forearm like a real watch (text runs towards the fingers,
+            // top of the display on the little-finger side, away from you when you raise your wrist) - always lined up
+            _wrist.SetParent(_p.HandL.Visual, false);
+            _wrist.localPosition = new Vector3(0.0f, 0.036f, -0.08f);
+            _wrist.localRotation = Quaternion.LookRotation(Vector3.down, Vector3.left);
+            var w = new MB(2);
+            // taller than before: messages (air drops, vaults, pick-ups...) and the queue timer live here now, not floating in your view
+            w.Sub(0).Box(new Vector3(0, -0.012f, 0), new Vector3(0.075f, 0.075f, 0.012f), Color.white, 0.006f, 2);
+            w.Sub(1).Box(new Vector3(0, -0.012f, -0.0065f), new Vector3(0.068f, 0.068f, 0.001f), Color.white, 0);
+            // the strap: a band right round the wrist (the wrist runs along the watch's local x), lugs at the face's edges
+            // and a buckle underneath - so it's a watch, not a floating square
+            {
+                var band = new Color(0.13f, 0.13f, 0.12f);
+                Vector3 c0 = new Vector3(0, -0.012f, 0.032f);   // the middle of the wrist, under the face
+                float ry = 0.037f, rz = 0.033f, bw = 0.026f;
+                const int segs = 22;
+                for (int i = 0; i < segs; i++)
+                {
+                    float a0 = i * Mathf.PI * 2f / segs, a1 = (i + 1) * Mathf.PI * 2f / segs;
+                    Vector3 p0 = c0 + new Vector3(0, Mathf.Cos(a0) * ry, -Mathf.Sin(a0) * rz), p1 = c0 + new Vector3(0, Mathf.Cos(a1) * ry, -Mathf.Sin(a1) * rz);
+                    if (p0.z < -0.004f && p1.z < -0.004f && Mathf.Abs(p0.y - c0.y) < 0.036f && Mathf.Abs(p1.y - c0.y) < 0.036f) continue;   // hidden under the face
+                    Vector3 mid = (p0 + p1) * 0.5f, tan = p1 - p0;
+                    var q = Quaternion.LookRotation(tan.normalized, Vector3.Cross(Vector3.right, tan).normalized);   // length along the band, thickness outwards, width along the wrist
+                    w.Sub(0).Box(mid, new Vector3(bw, 0.0028f, tan.magnitude + 0.0015f), band, 0f, 0, q);
+                }
+                foreach (float sy in new[] { -1f, 1f }) w.Sub(0).Box(new Vector3(0, -0.012f + sy * 0.0385f, 0.002f), new Vector3(bw + 0.004f, 0.006f, 0.01f), new Color(0.22f, 0.22f, 0.22f), 0.001f);   // lugs
+                w.Sub(0).Box(c0 + new Vector3(0, 0, rz + 0.001f), new Vector3(bw + 0.006f, 0.016f, 0.004f), new Color(0.55f, 0.55f, 0.55f), 0.001f);   // buckle
+            }
+            w.Build("watch", _wrist, Mats.Polymer, Mats.Lit("watch_screen", new Color(0.02f, 0.03f, 0.03f), 0f, 0.9f));
+            _wristTimer = UI.Text(_wrist, "", new Vector3(0.032f, 0.012f, -0.008f), 0.0085f, new Color(1f, 0.85f, 0.4f), TextAnchor.MiddleRight, FontStyle.Bold);
+            _wristHp = UI.Text(_wrist, "", new Vector3(-0.032f, 0.012f, -0.008f), 0.0085f, new Color(0.4f, 1f, 0.5f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            _wristInfo = UI.Text(_wrist, "", new Vector3(-0.032f, -0.004f, -0.008f), 0.0062f, UI.Dim, TextAnchor.MiddleLeft);
+            _wristAmmo = UI.Text(_wrist, "", new Vector3(-0.032f, -0.017f, -0.008f), 0.0062f, UI.Accent, TextAnchor.MiddleLeft);
+            _wristQueue = UI.Text(_wrist, "", new Vector3(-0.032f, -0.027f, -0.008f), 0.0058f, new Color(0.55f, 1f, 0.6f), TextAnchor.MiddleLeft, FontStyle.Bold);
+            _wristRec = UI.Text(_wrist, "", new Vector3(0.03f, 0.028f, -0.008f), 0.0062f, new Color(1f, 0.2f, 0.2f), TextAnchor.MiddleRight, FontStyle.Bold);
+            _wristMsg = UI.Text(_wrist, "", new Vector3(-0.032f, -0.033f, -0.008f), 0.0052f, new Color(1f, 0.9f, 0.6f), TextAnchor.UpperLeft);
+            _wristMsg.richText = true;
+            BuildBodyMap();
+            // desktop crosshair
+            _crosshair = new MB().Sphere(Vector3.zero, Vector3.one * 0.0018f, 8, Color.white).Build("crosshair", cam, Mats.Unlit("crosshair", new Color(1, 1, 1, 0.8f), null, Mats.BlendKind.Alpha, false, 200, true));
+            _crosshair.transform.localPosition = new Vector3(0, 0, 0.5f);
+        }
+
+        // ------------------------------------------------------------------------------- body map (tap the watch)
+        // A little hologram of your body above the watch: each part goes green -> yellow -> red as it takes damage,
+        // a red dot for every hit (bigger red where you've been hit most), and a health bar underneath. No text.
+        static readonly Vector2[] MapC = { new Vector2(0, 1.62f), new Vector2(0, 1.30f), new Vector2(0, 1.02f), new Vector2(-0.29f, 1.17f), new Vector2(0.29f, 1.17f), new Vector2(-0.1f, 0.45f), new Vector2(0.1f, 0.45f) };
+        static readonly Vector2[] MapS = { new Vector2(0.2f, 0.24f), new Vector2(0.38f, 0.32f), new Vector2(0.32f, 0.22f), new Vector2(0.1f, 0.6f), new Vector2(0.1f, 0.6f), new Vector2(0.14f, 0.84f), new Vector2(0.14f, 0.84f) };
+        Transform _map; readonly Material[] _mapPart = new Material[7]; readonly Transform[] _mapDots = new Transform[40];
+        Transform _mapHpFill; Material _mapHpM, _mapOutlineM; bool _mapOn, _tapIn; float _mapT, _tapCd;
+
+        void BuildBodyMap()
+        {
+            _map = new GameObject("BodyMap").transform;
+            _map.SetParent(_wrist, false);
+            _map.localPosition = new Vector3(0, -0.07f, -0.05f);   // floats just off the watch face
+            _map.localRotation = Quaternion.identity;   // same way up as the watch face: you see it from behind (your left on the left)
+            _map.localScale = Vector3.one * 0.07f;                  // ~13 cm tall
+            Material M(string k, Color c, int q) => new Material(Mats.Unlit(k, c, null, Mats.BlendKind.Alpha, false, q, false));
+            _mapOutlineM = M("bodymap_bg", new Color(0.02f, 0.05f, 0.04f, 0.7f), 0);
+            new MB().Box(new Vector3(0, 0.82f, 0.02f), new Vector3(0.95f, 2.0f, 0.01f), Color.white, 0.04f).Build("Plate", _map, _mapOutlineM);
+            for (int i = 0; i < 7; i++)
+            {
+                _mapPart[i] = M("bodymap_part", new Color(0.3f, 1f, 0.4f, 0.85f), 1);
+                new MB().Box(new Vector3(MapC[i].x, MapC[i].y, 0), new Vector3(MapS[i].x, MapS[i].y, 0.02f), Color.white, i == 0 ? 0.08f : 0.03f).Build("Part" + i, _map, _mapPart[i]);
+            }
+            var dotM = M("bodymap_dot", new Color(1f, 0.15f, 0.1f, 1f), 2);
+            for (int i = 0; i < _mapDots.Length; i++)
+            {
+                _mapDots[i] = new MB().Sphere(Vector3.zero, Vector3.one * 0.028f, 6, Color.white).Build("Hit", _map, dotM).transform;
+                _mapDots[i].gameObject.SetActive(false);
+            }
+            new MB().Box(new Vector3(0, -0.08f, 0), new Vector3(0.8f, 0.07f, 0.02f), Color.white, 0.01f).Build("HpBack", _map, M("bodymap_hpbg", new Color(0.15f, 0.15f, 0.15f, 0.8f), 1));
+            _mapHpM = M("bodymap_hp", new Color(0.3f, 1f, 0.4f, 0.95f), 2);
+            var fill = new GameObject("HpFillPivot").transform; fill.SetParent(_map, false); fill.localPosition = new Vector3(-0.4f, -0.08f, -0.012f);
+            new MB().Box(new Vector3(0.4f, 0, 0), new Vector3(0.8f, 0.06f, 0.01f), Color.white).Build("HpFill", fill, _mapHpM);
+            _mapHpFill = fill;
+            _map.gameObject.SetActive(false);
+        }
+
+        static Color Cond(float c) => c > 0.5f ? Color.Lerp(new Color(1f, 0.85f, 0.2f), new Color(0.3f, 1f, 0.4f), (c - 0.5f) * 2f) : Color.Lerp(new Color(1f, 0.15f, 0.1f), new Color(1f, 0.85f, 0.2f), c * 2f);
+
+        void TickBodyMap(float dt)
+        {
+            if (_map == null) return;
+            var v = _p.Vitals;
+            // tap the watch with your empty right hand to show / hide it
+            if (XRInputs.VR && v.Alive)
+            {
+                // a deliberate tap: empty right hand on the watch while the watch is turned towards your eyes (reaching
+                // across your body for the left hip pouch used to pop it up by accident)
+                Vector3 toEye = (_p.Head.position - _wrist.position).normalized;
+                bool facing = Vector3.Dot(-_wrist.forward, toEye) > 0.45f;
+                bool inNow = facing && _p.HandR.Held == null && Vector3.Distance(_p.HandR.transform.position, _wrist.position) < 0.09f;
+                if (inNow && !_tapIn && Time.time > _tapCd) { _mapOn = !_mapOn; _mapT = 15f; _tapCd = Time.time + 0.5f; _p.HandL.Haptic(0.4f, 0.05f); _p.HandR.Haptic(0.4f, 0.05f); Sfx.UI(Synth.UiClick(), 0.25f); }
+                _tapIn = inNow;
+            }
+            else _mapOn = false;
+            if (_mapOn) { _mapT -= dt; if (_mapT <= 0) _mapOn = false; }
+            if (_map.gameObject.activeSelf != _mapOn) _map.gameObject.SetActive(_mapOn);
+            if (!_mapOn) return;
+            // where you've been hit most pulses
+            int[] count = new int[7]; foreach (var h in v.Hits) count[h.zone]++;
+            int most = -1, best = 0; for (int i = 0; i < 7; i++) if (count[i] > best) { best = count[i]; most = i; }
+            float pulse = 0.65f + 0.35f * Mathf.Sin(Time.time * 6f);
+            bool burning = v.OnFire;
+            for (int i = 0; i < 7; i++)
+            {
+                var c = Cond(v.PartCondition(i));
+                if (i == most) c = Color.Lerp(c, new Color(1f, 0.1f, 0.1f), 0.35f * pulse);
+                if (burning) c = Color.Lerp(c, new Color(1f, 0.5f, 0.1f), 0.3f * pulse);
+                c.a = 0.85f;
+                _mapPart[i].SetColor("_Color", c);
+            }
+            for (int i = 0; i < _mapDots.Length; i++)
+            {
+                bool on = i < v.Hits.Count;
+                if (_mapDots[i].gameObject.activeSelf != on) _mapDots[i].gameObject.SetActive(on);
+                if (!on) continue;
+                var h = v.Hits[i];
+                _mapDots[i].localPosition = new Vector3(MapC[h.zone].x + h.at.x * MapS[h.zone].x * 0.45f, MapC[h.zone].y + h.at.y * MapS[h.zone].y * 0.45f, -0.02f);
+            }
+            float hp = Mathf.Clamp01(v.Health / v.MaxHealth);
+            _mapHpFill.localScale = new Vector3(Mathf.Max(0.001f, hp), 1, 1);
+            var hc = Cond(hp); if (v.Bleed > 0) hc = Color.Lerp(hc, new Color(1f, 0f, 0f), pulse * 0.5f); hc.a = 0.95f;
+            _mapHpM.SetColor("_Color", hc);
+            _mapOutlineM.SetColor("_Color", v.Bleed > 0 ? new Color(0.25f * pulse, 0.02f, 0.02f, 0.75f) : new Color(0.02f, 0.05f, 0.04f, 0.7f));   // bleeding: the plate glows red
+        }
+
+        Material TextOverlay(TextMesh t)
+        {
+            // HUD text must draw over everything: start from Unity's own font material (no depth test), not the world-text one
+            var src = Compat.DefaultFont != null ? Compat.DefaultFont.material : t.GetComponent<MeshRenderer>().sharedMaterial;
+            if (src == null) return null;
+            var m = new Material(src);
+            m.renderQueue = 4000;
+            return m;
+        }
+
+        MeshRenderer Overlay(Transform cam, Mesh quad, float dist, string key, Color c, Texture2D tex, out Material mat, int order)
+        {
+            var go = new GameObject(key);
+            go.transform.SetParent(cam, false);
+            go.transform.localPosition = new Vector3(0, 0, dist);
+            go.transform.localScale = Vector3.one * dist * 1.6f;
+            go.AddComponent<MeshFilter>().sharedMesh = quad;
+            var mr = go.AddComponent<MeshRenderer>();
+            mat = new Material(Mats.Unlit(key, c, tex, Mats.BlendKind.Alpha, false, 900 + order, true));
+            mr.sharedMaterial = mat;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return mr;
+        }
+
+        public void FadeTo(float a) { _fadeTarget = a; }
+        public bool FadeDone => Mathf.Abs(_fadeCur - _fadeTarget) < 0.02f;
+        public void SetBlocked(bool b) { _blocked = b; }
+        // a short red pulse round the edge of your view - never a red-out you can't see through
+        public void Damage(float a, Vector3 dir) { _dmg = Mathf.Min(0.45f, _dmg + a * 0.35f + 0.12f); }
+        public void Suppress(float a) { _sup = Mathf.Clamp01(_sup + a); }
+        MeshRenderer _nvg; Material _nvgM;
+        /// <summary>Night vision: the dark round edge of the tubes around your view, with a green cast.</summary>
+        public void SetNightVision(bool on)
+        {
+            if (_nvg != null) _nvg.enabled = false;   // (the old flat green wash)
+            foreach (var r in _nvgFx) if (r != null) r.enabled = on;
+        }
+
+        // ---- night vision, like the real thing: the picture turns monochrome phosphor green (everything is multiplied
+        // through green), with fizzing grain that flickers every frame, and you look down a round tube - black outside it
+        readonly List<MeshRenderer> _nvgFx = new List<MeshRenderer>();
+        Material _grainM; float _grainT;
+        void BuildNvg(Transform cam, Mesh quad)
+        {
+            MeshRenderer Layer(string key, float dist, Material m)
+            {
+                var go = new GameObject(key);
+                go.transform.SetParent(cam, false);
+                go.transform.localPosition = new Vector3(0, 0, dist);
+                go.transform.localScale = Vector3.one * dist * 1.8f;
+                go.AddComponent<MeshFilter>().sharedMesh = quad;
+                var mr = go.AddComponent<MeshRenderer>();
+                mr.sharedMaterial = m; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.enabled = false;
+                _nvgFx.Add(mr);
+                return mr;
+            }
+            // 1. phosphor: every colour goes through green (reds and blues die away), a little bloom-like lift
+            Layer("nvg_tint", 0.094f, Mats.Unlit("nvg_tint", new Color(0.34f, 1f, 0.46f, 1f), null, Mats.BlendKind.Multiply, false, 984, true));
+            Layer("nvg_lift", 0.0935f, Mats.Unlit("nvg_lift", new Color(0.04f, 0.15f, 0.06f, 1f), null, Mats.BlendKind.Additive, false, 985, true));
+            // the image tube's honeycomb: a very faint hexagonal fibre pattern fixed in front of your eye
+            var hex = new Texture2D(64, 64, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear };
+            var hp = new Color32[64 * 64];
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
+                {
+                    // distance to the nearest hex-cell centre on a 2-row lattice (cells 16 px wide)
+                    float u = x / 16f, v = y / (16f * 0.866f), best = 9f, second = 9f;
+                    for (int cy = -1; cy <= 5; cy++)
+                        for (int cx = -1; cx <= 5; cx++)
+                        {
+                            float px2 = cx + ((cy & 1) == 1 ? 0.5f : 0f), py2 = cy;
+                            float d = (u - px2) * (u - px2) + (v - py2) * (v - py2) * 0.75f;
+                            if (d < best) { second = best; best = d; } else if (d < second) second = d;
+                        }
+                    float edge = 1f - MathX.Step(0f, 0.12f, Mathf.Sqrt(second) - Mathf.Sqrt(best));
+                    hp[y * 64 + x] = new Color32(0, 0, 0, (byte)(edge * 255));
+                }
+            hex.SetPixels32(hp); hex.Apply(true, true);
+            var hexM = new Material(Mats.Unlit("nvg_hex", new Color(0f, 0.02f, 0f, 0.07f), hex, Mats.BlendKind.Alpha, false, 985, true));
+            hexM.mainTextureScale = new Vector2(46f, 46f);
+            Layer("nvg_hex", 0.0933f, hexM);
+            // 2. grain: fine noise, re-rolled every frame (the "fizz" of an image intensifier)
+            _grainM = new Material(Mats.Unlit("nvg_grain", new Color(0.5f, 1f, 0.55f, 0.12f), Mats.Noise, Mats.BlendKind.Additive, false, 986, true));
+            _grainM.mainTextureScale = new Vector2(15f, 15f);   // finer fizz
+            Layer("nvg_grain", 0.093f, _grainM);
+            // 3. the tube: a round window (about 70 degrees across) with a soft edge, black outside
+            var tube = new Texture2D(256, 256, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var px = new Color32[256 * 256];
+            for (int y = 0; y < 256; y++)
+                for (int x = 0; x < 256; x++)
+                {
+                    float dx = (x + 0.5f) / 256f - 0.5f, dy = (y + 0.5f) / 256f - 0.5f;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    float a = MathX.Step(0.215f, 0.25f, d);                       // the tube's edge: black outside the round view
+                    a = Mathf.Max(a, MathX.Step(0.1f, 0.245f, d) * 0.28f);        // gently darker towards the rim, like a real tube
+                    px[y * 256 + x] = new Color32(0, 0, 0, (byte)(a * 255));
+                }
+            tube.SetPixels32(px); tube.Apply(false, true);
+            Layer("nvg_tube", 0.092f, Mats.Unlit("nvg_tube", new Color(0f, 0f, 0f, 1f), tube, Mats.BlendKind.Alpha, false, 987, true));
+        }
+
+        void NvgTick()
+        {
+            if (_grainM == null || _nvgFx.Count == 0 || !_nvgFx[0].enabled) return;
+            _grainM.mainTextureOffset = new Vector2(Random.value, Random.value);
+            // scintillation: the grain breathes a little
+            _grainT += Time.deltaTime;
+            var c = _grainM.color; c.a = 0.09f + Mathf.PerlinNoise(_grainT * 9f, 0.3f) * 0.07f; _grainM.color = c;
+        }
+        /// <summary>Flashbanged: white-out that fades over a few seconds, with a ringing in your ears.</summary>
+        public void Flashbang(float strength)
+        {
+            if (strength <= 0.02f) return;
+            _flash = Mathf.Max(_flash, 1f + strength * 3.5f);
+            Sfx.UI(Synth.Ringing(), Mathf.Clamp01(strength) * 0.6f);
+        }
+        /// <summary>A message: on your watch (with a buzz on that wrist), not floating in your view.</summary>
+        public void Toast(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return;
+            if (!XRInputs.VR) { _toast.text = s; _toastT = 2.5f; return; }   // desktop has no watch to look at
+            _wristMsg.text = UI.Wrap(s, 30);   // VR: on the watch, with a buzz
+            _msgT = 6f;
+            _p.HandL.Haptic(0.25f, 0.06f);
+        }
+        /// <summary>A banner: on the watch too - only while the screen is black (loading) or you're dead does it go in the
+        /// middle of your view, where you can actually see it.</summary>
+        public void Center(string s, float time = 3f)
+        {
+            if (!XRInputs.VR || string.IsNullOrEmpty(s)) { _center.text = s; _centerT = time; return; }
+            // VR: on the watch, never on your screen
+            _center.text = "";
+            _wristMsg.text = UI.Wrap(System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", ""), 30);
+            _msgT = Mathf.Max(6f, time);
+            _p.HandL.Haptic(0.35f, 0.1f);
+        }
+        /// <summary>Top-left matchmaking line (FINDING RAID 0:12 / RAID FOUND / JOINING RAID); empty hides it.</summary>
+        public void Queue(string s, bool timer = false) { _queueLabel = s ?? ""; _queueTimer = timer && _queueLabel.Length > 0; _queueStart = Time.unscaledTime; ShowQueue(); }
+        // written to BOTH lines (the watch and the screen corner): the one not in use is blanked. It used to write only to
+        // whichever was active, so if that switched (headset on / off) the old line kept "JOINING RAID 0:00" for ever
+        void ShowQueue()
+        {
+            string txt = _queueLabel;
+            if (_queueTimer) { int qt = Mathf.FloorToInt(Time.unscaledTime - _queueStart); txt = _queueLabel + "  " + (qt / 60) + ":" + (qt % 60).ToString("00"); }
+            var q = QueueText;
+            foreach (var t in new[] { _queue, _wristQueue }) if (t != null) { t.text = t == q ? txt : ""; t.color = new Color(0.55f, 1f, 0.6f); }
+        }
+        TextMesh QueueText => XRInputs.VR && _wristQueue != null ? _wristQueue : _queue;   // VR: on the watch
+        string _queueLabel = ""; bool _queueTimer; float _queueStart;
+        string _objText = "";
+        public void Objective(string s) { _objText = s ?? ""; if (_objective != null) _objective.text = XRInputs.VR ? "" : _objText; }   // VR: on the watch
+
+        public void Tick(float dt)
+        {
+            float target = Mathf.Max(_fadeTarget, _blocked ? 0.92f : 0f);
+            _fadeCur = Mathf.MoveTowards(_fadeCur, target, dt * 2.2f);
+            _fadeM.SetColor("_Color", new Color(0, 0, 0, _fadeCur));
+            _fade.enabled = _fadeCur > 0.002f;
+            var v = _p.Vitals;
+            float low = v.Alive ? Mathf.Clamp01(1f - v.Health / 45f) * 0.3f : 0.7f;
+            _dmg = Mathf.MoveTowards(_dmg, 0, dt * 1.8f);
+            _damageM.SetColor("_Color", new Color(0.55f, 0, 0, Mathf.Max(_dmg, low)));
+            _damage.enabled = Mathf.Max(_dmg, low) > 0.01f;
+            _sup = Mathf.MoveTowards(_sup, 0, dt * 0.7f);
+            _flash = Mathf.MoveTowards(_flash, 0, dt);
+            float fa = Mathf.Clamp01(_flash);
+            _flashR.enabled = fa > 0.01f;
+            if (_flashR.enabled) _flashM.SetColor("_Color", new Color(0.95f, 0.95f, 0.93f, fa));   // blinded = a white-out that fades back
+            _suppM.SetColor("_Color", new Color(0, 0, 0, _sup * 0.75f));
+            _supp.enabled = _sup > 0.01f;
+            _toastT -= dt; if (_toastT <= 0) _toast.text = "";
+            _msgT -= dt; if (_msgT <= 0 && _wristMsg != null) _wristMsg.text = "";
+            TickBodyMap(dt);
+            if (XRInputs.VR && _wristQueue != null && _queueLabel.Length == 0)
+            {
+                // tutorial step on the watch; otherwise, online, the connection: ping, players, and whether the fast lane is on
+                if (_objText.Length > 0) _wristQueue.text = UI.Wrap(_objText, 30);
+                else if (NetGame.Live && NetHub.Backend != null)
+                {
+                    _netTextT -= dt;
+                    if (_netTextT <= 0f)
+                    {
+                        _netTextT = 0.25f;
+                        int ms = Mathf.RoundToInt(NetHub.Backend.Rtt * 1000f), fps = Mathf.RoundToInt(Perf.Fps);
+                        _wristQueue.text = "NET " + ms + " ms  " + (NetHub.Backend.Peers.Count + 1) + "P  " + (NetHub.Backend.FastBroadcast ? "FAST" : "SLOW") + "  " + fps + " FPS";
+                        _wristQueue.color = ms < 120 && fps >= 60 ? new Color(0.55f, 1f, 0.6f) : ms < 250 && fps >= 45 ? new Color(1f, 0.85f, 0.3f) : new Color(1f, 0.35f, 0.3f);
+                    }
+                }
+                else _wristQueue.text = "";
+            }
+            // a matchmaking line nobody cleared (a raid start that got lost): once you're not queued or loading, it goes
+            if (_queueLabel.Length > 0 && !Kiosk.AnyQueued && !RagoGame.Travelling && Time.unscaledTime - _queueStart > 12f) { _queueLabel = ""; _queueTimer = false; }
+            ShowQueue();
+            _centerT -= dt; if (_centerT <= 0) _center.text = "";
+            NvgTick();
+            if (_wristRec != null)
+            {
+                if (CreatorCamRecorder.Since >= 0f) { _wristRec.color = new Color(1f, 0.2f, 0.2f); _wristRec.text = (Mathf.FloorToInt(Time.unscaledTime * 2f) % 2 == 0 ? "\u25CF " : "   ") + "REC " + CreatorCamRecorder.Clock(); }
+                else if (LiveEvent.Active) { _wristRec.color = new Color(1f, 0.8f, 0.25f); _wristRec.text = LiveEvent.Names[LiveEvent.Kind] + " " + LiveEvent.Left(); }
+                else if (Profile.Current != null && Profile.Current.creator) { _wristRec.color = new Color(1f, 0.25f, 0.2f); _wristRec.text = "\u25A0 CC  CONTENT CREATOR"; }   // your badge
+                else _wristRec.text = "";
+            }
+            _crosshair.SetActive(!XRInputs.VR && !Desktop.Aiming && v.Alive);
+            // wrist
+            _wristHp.text = Mathf.CeilToInt(v.Health) + " HP" + (v.Bleed > 0 ? " <color=#ff4040>+</color>" : "");   // short, so the raid timer fits on the same row
+            _wristHp.color = v.Bleed > 0 && Mathf.Repeat(Time.time, 0.8f) < 0.4f ? new Color(1f, 0.2f, 0.15f) : v.Health > 60 ? new Color(0.4f, 1f, 0.5f) : v.Health > 30 ? new Color(1f, 0.8f, 0.3f) : new Color(1f, 0.3f, 0.25f);   // bleeding: HP flashes red
+            var prof = Profile.Current;
+            _wristInfo.text = "LV " + Levels.Current + "   $" + (prof != null ? prof.money.ToString("N0") : "0") + "   STA " + Mathf.RoundToInt(v.Stamina);   // your level, money, stamina
+            // raid timer: big, top right of the watch, goes red in the last 5 minutes
+            if (_wristTimer != null)
+            {
+                _wristTimer.text = RaidTimer;
+                _wristTimer.color = RaidTimer.Length > 0 && RaidTimer.CompareTo("05:00") < 0 ? new Color(1f, 0.3f, 0.25f) : new Color(1f, 0.85f, 0.4f);
+            }
+            var gun = (_p.HandR.Held as Gun) ?? (_p.HandL.Held as Gun);
+            if (gun != null) _wristAmmo.text = gun.g.name + "  " + (gun.Rounds + (gun.chambered ? 1 : 0)) + "/" + gun.Capacity + "  [" + _p.Gear.Reserve(gun.CurrentAmmo)[(int)gun.g.cal] + (gun.CurrentAmmo != AmmoType.Standard ? " " + gun.CurrentAmmo.ToString().ToUpper() : "") + "]";
+            else
+            {
+                // whatever you're holding: its name and what it's worth
+                var held = _p.HandR.Held != null ? _p.HandR.Held : _p.HandL.Held;
+                _wristAmmo.text = held != null && held.def != null ? UI.Wrap(held.def.name + "  SELLS $" + SellStation.Offer(held, out _).ToString("N0"), 30) : "";
+            }
+        }
+    }
+}
