@@ -254,6 +254,8 @@ namespace RagoServer
                     HandleMarket(c, type, r);
                     break;
                 case P.WatchFrame: break;   // the Watch feature was removed: an older game's views are ignored
+                case P.CloudGet: CloudSend(c); break;                                   // (3.73) send this player their saved profile
+                case P.CloudPut: { int rev = r.I32(); var blob = r.Bytes(); CloudStore(c, rev, blob); break; }   // (3.73) store their upload
                 case P.EventReq:
                 {
                     byte kind = r.U8(); int minutes = r.I32();

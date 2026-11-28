@@ -270,6 +270,9 @@ namespace Rago
             if (_keepT <= 0f)
             {
                 _keepT = 1f; _link.KeepAlive(); _link.Send(new W(P.Ping).F32(now).Frame());
+                // (3.73) a save happened: push it up a few seconds after the last change (so a burst of saves is one upload)
+                if (_cloudSynced && Profile.CloudDirty && _cloudPushT < 0f) _cloudPushT = now + 4f;
+                if (_cloudPushT >= 0f && now >= _cloudPushT) PushCloud();
                 // the profile (callsign) was picked after we connected: tell the server, so invites by callsign find us
                 if (MyName() != _helloName) { _helloName = MyName(); _link.Send(new W(P.Hello).Str(_helloName).Str(Ver).Str(PlayerKey).Str(DeviceId).Frame()); }
             }
@@ -278,6 +281,35 @@ namespace Rago
         }
         float _keepT, _serverRtt;
         string _helloName;
+
+        // (3.73) CLOUD SAVE: the profile lives on the server. We fetch it on connect; if the server's copy is newer we take
+        // it (and reload the bunker), otherwise we push ours up. Later saves push up, a few seconds after the last change.
+        bool _cloudSynced; float _cloudPushT = -1f;
+        void OnCloud(bool has, int rev, byte[] blob)
+        {
+            var me = Profile.Current;
+            if (me == null) { _cloudSynced = true; return; }
+            Profile cloud = has && blob != null && blob.Length > 0 ? Profile.FromSealed(blob) : null;
+            if (cloud != null && cloud.cloudRev > me.cloudRev)
+            {
+                // the server has a newer profile (another device, a reinstall, or a wiped edit): take it
+                Log("cloud save is newer (rev " + cloud.cloudRev + " vs " + me.cloudRev + ") - loading it", true);
+                Profile.AdoptFromCloud(cloud);
+            }
+            else
+            {
+                // ours is newest (or the server has none yet): upload it
+                PushCloud();
+            }
+            _cloudSynced = true;
+        }
+        void PushCloud()
+        {
+            var me = Profile.Current; if (me == null || _link == null || !_link.Connected) return;
+            var blob = me.ToSealed(); if (blob == null) return;
+            _link.Send(new W(P.CloudPut).I32(me.cloudRev).Bytes(blob).Frame());
+            Profile.CloudDirty = false; _cloudPushT = -1f;
+        }
 
         void Handle(RelayLink.Msg m)
         {
@@ -290,11 +322,18 @@ namespace Rago
                     _retryT = 0f;
                     _welcomed = true;
                     if (Outdated) Outdated = false;   // the server takes this version (again)
+                    _cloudSynced = false; _link.Send(new W(P.CloudGet).Frame());   // (3.73) fetch my cloud save
                     Shops.PushToServer();   // our black market shop, as it is now
                     Log("connected to the game server as #" + _link.Id + " (" + _online + " online)");
                     if (_partyCode != null && _room == null) RejoinParty();
                     break;
                 case P.Online: _online = r.I32(); break;
+                case P.CloudData:
+                {
+                    bool has = r.Bool(); int rev = r.I32(); var blob = r.Bytes();
+                    OnCloud(has, rev, blob);
+                    break;
+                }
                 case P.ShopsIn:
                 {
                     int id = r.I32(); int n = r.U16(); var list = new List<ServerShop>();

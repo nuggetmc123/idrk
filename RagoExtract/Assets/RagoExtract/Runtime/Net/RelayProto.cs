@@ -21,7 +21,8 @@ namespace Rago.Relay
         // game -> server
         public const byte Hello = 1, Join = 2, Leave = 3, Data = 4, SetProps = 5, List = 6, Whisper = 7, SetHost = 8, Ping = 9, Fast = 10,
                           ModReq = 11, Search = 12,
-                          ShopPut = 13, ShopGet = 14, ShopBuy = 15, ShopUnlist = 16, EventReq = 17, WatchFrame = 18;
+                          ShopPut = 13, ShopGet = 14, ShopBuy = 15, ShopUnlist = 16, EventReq = 17, WatchFrame = 18,
+                          CloudGet = 19, CloudPut = 20;
         // WatchFrame (18): no longer used (the owner's Watch feature was removed); the number stays reserved
         // Search: callsigns starting with / containing some text (as you type). Shop*: the black market, kept on the
         // server so shops stay open while their owner is offline.
@@ -31,7 +32,9 @@ namespace Rago.Relay
         public const byte Welcome = 101, Joined = 102, JoinFail = 103, DataIn = 104, Props = 105, Rooms = 106, WhisperIn = 107, NoSuch = 108,
                           Host = 109, Pong = 110, PeerJoin = 111, PeerLeft = 112, Online = 113, FastIn = 114, Bye = 115,
                           Role = 116, Banned = 117, Wipe = 118, Kicked = 119, ModReply = 120, Found = 121,
-                          ShopsIn = 122, BuyResult = 123, ShopSold = 124, UnlistResult = 125, EventIn = 126, Gift = 127, Rename = 128, WatchOn = 129, WatchOff = 130, Outdated = 131;
+                          ShopsIn = 122, BuyResult = 123, ShopSold = 124, UnlistResult = 125, EventIn = 126, Gift = 127, Rename = 128, WatchOn = 129, WatchOff = 130, Outdated = 131, CloudData = 132;
+        // CloudGet / CloudPut / CloudData (3.73): the player's SAVE lives on the server (not editable on the device). CloudGet
+        // asks for it; the server sends CloudData (has, rev, sealed blob); CloudPut uploads (rev, sealed blob).
         // Outdated (3.58): this game version is too old for the server (the version needed, like "3.58"): the game locks itself until updated
         // WatchOn / WatchOff (129, 130): no longer used (Watch was removed); reserved so old clients and servers don't clash
         // Rename: the owner changed this player's callsign (the new name, without the #tag)

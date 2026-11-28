@@ -246,6 +246,7 @@ namespace RagoServer
         {
             var on = Clients.Values.FirstOrDefault(x => x.Key == key);
             if (on != null) Send(on, new W(P.Wipe).Frame()); else { Wipes.Add(key); SaveWipes(); }
+            CloudDelete(key);   // (3.73) their cloud save goes too, so the wipe can't be undone by the cloud restoring it
             if (ShopsByKey.Remove(key)) SaveShops();   // their black market shop goes too
             if (Sales.RemoveAll(x => x.SellerKey == key) > 0) SaveSales();
             Note("WIPED " + name + (on != null ? "" : " (when they next connect)") + " (by " + by + ")");
@@ -534,6 +535,7 @@ namespace RagoServer
             sb.Append("<h2>Game version</h2><p>Oldest version allowed: <b>").Append(VerText(MinVer)).Append("</b> - older games can't connect and are told to update. Online now: ");
             var vers = Clients.Values.Where(c => c.Name != "?" && c.Ver != "check" && !c.Refused).GroupBy(c => VerNum(c.Ver)).OrderByDescending(g => g.Key).ToList();
             sb.Append(vers.Count == 0 ? "<span class=dim>nobody</span>" : string.Join(", ", vers.Select(g => (g.Key > 0 ? VerText(g.Key) : "old") + " (" + g.Count() + ")"))).Append("</p>");
+            sb.Append("<p class=dim>Cloud saves stored: ").Append(CloudCount()).Append(" (players' profiles are kept on the server - editing the headset's file does nothing)</p>");
             sb.Append("<form method=post action='act' class=inl><input type=hidden name=t value='").Append(sess).Append("'><input type=hidden name=op value='minver'><input name=ver size=6 placeholder='3.58' value='").Append(VerText(MinVer))
               .Append("'> <button class=orange>Set oldest version</button></form>");
             if (vers.Count > 0 && vers[0].Key > MinVer)

@@ -5,6 +5,12 @@ namespace Rago
     {
         public static readonly (string version, string title, string[] lines)[] All =
         {
+            ("3.73", "Your save lives on the server", new[] {
+                "CLOUD SAVES: your whole profile (money, stash, skins, unlocks) is kept on the game server now, not in a file on your headset. Editing anything on the device does nothing - the server's copy is the real one, and it's loaded every time you connect.",
+                "Sign in on another headset, or reinstall, and your progress comes back from the server.",
+                "The on-device file is just an offline backup (still encrypted). When you're online the server's copy wins.",
+                "No more caps on money or level - they aren't needed now that the profile isn't an editable file.",
+            }),
             ("3.72", "Protected saves", new[] {
                 "YOUR SAVE IS PROTECTED: it's encrypted and signed now (rago_profile.sav). A save edited by hand - or swapped for a made-up one - doesn't load.",
                 "Old saves are converted automatically. Anything nobody could have earned with their raid record (millions of cash after a few raids, max level after 3 raids) is brought back down.",

@@ -153,12 +153,35 @@ namespace Rago
         /// (it was trivially editable) is brought back down.</summary>
         void Sanity()
         {
-            long moneyCap = 120000L + 120000L * System.Math.Max(0, extracts) + 30000L * System.Math.Max(0, raids);
-            if (money > moneyCap) { Debug.LogWarning("[Rago] save check: money " + money + " > " + moneyCap); money = (int)System.Math.Min(int.MaxValue, moneyCap); SaveWasTampered = true; }
-            if (money < 0) money = 0;
-            long xpCap = 2000L + 6000L * System.Math.Max(0, raids);   // a huge raid (boss, lots of kills, double XP) is ~5000
-            if (xp > xpCap) { Debug.LogWarning("[Rago] save check: xp " + xp + " too high for " + raids + " raids"); xp = (int)System.Math.Min(int.MaxValue, xpCap); SaveWasTampered = true; }
-            if (extracts > raids) { extracts = raids; SaveWasTampered = true; }
+            if (money < 0) money = 0;   // (3.73) no money / level caps - the profile lives on the server now, not an editable file
+        }
+
+        // (3.73) CLOUD SAVE: the real profile lives on the game server, keyed by the player. The local file is only an
+        // offline cache. cloudRev goes up every save so the server (and other devices) know which copy is newest.
+        public int cloudRev;
+        public static bool CloudDirty;   // a save happened: push it to the server when online
+
+        public byte[] ToSealed() { try { return Seal(JsonUtility.ToJson(this, false)); } catch { return null; } }
+        /// <summary>(3.73) The server's copy of this profile is newer: switch to it and rebuild the bunker so it shows.</summary>
+        public static void AdoptFromCloud(Profile cloud)
+        {
+            if (cloud == null) return;
+            cloud.Fix();
+            Current = cloud;
+            CloudDirty = false;
+            try { cloud.SaveLocalOnly(); } catch { }   // keep the offline cache in step (without bumping the rev)
+            var g = RagoGame.I;
+            if (g != null && !RagoGame.Travelling && (g.Area == Area.Bunker || g.Area == Area.Market || g.Area == Area.Welcome))
+            {
+                RagoGame.SkipHubSave = true;   // don't write our old (now replaced) bunker back over it
+                g.GoTo(Area.Bunker);
+            }
+        }
+
+        public static Profile FromSealed(byte[] b)
+        {
+            try { var json = Open(b); if (string.IsNullOrWhiteSpace(json)) return null; var p = JsonUtility.FromJson<Profile>(json); return p != null && p.stash != null ? p : null; }
+            catch { return null; }
         }
 
         static Profile TryRead(string path)
@@ -399,6 +422,14 @@ namespace Rago
         }
 
         public void Save()
+        {
+            cloudRev++;
+            CloudDirty = true;
+            SaveLocalOnly();
+        }
+
+        /// <summary>(3.73) Write the sealed local cache without bumping the revision (used when adopting the cloud copy).</summary>
+        public void SaveLocalOnly()
         {
             // write a temp file and swap it in, keeping the last good one as a backup: a save cut off half way (the app
             // closed, the headset slept) can never leave a broken profile that loads as a brand-new one
